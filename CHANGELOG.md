@@ -28,8 +28,10 @@ machine contracts have their own, independent major versions.
   desktop's own notification server and a tray app in the desktop's own
   StatusNotifierItem host (`scripts/linux/desktop-tray-probe.py`, new), and
   `desktop-links-test.sh` sends links through the desktop's OpenURI portal.
-  All six gates passed in an Ubuntu GNOME X11 session (xrdp) on WSL aarch64,
-  so the Linux target is `native-tested (candidate)` (`docs/SUPPORT_TIERS.md`;
+  In an Ubuntu GNOME X11 session (xrdp) on WSL aarch64, four gates passed as
+  written, the `.deb` install passed after the fix below, and the page
+  services gate passed with its file dialog focused by a wrapper (its
+  picker steps then passed on the fix), so the Linux target is `native-tested (candidate)` (`docs/SUPPORT_TIERS.md`;
   ADR 0089, 0104, 0106 and 0107 amendments).
 - `scripts/test-managed-storage.mjs --serve` keeps the chosen Docker
   fixtures running on `TAC_STORAGE_PUBLISH_ADDRESS` (which the fixture
@@ -1951,7 +1953,8 @@ machine contracts have their own, independent major versions.
 ### Changed
 
 - `Toolchain::checked` also requires `dotnet` and `javac` under `CI` (RT1,
-  2026-10-28), since every native CI job installs .NET 10 and JDK 21, so a
+  2026-10-28), since the native jobs of `rust-ci.yml` install .NET SDK
+  10.0.302 and select JDK 21, so a
   `tests/it` test that asks it for either tool fails a `CI=1` run instead of
   skipping when the tool is missing.
 - The warm handler tests no longer skip quietly in CI (WW1, 2026-10-28).

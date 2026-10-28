@@ -32,7 +32,7 @@ only after the same gate passes on its download. No target is `preview` or
 | macOS WKWebView | native-tested (candidate) | full arm64 application gate passed: controls, accessibility, typing, lifecycle and visual parity at 420x752 | exact release artifact and current-head CI |
 | iOS WKWebView | simulator-tested | isolated iPhone SE (3rd generation), iOS 26.5. Passed: Swift calls, publish, input/focus, assets and route state `7 -> 9 -> 7`. On 2026-10-19 the same gate also linked a Rust service (`aarch64-apple-ios-sim` static library, beside the two Swift services): its start hook wrote a file from the app's own process and its rendered count doubled after a page click (MR1) | exact release artifact; support on physical devices is still not claimed |
 | Android WebView | simulator-tested (emulator) | Android 15 emulator. Passed: Kotlin calls, publish, input/focus per character with a delayed setter, service-worker retirement, packaged dynamic routes, window controls (granted minimize, resize and title act; ungranted maximize, fullscreen and close are refused, 2026-10-18), and a `@LocalState` field set by a Kotlin method kept across navigation and reload. Browser APIs (clipboard, share, notifications through the host; geolocation through the web view with the host's location question, 2026-10-19): `scripts/android/browser-apis-test.mjs` passed end to end on 2026-10-24 (RM3), with geolocation fed by `fused`, `network` and `gps` test providers. RM3 also ran granted maximize, fullscreen and close, background and foreground, external links, offline Yon reads, preference strings after a relaunch and a Python service, and the Yon reach, linked Rust and release checks on a Google Play production image ("Android runs owed, RM3" below) | exact release artifact; support on physical devices is still not claimed |
-| Linux WebKitGTK | native-tested (candidate), from a live desktop session on WSL aarch64 (LD1), not a physical machine: AT-SPI read the page roles and names and activated page controls there, as the Phase 5 rule in `PROJECT_PLAN.md` requires | Rust native service compiles. The shared route/security probe passes. On 2026-10-18 `scripts/linux/native-test.sh` ran the GTK 4 / WebKitGTK host under Xvfb with an AT-SPI (Linux accessibility bus) session, in a cloud Linux VM (Ubuntu 24.04, GTK 4.14.5) and in the pinned Debian trixie image (GTK 4.18.6). Passed: the window name, the menu bar and its item names, page roles and names (landmark, heading, button, link), AT-SPI activation of Rust calls and route changes, and the lifecycle log. RL1 (2026-10-19) added headless Wayland (mutter), a compositing window manager and WSL (aarch64) runs. On 2026-10-28 (LD1) the six Linux gates passed in a signed-in desktop session: Ubuntu GNOME on X11 through xrdp, in WSL Ubuntu 24.04 (aarch64) on the Surface, under GNOME's own window manager, notification server, tray host (the AppIndicator extension) and desktop portal. `scripts/linux/native-test.sh` with its AT-SPI probe, the release packages and Yon reach, the host tests of `compositor-test.sh --desktop`, `desktop-services-test.sh`, `desktop-links-test.sh`, `page-services-native-test.mjs` and `deb-install-test.sh` as root with a start by desktop file id (see Linux in a live desktop session below) | exact release artifact; Linux native GUI CI on the current head; a physical Linux desktop (x86_64), because WSL is an ARM64 VM; a Wayland desktop session |
+| Linux WebKitGTK | native-tested (candidate), from a live desktop session on WSL aarch64 (LD1), not a physical machine: AT-SPI read the page roles and names and activated page controls there, as the Phase 5 rule in `PROJECT_PLAN.md` requires | Rust native service compiles. The shared route/security probe passes. On 2026-10-18 `scripts/linux/native-test.sh` ran the GTK 4 / WebKitGTK host under Xvfb with an AT-SPI (Linux accessibility bus) session, in a cloud Linux VM (Ubuntu 24.04, GTK 4.14.5) and in the pinned Debian trixie image (GTK 4.18.6). Passed: the window name, the menu bar and its item names, page roles and names (landmark, heading, button, link), AT-SPI activation of Rust calls and route changes, and the lifecycle log. RL1 (2026-10-19) added headless Wayland (mutter), a compositing window manager and WSL (aarch64) runs. On 2026-10-28 (LD1) the six Linux gates ran in a signed-in desktop session, two of them passing after test-script fixes (one only for its picker steps): Ubuntu GNOME on X11 through xrdp, in WSL Ubuntu 24.04 (aarch64) on the Surface, under GNOME's own window manager, notification server, tray host (the AppIndicator extension) and desktop portal. `scripts/linux/native-test.sh` with its AT-SPI probe, the release packages and Yon reach, the host tests of `compositor-test.sh --desktop`, `desktop-services-test.sh`, `desktop-links-test.sh`, `page-services-native-test.mjs` and `deb-install-test.sh` as root with a start by desktop file id (see Linux in a live desktop session below) | exact release artifact; Linux native GUI CI on the current head; a physical Linux desktop (x86_64), because WSL is an ARM64 VM; a Wayland desktop session |
 | Windows WebView2 | native-tested (candidate), from signed-in arm64 desktop runs: UI Automation exposed semantic roles of page controls (SD1), as the Phase 5 rule in `PROJECT_PLAN.md` requires | generated C compiles with the official software development kit (SDK). Real C# protocol/OS execution. On 2026-10-19, on the signed-in desktop of a Windows 11 ARM64 Surface, `scripts/windows/native-test.ps1 -Msix` built a release MSIX package, installed it and launched it (PKG4). WebView2 rendered the page, UI Automation found the page controls by name and invoked one, the native Rust, OS and publish calls answered, and the WebView2 data was in the package's LocalState folder. On the same desktop, links opened the built app and the installed package at their routes (LK2). On 2026-10-24 the SD1 gates ran there from SSH through `scripts/windows/desktop-run.ps1`: both routes of `scripts/windows/native-test.ps1`, `scripts/windows/yon-reach.ps1` (NET3, LS1), the menus, Edit commands and Minimize/Maximize, the tray, the caption color, page window controls, background and foreground, web storage across relaunch, external links, the browser APIs, page services and an x64 build under emulation (see Windows on the signed-in desktop below) | exact release artifact; Windows native GUI CI; x64 on an x64 machine |
 
 Android release packages (2026-10-18, ADR 0104): `ty bundle --target android
@@ -488,12 +488,14 @@ compositing selection. Screenshots and logs are in the FORGE logs
   services, the WindowControls and FilePicker callers and the stored field.
   `scripts/linux/page-steps-probe.py` now activates the dialog before it
   presses keys (run as `d448b918`, on develop as `47d07919`); on that fix
-  the picker steps passed in the desktop (53 s) and again under the default
-  Xvfb (46 s).
+  the picker steps passed in the desktop (53 s, on a second try after a
+  cold `swiftc` start ran out of time) and again under the default Xvfb
+  (46 s). The whole gate was not run again on the fix.
 - `deb-install-test.sh` as root, with `TAC_LINUX_DESKTOP_USER` set: it
   failed as first written, because it stopped the app as
   `NativeGate` while the installed command runs as `nativegate`, so in a
-  live session the first instance stayed up and took the next launch. It
+  live session the app started from the `.desktop` file (through `gio
+  launch`, which had already exited) stayed up and took the next launch. It
   now stops both names and waits (`47d07919`). On that fix (52 s) apt
   installed the release `.deb`, the app started as the desktop user from
   `PATH`, from its installed `.desktop` file and by its desktop file id
@@ -508,12 +510,14 @@ owed. The `.deb` install and start on this desktop are evidence only: the
 installer cell stays left to the developer, because it names a physical
 x86_64 Linux desktop (D28).
 
-Machine notes from LD1: WSL booted into emergency mode because `/etc/fstab`
-mounted a `G:` drive that Windows does not have. The line is commented out
-(backup `/etc/fstab.bak-ld1`), `mount -a` succeeds, and WSL came back after
-a restart without emergency mode; it still reports `degraded` because
+Machine notes from LD1: `mount -a` failed (exit 32) on the only
+`/etc/fstab` line, a `G:` drive that Windows does not have (WW2 had seen
+WSL start in emergency mode from it). The line is commented out
+(backup `/etc/fstab.bak-ld1`), `mount -a` succeeds, and WSL came back
+normally after a restart; it still reports `degraded` because
 `lightdm` keeps crashing, which does not matter because xrdp gives the
-desktop. Signing out of the desktop session shuts WSL down. ImageMagick was
+desktop. When Samuel signed out of Windows during the runs, the WSL VM
+restarted and the desktop session ended. ImageMagick was
 installed for screenshots, and the Pyodide files were copied into the
 desktop user's Tachyon cache for the Python page service.
 
@@ -1973,13 +1977,15 @@ because a Java start on WSL can use the whole 8 s. Start-up time against
 the deadline stays covered by
 `start_up_time_counts_against_the_relay_deadline`. `Toolchain::checked`
 now also requires `dotnet` and `javac` under `CI`, since every native CI
-job installs .NET 10 and JDK 21. This evidence does not promote any tier.
+the native jobs of `rust-ci.yml` install .NET SDK 10.0.302 and select JDK
+21. This evidence does not promote any tier.
 
-- WSL Ubuntu 24.04 (aarch64) on the Surface: the relay test passed 10 of
-  10 runs in a row (74.5 to 78.4 s each).
+- WSL Ubuntu 24.04 (aarch64) on the Surface, on branch commit `41d7f117`
+  (the same test code as `e0a32f24` outside Windows): the relay test passed
+  10 of 10 runs in a row (74.5 to 78.4 s each).
 - Windows 11 ARM64 (the Surface, over SSH, `CI=1`): the relay test passed 3
   of 3, the Yon and Tac settings-profiles proofs passed under their
-  15-minute limit (63.0 s and 95.7 s), and `tests/it` passed 744 of 745;
+  15-minute limit (63.0 s and 95.7 s, on `41d7f117`), and `tests/it` passed 744 of 745;
   `dotnet` and `javac` were found. The one failure was
   `go_streams::a_go_log_follow_ends_cleanly_at_the_request_time_limit`,
   which passed 3 of 3 alone; it is a load flake that WW1 saw too.
@@ -1989,7 +1995,7 @@ job installs .NET 10 and JDK 21. This evidence does not promote any tier.
 Open finding: on Windows (Ruby 4.0.6, `aarch64-mingw`) a warm Ruby
 handler's second relay never starts. While it was due, `ruby.exe` was the
 only process, with no Python child, and the supervisor timed out (`TY2110`)
-in every run (4 of 4 alone). RT1 traced it to the `Process.spawn` hang
+in every run (3 of 3 alone, and 3 more tries in the full `tests/it`). RT1 traced it to the `Process.spawn` hang
 that WG1 fixed with `IO.select` (the runner's frame reader leaving a read
 pending on standard input), which a warm handler's second relay still hits;
 this test did not cause it. On Windows the Ruby case skips the warm-up, so its timed
