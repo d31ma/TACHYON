@@ -1874,6 +1874,13 @@ machine contracts have their own, independent major versions.
 
 ### Security
 
+- `webpki-roots` moves from 1.0.9 to 1.0.11 in `Cargo.lock` and
+  `fuzz/Cargo.lock` (DN1, 2026-10-28). 1.0.10 removed the
+  `emSign ECC Root CA - G3` root, through which distrusted emSign
+  intermediates could be trusted (RUSTSEC-2026-0381, CVE-2026-111943). The
+  Redis and SQL drivers' rustls connections use these roots, and
+  `cargo deny` refused 1.0.9. The license is unchanged, so only the version
+  in `NOTICE` changes.
 - Every native host now sends a Content-Security-Policy, and its
   `connect-src` allows only the app's own bundle and the hosts in
   `tac.outgoing.hosts`. Before, the macOS, iOS and Android hosts sent no
