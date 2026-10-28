@@ -195,7 +195,8 @@ show_the_tray_in_the_desktop() {
   SERVICE_PIDS="$SERVICE_PIDS $app"
   timeout 300s python3 "$(dirname "$0")/desktop-tray-probe.py" "$app" "$XDG_STATE_HOME/tachyon/dev.tachyon.tray-gate.jsonl" | tee "$STATE/tray-probe.log" || { cat "$STATE/tray-gate.log" >&2; exit 1; }
   local closing='closing hid the window, Activate showed it'
-  if grep -q '^SKIP close' "$STATE/tray-probe.log"; then closing='closing was not checked (no Alt+F4 on Wayland), Activate showed the window'; fi
+  if grep -q '^OK close: Alt+F4 through Mutter' "$STATE/tray-probe.log"; then closing="closing (Alt+F4 through Mutter's RemoteDesktop keyboard) hid the window, Activate was answered"; fi
+  if grep -q '^SKIP close' "$STATE/tray-probe.log"; then closing='closing was not checked (no Alt+F4 on this Wayland desktop), Activate was answered'; fi
   TRAY_RESULT="the desktop's own tray host showed the icon and its menu; $closing, a route item opened /help and Quit ended the app"
 }
 

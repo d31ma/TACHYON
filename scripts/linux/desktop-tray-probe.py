@@ -22,6 +22,10 @@ class DesktopTrayProbe:
     MENU_PATH = "/StatusNotifierItem/Menu"
     MENU = "com.canonical.dbusmenu"
     PROPERTIES = "org.freedesktop.DBus.Properties"
+    REMOTE_DESKTOP = "org.gnome.Mutter.RemoteDesktop"
+    ALT = 0xFFE9
+    F4 = 0xFFC1
+    SHIFT = 0xFFE1
 
     def __init__(self, pid, log, screenshots):
         self.pid = pid
@@ -68,6 +72,19 @@ class DesktopTrayProbe:
         found = subprocess.run(["xdotool", "search", "--onlyvisible", "--pid", str(self.pid)], capture_output=True, text=True)
         return found.stdout.split()
 
+    def has_name(self, name):
+        return self.call("org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus", "NameHasOwner", GLib.Variant("(s)", (name,)))[0]
+
+    def press_alt_f4_through_mutter(self):
+        session = self.call(self.REMOTE_DESKTOP, "/org/gnome/Mutter/RemoteDesktop", self.REMOTE_DESKTOP, "CreateSession")[0]
+        interface = f"{self.REMOTE_DESKTOP}.Session"
+        self.call(self.REMOTE_DESKTOP, session, interface, "Start")
+        try:
+            for keysym, down in [(self.SHIFT, True), (self.SHIFT, False), (self.ALT, True), (self.F4, True), (self.F4, False), (self.ALT, False)]:
+                self.call(self.REMOTE_DESKTOP, session, interface, "NotifyKeyboardKeysym", GLib.Variant("(ub)", (keysym, down)))
+        finally:
+            self.call(self.REMOTE_DESKTOP, session, interface, "Stop")
+
     def registered_items(self):
         items = self.call(self.WATCHER, "/StatusNotifierWatcher", self.PROPERTIES, "Get",
                           GLib.Variant("(ss)", (self.WATCHER, "RegisteredStatusNotifierItems")))[0]
@@ -103,23 +120,33 @@ class DesktopTrayProbe:
         self.screenshot("shown")
 
     def check_close_hides(self):
-        if not self.on_x11:
-            print("SKIP close: xdotool cannot press Alt+F4 or list windows on Wayland, so the close-hides step did not run", flush=True)
+        if self.on_x11:
+            self.wait(lambda: bool(self.visible_windows()), "the app window")
+            window = self.visible_windows()[0]
+            subprocess.run(["xdotool", "windowactivate", "--sync", window, "key", "--clearmodifiers", "alt+F4"], check=True)
+            self.wait(lambda: not self.visible_windows(), "Alt+F4 to hide the window")
+            route = "Alt+F4 through the desktop's window manager"
+        elif self.has_name(self.REMOTE_DESKTOP):
+            self.wait(lambda: self.recorded("controller.mounted"), "the app window to load its page")
+            self.press_alt_f4_through_mutter()
+            self.wait(lambda: self.recorded("window.hidden"), "Alt+F4 to close the window (it hides only if the window had the keyboard focus)")
+            route = "Alt+F4 through Mutter's RemoteDesktop keyboard"
+        else:
+            print(f"SKIP close: xdotool cannot press Alt+F4 on Wayland and the desktop has no {self.REMOTE_DESKTOP}, so the close-hides step did not run", flush=True)
             return
-        self.wait(lambda: bool(self.visible_windows()), "the app window")
-        window = self.visible_windows()[0]
-        subprocess.run(["xdotool", "windowactivate", "--sync", window, "key", "--clearmodifiers", "alt+F4"], check=True)
-        self.wait(lambda: not self.visible_windows(), "Alt+F4 to hide the window")
         time.sleep(1)
         assert self.running(), "closing the window ended the app"
         assert self.recorded("window.hidden"), f"the host did not record window.hidden: {self.events()}"
-        print("OK close: Alt+F4 through the desktop's window manager hid the window and the app kept running", flush=True)
+        print(f"OK close: {route} hid the window and the app kept running", flush=True)
         self.screenshot("hidden")
 
     def check_activate(self):
         self.call(self.service, self.ITEM_PATH, self.ITEM, "Activate", GLib.Variant("(ii)", (0, 0)))
-        if self.on_x11:
-            self.wait(lambda: bool(self.visible_windows()), "Activate to show the window again")
+        if not self.on_x11:
+            print("OK activate: the icon answered its Activate call (on Wayland the window's return shows only in the screenshot)", flush=True)
+            self.screenshot("activated")
+            return
+        self.wait(lambda: bool(self.visible_windows()), "Activate to show the window again")
         print("OK activate: the icon's Activate call showed the window again", flush=True)
 
     def check_route_item(self):
