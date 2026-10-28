@@ -599,12 +599,14 @@ for _ in $(seq 1 120); do
 done
 sleep 2
 cat "$LOG"
-echo "ICON $(xprop -name "$NAME" -notype -f _NET_WM_ICON 32c _NET_WM_ICON)"`
+window=$(xwininfo -root -tree | grep -F "(\"$CLASS\" " | awk '{print $1; exit}')
+[ -n "$window" ] || window=none
+echo "ICON $(xprop -id "$window" -notype -f _NET_WM_ICON 32c _NET_WM_ICON)"`
     const env = {
       ...process.env,
       APP: path.join(folder, 'bin', IconFixture.executable),
       LOG: path.join(state, 'tachyon', `${IconFixture.id}.jsonl`),
-      NAME: IconFixture.name,
+      CLASS: IconFixture.executable,
       XDG_STATE_HOME: state,
       XDG_DATA_HOME: path.join(built.project, 'data'),
       XDG_CACHE_HOME: path.join(built.project, 'cache'),
