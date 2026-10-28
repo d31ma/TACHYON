@@ -358,18 +358,19 @@ The website section "Take on a service: override and overload" shows a base,
 an override and an overload in each Yon language. A Kotlin, Swift, C#, Ruby or Lua Tac Delegate, or a Rust Delegate in a browser
 build, cannot take on a service and fails with `TY1406`, because browser services in those languages
 cannot need another service, so there is no shared service to hold. In
-JavaScript, TypeScript, Go, Java, Python and C++ Tac builds a Delegate's base is
+JavaScript, TypeScript, Go, Java, Dart, Python and C++ Tac builds a Delegate's base is
 the page's shared service, so the Delegate and the page see one state. A
 JavaScript or TypeScript Delegate names its base field after the page's
 instance, such as `tax` for `TaxService`, and the page fills it. A Go Delegate
 keeps one `// @Needs` field such as `taxService *TaxService`, and the factory of
 each service that holds the Delegate sets it after it makes the Delegate. A Java
-Delegate's `@Needs` base field starts with the page's instance. A base with one
+Delegate's `@Needs` base field starts with the page's instance. A Dart
+Delegate's `@Needs` base field becomes `late`, and the page sets it through the
+service that holds the Delegate, by the page's instance name (`tax`). A base with one
 instance for each component (Lifetime prototype or NeedsAll), a base that holds
 its own Delegate in a circle, and a Go Delegate `Needs` field that names
-anything other than a page service fail with `TY1406`. In F# and Dart Tac builds
-a Delegate's base is not yet the page's shared service; ADR 0112 step 4b3 fills
-it.
+anything other than a page service fail with `TY1406`. In F# Tac builds a
+Delegate's base is not yet the page's shared service; ADR 0112 step 4b3 fills it.
 
 In the typed languages a Delegate method with the same name and the same
 parameter types as a base method overrides it, and no forward is written for

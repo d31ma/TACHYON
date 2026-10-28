@@ -4,8 +4,8 @@
   language, the signature comparison in the typed languages and the dispatch
   by argument count in the others; step 4a adds the Yon proofs and the
   website section; step 4b1 refuses a Tac base where browser services cannot
-  share, step 4b2 gives JavaScript, TypeScript, Go and Java Tac Delegates the
-  page's shared service; step 4b3, F# and Dart, follows)
+  share, step 4b2 gives JavaScript, TypeScript, Go, Java and Dart Tac
+  Delegates the page's shared service; step 4b3, F#, follows)
 - Date: 2026-10-28
 - Amends: [ADR 0047](0047-annotation-names-are-plain-english.md)
   (the 2026-09-28 amendment, Component is now Helper),
@@ -304,6 +304,8 @@ then merged to `develop` by fast-forward.
    page fills each graph member's field named after a page instance), Go
    (one `// @Needs` base field per Delegate, set by the holding service's
    factory from `tac.Need` after the Delegate is made) and Java (the base
-   field starts with `TacNeeds.need`, and the page shares that instance).
-   4b3 does it for F# and Dart, where the Delegate is built before the page
-   can hand it a service, so each needs its own way to set the field.
+   field starts with `TacNeeds.need`, and the page shares that instance),
+   and Dart (the base field becomes `late` and leaves the Delegate's
+   constructor, and the holding service gets an injection named after the
+   page's instance that sets it). 4b3 does it for F#, where the Delegate is
+   a private property of its service that the page cannot reach.
