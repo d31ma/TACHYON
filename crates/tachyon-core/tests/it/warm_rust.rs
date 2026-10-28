@@ -53,7 +53,7 @@ impl Handler {
         if !found {
             eprintln!("skipping warm Rust handlers: cargo is unavailable");
         }
-        found
+        crate::support::toolchain::Toolchain::checked("cargo", found)
     }
 
     fn source(root: &tempfile::TempDir, contents: &str) -> HandlerSource {

@@ -1,8 +1,10 @@
 pub struct Toolchain;
 
 impl Toolchain {
-    const INSTALLED_IN_CI: [&'static str; 6] =
-        ["php", "php-cgi", "groovyc", "kotlinc", "dart", "lua"];
+    const INSTALLED_IN_CI: [&'static str; 11] = [
+        "php", "php-cgi", "groovyc", "kotlinc", "dart", "lua", "go", "ruby", "bun", "cargo",
+        "clang++",
+    ];
 
     #[must_use]
     pub fn checked(program: &str, found: bool) -> bool {

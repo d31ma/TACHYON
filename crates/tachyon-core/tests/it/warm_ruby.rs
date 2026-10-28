@@ -38,15 +38,10 @@ fn ruby_available() -> bool {
         .stderr(Stdio::null())
         .status()
         .is_ok_and(|status| status.success());
-    let required = cfg!(unix) && std::env::var_os("CI").is_some();
-    assert!(
-        found || !required,
-        "ruby is required for the Ruby warm handler tests in CI"
-    );
     if !found {
         eprintln!("skipping Ruby warm handler execution: ruby is unavailable");
     }
-    found
+    crate::support::toolchain::Toolchain::checked("ruby", found)
 }
 
 fn source(root: &tempfile::TempDir, contents: &str) -> HandlerSource {

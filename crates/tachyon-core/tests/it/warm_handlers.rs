@@ -1,5 +1,7 @@
 #![allow(clippy::expect_used)]
 
+use crate::support::program_probe::ProgramProbe;
+use crate::support::toolchain::Toolchain;
 use std::fs;
 use std::time::Duration;
 use tachyon_contracts::{
@@ -19,6 +21,19 @@ export class Handler {
     if (mode === 'crash') process.exit(23)
     if (mode === 'sleep') await new Promise((resolve) => setTimeout(resolve, 5000))
     if (mode === 'stray') setTimeout(() => process.stdout.write('stray bytes'), 20)
+    Handler.count += 1
+    return { pid: process.pid, count: Handler.count }
+  }
+}
+";
+
+const TYPESCRIPT_COUNTER: &str = r"
+export class Handler {
+  static count: number = 0
+
+  static async POST(request: Request): Promise<{ pid: number; count: number }> {
+    const mode: string = await request.text()
+    if (mode === 'crash') process.exit(23)
     Handler.count += 1
     return { pid: process.pid, count: Handler.count }
   }
@@ -72,13 +87,31 @@ fn request(id: &str, mode: &str) -> HandlerRequest {
 }
 
 fn warm(max_requests: u32, idle_limit: Duration) -> HandlerSupervisor {
+    warm_for("js", max_requests, idle_limit)
+}
+
+fn warm_for(extension: &str, max_requests: u32, idle_limit: Duration) -> HandlerSupervisor {
     let settings = WarmSettings::new(max_requests, idle_limit);
-    HandlerSupervisor::new(HandlerSupervisorOptions {
+    let mut options = HandlerSupervisorOptions {
         isolation: YonIsolationPolicy::Warm(settings),
         default_timeout: Duration::from_secs(10),
         ..HandlerSupervisorOptions::default()
-    })
-    .expect("warm supervisor")
+    };
+    if extension == "ts" {
+        options.runtimes.javascript = "bun".into();
+    }
+    HandlerSupervisor::new(options).expect("warm supervisor")
+}
+
+fn counters() -> Vec<(&'static str, &'static str)> {
+    let mut counters = vec![("js", JAVASCRIPT_COUNTER), ("py", PYTHON_COUNTER)];
+    let bun = ProgramProbe::answers("bun", "--version");
+    if Toolchain::checked("bun", bun) {
+        counters.push(("ts", TYPESCRIPT_COUNTER));
+    } else {
+        eprintln!("skipping the warm TypeScript handler: bun is unavailable");
+    }
+    counters
 }
 
 fn body_json(response: &HandlerResponse) -> serde_json::Value {
@@ -107,10 +140,10 @@ fn warm_is_the_default_isolation() {
 
 #[tokio::test]
 async fn a_warm_handler_serves_later_requests_from_the_same_process() {
-    for (extension, contents) in [("js", JAVASCRIPT_COUNTER), ("py", PYTHON_COUNTER)] {
+    for (extension, contents) in counters() {
         let root = tempfile::tempdir().expect("project");
         let source = source(&root, extension, contents);
-        let supervisor = warm(1_000, Duration::from_mins(1));
+        let supervisor = warm_for(extension, 1_000, Duration::from_mins(1));
         let (first_pid, first_count) = answer(&supervisor, &source, "warm_first").await;
         let (second_pid, second_count) = answer(&supervisor, &source, "warm_second").await;
         assert_eq!(first_pid, second_pid, "{extension} reused its process");
@@ -136,10 +169,10 @@ async fn process_mode_starts_a_new_process_for_every_request() {
 
 #[tokio::test]
 async fn a_crash_replaces_the_warm_process() {
-    for (extension, contents) in [("js", JAVASCRIPT_COUNTER), ("py", PYTHON_COUNTER)] {
+    for (extension, contents) in counters() {
         let root = tempfile::tempdir().expect("project");
         let source = source(&root, extension, contents);
-        let supervisor = warm(1_000, Duration::from_mins(1));
+        let supervisor = warm_for(extension, 1_000, Duration::from_mins(1));
         let (before, _) = answer(&supervisor, &source, "before_crash").await;
         let crashed = supervisor
             .invoke(

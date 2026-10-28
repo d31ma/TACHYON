@@ -52,7 +52,7 @@ fn php_available() -> bool {
     if !found {
         eprintln!("skipping warm PHP handlers: php-cgi unavailable");
     }
-    found
+    crate::support::toolchain::Toolchain::checked("php-cgi", found)
 }
 
 fn source(root: &tempfile::TempDir, contents: &str) -> HandlerSource {
