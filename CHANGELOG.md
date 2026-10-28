@@ -3428,8 +3428,10 @@ machine contracts have their own, independent major versions.
   changes no behavior: a Delegate without a service acts as a Helper did.
   The ADR 0069 layer rules that named helpers now apply to Delegates, and
   the marker matrix's 29 Helper cells are Delegate cells with the same
-  tests. Later steps of ADR 0112 let a Delegate take on the methods of one
-  service; they are not in yet.
+  tests. A Delegate now takes on the public methods of the one service it
+  needs (ADR 0112 step 2a: JavaScript, TypeScript, Python, PHP and Ruby; a
+  Delegate that needs two services fails with `TY1373`). The other
+  languages, override and overload rules follow.
 - Yon keeps handler processes warm by default (ADR 0111, 2026-10-27).
   `YON_ISOLATION` now takes `warm` (the default), `process` or
   `firecracker`. Before, every request started its own handler process and
