@@ -1,5 +1,7 @@
 #![allow(clippy::expect_used)]
 
+use crate::support::program_probe::ProgramProbe;
+use crate::support::toolchain::Toolchain;
 use std::fs;
 use std::time::Duration;
 use tachyon_contracts::{
@@ -45,10 +47,8 @@ class Handler {
 const SQLITE_APPLICATION: &str = r#"{"datasource":{"driver":"sqlite","url":"sqlite::memory:"}}"#;
 
 fn dart_available() -> bool {
-    std::process::Command::new("dart")
-        .arg("--version")
-        .output()
-        .is_ok_and(|output| output.status.success())
+    let found = ProgramProbe::answers("dart", "--version");
+    Toolchain::checked("dart", found)
 }
 
 fn write(root: &tempfile::TempDir, relative: &str, contents: &str) {

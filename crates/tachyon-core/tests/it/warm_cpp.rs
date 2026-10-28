@@ -1,7 +1,7 @@
-#![cfg(unix)]
 #![allow(clippy::expect_used)]
 
 use crate::support::program_probe::ProgramProbe;
+use crate::support::toolchain::Toolchain;
 use crate::yon_cpp::CppProject;
 use std::time::Duration;
 use tachyon_contracts::{
@@ -24,10 +24,22 @@ impl WarmCpp {
     const CONTROLLER: &str = r#"#pragma once
 #include <cstdlib>
 #include <string>
+#ifdef _WIN32
+#include <process.h>
+#else
 #include <unistd.h>
+#endif
 #include "../models/WarmCount.hpp"
 
 class [[RequestRoute("/warm")]] [[Public]] WarmController {
+    static int processId() {
+#ifdef _WIN32
+        return _getpid();
+#else
+        return static_cast<int>(getpid());
+#endif
+    }
+
 public:
     [[PostRoute]]
     WarmCount postWarm(const tachyon::http::HttpRequestMessage& request) {
@@ -37,13 +49,13 @@ public:
         }
         static int served = 0;
         served += 1;
-        return WarmCount{static_cast<int>(getpid()), served};
+        return WarmCount{processId(), served};
     }
 
     [[StreamRoute("/ticks")]]
     tachyon::Generator<WarmCount> streamTicks() {
         for (int index = 0; index < 3; index++) {
-            co_yield WarmCount{static_cast<int>(getpid()), index};
+            co_yield WarmCount{processId(), index};
         }
     }
 };
@@ -60,10 +72,22 @@ public:
         (
             "server/controllers/EchoController.hpp",
             r#"#pragma once
+#ifdef _WIN32
+#include <process.h>
+#else
 #include <unistd.h>
+#endif
 
 class [[RequestRoute("/echo")]] [[Public]] EchoController {
     [[Needs]] EchoClient& echoClient;
+
+    static int processId() {
+#ifdef _WIN32
+        return _getpid();
+#else
+        return static_cast<int>(getpid());
+#endif
+    }
 
 public:
     [[PostRoute]]
@@ -72,7 +96,7 @@ public:
         served += 1;
         tachyon::json::JsonObject answer;
         answer["echo"] = echoClient.echo(input);
-        answer["pid"] = static_cast<int>(getpid());
+        answer["pid"] = processId();
         answer["count"] = served;
         return answer;
     }
@@ -158,7 +182,7 @@ public:
         if !ready {
             eprintln!("skipping: clang++ is not installed");
         }
-        ready
+        Toolchain::checked("clang++", ready)
     }
 }
 

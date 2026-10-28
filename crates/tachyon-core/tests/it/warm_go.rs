@@ -55,15 +55,10 @@ func (Handler) POST(request *http.Request) any {
             .stderr(Stdio::null())
             .status()
             .is_ok_and(|status| status.success());
-        let required = cfg!(unix) && std::env::var_os("CI").is_some();
-        assert!(
-            found || !required,
-            "go is required for the Go warm handler tests in CI"
-        );
         if !found {
             eprintln!("skipping Go warm handler execution: go is unavailable");
         }
-        found
+        crate::support::toolchain::Toolchain::checked("go", found)
     }
 
     fn write(root: &Path, relative: &str, contents: &str) {

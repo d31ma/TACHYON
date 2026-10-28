@@ -74,15 +74,10 @@ const LUA_CONTROLLER: (&str, &str) = (
 
 fn program_available(program: &str, flag: &str) -> bool {
     let found = crate::support::program_probe::ProgramProbe::answers(program, flag);
-    let required = cfg!(unix) && std::env::var_os("CI").is_some();
-    assert!(
-        found || !required,
-        "{program} is required for the Lua warm handler tests in CI"
-    );
     if !found {
         eprintln!("skipping Lua warm handler execution: {program} is unavailable");
     }
-    found
+    crate::support::toolchain::Toolchain::checked(program, found)
 }
 
 fn lua_available() -> bool {
