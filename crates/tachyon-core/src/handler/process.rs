@@ -37,6 +37,7 @@ mod warm_languages;
 mod warm_output;
 mod warm_pool;
 mod warm_process;
+mod warm_ready;
 mod warm_response;
 mod warm_start;
 mod warm_stderr;
@@ -105,6 +106,7 @@ use warm_languages::WarmLanguages;
 use warm_output::WarmOutput;
 use warm_pool::WarmPool;
 use warm_process::WarmProcess;
+use warm_ready::WarmReady;
 use warm_response::WarmResponse;
 use warm_start::WarmStart;
 use warm_stderr::WarmStderr;
@@ -515,30 +517,27 @@ impl HandlerSupervisor {
         direct_protocol: bool,
         deadline: Instant,
     ) -> Result<Vec<u8>, Failure> {
-        let timed_request = self.timed_request(request, deadline)?;
+        let timed_request =
+            Self::timed_request(request, deadline, self.options.cancellation_grace)?;
         Self::encode_request(direct_protocol, &timed_request)
     }
 
     fn warm_request(
-        &self,
         request: &HandlerRequest,
         resource_access: Option<&ResourceAccess>,
-        deadline: Instant,
-        style: FramePrefix,
-    ) -> Result<Vec<u8>, Failure> {
-        let mut timed_request = self.timed_request(request, deadline)?;
-        timed_request.resources = resource_access.map(ResourceAccess::handler_resources);
-        let frame = HandlerFrame::request(&timed_request)?;
-        Ok(style.reframed(&frame))
+    ) -> HandlerRequest {
+        let mut warm_request = request.clone();
+        warm_request.resources = resource_access.map(ResourceAccess::handler_resources);
+        warm_request
     }
 
     fn timed_request(
-        &self,
         request: &HandlerRequest,
         deadline: Instant,
+        grace: Duration,
     ) -> Result<HandlerRequest, Failure> {
         let time_left = Self::time_left(deadline)?;
-        let handler_time = time_left.saturating_sub(self.options.cancellation_grace);
+        let handler_time = time_left.saturating_sub(grace);
         let milliseconds = u64::try_from(handler_time.as_millis()).unwrap_or(u64::MAX);
         let mut timed_request = request.clone();
         timed_request.deadline_ms = Some(milliseconds.max(1));
@@ -670,21 +669,19 @@ impl HandlerSupervisor {
         deadline: Instant,
         cancellation: &HandlerCancellation,
     ) -> Result<HandlerResponse, Failure> {
-        let (process, request_bytes) = self
-            .started_warm_request(source, request, resource_access, deadline)
-            .await?;
         let shares_resources = Self::pipes_resources(source, self.uses_direct_protocol(source));
         let piped = resource_access
             .map(ResourceAccess::piped)
             .filter(|_| shares_resources);
         let exchange = WarmExchange {
-            process,
+            process: self.warm_process(source).await?,
             context: self.warm_context(source, request, resource_access, deadline),
+            request: Self::warm_request(request, resource_access),
             resources: piped,
             style: FramePrefix::of(source),
             cancellation,
         };
-        let answer = exchange.run(&request_bytes).await;
+        let answer = exchange.run().await;
         self.warm.give_back(answer.kept).await;
         answer.result
     }
@@ -724,47 +721,18 @@ impl HandlerSupervisor {
             events,
             cancellation,
         } = streamed;
-        let (process, request_bytes) = self
-            .started_warm_request(source, request, resource_access, deadline)
-            .await?;
         let stream = WarmStream {
-            process,
+            process: self.warm_process(source).await?,
             context: self.warm_context(source, request, resource_access, deadline),
+            request: Self::warm_request(request, resource_access),
+            style: FramePrefix::of(source),
             events: StreamEvents::new(events.clone(), request.request_id.clone()),
             subscriber: events,
             cancellation,
         };
-        let answer = stream.run(&request_bytes).await;
+        let answer = stream.run().await;
         self.warm.give_back(answer.kept).await;
         answer.result
-    }
-
-    // deadline_ms is measured once the process exists, so a request that spawns a warm process
-    // does not grant the handler the spawn time again on top of the supervisor's deadline.
-    async fn started_warm_request(
-        &self,
-        source: &HandlerSource,
-        request: &HandlerRequest,
-        resource_access: Option<&ResourceAccess>,
-        deadline: Instant,
-    ) -> Result<(WarmProcess, Vec<u8>), Failure> {
-        let process = self.warm_process(source).await?;
-        let timed = self.warm_request(request, resource_access, deadline, FramePrefix::of(source));
-        self.unless_out_of_time(process, timed).await
-    }
-
-    async fn unless_out_of_time(
-        &self,
-        process: WarmProcess,
-        timed: Result<Vec<u8>, Failure>,
-    ) -> Result<(WarmProcess, Vec<u8>), Failure> {
-        match timed {
-            Ok(request_bytes) => Ok((process, request_bytes)),
-            Err(failure) => {
-                self.warm.give_back(Some(process)).await;
-                Err(failure)
-            }
-        }
     }
 
     fn warm_context(

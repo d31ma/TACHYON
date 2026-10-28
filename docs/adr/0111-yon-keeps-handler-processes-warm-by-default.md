@@ -209,3 +209,32 @@ of the default-deadline relay test starts the handler first on Windows too,
 and `warm_ruby::a_warm_ruby_handler_relays_on_every_request` relays on three
 requests of one process (`docs/SUPPORT_TIERS.md`, "Warm Ruby relays on
 Windows").
+
+## Amendment (2026-10-28): a warm runner says when it is ready (SV1)
+
+The Decision said that a runner measures the first request's deadline from
+the start of its process. Only the Go, JVM, .NET and Dart runners did. The
+Python, Ruby, JavaScript, PHP, Rust and C++ runners measured it from when they
+read the request, and Yon wrote the request's `deadline_ms` before it started
+the process. So on a first request the handler's deadline could fall after
+Yon's by the whole start-up time, and Yon timed out before the handler could
+answer for itself. No runner can count the time before its own clock starts
+(the interpreter or VM start).
+
+The warm protocol gains a fourth addition:
+
+4. **A new warm runner says when it is ready.** Before it reads its first
+   request, the runner writes one frame:
+   `{"protocol_version":1,"kind":"ready"}`. Yon waits for that frame, within
+   the request's deadline and cancellation, and only then writes the request
+   with its `deadline_ms`. A process that writes any other frame first breaks
+   the protocol (`TY2103`), and one that exits first fails like any warm
+   process that exits.
+
+Every warm runner now measures every request's deadline, the first one too,
+from the moment it reads the request frame. Start-up still counts against
+the request: Yon's deadline runs from the request's arrival, so `deadline_ms`
+is what is left of it once the process is ready.
+`relay_boundaries::a_slow_warm_runtime_start_counts_against_the_relay_deadline`
+starts the Python and Ruby runners 3 s late and checks that the handler's own
+relay failure still arrives before Yon's deadline.

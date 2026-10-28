@@ -1,11 +1,12 @@
 use super::{
     AdapterFiles, Drained, HandlerSupervisor, ProcessReaper, WarmFrames, WarmKey, WarmOutput,
-    WarmStart, WarmStderr,
+    WarmReady, WarmStart, WarmStderr, WarmStop,
 };
 use crate::Failure;
 use crate::handler::HandlerSource;
 use crate::handler::frame::FramePrefix;
 use command_group::AsyncGroupChild;
+use futures_util::future::OptionFuture;
 use std::process::ExitStatus;
 use std::time::Duration;
 use tokio::process::ChildStdin;
@@ -20,6 +21,7 @@ pub(super) struct WarmProcess {
     output: mpsc::Receiver<WarmOutput>,
     stderr: WarmStderr,
     served: u32,
+    announced: bool,
     idle_since: Instant,
     reader: JoinHandle<()>,
     _source: HandlerSource,
@@ -40,6 +42,7 @@ impl WarmProcess {
             output,
             stderr: WarmStderr::spawn(start.stderr, start.stderr_limit),
             served: 0,
+            announced: false,
             idle_since: Instant::now(),
             reader,
             _source: start.source,
@@ -81,6 +84,14 @@ impl WarmProcess {
     pub(super) fn finish_request(&mut self) {
         self.served = self.served.saturating_add(1);
         self.idle_since = Instant::now();
+    }
+
+    /// Waits for a new process's ready frame; a process that already said it is ready goes on.
+    pub(super) async fn until_ready(&mut self) -> Result<(), WarmStop> {
+        let waiting = !self.announced;
+        let first = OptionFuture::from(waiting.then(|| self.output.recv())).await;
+        self.announced = true;
+        first.map_or(Ok(()), WarmReady::check)
     }
 
     pub(super) async fn send(&mut self, bytes: &[u8]) -> Result<(), Failure> {

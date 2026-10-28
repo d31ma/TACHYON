@@ -1704,6 +1704,7 @@ impl YonWarm {
     fn serve(
         environment: &std::collections::BTreeMap<std::ffi::OsString, std::ffi::OsString>,
     ) -> ! {
+        let _ = YonSocket::write_payload(br#"{"protocol_version":1,"kind":"ready"}"#);
         while let Some(raw) = Self::read_request() {
             Self::answer(&raw, environment.clone());
         }

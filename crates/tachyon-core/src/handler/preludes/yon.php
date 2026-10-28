@@ -1174,6 +1174,7 @@ final class YonMain
             }
         });
         $outputLevel = ob_get_level();
+        YonSocket::writeFrame('{"protocol_version":1,"kind":"ready"}');
         while (($request = YonRelayContext::readWarmInvocation()) !== null) {
             $answer = self::respond($request);
             if ($answer !== null) {

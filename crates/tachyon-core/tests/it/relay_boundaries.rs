@@ -548,8 +548,8 @@ async fn start_up_time_counts_against_the_relay_deadline() {
 
 // A runtime that spends 3 s starting before its runner can read (a slow interpreter or VM start
 // on a loaded machine), under the same 8 s request with a 2 s grace: the relay must fail by about
-// 6 s. A warm handler that counts its budget from when it reads the request relays until about
-// 9 s, past the supervisor's deadline, and the supervisor times out instead.
+// 6 s. The supervisor measures deadline_ms once the warm runner says it is ready; measured before
+// the start, the handler would relay until about 9 s and the supervisor would time out instead.
 #[cfg(unix)]
 #[tokio::test]
 async fn a_slow_warm_runtime_start_counts_against_the_relay_deadline() {

@@ -1308,6 +1308,7 @@ class YonRunner
 
   def self.serve_warm(arguments, environment)
     handlers = {}
+    YonRunnerFrames.write({ "protocol_version" => 1, "kind" => "ready" })
     loop do
       request = @incoming.pop
       exit!(0) if request == :closed

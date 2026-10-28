@@ -291,6 +291,7 @@ function YonWarm.enabled()
 end
 
 function YonWarm.serve(program)
+  YonFrames.write('{"protocol_version":1,"kind":"ready"}')
   while true do
     local request = YonInput.decode(YonWarm.read())
     if request.operation == YonWarm.SOCKET_OPEN then

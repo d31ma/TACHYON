@@ -5,23 +5,24 @@ use crate::handler::frame::{FramePrefix, HandlerFrame};
 use crate::handler::resources::PipedResources;
 use futures_util::future::OptionFuture;
 use serde_json::Value;
-use tachyon_contracts::HandlerResponse;
+use tachyon_contracts::{HandlerRequest, HandlerResponse};
 use tokio::time::{Instant, sleep_until};
 
 pub(super) struct WarmExchange<'a> {
     pub(super) process: WarmProcess,
     pub(super) context: WarmContext,
+    pub(super) request: HandlerRequest,
     pub(super) resources: Option<PipedResources>,
     pub(super) style: FramePrefix,
     pub(super) cancellation: &'a HandlerCancellation,
 }
 
 impl WarmExchange<'_> {
-    pub(super) async fn run(mut self, request_bytes: &[u8]) -> WarmAnswer<HandlerResponse> {
+    pub(super) async fn run(mut self) -> WarmAnswer<HandlerResponse> {
         self.process.begin_request();
         let cancellation = self.cancellation;
         let deadline = self.context.deadline;
-        let bounded = Self::bounded(cancellation, deadline, self.exchange(request_bytes)).await;
+        let bounded = Self::bounded(cancellation, deadline, self.exchange()).await;
         let reply = bounded.and_then(|reply| reply);
         self.settle(reply).await
     }
@@ -39,8 +40,10 @@ impl WarmExchange<'_> {
         }
     }
 
-    async fn exchange(&mut self, request_bytes: &[u8]) -> Result<Vec<u8>, WarmStop> {
-        let sent = self.process.send(request_bytes).await;
+    async fn exchange(&mut self) -> Result<Vec<u8>, WarmStop> {
+        self.process.until_ready().await?;
+        let request_bytes = self.context.request_frame(&self.request, self.style)?;
+        let sent = self.process.send(&request_bytes).await;
         sent.map_err(WarmStop::Broken)?;
         self.final_frame().await
     }

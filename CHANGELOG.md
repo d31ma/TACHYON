@@ -2451,6 +2451,17 @@ machine contracts have their own, independent major versions.
   when the tray probe skipped that step on Wayland, and
   `compositor-test.sh --desktop` prints the output of the `native::linux_`
   host tests.
+- A warm handler's first request no longer gets a deadline that ends after
+  the supervisor's (SV1, 2026-10-28). The supervisor wrote `deadline_ms`
+  before it started the warm process, and the Python, Ruby, JavaScript, PHP,
+  Rust and C++ runners measured it from when they read the request, so the
+  start-up was granted twice and a slow start ended in a supervisor timeout
+  instead of the handler's own answer. A new warm runner now writes one
+  `{"protocol_version":1,"kind":"ready"}` frame before it reads; the
+  supervisor waits for it and then writes the request, and every runner
+  measures every request from when it reads it (ADR 0111 amendment).
+  `relay_boundaries::a_slow_warm_runtime_start_counts_against_the_relay_deadline`
+  starts the Python and Ruby runtimes 3 s late.
 - A warm Ruby handler on Windows relays on every request, not only the first
   (WR1, 2026-10-28). `Process.spawn` there puts the relay pipes over the
   runner's standard input while it starts the child, and Ruby's `IO.select`

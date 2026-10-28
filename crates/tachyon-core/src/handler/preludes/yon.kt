@@ -503,7 +503,6 @@ object Yon {
     private const val NANOSECONDS_PER_MILLISECOND = 1_000_000L
     private const val FAILURE_MESSAGE = "Component invocation failed."
     private var startNanos = 0L
-    private var servedRequest = false
     private var relayEnvironment: Map<String, String>? = null
     private var deadlineNanos: Long? = null
     private var requestId = "unknown"
@@ -584,8 +583,7 @@ object Yon {
 
     internal fun beginRequest() {
         endRequest()
-        if (servedRequest) startNanos = System.nanoTime()
-        servedRequest = true
+        startNanos = System.nanoTime()
     }
 
     internal fun useResources(resources: Any?) {
@@ -979,6 +977,7 @@ private object YonWarm {
     fun enabled(): Boolean = System.getenv("YON_HANDLER_WARM") == "1"
 
     fun serve() {
+        YonSocket.writeFrame("{\"protocol_version\":1,\"kind\":\"ready\"}")
         while (true) {
             val text = YonSocket.readRequestFrame() ?: kotlin.system.exitProcess(0)
             Yon.beginRequest()

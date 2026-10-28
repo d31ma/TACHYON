@@ -979,6 +979,7 @@ def serve_warm_request(request, environment, handlers):
 
 def serve_warm(environment):
     handlers = {}
+    write_frame({"protocol_version": 1, "kind": "ready"})
     while True:
         request = RunnerState.incoming.get()
         if request is None:

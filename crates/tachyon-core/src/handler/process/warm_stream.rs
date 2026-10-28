@@ -2,24 +2,28 @@ use super::{
     HandlerCancellation, HandlerEvent, ProcessFailure, StreamEvents, StreamReadOutcome, WarmAnswer,
     WarmContext, WarmOutput, WarmProcess, WarmStop, WarmStreamEnd,
 };
+use crate::handler::frame::FramePrefix;
+use tachyon_contracts::HandlerRequest;
 use tokio::sync::mpsc;
 use tokio::time::{Instant, sleep_until};
 
 pub(super) struct WarmStream<'a> {
     pub(super) process: WarmProcess,
     pub(super) context: WarmContext,
+    pub(super) request: HandlerRequest,
+    pub(super) style: FramePrefix,
     pub(super) events: StreamEvents,
     pub(super) subscriber: mpsc::Sender<HandlerEvent>,
     pub(super) cancellation: &'a HandlerCancellation,
 }
 
 impl WarmStream<'_> {
-    pub(super) async fn run(mut self, request_bytes: &[u8]) -> WarmAnswer<()> {
+    pub(super) async fn run(mut self) -> WarmAnswer<()> {
         self.process.begin_request();
         let cancellation = self.cancellation;
         let deadline = self.context.deadline;
         let subscriber = self.subscriber.clone();
-        let streamed = self.stream(request_bytes);
+        let streamed = self.stream();
         let bounded = Self::bounded(cancellation, deadline, &subscriber, streamed).await;
         let outcome = bounded.and_then(|outcome| outcome);
         self.settle(outcome).await
@@ -40,8 +44,10 @@ impl WarmStream<'_> {
         }
     }
 
-    async fn stream(&mut self, request_bytes: &[u8]) -> Result<StreamReadOutcome, WarmStop> {
-        let sent = self.process.send(request_bytes).await;
+    async fn stream(&mut self) -> Result<StreamReadOutcome, WarmStop> {
+        self.process.until_ready().await?;
+        let request_bytes = self.context.request_frame(&self.request, self.style)?;
+        let sent = self.process.send(&request_bytes).await;
         sent.map_err(WarmStop::Broken)?;
         let mut finished = None;
         while finished.is_none() {

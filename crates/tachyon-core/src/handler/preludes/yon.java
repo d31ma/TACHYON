@@ -929,7 +929,6 @@ final class Yon {
     private static long startNanos;
     private static java.util.Map<String, String> relayEnvironment;
     private static Long deadlineNanos;
-    private static boolean servedWarmRequest;
     private static String requestId = "unknown";
     private static YonExchange exchange;
 
@@ -1178,6 +1177,7 @@ final class Yon {
     }
 
     private static void serveWarm() throws java.io.IOException {
+        YonSocket.writeFrame("{\"protocol_version\":1,\"kind\":\"ready\"}");
         while (true) {
             String raw = YonSocket.readWarmFrame();
             if (raw == null) {
@@ -1196,8 +1196,7 @@ final class Yon {
     }
 
     private static void startWarmRequest() {
-        if (servedWarmRequest) startNanos = System.nanoTime();
-        servedWarmRequest = true;
+        startNanos = System.nanoTime();
         deadlineNanos = null;
         requestId = "unknown";
         exchange = null;

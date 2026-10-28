@@ -1021,6 +1021,7 @@ func main() {
 		yonServe(yoninvocation.Request())
 		return
 	}
+	os.Stdout.Write(yonFramed([]byte(`{"protocol_version":1,"kind":"ready"}`)))
 	for yoninvocation.Next() {
 		if !yonServe(yoninvocation.Request()) {
 			return

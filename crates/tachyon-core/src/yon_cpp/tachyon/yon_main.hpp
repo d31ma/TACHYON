@@ -39,6 +39,9 @@ public:
 private:
     template <typename Routes>
     static int servedWarm() {
+        if (!YonFrames::write("{\"protocol_version\":1,\"kind\":\"ready\"}")) {
+            return PROTOCOL_FAILURE;
+        }
         while (!YonFrames::ended()) {
             std::string raw;
             if (!YonFrames::read(raw)) {

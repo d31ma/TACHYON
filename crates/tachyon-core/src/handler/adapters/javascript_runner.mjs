@@ -234,6 +234,13 @@ class WarmRequest {
     WarmRequest.forgetResources()
   }
 
+  static announceReady() {
+    const payload = Buffer.from(JSON.stringify({ protocol_version: 1, kind: 'ready' }), 'utf8')
+    const prefix = Buffer.allocUnsafe(4)
+    prefix.writeUInt32BE(payload.length)
+    void writeOutput(Buffer.concat([prefix, payload])).catch(() => process.exit(74))
+  }
+
   static endFrame(requestId) {
     const payload = Buffer.from(JSON.stringify({ protocol_version: 1, kind: 'end', request_id: requestId }), 'utf8')
     const prefix = Buffer.allocUnsafe(4)
@@ -866,4 +873,5 @@ process.stdin.on('error', () => process.exit(74))
 process.stdin.on('end', () => {
   if (RunnerState.warm) process.exit(0)
 })
+if (RunnerState.warm) WarmRequest.announceReady()
 process.stdin.resume()
