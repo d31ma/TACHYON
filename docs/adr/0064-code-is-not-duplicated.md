@@ -7,6 +7,7 @@
   one class), [ADR 0046](0046-tachyon-annotations-are-global.md) (composed
   names need no import) and [ADR 0063](0063-services-and-controllers-are-cohesive.md)
   (methods are cohesive)
+- Amended by: [ADR 0112](0112-a-delegate-takes-on-the-methods-of-its-service.md): the `Helper` role named in the amendments below is now `Delegate`, in `delegates/`
 
 ## Context
 

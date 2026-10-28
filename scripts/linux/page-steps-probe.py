@@ -73,7 +73,7 @@ class PageStepsProbe:
             windows = found.stdout.split()
             if windows:
                 subprocess.run(["xdotool", "windowactivate", "--sync", windows[-1]], check=True)
-                print(f"OK: focused the desktop portal's file dialog ({' '.join(search)})", flush=True)
+                print(f"OK: focused the file dialog ({' '.join(search)})", flush=True)
                 return
 
     @staticmethod

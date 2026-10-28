@@ -15,6 +15,7 @@
   (release WebAssembly)
 - Exception to: [ADR 0062](0062-yon-uses-native-http-types.md)
   (C++ has no standard HTTP or JSON types, so Tachyon ships C#-shaped ones)
+- Amended by: [ADR 0112](0112-a-delegate-takes-on-the-methods-of-its-service.md): `[[Helper]]` is now `[[Delegate]]`, on a `<Name>Delegate` class in `client/delegates/` or `server/delegates/`
 
 ## Context
 

@@ -15,6 +15,7 @@
 - Amends: [ADR 0031](0031-realms-mirror-each-other.md) (the Yon languages)
 - Adds: Tac Lua services on a Lua WebAssembly runtime, built like the
   pinned mruby runtime of [ADR 0049](0049-tac-ruby-uses-a-pinned-mruby-runtime.md)
+- Amended by: [ADR 0112](0112-a-delegate-takes-on-the-methods-of-its-service.md): a Tac Lua Helper is now a Delegate, `-- @Delegate` on a `<Name>Delegate` class table in `client/delegates/`; the generated `__tachyonHelpers` table keeps its name
 
 ## Context
 

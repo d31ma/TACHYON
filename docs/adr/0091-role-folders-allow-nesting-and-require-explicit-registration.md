@@ -13,6 +13,7 @@
   (`clients/` stays a compatibility name for `remotes/`)
 - Related: [ADR 0092](0092-settings-and-validation-data-live-in-models.md)
   (settings and validation data move from `helpers/` to `models/`)
+- Amended by: [ADR 0112](0112-a-delegate-takes-on-the-methods-of-its-service.md): the Helper role is now `Delegate`, and its role folder is `delegates/`; `helpers/` stays as a folder that is not a role, for `Gateway` programs and behavior-only holders
 
 ## Decision
 

@@ -1997,9 +1997,8 @@ source in every run, and the warm-up request gets up to three tries,
 because a Java start on WSL can use the whole 8 s. Start-up time against
 the deadline stays covered by
 `start_up_time_counts_against_the_relay_deadline`. `Toolchain::checked`
-now also requires `dotnet` and `javac` under `CI`, since every native CI
-the native jobs of `rust-ci.yml` install .NET SDK 10.0.302 and select JDK
-21. This evidence does not promote any tier.
+now also requires `dotnet` and `javac` under `CI`, since the native jobs
+of `rust-ci.yml` install .NET SDK 10.0.302 and select JDK 21. This evidence does not promote any tier.
 
 - WSL Ubuntu 24.04 (aarch64) on the Surface, on branch commit `41d7f117`
   (the same test code as `e0a32f24` outside Windows): the relay test passed

@@ -14,6 +14,7 @@
 - Amended by: [ADR 0047](0047-annotation-names-are-plain-english.md): annotations and role folders have plain English names (for example `Needs`, `NeedsAll`, `Store`, `OnStart`, `stores/`); the old names are refused and `ty migrate fix --write` renames them
 - Amended by: [ADR 0048](0048-yon-routes-come-from-annotations.md): Yon routes come from annotations in `server/controllers/` (`RequestRoute`, `GetRoute`, ...), not from `server/routes/` folders; clients use `HTTPClient` and `GetRequest`, ...; `OPTIONS.schema.json` is replaced by schemas built from models
 - Amended by: [ADR 0091](0091-role-folders-allow-nesting-and-require-explicit-registration.md): every concrete class in a role folder needs its role marker (`TY1363`), so a Tac service in `services/` can no longer leave out `@Service`; settings and validation data move to `models/` ([ADR 0092](0092-settings-and-validation-data-live-in-models.md))
+- Amended by: [ADR 0112](0112-a-delegate-takes-on-the-methods-of-its-service.md): the `Helper` role is now `Delegate`, in `delegates/`; "helper code" below means plain functions and classes, not that role
 
 ## Context
 

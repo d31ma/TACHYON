@@ -3413,6 +3413,23 @@ machine contracts have their own, independent major versions.
 
 ### Breaking
 
+- `@Helper` is now `@Delegate` (ADR 0112 step 1, ADR 0047 amendment,
+  2026-10-28): `@Delegate`, `[Delegate]`, `#[Delegate]`, `// @Delegate` in
+  Go, `-- @Delegate` in Lua and `@delegate` in Python. The role folder is
+  `delegates/` again in both realms, and a class name ends in `Delegate`
+  (`TaxDelegate`). The build refuses `@Helper` with `TY1308` and names
+  `Delegate`, and it no longer refuses `delegates/`. `helpers/` stays as a
+  folder that is not a role: it keeps the programs that a `Gateway` command
+  runs (`server/helpers/`) and behavior-only holders such as a `Checked`
+  DTO. `ty migrate fix --write` moves each `<Name>Helper` class from
+  `helpers/` to `delegates/<Name>Delegate`, renames its `Needs` fields and
+  types and the marker, and leaves the other files in `helpers/` where they
+  are; it also renames an old `@Component` class in `delegates/`. The rename
+  changes no behavior: a Delegate without a service acts as a Helper did.
+  The ADR 0069 layer rules that named helpers now apply to Delegates, and
+  the marker matrix's 29 Helper cells are Delegate cells with the same
+  tests. Later steps of ADR 0112 let a Delegate take on the methods of one
+  service; they are not in yet.
 - Yon keeps handler processes warm by default (ADR 0111, 2026-10-27).
   `YON_ISOLATION` now takes `warm` (the default), `process` or
   `firecracker`. Before, every request started its own handler process and

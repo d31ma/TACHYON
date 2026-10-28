@@ -64,7 +64,7 @@ tac.application.menus
   honored: items in the File, View and Help menus of the window's menu bar
 
 tac.application.tray
-  adapted: tac.application.tray is shown as a StatusNotifierItem with a D-Bus menu. Desktops without a tray host, such as GNOME without the AppIndicator extension, show nothing, and the app keeps its window (ADR 0107).
+  adapted: tac.application.tray is shown as a StatusNotifierItem with a D-Bus menu. Desktops without a tray host, such as GNOME without the AppIndicator extension, show nothing, and the app keeps its window (ADR 0107). In a live Ubuntu GNOME X11 desktop session on WSL aarch64, whose AppIndicator extension is the tray host, the icon and its menu showed, closing the window hid it, Activate showed it again, a route item opened its page and Quit ended the app (LD1).
 
 tac.application.tray.template
   adapted: tac.application.tray.template applies only to the macOS menu bar. The Linux tray shows the icon in its own colors.
@@ -121,7 +121,7 @@ tac.browserApis share
   adapted: Linux has no system share sheet, so share in the Linux app copies the url, or else the text or title, to the clipboard.
 
 tac.browserApis notifications
-  adapted: notifications in the Linux app are desktop notifications (GNotification). Linux does not ask the user first: requestPermission answers granted, and the desktop's notification settings decide what is shown. A page notification reached the dunst notification server through GNotification in an x86_64 cloud container and on WSL aarch64 (LX1).
+  adapted: notifications in the Linux app are desktop notifications (GNotification). Linux does not ask the user first: requestPermission answers granted, and the desktop's notification settings decide what is shown. A page notification reached the dunst notification server through GNotification in an x86_64 cloud container and on WSL aarch64 (LX1), and GNOME's own notification server in a live Ubuntu GNOME X11 desktop session on WSL aarch64 (LD1).
 
 tac.browserApis geolocation
   honored: the web view's navigator.geolocation through GeoClue, which the host permits for the app's own pages (LX1 ran GeoClue 2.7 with a GPS fix and its agent)
@@ -244,16 +244,16 @@ development code signing
   not applicable: Linux apps and their AppImage and .deb packages are not signed; Linux distributions sign the repositories that ship packages.
 
 release packaging
-  run owed: ty bundle --release builds an AppImage and a .deb that install the app, its command, desktop file, AppStream metainfo and icons; both use the system's GTK 4 and WebKitGTK 6. Other builds are a folder; still to run: an install on a physical Linux desktop; apt-get install of the .deb as root, a start from PATH and from its desktop file, and apt-get purge ran in an x86_64 cloud container and on WSL aarch64 (LX1), and the AppImage ran through FUSE on WSL (RL1)
+  run owed: ty bundle --release builds an AppImage and a .deb that install the app, its command, desktop file, AppStream metainfo and icons; both use the system's GTK 4 and WebKitGTK 6. Other builds are a folder; still to run: an install on a physical Linux desktop; apt-get install of the .deb as root, a start from PATH and from its desktop file, and apt-get purge ran in an x86_64 cloud container and on WSL aarch64 (LX1) and again in a live Ubuntu GNOME X11 desktop session on WSL aarch64, with a start by desktop file id through gtk-launch (LD1), and the AppImage ran through FUSE on WSL (RL1)
 
 incremental route reuse
   honored: routes are reused from the previous app's web folder; --no-incremental turns this off
 
 development preview (ty preview)
-  honored: ty preview --target linux builds the app, opens it and loads its pages from the development server, so edits arrive as hot updates; a manifest or linked service edit reopens the app (run under Xvfb in the cloud and on WSL by scripts/linux/dev-loop-native-test.mjs, NET5)
+  honored: ty preview --target linux builds the app, opens it and loads its pages from the development server, so edits arrive as hot updates; a manifest or linked service edit reopens the app (run under Xvfb in the cloud and on WSL by scripts/linux/dev-loop-native-test.mjs, NET5, under headless mutter on Wayland, LX3, and in a live Ubuntu GNOME X11 desktop session on WSL, LD1)
 
 byte-identical rebuilds
   honored: SOURCE_DATE_EPOCH and a path map reach cc and rustc, and SOURCE_DATE_EPOCH reaches dpkg-deb and mksquashfs; two packaged builds give the same artifact-manifest.json digests
 
 running without a signed-in desktop session
-  honored: the app runs under Xvfb with the X11 backend, and in a headless mutter Wayland session with input through Mutter RemoteDesktop (LX2)
+  honored: the app runs under Xvfb with the X11 backend, and in a headless mutter Wayland session with input through Mutter RemoteDesktop (LX2); with TAC_LINUX_DISPLAY=desktop the same gates use a signed-in desktop session instead (LD1)
