@@ -6,8 +6,8 @@ pub(super) struct GoTacHelpers;
 
 impl GoTacHelpers {
     const LANGUAGE: &'static str = "go";
-    const MANAGED: [&'static str; 3] = ["Needs", "NeedsAll", "Lifetime"];
-    const ADVICE: &'static str = "A Go Tac Delegate belongs to the service that needs or creates it, so the Delegate has no Needs, NeedsAll or Lifetime of its own. Give the Delegate what it uses through method parameters, or let the service set its fields after creating it.";
+    const MANAGED: [&'static str; 2] = ["NeedsAll", "Lifetime"];
+    const ADVICE: &'static str = "A Go Tac Delegate belongs to the service that needs or creates it, so the Delegate has no NeedsAll or Lifetime of its own. Its one Needs field names its base, a service that the page shares (ADR 0112). Give the Delegate other values through method parameters, or let the service set its fields after creating it.";
 
     pub(super) fn source(path: &Path, source: &str) -> Result<(), Failure> {
         Self::client_path(path)

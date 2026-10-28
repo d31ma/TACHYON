@@ -30,6 +30,7 @@ struct StagedService {
 impl GoServices {
     const MODULE: &str = "tachyonservices";
     const PAGE_PACKAGE: &str = "page";
+    const DELEGATE_FOLDER: &str = "client/delegates";
     const RUNTIME_FILES: [(&str, &str); 17] = [
         ("tac/prelude.go", include_str!("prelude.go")),
         ("tac/prelude_json.go", include_str!("prelude_json.go")),
@@ -140,6 +141,7 @@ impl GoServices {
         let (path, parts, required, events) = service_files(input)?;
         let authored = read_service(input.source)?;
         self.needs.add((instance, input.class), &path, &authored)?;
+        self.add_delegates(input.snapshot_root, &parts)?;
         self.add_class(&path, input.class, events)?;
         for part in parts {
             self.add_part(part)?;
@@ -151,6 +153,16 @@ impl GoServices {
             class: Some(input.class.to_owned()),
         });
         Ok(())
+    }
+
+    fn add_delegates(&mut self, snapshot_root: &Path, parts: &[GoFile]) -> Result<(), Failure> {
+        parts
+            .iter()
+            .filter(|part| Path::new(&part.path).starts_with(Self::DELEGATE_FOLDER))
+            .try_for_each(|part| {
+                let source = read_service(&snapshot_root.join(&part.path))?;
+                self.needs.add_delegate(&part.path, &source)
+            })
     }
 
     fn add_class(&mut self, path: &str, class: &str, events: GoEvents) -> Result<(), Failure> {
@@ -887,15 +899,53 @@ type PageClient interface {
         );
         PageFixtures::write(root.path(), "client/services/WriterService.go", &writer);
         let failure = program_files(root.path(), &PageFixtures::services(root.path()))
-            .expect_err("a Go Tac Delegate has no Needs of its own");
+            .expect_err("a Go Tac Delegate's Needs field names only its base service");
         let diagnostic = &failure.diagnostics()[0];
-        assert_eq!(diagnostic.code.to_string(), "TY1308");
-        assert!(diagnostic.message.contains("no Needs"), "{failure}");
+        assert_eq!(diagnostic.code.to_string(), "TY1406");
+        assert!(
+            diagnostic
+                .message
+                .contains("Go Tac Delegate StepDelegate needs PageClient"),
+            "{failure}"
+        );
+        assert!(diagnostic.message.contains("names its base"), "{failure}");
         assert_eq!(diagnostic.spans[0].file, "client/delegates/StepDelegate.go");
         assert_eq!(
             diagnostic.spans[0].start,
-            u64::try_from(source.find("@Needs").expect("marker")).expect("offset")
+            u64::try_from(source.find("client *PageClient").expect("field")).expect("offset")
         );
+    }
+
+    #[test]
+    fn a_delegate_base_is_the_page_service_set_after_the_delegate_is_made() {
+        let root = tempfile::tempdir().expect("project");
+        let tax = "// @Service\ntype TaxService struct {\n\tBase int\n}\n\nfunc (tax *TaxService) Rate(region string) int {\n\treturn tax.Base\n}\n";
+        let delegate = "// @Delegate\ntype TaxDelegate struct {\n\t// @Needs\n\ttaxService *TaxService\n}\n\nfunc (delegate *TaxDelegate) Rate(region string) int {\n\treturn delegate.taxService.Rate(region) * 2\n}\n";
+        let quote = "// @Service\ntype QuoteService struct {\n\t// @Needs\n\ttaxDelegate *TaxDelegate\n\tTotal int\n}\n\nfunc (quote *QuoteService) Quote() int {\n\tquote.Total = quote.taxDelegate.Rate(\"north\")\n\treturn quote.Total\n}\n";
+        PageFixtures::write(root.path(), "client/delegates/TaxDelegate.go", delegate);
+        let mut services = Vec::new();
+        for (instance, class, source) in
+            [("tax", "TaxService", tax), ("quote", "QuoteService", quote)]
+        {
+            let relative = format!("client/services/{class}.go");
+            PageFixtures::write(root.path(), &relative, source);
+            services.push((
+                String::from(instance),
+                String::from(class),
+                root.path().join(relative),
+            ));
+        }
+        let files = program_files(root.path(), &services).expect("page source");
+        let (_, table) = PageFixtures::file(&files, "func TacCreateQuoteService()");
+        let made = table
+            .find("instance.tachyonInject()")
+            .expect("Delegate made");
+        let filled = table
+            .find("\tinstance.taxDelegate.taxService = tac.Need(\"tax\").(*TaxService)\n")
+            .expect("base filled");
+        assert!(made < filled, "{table}");
+        let (_, shared) = PageFixtures::file(&files, "tac.Shared(");
+        assert!(shared.contains("\ttac.Shared(\"tax\")\n"), "{shared}");
     }
 
     #[test]

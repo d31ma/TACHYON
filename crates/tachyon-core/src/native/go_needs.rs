@@ -5,14 +5,17 @@ use std::fmt::Write as _;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 
+type Need = (String, String, String, String, usize);
+
 #[derive(Default)]
 pub(super) struct GoNeeds {
     instances: Vec<(String, String)>,
     classes: BTreeSet<String>,
     providers: BTreeSet<String>,
-    fields: BTreeSet<(String, String, String, String, usize)>,
+    fields: BTreeSet<Need>,
     plans: BTreeMap<String, (Vec<String>, String)>,
     shared: BTreeSet<String>,
+    delegates: BTreeMap<String, Vec<Need>>,
 }
 
 impl GoNeeds {
@@ -37,11 +40,28 @@ impl GoNeeds {
         Ok(())
     }
 
+    pub(super) fn add_delegate(&mut self, path: &str, source: &str) -> Result<(), Failure> {
+        let class = Path::new(path)
+            .file_stem()
+            .and_then(|stem| stem.to_str())
+            .unwrap_or_default();
+        let code = crate::companion::go::masked_code(source, path)?;
+        let fields = Self::marked(&code, Self::body(&code, class));
+        self.delegates
+            .insert(class.to_owned(), Self::owned(class, path, &fields));
+        Ok(())
+    }
+
     pub(super) fn resolve(&mut self) -> Result<(), Failure> {
         let needs = self.service_needs();
         let chosen = self.chosen(&needs)?;
-        Self::refuse_circles(&needs)?;
+        let held = self.held_bases()?;
+        let bases: Vec<_> = held.iter().map(|(_, base)| base.clone()).collect();
+        let chosen_bases = self.chosen(&bases)?;
+        let holdings = self.holdings();
+        Self::refuse_circles(&[needs.as_slice(), holdings.as_slice(), bases.as_slice()].concat())?;
         self.record(&needs, &chosen);
+        self.record_bases(&held, &chosen_bases);
         Ok(())
     }
 
@@ -118,7 +138,7 @@ impl GoNeeds {
         kind.trim_start_matches('*')
     }
 
-    fn service_needs(&self) -> Vec<(String, String, String, String, usize)> {
+    fn service_needs(&self) -> Vec<Need> {
         self.fields
             .iter()
             .filter(|need| self.classes.contains(Self::target(&need.3)))
@@ -126,11 +146,48 @@ impl GoNeeds {
             .collect()
     }
 
-    fn owned(
-        class: &str,
-        path: &str,
-        fields: &[(String, String, usize)],
-    ) -> Vec<(String, String, String, String, usize)> {
+    fn holdings(&self) -> Vec<Need> {
+        self.fields
+            .iter()
+            .filter(|field| self.delegates.contains_key(Self::target(&field.3)))
+            .cloned()
+            .collect()
+    }
+
+    fn held_bases(&self) -> Result<Vec<(Need, Need)>, Failure> {
+        let held: Vec<(Need, Need)> = self
+            .holdings()
+            .into_iter()
+            .flat_map(|holding| self.bases_of(&holding))
+            .collect();
+        held.iter()
+            .try_for_each(|(_, base)| self.require_service(base))?;
+        Ok(held)
+    }
+
+    fn bases_of(&self, holding: &Need) -> Vec<(Need, Need)> {
+        self.delegates
+            .get(Self::target(&holding.3))
+            .into_iter()
+            .flatten()
+            .map(|base| (holding.clone(), base.clone()))
+            .collect()
+    }
+
+    fn require_service(&self, base: &Need) -> Result<(), Failure> {
+        let target = Self::target(&base.3);
+        self.classes.contains(target).then_some(()).ok_or_else(|| {
+            Self::refused(
+                base,
+                &format!(
+                    "Go Tac Delegate {} needs {target}, but the Needs field of a Go Tac Delegate names its base: one service that this page uses (ADR 0112). Give the Delegate other values through method parameters, or let the service that needs it set them.",
+                    base.0
+                ),
+            )
+        })
+    }
+
+    fn owned(class: &str, path: &str, fields: &[(String, String, usize)]) -> Vec<Need> {
         let mut found = Vec::new();
         for (field, kind, at) in fields {
             found.push((
@@ -144,49 +201,43 @@ impl GoNeeds {
         found
     }
 
-    fn chosen(
-        &self,
-        needs: &[(String, String, String, String, usize)],
-    ) -> Result<Vec<String>, Failure> {
+    fn chosen(&self, needs: &[Need]) -> Result<Vec<String>, Failure> {
         needs.iter().map(|need| self.choose(need)).collect()
     }
 
-    fn choose(&self, need: &(String, String, String, String, usize)) -> Result<String, Failure> {
+    fn choose(&self, need: &Need) -> Result<String, Failure> {
         Self::require_pointer(need)?;
         let instance = self.instance(need)?;
         self.require_provider(need)?;
         Ok(instance)
     }
 
-    fn require_pointer(need: &(String, String, String, String, usize)) -> Result<(), Failure> {
+    fn require_pointer(need: &Need) -> Result<(), Failure> {
         let (owner, _, field, kind, _) = need;
         need.3.starts_with('*').then_some(()).ok_or_else(|| {
             Self::refused(
                 need,
                 &format!(
-                    "Go service {owner} needs {kind} through a pointer: write `{field} *{kind}`. A value would be a copy, so {owner} and the page would not share one {kind}."
+                    "Go {owner} needs {kind} through a pointer: write `{field} *{kind}`. A value would be a copy, so {owner} and the page would not share one {kind}."
                 ),
             )
         })
     }
 
-    fn require_provider(
-        &self,
-        need: &(String, String, String, String, usize),
-    ) -> Result<(), Failure> {
+    fn require_provider(&self, need: &Need) -> Result<(), Failure> {
         let target = Self::target(&need.3);
         self.providers.contains(target).then_some(()).ok_or_else(|| {
             Self::refused(
                 need,
                 &format!(
-                    "Go service {} cannot need {target}: {target} has one instance for each component, because it is Lifetime prototype or NeedsAll, so a field cannot name one of them. Make {target} a singleton without properties, or pass the value to a method of {}.",
+                    "Go {} cannot need {target}: {target} has one instance for each component, because it is Lifetime prototype or NeedsAll, so a field cannot name one of them. Make {target} a singleton without properties, or pass the value to a method of {}.",
                     need.0, need.0
                 ),
             )
         })
     }
 
-    fn instance(&self, need: &(String, String, String, String, usize)) -> Result<String, Failure> {
+    fn instance(&self, need: &Need) -> Result<String, Failure> {
         let target = Self::target(&need.3);
         let candidates = self.candidates(target);
         let named = candidates
@@ -198,7 +249,7 @@ impl GoNeeds {
             Self::refused(
                 need,
                 &format!(
-                    "Go service {} cannot tell which {target} it needs: the page has {}. Name the field after one of them.",
+                    "Go {} cannot tell which {target} it needs: the page has {}. Name the field after one of them.",
                     need.0,
                     candidates.join(" and ")
                 ),
@@ -214,16 +265,14 @@ impl GoNeeds {
         found
     }
 
-    fn refuse_circles(needs: &[(String, String, String, String, usize)]) -> Result<(), Failure> {
+    fn refuse_circles(needs: &[Need]) -> Result<(), Failure> {
         let edges = Self::edges(needs);
         needs
             .iter()
             .try_for_each(|need| Self::require_open(&edges, need))
     }
 
-    fn edges(
-        needs: &[(String, String, String, String, usize)],
-    ) -> BTreeMap<String, BTreeSet<String>> {
+    fn edges(needs: &[Need]) -> BTreeMap<String, BTreeSet<String>> {
         let mut edges: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
         for need in needs {
             edges
@@ -236,7 +285,7 @@ impl GoNeeds {
 
     fn require_open(
         edges: &BTreeMap<String, BTreeSet<String>>,
-        need: &(String, String, String, String, usize),
+        need: &Need,
     ) -> Result<(), Failure> {
         let target = Self::target(&need.3);
         let reached = Self::reached(edges, target);
@@ -244,7 +293,7 @@ impl GoNeeds {
             Self::refused(
                 need,
                 &format!(
-                    "Go services {} and {target} need each other in a circle. Break the circle with an event: one service publishes it and the other listens with OnEvent.",
+                    "Go {} and {target} need each other in a circle. Break the circle with an event: one service publishes it and the other listens with OnEvent.",
                     need.0
                 ),
             )
@@ -270,13 +319,27 @@ impl GoNeeds {
         next
     }
 
-    fn record(&mut self, needs: &[(String, String, String, String, usize)], chosen: &[String]) {
+    fn record(&mut self, needs: &[Need], chosen: &[String]) {
         for (need, instance) in needs.iter().zip(chosen) {
             self.plan(need, instance);
         }
     }
 
-    fn plan(&mut self, need: &(String, String, String, String, usize), instance: &str) {
+    fn record_bases(&mut self, held: &[(Need, Need)], chosen: &[String]) {
+        for ((holding, base), instance) in held.iter().zip(chosen) {
+            let plan = self.plans.entry(holding.0.clone()).or_default();
+            let _ = writeln!(
+                plan.1,
+                "\tinstance.{}.{} = tac.Need({instance:?}).(*{})",
+                holding.2,
+                base.2,
+                Self::target(&base.3)
+            );
+            self.shared.insert(instance.clone());
+        }
+    }
+
+    fn plan(&mut self, need: &Need, instance: &str) {
         let plan = self.plans.entry(need.0.clone()).or_default();
         plan.0.push(need.2.clone());
         let _ = writeln!(
@@ -288,7 +351,7 @@ impl GoNeeds {
         self.shared.insert(instance.to_owned());
     }
 
-    fn refused(need: &(String, String, String, String, usize), message: &str) -> Failure {
+    fn refused(need: &Need, message: &str) -> Failure {
         let (_, path, field, _, at) = need;
         Failure::one(crate::failure::diagnostic(
             Self::CODE,
@@ -308,6 +371,8 @@ mod tests {
 
     impl Fixtures {
         const COUNTER: &str = "// @Service\ntype CounterService struct {\n\tCount int\n}\n";
+        const DELEGATE: &str =
+            "// @Delegate\ntype TaxDelegate struct {\n\t// @Needs\n\tcounter *CounterService\n}\n";
         const TALLY: &str = "// @Service\ntype TallyService struct {\n\t// @Needs\n\tcounter *CounterService\n\t// @Needs\n\tstore *TallyStore\n\tTotal int\n}\n";
 
         fn page(services: &[(&str, &str, &str)]) -> GoNeeds {
@@ -358,6 +423,55 @@ mod tests {
             text,
             "package page\n\nimport \"tachyonservices/tac\"\n\nfunc init() {\n\ttac.Shared(\"counter\")\n}\n"
         );
+    }
+
+    #[test]
+    fn a_delegate_base_is_filled_through_the_service_that_holds_it() {
+        let quote =
+            "// @Service\ntype QuoteService struct {\n\t// @Needs\n\ttaxDelegate *TaxDelegate\n}\n";
+        let mut needs = Fixtures::page(&[
+            ("counter", "CounterService", Fixtures::COUNTER),
+            ("quote", "QuoteService", quote),
+        ]);
+        needs
+            .add_delegate("client/delegates/TaxDelegate.go", Fixtures::DELEGATE)
+            .expect("delegate");
+        needs.resolve().expect("resolved");
+        assert_eq!(
+            needs.statements("QuoteService"),
+            "\tinstance.taxDelegate.counter = tac.Need(\"counter\").(*CounterService)\n"
+        );
+        assert!(needs.excluded("QuoteService").is_empty());
+        let (_, text) = needs
+            .shared_file("page", "tachyonservices")
+            .expect("shared file");
+        assert!(text.contains("\ttac.Shared(\"counter\")\n"), "{text}");
+    }
+
+    #[test]
+    fn a_delegate_base_that_is_not_a_page_service_or_holds_its_owner_is_refused() {
+        let quote =
+            "// @Service\ntype QuoteService struct {\n\t// @Needs\n\ttaxDelegate *TaxDelegate\n}\n";
+        let elsewhere = Fixtures::DELEGATE.replace("*CounterService", "*PageClient");
+        let mut needs = Fixtures::page(&[("quote", "QuoteService", quote)]);
+        needs
+            .add_delegate("client/delegates/TaxDelegate.go", &elsewhere)
+            .expect("delegate");
+        let failure = needs.resolve().expect_err("not a page service");
+        let message = &failure.diagnostics()[0].message;
+        assert!(message.contains("names its base"), "{message}");
+        assert_eq!(
+            failure.diagnostics()[0].spans[0].file,
+            "client/delegates/TaxDelegate.go"
+        );
+        let counter = "// @Service\ntype CounterService struct {\n\t// @Needs\n\ttaxDelegate *TaxDelegate\n\tCount int\n}\n";
+        let mut needs = Fixtures::page(&[("counter", "CounterService", counter)]);
+        needs
+            .add_delegate("client/delegates/TaxDelegate.go", Fixtures::DELEGATE)
+            .expect("delegate");
+        let failure = needs.resolve().expect_err("a circle");
+        let message = &failure.diagnostics()[0].message;
+        assert!(message.contains("in a circle"), "{message}");
     }
 
     #[test]

@@ -551,9 +551,7 @@ mod tests {
         let diagnostic = &failure.diagnostics()[0];
         assert_eq!(diagnostic.code.to_string(), "TY1308");
         assert!(
-            diagnostic
-                .message
-                .contains("no Needs, NeedsAll or Lifetime"),
+            diagnostic.message.contains("no NeedsAll or Lifetime"),
             "{failure}"
         );
         assert_eq!(diagnostic.spans[0].file, "client/delegates/StepDelegate.go");
