@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { homedir, tmpdir } from 'node:os'
 import path from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
@@ -485,46 +485,8 @@ class AndroidIcons {
 }
 
 class WindowsIcons {
-  static probe = String.raw`
-param([string]$Mode, [string]$Target)
-Add-Type -AssemblyName System.Drawing
-Add-Type -AssemblyName System.Windows.Forms
-Add-Type @"
-using System;
-using System.Runtime.InteropServices;
-public static class TachyonIconProbe {
-  [DllImport("user32.dll")] public static extern IntPtr SendMessageW(IntPtr window, int message, IntPtr wide, IntPtr low);
-  [DllImport("user32.dll", EntryPoint = "GetClassLongPtrW")] public static extern IntPtr GetClassLongPtr(IntPtr window, int index);
-}
-"@
-function Center([System.Drawing.Bitmap]$bitmap) {
-  $color = $bitmap.GetPixel([int]($bitmap.Width / 2), [int]($bitmap.Height / 2))
-  return @($color.R, $color.G, $color.B)
-}
-if ($Mode -eq 'file') {
-  $icon = [System.Drawing.Icon]::ExtractAssociatedIcon($Target)
-  ConvertTo-Json -Compress @{ file = (Center $icon.ToBitmap()) }
-  exit 0
-}
-$process = Get-Process -Id ([int]$Target)
-$window = $process.MainWindowHandle
-$handle = [TachyonIconProbe]::GetClassLongPtr($window, -14)
-$small = [TachyonIconProbe]::GetClassLongPtr($window, -34)
-if ($handle -eq [IntPtr]::Zero) { $handle = [TachyonIconProbe]::SendMessageW($window, 0x7F, [IntPtr]1, [IntPtr]::Zero) }
-if ($handle -eq [IntPtr]::Zero) { throw 'the window has no icon' }
-$bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
-$working = [System.Windows.Forms.Screen]::PrimaryScreen.WorkingArea
-$top = [Math]::Max($working.Bottom, $bounds.Bottom - 120)
-$shot = New-Object System.Drawing.Bitmap $bounds.Width, ($bounds.Bottom - $top)
-$graphics = [System.Drawing.Graphics]::FromImage($shot)
-$graphics.CopyFromScreen($bounds.Left, $top, 0, 0, $shot.Size)
-$taskbar = 0
-for ($y = 0; $y -lt $shot.Height; $y++) { for ($x = 0; $x -lt $shot.Width; $x++) {
-  $pixel = $shot.GetPixel($x, $y)
-  if ([Math]::Abs($pixel.R - 0) -le 40 -and [Math]::Abs($pixel.G - 200) -le 40 -and [Math]::Abs($pixel.B - 120) -le 40) { $taskbar++ }
-} }
-ConvertTo-Json -Compress @{ window = (Center ([System.Drawing.Icon]::FromHandle($handle)).ToBitmap()); small = ($small -ne [IntPtr]::Zero); taskbar = $taskbar }
-`
+  /** @type {string | undefined} */
+  static probe
 
   static build() {
     return IconGate.bundle('windows', IconGate.release ? ['--release'] : [])
@@ -537,23 +499,26 @@ ConvertTo-Json -Compress @{ window = (Center ([System.Drawing.Icon]::FromHandle(
     return exe
   }
 
-  /** @param {string} mode @param {string} target */
-  static async run(mode, target) {
-    const script = path.join(IconGate.root, 'windows-icon-probe.ps1')
-    writeFileSync(script, this.probe)
-    const output = await IconGate.run('powershell.exe', ['-NoProfile', '-NonInteractive', '-File', script, mode, target], { timeoutMilliseconds: 300000 })
+  /** @param {string[]} args */
+  static async run(args) {
+    if (!this.probe) {
+      this.probe = path.join(IconGate.root, 'WindowsIconCheck.exe')
+      const source = path.join(IconGate.repository, 'scripts/native/WindowsIconCheck.c')
+      await IconGate.run('cl.exe', ['/nologo', '/W4', '/WX', '/O1', `/Fe${this.probe}`, `/Fo${path.join(IconGate.root, 'WindowsIconCheck.obj')}`, source, 'user32.lib', 'gdi32.lib', 'shell32.lib'])
+    }
+    const output = await IconGate.run(this.probe, args, { timeoutMilliseconds: 300000 })
     return JSON.parse(output.trim().split(/\r?\n/).at(-1))
   }
 
   /** @param {IconBuild} built */
   static async artifact(built) {
     const exe = this.executable(built)
-    const lines = [IconGate.expectColor(`the icon Explorer shows for ${path.basename(exe)}`, (await this.run('file', exe)).file, IconFixture.small.color)]
+    const lines = [IconGate.expectColor(`the icon Explorer shows for ${path.basename(exe)}`, (await this.run(['file', exe])).file, IconFixture.small.color)]
     const [msix] = IconGate.find(IconGate.output(built, 'windows'), (file) => file.endsWith('.msix'))
     if (!msix) return [...lines, 'no MSIX package (pass --release with TAC_WINDOWS_CERTIFICATE to check its tiles)']
     const unpacked = path.join(built.project, 'msix')
-    copyFileSync(msix, `${unpacked}.zip`)
-    await IconGate.run('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', `Expand-Archive -LiteralPath '${unpacked}.zip' -DestinationPath '${unpacked}' -Force`])
+    mkdirSync(unpacked, { recursive: true })
+    await IconGate.run('tar.exe', ['-xf', msix, '-C', unpacked])
     for (const tile of ['Square44x44Logo.png', 'Square150x150Logo.png', 'StoreLogo.png']) {
       lines.push(IconGate.expectFile(`MSIX ${tile}`, path.join(unpacked, 'Assets', tile), IconFixture.small))
     }
@@ -568,7 +533,7 @@ ConvertTo-Json -Compress @{ window = (Center ([System.Drawing.Icon]::FromHandle(
     try {
       await IconGate.waitForEvents(log, ['controller.created', 'icon.loaded', 'tray.icon.loaded'])
       await sleep(3000)
-      const report = await this.run('window', String(app.pid))
+      const report = await this.run(['window', String(app.pid), ...IconFixture.small.color.map(String)])
       assert.ok(report.small, 'the window class has no small icon')
       assert.ok(report.taskbar >= 40, `the taskbar shows ${report.taskbar} pixels in the app icon's color`)
       return [
