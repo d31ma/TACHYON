@@ -2012,16 +2012,17 @@ of `rust-ci.yml` install .NET SDK 10.0.302 and select JDK 21. This evidence does
 - macOS (the Mac): fmt, clippy, `tests/it` (768 of 768) and
   `repository_policy` (25 of 25) passed.
 
-Open finding: on Windows (Ruby 4.0.6, `aarch64-mingw`) a warm Ruby
-handler's second relay never starts. While it was due, `ruby.exe` was the
-only process, with no Python child, and the supervisor timed out (`TY2110`)
-in every run (3 of 3 alone, and 3 more tries in the full `tests/it`). RT1 traced it to the `Process.spawn` hang
-that WG1 fixed with `IO.select` (the runner's frame reader leaving a read
-pending on standard input), which a warm handler's second relay still hits;
-this test did not cause it. On Windows the Ruby case skips the warm-up, so its timed
-relay stays the handler's first request, as before RT1. A fix in
-`ruby_runner.rb` needs its own experiments on Windows. (Fixed in WR1, "Warm
-Ruby relays on Windows" below; the skip is gone.)
+Open finding: on Windows (Ruby 4.0.6, `aarch64-mingw-ucrt`) a warm Ruby handler's
+second relay never starts. While it was due, `ruby.exe` was the only
+process, with no Python child, and the supervisor timed out (`TY2110`) in
+every run (3 of 3 alone, and 3 more tries in the full `tests/it`). RT1
+traced it to the `Process.spawn` hang that WG1 fixed with `IO.select` (the
+runner's frame reader leaving a read pending on standard input), which a
+warm handler's second relay still hits; this test did not cause it. On
+Windows the Ruby case skips the warm-up, so its timed relay stays the
+handler's first request, as before RT1. A fix in `ruby_runner.rb` needs its
+own experiments on Windows. (Fixed in WR1, "Warm Ruby relays on Windows"
+below; the skip is gone.)
 
 ### Warm Ruby relays on Windows (2026-10-28, WR1)
 
@@ -2033,7 +2034,7 @@ the old ones back. Ruby's Windows `IO.select` keeps the operating system
 handles it saw when the call started, so the warm runner's frame reader,
 waiting in `IO.select` on standard input, went on polling a handle that was
 no longer standard input and never read the next request. With Ruby 4.0.6
-(`aarch64-mingw`) the probe's second line was never read when the reader used
+(`aarch64-mingw-ucrt`) the probe's second line was never read when the reader used
 standard input, and was read when it used a private copy; Ruby 4.0.9 on the
 Mac read both. The runner (`ruby_runner.rb`, `YonRunnerFrames`) now reads
 its frames from a private copy of standard input (`STDIN.dup`) and points
@@ -2055,12 +2056,11 @@ past the deadline. The test now uses a 3 s grace and a 4 s deadline.
   (about 1.6 s each), and two full `tests/it` runs passed 746 each with 1
   skipped and no retries. With develop's old runner the new test fails at
   its second relay (`TY2110`). No handler process was left.
-- macOS (the Mac): fmt, clippy, `tests/it` (769 of 769) and
+- macOS (the Mac): fmt, clippy, `tests/it` (769 passed, 1 skipped) and
   `repository_policy` (25 of 25) passed, and fmt, clippy and
   `repository_policy` passed again on the tree merged onto `dadbc877`.
 
-This makes the Windows `relay` cell run-proven, so no platform cell run is
-owed. Open, not fixed: the supervisor's warm exchange computes the
+This closes the open finding above. Open, not fixed: the supervisor's warm exchange computes the
 handler's deadline before it starts a warm process, so on a first warm
 request the handler's deadline can fall after the supervisor's.
 

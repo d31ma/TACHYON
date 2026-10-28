@@ -256,4 +256,4 @@ byte-identical rebuilds
   honored: SOURCE_DATE_EPOCH and a path map reach cc and rustc, and SOURCE_DATE_EPOCH reaches dpkg-deb and mksquashfs; two packaged builds give the same artifact-manifest.json digests
 
 running without a signed-in desktop session
-  honored: the app runs under Xvfb with the X11 backend, and in a headless mutter Wayland session with input through Mutter RemoteDesktop (LX2); with TAC_LINUX_DISPLAY=desktop the same gates use a signed-in desktop session instead (LD1)
+  honored: the app runs under Xvfb with the X11 backend, and in a headless mutter Wayland session with input through Mutter RemoteDesktop (LX2); with TAC_LINUX_DISPLAY=desktop (compositor-test.sh --desktop) the same gates use a signed-in desktop session instead (LD1)

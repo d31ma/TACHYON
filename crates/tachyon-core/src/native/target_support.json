@@ -855,7 +855,7 @@
     "web": {"reach": "honored", "how": "pages run in a headless browser"},
     "macos": {"reach": "notApplicable", "note": "The macOS app needs a signed-in graphical session: its window and web view do not start without one, so its gates run on a signed-in Mac."},
     "windows": {"reach": "notApplicable", "note": "The Windows app needs a signed-in desktop session: WebView2 does not start without one (0x80070578), and an MSIX package does not install over SSH (0x80070005). scripts/windows/desktop-run.ps1 runs a command from SSH in the desktop session of the same signed-in user, through a one-time interactive scheduled task."},
-    "linux": {"reach": "honored", "how": "the app runs under Xvfb with the X11 backend, and in a headless mutter Wayland session with input through Mutter RemoteDesktop (LX2); with TAC_LINUX_DISPLAY=desktop the same gates use a signed-in desktop session instead (LD1)"},
+    "linux": {"reach": "honored", "how": "the app runs under Xvfb with the X11 backend, and in a headless mutter Wayland session with input through Mutter RemoteDesktop (LX2); with TAC_LINUX_DISPLAY=desktop (compositor-test.sh --desktop) the same gates use a signed-in desktop session instead (LD1)"},
     "ios": {"reach": "honored", "how": "the app runs in the iOS simulator without a screen"},
     "android": {"reach": "honored", "how": "the app runs in a headless Android emulator"}
   }

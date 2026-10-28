@@ -190,7 +190,7 @@ three tries, and then times the relay that the default deadline must stop
 `start_up_time_counts_against_the_relay_deadline`. The test passed 10 of 10
 runs in a row on WSL and 3 of 3 on Windows ARM64.
 
-The run found an open Windows problem: with Ruby 4.0.6 (`aarch64-mingw`) a
+The run found an open Windows problem: with Ruby 4.0.6 (`aarch64-mingw-ucrt`) a
 warm Ruby handler's second relay never starts, and the supervisor times out
 (`TY2110`). It matches the `Process.spawn` hang that WG1 fixed in the Ruby
 runner, which a warm handler's second relay still hits. Until a fix in
