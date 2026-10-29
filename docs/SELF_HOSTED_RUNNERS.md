@@ -194,7 +194,7 @@ run" lists what the machine must already have.
 | Rust | `1.97.1` with `clippy`, `rustfmt`, `llvm-tools-preview`, target `wasm32-unknown-unknown` | `rustup` | `rustup` for the runner account; install the toolchain (step 7) |
 | Rust nightly | `nightly-2026-07-20` with `rust-src` | `rustup` (fuzz, sanitizers) | install it in WSL (step 7) |
 | Cargo tools | cargo-deny 0.19.7, cargo-fuzz 0.13.1, cargo-cyclonedx 0.5.7, cargo-auditable 0.7.0, cargo-llvm-cov 0.8.6 | `cargo install --locked` | a C compiler and linker |
-| cargo-nextest | `0.9.146` | checksum-pinned release binary from `scripts/ci/install-toolchains.mjs` (`native`, `coverage`) | `curl`, and `tar` or `unzip` |
+| cargo-nextest | `0.9.146` | checksum-pinned release binary from `scripts/ci/install-toolchains.mjs` (`native`, `coverage`), with builds for Linux and Windows on x64 or arm64 and for macOS | `curl`, and `tar` or `unzip` |
 | Node.js | `24.18.0` | `actions/setup-node` in some jobs | Node.js 24.18.0 on `PATH`, because the `browser`, `macos-native`, and `android-native` jobs call `node` without a setup step |
 | Bun | `1.4.3` | `oven-sh/setup-bun` | nothing |
 | Python | `3.14.6` | `actions/setup-python` in `native` | `python3` on macOS and WSL; `python` on Windows (used by `windows-native`) |
@@ -208,7 +208,7 @@ run" lists what the machine must already have.
 | Kotlin, Kotlin/Wasm stdlib | `2.1.10` | checksum-pinned download (`macos-native`), `scripts/ci/install-toolchains.mjs` with `kotlin kotlin-wasm`, which sets `TAC_KOTLIN_WASM_STDLIB` (`native`, `coverage`, `sanitizers`, `browser-languages`) | `curl`, `unzip`, `shasum` |
 | Groovy | `5.1.3` | `scripts/ci/install-toolchains.mjs` (`native`, `coverage`, `sanitizers`) | `curl`, `unzip` |
 | Pyodide | `314.0.7` core files, copied into the Tachyon cache | `scripts/ci/install-toolchains.mjs` (`native`, `coverage`, `sanitizers`) | `curl`, `tar` with bzip2 |
-| Dart | `3.13.1` | checksum-pinned download, or `scripts/ci/install-toolchains.mjs` (`native`, `coverage`, `browser-languages`) | `curl`, `unzip` |
+| Dart | `3.13.1` | checksum-pinned download, or `scripts/ci/install-toolchains.mjs` (`native`, `coverage`, `browser-languages`), with builds for Linux and Windows on x64 or arm64 and for macOS arm64 | `curl`, `unzip` |
 | Swift | `6.3.3` and the Swift SDK for WebAssembly | signed package installed into the runner account's home (macOS); checksum-pinned Ubuntu 24.04 archive unpacked into the job's temporary folder (`browser-languages`) | on Linux, the Swift system packages that the Ubuntu runner image has (`libcurl4`, `libxml2`, `libstdc++-13-dev`, `zlib1g-dev`) |
 | TeaVM | `0.15.0` | checksum-pinned jars (`browser`, `macos-native`), `scripts/ci/install-toolchains.mjs` sets `TAC_TEAVM_HOME` (`native`, `coverage`, `sanitizers`, `browser-languages`) | `curl` |
 | PHP | `8.4` | `shivammathur/setup-php` (`macos-native`, `native`, `coverage`, `sanitizers`) | Homebrew that the runner account can use; `runner=self-hosted` in `.env` |

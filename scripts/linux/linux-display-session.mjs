@@ -185,10 +185,21 @@ echo "$(mutter --version | head -n 1) is the Wayland compositor on $WAYLAND_DISP
     process.stdout.write(`${unset}${Object.entries(env).map(([key, value]) => `export ${key}=${this.shellQuoted(value)}`).join('\n')}\n`)
   }
 
+  /**
+   * The desktop's logind session: its XDG_SESSION_ID, or else the user's graphical session, because the processes of a GNOME session that systemd starts carry no XDG_SESSION_ID.
+   * @param {Record<string, string>} env
+   */
+  static logindSession(env) {
+    if (env.XDG_SESSION_ID) return env.XDG_SESSION_ID
+    const shown = spawnSync('loginctl', ['show-user', String(this.desktopUser()), '-p', 'Display', '--value'], { encoding: 'utf8' })
+    return shown.stdout?.trim() ?? ''
+  }
+
   static describe() {
     const { env } = this.liveDesktop()
-    const loginctl = spawnSync('loginctl', ['show-session', env.XDG_SESSION_ID ?? '', '-p', 'Type', '-p', 'Desktop', '-p', 'Remote', '-p', 'State', '-p', 'Name'], { encoding: 'utf8' })
-    console.log(JSON.stringify({ ...env, loginctl: loginctl.stdout.trim().split('\n').filter(Boolean) }, null, 2))
+    const session = this.logindSession(env)
+    const loginctl = session ? spawnSync('loginctl', ['show-session', session, '-p', 'Id', '-p', 'Type', '-p', 'Desktop', '-p', 'Remote', '-p', 'State', '-p', 'Name'], { encoding: 'utf8' }) : { stdout: '' }
+    console.log(JSON.stringify({ ...env, loginctl: (loginctl.stdout ?? '').trim().split('\n').filter(Boolean) }, null, 2))
   }
 
   /** @param {string} file */
