@@ -115,6 +115,7 @@ int main(void) {
   (void)&tachyon_tray_remove;
   (void)&tachyon_tray_message;
   (void)&tachyon_tray_hides_window;
+  (void)&tachyon_tray_icon_event;
   printf("windows menu actions passed\n");
   return 0;
 }
