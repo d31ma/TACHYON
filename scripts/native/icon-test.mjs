@@ -719,6 +719,7 @@ class LinuxIcons {
   static async screen(built) {
     const folder = this.folder(built)
     const state = path.join(built.project, 'state')
+    const property = path.join(built.project, 'net-wm-icon.txt')
     const script = `set -euo pipefail
 "$APP" &
 host=$!
@@ -731,12 +732,13 @@ sleep 2
 cat "$LOG"
 window=$(xwininfo -root -tree | grep -F "$CLASS" | awk '{print $1; exit}')
 [ -n "$window" ] || window=none
-echo "ICON $(xprop -id "$window" -notype -f _NET_WM_ICON 32c _NET_WM_ICON)"`
+xprop -id "$window" -notype -f _NET_WM_ICON 32c _NET_WM_ICON > "$ICON_PROPERTY" || true`
     const env = {
       ...process.env,
       APP: path.join(folder, 'bin', IconFixture.executable),
       LOG: path.join(state, 'tachyon', `${IconFixture.id}.jsonl`),
       CLASS: `("${IconFixture.executable}" `,
+      ICON_PROPERTY: property,
       XDG_STATE_HOME: state,
       XDG_DATA_HOME: path.join(built.project, 'data'),
       XDG_CACHE_HOME: path.join(built.project, 'cache'),
@@ -749,9 +751,10 @@ echo "ICON $(xprop -id "$window" -notype -f _NET_WM_ICON 32c _NET_WM_ICON)"`
     const events = output.split('\n').filter((line) => line.startsWith('{')).map((line) => JSON.parse(line).event)
     assert.ok(events.includes('icon.loaded'), `the host recorded ${events.join(', ')}, not icon.loaded`)
     assert.ok(events.includes('tray.icon.loaded'), `the host recorded ${events.join(', ')}, not tray.icon.loaded`)
-    const numbers = (output.match(/^ICON .*?=\s*(.*)$/m)?.[1] ?? '').split(',').map((value) => Number(value.trim())).filter(Number.isFinite)
+    const written = existsSync(property) ? readFileSync(property, 'utf8') : ''
+    const numbers = (written.match(/^_NET_WM_ICON.*?=\s*(.*)$/m)?.[1] ?? '').split(',').map((value) => Number(value.trim())).filter(Number.isFinite)
     const [width, height] = numbers
-    assert.ok(width > 0 && height > 0 && numbers.length >= 2 + width * height, `the window has no _NET_WM_ICON:\n${output.slice(-2000)}`)
+    assert.ok(width > 0 && height > 0 && numbers.length >= 2 + width * height, `the window has no _NET_WM_ICON (${numbers.length} numbers):\n${written.slice(0, 200)}\n${output.slice(-2000)}`)
     const argb = numbers[2 + Math.floor(height / 2) * width + Math.floor(width / 2)]
     const center = [(argb >>> 16) & 0xff, (argb >>> 8) & 0xff, argb & 0xff]
     return [
