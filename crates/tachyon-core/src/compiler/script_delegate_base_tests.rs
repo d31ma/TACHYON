@@ -14,7 +14,7 @@ impl ScriptDelegateBase {
     const JAVASCRIPT: [(&'static str, &'static str); 3] = [
         (
             "client/services/QuoteService.js",
-            "@Service\nexport default class QuoteService {\n  /** @type {TaxDelegate} */\n  @Needs\n  taxDelegate;\n\n  rate() {\n    return this.taxDelegate.rate('north');\n  }\n\n  total() {\n    return this.taxDelegate.total(3);\n  }\n\n  extra() {\n    return this.taxDelegate.total(3, 4);\n  }\n}\n",
+            "@Service\nexport default class QuoteService {\n  /** @type {TaxDelegate} */\n  @Needs\n  taxDelegate;\n\n  rate() {\n    return this.taxDelegate.rate('north');\n  }\n\n  total() {\n    return this.taxDelegate.total(3);\n  }\n\n  extra() {\n    return this.taxDelegate.total(2, 14);\n  }\n}\n",
         ),
         (
             "client/services/TaxService.js",
@@ -29,7 +29,7 @@ impl ScriptDelegateBase {
     const TYPESCRIPT: [(&'static str, &'static str); 3] = [
         (
             "client/services/QuoteService.ts",
-            "@Service\nexport default class QuoteService {\n  @Needs\n  taxDelegate!: TaxDelegate;\n\n  rate(): number {\n    return this.taxDelegate.rate('north');\n  }\n\n  total(): number {\n    return this.taxDelegate.total(3);\n  }\n\n  extra(): number {\n    return this.taxDelegate.total(3, 4);\n  }\n}\n",
+            "@Service\nexport default class QuoteService {\n  @Needs\n  taxDelegate!: TaxDelegate;\n\n  rate(): number {\n    return this.taxDelegate.rate('north');\n  }\n\n  total(): number {\n    return this.taxDelegate.total(3);\n  }\n\n  extra(): number {\n    return this.taxDelegate.total(2, 14);\n  }\n}\n",
         ),
         (
             "client/services/TaxService.ts",
