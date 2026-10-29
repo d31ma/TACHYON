@@ -1,6 +1,8 @@
 #define UNICODE
 #define WIN32_LEAN_AND_MEAN
 #define COBJMACROS
+#define WINVER 0x0A00
+#define _WIN32_WINNT 0x0A00
 #include <windows.h>
 #include <dwmapi.h>
 #include <objbase.h>
@@ -11,9 +13,8 @@
 #include <WebView2.h>
 #define TACHYON_APP_NAME "Title Bar Check"
 static ICoreWebView2 *g_webview = NULL;
-static int g_records;
 static const char *tachyon_current_route(void) { return NULL; }
-static void tachyon_record(const char *event) { (void)event; g_records++; }
+static void tachyon_record(const char *event) { (void)event; }
 __WINDOW_FRAME__
 __WINDOW_TITLE_BAR__
 static int failures;
