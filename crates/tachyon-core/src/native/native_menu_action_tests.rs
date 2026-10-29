@@ -390,8 +390,9 @@ async fn native_menu_actions_reach_live_page_listeners_once_and_refuse_without_a
 
 #[cfg(unix)]
 #[tokio::test]
-#[ignore = "Requires the x86_64-w64-mingw32-gcc cross compiler, the x86_64-pc-windows-gnu Rust standard library, Wine and xvfb-run; runs the Win32 menu code with a real Rust companion DLL, not WebView2 or MSVC"]
+#[ignore = "Requires the MinGW cross compiler and Rust Windows standard library for its architecture (x86_64-w64-mingw32-gcc and x86_64-pc-windows-gnu, or llvm-mingw's aarch64-w64-mingw32-gcc and aarch64-pc-windows-gnullvm on arm64 Linux), Wine and xvfb-run; runs the Win32 menu code with a real Rust companion DLL, not WebView2 or MSVC"]
 async fn windows_menu_actions_enable_with_a_live_listener_and_tell_the_page_under_wine() {
+    use super::windows_host_tests::WindowsHostTests;
     let root = tempfile::tempdir().expect("project");
     let source = MenuActionFixture::stage(root.path());
     let bin = root.path().join("bin");
@@ -399,8 +400,8 @@ async fn windows_menu_actions_enable_with_a_live_listener_and_tell_the_page_unde
     let mut rustc = tokio::process::Command::new("rustc");
     rustc
         .args(["--edition", "2024", "--crate-type", "cdylib"])
-        .args(["--target", "x86_64-pc-windows-gnu"])
-        .args(["-C", "linker=x86_64-w64-mingw32-gcc"])
+        .args(["--target", WindowsHostTests::RUST_TARGET_FOR_WINE])
+        .arg(format!("-Clinker={}", WindowsHostTests::MINGW_FOR_WINE))
         .arg(&source)
         .arg("-o")
         .arg(bin.join("TachyonRustCompanion.dll"));
@@ -413,7 +414,8 @@ async fn windows_menu_actions_enable_with_a_live_listener_and_tell_the_page_unde
         "{}",
         String::from_utf8_lossy(&compiled.stderr)
     );
-    let harness = super::windows_host_tests::WindowsHostTests::harness_with(
+    WindowsHostTests::stage_wine_runtime(&bin);
+    let harness = WindowsHostTests::harness_with(
         &MenuActionFixture::menus(),
         "#define TACHYON_TRAY 0\n",
         include_str!("windows_menu_action_fixture.c"),
@@ -422,7 +424,7 @@ async fn windows_menu_actions_enable_with_a_live_listener_and_tell_the_page_unde
     std::fs::write(&harness_source, harness).expect("harness");
     let executable = bin.join("menus.exe");
     super::host::run_tool(
-        super::windows_host_tests::WindowsHostTests::MINGW,
+        WindowsHostTests::MINGW_FOR_WINE,
         &[
             "-std=gnu17",
             "-O2",
@@ -439,7 +441,7 @@ async fn windows_menu_actions_enable_with_a_live_listener_and_tell_the_page_unde
     .expect("Win32 menu code compiles and links");
     let prefix = root.path().join("wine");
     let mut wine = tokio::process::Command::new("xvfb-run");
-    wine.args(["-a", "wine64"])
+    wine.args(["-a", WindowsHostTests::wine().expect("Wine")])
         .arg(&executable)
         .current_dir(&bin)
         .env("LANG", "C.UTF-8")

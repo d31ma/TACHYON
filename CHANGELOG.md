@@ -2422,6 +2422,13 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- The `fylo_datasource` CLI tests (Go and Python) failed with `TY2110` on
+  Windows ARM64 (FY1, 2026-10-29). The pinned FYLO v26.33.02 starts
+  `powershell.exe` on every write on Windows (about 0.8 s each), so the
+  tests' 123 writes need about 97 s; x64 emulation is not the cause. The
+  tests now seed 12 documents (3 scroll pages of up to 5) and allow 240 s
+  on Windows. FYLO writes on Windows stay slow until the FYLO pin moves past
+  FYLO commit `d75e4ba`.
 - The failures of the first CI run on develop since 2026-10-25 (CI2,
   2026-10-28, run 40705121906): `server/dispatch.rs` pins the middleware
   tail (`Box::pin`), so clippy's `large_futures` passes on Windows; the
@@ -3520,6 +3527,15 @@ machine contracts have their own, independent major versions.
   page, and an F# `[<Needs>]` base property starts with the page's instance.
   A prototype base, a circle, or a Go Delegate `Needs` field or F# Delegate
   `[<Needs>]` property that names no page service fails with `TY1406`.
+  `TY1333` now counts a call through a Delegate's forward as a use of the
+  base (ADR 0071): `this.taxDelegate.total(3)` keeps `TaxService.total`
+  public, and the visibility check stays on beside a Delegate base. Tac
+  tests compile and call an override in
+  Dart, Python, C++ and native Rust and an overload in JavaScript,
+  TypeScript, Python, Java, C++ and F#. A Tac C++ Delegate no longer gets a
+  page binding, so its overloads build (the page calls only services), and
+  the Tac Python build no longer reads a Delegate's generated
+  `*args, **kwargs` dispatcher as a page method.
 - Yon keeps handler processes warm by default (ADR 0111, 2026-10-27).
   `YON_ISOLATION` now takes `warm` (the default), `process` or
   `firecracker`. Before, every request started its own handler process and

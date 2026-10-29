@@ -111,14 +111,14 @@ fn the_windows_host_with_background_color_compiles_against_the_win32_and_webview
 
 #[cfg(unix)]
 #[test]
-#[ignore = "Requires the x86_64-w64-mingw32-gcc cross compiler, wine64 and an X display or xvfb-run; paints background_color in a Win32 window under Wine, without DWM or WebView2"]
+#[ignore = "Requires the MinGW cross compiler for its architecture (x86_64-w64-mingw32-gcc, or aarch64-w64-mingw32-gcc from llvm-mingw on arm64 Linux), Wine and an X display or xvfb-run; paints background_color in a Win32 window under Wine, without DWM or WebView2"]
 fn the_windows_window_background_paints_a_win32_window_under_wine() {
     let root = tempfile::tempdir().expect("fixture");
     let source = root.path().join("background.c");
     let program = root.path().join("background.exe");
     std::fs::write(&source, WindowsWindowBackgroundTests::fixture()).expect("source");
     WindowsTitleBarTests::success(
-        Command::new(WindowsTitleBarTests::MINGW)
+        Command::new(super::windows_host_tests::WindowsHostTests::MINGW_FOR_WINE)
             .args(WindowsTitleBarTests::WARNINGS)
             .args(WindowsWindowBackgroundTests::EXPECTED)
             .arg(&source)
@@ -127,7 +127,7 @@ fn the_windows_window_background_paints_a_win32_window_under_wine() {
     );
     let stdout = WindowsTitleBarTests::success(
         WindowsTitleBarTests::display()
-            .arg("wine64")
+            .arg(super::windows_host_tests::WindowsHostTests::wine().expect("Wine"))
             .arg(&program)
             .env("WINEPREFIX", root.path().join("prefix"))
             .env("WINEDEBUG", "-all"),

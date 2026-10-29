@@ -15,7 +15,6 @@ struct WindowsPackageTests;
 
 impl WindowsPackageTests {
     const PUBLISHER: &str = "CN=Tachyon Test";
-    const MINGW: &str = "x86_64-w64-mingw32-gcc";
 
     fn application(root: &Path) -> NativeApplication {
         let mut application = NativeApplication::discover(root).expect("application");
@@ -419,8 +418,9 @@ fn the_windows_host_gives_webview2_the_package_folder_only_when_packaged() {
     assert!(!host.contains("__PACKAGE_DATA__"));
 }
 
+#[cfg(unix)]
 #[test]
-#[ignore = "Requires the x86_64-w64-mingw32-gcc cross compiler and wine; runs the package folder helper unpackaged, not inside an MSIX package"]
+#[ignore = "Requires the MinGW cross compiler for its architecture (x86_64-w64-mingw32-gcc, or aarch64-w64-mingw32-gcc from llvm-mingw on arm64 Linux) and wine; runs the package folder helper unpackaged, not inside an MSIX package"]
 fn the_package_folder_helper_runs_unpackaged_under_wine() {
     let root = tempfile::tempdir().expect("root");
     let source = root.path().join("package.c");
@@ -432,7 +432,7 @@ fn the_package_folder_helper_runs_unpackaged_under_wine() {
     );
     std::fs::write(&source, harness).expect("source");
     WindowsPackageTests::run(
-        std::process::Command::new(WindowsPackageTests::MINGW)
+        std::process::Command::new(super::windows_host_tests::WindowsHostTests::MINGW_FOR_WINE)
             .args(["-std=gnu17", "-Wall", "-Wextra", "-Werror", "-DUNICODE"])
             .arg(&source)
             .arg("-o")

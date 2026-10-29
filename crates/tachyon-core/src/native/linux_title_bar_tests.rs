@@ -11,7 +11,7 @@ impl LinuxTitleBarTests {
         WindowConfiguration {
             controls: vec![String::from("title")],
             title_bar: NativeTitleBar::Integrated,
-            ..WindowConfiguration::default()
+            ..super::linux_host_tests::LinuxHostTests::window()
         }
     }
 

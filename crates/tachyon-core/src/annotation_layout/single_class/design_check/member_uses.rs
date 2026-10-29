@@ -11,14 +11,19 @@ pub(super) struct MemberUses {
 impl MemberUses {
     const IGNORED_MARKS: [char; 3] = ['_', '$', '#'];
 
-    pub(super) fn read(class: &ClassFile, reaches: &[SourceReach]) -> Self {
+    pub(super) fn read(class: &ClassFile, reaches: &[SourceReach], delegates: &[&str]) -> Self {
         let forms = Self::forms(class.name);
+        let counted_forms: Vec<String> = delegates
+            .iter()
+            .flat_map(|delegate| Self::forms(delegate))
+            .chain(forms.iter().cloned())
+            .collect();
         let beside: Vec<&SourceReach> = reaches
             .iter()
             .filter(|reach| reach.beside(class.path, class.realm))
             .collect();
         Self {
-            names: Self::used_names(&beside, &forms, class, reaches),
+            names: Self::used_names(&beside, &counted_forms, class, reaches),
             handed_over: beside
                 .iter()
                 .any(|reach| reach.hands_over(&forms, class.path)),

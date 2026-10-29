@@ -2313,6 +2313,51 @@ class CounterService {
     }
 
     #[tokio::test]
+    async fn a_dart_delegate_overrides_one_base_method_and_forwards_the_other() {
+        if !dart_and_node_available() {
+            eprintln!("skipping: dart or node is unavailable");
+            return;
+        }
+        let root = tempfile::tempdir().expect("project");
+        let tax = "client/services/TaxService.dart";
+        let quote = "client/services/QuoteService.dart";
+        let files = [
+            (
+                tax,
+                "@Service()\nclass TaxService {\n  int asked = 0;\n\n  int rate(String region) {\n    asked += 1;\n    return 2;\n  }\n\n  int total(int count) => count * 10;\n}\n",
+            ),
+            (
+                "client/delegates/TaxDelegate.dart",
+                "@Delegate()\nclass TaxDelegate {\n  @Needs()\n  final TaxService taxService;\n\n  int rate(String region) => taxService.rate(region) * 2;\n}\n",
+            ),
+            (
+                quote,
+                "@Service()\nclass QuoteService {\n  @Needs()\n  final TaxDelegate taxDelegate;\n\n  int rate() => taxDelegate.rate('north');\n\n  int total() => taxDelegate.total(3);\n}\n",
+            ),
+        ];
+        for (relative, text) in crate::delegate_forwards::DelegateForwards::staged_project(&files) {
+            write_file(root.path(), relative, &text);
+        }
+        let services = [("TaxService", tax), ("QuoteService", quote)];
+        publish(root.path(), &services, &["tax", "quote"]).await;
+        let report = node(
+            root.path(),
+            "import TaxService from './TaxService.js'\n\
+             import QuoteService from './QuoteService.js'\n\
+             const tax = new TaxService({}), quote = new QuoteService({})\n\
+             quote.tax = tax\n\
+             const quoted = { rate: quote.rate(), total: quote.total() }\n\
+             console.log(JSON.stringify({ quoted, asked: tax.asked }))\n",
+        );
+        assert_eq!(
+            report["quoted"],
+            serde_json::json!({"rate": 4, "total": 30}),
+            "{report}"
+        );
+        assert_eq!(report["asked"], 1, "{report}");
+    }
+
+    #[tokio::test]
     async fn a_dart_service_receives_other_services() {
         if !dart_and_node_available() {
             eprintln!("skipping: dart or node is unavailable");

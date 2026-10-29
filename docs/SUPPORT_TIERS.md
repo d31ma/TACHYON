@@ -2204,6 +2204,15 @@ the x64 FYLO under emulation, and the Redis contract against Garnet 2.2.4.
 This is an ARM64 run over SSH; WebView2 runs are recorded with the desktop
 gates above.
 
+FYLO writes are slow on Windows with the pinned FYLO v26.33.02: each write
+starts `powershell.exe` and takes about 0.8 s (FY1, 2026-10-29). The two
+`fylo_datasource` CLI tests failed with `TY2110` on the Surface for this
+reason, not because of x64 emulation, which costs about 1.6 times on macOS
+under Rosetta. The tests now seed 12 documents instead of 120 and give
+Windows a 240 s deadline. Known limit: FYLO writes on Windows stay slow
+until the pin moves to a FYLO release with FYLO `d75e4ba`; see
+[MANAGED_STORAGE.md](MANAGED_STORAGE.md) for the measurements.
+
 ### Support table narrowed to its runs (2026-10-25, JS1)
 
 The platform survey of develop `4243f2b6` compared 26 cells of

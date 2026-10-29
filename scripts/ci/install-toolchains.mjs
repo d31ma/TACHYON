@@ -29,6 +29,11 @@ class LanguageToolchains {
         sha256: '9251c4606ebb31480c45f430be69fce2697e3b888a0a828b9e16e7d23403d72a',
         bin: 'dart-sdk/bin',
       },
+      'linux-arm64': {
+        url: 'https://storage.googleapis.com/dart-archive/channels/stable/release/3.13.1/sdk/dartsdk-linux-arm64-release.zip',
+        sha256: '5141d5ac62dabfcf0d3dd8fbf5c4d143d0092ef42fad0f25f6cf6587e5cfc3bf',
+        bin: 'dart-sdk/bin',
+      },
       'darwin-arm64': {
         url: 'https://storage.googleapis.com/dart-archive/channels/stable/release/3.13.1/sdk/dartsdk-macos-arm64-release.zip',
         sha256: '367984941d8d14c653789f6f787312e715e5c546f6e9f5d30d86615c692907a9',
@@ -39,11 +44,21 @@ class LanguageToolchains {
         sha256: 'f3fd0fa8f3bc7982bbf08eb1bca84148fb4ee0767e75faa07ec9c11c40ab2ff7',
         bin: 'dart-sdk/bin',
       },
+      'win32-arm64': {
+        url: 'https://storage.googleapis.com/dart-archive/channels/stable/release/3.13.1/sdk/dartsdk-windows-arm64-release.zip',
+        sha256: '7fafce047ce6c1f31eac3c256099c603ec31ed229aa06860cb232a3de8cf3897',
+        bin: 'dart-sdk/bin',
+      },
     },
     nextest: {
       'linux-x64': {
         url: 'https://github.com/nextest-rs/nextest/releases/download/cargo-nextest-0.9.146/cargo-nextest-0.9.146-x86_64-unknown-linux-gnu.tar.gz',
         sha256: '682c21b777c333e96fd532e114d3a5a894e0729ab88d94c0a9f20f8419695428',
+        bin: '.',
+      },
+      'linux-arm64': {
+        url: 'https://github.com/nextest-rs/nextest/releases/download/cargo-nextest-0.9.146/cargo-nextest-0.9.146-aarch64-unknown-linux-gnu.tar.gz',
+        sha256: 'b2e33d7c72de7ade0ff7b3a948ac37516b24f8a836b7a8870c1f634a94be9de9',
         bin: '.',
       },
       'darwin-arm64': {
@@ -54,6 +69,11 @@ class LanguageToolchains {
       'win32-x64': {
         url: 'https://github.com/nextest-rs/nextest/releases/download/cargo-nextest-0.9.146/cargo-nextest-0.9.146-x86_64-pc-windows-msvc.zip',
         sha256: '0fa689815c8157e4633225b6b173184b3d546eb6ffb754c3d0e6ea5973284a20',
+        bin: '.',
+      },
+      'win32-arm64': {
+        url: 'https://github.com/nextest-rs/nextest/releases/download/cargo-nextest-0.9.146/cargo-nextest-0.9.146-aarch64-pc-windows-msvc.zip',
+        sha256: '8a071bd8190b287863c8aaa0b20fc56485f9190f0fc02206f48a0b0af4416de4',
         bin: '.',
       },
     },

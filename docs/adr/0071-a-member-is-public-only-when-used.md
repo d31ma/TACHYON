@@ -49,6 +49,10 @@ A member stays public when one of these uses it:
    because the page bridge needs public members. The files must have the
    same path without their extensions. This exception does not apply to
    server services, other role folders, same-language self-use or tests.
+   A call through a Delegate that takes on the class (ADR 0112) counts as
+   a use of the base: `this.taxDelegate.total(3)` keeps `TaxService.total`
+   public, because the build forwards it to the base. The Delegate must
+   take on the class: same realm and language, one `Needs` service field.
 3. **Tachyon.** The member has an annotation (`@OnEvent`, `@GetRoute`,
    `@OnStart`, `@Cached`, and every other marker, also an old one that
    `ty migrate fix` renames); one of its parameters has an annotation, such as

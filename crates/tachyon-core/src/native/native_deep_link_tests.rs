@@ -393,7 +393,7 @@ fn hosts_without_links_claim_no_scheme() {
 
 #[cfg(unix)]
 #[tokio::test]
-#[ignore = "Requires the x86_64-w64-mingw32-gcc cross compiler and Wine; runs the Windows scheme registration and link forwarding against the Win32 API, not WebView2 or MSVC"]
+#[ignore = "Requires the MinGW cross compiler for its architecture (x86_64-w64-mingw32-gcc, or aarch64-w64-mingw32-gcc from llvm-mingw on arm64 Linux) and Wine; runs the Windows scheme registration and link forwarding against the Win32 API, not WebView2 or MSVC"]
 async fn a_second_windows_instance_forwards_its_link_to_the_first() {
     let root = tempfile::tempdir().expect("fixture");
     let source = root.path().join("links.c");
@@ -463,7 +463,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE previous, PWSTR arguments, int
     std::fs::write(&source, harness).expect("harness");
     let executable = root.path().join("links.exe");
     super::host::run_tool(
-        "x86_64-w64-mingw32-gcc",
+        super::windows_host_tests::WindowsHostTests::MINGW_FOR_WINE,
         &[
             "-std=gnu17",
             "-O2",

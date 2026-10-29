@@ -3,22 +3,18 @@ use super::script_named_needs_tests::ScriptNamedNeeds;
 struct ScriptDelegateBase;
 
 impl ScriptDelegateBase {
-    const PAGE: [(&'static str, &'static str); 3] = [
+    const PAGE: [(&'static str, &'static str); 2] = [
         ("client/pages/tac.html", "<quote-panel />"),
         (
-            "client/manifest.json",
-            "{\"tac\":{\"visibility\":{\"check\":false}}}",
-        ),
-        (
             "client/components/quote/panel/tac.html",
-            "<p>{quote.quote()} {tax.asked}</p>",
+            "<p>{quote.rate()} {quote.total()} {quote.extra()} {tax.asked}</p>",
         ),
     ];
 
     const JAVASCRIPT: [(&'static str, &'static str); 3] = [
         (
             "client/services/QuoteService.js",
-            "@Service\nexport default class QuoteService {\n  /** @type {TaxDelegate} */\n  @Needs\n  taxDelegate;\n\n  quote() {\n    return this.taxDelegate.rate('north') + this.taxDelegate.total(3);\n  }\n}\n",
+            "@Service\nexport default class QuoteService {\n  /** @type {TaxDelegate} */\n  @Needs\n  taxDelegate;\n\n  rate() {\n    return this.taxDelegate.rate('north');\n  }\n\n  total() {\n    return this.taxDelegate.total(3);\n  }\n\n  extra() {\n    return this.taxDelegate.total(2, 14);\n  }\n}\n",
         ),
         (
             "client/services/TaxService.js",
@@ -26,14 +22,14 @@ impl ScriptDelegateBase {
         ),
         (
             "client/delegates/TaxDelegate.js",
-            "@Delegate\nexport default class TaxDelegate {\n  /** @type {TaxService} */\n  @Needs\n  tax;\n\n  rate(region) {\n    return this.tax.rate(region) * 2;\n  }\n}\n",
+            "@Delegate\nexport default class TaxDelegate {\n  /** @type {TaxService} */\n  @Needs\n  tax;\n\n  rate(region) {\n    return this.tax.rate(region) * 2;\n  }\n\n  total(count, extra) {\n    return count * 10 + extra;\n  }\n}\n",
         ),
     ];
 
     const TYPESCRIPT: [(&'static str, &'static str); 3] = [
         (
             "client/services/QuoteService.ts",
-            "@Service\nexport default class QuoteService {\n  @Needs\n  taxDelegate!: TaxDelegate;\n\n  quote(): number {\n    return this.taxDelegate.rate('north') + this.taxDelegate.total(3);\n  }\n}\n",
+            "@Service\nexport default class QuoteService {\n  @Needs\n  taxDelegate!: TaxDelegate;\n\n  rate(): number {\n    return this.taxDelegate.rate('north');\n  }\n\n  total(): number {\n    return this.taxDelegate.total(3);\n  }\n\n  extra(): number {\n    return this.taxDelegate.total(2, 14);\n  }\n}\n",
         ),
         (
             "client/services/TaxService.ts",
@@ -41,7 +37,7 @@ impl ScriptDelegateBase {
         ),
         (
             "client/delegates/TaxDelegate.ts",
-            "@Delegate\nexport default class TaxDelegate {\n  @Needs\n  tax!: TaxService;\n\n  rate(region: string): number {\n    return this.tax.rate(region) * 2;\n  }\n}\n",
+            "@Delegate\nexport default class TaxDelegate {\n  @Needs\n  tax!: TaxService;\n\n  rate(region: string): number {\n    return this.tax.rate(region) * 2;\n  }\n\n  total(count: number, extra: number): number {\n    return count * 10 + extra;\n  }\n}\n",
         ),
     ];
 
@@ -59,7 +55,7 @@ impl ScriptDelegateBase {
          \x20   filled.push(member.constructor.name)\n\
          \x20 }\n\
          }\n\
-         const quoted = quote.quote()\n\
+         const quoted = { rate: quote.rate(), total: quote.total(), extra: quote.extra() }\n\
          console.log(JSON.stringify({ quoted, asked: tax.asked, filled }))\n";
 
     async fn report(base: &[(&'static str, &'static str)]) -> serde_json::Value {
@@ -68,7 +64,11 @@ impl ScriptDelegateBase {
     }
 
     fn assert_shared(report: &serde_json::Value) {
-        assert_eq!(report["quoted"], 34, "{report}");
+        assert_eq!(
+            report["quoted"],
+            serde_json::json!({"rate": 4, "total": 30, "extra": 34}),
+            "{report}"
+        );
         assert_eq!(report["asked"], 1, "{report}");
         assert_eq!(
             report["filled"],
@@ -79,7 +79,7 @@ impl ScriptDelegateBase {
 }
 
 #[tokio::test]
-async fn a_javascript_delegate_waits_for_the_service_that_the_page_shares() {
+async fn a_javascript_delegate_overrides_and_overloads_the_service_that_the_page_shares() {
     if !crate::node_driver::NodeDriver::available() {
         eprintln!("skipping: node is unavailable");
         return;
@@ -89,7 +89,7 @@ async fn a_javascript_delegate_waits_for_the_service_that_the_page_shares() {
 }
 
 #[tokio::test]
-async fn a_typescript_delegate_waits_for_the_service_that_the_page_shares() {
+async fn a_typescript_delegate_overrides_and_overloads_the_service_that_the_page_shares() {
     if !crate::node_driver::NodeDriver::available() {
         eprintln!("skipping: node is unavailable");
         return;

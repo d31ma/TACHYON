@@ -84,6 +84,26 @@ impl<'a> DelegateForwards<'a> {
             .map(Option::flatten)
     }
 
+    #[cfg(test)]
+    pub(crate) fn staged_project(files: &[(&'a str, &'a str)]) -> Vec<(&'a str, String)> {
+        let forwards = Self::new(
+            files
+                .iter()
+                .map(|&(path, text)| (Path::new(path), text.as_bytes())),
+        );
+        files
+            .iter()
+            .map(|&(path, text)| (path, forwards.staged_text(path, text)))
+            .collect()
+    }
+
+    #[cfg(test)]
+    fn staged_text(&self, path: &str, text: &str) -> String {
+        self.staged(Path::new(path), text.as_bytes())
+            .unwrap_or_else(|failure| panic!("{path} stages: {failure}"))
+            .unwrap_or_else(|| text.to_owned())
+    }
+
     pub(crate) fn taken_on(&self, path: &Path, source: &str) -> Option<TakenOn<'a>> {
         let services = self.services_beside(path);
         let in_delegates = Self::in_folder(path, Self::DELEGATE_FOLDER);

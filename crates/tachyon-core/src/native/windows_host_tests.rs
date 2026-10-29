@@ -8,10 +8,14 @@ pub(super) struct WindowsHostTests;
 impl WindowsHostTests {
     #[cfg(unix)]
     pub(super) const MINGW: &str = "x86_64-w64-mingw32-gcc";
-    #[cfg(all(unix, target_arch = "aarch64"))]
+    #[cfg(target_arch = "aarch64")]
     pub(super) const MINGW_FOR_WINE: &str = "aarch64-w64-mingw32-gcc";
-    #[cfg(all(unix, not(target_arch = "aarch64")))]
-    pub(super) const MINGW_FOR_WINE: &str = Self::MINGW;
+    #[cfg(not(target_arch = "aarch64"))]
+    pub(super) const MINGW_FOR_WINE: &str = "x86_64-w64-mingw32-gcc";
+    #[cfg(target_arch = "aarch64")]
+    pub(super) const RUST_TARGET_FOR_WINE: &str = "aarch64-pc-windows-gnullvm";
+    #[cfg(not(target_arch = "aarch64"))]
+    pub(super) const RUST_TARGET_FOR_WINE: &str = "x86_64-pc-windows-gnu";
     #[cfg(unix)]
     const HARNESS_HEAD: &str = r"#define UNICODE
 #define WIN32_LEAN_AND_MEAN
@@ -113,6 +117,37 @@ int main(void) {
         );
         let tray = include_str!("windows_tray.c").replace("__NATIVE_TRAY_SETTINGS__", tray);
         format!("{}\n{block}\n{tray}\n{main}", Self::HARNESS_HEAD)
+    }
+
+    /// The Wine loader on PATH: `wine` (Wine 10 and later, built for `aarch64`
+    /// or `x86_64`, and Ubuntu's wrapper), else Ubuntu's `wine64`.
+    pub(super) fn wine() -> Option<&'static str> {
+        ["wine", "wine64"].into_iter().find(|loader| {
+            std::process::Command::new(loader)
+                .arg("--version")
+                .output()
+                .is_ok_and(|output| output.status.success())
+        })
+    }
+
+    /// Copies llvm-mingw's `libunwind.dll`, which `aarch64-pc-windows-gnullvm`
+    /// Rust binaries may load, next to them; `x86_64-pc-windows-gnu` needs none.
+    pub(super) fn stage_wine_runtime(folder: &std::path::Path) {
+        if !cfg!(target_arch = "aarch64") {
+            return;
+        }
+        let Some(path) = std::env::var_os("PATH") else {
+            return;
+        };
+        let library = std::env::split_paths(&path)
+            .map(|bin| bin.join(Self::MINGW_FOR_WINE))
+            .find(|compiler| compiler.is_file())
+            .and_then(|compiler| Some(compiler.parent()?.parent()?.to_path_buf()))
+            .map(|root| root.join("aarch64-w64-mingw32/bin/libunwind.dll"))
+            .filter(|library| library.is_file());
+        if let Some(library) = library {
+            std::fs::copy(library, folder.join("libunwind.dll")).expect("libunwind.dll");
+        }
     }
 }
 

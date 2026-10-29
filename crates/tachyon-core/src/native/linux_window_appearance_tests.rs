@@ -21,12 +21,13 @@ impl AppearanceService {
 }
 ";
 
+    // 800x560, so that GNOME Shell on a 1024x768 screen does not maximize the new window: it maximizes one that covers more than 80 % of the work area.
     fn themed_window() -> WindowConfiguration {
         WindowConfiguration {
-            width: 900,
-            height: 640,
-            min_width: Some(720),
-            min_height: Some(520),
+            width: 800,
+            height: 560,
+            min_width: Some(640),
+            min_height: Some(440),
             controls: vec![String::from("resize")],
             theme_color: Some(NativeThemeColor {
                 red: 0x1a,
@@ -110,8 +111,8 @@ fn the_appearance_fixture_checks_each_declared_member_of_both_windows() {
     let source = super::linux_window_appearance::LinuxWindowAppearance::source(
         &LinuxWindowAppearanceTests::themed_window(),
     );
-    assert!(source.contains("gtk_window_set_default_size(window, 900, 640);"));
-    assert!(source.contains("gtk_widget_set_size_request(content, 720, 520);"));
+    assert!(source.contains("gtk_window_set_default_size(window, 800, 560);"));
+    assert!(source.contains("gtk_widget_set_size_request(content, 640, 440);"));
     assert!(source.contains("background: #1a237e; color: #ffffff;"));
     assert!(source.contains("gdk_rgba_parse(&background, \"#fdf6e3\");"));
     assert!(!source.contains("gtk_window_fullscreen"));
