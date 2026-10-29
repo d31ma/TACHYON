@@ -3510,8 +3510,9 @@ machine contracts have their own, independent major versions.
   changes no behavior: a Delegate without a service acts as a Helper did.
   The ADR 0069 layer rules that named helpers now apply to Delegates, and
   the marker matrix's 29 Helper cells are Delegate cells with the same
-  tests; step 4c adds its `Delegate override` and `Delegate overload` rows
-  (58 cells) in both realms. A Delegate that needs one service of its
+  tests; the matrix survey of develop `48c2c09d` (step 4c) adds its
+  `Delegate override` and `Delegate overload` rows (58 cells) in both
+  realms. A Delegate that needs one service of its
   realm and language takes
   on that service's public methods in every language: the build writes a
   forward for each method the Delegate does not write itself (JavaScript,
