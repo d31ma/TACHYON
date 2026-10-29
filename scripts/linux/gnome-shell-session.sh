@@ -40,6 +40,24 @@ shell_is_on_the_bus() {
   gdbus call --session -d org.freedesktop.DBus -o /org/freedesktop/DBus -m org.freedesktop.DBus.NameHasOwner org.gnome.Shell 2>/dev/null | grep -q true
 }
 
+overview_is_open() {
+  gdbus call --session -d org.gnome.Shell -o /org/gnome/Shell -m org.freedesktop.DBus.Properties.Get org.gnome.Shell OverviewActive 2>/dev/null | grep -q true
+}
+
+leave_the_overview() {
+  local closed=0
+  for _ in $(seq 40); do
+    gdbus call --session -d org.gnome.Shell -o /org/gnome/Shell -m org.freedesktop.DBus.Properties.Set org.gnome.Shell OverviewActive '<false>' >/dev/null 2>&1 || true
+    sleep 0.25
+    if overview_is_open; then closed=0; else closed=$((closed + 1)); fi
+    if [[ $closed == 4 ]]; then
+      echo '==> GNOME Shell left the overview it opens at startup, so new windows take the focus'
+      return
+    fi
+  done
+  echo '==> GNOME Shell stayed in its overview; new windows may not take the focus' >&2
+}
+
 start_the_shell() {
   local mode
   mode=$(shell_mode)
@@ -57,6 +75,7 @@ start_the_shell() {
     sleep 0.5
   done
   shell_is_on_the_bus || { echo 'GNOME Shell did not take org.gnome.Shell on its session bus within 60 s' >&2; cat "$STATE/gnome-shell.log" >&2; exit 1; }
+  leave_the_overview
   echo "==> $(gnome-shell --version) runs headless on the Wayland display $WAYLAND_DISPLAY (mode $mode, process $SHELL_PID)"
   echo "enabled GNOME Shell extensions: $(gnome-extensions list --enabled 2>/dev/null | tr '\n' ' ' || true)"
 }

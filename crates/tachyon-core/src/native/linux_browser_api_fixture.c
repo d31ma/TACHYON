@@ -115,6 +115,10 @@ static gboolean tachyon_browser_tick(gpointer data) {
     gtk_window_maximize(g_native_window);
     return G_SOURCE_CONTINUE;
   }
+  if (tachyon_wayland_input_wanted() && !gtk_window_is_active(g_native_window)) {
+    tachyon_browser_wayland_click();
+    return G_SOURCE_CONTINUE;
+  }
   g_browser_waiting = TRUE;
   g_notification_send = tachyon_browser_notified;
   WebKitGeolocationManager *geolocation = webkit_web_context_get_geolocation_manager(webkit_web_view_get_context(g_view));
