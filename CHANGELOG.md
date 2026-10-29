@@ -16,8 +16,10 @@ machine contracts have their own, independent major versions.
   built app, its packages and, with `--screen`, the Dock, menu bar, taskbar,
   window, simulator home screen and Android app drawer show the manifest's
   icon. `--targets=` picks macos, ios, android, windows or linux; `--release`
-  adds the .deb, AppImage and MSIX icons. The `linux-native` CI job runs it
-  for Linux. Each desktop host records `icon.loaded` or `icon.missing`, and
+  adds the .deb, AppImage and MSIX icons. The `linux-native` CI job is set
+  to run it for Linux; it has not run in GitHub CI yet, and CI3 ran it
+  locally in a linux/arm64 container (2026-10-29). Each desktop host
+  records `icon.loaded` or `icon.missing`, and
   each tray host `tray.icon.loaded` or `tray.icon.missing`.
   On Windows, `--release` with no `TAC_WINDOWS_CERTIFICATE` makes a
   throwaway code-signing certificate with `certreq.exe`, signs the MSIX with
@@ -2429,6 +2431,18 @@ machine contracts have their own, independent major versions.
   tests now seed 12 documents (3 scroll pages of up to 5) and allow 240 s
   on Windows. FYLO writes on Windows stay slow until the FYLO pin moves past
   FYLO commit `d75e4ba`.
+- Tests and CI scripts that failed when every CI job ran locally (CI3,
+  2026-10-29, no GitHub Actions run): the website tests expect the C++, Lua
+  and Python examples the guides now publish; the `CacheKey` fixture names
+  its repeated values (`TY1330`); the standalone Rust check expects the
+  scaffold's icons; the Linux icon gate reads `_NET_WM_ICON` from a file,
+  keeps the accessibility bus out, stops the app's processes leaf first and
+  runs under `docker run --init`; the Android window settings gate ends in
+  portrait; the snippet check sends the sign-in header to the C++ identity
+  examples; the native events harness matches the Rust and Kotlin fixtures;
+  and the iOS window settings gate retakes its screenshot while a system
+  banner covers the status bar and waits up to 10 s for the simulator
+  pasteboard (`docs/SUPPORT_TIERS.md`, "Every CI job run locally").
 - The failures of the first CI run on develop since 2026-10-25 (CI2,
   2026-10-28, run 40705121906): `server/dispatch.rs` pins the middleware
   tail (`Box::pin`), so clippy's `large_futures` passes on Windows; the
@@ -3496,7 +3510,9 @@ machine contracts have their own, independent major versions.
   changes no behavior: a Delegate without a service acts as a Helper did.
   The ADR 0069 layer rules that named helpers now apply to Delegates, and
   the marker matrix's 29 Helper cells are Delegate cells with the same
-  tests. A Delegate that needs one service of its realm and language takes
+  tests; step 4c adds its `Delegate override` and `Delegate overload` rows
+  (58 cells) in both realms. A Delegate that needs one service of its
+  realm and language takes
   on that service's public methods in every language: the build writes a
   forward for each method the Delegate does not write itself (JavaScript,
   TypeScript, Python, PHP, Ruby and Lua pass every argument on; the typed

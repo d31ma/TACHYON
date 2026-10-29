@@ -5,9 +5,11 @@
   by argument count in the others; step 4a adds the Yon proofs and the
   website section; step 4b1 refuses a Tac base where browser services cannot
   share, step 4b2 gives JavaScript, TypeScript, Go, Java and Dart Tac
-  Delegates the page's shared service, and step 4b3 gives it to F#; after
-  4b, `TY1333` counts a call through a Delegate's forward and Tac tests call
-  each override and overload)
+  Delegates the page's shared service, and step 4b3 gives it to F#; step 4c,
+  the marker matrix survey of `develop` at `48c2c09d`, adds the
+  `Delegate override` and `Delegate overload` rows; after 4b, `TY1333`
+  counts a call through a Delegate's forward and Tac tests call each
+  override and overload)
 - Date: 2026-10-28
 - Amends: [ADR 0047](0047-annotation-names-are-plain-english.md)
   (the 2026-09-28 amendment, Component is now Helper),
