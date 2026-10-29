@@ -2277,7 +2277,7 @@ Passed:
   ignored browser gates (19 of 19) and the coverage ratchet (lines 93.67%,
   functions 92.56%, regions 93.05%; 10 of 4846 tests failed or timed out
   under instrumentation; 8 passed alone under it, and all 10 passed with
-Go's build cache on the internal disk).
+  Go's build cache on the internal disk).
 - In WSL: the rewrite and supply-chain policies, the Native Rust gate
   (apart from load flakes that passed alone), the Linux GTK 4 gate's
   `native-test.sh` and application-state steps in Docker, the soak,
