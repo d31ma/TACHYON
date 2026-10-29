@@ -16,15 +16,29 @@ machine contracts have their own, independent major versions.
   built app, its packages and, with `--screen`, the Dock, menu bar, taskbar,
   window, simulator home screen and Android app drawer show the manifest's
   icon. `--targets=` picks macos, ios, android, windows or linux; `--release`
-  adds the .deb, AppImage and MSIX icons. The `linux-native` CI job runs it
-  for Linux. Each desktop host records `icon.loaded` or `icon.missing`, and
+  adds the .deb, AppImage and MSIX icons. The `linux-native` CI job is set
+  to run it for Linux; it has not run in GitHub CI yet, and CI3 ran it
+  locally in a linux/arm64 container (2026-10-29). Each desktop host
+  records `icon.loaded` or `icon.missing`, and
   each tray host `tray.icon.loaded` or `tray.icon.missing`.
   On Windows, `--release` with no `TAC_WINDOWS_CERTIFICATE` makes a
   throwaway code-signing certificate with `certreq.exe`, signs the MSIX with
   it and removes it after the build (IC2, 2026-10-29); with `--screen` the
   gate also installs the package, reads the icon the shell shows for it and
   removes the package. The Wine tray test builds for ARM64 Windows on arm64
-  Linux (`aarch64-w64-mingw32-gcc`), so it runs under an arm64 Wine.
+  Linux (`aarch64-w64-mingw32-gcc`), so it runs under an arm64 Wine; since
+  WN1 (2026-10-29) all twelve Wine tests do.
+- `scripts/linux/wine.Dockerfile` and `scripts/linux/wine-tests.sh` run the
+  `#[ignore]` Wine tests on arm64 Linux (WN1, 2026-10-29). The image builds
+  Wine 11.0 for aarch64 with llvm-mingw 20261020, and the tests build ARM64
+  Windows programs with `WindowsHostTests::MINGW_FOR_WINE` (and Rust for
+  `aarch64-pc-windows-gnullvm`); `--with-compile-checks` adds the eight
+  x86_64 MinGW compile checks. All 20 passed in a linux/arm64 container
+  (`docs/SUPPORT_TIERS.md`, "The Wine tests on arm64").
+- `scripts/ci/install-toolchains.mjs` installs Dart 3.13.1 and
+  cargo-nextest 0.9.146 on `linux-arm64` and `win32-arm64` too (CI4,
+  2026-10-29), and `linux-display-session.mjs describe` reads the logind
+  session of a GNOME session that systemd starts.
 - `scripts/linux/gnome-shell-session.sh` runs a Linux gate inside a headless
   GNOME Shell Wayland session (LD2, 2026-10-28), for example
   `scripts/linux/gnome-shell-session.sh scripts/linux/compositor-test.sh
@@ -2429,6 +2443,25 @@ machine contracts have their own, independent major versions.
   tests now seed 12 documents (3 scroll pages of up to 5) and allow 240 s
   on Windows. FYLO writes on Windows stay slow until the FYLO pin moves past
   FYLO commit `d75e4ba`.
+- The Linux host tests pass on a 1024x768 GNOME Shell screen (CI4,
+  2026-10-29): their windows are 800x560 (640x480 for window controls and
+  grants), so GNOME Shell does not maximize them; `gnome-shell-session.sh`
+  closes the startup overview; the browser API fixture sets the clipboard
+  only once its window is active; and the X11 title bar and file dialog
+  fixtures build with GTK 4.18. The Wine test C fixtures build with
+  llvm-mingw's clang under `-Werror` (WN1).
+- Tests and CI scripts that failed when every CI job ran locally (CI3,
+  2026-10-29, no GitHub Actions run): the website tests expect the C++, Lua
+  and Python examples the guides now publish; the `CacheKey` fixture names
+  its repeated values (`TY1330`); the standalone Rust check expects the
+  scaffold's icons; the Linux icon gate reads `_NET_WM_ICON` from a file,
+  keeps the accessibility bus out, stops the app's processes leaf first and
+  runs under `docker run --init`; the Android window settings gate ends in
+  portrait; the snippet check sends the sign-in header to the C++ identity
+  examples; the native events harness matches the Rust and Kotlin fixtures;
+  and the iOS window settings gate retakes its screenshot while a system
+  banner covers the status bar and waits up to 10 s for the simulator
+  pasteboard (`docs/SUPPORT_TIERS.md`, "Every CI job run locally").
 - The failures of the first CI run on develop since 2026-10-25 (CI2,
   2026-10-28, run 40705121906): `server/dispatch.rs` pins the middleware
   tail (`Box::pin`), so clippy's `large_futures` passes on Windows; the
@@ -3496,7 +3529,10 @@ machine contracts have their own, independent major versions.
   changes no behavior: a Delegate without a service acts as a Helper did.
   The ADR 0069 layer rules that named helpers now apply to Delegates, and
   the marker matrix's 29 Helper cells are Delegate cells with the same
-  tests. A Delegate that needs one service of its realm and language takes
+  tests; the matrix survey of develop `48c2c09d` (step 4c) adds its
+  `Delegate override` and `Delegate overload` rows (58 cells) in both
+  realms. A Delegate that needs one service of its
+  realm and language takes
   on that service's public methods in every language: the build writes a
   forward for each method the Delegate does not write itself (JavaScript,
   TypeScript, Python, PHP, Ruby and Lua pass every argument on; the typed

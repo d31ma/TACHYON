@@ -32,8 +32,8 @@ only after the same gate passes on its download. No target is `preview` or
 | macOS WKWebView | native-tested (candidate) | full arm64 application gate passed: controls, accessibility, typing, lifecycle and visual parity at 420x752 | exact release artifact and current-head CI |
 | iOS WKWebView | simulator-tested | isolated iPhone SE (3rd generation), iOS 26.5. Passed: Swift calls, publish, input/focus, assets and route state `7 -> 9 -> 7`. On 2026-10-19 the same gate also linked a Rust service (`aarch64-apple-ios-sim` static library, beside the two Swift services): its start hook wrote a file from the app's own process and its rendered count doubled after a page click (MR1) | exact release artifact; support on physical devices is still not claimed |
 | Android WebView | simulator-tested (emulator) | Android 15 emulator. Passed: Kotlin calls, publish, input/focus per character with a delayed setter, service-worker retirement, packaged dynamic routes, window controls (granted minimize, resize and title act; ungranted maximize, fullscreen and close are refused, 2026-10-18), and a `@LocalState` field set by a Kotlin method kept across navigation and reload. Browser APIs (clipboard, share, notifications through the host; geolocation through the web view with the host's location question, 2026-10-19): `scripts/android/browser-apis-test.mjs` passed end to end on 2026-10-24 (RM3), with geolocation fed by `fused`, `network` and `gps` test providers. RM3 also ran granted maximize, fullscreen and close, background and foreground, external links, offline Yon reads, preference strings after a relaunch and a Python service, and the Yon reach, linked Rust and release checks on a Google Play production image ("Android runs owed, RM3" below) | exact release artifact; support on physical devices is still not claimed |
-| Linux WebKitGTK | native-tested (candidate), from a live desktop session on WSL aarch64 (LD1), not a physical machine: AT-SPI read the page roles and names and activated page controls there, as the Phase 5 rule in `PROJECT_PLAN.md` requires | Rust native service compiles. The shared route/security probe passes. On 2026-10-18 `scripts/linux/native-test.sh` ran the GTK 4 / WebKitGTK host under Xvfb with an AT-SPI (Linux accessibility bus) session, in a cloud Linux VM (Ubuntu 24.04, GTK 4.14.5) and in the pinned Debian trixie image (GTK 4.18.6). Passed: the window name, the menu bar and its item names, page roles and names (landmark, heading, button, link), AT-SPI activation of Rust calls and route changes, and the lifecycle log. RL1 (2026-10-19) added headless Wayland (mutter), a compositing window manager and WSL (aarch64) runs. On 2026-10-28 (LD1) the six Linux gates ran in a signed-in desktop session, two of them passing after test-script fixes (one only for its picker steps): Ubuntu GNOME on X11 through xrdp, in WSL Ubuntu 24.04 (aarch64) on the Surface, under GNOME's own window manager, notification server, tray host (the AppIndicator extension) and desktop portal. `scripts/linux/native-test.sh` with its AT-SPI probe, the release packages and Yon reach, the host tests of `compositor-test.sh --desktop`, `desktop-services-test.sh`, `desktop-links-test.sh`, `page-services-native-test.mjs` and `deb-install-test.sh` as root with a start by desktop file id (see Linux in a live desktop session below). LD2 (2026-10-28) ran the whole page-services gate there with no wrapper, and ran the compositor and desktop-services gates in a headless GNOME Shell 46 Wayland session (see Linux page services and GNOME Shell on Wayland below) | exact release artifact; Linux native GUI CI on the current head; a physical Linux desktop (x86_64), because WSL is an ARM64 VM; a Wayland desktop session that a person opens (LD2's GNOME Shell Wayland session is headless) |
-| Windows WebView2 | native-tested (candidate), from signed-in arm64 desktop runs: UI Automation exposed semantic roles of page controls (SD1), as the Phase 5 rule in `PROJECT_PLAN.md` requires | generated C compiles with the official software development kit (SDK). Real C# protocol/OS execution. On 2026-10-19, on the signed-in desktop of a Windows 11 ARM64 Surface, `scripts/windows/native-test.ps1 -Msix` built a release MSIX package, installed it and launched it (PKG4). WebView2 rendered the page, UI Automation found the page controls by name and invoked one, the native Rust, OS and publish calls answered, and the WebView2 data was in the package's LocalState folder. On the same desktop, links opened the built app and the installed package at their routes (LK2). On 2026-10-24 the SD1 gates ran there from SSH through `scripts/windows/desktop-run.ps1`: both routes of `scripts/windows/native-test.ps1`, `scripts/windows/yon-reach.ps1` (NET3, LS1), the menus, Edit commands and Minimize/Maximize, the tray, the caption color, page window controls, background and foreground, web storage across relaunch, external links, the browser APIs, page services and an x64 build under emulation (see Windows on the signed-in desktop below) | exact release artifact; Windows native GUI CI; x64 on an x64 machine |
+| Linux WebKitGTK | native-tested (candidate), from a live desktop session on WSL aarch64 (LD1), not a physical machine: AT-SPI read the page roles and names and activated page controls there, as the Phase 5 rule in `PROJECT_PLAN.md` requires | Rust native service compiles. The shared route/security probe passes. On 2026-10-18 `scripts/linux/native-test.sh` ran the GTK 4 / WebKitGTK host under Xvfb with an AT-SPI (Linux accessibility bus) session, in a cloud Linux VM (Ubuntu 24.04, GTK 4.14.5) and in the pinned Debian trixie image (GTK 4.18.6). Passed: the window name, the menu bar and its item names, page roles and names (landmark, heading, button, link), AT-SPI activation of Rust calls and route changes, and the lifecycle log. RL1 (2026-10-19) added headless Wayland (mutter), a compositing window manager and WSL (aarch64) runs. On 2026-10-28 (LD1) the six Linux gates ran in a signed-in desktop session, two of them passing after test-script fixes (one only for its picker steps): Ubuntu GNOME on X11 through xrdp, in WSL Ubuntu 24.04 (aarch64) on the Surface, under GNOME's own window manager, notification server, tray host (the AppIndicator extension) and desktop portal. `scripts/linux/native-test.sh` with its AT-SPI probe, the release packages and Yon reach, the host tests of `compositor-test.sh --desktop`, `desktop-services-test.sh`, `desktop-links-test.sh`, `page-services-native-test.mjs` and `deb-install-test.sh` as root with a start by desktop file id (see Linux in a live desktop session below). LD2 (2026-10-28) ran the whole page-services gate there with no wrapper, and ran the compositor and desktop-services gates in a headless GNOME Shell 46 Wayland session (see Linux page services and GNOME Shell on Wayland below). WL1 (2026-10-28) ran `desktop-services-test.sh` and `compositor-test.sh --desktop` in a GNOME Shell 46 Wayland session that a person opened and signed in to, a remote login through GNOME Remote Desktop opened with FreeRDP from the Mac, on the same WSL; GNOME Shell ran there without a GPU and showed nothing on a local display (see A Wayland desktop session a person opens below). CI3 (2026-10-29) ran the `linux-native` job locally: `native-test.sh` and the application-state steps in Docker on that WSL, and the icon gate in a linux/arm64 container on the Mac | exact release artifact; Linux native GUI CI on the current head; a physical Linux desktop (x86_64), because WSL is an ARM64 VM, which would also give a local Wayland session with a GPU (WL1's was remote and had none) |
+| Windows WebView2 | native-tested (candidate), from signed-in arm64 desktop runs: UI Automation exposed semantic roles of page controls (SD1), as the Phase 5 rule in `PROJECT_PLAN.md` requires | generated C compiles with the official software development kit (SDK). Real C# protocol/OS execution. On 2026-10-19, on the signed-in desktop of a Windows 11 ARM64 Surface, `scripts/windows/native-test.ps1 -Msix` built a release MSIX package, installed it and launched it (PKG4). WebView2 rendered the page, UI Automation found the page controls by name and invoked one, the native Rust, OS and publish calls answered, and the WebView2 data was in the package's LocalState folder. On the same desktop, links opened the built app and the installed package at their routes (LK2). On 2026-10-24 the SD1 gates ran there from SSH through `scripts/windows/desktop-run.ps1`: both routes of `scripts/windows/native-test.ps1`, `scripts/windows/yon-reach.ps1` (NET3, LS1), the menus, Edit commands and Minimize/Maximize, the tray, the caption color, page window controls, background and foreground, web storage across relaunch, external links, the browser APIs, page services and an x64 build under emulation (see Windows on the signed-in desktop below). CI2's run [40705121906](https://github.com/d31ma/TACHYON/actions/runs/40705121906) (2026-10-28, develop `a62ab084`) passed the Windows WebView2 native gate, `scripts/windows/native-test.ps1`, on GitHub's x64 `windows-latest`; CI3 (2026-10-29) did not run that job locally, because PowerShell scripts are not allowed for the Surface's user | exact release artifact; Windows native GUI CI on the current head (CI2's pass was on `a62ab084`); the SD1 gates other than `native-test.ps1` on an x64 machine |
 
 Android release packages (2026-10-18, ADR 0104): `ty bundle --target android
 --release` was built in an x86_64 Linux cloud container (Android SDK platform
@@ -433,6 +433,9 @@ WSL2 (kernel 6.18.54.1), GTK 4.14.5, WebKitGTK 2.52.6, node 24.21.0, bun
   `linkgate://` links in one running app. The two Windows link tests now
   compile with mingw but need Wine to run the x86_64 `.exe`, which arm64 WSL
   cannot run without an x86 emulator; they belong on Windows or x86_64 Linux.
+  (Since WN1, 2026-10-29, the Wine tests build ARM64 Windows programs on
+  arm64 Linux and pass under Wine 11.0 for aarch64; see "The Wine tests on
+  arm64" below.)
 - Not run: a physical Linux desktop.
   GeoClue, a notification server and an apt install of the `.deb` as root
   ran in LX1 (below), in the cloud and on WSL. LD1 (2026-10-28, below) ran
@@ -561,7 +564,59 @@ ran the rest of the Linux desktop work on the same WSL Ubuntu 24.04
 
 This is a GNOME Shell Wayland session, but nobody can see or sign in to
 it, so "a Wayland desktop session" stays owed in the Linux row: a session
-a person opens and uses. The tier stays `native-tested (candidate)`.
+a person opens and uses. The tier stays `native-tested (candidate)`. WL1 ran
+that session the same day (below).
+
+### A Wayland desktop session a person opens (2026-10-28, WL1)
+
+WL1 (iteration 11, D37; on develop as `14604526`) ran the Linux desktop
+gates in a GNOME Shell Wayland session that a person opened, on the same
+WSL Ubuntu 24.04 (aarch64) on the Surface, driven over SSH from the Mac.
+
+- gdm3 46.2 and GNOME Remote Desktop 46.3 in system mode gave a remote
+  login on port 3391. Samuel opened it from the Mac with FreeRDP 3.32.2
+  (`sdl-freerdp`) and signed in. `loginctl` showed `Type=wayland`,
+  `Remote=yes` and `Class=user`; GNOME Shell 46.0 ran headless (mutter
+  46.2, no GPU) with the desktop icons, Ubuntu Dock and AppIndicator
+  extensions.
+- In that session `desktop-services-test.sh` passed with no click from a
+  person: closing the tray app's window (Alt+F4 through Mutter's
+  RemoteDesktop keyboard) hid it, Activate was answered, a route item
+  opened `/help` and Quit ended the app. `scripts/linux/desktop-tray-probe.py`
+  now presses that Alt+F4 through `org.gnome.Mutter.RemoteDesktop` on
+  Wayland instead of skipping the close step, and on Wayland its Activate
+  step says only that the icon answered.
+- `compositor-test.sh --desktop` passed (12 and 3 host tests, 215 s) at
+  1920x1080. At 1024x768 three tests failed (appearance, window controls
+  and window grants), because mutter maximizes the gate's 900x640 window
+  there. CI4 made the test windows smaller, and the gate then passed at
+  1024x768 ("Local CI gaps", below).
+- In the headless GNOME Shell session (`gnome-shell-session.sh`),
+  `desktop-services-test.sh` passed again (242 s) with the close step. After
+  `lightdm` was disabled, the distribution was stopped (`wsl --terminate`)
+  and started again, and it reported `running` with no failed unit (LD2
+  above had not restarted it).
+- On the Mac, `repository_policy` (25 of 25) passed.
+
+Beyond installing the packages, pointing the display manager at gdm3 and
+restarting GNOME Remote Desktop after configuring it, it took four changes:
+the GDM greeter starts
+GNOME Remote Desktop's handover only from `/usr/share/gdm/greeter/autostart/`
+(its gnome-session runs in builtin mode on a `dbus-run-session` bus); the
+user session needs a Wayland-only handover entry in `/etc/xdg/autostart`;
+`wireplumber` must run for the user, or the screen stays black; and the
+client window must be large (dynamic resolution). The Windows App for Mac
+cannot open this login: it follows the redirect but fails the handover's
+network level authentication (`SEC_E_MESSAGE_ALTERED`), most likely
+because it sends its saved login instead of the redirect's one-time one.
+FreeRDP passes.
+
+Limits: WSL aarch64, not a physical machine; a remote session in a GNOME
+Shell with no GPU, not a local display; FreeRDP as the viewer. Samuel chose
+to undo the setup afterwards: GNOME Remote Desktop and gdm3 are disabled,
+their settings and credentials removed, and xrdp gives the desktop again.
+The tier stays `native-tested (candidate)`; the physical x86_64 desktop
+stays owed.
 
 ### Windows on the signed-in desktop (2026-10-24, SD1)
 
@@ -658,8 +713,10 @@ Not run in SD1: a picker opened from a WebView2 page, a host link opening
 the installed package (no verified domain) and x64 on an x64 machine. The
 first two ran later: FP5 opened the picker from a WebView2 page the same day
 (above), and LINKS opened a `d31ma.github.io` host link in the installed
-signed package on 2026-10-25 ("Deep links on native hosts", below). x64 on
-an x64 machine is still owed. After a
+signed package on 2026-10-25 ("Deep links on native hosts", below). On
+2026-10-28 CI2's run 40705121906 passed `scripts/windows/native-test.ps1` on
+GitHub's x64 `windows-latest`; the other SD1 gates on an x64 machine are
+still owed. After a
 restart of the WSL distribution, whose disk had gone read-only, the WSLg
 Wayland tests ran from the same signed-in session (see the WSL list above).
 
@@ -1455,7 +1512,7 @@ promote any tier.
 | iOS WKWebView | yes: the largest raster icon resized into the app icon files (simulator) or a 1024 pixel asset catalog (device and App Store) | on 2026-10-28, in the same run, the icon files of the simulator app and the simulator home screen showed the manifest icon. Not run: a device |
 | Android WebView | adapted: the largest raster icon as `mipmap-xxxhdpi/ic_launcher.png` | on 2026-10-28, in the same run, `aapt2 badging`, the icon inside the APK and the emulator's app drawer showed the manifest icon. Not run: a device |
 | Windows WebView2 | adapted: the largest icon of at most 256 pixels in the `.exe`, which the window class now loads for the title bar, Alt-Tab and the taskbar; MSIX tiles from the PNG icons | on 2026-10-28 on the Windows 11 ARM64 Surface, `icon-test.mjs --targets=windows` passed over SSH (the icon Explorer shows for the `.exe`), and with `--screen` in the signed-in session, started from `cmd.exe` as a one-time interactive scheduled task: the window class icon (title bar, Alt-Tab), 576 taskbar pixels in the icon's color, and `icon.loaded` and `tray.icon.loaded`. The checks use `scripts/native/WindowsIconCheck.c`, built with `cl.exe`, so no PowerShell script runs. That app's tray keeps the default `closeHidesWindow` false, which no longer stops MSVC with C4127. On 2026-10-29 (IC2, branch commit `f433e064`) `icon-test.mjs --targets=windows --release` passed over SSH on the Surface: with no `TAC_WINDOWS_CERTIFICATE` set, the gate made a throwaway code-signing certificate with `certreq.exe`, `ty` signed the MSIX with its thumbprint, `Square44x44Logo.png`, `Square150x150Logo.png` and `StoreLogo.png` inside the package and the `.exe` icon had the manifest icon's color, and the gate then removed the certificate and its key; `certutil` found none left. The same day `windows_tray_code_adds_an_icon_hides_on_close_and_quits_under_wine` passed in WSL Ubuntu 24.04 (aarch64) on the Surface under Xvfb, built for ARM64 Windows with llvm-mingw 20261020 and run under Wine 11.0 built from source for aarch64: the tray loaded the manifest's `tray.ico` rather than `IDI_APPLICATION`. Ubuntu's own arm64 Wine 9.0 hangs while it creates a prefix (its unwinder stops on an AArch64 pointer-authentication note), so it cannot run the test. With `--release --screen` in the signed-in session (branch commit `725f7e9e`), started from `cmd.exe` as a one-time elevated interactive scheduled task, the gate also trusted the throwaway certificate in `LocalMachine\TrustedPeople`, installed the package through `scripts/native/WindowsPackageCheck.cpp` (C++/WinRT `PackageManager`), and the icon the shell shows for `dev.tachyon.icon-gate_kbm575v9qmbb2!App` had the manifest icon's color at 44 and 150 pixels; the gate then removed the package and the trust, and `certutil` found no certificate, key or package left |
-| Linux WebKitGTK | adapted: the largest raster icon as `share/icons/hicolor/256x256/apps/<application id>.png`, added to the GTK icon theme search path and named as the window icon (X11 shows it as `_NET_WM_ICON`); packages install the hicolor icons | on 2026-10-28 in WSL Ubuntu 24.04 (aarch64) on the Surface, `icon-test.mjs --targets=linux --release --screen` passed under Xvfb (the `.deb` hicolor icons at 1024 and 256 pixels, the AppImage `.DirIcon`, and a 48 by 48 `_NET_WM_ICON` on the app's own X11 window), and `--screen` passed in the live GNOME X11 desktop (xrdp, `TAC_LINUX_DISPLAY=desktop`). The `.deb`, AppImage and status notifier tray tests passed. The first run found no `_NET_WM_ICON`: GTK 4 builds the window icon list only from icon theme folders, so the icon now goes in the app's own hicolor folder. The `linux-native` CI job also runs the gate. A Wayland desktop finds the icon only through an installed desktop file |
+| Linux WebKitGTK | adapted: the largest raster icon as `share/icons/hicolor/256x256/apps/<application id>.png`, added to the GTK icon theme search path and named as the window icon (X11 shows it as `_NET_WM_ICON`); packages install the hicolor icons | on 2026-10-28 in WSL Ubuntu 24.04 (aarch64) on the Surface, `icon-test.mjs --targets=linux --release --screen` passed under Xvfb (the `.deb` hicolor icons at 1024 and 256 pixels, the AppImage `.DirIcon`, and a 48 by 48 `_NET_WM_ICON` on the app's own X11 window), and `--screen` passed in the live GNOME X11 desktop (xrdp, `TAC_LINUX_DISPLAY=desktop`). The `.deb`, AppImage and status notifier tray tests passed. The first run found no `_NET_WM_ICON`: GTK 4 builds the window icon list only from icon theme folders, so the icon now goes in the app's own hicolor folder. The `linux-native` CI job is set to run the gate too; it has not run in GitHub CI yet, and CI3 ran it locally (3 of 3 at `48c2c09d`, 2026-10-29) in a linux/arm64 container on the Mac's Docker Desktop. A Wayland desktop finds the icon only through an installed desktop file |
 
 ### Native preview against the development server (2026-10-24, NET5)
 
@@ -2102,9 +2159,46 @@ past the deadline. The test now uses a 3 s grace and a 4 s deadline.
   `repository_policy` (25 of 25) passed, and fmt, clippy and
   `repository_policy` passed again on the tree merged onto `dadbc877`.
 
-This closes the open finding above. Open, not fixed: the supervisor's warm exchange computes the
-handler's deadline before it starts a warm process, so on a first warm
-request the handler's deadline can fall after the supervisor's.
+This closes the open finding above. The supervisor's warm exchange still
+computed the handler's deadline before it started a warm process, so on a
+first warm request the handler's deadline could fall after the
+supervisor's; SV1 fixed that ("Warm handler deadline on a first request",
+below).
+
+### Warm handler deadline on a first request (2026-10-28, SV1)
+
+SV1 (iteration 11, D40; on develop as `8b18d562` to `b5f63ed4`, ADR 0111
+amendment) fixed the deadline left open above. The supervisor wrote a warm
+request's `deadline_ms` before it started the warm process, and the
+Python, Ruby, JavaScript, PHP, Rust and C++ runners measured it from when
+they read the request, so a slow start was granted twice and ended in a
+supervisor timeout (`TY2110`) instead of the handler's own answer. The Go,
+JVM, .NET and Dart runners measured the first request from their own start,
+but no runner can count the interpreter or VM start before its clock
+begins. Samuel chose (2026-10-28) that a runner says when it is ready:
+every warm runner now writes one `{"protocol_version":1,"kind":"ready"}`
+frame before it reads its first request; the supervisor waits for it within
+the request's deadline and cancellation, then builds the request frame, so
+`deadline_ms` is what is left once the process is ready. Any other first
+frame fails with `TY2103`. Every runner now measures every request from
+when it reads it.
+
+`relay_boundaries::a_slow_warm_runtime_start_counts_against_the_relay_deadline`
+(new) starts the Python and Ruby runtimes 3 s late. On the Mac it failed
+before the fix (`TY2110`, 8.1 s) and passed after it, 4 of 4 (about 12 s
+each). `relay_boundaries::sequential_relays_and_a_longer_request_deadline_share_one_budget`
+now starts its handler before the timed relays, because its budget counts
+from when the process is ready and a loaded Windows start left the first
+relay too little of it; start-up has its own test.
+
+- macOS (the Mac): `warm` 52 of 52, `relay_boundaries` 26 of 26,
+  `go_streams` 3 runs, `tests/it` 770 of 770, fmt, clippy and
+  `repository_policy` (25 of 25); on the tree merged onto `711bc407`,
+  `tests/it` 771 of 771 with fmt, clippy and `repository_policy`.
+- Windows 11 ARM64 (the Surface, over SSH): `warm` 52 of 52, the relay
+  tests 19 of 19, the default-deadline tests 3 of 3,
+  `go_streams::a_go_log_follow_ends_cleanly_at_the_request_time_limit` 3 of 3,
+  and two full `tests/it` runs of 747 of 747, with no handler process left.
 
 ### First CI run on develop since warm mode (2026-10-28, CI2)
 
@@ -2118,7 +2212,8 @@ and the first CI evidence for warm handlers (ADR 0111), the Delegate rename
 repository, and none needs a paid or self-hosted runner.
 
 Passed: the repository policy, the Native Rust gate on `ubuntu-latest`,
-the managed SQL, document and Redis contracts (on all three systems), the
+the managed SQL, document and Redis contracts (on Ubuntu; the document and
+Redis contracts also on macOS and Windows), the
 dependency, license and source policy, the eight Tac service-language
 gates in three browser engines, the Windows WebView2 native gate, fuzzing,
 the soak and recovery drills, the supply-chain evidence and the cutover
@@ -2164,6 +2259,151 @@ the C# and F# stream and topic tests (3 of 3) passed on the fixes, and
 fmt, clippy, `repository_policy` and the compatibility differential passed
 again on the tree merged onto IC1. Owed: one more CI run, to confirm the
 `macos-latest` workaround, the coverage limit and the workflow changes.
+CI3 ran every job locally instead (below); the `macos-latest` workaround
+can only be confirmed on GitHub's runner.
+
+### Every CI job run locally (2026-10-29, CI3)
+
+CI3 (iteration 11, D38) ran every job of `rust-ci.yml`, and
+`ruby-runtime.yml`'s rebuild, on our own machines instead of GitHub's
+runners, on develop `854ace78` with its fixes (on develop as `028bfd28` to
+`48c2c09d`). No GitHub Actions run was made. The jobs ran on the Mac (macOS
+arm64), in WSL Ubuntu 24.04 (aarch64) on the Surface, and on the Surface's
+Windows 11 ARM64.
+
+Passed:
+
+- On the Mac: the Native Rust gate (nextest 4860 of 4860), the macOS and
+  iOS simulator gate (Xcode 27.1, iOS 26.5), the browser job and the eight
+  Tac service-language browser gates, the compatibility differential
+  (oracle v26.30.04), the release lifecycle drill (macOS), the managed
+  document and Redis contracts (macOS), the Ruby runtime rebuild, the .NET
+  ignored browser gates (19 of 19) and the coverage ratchet (lines 93.67%,
+  functions 92.56%, regions 93.05%; 10 of 4846 tests failed or timed out
+  under instrumentation; 8 passed alone under it, and all 10 passed with
+  Go's build cache on the internal disk).
+- In WSL: the rewrite and supply-chain policies, the Native Rust gate
+  (apart from load flakes that passed alone), the Linux GTK 4 gate's
+  `native-test.sh` and application-state steps in Docker, the soak,
+  provenance and fuzzing jobs (6 targets, 300 s each), the sanitizers, and
+  the managed SQL contracts with PostgreSQL, MySQL, MariaDB, Redis, SQLite
+  and FYLO in Docker.
+- On the Mac's Docker Desktop (linux/arm64): the Linux icon gate with
+  `--screen` (3 of 3), the release lifecycle drill (Ubuntu), the sanitizer
+  job's TSan deadline test again, and SQL Server (linux/amd64, under
+  Rosetta).
+- On the Surface: the managed document and Redis contracts (Windows).
+
+Failed, left for iteration 12:
+
+- The Android native gate on the Mac's arm64 emulator (arm64-v8a,
+  android-35): every script passes alone, but the chained run flakes.
+- The Native Rust gate on Windows 11 ARM64: two
+  `crates/tachyon-cli/tests/it/fylo_datasource` tests (Python and Go) fail
+  with `TY2110` even alone. FY1 found the cause: each write of the pinned
+  FYLO starts `powershell.exe` on Windows, not x64 emulation (see the FYLO
+  paragraph under the Windows native gate); with FY1's fix both passed on
+  the Surface, twice, in about 13 s. The
+  other failures were load flakes that passed alone.
+
+Not run: the Windows WebView2 native gate, because PowerShell scripts are
+not allowed for the Surface's user and CI3 did not change that policy;
+`publish.yml` and `fuzz-scheduled.yml`; and the `#[ignore]` Wine tests,
+which CI never runs (WN1 ran them on arm64 afterwards, below).
+
+Substitutions: arm64 everywhere (the sanitizers built for
+`aarch64-unknown-linux-gnu`, the Android arm64-v8a image, Linux and Windows
+on arm64 machines); coverage on macOS; and the icon gate, the TSan rerun and
+the Ubuntu release lifecycle drill in linux/arm64 containers on the Mac
+(image from `scripts/linux/Dockerfile`), after CI3's own WSL build folders
+filled the Surface's external drive and WSL's disk went read-only three
+times. `install-toolchains.mjs` has no linux-arm64 or win32-arm64 entries
+for Dart and nextest, so installed copies were used (CI4 added them,
+below). What only GitHub's
+runners can show stays unrun: an x64 Windows runner, the x86_64 Linux and
+Android images, and Swift 6.3.3 on `macos-latest` (the open-source Swift
+6.3.3 does not crash on either version of CI2's fixture).
+
+The fixes change tests and CI scripts only: the website tests expect the
+C++, Lua and Python examples the guides now publish; the `CacheKey` fixture
+names its repeated values (`TY1330`); the standalone Rust check expects the
+scaffold's icons; the Linux icon gate reads `_NET_WM_ICON` from a file,
+keeps the accessibility bus out, stops the app's processes leaf first and
+runs with `docker run --init`; the Android window settings gate ends in
+portrait; the snippet check sends the sign-in header to the C++ identity
+examples; the native events harness matches the Rust and Kotlin fixtures;
+and the iOS window settings gate retakes its screenshot while a new
+simulator's system banner covers the status bar and waits up to 10 s for
+the simulator pasteboard. This evidence does not promote any tier.
+
+### Local CI gaps (2026-10-29, CI4)
+
+CI4 (iteration 12; on develop as `807beea0` to `be603ad4`) fixed gaps that
+CI3 and WL1 found. No GitHub Actions run was made.
+
+- `scripts/ci/install-toolchains.mjs` pins Dart 3.13.1 and cargo-nextest
+  0.9.146 for `linux-arm64` and `win32-arm64`, with checksums from the
+  downloaded archives (they match Dart's published `.sha256sum` files). Both
+  installed on the Mac, in a linux/arm64 container and on the Surface's
+  Windows 11 ARM64 (Dart `windows_arm64`, nextest
+  `aarch64-pc-windows-msvc`).
+- GNOME Shell maximizes a new window that covers more than 80% of the work
+  area, which is why three of WL1's host tests failed at 1024x768; under
+  GNOME Shell 48 the maximized state also never reaches GTK. Every Linux
+  host test window is now 800x560 (`LinuxHostTests::window()`), and the
+  window control and grant tests use 640x480.
+  `scripts/linux/gnome-shell-session.sh` closes the overview that GNOME
+  Shell opens at startup, because a window mapped under it never takes the
+  focus, and the browser API fixture waits until its window is active
+  before it sets the clipboard, because the compositor ignores a selection
+  from a client without the keyboard focus. The X11 title bar and file
+  dialog fixtures build with GTK 4.18 (Debian trixie, the gate image).
+- `scripts/linux/linux-display-session.mjs describe` reads the user's
+  graphical logind session when the desktop's processes have no
+  `XDG_SESSION_ID`, as in a GNOME session that systemd starts.
+
+In a linux/arm64 container on the Mac's Docker Desktop (headless GNOME
+Shell 48.7, GTK 4.18.6, WebKitGTK 2.54.0), `gnome-shell-session.sh
+compositor-test.sh --desktop` passed 12 and 3 host tests at 1024x768 and at
+1280x900, and the default `compositor-test.sh` passed (xfwm4 2 and 2, then
+headless mutter 12 and 3), with fmt and clippy. On the Mac, fmt, clippy
+(`tachyon-core`) and `repository_policy` (25 of 25) passed at `807beea0`,
+and `cargo test -p tachyon-core --lib linux_` (51 passed, 1 ignored) at
+`be603ad4`. Not run: `describe` in a real systemd-mode GNOME session (WSL
+was out), and the Windows WebView2 gate, because
+the Surface user's PowerShell policy is unchanged, so CI2's x64 pass stays
+the record.
+
+### The Wine tests on arm64 (2026-10-29, WN1)
+
+WN1 (iteration 12; on develop as `dd195f58` to `063cc491`) ran the
+`#[ignore]` Win32 tests that need Wine on arm64. They built with x86_64
+MinGW, so an aarch64 Wine could not run them. They now build with
+`WindowsHostTests::MINGW_FOR_WINE` (llvm-mingw's `aarch64-w64-mingw32-gcc`
+on arm64 Linux); the two that build Rust use `RUST_TARGET_FOR_WINE`
+(`aarch64-pc-windows-gnullvm` there) and copy llvm-mingw's `libunwind.dll`
+beside the program, and `WindowsHostTests::wine()` picks `wine` or
+Ubuntu's `wine64`. The compile-only MinGW checks stay on x86_64 MinGW GCC.
+
+`scripts/linux/wine.Dockerfile` (new) builds Wine 11.0 for aarch64 from
+source on top of the Linux gate image, with llvm-mingw 20261020, Debian's
+x86_64 MinGW GCC, the WebView2 1.0.3485.44 headers and Rust's Windows
+targets, all checksum-pinned. `scripts/linux/wine-tests.sh` (new) runs the
+twelve Wine tests under Xvfb, and with `--with-compile-checks` the eight
+MinGW compile checks.
+
+In a linux/arm64 container of that image on the Mac's Docker Desktop, all
+20 passed: the deep link, external link, menu action, Rust HTTP transport,
+tray, browser API, both file picker, package folder, task resume, title bar
+and window background tests under Wine, and the eight compile checks. The
+first run's failures were in our C fixtures, which llvm-mingw's clang
+rejects under `-Werror` where GCC did not: an unused tray stub, and DPI
+calls that mingw-w64 declares only for Windows 10 while llvm-mingw defaults
+`_WIN32_WINNT` to Windows 7 (the fixture now sets it), and a global that was
+set but never read. No Wine gap was
+found. On the Mac fmt, clippy and `repository_policy` passed, and clippy
+for `x86_64-pc-windows-gnu` passed in the container. These are Wine runs,
+not Windows; the tier does not change.
 
 ### Dependency advisories (2026-10-28, DN1)
 
@@ -2812,7 +3052,7 @@ routes. The differential corpus still decides browser semantic parity.
 | --- | --- | --- |
 | Rust workspace and Phase 4 CLI on macOS arm64 | native-tested development milestone | real binary, HTTP, Node.js, CPython, Chromium, SwiftUI application, Accessibility, lifecycle, and screenshot evidence executed locally |
 | Rust workspace and Phase 4 CLI on Linux x86_64 | native-tested development milestone | updated 2026-10-18. `rust-ci.yml` runs the locked workspace suite on `ubuntu-latest`; it passed there in run [40705121906](https://github.com/d31ma/TACHYON/actions/runs/40705121906) on develop `a62ab084` (2026-10-28). The release run [33363597481](https://github.com/d31ma/Tachyon/actions/runs/33363597481) (v26.36.01, 2026-08-31) clean-installed and checked the released `ty-linux-x64` on an `ubuntu-24.04` runner. Before, this row said the suite ran only in a pinned Linux container. macOS packaging still requires a macOS host |
-| Rust workspace and Phase 4 CLI on Windows x86_64 | native-tested development milestone | updated 2026-10-18. The release builds `ty-windows-x64.exe` for `x86_64-pc-windows-msvc` on `windows-2025`. The release run [33363597481](https://github.com/d31ma/Tachyon/actions/runs/33363597481) (v26.36.01, 2026-08-31) clean-installed and checked that executable on `windows-2025`, and `rust-ci.yml` runs the locked workspace suite on `windows-latest` (its run 39253757046 of 2026-10-19, the first with every Yon language installed, failed 44 tests; WG1 fixed their causes, and on 2026-10-25 the whole suite passed on Windows 11 ARM64, see Windows native gate; run [40705121906](https://github.com/d31ma/TACHYON/actions/runs/40705121906) of 2026-10-28 stopped at clippy `large_futures` on `windows-latest`, fixed since and not yet run again, see First CI run on develop since warm mode). Before, this row said `buildable` (only the GNU target compiled locally). No Windows ARM64 `ty` is released. This row is about the CLI only; for the WebView2 host see the tables above |
+| Rust workspace and Phase 4 CLI on Windows x86_64 | native-tested development milestone | updated 2026-10-18. The release builds `ty-windows-x64.exe` for `x86_64-pc-windows-msvc` on `windows-2025`. The release run [33363597481](https://github.com/d31ma/Tachyon/actions/runs/33363597481) (v26.36.01, 2026-08-31) clean-installed and checked that executable on `windows-2025`, and `rust-ci.yml` runs the locked workspace suite on `windows-latest` (its run 39253757046 of 2026-10-19, the first with every Yon language installed, failed 44 tests; WG1 fixed their causes, and on 2026-10-25 the whole suite passed on Windows 11 ARM64, see Windows native gate; run [40705121906](https://github.com/d31ma/TACHYON/actions/runs/40705121906) of 2026-10-28 stopped at clippy `large_futures` on `windows-latest`, fixed since and not yet run again on GitHub, see First CI run on develop since warm mode; CI3 ran the job locally on Windows 11 ARM64 on 2026-10-29, where two FYLO data source tests failed on FYLO's slow Windows writes; with FY1's fix they pass there, see Every CI job run locally). Before, this row said `buildable` (only the GNU target compiled locally). No Windows ARM64 `ty` is released. This row is about the CLI only; for the WebView2 host see the tables above |
 | Static web compiler and development server | implemented milestone | evidence recorded in `docs/PHASE_1_EVIDENCE.md`; not published |
 | Eight-language Yon handler boundary | implemented milestone | plain `Handler` convention; explicit `relay(...)`; native generator streaming in JavaScript, TypeScript, Python, PHP, Kotlin, and C#; Java and Rust return one response |
 | Tac client rendering, components, mount schedules, and incremental builds | implemented milestone | evidence recorded in `docs/PHASE_3_EVIDENCE.md`; Yon remains a separate REST boundary |
