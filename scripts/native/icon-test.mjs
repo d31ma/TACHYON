@@ -721,9 +721,30 @@ class LinuxIcons {
     const state = path.join(built.project, 'state')
     const property = path.join(built.project, 'net-wm-icon.txt')
     const script = `set -euo pipefail
+descendants() {
+  local child
+  for child in $(cat "/proc/$1/task/$1/children" 2>/dev/null); do
+    echo "$child"
+    descendants "$child"
+  done
+}
+stop_bus_services() {
+  local bus services=""
+  for bus in $(cat "/proc/$PPID/task/$PPID/children" 2>/dev/null); do
+    [ "$(cat "/proc/$bus/comm" 2>/dev/null)" = dbus-daemon ] || continue
+    services="$services $(descendants "$bus")"
+  done
+  for service in $services; do kill "$service" 2>/dev/null || true; done
+  for _ in $(seq 1 40); do
+    local alive=""
+    for service in $services; do kill -0 "$service" 2>/dev/null && alive=yes; done
+    [ -n "$alive" ] || return 0
+    sleep 0.25
+  done
+}
 "$APP" &
 host=$!
-trap 'kill "$host" 2>/dev/null || true; wait "$host" 2>/dev/null || true' EXIT
+trap 'kill "$host" 2>/dev/null || true; wait "$host" 2>/dev/null || true; stop_bus_services' EXIT
 for _ in $(seq 1 120); do
   if grep -q '"icon.loaded"' "$LOG" 2>/dev/null && grep -q '"tray.icon' "$LOG" 2>/dev/null; then break; fi
   sleep 0.5
