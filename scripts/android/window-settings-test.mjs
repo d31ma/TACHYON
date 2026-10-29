@@ -126,6 +126,19 @@ class AndroidWindowSettingsGate {
     }
   }
 
+  static async settleInPortrait() {
+    for (let attempt = 0; attempt < 40; attempt++) {
+      let image;
+      try {
+        image = AndroidWindowSettingsGate.screenshot();
+      } catch {
+        return;
+      }
+      if (image.height > image.width) return;
+      await AndroidWindowSettingsGate.pause(500);
+    }
+  }
+
   static screenshot() {
     const raw = AndroidWindowSettingsGate.run(AndroidWindowSettingsGate.adb, ['exec-out', 'screencap']);
     const width = raw.readUInt32LE(0);
@@ -274,6 +287,7 @@ class AndroidWindowSettingsGate {
       console.log(`PASS: Android window settings on ${device}: theme_color system bars with light icons on a dark theme and dark icons on a light one, the background_color splash screen, background_color web view, integrated title bar insets, fullscreen and orientation`);
     } finally {
       spawnSync(AndroidWindowSettingsGate.adb, ['uninstall', AndroidWindowSettingsGate.packageName], { stdio: 'ignore', timeout: 60000 });
+      await AndroidWindowSettingsGate.settleInPortrait();
       rmSync(AndroidWindowSettingsGate.root, { recursive: true, force: true });
     }
   }

@@ -744,6 +744,8 @@ xprop -id "$window" -notype -f _NET_WM_ICON 32c _NET_WM_ICON > "$ICON_PROPERTY" 
       XDG_CACHE_HOME: path.join(built.project, 'cache'),
       GDK_BACKEND: 'x11',
       WEBKIT_DMABUF_RENDERER_FORCE_SHM: '1',
+      GTK_A11Y: 'none',
+      NO_AT_BRIDGE: '1',
     }
     const live = process.env.TAC_LINUX_DISPLAY === 'desktop'
     const command = live ? ['bash', ['-c', script]] : ['xvfb-run', ['--auto-servernum', '--server-args=-screen 0 1280x900x24', 'dbus-run-session', '--', 'bash', '-c', script]]
