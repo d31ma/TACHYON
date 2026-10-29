@@ -162,7 +162,17 @@ export class AndroidAccessibilityTest {
       await this.pause()
     }
     writeFileSync(path.join(this.evidence, 'dump-failed.xml'), screen.xml)
+    await this.recordFailedScreen()
     assert.fail(`${message}: ${screen.xml.slice(0, 8000)}`)
+  }
+
+  static async recordFailedScreen() {
+    const image = spawnSync(this.adb, ['exec-out', 'screencap', '-p'], { timeout: 60000, maxBuffer: 64 * 1024 * 1024 })
+    if (image.status === 0) writeFileSync(path.join(this.evidence, 'dump-failed.png'), image.stdout)
+    await this.stopProbe()
+    const full = spawnSync(this.adb, ['shell', `CLASSPATH=${this.probeClassPath}`, 'app_process', '/system/bin', this.probeClass, 'full'], { encoding: 'utf8', timeout: 60000, maxBuffer: 64 * 1024 * 1024 })
+    writeFileSync(path.join(this.evidence, 'dump-failed-full.xml'), `${full.stdout ?? ''}${full.stderr ?? ''}`)
+    console.error(`the failed screen is in ${path.join(this.evidence, 'dump-failed.png')} and its uncompressed tree in dump-failed-full.xml`)
   }
 
   static named(nodes, name) {

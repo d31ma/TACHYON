@@ -8,6 +8,7 @@ import java.util.concurrent.TimeoutException;
 public final class AccessibilityProbe {
     static final String WRAPPER = "com.android.uiautomator.core.UiAutomationShellWrapper";
     static final String SERVE = "serve";
+    static final String FULL = "full";
     static final String QUIT = "quit";
     static final String END = "<!-- tachyon-probe-end -->";
 
@@ -77,7 +78,8 @@ public final class AccessibilityProbe {
         Object wrapper = type.getConstructor().newInstance();
         type.getMethod("connect").invoke(wrapper);
         try {
-            type.getMethod("setCompressedLayoutHierarchy", boolean.class).invoke(wrapper, true);
+            boolean full = args.length > 0 && args[0].equals(FULL);
+            type.getMethod("setCompressedLayoutHierarchy", boolean.class).invoke(wrapper, !full);
             UiAutomation automation = (UiAutomation) type.getMethod("getUiAutomation").invoke(wrapper);
             if (args.length > 0 && args[0].equals(SERVE)) serve(automation);
             else System.out.println(dump(automation));
