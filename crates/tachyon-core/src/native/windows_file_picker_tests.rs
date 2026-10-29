@@ -6,8 +6,6 @@ struct WindowsFilePickerTests;
 
 impl WindowsFilePickerTests {
     const CHECK: &str = include_str!("../../tests/fixtures/native/windows_file_picker_check.c");
-    #[cfg(unix)]
-    const MINGW: &str = "x86_64-w64-mingw32-gcc";
     #[cfg(windows)]
     const RUN_LIMIT: std::time::Duration = std::time::Duration::from_mins(2);
 
@@ -76,7 +74,7 @@ impl WindowsFilePickerTests {
         std::fs::write(&source, Self::harness()).expect("harness");
         let executable = root.path().join("picker.exe");
         super::host::run_tool(
-            Self::MINGW,
+            super::windows_host_tests::WindowsHostTests::MINGW_FOR_WINE,
             &[
                 "-std=gnu17",
                 "-O2",
@@ -282,7 +280,7 @@ fn the_windows_file_picker_check_fills_every_placeholder() {
 
 #[cfg(unix)]
 #[tokio::test]
-#[ignore = "Requires the x86_64-w64-mingw32-gcc cross compiler, Wine and xvfb-run; checks the picker contract and page message order against Win32, not WebView2 or MSVC"]
+#[ignore = "Requires the MinGW cross compiler for its architecture (x86_64-w64-mingw32-gcc, or aarch64-w64-mingw32-gcc from llvm-mingw on arm64 Linux), Wine and xvfb-run; checks the picker contract and page message order against Win32, not WebView2 or MSVC"]
 async fn the_windows_file_picker_keeps_the_contract_under_wine() {
     let output = WindowsFilePickerTests::under_wine("check").await;
     assert!(
@@ -294,7 +292,7 @@ async fn the_windows_file_picker_keeps_the_contract_under_wine() {
 
 #[cfg(unix)]
 #[tokio::test]
-#[ignore = "Requires the x86_64-w64-mingw32-gcc cross compiler, Wine and xvfb-run; drives Wine's IFileOpenDialog, not the Windows one"]
+#[ignore = "Requires the MinGW cross compiler for its architecture (x86_64-w64-mingw32-gcc, or aarch64-w64-mingw32-gcc from llvm-mingw on arm64 Linux), Wine and xvfb-run; drives Wine's IFileOpenDialog, not the Windows one"]
 async fn the_windows_file_picker_selects_a_file_in_the_wine_dialog() {
     let output = WindowsFilePickerTests::under_wine("dialog").await;
     assert!(output.contains("windows file dialog passed"), "{output}");

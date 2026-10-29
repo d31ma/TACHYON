@@ -4,8 +4,6 @@ struct WindowsTaskResumeCheck;
 
 impl WindowsTaskResumeCheck {
     #[cfg(unix)]
-    const MINGW: &str = "x86_64-w64-mingw32-gcc";
-    #[cfg(unix)]
     const HARNESS_HEAD: &str = r#"#define UNICODE
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -111,14 +109,6 @@ int main(void) {
             Self::HARNESS_MAIN
         )
     }
-
-    #[cfg(unix)]
-    fn wine() -> bool {
-        std::process::Command::new("wine64")
-            .arg("--version")
-            .output()
-            .is_ok_and(|output| output.status.success())
-    }
 }
 
 #[test]
@@ -146,14 +136,14 @@ fn windows_host_resumes_companion_tasks_on_its_window_thread() {
 
 #[cfg(unix)]
 #[tokio::test]
-#[ignore = "Requires the x86_64-w64-mingw32-gcc cross compiler; runs the harness under wine64 when it is installed"]
+#[ignore = "Requires the MinGW cross compiler for its architecture (x86_64-w64-mingw32-gcc, or aarch64-w64-mingw32-gcc from llvm-mingw on arm64 Linux); runs the harness under Wine when it is installed"]
 async fn windows_task_resume_posts_one_message_per_wake_burst() {
     let root = tempfile::tempdir().expect("fixture");
     let source = root.path().join("resume.c");
     std::fs::write(&source, WindowsTaskResumeCheck::harness()).expect("harness");
     let executable = root.path().join("resume.exe");
     super::host::run_tool(
-        WindowsTaskResumeCheck::MINGW,
+        super::windows_host_tests::WindowsHostTests::MINGW_FOR_WINE,
         &[
             "-std=gnu17",
             "-O2",
@@ -168,19 +158,19 @@ async fn windows_task_resume_posts_one_message_per_wake_burst() {
     )
     .await
     .expect("the task resume code compiles and links");
-    if !WindowsTaskResumeCheck::wine() {
-        eprintln!("skipping the run: wine64 is not installed");
+    let Some(wine) = super::windows_host_tests::WindowsHostTests::wine() else {
+        eprintln!("skipping the run: Wine is not installed");
         return;
-    }
+    };
     let prefix = root.path().join("wine");
-    let mut command = tokio::process::Command::new("wine64");
+    let mut command = tokio::process::Command::new(wine);
     command
         .arg(&executable)
         .env("WINEPREFIX", &prefix)
         .env("WINEDEBUG", "-all");
     let ran = crate::external_command::run(&mut command, std::time::Duration::from_mins(5), 65536)
         .await
-        .expect("wine64 runs the harness");
+        .expect("Wine runs the harness");
     let printed = String::from_utf8_lossy(&ran.stdout);
     assert!(
         ran.status.success(),

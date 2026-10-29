@@ -88,7 +88,7 @@ static void tachyon_appearance_resize_below_minimum(void) {
 static void tachyon_appearance_check_declared(void) {
   int width = 0, height = 0;
   gtk_widget_get_size_request(GTK_WIDGET(g_view), &width, &height);
-  tachyon_appearance_require(width == 720 && height == 520, "the declared minimum size is not the page's size request");
+  tachyon_appearance_require(width == 640 && height == 440, "the declared minimum size is not the page's size request");
   GtkWidget *header = gtk_window_get_titlebar(g_native_window);
   tachyon_appearance_require(header != NULL && GTK_IS_HEADER_BAR(header) && gtk_widget_has_css_class(header, "tachyon-theme"),
                              "theme_color did not install the header bar");
@@ -99,10 +99,10 @@ static void tachyon_appearance_check_declared(void) {
 static gboolean tachyon_appearance_themed_tick(void) {
   switch (g_appearance_step) {
     case 0: if (!tachyon_appearance_page_loaded()) return FALSE; tachyon_appearance_check_declared(); return TRUE;
-    case 1: return tachyon_appearance_content_size(900, 640);
+    case 1: return tachyon_appearance_content_size(800, 560);
     case 2: return tachyon_appearance_header_pixel(0x1a, 0x23, 0x7e);
     case 3: tachyon_appearance_resize_below_minimum(); return TRUE;
-    case 4: return tachyon_appearance_content_size(720, 520);
+    case 4: return tachyon_appearance_content_size(640, 440);
     case 5: return tachyon_appearance_page_background();
     default: return FALSE;
   }
@@ -148,6 +148,6 @@ int main(int argc, char **argv) {
   tachyon_appearance_require(status == 0 && g_appearance_step == TACHYON_APPEARANCE_STEPS, "the host did not finish its run");
   printf("linux window appearance passed: %s\n", TACHYON_APPEARANCE_FULLSCREEN
       ? "display fullscreen started the GTK window fullscreen without a header bar"
-      : "the 900x640 size, the 720x520 minimum, the theme_color header bar and the background_color page backdrop reached the GTK window");
+      : "the 800x560 size, the 640x440 minimum, the theme_color header bar and the background_color page backdrop reached the GTK window");
   return 0;
 }

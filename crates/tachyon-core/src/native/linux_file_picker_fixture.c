@@ -203,7 +203,9 @@ static void tachyon_picker_press(unsigned long keysym, gboolean control) {
   if (g_picker_key == NULL) tachyon_picker_load_x11();
   GdkDisplay *display = gdk_display_get_default();
   tachyon_picker_require(GDK_IS_X11_DISPLAY(display), "the fixture needs an X11 display (GDK_BACKEND=x11)");
+  G_GNUC_BEGIN_IGNORE_DEPRECATIONS
   Display *xdisplay = gdk_x11_display_get_xdisplay(display);
+  G_GNUC_END_IGNORE_DEPRECATIONS
   unsigned int keycode = tachyon_picker_keycode(xdisplay, keysym);
   unsigned int modifier = tachyon_picker_keycode(xdisplay, TACHYON_PICKER_CONTROL);
   if (control) g_picker_key(xdisplay, modifier, True, 0);
