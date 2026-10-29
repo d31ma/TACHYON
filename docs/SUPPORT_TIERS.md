@@ -2297,7 +2297,10 @@ Passed:
 Failed, left for iteration 12:
 
 - The Android native gate on the Mac's arm64 emulator (arm64-v8a,
-  android-35): every script passes alone, but the chained run flakes.
+  android-35): every script passes alone, but the chained run flakes. AN1
+  found that no script leaves anything behind and fixed the accessibility
+  probe; the chained gate then passed 3 times in a row (see "The Android
+  gate chained on the arm64 emulator" below).
 - The Native Rust gate on Windows 11 ARM64: two
   `crates/tachyon-cli/tests/it/fylo_datasource` tests (Python and Go) fail
   with `TY2110` even alone. FY1 found the cause: each write of the pinned
@@ -2404,6 +2407,43 @@ set but never read. No Wine gap was
 found. On the Mac fmt, clippy and `repository_policy` passed, and clippy
 for `x86_64-pc-windows-gnu` passed in the container. These are Wine runs,
 not Windows; the tier does not change.
+
+### The Android gate chained on the arm64 emulator (2026-10-29, AN1)
+
+AN1 (iteration 12; on develop as `b2277545` to `a05a1c7e`) ran the
+android-native CI step, `scripts/android/native-test.sh`, as one chain on
+the Mac's emulator-5554 (AVD `tachyon-gate`, arm64-v8a, android-35,
+`google_apis`, its data on the internal disk) with a prebuilt `ty`. It
+passed 3 times in a row (5.5 to 6.5 minutes each). No GitHub Actions run
+was made.
+
+`native-test.sh` now runs each gate as a step, and
+`scripts/android/chain-state.mjs` (new) records the device after each one:
+the focused window, the lock screen, the keyboard, rotation, airplane mode,
+adb routes, gate processes, stray UI tools, error dialogs, notifications,
+the host's load and a screenshot, under `target/android-chain-state/`. It
+then settles the device (home, portrait), keeps the screen awake during the
+chain and restores the settings at the end; `TAC_ANDROID_CHAIN_SETTLE=0`
+records without settling. The accessibility, window controls and menus
+gates clear their app data after they install.
+
+No gate left anything behind: the capture recorded nothing left at all 105
+step boundaries over 9 runs. CI3's failures were timing limits under a Mac
+load of about 60. The accessibility gate's probe
+(`scripts/android/AccessibilityProbe.java`) opened a new UiAutomation
+connection for every read, so accessibility switched on and off twice a
+second and once left the About page's heading empty in the tree; it now
+keeps one connection for the whole gate. A long-lived connection then read
+a stale tree after Back, so the probe clears the UiAutomation cache and
+refreshes the root before each read. A failed accessibility wait saves the
+screen and the uncompressed tree.
+
+Known limits: the empty heading happened once more in a solo run at
+`7259cf7e` and not at `38859fd1` (6 solo runs and 3 chained), so it may be
+fixed or only rare. With the Mac's 1-minute load above about 40, a gate's native
+call can still run out the page bridge's 10 s limit, which AN1 left
+unchanged; timing gates should start with the load under 15. These are
+emulator runs; the tier does not change.
 
 ### Dependency advisories (2026-10-28, DN1)
 

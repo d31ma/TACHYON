@@ -35,6 +35,12 @@ machine contracts have their own, independent major versions.
   `aarch64-pc-windows-gnullvm`); `--with-compile-checks` adds the eight
   x86_64 MinGW compile checks. All 20 passed in a linux/arm64 container
   (`docs/SUPPORT_TIERS.md`, "The Wine tests on arm64").
+- `scripts/android/chain-state.mjs` records the Android emulator after each
+  gate of `scripts/android/native-test.sh` and settles it before the next
+  (AN1, 2026-10-29): focus, lock screen, keyboard, rotation, adb routes,
+  gate processes, error dialogs, notifications, load and a screenshot go to
+  `target/android-chain-state/`; `TAC_ANDROID_CHAIN_SETTLE=0` only records.
+  The chained gate passed 3 times in a row on an arm64 emulator.
 - `scripts/ci/install-toolchains.mjs` installs Dart 3.13.1 and
   cargo-nextest 0.9.146 on `linux-arm64` and `win32-arm64` too (CI4,
   2026-10-29), and `linux-display-session.mjs describe` reads the logind
@@ -2450,6 +2456,13 @@ machine contracts have their own, independent major versions.
   only once its window is active; and the X11 title bar and file dialog
   fixtures build with GTK 4.18. The Wine test C fixtures build with
   llvm-mingw's clang under `-Werror` (WN1).
+- The Android accessibility gate keeps one UiAutomation connection for the
+  whole gate and clears its node cache before each read (AN1, 2026-10-29).
+  A connection per read switched accessibility on and off and once left a
+  heading empty in the tree; a long-lived connection without the cache
+  clear read a stale tree after Back. A failed wait saves the screen and
+  the full tree. The accessibility, window controls and menus gates clear
+  their app data after they install.
 - Tests and CI scripts that failed when every CI job ran locally (CI3,
   2026-10-29, no GitHub Actions run): the website tests expect the C++, Lua
   and Python examples the guides now publish; the `CacheKey` fixture names
