@@ -428,6 +428,16 @@ function processRunning(pid) {
   }
 }
 
+async function systemPasteboard() {
+  let text = simctl('pbpaste', IosGate.device);
+  const deadline = Date.now() + 10000;
+  while (text !== 'tachyon ios bridge' && Date.now() < deadline) {
+    await pause(500);
+    text = simctl('pbpaste', IosGate.device);
+  }
+  return text;
+}
+
 async function quitApp(pid) {
   simctl('terminate', IosGate.device, IosGate.appId);
   const deadline = Date.now() + 30000;
@@ -474,7 +484,7 @@ async function main() {
     const proofs = collectProofs(documents, required, pid);
     const rust = JSON.parse(readFileSync(path.join(documents, 'rust-start.json'), 'utf8'));
     assert.deepEqual(rust, { pid, origin: 'ios' }, 'the Rust service must run natively in the app process');
-    assert.equal(simctl('pbpaste', IosGate.device), 'tachyon ios bridge', 'the page clipboard write must reach UIPasteboard');
+    assert.equal(await systemPasteboard(), 'tachyon ios bridge', 'the page clipboard write must reach UIPasteboard');
     const written = storageResult(proofs);
     assert.equal(written, RelaunchStorageProbe.WRITTEN, 'the first launch must write web storage, got ' + written);
     const screenshot = path.join(IosGate.project, 'ios-returned-root.png');
