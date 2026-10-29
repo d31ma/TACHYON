@@ -9,15 +9,13 @@ import { readFile } from 'node:fs/promises'
 class PublishedData {
   static languages = ['cs', 'dart', 'go', 'groovy', 'java', 'js', 'kt', 'php', 'py', 'rs', 'ts']
   static withRuby = ['cs', 'dart', 'fs', 'go', 'groovy', 'java', 'js', 'kt', 'lua', 'php', 'py', 'rb', 'rs', 'ts']
-  static withoutLua = PublishedData.withRuby.filter(language => language !== 'lua')
   static withCpp = [...PublishedData.withRuby, 'hpp'].sort()
-  static withCppWithoutLua = [...PublishedData.withoutLua, 'hpp'].sort()
   /** @type {Record<string, string[]>} */
   static sectionLanguages = {
     'Annotated controllers and providers': PublishedData.withCpp,
-    'Checking values and method arguments': PublishedData.withCppWithoutLua,
+    'Checking values and method arguments': PublishedData.withCpp,
     'Limited Store and Query': PublishedData.withCpp,
-    'Reading settings and choosing configuration': PublishedData.withCppWithoutLua,
+    'Reading settings and choosing configuration': PublishedData.withCpp,
     'Calling a method in another language': PublishedData.withCpp,
   }
 

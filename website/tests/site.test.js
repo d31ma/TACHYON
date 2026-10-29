@@ -251,7 +251,7 @@ describe('language coverage', () => {
     expect(services(compiled).map(file => file.name.split('.').pop()).sort()).toEqual(['cs', 'dart', 'fs', 'go', 'hpp', 'java', 'kt', 'rb', 'rs', 'swift'])
     for (const file of compiled.files.filter(file => file.name.startsWith('client/models/'))) expect(file.name).toMatch(/^client\/models\/CatalogCount\.[a-z]+$/)
     expect(yon.files.filter(file => /\/controllers\//.test(file.name)).map(file => file.name.split('.').pop()).sort())
-      .toEqual(['cs', 'dart', 'fs', 'go', 'groovy', 'java', 'js', 'kt', 'lua', 'php', 'py', 'rb', 'rs', 'ts'])
+      .toEqual(['cs', 'dart', 'fs', 'go', 'groovy', 'hpp', 'java', 'js', 'kt', 'lua', 'php', 'py', 'rb', 'rs', 'ts'])
     for (const section of topic.sections) for (const file of section.files ?? []) {
       expect(file.code).not.toContain('this.tac')
       expect(file.code).not.toMatch(/tac_publish|tacPublish|Tac\.Publish|\bmount\(/)
@@ -263,8 +263,8 @@ describe('language coverage', () => {
     const sections = docs.topics['project-folders'].sections
     /** @type {[string, string[], RegExp, RegExp][]} */
     const layouts = [
-      ['yon', ['cs', 'dart', 'fs', 'go', 'groovy', 'java', 'js', 'kt', 'lua', 'php', 'py', 'rb', 'rs', 'ts'], /^server\/controllers\/MoneyController\.[a-z]+$/, /^server\/services\/MoneyService\./],
-      ['tac', ['cs', 'dart', 'fs', 'go', 'java', 'js', 'kt', 'py', 'rb', 'rs', 'swift', 'ts'], /^client\/services\/MoneyService\.[a-z]+$/, /^client\/entities\/MoneyEntity\./],
+      ['yon', ['cs', 'dart', 'fs', 'go', 'groovy', 'hpp', 'java', 'js', 'kt', 'lua', 'php', 'py', 'rb', 'rs', 'ts'], /^server\/controllers\/MoneyController\.[a-z]+$/, /^server\/services\/MoneyService\./],
+      ['tac', ['cs', 'dart', 'fs', 'go', 'hpp', 'java', 'js', 'kt', 'lua', 'py', 'rb', 'rs', 'swift', 'ts'], /^client\/services\/MoneyService\.[a-z]+$/, /^client\/entities\/MoneyEntity\./],
     ]
     for (const [framework, extensions, entryPattern, modulePattern] of layouts) {
       const section = Found.required(sections.find(entry => entry.files?.some(file => entryPattern.test(file.name))))
@@ -307,13 +307,17 @@ describe('language coverage', () => {
     const manifest = JSON.parse(Found.required(section.files.find(file => file.name === 'client/manifest.json')).code)
     expect(manifest.tac.catalog).toEqual({ title: 'Catalog', page: { size: 20 }, cache: { enabled: true } })
     const configurations = section.files.filter(file => file.name.startsWith('client/setups/'))
-    expect(configurations.map(file => file.name.split('.').pop()).sort()).toEqual(['cs', 'dart', 'fs', 'go', 'java', 'js', 'kt', 'rb', 'rs', 'swift', 'ts'])
+    expect(configurations.map(file => file.name.split('.').pop()).sort()).toEqual(['cs', 'dart', 'fs', 'go', 'hpp', 'java', 'js', 'kt', 'lua', 'py', 'rb', 'rs', 'swift', 'ts'])
+    const settingsModel = Found.required(section.files.find(file => file.name === 'client/models/CatalogSettings.hpp'))
     for (const file of configurations) {
-      const policy = JSON.parse(Found.required(file.code.match(/Settings\((\{[^\n]*\})\)/))[1])
+      const extension = file.name.split('.').pop()
+      const bound = extension === 'hpp' ? settingsModel : file
+      const policy = JSON.parse(Found.required(bound.code.match(/Settings\((\{[^\n]*\})\)/))[1])
       expect(policy.prefix).toBe('TAC_CATALOG_')
       expect(policy.fields).toBeUndefined()
-      const fields = file.name.endsWith('.rb') ? ['page_size', 'cache_enabled'] : ['pageSize', 'cacheEnabled']
-      for (const field of [...fields, 'title', 'Min(1)', 'Max(100)']) expect(file.code).toContain(field)
+      const fields = extension === 'rb' || extension === 'lua' ? ['page_size', 'cache_enabled'] : ['pageSize', 'cacheEnabled']
+      const limits = extension === 'py' ? ['min(1)', 'max(100)'] : ['Min(1)', 'Max(100)']
+      for (const field of [...fields, 'title', ...limits]) expect(bound.code).toContain(field)
     }
     const go = Found.required(section.files.find(file => file.name === 'client/services/SettingsService.go')).code
     expect(go).toContain('BehaviorsProperties[CatalogSetup](published)')
@@ -328,7 +332,7 @@ describe('language coverage', () => {
     expect(section.axis).toBe('language')
     const handlers = section.files.filter((file) => /^server\/controllers\//.test(file.name))
     expect(handlers.map((file) => file.name.split('.').pop()).sort())
-      .toEqual(['cs', 'dart', 'fs', 'go', 'groovy', 'java', 'js', 'kt', 'php', 'py', 'rb', 'rs', 'ts'])
+      .toEqual(['cs', 'dart', 'fs', 'go', 'groovy', 'hpp', 'java', 'js', 'kt', 'lua', 'php', 'py', 'rb', 'rs', 'ts'])
     for (const handler of handlers) {
       expect(handler.name).toMatch(/^server\/controllers\/ConfigurationController\./)
       expect(handler.code).toMatch(/RequestRoute|request_route/)
@@ -481,17 +485,17 @@ describe('language coverage', () => {
     const tac = languages.tac.files.map((file) => file.name.split('.').pop())
     const yon = languages.yon.entries.map((entry) => entry.id)
 
-    for (const extension of ['js', 'ts', 'py', 'dart', 'rs', 'swift', 'kt', 'cs', 'fs', 'go', 'rb', 'lua']) {
+    for (const extension of ['js', 'ts', 'py', 'dart', 'rs', 'swift', 'kt', 'cs', 'fs', 'go', 'rb', 'lua', 'hpp']) {
       expect(tac).toContain(extension)
     }
     for (const extension of ['html', 'css']) {
       expect(tac).toContain(extension)
     }
     for (const id of ['javascript', 'typescript', 'python', 'java', 'groovy', 'csharp', 'fsharp',
-                      'kotlin', 'php', 'rust', 'dart', 'go', 'ruby', 'lua']) {
+                      'kotlin', 'php', 'rust', 'dart', 'go', 'ruby', 'lua', 'cpp']) {
       expect(yon).toContain(id)
     }
-    expect(yon).toHaveLength(14)
+    expect(yon).toHaveLength(15)
     for (const file of languages.tac.files) {
       expect(file.code.length).toBeGreaterThan(20)
       expect(file.name).toMatch(/^client\/manifest\.json$|^client\/components\/basket\/tally\/tac\.(html|css)$|^client\/services\/TallyService\.[a-z]+$/)
@@ -512,7 +516,7 @@ describe('language coverage', () => {
   test('published test units select separate test-only configuration files in every language', async () => {
     const docs = await SiteData.docs()
     /** @type {[string, number][]} */
-    const realms = [['Yon', 14], ['Tac', 13]]
+    const realms = [['Yon', 15], ['Tac', 14]]
     for (const [realm, count] of realms) {
       const section = Found.required(docs.topics.annotations.sections.find((entry) => entry.heading === `Test units: ${realm}`))
       const configurations = section.files.filter((file) => /\/tests\/CatalogTestSetup\./.test(file.name))

@@ -2,11 +2,11 @@
 #include "../models/OrderList.hpp"
 
 class [[RequestRoute("/orders")]] [[Public]] OrdersController {
+    [[Needs]] OrderService& orders;
+
 public:
     [[GetRoute]]
     OrderList getOrders() {
-        OrderList list;
-        list.orders.push_back("anvil");
-        return list;
+        return OrderList{orders.list()};
     }
 };

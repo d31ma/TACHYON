@@ -10,6 +10,12 @@
       }
     },
     {
+      "name": "server/services/OrderService.hpp",
+      "code": {
+        "file": "server/services/OrderService.hpp"
+      }
+    },
+    {
       "name": "server/controllers/OrdersController.hpp",
       "code": {
         "file": "server/controllers/OrdersController.hpp"
