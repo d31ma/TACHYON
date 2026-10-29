@@ -963,7 +963,7 @@ jobs:
 
       - name: Check that the app, its packages and its window show the manifest icon
         run: >-
-          docker run --rm
+          docker run --rm --init
           --cap-add SYS_ADMIN --cap-add NET_ADMIN
           --security-opt seccomp=unconfined --security-opt apparmor=unconfined
           -v "$PWD":/workspace -w /workspace
