@@ -388,8 +388,12 @@
             "code": "#pragma once\n#include <string>\n#include <vector>\n\nstruct OrderList {\n    std::vector<std::string> orders;\n};\n"
           },
           {
+            "name": "server/services/OrderService.hpp",
+            "code": "#pragma once\n#include <string>\n#include <vector>\n\nclass [[Service]] OrderService {\npublic:\n    std::vector<std::string> list() const {\n        return {\"anvil\"};\n    }\n};\n"
+          },
+          {
             "name": "server/controllers/OrdersController.hpp",
-            "code": "#pragma once\n#include \"../models/OrderList.hpp\"\n\nclass [[RequestRoute(\"/orders\")]] [[Public]] OrdersController {\npublic:\n    [[GetRoute]]\n    OrderList getOrders() {\n        OrderList list;\n        list.orders.push_back(\"anvil\");\n        return list;\n    }\n};\n"
+            "code": "#pragma once\n#include \"../models/OrderList.hpp\"\n\nclass [[RequestRoute(\"/orders\")]] [[Public]] OrdersController {\n    [[Needs]] OrderService& orders;\n\npublic:\n    [[GetRoute]]\n    OrderList getOrders() {\n        return OrderList{orders.list()};\n    }\n};\n"
           }
         ]
       }
