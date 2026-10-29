@@ -59,7 +59,7 @@ func (service *EventService) ReadAndPatch(id string, report *Report) error {
 func (service *EventService) ScrollAll(report *Report) error {
 	cursor := ""
 	for {
-		window, err := service.dataSource.Scroll("hd-events", map[string]any{"kind": "deploy"}, cursor, 50)
+		window, err := service.dataSource.Scroll("hd-events", map[string]any{"kind": "deploy"}, cursor, 5)
 		if err != nil {
 			return err
 		}
@@ -119,7 +119,7 @@ type EventsController struct {
 // @GetRoute
 func (controller *EventsController) GetEvents() (Report, error) {
 	report := Report{}
-	id, err := controller.events.Seed(120)
+	id, err := controller.events.Seed(12)
 	if err != nil {
 		return report, err
 	}
@@ -149,13 +149,13 @@ class EventService:
 
     def exercise(self) -> dict[str, object]:
         self.data_source.create_collection("hd-events")
-        saved = [self.data_source.insert("hd-events", {"kind": "deploy", "count": index}) for index in range(120)]
+        saved = [self.data_source.insert("hd-events", {"kind": "deploy", "count": index}) for index in range(12)]
         first = saved[0]["id"]
         found = self.data_source.find_by_id("hd-events", first)
         patched = self.data_source.patch("hd-events", first, {"count": 99})
         scrolled, pages, cursor = 0, 0, None
         while True:
-            window = self.data_source.scroll("hd-events", {"kind": "deploy"}, cursor, 50)
+            window = self.data_source.scroll("hd-events", {"kind": "deploy"}, cursor, 5)
             scrolled += len(window["content"])
             pages += 1
             cursor = window["nextCursor"]
@@ -283,7 +283,7 @@ class EventsController:
         assert_eq!(report["found"]["count"], 0, "{report}");
         assert_eq!(report["patched"]["count"], 99, "{report}");
         assert_eq!(report["patched"]["id"], report["found"]["id"], "{report}");
-        assert_eq!(report["scrolled"], 120, "{report}");
+        assert_eq!(report["scrolled"], 12, "{report}");
         assert_eq!(report["pages"], 3, "{report}");
         assert_eq!(report["job"], serde_json::json!({"app": "web"}), "{report}");
         assert_eq!(report["gone"], true, "{report}");

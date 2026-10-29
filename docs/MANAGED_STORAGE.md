@@ -344,10 +344,14 @@ FYLO:
   The `fylo_datasource` CLI tests do 123 writes in one request: about 97 s
   of FYLO time, against 6 ms a write natively on macOS (0.85 s in all) and
   10 ms under Rosetta (1.3 s), so emulation is not the cause. With
-  PowerShell answered instantly the same writes took 7.7 s. The tests give
-  Windows a 240 s handler deadline until Tachyon pins a FYLO release with
-  FYLO commit `d75e4ba` (on FYLO develop), which finds the identity once.
-  CI's Windows native job installs no FYLO, so the tests skip there.
+  PowerShell answered instantly the same writes took 7.7 s. In a full
+  Windows test run those PowerShell starts also slowed the tests running
+  beside them. The tests now seed 12 documents and scroll them 5 at a time
+  (still 3 pages), about 19 writes, and Windows keeps a 240 s handler
+  deadline. Known limit: every FYLO write on Windows stays slow until
+  Tachyon pins a FYLO release with FYLO commit `d75e4ba` (on FYLO develop),
+  which finds the identity once. CI's Windows native job installs no FYLO,
+  so the tests skip there.
 
 SQL Server:
 
