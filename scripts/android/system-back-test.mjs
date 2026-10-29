@@ -88,6 +88,7 @@ class AndroidSystemBackTest extends AndroidAccessibilityTest {
       for (const check of report.checks) console.log(`OK: ${check}`)
       console.log(`PASS: on the Android ${device} (API ${level}) emulator, Back went back in page history to the previous route and left the app from the first route. Report: ${path.join(this.evidence, 'report.json')}`)
     } finally {
+      await this.stopProbe()
       spawnSync(this.adb, ['shell', 'am', 'force-stop', this.applicationId], { stdio: 'ignore' })
       spawnSync(this.adb, ['shell', 'rm', '-f', this.probeDevicePath], { stdio: 'ignore' })
       rmSync(this.fixture, { recursive: true, force: true })

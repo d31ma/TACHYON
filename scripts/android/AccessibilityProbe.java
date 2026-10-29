@@ -1,9 +1,15 @@
 import android.app.UiAutomation;
 import android.graphics.Rect;
 import android.view.accessibility.AccessibilityNodeInfo;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.util.concurrent.TimeoutException;
 
 public final class AccessibilityProbe {
     static final String WRAPPER = "com.android.uiautomator.core.UiAutomationShellWrapper";
+    static final String SERVE = "serve";
+    static final String QUIT = "quit";
+    static final String END = "<!-- tachyon-probe-end -->";
 
     static String attribute(String name, Object value) {
         return " " + name + "=\"" + escape(value) + "\"";
@@ -35,6 +41,27 @@ public final class AccessibilityProbe {
         out.append("</node>");
     }
 
+    static String dump(UiAutomation automation) {
+        try {
+            automation.waitForIdle(1000, 10000);
+        } catch (TimeoutException busy) {
+            System.err.println("the screen did not settle within 10 s; reading it anyway");
+        }
+        AccessibilityNodeInfo root = automation.getRootInActiveWindow();
+        StringBuilder out = new StringBuilder("<?xml version='1.0' encoding='UTF-8' standalone='yes' ?><hierarchy rotation=\"0\">");
+        if (root != null) write(out, root, 0);
+        return out.append("</hierarchy>").toString();
+    }
+
+    static void serve(UiAutomation automation) throws Exception {
+        BufferedReader input = new BufferedReader(new InputStreamReader(System.in));
+        for (String line = input.readLine(); line != null && !line.trim().equals(QUIT); line = input.readLine()) {
+            System.out.println(dump(automation));
+            System.out.println(END);
+            System.out.flush();
+        }
+    }
+
     public static void main(String[] args) throws Exception {
         Class<?> type = Class.forName(WRAPPER);
         Object wrapper = type.getConstructor().newInstance();
@@ -42,11 +69,8 @@ public final class AccessibilityProbe {
         try {
             type.getMethod("setCompressedLayoutHierarchy", boolean.class).invoke(wrapper, true);
             UiAutomation automation = (UiAutomation) type.getMethod("getUiAutomation").invoke(wrapper);
-            automation.waitForIdle(1000, 10000);
-            AccessibilityNodeInfo root = automation.getRootInActiveWindow();
-            StringBuilder out = new StringBuilder("<?xml version='1.0' encoding='UTF-8' standalone='yes' ?><hierarchy rotation=\"0\">");
-            if (root != null) write(out, root, 0);
-            System.out.println(out.append("</hierarchy>"));
+            if (args.length > 0 && args[0].equals(SERVE)) serve(automation);
+            else System.out.println(dump(automation));
         } finally {
             type.getMethod("disconnect").invoke(wrapper);
         }

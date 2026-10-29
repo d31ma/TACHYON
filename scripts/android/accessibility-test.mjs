@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict'
-import { spawnSync } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -19,6 +19,9 @@ export class AndroidAccessibilityTest {
   static probeClass = 'AccessibilityProbe'
   static probeDevicePath = '/data/local/tmp/tachyon-accessibility-probe.dex'
   static probeClassPath = `/system/framework/uiautomator.jar:${AndroidAccessibilityTest.probeDevicePath}`
+  static probeEnd = '<!-- tachyon-probe-end -->'
+  static probeAnswerMilliseconds = 60000
+  static probe = null
   static webViewClass = 'android.webkit.WebView'
   static editableClass = 'android.widget.EditText'
   static buttonClass = 'android.widget.Button'
@@ -83,9 +86,64 @@ export class AndroidAccessibilityTest {
     this.run(this.adb, ['push', path.join(this.fixture, 'classes.dex'), this.probeDevicePath])
   }
 
-  static screen() {
-    const probe = spawnSync(this.adb, ['shell', `CLASSPATH=${this.probeClassPath}`, 'app_process', '/system/bin', this.probeClass], { encoding: 'utf8', timeout: 60000, maxBuffer: 64 * 1024 * 1024 })
-    const xml = probe.status === 0 && probe.stdout.includes('<hierarchy') ? probe.stdout.trim() : ''
+  static startProbe() {
+    const child = spawn(this.adb, ['shell', `CLASSPATH=${this.probeClassPath}`, 'app_process', '/system/bin', this.probeClass, 'serve'], { stdio: ['pipe', 'pipe', 'ignore'] })
+    const probe = { child, buffer: '', answer: null, closed: false }
+    child.stdout.setEncoding('utf8')
+    child.stdout.on('data', (chunk) => {
+      probe.buffer += chunk
+      this.deliver(probe)
+    })
+    child.on('close', () => {
+      probe.closed = true
+      probe.answer?.('')
+      probe.answer = null
+    })
+    child.stdin.on('error', () => {})
+    return probe
+  }
+
+  static deliver(probe) {
+    const end = probe.buffer.indexOf(this.probeEnd)
+    if (end < 0 || !probe.answer) return
+    const answer = probe.answer
+    probe.answer = null
+    answer(probe.buffer.slice(0, end))
+    probe.buffer = probe.buffer.slice(end + this.probeEnd.length)
+  }
+
+  static async dump() {
+    if (!this.probe || this.probe.closed) this.probe = this.startProbe()
+    const probe = this.probe
+    const answer = new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        probe.answer = null
+        probe.child.kill()
+        resolve('')
+      }, this.probeAnswerMilliseconds)
+      probe.answer = (text) => {
+        clearTimeout(timer)
+        resolve(text)
+      }
+    })
+    probe.child.stdin.write('dump\n')
+    return answer
+  }
+
+  static async stopProbe() {
+    const probe = this.probe
+    this.probe = null
+    if (!probe || probe.closed) return
+    const closed = new Promise((resolve) => probe.child.once('close', resolve))
+    probe.child.stdin.end('quit\n')
+    const timer = setTimeout(() => probe.child.kill(), 5000)
+    await closed
+    clearTimeout(timer)
+  }
+
+  static async screen() {
+    const output = await this.dump()
+    const xml = output.includes('<hierarchy') ? output.trim() : ''
     if (!xml) return { xml, nodes: [] }
     const tree = this.parse(xml)
     const web = this.flatten(tree).find((node) => node.class === this.webViewClass && node.package === this.applicationId)
@@ -95,7 +153,7 @@ export class AndroidAccessibilityTest {
   static async waitFor(predicate, message) {
     let screen = { xml: '', nodes: [] }
     for (let attempt = 0; attempt < this.waitAttempts; attempt++) {
-      screen = this.screen()
+      screen = await this.screen()
       if (screen.web && predicate(screen.nodes)) {
         this.dumps += 1
         writeFileSync(path.join(this.evidence, `dump-${this.dumps}.xml`), screen.xml)
@@ -222,6 +280,7 @@ export class AndroidAccessibilityTest {
       assert.deepEqual(report.findings, [], 'the accessibility checks found issues')
       console.log(`PASS: on the Android ${device} emulator, the page's heading, image, text field, button and link reached the platform accessibility tree by name, typing, a press and a link worked from their accessibility bounds, and the ATF-style checks found no issue. Report: ${path.join(this.evidence, 'report.json')}`)
     } finally {
+      await this.stopProbe()
       spawnSync(this.adb, ['shell', 'am', 'force-stop', this.applicationId], { stdio: 'ignore' })
       spawnSync(this.adb, ['shell', 'rm', '-f', this.probeDevicePath], { stdio: 'ignore' })
       rmSync(this.fixture, { recursive: true, force: true })
