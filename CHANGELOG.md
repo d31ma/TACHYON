@@ -26,7 +26,19 @@ machine contracts have their own, independent major versions.
   it and removes it after the build (IC2, 2026-10-29); with `--screen` the
   gate also installs the package, reads the icon the shell shows for it and
   removes the package. The Wine tray test builds for ARM64 Windows on arm64
-  Linux (`aarch64-w64-mingw32-gcc`), so it runs under an arm64 Wine.
+  Linux (`aarch64-w64-mingw32-gcc`), so it runs under an arm64 Wine; since
+  WN1 (2026-10-29) all twelve Wine tests do.
+- `scripts/linux/wine.Dockerfile` and `scripts/linux/wine-tests.sh` run the
+  `#[ignore]` Wine tests on arm64 Linux (WN1, 2026-10-29). The image builds
+  Wine 11.0 for aarch64 with llvm-mingw 20261020, and the tests build ARM64
+  Windows programs with `WindowsHostTests::MINGW_FOR_WINE` (and Rust for
+  `aarch64-pc-windows-gnullvm`); `--with-compile-checks` adds the eight
+  x86_64 MinGW compile checks. All 20 passed in a linux/arm64 container
+  (`docs/SUPPORT_TIERS.md`, "The Wine tests on arm64").
+- `scripts/ci/install-toolchains.mjs` installs Dart 3.13.1 and
+  cargo-nextest 0.9.146 on `linux-arm64` and `win32-arm64` too (CI4,
+  2026-10-29), and `linux-display-session.mjs describe` reads the logind
+  session of a GNOME session that systemd starts.
 - `scripts/linux/gnome-shell-session.sh` runs a Linux gate inside a headless
   GNOME Shell Wayland session (LD2, 2026-10-28), for example
   `scripts/linux/gnome-shell-session.sh scripts/linux/compositor-test.sh
@@ -2431,6 +2443,13 @@ machine contracts have their own, independent major versions.
   tests now seed 12 documents (3 scroll pages of up to 5) and allow 240 s
   on Windows. FYLO writes on Windows stay slow until the FYLO pin moves past
   FYLO commit `d75e4ba`.
+- The Linux host tests pass on a 1024x768 GNOME Shell screen (CI4,
+  2026-10-29): their windows are 800x560 (640x480 for window controls and
+  grants), so GNOME Shell does not maximize them; `gnome-shell-session.sh`
+  closes the startup overview; the browser API fixture sets the clipboard
+  only once its window is active; and the X11 title bar and file dialog
+  fixtures build with GTK 4.18. The Wine test C fixtures build with
+  llvm-mingw's clang under `-Werror` (WN1).
 - Tests and CI scripts that failed when every CI job ran locally (CI3,
   2026-10-29, no GitHub Actions run): the website tests expect the C++, Lua
   and Python examples the guides now publish; the `CacheKey` fixture names

@@ -433,6 +433,9 @@ WSL2 (kernel 6.18.54.1), GTK 4.14.5, WebKitGTK 2.52.6, node 24.21.0, bun
   `linkgate://` links in one running app. The two Windows link tests now
   compile with mingw but need Wine to run the x86_64 `.exe`, which arm64 WSL
   cannot run without an x86 emulator; they belong on Windows or x86_64 Linux.
+  (Since WN1, 2026-10-29, the Wine tests build ARM64 Windows programs on
+  arm64 Linux and pass under Wine 11.0 for aarch64; see "The Wine tests on
+  arm64" below.)
 - Not run: a physical Linux desktop.
   GeoClue, a notification server and an apt install of the `.deb` as root
   ran in LX1 (below), in the cloud and on WSL. LD1 (2026-10-28, below) ran
@@ -586,7 +589,8 @@ WSL Ubuntu 24.04 (aarch64) on the Surface, driven over SSH from the Mac.
 - `compositor-test.sh --desktop` passed (12 and 3 host tests, 215 s) at
   1920x1080. At 1024x768 three tests failed (appearance, window controls
   and window grants), because mutter maximizes the gate's 900x640 window
-  there.
+  there. CI4 made the test windows smaller, and the gate then passed at
+  1024x768 ("Local CI gaps", below).
 - In the headless GNOME Shell session (`gnome-shell-session.sh`),
   `desktop-services-test.sh` passed again (242 s) with the close step. After
   `lightdm` was disabled, the distribution was stopped (`wsl --terminate`)
@@ -2302,7 +2306,7 @@ Failed, left for iteration 12:
 Not run: the Windows WebView2 native gate, because PowerShell scripts are
 not allowed for the Surface's user and CI3 did not change that policy;
 `publish.yml` and `fuzz-scheduled.yml`; and the `#[ignore]` Wine tests,
-which CI never runs.
+which CI never runs (WN1 ran them on arm64 afterwards, below).
 
 Substitutions: arm64 everywhere (the sanitizers built for
 `aarch64-unknown-linux-gnu`, the Android arm64-v8a image, Linux and Windows
@@ -2311,7 +2315,8 @@ the Ubuntu release lifecycle drill in linux/arm64 containers on the Mac
 (image from `scripts/linux/Dockerfile`), after CI3's own WSL build folders
 filled the Surface's external drive and WSL's disk went read-only three
 times. `install-toolchains.mjs` has no linux-arm64 or win32-arm64 entries
-for Dart and nextest, so installed copies were used. What only GitHub's
+for Dart and nextest, so installed copies were used (CI4 added them,
+below). What only GitHub's
 runners can show stays unrun: an x64 Windows runner, the x86_64 Linux and
 Android images, and Swift 6.3.3 on `macos-latest` (the open-source Swift
 6.3.3 does not crash on either version of CI2's fixture).
@@ -2327,6 +2332,73 @@ examples; the native events harness matches the Rust and Kotlin fixtures;
 and the iOS window settings gate retakes its screenshot while a new
 simulator's system banner covers the status bar and waits up to 10 s for
 the simulator pasteboard. This evidence does not promote any tier.
+
+### Local CI gaps (2026-10-29, CI4)
+
+CI4 (iteration 12; on develop as `807beea0` to `be603ad4`) fixed gaps that
+CI3 and WL1 found. No GitHub Actions run was made.
+
+- `scripts/ci/install-toolchains.mjs` pins Dart 3.13.1 and cargo-nextest
+  0.9.146 for `linux-arm64` and `win32-arm64`, with checksums from the
+  downloaded archives (they match Dart's published `.sha256sum` files). Both
+  installed on the Mac, in a linux/arm64 container and on the Surface's
+  Windows 11 ARM64 (Dart `windows_arm64`, nextest
+  `aarch64-pc-windows-msvc`).
+- GNOME Shell maximizes a new window that covers more than 80% of the work
+  area, which is why three of WL1's host tests failed at 1024x768; under
+  GNOME Shell 48 the maximized state also never reaches GTK. Every Linux
+  host test window is now 800x560 (`LinuxHostTests::window()`), and the
+  window control and grant tests use 640x480.
+  `scripts/linux/gnome-shell-session.sh` closes the overview that GNOME
+  Shell opens at startup, because a window mapped under it never takes the
+  focus, and the browser API fixture waits until its window is active
+  before it sets the clipboard, because the compositor ignores a selection
+  from a client without the keyboard focus. The X11 title bar and file
+  dialog fixtures build with GTK 4.18 (Debian trixie, the gate image).
+- `scripts/linux/linux-display-session.mjs describe` reads the user's
+  graphical logind session when the desktop's processes have no
+  `XDG_SESSION_ID`, as in a GNOME session that systemd starts.
+
+In a linux/arm64 container on the Mac's Docker Desktop (headless GNOME
+Shell 48.7, GTK 4.18.6, WebKitGTK 2.54.0), `gnome-shell-session.sh
+compositor-test.sh --desktop` passed 12 and 3 host tests at 1024x768 and at
+1280x900, and the default `compositor-test.sh` passed (xfwm4 2 and 2, then
+headless mutter 12 and 3). On the Mac, fmt, clippy, `repository_policy` (25
+of 25) and `cargo test -p tachyon-core --lib linux_` (51 passed, 1 ignored)
+passed. Not run: `describe` in a real systemd-mode GNOME session (WSL was
+out while its disk was compacted), and the Windows WebView2 gate, because
+the Surface user's PowerShell policy is unchanged, so CI2's x64 pass stays
+the record.
+
+### The Wine tests on arm64 (2026-10-29, WN1)
+
+WN1 (iteration 12; on develop as `dd195f58` to `063cc491`) ran the
+`#[ignore]` Win32 tests that need Wine on arm64. They built with x86_64
+MinGW, so an aarch64 Wine could not run them. They now build with
+`WindowsHostTests::MINGW_FOR_WINE` (llvm-mingw's `aarch64-w64-mingw32-gcc`
+on arm64 Linux); the two that build Rust use `RUST_TARGET_FOR_WINE`
+(`aarch64-pc-windows-gnullvm` there) and copy llvm-mingw's `libunwind.dll`
+beside the program, and `WindowsHostTests::wine()` picks `wine` or
+Ubuntu's `wine64`. The compile-only MinGW checks stay on x86_64 MinGW GCC.
+
+`scripts/linux/wine.Dockerfile` (new) builds Wine 11.0 for aarch64 from
+source on top of the Linux gate image, with llvm-mingw 20261020, Debian's
+x86_64 MinGW GCC, the WebView2 1.0.3485.44 headers and Rust's Windows
+targets, all checksum-pinned. `scripts/linux/wine-tests.sh` (new) runs the
+twelve Wine tests under Xvfb, and with `--with-compile-checks` the eight
+MinGW compile checks.
+
+In a linux/arm64 container of that image on the Mac's Docker Desktop, all
+20 passed: the deep link, external link, menu action, Rust HTTP transport,
+tray, browser API, both file picker, package folder, task resume, title bar
+and window background tests under Wine, and the eight compile checks. The
+first run's failures were in our C fixtures, which llvm-mingw's clang
+rejects under `-Werror` where GCC did not: an unused tray stub, and DPI
+calls that mingw-w64 declares only for Windows 10 while llvm-mingw defaults
+`_WIN32_WINNT` to Windows 7 (the fixture now sets it). No Wine gap was
+found. On the Mac fmt, clippy and `repository_policy` passed, and clippy
+for `x86_64-pc-windows-gnu` passed in the container. These are Wine runs,
+not Windows; the tier does not change.
 
 ### Dependency advisories (2026-10-28, DN1)
 
