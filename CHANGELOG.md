@@ -2422,6 +2422,12 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- The `fylo_datasource` CLI tests (Go and Python) failed with `TY2110` on
+  Windows ARM64 (FY1, 2026-10-29). The pinned FYLO v26.33.02 starts
+  `powershell.exe` on every write on Windows (about 0.8 s each), so the
+  tests' 123 writes need about 97 s; x64 emulation is not the cause. On
+  Windows the tests now allow 240 s until the FYLO pin moves past FYLO
+  commit `d75e4ba`.
 - The failures of the first CI run on develop since 2026-10-25 (CI2,
   2026-10-28, run 40705121906): `server/dispatch.rs` pins the middleware
   tail (`Box::pin`), so clippy's `large_futures` passes on Windows; the

@@ -8,6 +8,8 @@ struct FyloProject {
 }
 
 impl FyloProject {
+    const HANDLER_TIMEOUT_MS: &'static str = "60000";
+    const WINDOWS_PINNED_FYLO_TIMEOUT_MS: &'static str = "240000";
     const GO_FILES: [(&'static str, &'static str); 5] = [
         (
             "server/models/Event.go",
@@ -228,7 +230,7 @@ class EventsController:
                 "--method",
                 "GET",
                 "--timeout-ms",
-                "60000",
+                Self::timeout_ms(),
             ]);
         let extension = Path::new(controller).extension();
         if extension.is_some_and(|extension| extension.eq_ignore_ascii_case("py")) {
@@ -248,6 +250,14 @@ class EventsController:
         assert_eq!(response["status"], 200, "{response}");
         let body = response["body"]["data"].as_str().expect("JSON body");
         serde_json::from_str(body).expect("report JSON")
+    }
+
+    fn timeout_ms() -> &'static str {
+        if cfg!(windows) {
+            Self::WINDOWS_PINNED_FYLO_TIMEOUT_MS
+        } else {
+            Self::HANDLER_TIMEOUT_MS
+        }
     }
 
     fn available(program: &str) -> bool {

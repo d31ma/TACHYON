@@ -338,6 +338,16 @@ FYLO:
   10,050 documents) and ran through real `ty handler invoke` Go (typed models)
   and Python services. The website example ran the same flow in every Yon
   language that has a DataSource against a real `fylo` binary.
+- On Windows, FYLO v26.33.02 starts `powershell.exe` on every write to read
+  its own start time for the collection lock, so each write takes about
+  0.8 s (FY1, 2026-10-29, measured on the Surface ARM64 with the x64 FYLO).
+  The `fylo_datasource` CLI tests do 123 writes in one request: about 97 s
+  of FYLO time, against 6 ms a write natively on macOS (0.85 s in all) and
+  10 ms under Rosetta (1.3 s), so emulation is not the cause. With
+  PowerShell answered instantly the same writes took 7.7 s. The tests give
+  Windows a 240 s handler deadline until Tachyon pins a FYLO release with
+  FYLO commit `d75e4ba` (on FYLO develop), which finds the identity once.
+  CI's Windows native job installs no FYLO, so the tests skip there.
 
 SQL Server:
 
