@@ -70,7 +70,7 @@ async function checkScaffold() {
     'tachyon-env.d.ts', 'tachyon-behaviors.d.ts', 'client/pages/tac.html',
     'client/components/app/shell/tac.html', 'client/services/ShellService.js', 'client/components/app/shell/tac.css',
     'client/components/app/hero/tac.html', 'client/components/app/hero/tac.css',
-    'client/shared/assets/.gitkeep', 'client/shared/data/.gitkeep',
+    'client/shared/assets/icon.svg', 'client/shared/assets/icon-192.png', 'client/shared/assets/icon-512.png', 'client/shared/data/.gitkeep',
     'client/shared/styles/app.css',
     'server/controllers/HomeController.js', 'server/data/.gitkeep', 'server/deps/.gitkeep',
     '.tachyon/types/client/composed.d.ts', '.tachyon/types/server/composed.d.ts',
