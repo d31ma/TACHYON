@@ -239,7 +239,7 @@ fn the_windows_host_with_each_title_bar_compiles_against_the_win32_and_webview2_
 
 #[cfg(unix)]
 #[test]
-#[ignore = "Requires the x86_64-w64-mingw32-gcc cross compiler, wine64, an X display or xvfb-run, and TAC_WEBVIEW2_SDK; drives the title bar frame, hit test, menus and insets on a Win32 window under Wine, without DWM or WebView2"]
+#[ignore = "Requires the MinGW cross compiler for its architecture (x86_64-w64-mingw32-gcc, or aarch64-w64-mingw32-gcc from llvm-mingw on arm64 Linux), Wine, an X display or xvfb-run, and TAC_WEBVIEW2_SDK; drives the title bar frame, hit test, menus and insets on a Win32 window under Wine, without DWM or WebView2"]
 fn the_windows_title_bar_drives_a_win32_window_under_wine() {
     let root = tempfile::tempdir().expect("fixture");
     let headers = WindowsTitleBarTests::headers(root.path());
@@ -248,7 +248,7 @@ fn the_windows_title_bar_drives_a_win32_window_under_wine() {
     let program = root.path().join("title-bar.exe");
     std::fs::write(&source, WindowsTitleBarTests::fixture(&window)).expect("source");
     WindowsTitleBarTests::success(
-        Command::new(WindowsTitleBarTests::MINGW)
+        Command::new(super::windows_host_tests::WindowsHostTests::MINGW_FOR_WINE)
             .args(WindowsTitleBarTests::WARNINGS)
             .args(&headers)
             .arg(&source)
@@ -258,7 +258,7 @@ fn the_windows_title_bar_drives_a_win32_window_under_wine() {
     let prefix = root.path().join("prefix");
     let mut wine = WindowsTitleBarTests::display();
     let stdout = WindowsTitleBarTests::success(
-        wine.args(["wine64"])
+        wine.arg(super::windows_host_tests::WindowsHostTests::wine().expect("Wine"))
             .arg(&program)
             .env("WINEPREFIX", &prefix)
             .env("WINEDEBUG", "-all"),
