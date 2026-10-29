@@ -19,6 +19,12 @@ machine contracts have their own, independent major versions.
   adds the .deb, AppImage and MSIX icons. The `linux-native` CI job runs it
   for Linux. Each desktop host records `icon.loaded` or `icon.missing`, and
   each tray host `tray.icon.loaded` or `tray.icon.missing`.
+  On Windows, `--release` with no `TAC_WINDOWS_CERTIFICATE` makes a
+  throwaway code-signing certificate with `certreq.exe`, signs the MSIX with
+  it and removes it after the build (IC2, 2026-10-29); with `--screen` the
+  gate also installs the package, reads the icon the shell shows for it and
+  removes the package. The Wine tray test builds for ARM64 Windows on arm64
+  Linux (`aarch64-w64-mingw32-gcc`), so it runs under an arm64 Wine.
 - `scripts/linux/gnome-shell-session.sh` runs a Linux gate inside a headless
   GNOME Shell Wayland session (LD2, 2026-10-28), for example
   `scripts/linux/gnome-shell-session.sh scripts/linux/compositor-test.sh
