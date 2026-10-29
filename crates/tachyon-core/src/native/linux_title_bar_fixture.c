@@ -118,14 +118,19 @@ static void tachyon_bar_load_input(void) {
 static Display *tachyon_bar_display(void) {
   GdkDisplay *display = gtk_widget_get_display(GTK_WIDGET(g_native_window));
   tachyon_bar_require(GDK_IS_X11_DISPLAY(display), "the fixture needs an X11 display (GDK_BACKEND=x11)");
-  return gdk_x11_display_get_xdisplay(display);
+  G_GNUC_BEGIN_IGNORE_DEPRECATIONS
+  Display *xdisplay = gdk_x11_display_get_xdisplay(display);
+  G_GNUC_END_IGNORE_DEPRECATIONS
+  return xdisplay;
 }
 
 static void tachyon_bar_root(int x, int y, int *root_x, int *root_y) {
   Display *display = tachyon_bar_display();
   Window child = 0;
-  g_bar_translate(display, gdk_x11_surface_get_xid(gtk_native_get_surface(GTK_NATIVE(g_native_window))), DefaultRootWindow(display), x, y,
-                  root_x, root_y, &child);
+  G_GNUC_BEGIN_IGNORE_DEPRECATIONS
+  Window window = gdk_x11_surface_get_xid(gtk_native_get_surface(GTK_NATIVE(g_native_window)));
+  G_GNUC_END_IGNORE_DEPRECATIONS
+  g_bar_translate(display, window, DefaultRootWindow(display), x, y, root_x, root_y, &child);
 }
 
 static void tachyon_bar_page_root(double x, double y, int *root_x, int *root_y) {
