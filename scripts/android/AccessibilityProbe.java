@@ -41,13 +41,23 @@ public final class AccessibilityProbe {
         out.append("</node>");
     }
 
+    static void clearCache(UiAutomation automation) {
+        try {
+            UiAutomation.class.getMethod("clearCache").invoke(automation);
+        } catch (ReflectiveOperationException older) {
+            System.err.println("this Android has no UiAutomation.clearCache; reading through the cache");
+        }
+    }
+
     static String dump(UiAutomation automation) {
         try {
             automation.waitForIdle(1000, 10000);
         } catch (TimeoutException busy) {
             System.err.println("the screen did not settle within 10 s; reading it anyway");
         }
+        clearCache(automation);
         AccessibilityNodeInfo root = automation.getRootInActiveWindow();
+        if (root != null) root.refresh();
         StringBuilder out = new StringBuilder("<?xml version='1.0' encoding='UTF-8' standalone='yes' ?><hierarchy rotation=\"0\">");
         if (root != null) write(out, root, 0);
         return out.append("</hierarchy>").toString();
