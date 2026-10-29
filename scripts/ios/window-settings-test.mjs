@@ -28,6 +28,8 @@ class IosWindowSettingsGate {
   static devices = [];
   static usedDevices = [];
   static styles = { default: 0, lightContent: 1, darkContent: 3 };
+  static statusColors = { standard: '#0f6cbd', integrated: '#ff00ff' };
+  static bannerWaits = 15;
   static apps = {
     standard: {
       theme_color: '#0f6cbd', background_color: '#ffaa00', orientation: 'portrait',
@@ -299,9 +301,22 @@ impl RustTitleService {
     assert.equal(recorded.error, undefined, `${name}: ${recorded.error}`);
     console.log(`${name}: ${JSON.stringify(recorded)}`);
     const screenshot = path.join(IosWindowSettingsGate.root, `${name}-${device}.png`);
-    simctl('io', device, 'screenshot', screenshot);
+    const image = await IosWindowSettingsGate.screenWithoutBanner(device, screenshot, recorded.native, IosWindowSettingsGate.statusColors[name]);
     simctl('terminate', device, appId);
-    return { ...recorded, image: IosWindowSettingsGate.readPng(screenshot) };
+    return { ...recorded, image };
+  }
+
+  static async screenWithoutBanner(device, screenshot, native, statusColor) {
+    const { simctl, readPng, rowShare, pause, bannerWaits } = IosWindowSettingsGate;
+    const statusRow = (native.safeTop - 3) * native.scale;
+    simctl('io', device, 'screenshot', screenshot);
+    let image = readPng(screenshot);
+    for (let attempt = 0; statusColor && attempt < bannerWaits && rowShare(image, statusRow, statusColor) <= 0.5; attempt++) {
+      await pause(1000);
+      simctl('io', device, 'screenshot', screenshot);
+      image = readPng(screenshot);
+    }
+    return image;
   }
 
   static readPng(file) {
