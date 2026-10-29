@@ -19,7 +19,7 @@ impl OwnerProbeService {
     fn stop(&mut self) {
         tac_set_session("eventDeaths", &(self.deaths + 1).to_string());
     }
-    fn send(&self) -> i64 {
+    pub fn send(&self) -> i64 {
         self.application_event_publisher.publish_event(Pulse { amount: 5 }, true);
         5
     }
@@ -36,7 +36,7 @@ impl OwnerProbeService {
     fn receive_relay(&mut self, value: Relay) {
         self.count += value.amount;
     }
-    fn cycle(&self) -> i64 {
+    pub fn cycle(&self) -> i64 {
         self.application_event_publisher.publish_event(Cycle { amount: 1 }, false);
         1
     }
@@ -45,7 +45,7 @@ impl OwnerProbeService {
         self.count += value.amount;
         self.cycle();
     }
-    fn isolated(&self) -> TacValue {
+    pub fn isolated(&self) -> TacValue {
         self.application_event_publisher.publish_event(Isolation { value: 1 }, false);
         TacValue::Object(vec![("value".into(), TacValue::Int(1))])
     }
@@ -58,12 +58,12 @@ impl OwnerProbeService {
     fn b_original(&mut self, value: Isolation) {
         self.count += value.value;
     }
-    fn publish_ordered(&self) -> i64 {
+    pub fn publish_ordered(&self) -> i64 {
         let ordered = Ordered { status: String::from("paid"), total: 12 };
         self.application_event_publisher.publish_event(ordered, false);
         1
     }
-    fn publish_other(&self) -> i64 {
+    pub fn publish_other(&self) -> i64 {
         let other = Other { status: String::from("paid"), total: 12 };
         self.application_event_publisher.publish_event(other, false);
         1

@@ -1418,6 +1418,15 @@ mod tests {
         ]
     }
 
+    fn owner_prelude(root: &Path, extension: &str, prelude: String) -> String {
+        let model_order = (extension == "kt")
+            .then(|| super::super::kotlin_model_order::KotlinModelOrder::text(root))
+            .transpose()
+            .expect("Kotlin model order")
+            .unwrap_or_default();
+        prelude + &model_order
+    }
+
     fn owner_models(extension: &str) -> &'static str {
         match extension {
             "swift" => include_str!("../../tests/fixtures/native-events/models/Events.swift"),
@@ -1510,8 +1519,11 @@ mod tests {
                 std::fs::create_dir_all(output).expect("create fixture output");
                 std::fs::write(output.join(format!("owner.{extension}")), unit)
                     .expect("write emitted owner");
-                std::fs::write(output.join(format!("prelude.{extension}")), prelude)
-                    .expect("write emitted prelude");
+                std::fs::write(
+                    output.join(format!("prelude.{extension}")),
+                    owner_prelude(captured.path(), extension, prelude),
+                )
+                .expect("write emitted prelude");
                 if extension == "kt" {
                     let models = format!("package models\n\n{}", owner_models("kt"));
                     std::fs::write(output.join("owner-models.kt"), models)
