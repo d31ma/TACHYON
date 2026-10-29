@@ -2,6 +2,7 @@
 
 use super::native_page_graph_tests::NativePageGraphCheck;
 use super::registry::NativeCompanionInput;
+use super::windows_host_tests::WindowsHostTests;
 use crate::project::NativeCompanion;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
@@ -347,26 +348,14 @@ fn main() {
             .expect("native source")
     }
 
-    fn windows_standard_library() -> bool {
+    fn windows_standard_library(target: &str) -> bool {
         let output = std::process::Command::new("rustc")
-            .args([
-                "--print",
-                "target-libdir",
-                "--target",
-                "x86_64-pc-windows-gnu",
-            ])
+            .args(["--print", "target-libdir", "--target", target])
             .output();
         output
             .ok()
             .map(|output| PathBuf::from(String::from_utf8_lossy(&output.stdout).trim()))
             .is_some_and(|folder| folder.join("libstd.rlib").exists() | Self::has_std(&folder))
-    }
-
-    fn wine() -> bool {
-        std::process::Command::new("wine64")
-            .arg("--version")
-            .output()
-            .is_ok_and(|output| output.status.success())
     }
 
     pub(super) async fn serve(listener: tokio::net::TcpListener, heads: Arc<Mutex<Vec<String>>>) {
@@ -404,8 +393,9 @@ fn main() {
         let executable = source.with_extension("exe");
         let mut command = tokio::process::Command::new("rustc");
         command
-            .args(["--edition", "2024", "--target", "x86_64-pc-windows-gnu"])
-            .args(["-C", "linker=x86_64-w64-mingw32-gcc"])
+            .args(["--edition", "2024"])
+            .args(["--target", WindowsHostTests::RUST_TARGET_FOR_WINE])
+            .arg(format!("-Clinker={}", WindowsHostTests::MINGW_FOR_WINE))
             .arg(source)
             .arg("-o")
             .arg(&executable);
@@ -418,11 +408,12 @@ fn main() {
             "{}",
             String::from_utf8_lossy(&compiled.stderr)
         );
+        WindowsHostTests::stage_wine_runtime(executable.parent().expect("folder"));
         executable
     }
 
     async fn under_wine(executable: &Path, prefix: &Path) -> crate::external_command::ToolOutput {
-        let mut command = tokio::process::Command::new("wine64");
+        let mut command = tokio::process::Command::new(WindowsHostTests::wine().expect("Wine"));
         command
             .arg(executable)
             .env("WINEDEBUG", "-all")
@@ -512,7 +503,7 @@ async fn native_rust_http_clients_carry_the_yon_origin_and_the_windows_transport
 
 #[tokio::test]
 async fn native_rust_http_transport_compiles_for_windows() {
-    if !NativeRustTaskCheck::windows_standard_library() {
+    if !NativeRustTaskCheck::windows_standard_library("x86_64-pc-windows-gnu") {
         eprintln!("skipping: the x86_64-pc-windows-gnu standard library is not installed");
         return;
     }
@@ -545,10 +536,10 @@ async fn native_rust_http_transport_compiles_for_windows() {
 
 #[tokio::test]
 async fn native_rust_http_transport_reaches_a_local_yon_under_wine() {
-    if !NativeRustTaskCheck::windows_standard_library() | !NativeRustTaskCheck::wine() {
-        eprintln!(
-            "skipping: the x86_64-pc-windows-gnu standard library or wine64 is not installed"
-        );
+    let target = WindowsHostTests::RUST_TARGET_FOR_WINE;
+    let wine = WindowsHostTests::wine();
+    if !NativeRustTaskCheck::windows_standard_library(target) | wine.is_none() {
+        eprintln!("skipping: the {target} standard library or Wine is not installed");
         return;
     }
     let root = tempfile::tempdir().expect("fixture");

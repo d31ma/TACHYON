@@ -74,8 +74,6 @@ int main(void) {
   {"TACHYON://APP/", 0},
   {"https://tachyon.local/", 1},"#;
     #[cfg(unix)]
-    const MINGW: &'static str = "x86_64-w64-mingw32-gcc";
-    #[cfg(unix)]
     const WINE: &'static str = "wine";
     #[cfg(unix)]
     const WINDOWS_HARNESS_HEAD: &'static str = r"#define UNICODE
@@ -323,14 +321,14 @@ fn the_linux_link_fixture_drives_a_real_page_script() {
 
 #[cfg(unix)]
 #[tokio::test]
-#[ignore = "Requires the x86_64-w64-mingw32-gcc cross compiler and Wine; builds the Windows link opener against the Win32 headers and runs it"]
+#[ignore = "Requires the MinGW cross compiler for its architecture (x86_64-w64-mingw32-gcc, or aarch64-w64-mingw32-gcc from llvm-mingw on arm64 Linux) and Wine; builds the Windows link opener against the Win32 headers and runs it"]
 async fn the_windows_link_opener_compiles_against_win32_and_opens_only_external_links() {
     let root = tempfile::tempdir().expect("fixture");
     let source = root.path().join("links.c");
     std::fs::write(&source, NativeExternalLinkTests::windows_harness()).expect("harness");
     let executable = root.path().join("links.exe");
     super::host::run_tool(
-        NativeExternalLinkTests::MINGW,
+        super::windows_host_tests::WindowsHostTests::MINGW_FOR_WINE,
         &[
             "-std=gnu17",
             "-O2",

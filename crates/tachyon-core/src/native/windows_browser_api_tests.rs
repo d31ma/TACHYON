@@ -52,8 +52,6 @@ static wchar_t *tachyon_widen(const char *value) {
 }
 "#;
     #[cfg(unix)]
-    const MINGW: &'static str = "x86_64-w64-mingw32-gcc";
-    #[cfg(unix)]
     const WINE: &'static str = "wine";
 
     fn permissions(granted: &[&str]) -> BrowserApiPermissions {
@@ -117,7 +115,7 @@ static wchar_t *tachyon_widen(const char *value) {
         let program = root.join(format!("{name}.exe"));
         std::fs::write(&source, Self::harness(granted)).expect("source");
         Self::success(
-            Command::new(Self::MINGW)
+            Command::new(super::windows_host_tests::WindowsHostTests::MINGW_FOR_WINE)
                 .args(["-std=gnu17", "-Wall", "-Wextra", "-Werror", "-O2"])
                 .arg(format!("-D{define}"))
                 .arg(&source)
@@ -204,7 +202,7 @@ fn the_browser_api_harness_fills_every_placeholder() {
 
 #[cfg(unix)]
 #[test]
-#[ignore = "Requires the x86_64-w64-mingw32-gcc cross compiler and wine; runs the bridge with fake toasts and share sheet, not WebView2, MSIX or the real share sheet"]
+#[ignore = "Requires the MinGW cross compiler for its architecture (x86_64-w64-mingw32-gcc, or aarch64-w64-mingw32-gcc from llvm-mingw on arm64 Linux) and wine; runs the bridge with fake toasts and share sheet, not WebView2, MSIX or the real share sheet"]
 fn the_windows_browser_apis_follow_the_manifest_grants_under_wine() {
     let root = tempfile::tempdir().expect("fixture");
     for (name, granted, define) in WindowsBrowserApiTests::cases() {
