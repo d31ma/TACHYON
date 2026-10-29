@@ -347,10 +347,11 @@ impl JavaWebServices {
         let assembled =
             crate::annotation_modules::assemble(snapshot_root, relative, &roles.source, "tac")?;
         let source = assembled.as_deref().unwrap_or(&roles.source);
+        let base_behaviors = models.behavior_source(source, &authored.class)?;
         let base_owner = needs.owner(
             &authored.instance,
             relative,
-            (&authored.source, source, &authored.class),
+            (&authored.source, &base_behaviors, &authored.class),
         )?;
         let (filled, bases) = JavaDelegateBases::filled(source, &base_owner)?;
         let source = filled.as_str();
