@@ -168,6 +168,7 @@ export class AndroidAccessibilityTest {
     this.run(this.adb, ['wait-for-device'])
     this.run(this.adb, ['install', '-r', apk])
     this.adbShell('am', 'force-stop', this.applicationId)
+    this.adbShell('pm', 'clear', this.applicationId)
     this.adbShell('am', 'start', '-W', '-n', `${this.applicationId}/.MainActivity`)
   }
 

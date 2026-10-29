@@ -67,6 +67,7 @@ class AndroidMenusGate {
     run(adb, ['wait-for-device']);
     run(adb, ['install', '-r', apk]);
     adbShell('am', 'force-stop', packageName);
+    adbShell('pm', 'clear', packageName);
     adbShell('am', 'start', '-W', '-n', `${packageName}/.MainActivity`);
     let pid = '';
     for (let attempt = 0; attempt < 60; attempt++) {
