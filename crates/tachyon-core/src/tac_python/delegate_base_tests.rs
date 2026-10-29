@@ -30,8 +30,7 @@ impl PythonDelegateBase {
         staged
             .into_iter()
             .find(|(path, _)| path.contains("delegates"))
-            .map(|(_, text)| text)
-            .unwrap_or_else(|| panic!("the staged TaxDelegate"))
+            .map_or_else(|| panic!("the staged TaxDelegate"), |(_, text)| text)
     }
 }
 

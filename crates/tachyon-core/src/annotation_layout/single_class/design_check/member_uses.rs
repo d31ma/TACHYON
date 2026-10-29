@@ -13,7 +13,7 @@ impl MemberUses {
 
     pub(super) fn read(class: &ClassFile, reaches: &[SourceReach], delegates: &[&str]) -> Self {
         let forms = Self::forms(class.name);
-        let reached: Vec<String> = delegates
+        let counted_forms: Vec<String> = delegates
             .iter()
             .flat_map(|delegate| Self::forms(delegate))
             .chain(forms.iter().cloned())
@@ -23,7 +23,7 @@ impl MemberUses {
             .filter(|reach| reach.beside(class.path, class.realm))
             .collect();
         Self {
-            names: Self::used_names(&beside, &reached, class, reaches),
+            names: Self::used_names(&beside, &counted_forms, class, reaches),
             handed_over: beside
                 .iter()
                 .any(|reach| reach.hands_over(&forms, class.path)),
