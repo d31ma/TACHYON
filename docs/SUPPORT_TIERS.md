@@ -2302,7 +2302,8 @@ Failed, left for iteration 12:
   `crates/tachyon-cli/tests/it/fylo_datasource` tests (Python and Go) fail
   with `TY2110` even alone. FY1 found the cause: each write of the pinned
   FYLO starts `powershell.exe` on Windows, not x64 emulation (see the FYLO
-  paragraph under the Windows native gate). The
+  paragraph under the Windows native gate); with FY1's fix both passed on
+  the Surface, twice, in about 13 s. The
   other failures were load flakes that passed alone.
 
 Not run: the Windows WebView2 native gate, because PowerShell scripts are
@@ -2365,10 +2366,11 @@ In a linux/arm64 container on the Mac's Docker Desktop (headless GNOME
 Shell 48.7, GTK 4.18.6, WebKitGTK 2.54.0), `gnome-shell-session.sh
 compositor-test.sh --desktop` passed 12 and 3 host tests at 1024x768 and at
 1280x900, and the default `compositor-test.sh` passed (xfwm4 2 and 2, then
-headless mutter 12 and 3). On the Mac, fmt, clippy, `repository_policy` (25
-of 25) and `cargo test -p tachyon-core --lib linux_` (51 passed, 1 ignored)
-passed. Not run: `describe` in a real systemd-mode GNOME session (WSL was
-out while its disk was compacted), and the Windows WebView2 gate, because
+headless mutter 12 and 3), with fmt and clippy. On the Mac, fmt, clippy
+(`tachyon-core`) and `repository_policy` (25 of 25) passed at `807beea0`,
+and `cargo test -p tachyon-core --lib linux_` (51 passed, 1 ignored) at
+`be603ad4`. Not run: `describe` in a real systemd-mode GNOME session (WSL
+was out), and the Windows WebView2 gate, because
 the Surface user's PowerShell policy is unchanged, so CI2's x64 pass stays
 the record.
 
@@ -2397,7 +2399,8 @@ and window background tests under Wine, and the eight compile checks. The
 first run's failures were in our C fixtures, which llvm-mingw's clang
 rejects under `-Werror` where GCC did not: an unused tray stub, and DPI
 calls that mingw-w64 declares only for Windows 10 while llvm-mingw defaults
-`_WIN32_WINNT` to Windows 7 (the fixture now sets it). No Wine gap was
+`_WIN32_WINNT` to Windows 7 (the fixture now sets it), and a global that was
+set but never read. No Wine gap was
 found. On the Mac fmt, clippy and `repository_policy` passed, and clippy
 for `x86_64-pc-windows-gnu` passed in the container. These are Wine runs,
 not Windows; the tier does not change.
@@ -3049,7 +3052,7 @@ routes. The differential corpus still decides browser semantic parity.
 | --- | --- | --- |
 | Rust workspace and Phase 4 CLI on macOS arm64 | native-tested development milestone | real binary, HTTP, Node.js, CPython, Chromium, SwiftUI application, Accessibility, lifecycle, and screenshot evidence executed locally |
 | Rust workspace and Phase 4 CLI on Linux x86_64 | native-tested development milestone | updated 2026-10-18. `rust-ci.yml` runs the locked workspace suite on `ubuntu-latest`; it passed there in run [40705121906](https://github.com/d31ma/TACHYON/actions/runs/40705121906) on develop `a62ab084` (2026-10-28). The release run [33363597481](https://github.com/d31ma/Tachyon/actions/runs/33363597481) (v26.36.01, 2026-08-31) clean-installed and checked the released `ty-linux-x64` on an `ubuntu-24.04` runner. Before, this row said the suite ran only in a pinned Linux container. macOS packaging still requires a macOS host |
-| Rust workspace and Phase 4 CLI on Windows x86_64 | native-tested development milestone | updated 2026-10-18. The release builds `ty-windows-x64.exe` for `x86_64-pc-windows-msvc` on `windows-2025`. The release run [33363597481](https://github.com/d31ma/Tachyon/actions/runs/33363597481) (v26.36.01, 2026-08-31) clean-installed and checked that executable on `windows-2025`, and `rust-ci.yml` runs the locked workspace suite on `windows-latest` (its run 39253757046 of 2026-10-19, the first with every Yon language installed, failed 44 tests; WG1 fixed their causes, and on 2026-10-25 the whole suite passed on Windows 11 ARM64, see Windows native gate; run [40705121906](https://github.com/d31ma/TACHYON/actions/runs/40705121906) of 2026-10-28 stopped at clippy `large_futures` on `windows-latest`, fixed since and not yet run again on GitHub, see First CI run on develop since warm mode; CI3 ran the job locally on Windows 11 ARM64 on 2026-10-29, where two FYLO data source tests failed on FYLO's slow Windows writes, fixed in FY1, see Every CI job run locally). Before, this row said `buildable` (only the GNU target compiled locally). No Windows ARM64 `ty` is released. This row is about the CLI only; for the WebView2 host see the tables above |
+| Rust workspace and Phase 4 CLI on Windows x86_64 | native-tested development milestone | updated 2026-10-18. The release builds `ty-windows-x64.exe` for `x86_64-pc-windows-msvc` on `windows-2025`. The release run [33363597481](https://github.com/d31ma/Tachyon/actions/runs/33363597481) (v26.36.01, 2026-08-31) clean-installed and checked that executable on `windows-2025`, and `rust-ci.yml` runs the locked workspace suite on `windows-latest` (its run 39253757046 of 2026-10-19, the first with every Yon language installed, failed 44 tests; WG1 fixed their causes, and on 2026-10-25 the whole suite passed on Windows 11 ARM64, see Windows native gate; run [40705121906](https://github.com/d31ma/TACHYON/actions/runs/40705121906) of 2026-10-28 stopped at clippy `large_futures` on `windows-latest`, fixed since and not yet run again on GitHub, see First CI run on develop since warm mode; CI3 ran the job locally on Windows 11 ARM64 on 2026-10-29, where two FYLO data source tests failed on FYLO's slow Windows writes; with FY1's fix they pass there, see Every CI job run locally). Before, this row said `buildable` (only the GNU target compiled locally). No Windows ARM64 `ty` is released. This row is about the CLI only; for the WebView2 host see the tables above |
 | Static web compiler and development server | implemented milestone | evidence recorded in `docs/PHASE_1_EVIDENCE.md`; not published |
 | Eight-language Yon handler boundary | implemented milestone | plain `Handler` convention; explicit `relay(...)`; native generator streaming in JavaScript, TypeScript, Python, PHP, Kotlin, and C#; Java and Rust return one response |
 | Tac client rendering, components, mount schedules, and incremental builds | implemented milestone | evidence recorded in `docs/PHASE_3_EVIDENCE.md`; Yon remains a separate REST boundary |
