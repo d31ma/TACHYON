@@ -14,6 +14,9 @@ static _REPLACED_CALLS = 99;
 static _RELOADED_CALLS = 3;
 static _PAGE = 2;
 static _PAGE_SIZE = 5;
+static _CACHED_SKU = 'sku-1';
+static _FIRST_NOTE = 'first';
+static _DISTINCT_PRICES = 2;
 
 static _thrownErrorCode(action) {
   try {
@@ -132,11 +135,11 @@ static async _exerciseCache(catalog, context) {
 }
 
 static async _checkCacheKey(catalog) {
-  await catalog.price('sku-1', 'first');
-  await catalog.price('sku-1', 'second');
+  await catalog.price(BehaviorChecksDelegate._CACHED_SKU, BehaviorChecksDelegate._FIRST_NOTE);
+  await catalog.price(BehaviorChecksDelegate._CACHED_SKU, 'second');
   if (catalog.prices !== 1) throw new Error('CacheKey hit ignores the unmarked argument');
-  await catalog.price('sku-2', 'first');
-  if (catalog.prices !== 2) throw new Error('CacheKey miss on a different key');
+  await catalog.price('sku-2', BehaviorChecksDelegate._FIRST_NOTE);
+  if (catalog.prices !== BehaviorChecksDelegate._DISTINCT_PRICES) throw new Error('CacheKey miss on a different key');
 }
 
 static async _checkQueries(context) {
