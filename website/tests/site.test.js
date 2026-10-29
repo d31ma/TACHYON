@@ -312,7 +312,7 @@ describe('language coverage', () => {
     for (const file of configurations) {
       const extension = file.name.split('.').pop()
       const bound = extension === 'hpp' ? settingsModel : file
-      const policy = JSON.parse(Found.required(bound.code.match(/Settings\((\{[^\n]*\})\)/))[1])
+      const policy = JSON.parse(Found.required(bound.code.match(/[Ss]ettings\((\{[^\n]*\})\)/))[1])
       expect(policy.prefix).toBe('TAC_CATALOG_')
       expect(policy.fields).toBeUndefined()
       const fields = extension === 'rb' || extension === 'lua' ? ['page_size', 'cache_enabled'] : ['pageSize', 'cacheEnabled']
