@@ -5,7 +5,9 @@
   by argument count in the others; step 4a adds the Yon proofs and the
   website section; step 4b1 refuses a Tac base where browser services cannot
   share, step 4b2 gives JavaScript, TypeScript, Go, Java and Dart Tac
-  Delegates the page's shared service, and step 4b3 gives it to F#)
+  Delegates the page's shared service, and step 4b3 gives it to F#; after
+  4b, `TY1333` counts a call through a Delegate's forward and Tac tests call
+  each override and overload)
 - Date: 2026-10-28
 - Amends: [ADR 0047](0047-annotation-names-are-plain-english.md)
   (the 2026-09-28 amendment, Component is now Helper),
@@ -316,3 +318,10 @@ then merged to `develop` by fast-forward.
    of the service that holds the Delegate, so it is shared and checked for
    circles like any other F# need, and a base that is not a page service
    fails with `TY1406`.
+   After 4b (iteration 12, DL2): the visibility check (`TY1333`, ADR 0071)
+   counts a call that reaches a base method through a Delegate's forward,
+   so `this.taxDelegate.total(3)` keeps `TaxService.total` public and the
+   Tac tests run with the check on. Tac tests compile and call an override
+   in Dart, Python, C++ and native Rust, and an overload in JavaScript,
+   TypeScript and Python (by argument count) and Java, C++ and F# (by
+   signature); a unit test covers the Rust browser `TY1406` refusal.

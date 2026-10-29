@@ -83,13 +83,17 @@ fn main() {
         let staged = std::fs::read_to_string(&source).expect("staged source");
         assert!(!staged.contains("#[Delegate]"));
         std::fs::write(&source, staged + Self::CALLER).expect("actual native caller");
-        let executable = root.path().join("helper-check");
+        let printed = Self::compiled_output(&source, &root.path().join("helper-check")).await;
+        assert!(printed.contains("independent activation state"));
+    }
+
+    async fn compiled_output(source: &Path, executable: &Path) -> String {
         let mut command = tokio::process::Command::new("rustc");
         command
             .args(["--edition", "2024"])
-            .arg(&source)
+            .arg(source)
             .arg("-o")
-            .arg(&executable);
+            .arg(executable);
         let build =
             crate::external_command::run(&mut command, std::time::Duration::from_mins(2), 65536)
                 .await
@@ -99,7 +103,7 @@ fn main() {
             "{}",
             String::from_utf8_lossy(&build.stderr)
         );
-        let mut command = tokio::process::Command::new(&executable);
+        let mut command = tokio::process::Command::new(executable);
         let executed =
             crate::external_command::run(&mut command, std::time::Duration::from_secs(30), 65536)
                 .await
@@ -109,8 +113,43 @@ fn main() {
             "{}",
             String::from_utf8_lossy(&executed.stderr)
         );
-        assert!(String::from_utf8_lossy(&executed.stdout).contains("independent activation state"));
+        String::from_utf8_lossy(&executed.stdout).into_owned()
     }
+}
+
+struct NativeDelegateBase;
+
+impl NativeDelegateBase {
+    const FILES: [(&'static str, &'static str); 3] = [
+        (
+            "client/services/TaxService.rs",
+            "#[Service]\n#[derive(Default)]\nstruct TaxService {}\n\n\
+             impl TaxService {\n    pub fn rate(&self, region: &str) -> i64 {\n        let _ = region;\n        2\n    }\n\n    \
+             pub fn total(&self, count: i64) -> i64 {\n        count * 10\n    }\n}\n",
+        ),
+        (
+            "client/delegates/TaxDelegate.rs",
+            "#[Delegate]\nstruct TaxDelegate {\n    #[Needs]\n    tax_service: std::sync::Arc<TaxService>,\n}\n\n\
+             impl TaxDelegate {\n    pub fn rate(&self, region: &str) -> i64 {\n        self.tax_service.rate(region) * 2\n    }\n}\n",
+        ),
+        (
+            "client/services/QuoteService.rs",
+            "#[Service]\nstruct QuoteService {\n    #[Needs]\n    tax_delegate: TaxDelegate,\n}\n\n\
+             impl QuoteService {\n    pub fn rate(&self) -> i64 {\n        self.tax_delegate.rate(\"north\")\n    }\n\n    \
+             pub fn total(&self) -> i64 {\n        self.tax_delegate.total(3)\n    }\n}\n",
+        ),
+    ];
+
+    const CALLER: &'static str = r###"
+fn main() {
+    let owner = "00000000-0000-4000-8000-000000000001";
+    let initialized = tac_handle(&format!(r##"{{"route":"/","service":"quote","owner":"{owner}","op":"init"}}"##));
+    assert!(!initialized.contains("error"), "{initialized}");
+    let rate = tac_handle(&format!(r##"{{"route":"/","service":"quote","owner":"{owner}","op":"call","name":"rate","args":[]}}"##));
+    let total = tac_handle(&format!(r##"{{"route":"/","service":"quote","owner":"{owner}","op":"call","name":"total","args":[]}}"##));
+    println!("rate {rate} total {total}");
+}
+"###;
 }
 
 #[tokio::test]
@@ -269,5 +308,36 @@ fn main() {
         executed.status.success(),
         "{}",
         String::from_utf8_lossy(&executed.stderr)
+    );
+}
+
+#[tokio::test]
+async fn a_native_rust_delegate_overrides_one_base_method_and_forwards_the_other() {
+    let root = tempfile::tempdir().expect("fixture");
+    for (relative, text) in
+        crate::delegate_forwards::DelegateForwards::staged_project(&NativeDelegateBase::FILES)
+    {
+        let path = root.path().join(relative);
+        std::fs::create_dir_all(path.parent().expect("folder")).expect("folder");
+        std::fs::write(path, text).expect("source");
+    }
+    let input = NativeCompanionInput {
+        snapshot_root: root.path().to_path_buf(),
+        language: NativeCompanion::Rust,
+        source: root.path().join("client/services/QuoteService.rs"),
+        service: String::from("quote"),
+        class: String::from("QuoteService"),
+        web_assembly: false,
+        application_provider: false,
+    };
+    let file = super::rust::stage(&[input], root.path(), "org.tachyon.delegate.base")
+        .expect("staging")
+        .expect("source");
+    let text = std::fs::read_to_string(&file).expect("staged");
+    std::fs::write(&file, text + NativeDelegateBase::CALLER).expect("caller");
+    let printed = NativeHelperCheck::compiled_output(&file, &root.path().join("delegate")).await;
+    assert!(
+        printed.contains(r#"rate {"value":4} total {"value":30}"#),
+        "{printed}"
     );
 }

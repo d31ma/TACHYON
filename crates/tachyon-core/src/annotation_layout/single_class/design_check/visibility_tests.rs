@@ -305,3 +305,4 @@ fn rust_snake_case_visibility_keeps_actual_service_and_utility_names() {
 }
 
 mod bridge_tests;
+mod delegate_tests;

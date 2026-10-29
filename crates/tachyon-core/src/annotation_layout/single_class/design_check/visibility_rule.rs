@@ -1,6 +1,7 @@
 use super::super::duplication::ProjectSource;
 use super::class_file::ClassFile;
 use super::class_member::ClassMember;
+use super::delegate_reach::DelegateReach;
 use super::design_problem::DesignProblem;
 use super::design_rule::DesignRule;
 use super::member_reader::MemberReader;
@@ -37,18 +38,19 @@ impl VisibilityRule {
         sources: &[ProjectSource],
     ) -> Vec<(&'c ClassFile<'a>, ClassMember)> {
         let reaches = SourceReach::read_all(sources);
+        let delegates = DelegateReach::read(sources);
         classes
             .iter()
             .filter(|class| Self::FOLDERS.contains(&class.folder))
-            .flat_map(|class| Self::class_unused(class, &reaches))
+            .flat_map(|class| Self::class_unused(class, (&reaches, &delegates)))
             .collect()
     }
 
     fn class_unused<'c, 'a>(
         class: &'c ClassFile<'a>,
-        reaches: &[SourceReach],
+        (reaches, delegates): (&[SourceReach], &DelegateReach),
     ) -> Vec<(&'c ClassFile<'a>, ClassMember)> {
-        let uses = MemberUses::read(class, reaches);
+        let uses = MemberUses::read(class, reaches, &delegates.delegates_of(class.path));
         MemberReader::public_members(class)
             .into_iter()
             .filter(|member| !uses.contains(&member.name))

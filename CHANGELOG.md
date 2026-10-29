@@ -3520,6 +3520,12 @@ machine contracts have their own, independent major versions.
   page, and an F# `[<Needs>]` base property starts with the page's instance.
   A prototype base, a circle, or a Go Delegate `Needs` field or F# Delegate
   `[<Needs>]` property that names no page service fails with `TY1406`.
+  `TY1333` now counts a call through a Delegate's forward as a use of the
+  base (ADR 0071): `this.taxDelegate.total(3)` keeps `TaxService.total`
+  public, and the visibility check stays on beside a Delegate base. Tac
+  tests compile and call an override in
+  Dart, Python, C++ and native Rust and an overload in JavaScript,
+  TypeScript, Python, Java, C++ and F#.
 - Yon keeps handler processes warm by default (ADR 0111, 2026-10-27).
   `YON_ISOLATION` now takes `warm` (the default), `process` or
   `firecracker`. Before, every request started its own handler process and

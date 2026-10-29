@@ -27,6 +27,7 @@ mod constant_rule;
 mod constant_spelling;
 mod declared_name;
 mod declared_names;
+mod delegate_reach;
 mod dependency_graph;
 mod dependency_rule;
 mod design_problem;

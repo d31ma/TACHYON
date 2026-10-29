@@ -537,6 +537,44 @@ fn a_helper_does_part_of_a_service_s_work() {
 }
 
 #[test]
+fn a_delegate_overrides_and_overloads_its_base_service_by_signature() {
+    if !PageProject::has_compiler() {
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    let files = [
+        (
+            "client/services/TaxService.hpp",
+            "#include <string>\nclass [[Service]] TaxService {\npublic:\n    int rate(std::string region) { return 2; }\n    int total(int count) { return count * 10; }\n};\n",
+        ),
+        (
+            "client/delegates/TaxDelegate.hpp",
+            "#include <string>\nclass [[Delegate]] TaxDelegate {\npublic:\n    [[Needs]] TaxService& taxService;\n    int rate(std::string region) { return taxService.rate(region) * 2; }\n    int total(int count, int extra) { return count * 10 + extra; }\n};\n",
+        ),
+        (
+            "client/services/QuoteService.hpp",
+            "class [[Service]] QuoteService {\npublic:\n    [[Needs]] TaxDelegate& taxDelegate;\n    int rate() { return taxDelegate.rate(\"north\"); }\n    int total() { return taxDelegate.total(3); }\n    int extra() { return taxDelegate.total(3, 4); }\n};\n",
+        ),
+    ];
+    for (relative, text) in crate::delegate_forwards::DelegateForwards::staged_project(&files) {
+        PageProject::write(root.path(), &[(relative, text.as_str())]);
+    }
+    let services = [("quote", "QuoteService"), ("tax", "TaxService")];
+    let answers = PageProject::answers(
+        root.path(),
+        &services,
+        &[
+            PageProject::init("quote", 1, &json!({})),
+            PageProject::call("quote", 1, "rate", &json!([])),
+            PageProject::call("quote", 1, "total", &json!([])),
+            PageProject::call("quote", 1, "extra", &json!([])),
+        ],
+    );
+    let quoted: Vec<&Value> = answers[1..].iter().map(|answer| &answer["value"]).collect();
+    assert_eq!(quoted, [&json!(4), &json!(30), &json!(34)], "{answers:?}");
+}
+
+#[test]
 fn behavior_markers_wrap_a_synchronous_method() {
     if !PageProject::has_compiler() {
         return;
