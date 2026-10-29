@@ -30,6 +30,8 @@ impl CppService {
     const TOPIC: &'static str = "[[Topic]] goes on a C++ model in client/models or server/models, for example `struct [[Topic]] OrderPlaced { int total = 0; };`";
     const STORED: &'static str = "A C++ [[LocalState]] or [[SessionState]] field is a page field that the browser keeps: public, not static, not const and not a reference, for example `[[LocalState]] int count = 0;`";
 
+    const DELEGATE: &'static str = "Delegate";
+
     pub(crate) fn read(relative: &Path, source: &str) -> Result<Self, Failure> {
         let file = CppFile::read(relative, source)?;
         let class = &file.class;
@@ -175,7 +177,13 @@ impl CppService {
     }
 
     fn binding_text(&self) -> String {
-        if [self.is_remote(), self.is_converter(), self.is_store()].contains(&true) {
+        let unbound = [
+            self.is_remote(),
+            self.is_converter(),
+            self.is_store(),
+            Self::is_delegate(self.class()),
+        ];
+        if unbound.contains(&true) {
             return String::new();
         }
         self.binding_class()
@@ -223,6 +231,13 @@ impl CppService {
         CppRemote::check(relative, source, class)
     }
 
+    fn is_delegate(class: &CppClass) -> bool {
+        class
+            .markers
+            .iter()
+            .any(|marker| marker.name == Self::DELEGATE)
+    }
+
     fn remote_class(class: &CppClass) -> bool {
         class
             .markers
@@ -238,6 +253,7 @@ impl CppService {
         let named_once = [
             CppConverter::is_converter(class),
             CppStore::is_store(class),
+            Self::is_delegate(class),
             Realm::of(relative) == Some(Realm::Yon),
         ];
         (!named_once.contains(&true))

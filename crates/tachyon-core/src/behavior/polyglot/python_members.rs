@@ -8,6 +8,9 @@ use std::path::Path;
 pub(crate) struct PythonMembers;
 
 impl PythonMembers {
+    const DELEGATES: &'static str = "client/delegates";
+    const DISPATCHER: &'static str = "(self, *args, **kwargs):";
+
     pub(crate) fn read(path: &Path, source: &str, class: &str) -> Result<Value, Failure> {
         Self::read_with_models(path, source, class, &ModelSources::none().metadata())
     }
@@ -148,9 +151,10 @@ impl PythonMembers {
             .map(|line| line.len() - line.trim_start().len())
             .min()
             .unwrap_or(4);
+        let delegate = input.path.starts_with(Self::DELEGATES);
         body.split_inclusive('\n')
             .scan(ty.body.start, |offset, line| {
-                let position = (*offset, indent);
+                let position = (*offset, indent, delegate);
                 *offset += line.len();
                 Some(Self::method_on_line(input, ty, line, position))
             })
@@ -162,10 +166,11 @@ impl PythonMembers {
         input: &Input<'_>,
         ty: &Type,
         line: &str,
-        position: (usize, usize),
+        position: (usize, usize, bool),
     ) -> Result<Option<Method>, Failure> {
-        let (offset, indent) = position;
-        Self::method_line(line, indent)
+        let (offset, indent, delegate) = position;
+        let dispatcher = [delegate, line.trim_end().ends_with(Self::DISPATCHER)] == [true, true];
+        ([Self::method_line(line, indent), dispatcher] == [true, false])
             .then(|| {
                 super::parse_method(
                     input,

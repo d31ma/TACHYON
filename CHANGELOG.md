@@ -3525,7 +3525,10 @@ machine contracts have their own, independent major versions.
   public, and the visibility check stays on beside a Delegate base. Tac
   tests compile and call an override in
   Dart, Python, C++ and native Rust and an overload in JavaScript,
-  TypeScript, Python, Java, C++ and F#.
+  TypeScript, Python, Java, C++ and F#. A Tac C++ Delegate no longer gets a
+  page binding, so its overloads build (the page calls only services), and
+  the Tac Python build no longer reads a Delegate's generated
+  `*args, **kwargs` dispatcher as a page method.
 - Yon keeps handler processes warm by default (ADR 0111, 2026-10-27).
   `YON_ISOLATION` now takes `warm` (the default), `process` or
   `firecracker`. Before, every request started its own handler process and
