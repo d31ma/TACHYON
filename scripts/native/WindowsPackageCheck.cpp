@@ -94,5 +94,5 @@ int wmain(int argc, wchar_t **argv) {
   } catch (const winrt::hresult_error &error) {
     return fail(std::wstring(error.message()));
   }
-  return fail(L"usage: WindowsPackageCheck install <msix> <identity name> | WindowsPackageCheck remove <package full name> | WindowsPackageCheck tile <app user model id> <edge>");
+  return fail(L"usage: WindowsPackageCheck install <msix file URI> <identity name> | WindowsPackageCheck remove <package full name> | WindowsPackageCheck tile <app user model id> <edge>");
 }

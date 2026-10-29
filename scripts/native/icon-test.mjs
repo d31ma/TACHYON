@@ -6,7 +6,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, 
 import { homedir, tmpdir } from 'node:os'
 import path from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { deflateSync, inflateSync } from 'node:zlib'
 import { CargoArtifacts } from '../cargo-artifacts.mjs'
 import { SupervisedCommand } from '../supervised-command.mjs'
@@ -633,7 +633,7 @@ class WindowsIcons {
     /** @type {{ package: string, app: string } | undefined} */
     let installed
     try {
-      installed = await this.probe('package', ['install', msix, name])
+      installed = await this.probe('package', ['install', pathToFileURL(msix.replace(/^\\\\\?\\/, '')).href, name])
       const app = installed.app
       const lines = [`installed ${installed.package}${trusted ? ', signed with the throwaway certificate trusted in LocalMachine\\TrustedPeople' : ''}`]
       for (const edge of [44, 150]) lines.push(IconGate.expectColor(`the icon the shell shows for ${app} at ${edge} px`, await this.tile(app, edge), IconFixture.small.color))
