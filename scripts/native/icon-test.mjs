@@ -501,6 +501,7 @@ class WindowsCertificate {
     const container = `tachyon-icon-gate-${randomUUID()}`
     const request = path.join(IconGate.root, 'certificate.inf')
     const file = path.join(IconGate.root, 'certificate.cer')
+    this.made = { thumbprint: '', container, file }
     writeFileSync(request, [
       '[Version]',
       'Signature="$Windows NT$"',
@@ -527,14 +528,16 @@ class WindowsCertificate {
       '',
     ].join('\r\n'))
     await IconGate.run('certreq.exe', ['-new', '-q', request, file], { timeoutMilliseconds: 120000 })
-    this.made = { thumbprint: new X509Certificate(readFileSync(file)).fingerprint.replaceAll(':', ''), container, file }
+    const base64 = readFileSync(file, 'utf8').split(/\r?\n/).filter((line) => !line.startsWith('-----')).join('')
+    this.made.thumbprint = new X509Certificate(Buffer.from(base64, 'base64')).fingerprint.replaceAll(':', '')
     console.log(`made the throwaway signing certificate ${this.made.thumbprint} (${this.subject}) in the user's certificate store`)
     return this.made
   }
 
   static async forget() {
     if (!this.made) return
-    await IconGate.run('certutil.exe', ['-user', '-delstore', 'My', this.made.thumbprint], { timeoutMilliseconds: 120000 })
+    const certificate = await SupervisedCommand.run('certutil.exe', ['-user', '-delstore', 'My', this.made.thumbprint || this.subject.slice('CN='.length)], { cwd: IconGate.repository, timeoutMilliseconds: 120000 })
+    assert.ok(certificate.status === 0 || !this.made.thumbprint, `certutil -delstore My ${this.made.thumbprint}\n${certificate.stdout}${certificate.stderr}`)
     const key = await SupervisedCommand.run('certutil.exe', ['-user', '-csp', this.provider, '-delkey', this.made.container], { cwd: IconGate.repository, timeoutMilliseconds: 120000 })
     const keyLine = key.status === 0 ? `deleted its key ${this.made.container}` : `certutil -delkey answered ${key.status}: ${`${key.stdout}${key.stderr}`.trim().split(/\r?\n/).at(-1)}`
     console.log(`removed the throwaway signing certificate ${this.made.thumbprint} from the user's store; ${keyLine}`)
@@ -563,8 +566,8 @@ class WindowsIcons {
   static async build() {
     if (!IconGate.release) return IconGate.bundle('windows')
     if (WindowsCertificate.given()) return IconGate.bundle('windows', ['--release'])
-    const certificate = await WindowsCertificate.make()
     try {
+      const certificate = await WindowsCertificate.make()
       return await IconGate.bundle('windows', ['--release'], {
         ...process.env,
         TAC_WINDOWS_CERTIFICATE_THUMBPRINT: certificate.thumbprint,
