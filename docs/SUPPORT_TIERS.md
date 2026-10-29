@@ -2440,8 +2440,8 @@ screen and the uncompressed tree.
 
 Known limits: the empty heading happened once more in a solo run at
 `7259cf7e` and not at `38859fd1` (6 solo runs and 3 chained), so it may be
-fixed or only rare. With the Mac's 1-minute load above about 40, a gate's native
-call can still run out the page bridge's 10 s limit, which AN1 left
+fixed or only rare. With the Mac's 1-minute load above about 40, a gate's
+native call can still run out the page bridge's 10 s limit, which AN1 left
 unchanged; timing gates should start with the load under 15. These are
 emulator runs; the tier does not change.
 
