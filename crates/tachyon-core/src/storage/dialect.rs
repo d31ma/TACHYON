@@ -17,6 +17,14 @@ pub(super) struct Statement {
     pub sql: String,
     pub parameters: Vec<Value>,
     pub result: ResultKind,
+    #[cfg_attr(
+        not(any(
+            feature = "storage-postgres",
+            feature = "storage-mysql",
+            feature = "storage-sqlserver"
+        )),
+        allow(dead_code)
+    )]
     pub isolated: bool,
 }
 
