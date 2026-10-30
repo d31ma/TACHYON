@@ -63,7 +63,14 @@ impl SqlStore {
         let raw = text(settings, "url")?;
         let connection = match dialect {
             Dialect::Sqlite => connect_sqlite(settings, raw).await?,
+            #[cfg(feature = "storage-sqlserver")]
             Dialect::SqlServer => connect_sql_server(settings).await?,
+            #[cfg(not(feature = "storage-sqlserver"))]
+            Dialect::SqlServer => {
+                return Err(failure(
+                    "This ty was built without SQL Server support; rebuild it with `--features storage-sqlserver` (release builds include it).",
+                ));
+            }
             Dialect::Postgres | Dialect::Mysql => connect_pool(settings, dialect).await?,
         };
         Ok(Self {
@@ -245,13 +252,6 @@ async fn connect_sql_server(settings: &Value) -> Result<SqlConnection, Failure> 
         config,
         connection: Mutex::new(Some(client)),
     })))
-}
-
-#[cfg(not(feature = "storage-sqlserver"))]
-fn connect_sql_server(_settings: &Value) -> std::future::Ready<Result<SqlConnection, Failure>> {
-    std::future::ready(Err(failure(
-        "This ty was built without SQL Server support; rebuild it with `--features storage-sqlserver` (release builds include it).",
-    )))
 }
 
 async fn connect_pool(settings: &Value, dialect: Dialect) -> Result<SqlConnection, Failure> {
