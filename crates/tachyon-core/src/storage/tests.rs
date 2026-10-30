@@ -486,4 +486,31 @@ async fn a_build_without_sql_server_names_the_feature_that_adds_it() {
     assert!(error.to_string().contains("--features storage-sqlserver"));
 }
 
+#[cfg(not(feature = "storage-postgres"))]
+#[tokio::test]
+async fn a_build_without_postgres_names_the_feature_that_adds_it() {
+    let error = ManagedStorage::connect(&json!({"yon":{"datasource":{"driver":"postgresql","url":"postgresql://localhost:5432/tachyon","username":"tachyon","password":"unused"}}}))
+        .await
+        .expect_err("a build without storage-postgres must refuse PostgreSQL");
+    assert!(error.to_string().contains("--features storage-postgres"));
+}
+
+#[cfg(not(feature = "storage-mysql"))]
+#[tokio::test]
+async fn a_build_without_mysql_names_the_feature_that_adds_it() {
+    let error = ManagedStorage::connect(&json!({"yon":{"datasource":{"driver":"mariadb","url":"mysql://localhost:3306/tachyon","username":"tachyon","password":"unused"}}}))
+        .await
+        .expect_err("a build without storage-mysql must refuse MariaDB");
+    assert!(error.to_string().contains("--features storage-mysql"));
+}
+
+#[cfg(not(feature = "storage-redis"))]
+#[tokio::test]
+async fn a_build_without_redis_names_the_feature_that_adds_it() {
+    let error = ManagedStorage::connect(&json!({"yon":{"redis":{"url":"redis://localhost:6379"}}}))
+        .await
+        .expect_err("a build without storage-redis must refuse Redis");
+    assert!(error.to_string().contains("--features storage-redis"));
+}
+
 mod fylo_documents;

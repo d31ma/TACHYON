@@ -22,7 +22,10 @@ tachyon-diagnostics.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "signal", "sync"] }
 
 [features]
-storage-all = ["storage-sqlserver"]
+storage-all = ["tachyon-core/storage-all"]
+storage-mysql = ["tachyon-core/storage-mysql"]
+storage-postgres = ["tachyon-core/storage-postgres"]
+storage-redis = ["tachyon-core/storage-redis"]
 storage-sqlserver = ["tachyon-core/storage-sqlserver"]
 
 [dev-dependencies]

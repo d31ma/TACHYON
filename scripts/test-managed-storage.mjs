@@ -51,7 +51,7 @@ function command(program, args, options = {}) {
 async function buildTests() {
   if (process.env.TAC_STORAGE_TEST_BINARY) return resolve(process.env.TAC_STORAGE_TEST_BINARY)
   console.log('Building the core test executable once...')
-  const output = command('cargo', ['test', '-p', 'tachyon-core', '--lib', '--features', 'storage-sqlserver', '--no-run', '--locked', '--message-format=json'], { timeout: 1_200_000 })
+  const output = command('cargo', ['test', '-p', 'tachyon-core', '--lib', '--features', 'storage-all', '--no-run', '--locked', '--message-format=json'], { timeout: 1_200_000 })
   const artifacts = output.split('\n').map(line => { try { return JSON.parse(line) } catch { return null } })
   const executable = artifacts.find(item => item?.reason === 'compiler-artifact' && item.target?.name === 'tachyon_core' && item.profile?.test && item.executable)?.executable
   if (!executable) throw new Error('Cargo did not report the core test executable.')
@@ -61,7 +61,7 @@ async function buildTests() {
 async function buildCli() {
   if (process.env.TAC_BIN) return resolve(process.env.TAC_BIN)
   console.log('Building the CLI once for the FYLO server phase...')
-  const output = command('cargo', ['build', '-p', 'tachyon-cli', '--features', 'storage-sqlserver', '--locked', '--message-format=json'], { timeout: 1_200_000 })
+  const output = command('cargo', ['build', '-p', 'tachyon-cli', '--features', 'storage-all', '--locked', '--message-format=json'], { timeout: 1_200_000 })
   const artifacts = output.split('\n').map(line => { try { return JSON.parse(line) } catch { return null } })
   const executable = artifacts.findLast(item => item?.reason === 'compiler-artifact' && item.target?.name === 'ty' && item.executable)?.executable
   if (!executable) throw new Error('Cargo did not report the ty executable.')

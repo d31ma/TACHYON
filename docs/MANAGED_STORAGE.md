@@ -354,16 +354,24 @@ FYLO:
   which finds the identity once. CI's Windows native job installs no FYLO,
   so the tests skip there.
 
+Which drivers a build has:
+
+- SQLite and FYLO are always built in. The network drivers are cargo
+  features: `storage-postgres`, `storage-mysql` (MySQL and MariaDB),
+  `storage-redis` and `storage-sqlserver`. `storage-all` turns on all four.
+  Release builds use `storage-all`; a default `cargo build` has none of them.
+- A `ty` built without a driver refuses a datasource or Redis setting that
+  needs it at startup with `TY2160`, and the message names the feature.
+- Without the network drivers, `ty` links no rustls, ring, sqlx network
+  driver, Redis client, TDS driver or native TLS stack. Without
+  `storage-sqlserver`, a Linux build needs no OpenSSL headers and does not
+  load `libssl`.
+- `scripts/test-managed-storage.mjs` builds with `storage-all`. A binary
+  passed through `TAC_STORAGE_TEST_BINARY` or `TAC_BIN` must be built with
+  it too.
+
 SQL Server:
 
-- The SQL Server driver is the optional `storage-sqlserver` cargo feature.
-  Release builds turn it on (`--features storage-all`). A `ty` built without
-  it refuses a `sqlserver` datasource at startup with `TY2160` and names the
-  feature. Without it, `ty` links neither the TDS driver nor the native TLS
-  stack, so a Linux build needs no OpenSSL headers and does not load
-  `libssl`. `scripts/test-managed-storage.mjs` builds with the feature on;
-  a binary passed through `TAC_STORAGE_TEST_BINARY` or `TAC_BIN` must be
-  built with it too.
 - On 2026-10-19, the ignored
   `storage::tests::sql_real_repository_nullable_columns` contract passed
   through the TDS adapter against SQL Server 2022 (the digest-pinned

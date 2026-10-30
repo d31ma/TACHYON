@@ -2017,6 +2017,12 @@ machine contracts have their own, independent major versions.
   installs `libssl-dev`. Such a build refuses a `sqlserver` datasource with
   `TY2160` and names the feature. CI also runs Clippy and the storage tests
   without the optional drivers.
+- PostgreSQL, MySQL/MariaDB and Redis are optional cargo features too
+  (`storage-postgres`, `storage-mysql`, `storage-redis`; RD2, 2026-10-30), and
+  `storage-all` turns on all four network drivers. SQLite and FYLO stay built
+  in. A default build now links 172 packages on Linux x86_64 (from 212) and
+  169 on macOS arm64 (from 212); it leaves out rustls, ring, the sqlx network
+  drivers and the Redis client. Release builds are unchanged.
 - `Toolchain::checked` also requires `dotnet` and `javac` under `CI` (RT1,
   2026-10-28), since the native jobs of `rust-ci.yml` install .NET SDK
   10.0.302 and select JDK 21, so a

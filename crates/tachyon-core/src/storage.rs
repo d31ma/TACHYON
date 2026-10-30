@@ -3,7 +3,11 @@ mod drivers;
 mod fylo;
 #[cfg(feature = "storage-sqlserver")]
 mod prelogin_stream;
+#[cfg(feature = "storage-redis")]
+mod redis_store;
 mod sqlite;
+#[cfg(not(feature = "storage-redis"))]
+mod unbuilt_redis_store;
 
 use std::time::Duration;
 
@@ -12,8 +16,12 @@ use tokio::sync::Semaphore;
 
 use crate::Failure;
 use crate::failure::diagnostic;
-use drivers::{RedisStore, SqlStore};
+use drivers::SqlStore;
 use fylo::FyloStore;
+#[cfg(feature = "storage-redis")]
+use redis_store::RedisStore;
+#[cfg(not(feature = "storage-redis"))]
+use unbuilt_redis_store::UnbuiltRedisStore as RedisStore;
 
 pub(crate) struct ManagedStorage {
     sql: Option<SqlStore>,

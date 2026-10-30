@@ -112,9 +112,10 @@ framework from the repository root:
 cargo build --release --locked -p tachyon-cli --features storage-all
 ```
 
-`storage-all` turns on the optional storage drivers that release builds ship
-(today SQL Server, `storage-sqlserver`). Without it, `ty` refuses an
-application that configures them.
+`storage-all` turns on the network storage drivers that release builds ship:
+`storage-postgres`, `storage-mysql` (MySQL and MariaDB), `storage-redis` and
+`storage-sqlserver`. Without them, `ty` refuses an application that
+configures one, and names the feature. SQLite and FYLO are always built in.
 
 The canonical validation gate is:
 

@@ -1,8 +1,20 @@
+#[cfg(any(feature = "storage-postgres", feature = "storage-mysql"))]
 use std::str::FromStr;
 
+#[cfg(any(
+    feature = "storage-postgres",
+    feature = "storage-mysql",
+    feature = "storage-sqlserver"
+))]
 use futures_util::TryStreamExt;
-use redis::aio::ConnectionManager;
-use serde_json::{Map, Value, json};
+#[cfg(any(
+    feature = "storage-postgres",
+    feature = "storage-mysql",
+    feature = "storage-sqlserver"
+))]
+use serde_json::Map;
+use serde_json::{Value, json};
+#[cfg(any(feature = "storage-postgres", feature = "storage-mysql"))]
 use sqlx::{Column, ConnectOptions, Row, TypeInfo, ValueRef};
 #[cfg(feature = "storage-sqlserver")]
 use tokio::net::TcpStream;
@@ -31,6 +43,7 @@ struct OpenTransaction {
 }
 
 enum DedicatedConnection {
+    #[cfg(any(feature = "storage-postgres", feature = "storage-mysql"))]
     Pool(sqlx::pool::PoolConnection<sqlx::Any>),
     Sqlite(sqlx::pool::PoolConnection<sqlx::Sqlite>),
     #[cfg(feature = "storage-sqlserver")]
@@ -38,6 +51,7 @@ enum DedicatedConnection {
 }
 
 enum SqlConnection {
+    #[cfg(any(feature = "storage-postgres", feature = "storage-mysql"))]
     Pool(sqlx::AnyPool),
     Sqlite(super::sqlite::SqliteStore),
     #[cfg(feature = "storage-sqlserver")]
@@ -71,7 +85,22 @@ impl SqlStore {
                     "This ty was built without SQL Server support; rebuild it with `--features storage-sqlserver` (release builds include it).",
                 ));
             }
-            Dialect::Postgres | Dialect::Mysql => connect_pool(settings, dialect).await?,
+            #[cfg(feature = "storage-postgres")]
+            Dialect::Postgres => connect_pool(settings, dialect).await?,
+            #[cfg(not(feature = "storage-postgres"))]
+            Dialect::Postgres => {
+                return Err(failure(
+                    "This ty was built without PostgreSQL support; rebuild it with `--features storage-postgres` (release builds include it).",
+                ));
+            }
+            #[cfg(feature = "storage-mysql")]
+            Dialect::Mysql => connect_pool(settings, dialect).await?,
+            #[cfg(not(feature = "storage-mysql"))]
+            Dialect::Mysql => {
+                return Err(failure(
+                    "This ty was built without MySQL and MariaDB support; rebuild it with `--features storage-mysql` (release builds include it).",
+                ));
+            }
         };
         Ok(Self {
             dialect,
@@ -150,6 +179,7 @@ impl SqlStore {
 
     async fn dedicated_connection(&self) -> Result<DedicatedConnection, Failure> {
         match &self.connection {
+            #[cfg(any(feature = "storage-postgres", feature = "storage-mysql"))]
             SqlConnection::Pool(pool) => pool
                 .acquire()
                 .await
@@ -174,6 +204,7 @@ impl SqlStore {
     pub(super) async fn execute(&self, command: &Value) -> Result<Value, Failure> {
         let statement = self.dialect.compile(command)?;
         match &self.connection {
+            #[cfg(any(feature = "storage-postgres", feature = "storage-mysql"))]
             SqlConnection::Pool(pool) => execute_sqlx(pool, &statement).await,
             SqlConnection::Sqlite(store) => store.execute(&statement).await,
             #[cfg(feature = "storage-sqlserver")]
@@ -195,6 +226,7 @@ impl SqlStore {
     pub(super) async fn close(&self) {
         self.transactions.lock().await.clear();
         match &self.connection {
+            #[cfg(any(feature = "storage-postgres", feature = "storage-mysql"))]
             SqlConnection::Pool(pool) => pool.close().await,
             SqlConnection::Sqlite(store) => store.close().await,
             #[cfg(feature = "storage-sqlserver")]
@@ -254,6 +286,7 @@ async fn connect_sql_server(settings: &Value) -> Result<SqlConnection, Failure> 
     })))
 }
 
+#[cfg(any(feature = "storage-postgres", feature = "storage-mysql"))]
 async fn connect_pool(settings: &Value, dialect: Dialect) -> Result<SqlConnection, Failure> {
     let scheme = if dialect == Dialect::Postgres {
         "postgresql"
@@ -283,6 +316,7 @@ async fn run_on_dedicated(
     statement: &Statement,
 ) -> Result<Value, Failure> {
     match connection {
+        #[cfg(any(feature = "storage-postgres", feature = "storage-mysql"))]
         DedicatedConnection::Pool(connection) => execute_on(connection, statement).await,
         DedicatedConnection::Sqlite(connection) => {
             super::sqlite::SqliteStore::execute_on(connection, statement).await
@@ -308,7 +342,13 @@ fn validate_sqlite(url: &str) -> Result<(), Failure> {
     Ok(())
 }
 
-fn connection_url(settings: &Value, scheme: &str) -> Result<url::Url, Failure> {
+#[cfg(any(
+    feature = "storage-postgres",
+    feature = "storage-mysql",
+    feature = "storage-redis",
+    feature = "storage-sqlserver"
+))]
+pub(super) fn connection_url(settings: &Value, scheme: &str) -> Result<url::Url, Failure> {
     let mut url = url::Url::parse(text(settings, "url")?)
         .map_err(|_| failure("Invalid storage connection URL."))?;
     let postgres_alias = scheme == "postgresql" && url.scheme() == "postgres";
@@ -333,6 +373,12 @@ fn connection_url(settings: &Value, scheme: &str) -> Result<url::Url, Failure> {
     Ok(url)
 }
 
+#[cfg(any(
+    feature = "storage-postgres",
+    feature = "storage-mysql",
+    feature = "storage-redis",
+    feature = "storage-sqlserver"
+))]
 fn is_plain_url_for_scheme(url: &url::Url, scheme: &str) -> bool {
     url.scheme() == scheme
         && url.username().is_empty()
@@ -342,6 +388,12 @@ fn is_plain_url_for_scheme(url: &url::Url, scheme: &str) -> bool {
         && url.host_str().is_some()
 }
 
+#[cfg(any(
+    feature = "storage-postgres",
+    feature = "storage-mysql",
+    feature = "storage-redis",
+    feature = "storage-sqlserver"
+))]
 fn apply_credentials(url: &mut url::Url, settings: &Value) -> Result<(), Failure> {
     for key in ["username", "password"] {
         let Some(value) = settings.get(key) else {
@@ -362,6 +414,12 @@ fn apply_credentials(url: &mut url::Url, settings: &Value) -> Result<(), Failure
     Ok(())
 }
 
+#[cfg(any(
+    feature = "storage-postgres",
+    feature = "storage-mysql",
+    feature = "storage-redis",
+    feature = "storage-sqlserver"
+))]
 fn apply_postgres_options(url: &mut url::Url, settings: &Value) -> Result<(), Failure> {
     validate_database_path(url)?;
     if url.port().is_none() {
@@ -378,6 +436,12 @@ fn apply_postgres_options(url: &mut url::Url, settings: &Value) -> Result<(), Fa
     Ok(())
 }
 
+#[cfg(any(
+    feature = "storage-postgres",
+    feature = "storage-mysql",
+    feature = "storage-redis",
+    feature = "storage-sqlserver"
+))]
 fn apply_mysql_options(url: &mut url::Url, settings: &Value) -> Result<(), Failure> {
     validate_database_path(url)?;
     url.query_pairs_mut()
@@ -389,6 +453,12 @@ fn apply_mysql_options(url: &mut url::Url, settings: &Value) -> Result<(), Failu
     Ok(())
 }
 
+#[cfg(any(
+    feature = "storage-postgres",
+    feature = "storage-mysql",
+    feature = "storage-redis",
+    feature = "storage-sqlserver"
+))]
 fn validate_database_path(url: &url::Url) -> Result<(), Failure> {
     if url.path().trim_start_matches('/').is_empty() {
         return Err(failure("Network datasource URL must select a database."));
@@ -419,6 +489,12 @@ fn reject_postgres_environment() -> Result<(), Failure> {
     Ok(())
 }
 
+#[cfg(any(
+    feature = "storage-postgres",
+    feature = "storage-mysql",
+    feature = "storage-redis",
+    feature = "storage-sqlserver"
+))]
 fn certificate(settings: &Value) -> Result<Option<&str>, Failure> {
     let Some(tls) = settings.get("tls") else {
         return Ok(None);
@@ -446,6 +522,7 @@ async fn connect_tds(config: &tiberius::Config) -> Result<TdsClient, Failure> {
         .map_err(|_| failure("SQL Server TLS or authentication failed."))
 }
 
+#[cfg(any(feature = "storage-postgres", feature = "storage-mysql"))]
 async fn execute_sqlx(pool: &sqlx::AnyPool, statement: &Statement) -> Result<Value, Failure> {
     let mut connection = pool
         .acquire()
@@ -457,6 +534,7 @@ async fn execute_sqlx(pool: &sqlx::AnyPool, statement: &Statement) -> Result<Val
     execute_on(&mut connection, statement).await
 }
 
+#[cfg(any(feature = "storage-postgres", feature = "storage-mysql"))]
 async fn execute_on(
     connection: &mut sqlx::AnyConnection,
     statement: &Statement,
@@ -492,6 +570,7 @@ async fn execute_on(
     rows_result(&statement.result, rows)
 }
 
+#[cfg(any(feature = "storage-postgres", feature = "storage-mysql"))]
 fn sqlx_row(row: &sqlx::any::AnyRow) -> Result<Value, Failure> {
     let mut object = Map::new();
     if row.columns().len() > 64 {
@@ -507,6 +586,7 @@ fn sqlx_row(row: &sqlx::any::AnyRow) -> Result<Value, Failure> {
     Ok(Value::Object(object))
 }
 
+#[cfg(any(feature = "storage-postgres", feature = "storage-mysql"))]
 fn sqlx_column_json(row: &sqlx::any::AnyRow, index: usize) -> Result<Value, Failure> {
     let raw = row
         .try_get_raw(index)
@@ -543,6 +623,7 @@ fn sqlx_column_json(row: &sqlx::any::AnyRow, index: usize) -> Result<Value, Fail
     }
 }
 
+#[cfg(any(feature = "storage-postgres", feature = "storage-mysql"))]
 fn decode_column<'row, T>(
     row: &'row sqlx::any::AnyRow,
     index: usize,
@@ -676,107 +757,4 @@ pub(super) fn mutation_result(kind: &ResultKind, affected: u64) -> Value {
         ResultKind::Deleted => json!(affected),
         _ => json!({"affectedRows": affected}),
     }
-}
-
-pub(super) struct RedisStore {
-    connection: Mutex<Option<ConnectionManager>>,
-}
-
-impl RedisStore {
-    pub(super) async fn connect(settings: &Value) -> Result<Self, Failure> {
-        object_keys(settings, &["url", "username", "password"])?;
-        let raw = text(settings, "url")?;
-        let scheme = if raw.starts_with("rediss:") {
-            "rediss"
-        } else {
-            "redis"
-        };
-        let url = connection_url(settings, scheme)?;
-        let client = redis::Client::open(url.as_str())
-            .map_err(|_| failure("Invalid Redis connection configuration."))?;
-        let connection = ConnectionManager::new(client)
-            .await
-            .map_err(|_| failure("Redis connection failed."))?;
-        Ok(Self {
-            connection: Mutex::new(Some(connection)),
-        })
-    }
-
-    pub(super) async fn execute(&self, command: &Value) -> Result<Value, Failure> {
-        object_keys(
-            command,
-            &["operation", "command", "key", "value", "ttlSeconds"],
-        )?;
-        let key = text(command, "key")?;
-        if key.len() > 4096 {
-            return Err(failure("Redis key is too large."));
-        }
-        let mut connection = self
-            .connection
-            .lock()
-            .await
-            .as_ref()
-            .cloned()
-            .ok_or_else(|| failure("Redis resource is closed."))?;
-        match text(command, "command")? {
-            "get" => redis_get(&mut connection, key).await,
-            "set" => redis_set(&mut connection, key, command).await,
-            "delete" => redis_delete(&mut connection, key).await,
-            _ => Err(failure("Unsupported Redis operation.")),
-        }
-    }
-
-    pub(super) async fn close(&self) {
-        self.connection.lock().await.take();
-    }
-}
-
-async fn redis_get(connection: &mut ConnectionManager, key: &str) -> Result<Value, Failure> {
-    let value: Vec<u8> = redis::cmd("GETRANGE")
-        .arg(key)
-        .arg(0)
-        .arg(ManagedStorage::MAX_BYTES)
-        .query_async(connection)
-        .await
-        .map_err(|_| failure("Redis read failed."))?;
-    if value.is_empty() {
-        return Ok(Value::Null);
-    }
-    if value.len() > ManagedStorage::MAX_BYTES {
-        return Err(failure("Redis value exceeds byte limit."));
-    }
-    serde_json::from_slice(&value).map_err(|_| failure("Redis value is not valid JSON."))
-}
-
-async fn redis_set(
-    connection: &mut ConnectionManager,
-    key: &str,
-    command: &Value,
-) -> Result<Value, Failure> {
-    let value = command
-        .get("value")
-        .ok_or_else(|| failure("Redis set requires a JSON value."))?;
-    let bytes = serde_json::to_vec(value).map_err(|_| failure("Redis JSON encoding failed."))?;
-    let ttl = command["ttlSeconds"]
-        .as_u64()
-        .filter(|ttl| *ttl > 0 && *ttl <= 86400)
-        .ok_or_else(|| failure("Redis set requires a TTL between 1 and 86400 seconds."))?;
-    redis::cmd("SET")
-        .arg(key)
-        .arg(bytes)
-        .arg("EX")
-        .arg(ttl)
-        .query_async::<()>(connection)
-        .await
-        .map_err(|_| failure("Redis write failed; no retry was performed."))?;
-    Ok(Value::Bool(true))
-}
-
-async fn redis_delete(connection: &mut ConnectionManager, key: &str) -> Result<Value, Failure> {
-    let affected: u64 = redis::cmd("DEL")
-        .arg(key)
-        .query_async(connection)
-        .await
-        .map_err(|_| failure("Redis delete failed."))?;
-    Ok(json!(affected > 0))
 }

@@ -760,8 +760,9 @@ file is the `yon` namespace, so it has no root key.
   `sqlserver` or `fylo`. The FYLO driver takes `fylo:///absolute/root`. It
   serves repositories from a local document store instead of SQL
   ([ADR 0032](docs/adr/0032-fylo-datasource.md)). Release builds include
-  `sqlserver`; a `ty` built from source has it only with
-  `--features storage-sqlserver` (or `storage-all`).
+  every driver. A `ty` built from source has only `sqlite` and `fylo` unless
+  it is built with `--features storage-all` (or one of `storage-postgres`,
+  `storage-mysql`, `storage-sqlserver`; Redis is `storage-redis`).
 - Restart the server to apply changes to private configuration.
 
 See [Application configuration](docs/APPLICATION_CONFIGURATION.md) for the
