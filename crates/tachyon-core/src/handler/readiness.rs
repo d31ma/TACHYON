@@ -386,7 +386,8 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn gateways_are_refused_under_firecracker_isolation() {
-        let driver = std::env::current_exe().expect("test executable");
+        let directory = tempfile::tempdir().expect("driver directory");
+        let driver = fake_program(directory.path(), "firecracker-driver", "#!/bin/sh\n");
         let firecracker = YonIsolationPolicy::from_lookup(|name| match name {
             "YON_ISOLATION" => Some("firecracker".into()),
             "YON_FIRECRACKER_DRIVER" => Some(driver.clone().into_os_string()),
