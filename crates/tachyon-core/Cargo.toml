@@ -14,7 +14,7 @@ fuzzing = []
 storage-all = ["storage-mysql", "storage-postgres", "storage-redis", "storage-sqlserver"]
 storage-mysql = ["sqlx/any", "sqlx/mysql", "sqlx/tls-rustls-ring-webpki"]
 storage-postgres = ["sqlx/any", "sqlx/postgres", "sqlx/tls-rustls-ring-webpki"]
-storage-redis = ["dep:redis"]
+storage-redis = ["dep:redis", "dep:rustls", "rustls/ring"]
 storage-sqlserver = ["dep:tiberius", "tokio-util/compat"]
 
 [dependencies]
@@ -27,6 +27,7 @@ html5gum = { version = "0.8.4", default-features = false }
 futures-util = { version = "0.3.31", default-features = false, features = ["io", "std"] }
 getrandom = "0.4.2"
 redis = { version = "1.7.0", default-features = false, features = ["tokio-rustls-comp", "tls-rustls-webpki-roots", "connection-manager"], optional = true }
+rustls = { version = "0.23.46", default-features = false, optional = true }
 sqlx = { version = "0.9.0", default-features = false, features = ["sqlite-bundled", "runtime-tokio"] }
 tiberius = { version = "0.12.3", default-features = false, features = ["tds73", "native-tls"], optional = true }
 url = "2.5.8"
