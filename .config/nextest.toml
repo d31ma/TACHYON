@@ -35,6 +35,12 @@ filter = 'test(every_generated_combination_passes_its_tests_with_coverage_and_bu
 test-group = 'heavy'
 slow-timeout = { period = "60s", terminate-after = 15 }
 
+# Each compiles and runs several Kotlin, C# or F# programs: 45 to 95 s alone on an M4, over 300 s on the Linux ARM64 VM.
+[[profile.default.overrides]]
+filter = 'test(kotlin_test_settings_reach_the_setup_gate_as_tac_settings) | test(/^published_sections::(csharp|fsharp)_runs_its_published_yon_sections$/)'
+test-group = 'heavy'
+slow-timeout = { period = "60s", terminate-after = 15 }
+
 [[profile.default.overrides]]
 filter = 'test(/tac_web::.*(csharp|fsharp|dotnet)|tac_web::fsharp_tests::|model_sources::tests::a_csharp_web|tac_implicit_mapping_(cs|fs)_|tac_model_binding::(a_csharp|an_fsharp)/)'
 test-group = 'dotnet-web'

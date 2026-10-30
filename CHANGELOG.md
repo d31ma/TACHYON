@@ -2461,6 +2461,11 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- Yon readiness no longer reports a working `kotlinc` as "not usable" on a
+  slow or busy machine (GF1, 2026-10-30). Each toolchain probe now has
+  30 seconds instead of 10: `kotlinc -version` starts a JVM and took 8.6 to
+  14.3 s on the loaded Ubuntu ARM64 test VM. The Firecracker readiness test
+  now makes its own private driver, so it passes under a umask of 002.
 - The `fylo_datasource` CLI tests (Go and Python) failed with `TY2110` on
   Windows ARM64 (FY1, 2026-10-29). The pinned FYLO v26.33.02 starts
   `powershell.exe` on every write on Windows (about 0.8 s each), so the
