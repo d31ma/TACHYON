@@ -21,6 +21,10 @@ tachyon-core.workspace = true
 tachyon-diagnostics.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "signal", "sync"] }
 
+[features]
+storage-all = ["storage-sqlserver"]
+storage-sqlserver = ["tachyon-core/storage-sqlserver"]
+
 [dev-dependencies]
 jsonschema = { version = "0.58.6", default-features = false }
 tempfile.workspace = true

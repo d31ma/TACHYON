@@ -4,15 +4,19 @@ use futures_util::TryStreamExt;
 use redis::aio::ConnectionManager;
 use serde_json::{Map, Value, json};
 use sqlx::{Column, ConnectOptions, Row, TypeInfo, ValueRef};
+#[cfg(feature = "storage-sqlserver")]
 use tokio::net::TcpStream;
 use tokio::sync::Mutex;
+#[cfg(feature = "storage-sqlserver")]
 use tokio_util::compat::{Compat, TokioAsyncWriteCompatExt};
 
 use super::dialect::{Dialect, ResultKind, Statement};
+#[cfg(feature = "storage-sqlserver")]
 use super::prelogin_stream::PreloginStream;
 use super::{ManagedStorage, failure, object_keys, text};
 use crate::Failure;
 
+#[cfg(feature = "storage-sqlserver")]
 type TdsClient = tiberius::Client<PreloginStream<Compat<TcpStream>>>;
 
 pub(super) struct SqlStore {
@@ -29,15 +33,18 @@ struct OpenTransaction {
 enum DedicatedConnection {
     Pool(sqlx::pool::PoolConnection<sqlx::Any>),
     Sqlite(sqlx::pool::PoolConnection<sqlx::Sqlite>),
+    #[cfg(feature = "storage-sqlserver")]
     Tds(Box<TdsClient>),
 }
 
 enum SqlConnection {
     Pool(sqlx::AnyPool),
     Sqlite(super::sqlite::SqliteStore),
+    #[cfg(feature = "storage-sqlserver")]
     Tds(Box<TdsStore>),
 }
 
+#[cfg(feature = "storage-sqlserver")]
 struct TdsStore {
     config: tiberius::Config,
     connection: Mutex<Option<TdsClient>>,
@@ -145,6 +152,7 @@ impl SqlStore {
                 .acquire_connection()
                 .await
                 .map(DedicatedConnection::Sqlite),
+            #[cfg(feature = "storage-sqlserver")]
             SqlConnection::Tds(store) => {
                 let mut guard = store.connection.lock().await;
                 let client = match guard.take() {
@@ -161,6 +169,7 @@ impl SqlStore {
         match &self.connection {
             SqlConnection::Pool(pool) => execute_sqlx(pool, &statement).await,
             SqlConnection::Sqlite(store) => store.execute(&statement).await,
+            #[cfg(feature = "storage-sqlserver")]
             SqlConnection::Tds(store) => {
                 let mut guard = store.connection.lock().await;
                 let mut client = match guard.take() {
@@ -181,6 +190,7 @@ impl SqlStore {
         match &self.connection {
             SqlConnection::Pool(pool) => pool.close().await,
             SqlConnection::Sqlite(store) => store.close().await,
+            #[cfg(feature = "storage-sqlserver")]
             SqlConnection::Tds(store) => {
                 store.connection.lock().await.take();
             }
@@ -212,6 +222,7 @@ async fn connect_sqlite(settings: &Value, raw: &str) -> Result<SqlConnection, Fa
     Ok(SqlConnection::Sqlite(store))
 }
 
+#[cfg(feature = "storage-sqlserver")]
 async fn connect_sql_server(settings: &Value) -> Result<SqlConnection, Failure> {
     let url = connection_url(settings, "sqlserver")?;
     let host = url
@@ -234,6 +245,13 @@ async fn connect_sql_server(settings: &Value) -> Result<SqlConnection, Failure> 
         config,
         connection: Mutex::new(Some(client)),
     })))
+}
+
+#[cfg(not(feature = "storage-sqlserver"))]
+fn connect_sql_server(_settings: &Value) -> std::future::Ready<Result<SqlConnection, Failure>> {
+    std::future::ready(Err(failure(
+        "This ty was built without SQL Server support; rebuild it with `--features storage-sqlserver` (release builds include it).",
+    )))
 }
 
 async fn connect_pool(settings: &Value, dialect: Dialect) -> Result<SqlConnection, Failure> {
@@ -269,6 +287,7 @@ async fn run_on_dedicated(
         DedicatedConnection::Sqlite(connection) => {
             super::sqlite::SqliteStore::execute_on(connection, statement).await
         }
+        #[cfg(feature = "storage-sqlserver")]
         DedicatedConnection::Tds(client) => execute_tds(client, statement).await,
     }
 }
@@ -414,6 +433,7 @@ fn certificate(settings: &Value) -> Result<Option<&str>, Failure> {
     Ok(Some(ca))
 }
 
+#[cfg(feature = "storage-sqlserver")]
 async fn connect_tds(config: &tiberius::Config) -> Result<TdsClient, Failure> {
     let stream = TcpStream::connect(config.get_addr())
         .await
@@ -534,6 +554,7 @@ where
     row.try_get::<T, _>(index).map_err(|_| failure(message))
 }
 
+#[cfg(feature = "storage-sqlserver")]
 async fn execute_tds(client: &mut TdsClient, statement: &Statement) -> Result<Value, Failure> {
     let mut query = tiberius::Query::new(&statement.sql);
     for parameter in &statement.parameters {
@@ -571,6 +592,7 @@ async fn execute_tds(client: &mut TdsClient, statement: &Statement) -> Result<Va
     rows_result(&statement.result, rows)
 }
 
+#[cfg(feature = "storage-sqlserver")]
 fn tds_row(row: &tiberius::Row) -> Result<Value, Failure> {
     let mut object = Map::new();
     if row.columns().len() > 64 {
@@ -618,6 +640,7 @@ pub(super) fn push_row(
     Ok(())
 }
 
+#[cfg(feature = "storage-sqlserver")]
 fn optional_finite_number(value: Option<f64>) -> Result<Value, Failure> {
     let Some(value) = value else {
         return Ok(Value::Null);

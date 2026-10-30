@@ -159,6 +159,7 @@ Run these commands from the repository root:
 cargo fmt --check
 cargo check --workspace --all-targets --all-features --locked
 cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+cargo clippy --workspace --all-targets --locked -- -D warnings
 cargo test --workspace --all-targets --all-features --locked
 RUSTDOCFLAGS="-D warnings" cargo doc --workspace --all-features --no-deps --locked
 cargo deny check advisories bans licenses sources

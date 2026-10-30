@@ -39,7 +39,7 @@ detect_arch() {
 }
 
 build_binary() {
-  local build_args=(build --release --locked --bin ty)
+  local build_args=(build --release --locked -p tachyon-cli --bin ty --features storage-all)
   if [[ -n "${TARGET}" ]]; then
     build_args+=(--target "${TARGET}")
   fi

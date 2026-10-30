@@ -47,7 +47,8 @@ TLS (Transport Layer Security):
   infrastructure).
 - This setting never turns off identity verification.
 - PostgreSQL, MySQL, MariaDB and Redis use bundled WebPKI roots for TLS.
-- SQL Server uses the native TLS backend.
+- SQL Server uses the native TLS backend (OpenSSL on Linux, Security.framework
+  on macOS, SChannel on Windows).
 - A private SQL CA adds trust. It does not skip certificate checks or hostname
   checks.
 
@@ -355,6 +356,14 @@ FYLO:
 
 SQL Server:
 
+- The SQL Server driver is the optional `storage-sqlserver` cargo feature.
+  Release builds turn it on (`--features storage-all`). A `ty` built without
+  it refuses a `sqlserver` datasource at startup with `TY2160` and names the
+  feature. Without it, `ty` links neither the TDS driver nor the native TLS
+  stack, so a Linux build needs no OpenSSL headers and does not load
+  `libssl`. `scripts/test-managed-storage.mjs` builds with the feature on;
+  a binary passed through `TAC_STORAGE_TEST_BINARY` or `TAC_BIN` must be
+  built with it too.
 - On 2026-10-19, the ignored
   `storage::tests::sql_real_repository_nullable_columns` contract passed
   through the TDS adapter against SQL Server 2022 (the digest-pinned

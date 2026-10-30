@@ -182,8 +182,14 @@ jobs:
       - name: Run Clippy
         run: cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 
+      - name: Run Clippy without the optional storage drivers
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
       - name: Run unit and Phase 4 real-process acceptance tests in the nextest groups
         run: cargo nextest run --workspace --all-targets --all-features --locked --no-tests=fail
+
+      - name: Run the storage tests without the optional storage drivers
+        run: cargo nextest run -p tachyon-core --lib --locked --no-tests=fail storage::
 
       - name: Execute target-native companion behavior through the built CLI
         run: node scripts/native/companion-test.mjs
@@ -1351,7 +1357,7 @@ jobs:
         run: cargo cyclonedx --all --format json
 
       - name: Build a release binary with an embedded dependency list
-        run: cargo auditable build --release --locked --bin ty
+        run: cargo auditable build --release --locked -p tachyon-cli --bin ty --features storage-all
 
       - name: Publish the bill of materials
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

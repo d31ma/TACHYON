@@ -1,6 +1,7 @@
 mod dialect;
 mod drivers;
 mod fylo;
+#[cfg(feature = "storage-sqlserver")]
 mod prelogin_stream;
 mod sqlite;
 

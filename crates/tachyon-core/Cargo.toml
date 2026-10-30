@@ -11,6 +11,7 @@ publish = false
 
 [features]
 fuzzing = []
+storage-sqlserver = ["dep:tiberius", "tokio-util/compat"]
 
 [dependencies]
 axum = { version = "0.8.9", default-features = false, features = ["http1", "tokio", "ws"] }
@@ -23,7 +24,7 @@ futures-util = { version = "0.3.31", default-features = false, features = ["io",
 getrandom = "0.4.2"
 redis = { version = "1.7.0", default-features = false, features = ["tokio-rustls-comp", "tls-rustls-webpki-roots", "connection-manager"] }
 sqlx = { version = "0.9.0", default-features = false, features = ["any", "postgres", "mysql", "sqlite-bundled", "runtime-tokio", "tls-rustls-ring-webpki"] }
-tiberius = { version = "0.12.3", default-features = false, features = ["tds73", "native-tls"] }
+tiberius = { version = "0.12.3", default-features = false, features = ["tds73", "native-tls"], optional = true }
 url = "2.5.8"
 notify.workspace = true
 serde.workspace = true
@@ -36,7 +37,7 @@ tachyon-diagnostics.workspace = true
 tachyon-duplication.workspace = true
 tempfile.workspace = true
 tokio = { workspace = true, features = ["fs", "io-util", "net", "process", "rt", "signal", "sync", "time"] }
-tokio-util = { workspace = true, features = ["io", "rt", "compat"] }
+tokio-util = { workspace = true, features = ["io", "rt"] }
 tower = { version = "0.5.3", default-features = false, features = ["util"] }
 tower-http = { version = "0.7.0", features = ["fs", "set-header"] }
 brotli = { version = "9.0.0", default-features = false, features = ["std"] }

@@ -477,4 +477,13 @@ async fn fylo_repository_round_trip() {
     store.close().await;
 }
 
+#[cfg(not(feature = "storage-sqlserver"))]
+#[tokio::test]
+async fn a_build_without_sql_server_names_the_feature_that_adds_it() {
+    let error = ManagedStorage::connect(&json!({"yon":{"datasource":{"driver":"sqlserver","url":"sqlserver://localhost:1433/tachyon","username":"sa","password":"unused"}}}))
+        .await
+        .expect_err("a build without storage-sqlserver must refuse SQL Server");
+    assert!(error.to_string().contains("--features storage-sqlserver"));
+}
+
 mod fylo_documents;

@@ -94,7 +94,7 @@ Two environment variables change the defaults:
 The rewrite also builds from source with stable Rust 1.97.1:
 
 ```sh
-cargo build --release --locked --bin ty
+cargo build --release --locked -p tachyon-cli --features storage-all
 ./target/release/ty init hello --name "Hello"
 cd hello
 ../target/release/ty serve
@@ -759,7 +759,9 @@ file is the `yon` namespace, so it has no root key.
 - `yon.datasource.driver` is `postgresql`, `mysql`, `mariadb`, `sqlite`,
   `sqlserver` or `fylo`. The FYLO driver takes `fylo:///absolute/root`. It
   serves repositories from a local document store instead of SQL
-  ([ADR 0032](docs/adr/0032-fylo-datasource.md)).
+  ([ADR 0032](docs/adr/0032-fylo-datasource.md)). Release builds include
+  `sqlserver`; a `ty` built from source has it only with
+  `--features storage-sqlserver` (or `storage-all`).
 - Restart the server to apply changes to private configuration.
 
 See [Application configuration](docs/APPLICATION_CONFIGURATION.md) for the
@@ -933,6 +935,7 @@ The canonical local gate is:
 cargo fmt --check
 cargo check --workspace --all-targets --all-features --locked
 cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+cargo clippy --workspace --all-targets --locked -- -D warnings
 cargo test --workspace --all-targets --all-features --locked
 RUSTDOCFLAGS="-D warnings" cargo doc --workspace --all-features --no-deps --locked
 cargo deny check advisories bans licenses sources

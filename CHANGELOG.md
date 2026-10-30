@@ -1998,6 +1998,15 @@ machine contracts have their own, independent major versions.
 
 ### Changed
 
+- SQL Server support is the optional `storage-sqlserver` cargo feature (RD1,
+  2026-10-30). Release builds keep it (`scripts/release/build-artifact.sh`
+  builds `tachyon-cli` with `--features storage-all`). A default build
+  leaves out tiberius and the native TLS stack (native-tls, and OpenSSL on
+  Linux), so `ty` links 17 fewer packages on Linux x86_64 (229 to 212) and
+  11 fewer on macOS arm64 (223 to 212), and the Linux gate image no longer
+  installs `libssl-dev`. Such a build refuses a `sqlserver` datasource with
+  `TY2160` and names the feature. CI also runs Clippy and the storage tests
+  without the optional drivers.
 - `Toolchain::checked` also requires `dotnet` and `javac` under `CI` (RT1,
   2026-10-28), since the native jobs of `rust-ci.yml` install .NET SDK
   10.0.302 and select JDK 21, so a
