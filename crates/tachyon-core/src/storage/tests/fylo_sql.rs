@@ -175,6 +175,10 @@ async fn fylo_answers_injection_payloads_with_only_the_exact_match() {
     assert_eq!(rows[0]["name"], json!(tricky));
     let quoted = json!({"operation":"sql","mode":"rows","sql":"SELECT * FROM products WHERE name = \"$1\"","parameters":["x\" OR name != \""]});
     assert!(store.execute(&quoted).await.is_err());
+    let above = json!({"operation":"sql","mode":"rows","sql":"SELECT * FROM products WHERE qty > $1","parameters":[2.5]});
+    let rows = execute(&store, above).await;
+    assert_eq!(rows.as_array().map(Vec::len), Some(1));
+    assert_eq!(rows[0]["name"], json!("rope"));
     let negative = json!({"operation":"sql","mode":"rows","sql":"SELECT * FROM products WHERE qty > $1","parameters":[-5]});
     assert!(store.execute(&negative).await.is_err());
     let all = execute(&store, fylo_command("find", json!({}))).await;
