@@ -406,6 +406,12 @@ impl ClientStyleFixture {
         assert!(foundation.contains("color-scheme: dark"), "{foundation}");
         assert!(foundation.contains("background: #0f172a"), "{foundation}");
         assert!(foundation.contains("color: #e2e8f0"), "{foundation}");
+        assert!(foundation.contains("line-height: 1.6"), "{foundation}");
+        assert!(foundation.contains("min-height: 44px"), "{foundation}");
+        assert!(
+            foundation.contains("prefers-reduced-motion"),
+            "{foundation}"
+        );
         assert!(!foundation.contains(".greeting"), "{foundation}");
         assert!(!foundation.contains("data-theme"), "{foundation}");
         assert!(!app.join("client/pages/tac.css").exists());

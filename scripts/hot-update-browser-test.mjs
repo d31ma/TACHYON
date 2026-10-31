@@ -103,6 +103,8 @@ async function checkHotUpdates(page, address, paths, originalTemplate) {
   await page.locator('#tachyon-hot-diagnostics').waitFor()
   assert.equal(await page.textContent('#count'), '2', 'failed builds must retain last-good DOM')
   assert.match(await page.textContent('#tachyon-hot-diagnostics'), /TY1302/)
+  assert.equal(await page.getAttribute('#tachyon-hot-diagnostics', 'aria-modal'), 'true')
+  assert.equal(await page.evaluate(() => document.getElementById('tachyon-hot-diagnostics').contains(document.activeElement)), true)
 
   writeFileSync(templatePath, originalTemplate)
   await page.waitForFunction(() =>

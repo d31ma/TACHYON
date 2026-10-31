@@ -191,6 +191,8 @@ fn a_broken_project_at_start_serves_an_error_page_until_it_is_fixed() {
     assert!(page.contains("503"), "{page}");
     assert!(page.contains("TY2010"), "{page}");
     assert!(page.contains("/.tachyon/live-reload.js"), "{page}");
+    assert!(page.contains("prefers-color-scheme: dark"), "{page}");
+    assert!(page.contains("white-space: pre-wrap"), "{page}");
     let shown = preview.get("/.tachyon/diagnostics");
     assert!(shown.contains("\"code\":\"TY"), "{shown}");
     assert!(preview.is_running());
