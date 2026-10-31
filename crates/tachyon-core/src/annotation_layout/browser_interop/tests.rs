@@ -33,6 +33,81 @@ fn a_go_service_may_not_import_syscall_js() {
 }
 
 #[test]
+fn a_go_service_that_imports_net_http_is_refused() {
+    let source =
+        "import (\n\t\"net/http\"\n\t\"net/url\"\n)\n\n// @Service\ntype PlaceService struct{}\n";
+    let problems = refused("client/services/PlaceService.go", source);
+    assert_eq!(
+        problems,
+        ["TY1317 Go services reach the network only through an HTTPClient."]
+    );
+    let found = found_text("client/services/PlaceService.go", source);
+    assert_eq!(
+        found,
+        [
+            "Remove `net/http`. Move the request into a method of an HTTPClient, such as `@GetRequest(\"/api/products\")`, and inject the client with `@Needs`. Mark a public read `Cached`, so the service worker may answer it (ADR 0087)."
+        ]
+    );
+}
+
+#[test]
+fn a_go_service_that_imports_a_net_http_package_is_refused() {
+    let source = "import \"net/http/httputil\"\n\n// @Service\ntype PlaceService struct{}\n";
+    let problems = refused("client/services/PlaceService.go", source);
+    assert_eq!(
+        problems,
+        ["TY1317 Go services reach the network only through an HTTPClient."]
+    );
+    let found = found_text("client/services/PlaceService.go", source);
+    assert!(found[0].starts_with("Remove `net/http/`."), "{found:?}");
+}
+
+#[test]
+fn a_go_service_that_imports_net_http_in_backquotes_is_refused() {
+    let source = "import `net/http`\n\n// @Service\ntype PlaceService struct{}\n";
+    let problems = refused("client/services/PlaceService.go", source);
+    assert_eq!(
+        problems,
+        ["TY1317 Go services reach the network only through an HTTPClient."]
+    );
+}
+
+#[test]
+fn a_go_service_that_imports_syscall_js_in_backquotes_is_refused() {
+    let source = "import js `syscall/js`\n\n// @Service\ntype PlaceService struct{}\n";
+    let problems = refused("client/services/PlaceService.go", source);
+    assert_eq!(
+        problems,
+        [
+            "TY1317 Go services cannot call browser APIs. Put this code in a JS or TS service and send the result to this service with an event."
+        ]
+    );
+}
+
+#[test]
+fn a_go_service_with_a_wasmimport_directive_is_refused() {
+    let source = "// @Service\ntype PlaceService struct{}\n\n//go:wasmimport env where\nfunc where() float64\n";
+    let problems = refused("client/services/PlaceService.go", source);
+    assert_eq!(
+        problems,
+        ["TY1317 Go services reach the network only through an HTTPClient."]
+    );
+    let found = found_text("client/services/PlaceService.go", source);
+    assert!(
+        found[0].starts_with(
+            "Remove `//go:wasmimport`. Move the request into a method of an HTTPClient"
+        ),
+        "{found:?}"
+    );
+}
+
+#[test]
+fn a_go_service_may_name_wasmimport_and_net_http_in_comments_and_text() {
+    let source = "// @Service\ntype PlaceService struct{}\n\n// see //go:wasmimport\nfunc (place *PlaceService) Note() string {\n\treturn \"//go:wasmimport net/http\" + `\n//go:wasmimport`\n}\n";
+    assert!(refused("client/services/PlaceService.go", source).is_empty());
+}
+
+#[test]
 fn a_dart_service_may_not_import_the_browser_libraries() {
     let source = "import 'dart:js_interop';\nimport \"package:web/web.dart\";\nimport 'dart:html' as html;\nimport 'dart:math';\n\n@Service()\nclass PlaceService {}\n";
     let found = found_text("client/services/PlaceService.dart", source);

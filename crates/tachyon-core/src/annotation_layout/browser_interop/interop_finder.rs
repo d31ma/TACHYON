@@ -9,7 +9,7 @@ pub(super) struct InteropFinder<'s> {
 }
 
 impl<'s> InteropFinder<'s> {
-    const QUOTES: [char; 2] = ['"', '\''];
+    const QUOTES: [char; 3] = ['"', '\'', '`'];
 
     pub(super) fn new(extension: &str, source: &'s str) -> Self {
         let mask = crate::lexical::code_mask(extension, source);
@@ -22,6 +22,7 @@ impl<'s> InteropFinder<'s> {
     pub(super) fn uses(&self, rules: &InteropRules) -> Vec<Range<usize>> {
         let mut found = self.all_words(rules.words);
         found.extend(self.all_imports(rules.imports));
+        found.extend(self.all_directives(rules.directives));
         found.sort_by_key(|range| range.start);
         found
     }
@@ -56,6 +57,26 @@ impl<'s> InteropFinder<'s> {
 
     fn is_name_character(character: char) -> bool {
         character.is_alphanumeric() | (character == '_')
+    }
+
+    fn all_directives(&self, directives: &[&str]) -> Vec<Range<usize>> {
+        directives
+            .iter()
+            .flat_map(|directive| self.directive_uses(directive))
+            .collect()
+    }
+
+    fn directive_uses(&self, directive: &str) -> Vec<Range<usize>> {
+        self.source
+            .match_indices(directive)
+            .map(|(start, _)| start..start + directive.len())
+            .filter(|range| self.is_directive(range, directive))
+            .collect()
+    }
+
+    fn is_directive(&self, range: &Range<usize>, directive: &str) -> bool {
+        let opens_comment = !self.code[range.start] & self.code_before(range.start);
+        opens_comment & self.bounded_after(range.end, directive)
     }
 
     fn all_imports(&self, imports: &[&str]) -> Vec<Range<usize>> {

@@ -1015,6 +1015,9 @@ mod csharp_topic_tests;
 mod go_topic_tests;
 
 #[cfg(test)]
+mod go_marker_proof_tests;
+
+#[cfg(test)]
 #[allow(clippy::expect_used)]
 mod tests {
     use super::*;

@@ -5,6 +5,8 @@ pub(super) struct InteropRules {
     pub(super) language: &'static str,
     pub(super) words: &'static [&'static str],
     pub(super) imports: &'static [&'static str],
+    pub(super) directives: &'static [&'static str],
+    pub(super) network: &'static [&'static str],
 }
 
 impl InteropRules {
@@ -16,12 +18,16 @@ impl InteropRules {
             language: "Rust",
             words: &["wasm_bindgen", "web_sys", "js_sys", "wasm_import_module"],
             imports: &[],
+            directives: &[],
+            network: &[],
         },
         Self {
             extension: "go",
             language: "Go",
             words: &[],
-            imports: &["syscall/js"],
+            imports: &["syscall/js", "net/http", "net/http/"],
+            directives: &["//go:wasmimport"],
+            network: &["net/http", "net/http/", "//go:wasmimport"],
         },
         Self {
             extension: "cs",
@@ -33,6 +39,8 @@ impl InteropRules {
                 "JSHost",
             ],
             imports: &[],
+            directives: &[],
+            network: &[],
         },
         Self {
             extension: "fs",
@@ -44,6 +52,8 @@ impl InteropRules {
                 "JSHost",
             ],
             imports: &[],
+            directives: &[],
+            network: &[],
         },
         Self {
             extension: "dart",
@@ -58,6 +68,8 @@ impl InteropRules {
                 "package:web/",
                 "package:js/",
             ],
+            directives: &[],
+            network: &[],
         },
         Self {
             extension: "kt",
@@ -74,6 +86,8 @@ impl InteropRules {
                 "kotlin.js",
             ],
             imports: &[],
+            directives: &[],
+            network: &[],
         },
         Self {
             extension: "swift",
@@ -89,6 +103,8 @@ impl InteropRules {
                 "_expose",
             ],
             imports: &[],
+            directives: &[],
+            network: &[],
         },
         Self {
             extension: "java",
@@ -108,6 +124,8 @@ impl InteropRules {
                 "native",
             ],
             imports: &[],
+            directives: &[],
+            network: &[],
         },
         Self {
             extension: "hpp",
@@ -123,12 +141,16 @@ impl InteropRules {
                 "export_name",
             ],
             imports: &[],
+            directives: &[],
+            network: &[],
         },
         Self {
             extension: "rb",
             language: "Ruby",
             words: &["TachyonWeb", "JS.", "JS::"],
             imports: &[],
+            directives: &[],
+            network: &[],
         },
     ];
 

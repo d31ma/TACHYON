@@ -678,6 +678,11 @@ type PageClient interface {
                 .join("\n")
         }
 
+        fn key(root: &Path, version: &str) -> String {
+            let files = program_files(root, &Self::services(root)).expect("page source");
+            program_key(version, &files)
+        }
+
         fn file<'a>(files: &'a [(PathBuf, String)], needle: &str) -> (&'a Path, &'a str) {
             let (path, text) = files
                 .iter()
@@ -946,6 +951,19 @@ type PageClient interface {
         assert!(made < filled, "{table}");
         let (_, shared) = PageFixtures::file(&files, "tac.Shared(");
         assert!(shared.contains("\ttac.Shared(\"tax\")\n"), "{shared}");
+    }
+
+    #[test]
+    fn an_unchanged_go_page_reuses_its_program_key() {
+        let first = PageFixtures::project();
+        let second = PageFixtures::project();
+        let key = PageFixtures::key(first.path(), "go1.27");
+        assert_eq!(PageFixtures::key(first.path(), "go1.27"), key);
+        assert_eq!(PageFixtures::key(second.path(), "go1.27"), key);
+        assert_ne!(PageFixtures::key(first.path(), "go1.28"), key);
+        let edited = PageFixtures::READER.replace("strconv.Itoa(0)", "strconv.Itoa(1)");
+        PageFixtures::write(second.path(), "client/services/ReaderService.go", &edited);
+        assert_ne!(PageFixtures::key(second.path(), "go1.27"), key);
     }
 
     #[test]

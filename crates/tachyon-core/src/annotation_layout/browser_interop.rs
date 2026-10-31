@@ -32,6 +32,7 @@ pub(crate) struct BrowserInteropCheck;
 impl BrowserInteropCheck {
     const CODE: u16 = 1317;
     const HELP: &'static str = "Browser work lives in a JavaScript or TypeScript service. That service publishes a typed event, and this service receives it with @OnEvent. See /docs/native-services";
+    const NETWORK_HELP: &'static str = "Move the request into a method of an HTTPClient, such as `@GetRequest(\"/api/products\")`, and inject the client with `@Needs`. Mark a public read `Cached`, so the service worker may answer it (ADR 0087).";
 
     pub(crate) fn check_file(path: &Path, bytes: &[u8]) -> Result<(), Failure> {
         let source = String::from_utf8_lossy(bytes);
@@ -52,15 +53,27 @@ impl BrowserInteropCheck {
         finder
             .uses(rules)
             .into_iter()
-            .map(|range| Self::problem(path, source, rules.language, range))
+            .map(|range| Self::problem(path, source, rules, range))
             .collect()
     }
 
-    fn problem(path: &Path, source: &str, language: &str, range: Range<usize>) -> Diagnostic {
-        let message = format!(
-            "{language} services cannot call browser APIs. Put this code in a JS or TS service and send the result to this service with an event."
-        );
-        let help = format!("Remove `{}`. {}", &source[range.clone()], Self::HELP);
+    fn problem(path: &Path, source: &str, rules: &InteropRules, range: Range<usize>) -> Diagnostic {
+        let used = &source[range.clone()];
+        let language = rules.language;
+        let (message, advice) = if rules.network.contains(&used) {
+            (
+                format!("{language} services reach the network only through an HTTPClient."),
+                Self::NETWORK_HELP,
+            )
+        } else {
+            (
+                format!(
+                    "{language} services cannot call browser APIs. Put this code in a JS or TS service and send the result to this service with an event."
+                ),
+                Self::HELP,
+            )
+        };
+        let help = format!("Remove `{used}`. {advice}");
         let file = path.to_string_lossy().replace('\\', "/");
         diagnostic(
             Self::CODE,
