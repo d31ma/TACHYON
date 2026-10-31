@@ -7,5 +7,6 @@ pub mod node_driver;
 pub mod one_test_per_case;
 pub mod probe_memory;
 pub mod program_probe;
+pub mod published_files;
 pub mod toolchain;
 pub mod yon_layout;

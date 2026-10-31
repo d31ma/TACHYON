@@ -1,12 +1,19 @@
 #![allow(clippy::expect_used)]
 
+use crate::support::one_test_per_case::one_test_per_case;
+use crate::support::published_files::PublishedFiles;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
-use tachyon_core::{DevServer, DevServerOptions, ProjectDiscovery};
+use tachyon_contracts::{HandlerRequest, HttpMethod};
+use tachyon_core::{
+    ApplicationConfig, ComposedTypes, DevServer, DevServerOptions, HandlerCancellation,
+    HandlerSource, HandlerSupervisor, HandlerSupervisorOptions, ProjectDiscovery,
+};
 use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
 use tokio::net::TcpStream;
 
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 struct Language {
     extension: &'static str,
     program: &'static str,
@@ -28,6 +35,23 @@ impl Language {
     const RUBY: Self = Self::new("rb", "ruby");
     const LUA: Self = Self::new("lua", "lua");
     const CPP: Self = Self::new("hpp", "clang++");
+    const ALL: [Self; 15] = [
+        Self::JAVASCRIPT,
+        Self::TYPESCRIPT,
+        Self::PYTHON,
+        Self::PHP,
+        Self::JAVA,
+        Self::GROOVY,
+        Self::KOTLIN,
+        Self::CSHARP,
+        Self::FSHARP,
+        Self::RUST,
+        Self::DART,
+        Self::GO,
+        Self::RUBY,
+        Self::LUA,
+        Self::CPP,
+    ];
 
     const fn new(extension: &'static str, program: &'static str) -> Self {
         Self { extension, program }
@@ -93,6 +117,18 @@ impl Language {
         server.stop().await;
         Section::DELEGATES.refuse_an_overload(self);
     }
+
+    async fn run_first_app_section(&self) {
+        if !self.available() {
+            return;
+        }
+        let project = Section::FIRST_APP_CONTROLLER.project(self, &[]);
+        Section::FIRST_APP_TESTS.add(project.path(), self, &[]);
+        let server = Server::start(project.path()).await;
+        Section::check_greeting(&server, self).await;
+        server.stop().await;
+        Section::check_controller_test(project.path(), self).await;
+    }
 }
 
 struct Section {
@@ -112,6 +148,12 @@ impl Section {
     const DELEGATES: Self = Self {
         folder: "docs/delegates/take-on-a-service",
     };
+    const FIRST_APP_CONTROLLER: Self = Self {
+        folder: "docs/first-app/add-a-controller",
+    };
+    const FIRST_APP_TESTS: Self = Self {
+        folder: "docs/first-app/add-tests",
+    };
     const ONE_METHOD_PER_NAME: [&'static str; 3] = ["go", "rs", "dart"];
     const SAME_NAME: [(&'static str, &'static str); 3] = [
         ("TotalWith", "Total"),
@@ -124,14 +166,11 @@ impl Section {
     ];
 
     fn source(&self) -> PathBuf {
-        Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../website/content")
-            .join(self.folder)
+        PublishedFiles::folder(self.folder)
     }
 
     fn files(&self, language: &Language) -> Vec<(String, String)> {
-        let mut found = Vec::new();
-        Self::collect(&self.source(), &self.source(), &mut found);
+        let found = PublishedFiles::read(&self.source(), "server/");
         let suffix = format!(".{}", language.extension);
         let own: Vec<(String, String)> = found
             .iter()
@@ -146,28 +185,6 @@ impl Section {
         own.into_iter().chain(shared).collect()
     }
 
-    fn collect(base: &Path, folder: &Path, found: &mut Vec<(String, String)>) {
-        let mut entries: Vec<PathBuf> = fs::read_dir(folder)
-            .expect("published section folder")
-            .map(|entry| entry.expect("folder entry").path())
-            .collect();
-        entries.sort();
-        for path in entries {
-            if path.is_dir() {
-                Self::collect(base, &path, found);
-                continue;
-            }
-            let relative = path
-                .strip_prefix(base)
-                .expect("inside the section")
-                .to_string_lossy()
-                .replace('\\', "/");
-            if relative.starts_with("server/") {
-                found.push((relative, fs::read_to_string(&path).expect("source")));
-            }
-        }
-    }
-
     fn project(&self, language: &Language, renames: &[(&str, &str)]) -> tempfile::TempDir {
         let project = tempfile::tempdir().expect("project");
         Project::write(project.path(), "client/pages/tac.html", "<test-view1 />");
@@ -176,6 +193,11 @@ impl Section {
             "client/components/test/view1/tac.html",
             "<main aria-label=\"Home\"><h1>Home</h1></main>",
         );
+        self.add(project.path(), language, renames);
+        project
+    }
+
+    fn add(&self, root: &Path, language: &Language, renames: &[(&str, &str)]) {
         let files = self.files(language);
         assert!(
             !files.is_empty(),
@@ -187,9 +209,8 @@ impl Section {
             let written = renames
                 .iter()
                 .fold(code, |text, (from, to)| text.replace(from, to));
-            Project::write(project.path(), &relative, &written);
+            Project::write(root, &relative, &written);
         }
-        project
     }
 
     async fn serve(&self, language: &Language) -> (tempfile::TempDir, Server) {
@@ -281,6 +302,51 @@ impl Section {
             serde_json::json!({"rate": 4, "total": 30, "extra": 34}),
             "{label}: the Delegate overrides rate, takes on total and overloads it"
         );
+    }
+
+    async fn check_greeting(server: &Server, language: &Language) {
+        let label = language.extension;
+        let answer = server.call("GET", "/api/greeting", "").await;
+        assert_eq!(answer.status, 200, "{label}: {answer:?}");
+        let greeting: serde_json::Value =
+            serde_json::from_str(&answer.body).expect("JSON greeting");
+        assert_eq!(
+            greeting,
+            serde_json::json!({"message": "Hello from Yon"}),
+            "{label}"
+        );
+    }
+
+    async fn check_controller_test(root: &Path, language: &Language) {
+        let label = language.extension;
+        ComposedTypes::write(root).unwrap_or_else(|failure| panic!("{label}: {failure}"));
+        let supervisor = HandlerSupervisor::new(HandlerSupervisorOptions {
+            application: ApplicationConfig::load(root)
+                .unwrap_or_else(|failure| panic!("{label}: {failure}")),
+            ..HandlerSupervisorOptions::from_environment()
+                .unwrap_or_else(|failure| panic!("{label}: {failure}"))
+        })
+        .unwrap_or_else(|failure| panic!("{label}: {failure}"));
+        let unit = format!("server/tests/GreetingControllerTest.{label}");
+        let source = HandlerSource::discover(root, &unit)
+            .unwrap_or_else(|failure| panic!("{label}: {failure}"));
+        let response = supervisor
+            .invoke(
+                &source,
+                &HandlerRequest::route("ty-test", "/", HttpMethod::Post),
+                &HandlerCancellation::default(),
+            )
+            .await
+            .unwrap_or_else(|failure| panic!("{label}: {failure}"));
+        assert!(response.error.is_none(), "{label}: {:?}", response.error);
+        let report: serde_json::Value =
+            serde_json::from_str(&response.body.expect("test report").data).expect("JSON report");
+        assert_eq!(
+            report["cases"].as_array().map(Vec::len),
+            Some(1),
+            "{label}: {report}"
+        );
+        assert_eq!(report["cases"][0]["passed"], true, "{label}: {report}");
     }
 
     fn refuse_an_overload(&self, language: &Language) {
@@ -461,4 +527,31 @@ published_section_tests!(
     ruby_runs_its_published_yon_sections => RUBY,
     lua_runs_its_published_yon_sections => LUA,
     cpp_runs_its_published_yon_sections => CPP,
+);
+
+async fn run_first_app_server_tabs(language: Language) {
+    language.run_first_app_section().await;
+}
+
+one_test_per_case!(
+    first_app_server_tabs,
+    async run_first_app_server_tabs,
+    all Language::ALL,
+    [
+        javascript_runs_its_first_app_server_tabs => Language::JAVASCRIPT,
+        typescript_runs_its_first_app_server_tabs => Language::TYPESCRIPT,
+        python_runs_its_first_app_server_tabs => Language::PYTHON,
+        php_runs_its_first_app_server_tabs => Language::PHP,
+        java_runs_its_first_app_server_tabs => Language::JAVA,
+        groovy_runs_its_first_app_server_tabs => Language::GROOVY,
+        kotlin_runs_its_first_app_server_tabs => Language::KOTLIN,
+        csharp_runs_its_first_app_server_tabs => Language::CSHARP,
+        fsharp_runs_its_first_app_server_tabs => Language::FSHARP,
+        rust_runs_its_first_app_server_tabs => Language::RUST,
+        dart_runs_its_first_app_server_tabs => Language::DART,
+        go_runs_its_first_app_server_tabs => Language::GO,
+        ruby_runs_its_first_app_server_tabs => Language::RUBY,
+        lua_runs_its_first_app_server_tabs => Language::LUA,
+        cpp_runs_its_first_app_server_tabs => Language::CPP,
+    ]
 );
