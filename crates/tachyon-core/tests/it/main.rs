@@ -93,4 +93,5 @@ mod yon_dynamic_annotations;
 mod yon_fsharp_markers_tests;
 mod yon_json_returns;
 mod yon_outbound_verbs;
+mod yon_policy_markers;
 mod yon_required_args;
