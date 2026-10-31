@@ -205,11 +205,13 @@ async fn build_language(
         WebLanguage::Ruby => {
             let engine = ruby_engine(snapshot_root, &chosen)?;
             published.extend(crate::tac_ruby::RubyWebServices::runtime_files().await?);
+            note = crate::tac_ruby::RubyWebServices::release_note(profile);
             engine
         }
         WebLanguage::Lua => {
             let engine = crate::tac_lua::LuaWebServices::engine(snapshot_root, &chosen)?;
             published.extend(crate::tac_lua::LuaWebServices::runtime_files().await?);
+            note = crate::tac_lua::LuaWebServices::release_note(profile);
             engine
         }
     };

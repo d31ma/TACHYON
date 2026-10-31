@@ -1,4 +1,4 @@
-use super::{LuaConverterProviders, LuaWebServices};
+use super::{LuaConverterProviders, LuaHelperFields, LuaWebServices};
 use crate::Failure;
 use crate::behavior::LuaBehaviorPlan;
 use crate::failure::{diagnostic, source_span};
@@ -45,6 +45,7 @@ impl LuaClientUnit {
             .transpose()
             .map_err(|message| Self::lowering_failure(relative, source, &message))?
             .unwrap_or_default();
+        let helpers = LuaHelperFields::read(project)?.unit_tables(&assembled);
         let authored = plan
             .as_ref()
             .map(|plan| LuaBehaviorEdits::tac(plan).tac_program(relative, &assembled))
@@ -56,7 +57,7 @@ impl LuaClientUnit {
             LuaWebServices::model_names(project)?,
             LuaTestUnit::new(unit)
                 .with_behaviors(plan.is_some())
-                .tac_program(&format!("{authored}\n{contracts}"))
+                .tac_program(&format!("{authored}\n{contracts}{helpers}"))
         );
         Ok(format!(
             "{}{}{}\n{}{}",

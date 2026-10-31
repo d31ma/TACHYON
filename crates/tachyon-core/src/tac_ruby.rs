@@ -44,6 +44,11 @@ impl RubyWebServices {
     pub(crate) const NOTICES_PATH: &'static str = "ruby/THIRD_PARTY_NOTICES.txt";
     const FAILURE_CODE: u16 = 1605;
     const MODELS: &'static str = "client/models";
+    const RELEASE_NOTE: &'static str = "Ruby: the pinned mruby runtime, built once with Emscripten -Oz into Tachyon's cache; the services ship as Ruby source that the runtime reads";
+
+    pub(crate) fn release_note(profile: crate::BuildProfile) -> Option<String> {
+        (profile == crate::BuildProfile::Release).then(|| String::from(Self::RELEASE_NOTE))
+    }
 
     pub(crate) async fn runtime_files() -> Result<Vec<(String, Vec<u8>)>, Failure> {
         let runtime = RubyRuntimeBuild::runtime().await?;
@@ -277,6 +282,8 @@ mod tests {
     mod browser_stream_tests;
     mod named_stop_tests;
     mod needed_service_tests;
+    mod page_program_tests;
+    mod stored_state_tests;
     mod topic_background_tests;
 
     fn write(root: &Path, relative: &str, text: &str) -> PathBuf {
@@ -467,7 +474,12 @@ mod tests {
         }
 
         fn runtime_skip_reason() -> Option<String> {
-            super::RubyRuntimeBuild::unavailable_reason()
+            let reason = super::RubyRuntimeBuild::unavailable_reason();
+            assert!(
+                reason.is_none() || std::env::var_os("CI").is_none(),
+                "CI installs Emscripten and Ruby to build the pinned mruby runtime, so the Ruby Tac tests must run there: {reason:?}"
+            );
+            reason
         }
 
         async fn publish(root: &Path, services: &[(&str, &str, &str)]) {
@@ -722,5 +734,40 @@ mod tests {
             project_files.push(entry.expect("entry").file_name());
         }
         assert_eq!(project_files, ["client"]);
+    }
+
+    #[tokio::test]
+    async fn a_release_ruby_build_names_its_runtime() {
+        if let Some(reason) = Page::runtime_skip_reason() {
+            eprintln!("skipping: {reason}");
+            return;
+        }
+        let root = tempfile::tempdir().expect("project");
+        let source = write(
+            root.path(),
+            "client/services/CounterService.rb",
+            Page::COUNTER,
+        );
+        let chosen = [(
+            String::from("counter"),
+            String::from("CounterService"),
+            crate::tac_web::WebLanguage::Ruby,
+            source,
+        )];
+        let jobs = crate::tac_web::BuildJobs::new(1);
+        let release =
+            crate::tac_web::build_all(root.path(), &chosen, &jobs, crate::BuildProfile::Release)
+                .await
+                .expect("release build");
+        let development = crate::tac_web::build_all(
+            root.path(),
+            &chosen,
+            &jobs,
+            crate::BuildProfile::Development,
+        )
+        .await
+        .expect("development build");
+        assert_eq!(release.notes, [RubyWebServices::RELEASE_NOTE]);
+        assert!(development.notes.is_empty(), "{:?}", development.notes);
     }
 }

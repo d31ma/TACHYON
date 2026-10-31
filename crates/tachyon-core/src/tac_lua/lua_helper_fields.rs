@@ -16,6 +16,7 @@ impl LuaHelperFields {
     const MOST_DEPTH: usize = 8;
     const HOOKS: [&'static str; 3] = ["-- @OnStart", "-- @OnStop", "-- @OnEvent"];
     const CODE: u16 = 1605;
+    const CLASS: &'static str = "---@class ";
 
     pub(super) fn read(snapshot_root: &Path) -> Result<Self, Failure> {
         let helpers = Self::files(snapshot_root, Path::new(Self::FOLDER), 0);
@@ -43,6 +44,15 @@ impl LuaHelperFields {
             .map(|(owner, text)| self.table(owner, text))
             .collect();
         Ok(format!("{providers}{tables}"))
+    }
+
+    pub(super) fn unit_tables(&self, source: &str) -> String {
+        source
+            .lines()
+            .filter_map(|line| line.strip_prefix(Self::CLASS))
+            .filter_map(|rest| rest.split_whitespace().next())
+            .map(|class| self.table(class, source))
+            .collect()
     }
 
     pub(super) fn hide_fields(&self, metadata: &mut Value, class: &str, source: &str) {

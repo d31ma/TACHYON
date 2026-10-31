@@ -731,6 +731,7 @@ mod tests {
     use super::super::host::NativeHost;
     use super::super::{android, ios, linux, macos, rust, windows};
     use super::{NativeBuildOptions, NativeCompiler, chosen_companion};
+    use crate::one_test_per_case_tests::one_test_per_case;
     use crate::project::NativeCompanion;
     use crate::template::ServiceRegistry;
     use std::fs;
@@ -871,6 +872,8 @@ mod tests {
                 "rs" => "#[Service]\n#[derive(Default)]\nstruct TallyService {}\n",
                 "cs" => "[Service]\npublic class TallyService {}\n",
                 "swift" => "@Service\nfinal class TallyService {}\n",
+                "rb" => "#[Service]\nclass TallyService\nend\n",
+                "lua" => "-- @Service\n---@class TallyService\nTallyService = {}\n",
                 _ => "@Service\nclass TallyService\n",
             };
             fs::write(services.join(format!("TallyService.{extension}")), source).expect("service");
@@ -939,6 +942,28 @@ mod tests {
             assert_reach(extensions, [Reach::WebView; 5]);
         }
     }
+
+    fn reaches_the_web_view_on_every_target(extension: &str) {
+        let targets = [
+            NativeTarget::Macos,
+            NativeTarget::Ios,
+            NativeTarget::Android,
+            NativeTarget::Windows,
+            NativeTarget::Linux,
+        ];
+        assert_eq!(
+            targets.map(|target| reach(&[extension], target)),
+            [Reach::WebView; 5],
+            "{extension}"
+        );
+    }
+
+    one_test_per_case!(
+        lua_and_ruby_run_in_the_web_view_on_every_target,
+        reaches_the_web_view_on_every_target,
+        all ["lua", "rb"],
+        [lua => "lua", ruby => "rb"]
+    );
 
     #[test]
     fn rust_with_go_is_webassembly_where_rust_does_not_link() {

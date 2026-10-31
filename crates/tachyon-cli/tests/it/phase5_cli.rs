@@ -1,5 +1,6 @@
 #![allow(clippy::expect_used)]
 
+use crate::one_test_per_case::one_test_per_case;
 use std::fs;
 use std::path::Path;
 use std::process::{Command, Output};
@@ -211,3 +212,92 @@ fn native_targets_reject_an_unreachable_entry_route_before_any_toolchain() {
         assert!(text.contains("TY1601"), "{target} diagnostic was {text}");
     }
 }
+
+struct RubyNativeProject;
+
+impl RubyNativeProject {
+    const TARGETS: [&'static str; 5] = ["macos", "ios", "linux", "windows", "android"];
+    const MANIFEST: &'static str = r#"{"name":"RubyNative","start_url":"/","tac":{"application":{"id":"dev.tachyon.ruby-native","version":"0.1.0"}}}"#;
+    const PAGE: &'static str = "<counter-panel hydrate=\"load\" />";
+    const PANEL: &'static str = "<main><button type=\"button\" on:click=\"counter.increment()\">Add one</button><output>{counter.count}</output></main>";
+    const SERVICE: &'static str = "#[Service]\nclass CounterService\n  # @return [Integer]\n  attr_reader :count\n\n  def initialize\n    @count = 0\n  end\n\n  def increment\n    @count += 1\n  end\nend\n";
+    const RUNTIME_REQUIREMENT: &'static str = "Ruby services on the web";
+
+    fn has_ruby_runtime(project: &Path) -> bool {
+        let report = tachyon_core::doctor::DoctorReport::check(project).expect("doctor");
+        let missing: Vec<_> = report
+            .toolchains
+            .iter()
+            .filter(|row| row.requirement == Self::RUNTIME_REQUIREMENT)
+            .filter(|row| !matches!(row.state, tachyon_core::doctor::ToolchainState::Ready(_)))
+            .map(|row| row.command.clone())
+            .collect();
+        assert!(
+            missing.is_empty() || std::env::var_os("CI").is_none(),
+            "CI installs Emscripten and Ruby to build the pinned mruby runtime, so the Ruby native bundles must run there: {missing:?}"
+        );
+        if !missing.is_empty() {
+            eprintln!("skipping: the mruby runtime is not cached and cannot be built: {missing:?}");
+        }
+        missing.is_empty()
+    }
+
+    fn write(project: &Path) {
+        write(&project.join("client/manifest.json"), Self::MANIFEST);
+        write(&project.join("client/pages/tac.html"), Self::PAGE);
+        write(
+            &project.join("client/components/counter/panel/tac.html"),
+            Self::PANEL,
+        );
+        write(
+            &project.join("client/services/CounterService.rb"),
+            Self::SERVICE,
+        );
+    }
+}
+
+fn ruby_service_bundles_into(target: &str) {
+    let workspace = tempfile::tempdir().expect("workspace");
+    let project = workspace.path().join("ruby-native");
+    RubyNativeProject::write(&project);
+    if !RubyNativeProject::has_ruby_runtime(&project) {
+        return;
+    }
+    let published = workspace.path().join("published");
+    let output = run(ty()
+        .arg("bundle")
+        .arg(&project)
+        .args(["--target", target, "--skip-package"])
+        .env("TAC_DIST_PATH", &published));
+    assert!(output.status.success(), "{target}: {}", stderr(&output));
+    let web = published.join(target).join("web");
+    assert!(
+        web.join(".tachyon/services/CounterService.js").is_file(),
+        "{target} bundled no Ruby service module"
+    );
+    assert!(
+        web.join(".tachyon/services/ruby/tachyon-ruby.wasm")
+            .is_file(),
+        "{target} bundled no mruby runtime"
+    );
+    assert!(
+        published
+            .join(target)
+            .join("artifact-manifest.json")
+            .is_file(),
+        "{target} wrote no artifact manifest"
+    );
+}
+
+one_test_per_case!(
+    a_ruby_service_bundles_into_every_native_target,
+    ruby_service_bundles_into,
+    all RubyNativeProject::TARGETS,
+    [
+        macos => "macos",
+        ios => "ios",
+        linux => "linux",
+        windows => "windows",
+        android => "android",
+    ]
+);

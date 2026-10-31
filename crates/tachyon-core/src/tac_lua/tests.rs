@@ -120,7 +120,16 @@ impl Page {
         if !Self::node_available() {
             return Some(String::from("node is unavailable"));
         }
-        LuaRuntimeBuild::unavailable_reason()
+        Self::runtime_skip_reason()
+    }
+
+    fn runtime_skip_reason() -> Option<String> {
+        let reason = LuaRuntimeBuild::unavailable_reason();
+        assert!(
+            reason.is_none() || std::env::var_os("CI").is_none(),
+            "CI installs Emscripten to build the pinned Lua runtime, so the Lua Tac tests must run there: {reason:?}"
+        );
+        reason
     }
 
     fn write(root: &Path, relative: &str, text: &str) -> PathBuf {
@@ -311,7 +320,7 @@ async fn a_lua_service_answers_the_page_from_the_lua_runtime() {
 
 #[tokio::test]
 async fn the_lua_runtime_is_built_once_into_the_user_cache_and_never_into_the_project() {
-    if let Some(reason) = LuaRuntimeBuild::unavailable_reason() {
+    if let Some(reason) = Page::runtime_skip_reason() {
         eprintln!("skipping: {reason}");
         return;
     }
@@ -470,4 +479,39 @@ fn the_lua_runtime_notices_cover_the_libraries_emscripten_links() {
     ] {
         assert!(notices.contains(license), "missing: {license}");
     }
+}
+
+#[tokio::test]
+async fn a_release_lua_build_names_its_runtime() {
+    if let Some(reason) = Page::runtime_skip_reason() {
+        eprintln!("skipping: {reason}");
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    let source = Page::write(
+        root.path(),
+        "client/services/TallyService.lua",
+        "-- @Service\n---@class TallyService\nTallyService = {\n  ---@type integer\n  count = 0,\n}\n",
+    );
+    let chosen = [(
+        String::from("tally"),
+        String::from("TallyService"),
+        crate::tac_web::WebLanguage::Lua,
+        source,
+    )];
+    let jobs = crate::tac_web::BuildJobs::new(1);
+    let release =
+        crate::tac_web::build_all(root.path(), &chosen, &jobs, crate::BuildProfile::Release)
+            .await
+            .expect("release build");
+    let development = crate::tac_web::build_all(
+        root.path(),
+        &chosen,
+        &jobs,
+        crate::BuildProfile::Development,
+    )
+    .await
+    .expect("development build");
+    assert_eq!(release.notes, [LuaWebServices::RELEASE_NOTE]);
+    assert!(development.notes.is_empty(), "{:?}", development.notes);
 }

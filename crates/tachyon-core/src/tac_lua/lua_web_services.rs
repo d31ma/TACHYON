@@ -22,6 +22,7 @@ impl LuaWebServices {
     pub(crate) const RUNTIME_PATH: &'static str = "lua/tachyon-lua.wasm";
     pub(crate) const GLUE_PATH: &'static str = "lua/tachyon-lua.js";
     pub(crate) const NOTICES_PATH: &'static str = "lua/THIRD_PARTY_NOTICES.txt";
+    pub(super) const RELEASE_NOTE: &'static str = "Lua: the pinned Lua 5.4 runtime, built once with Emscripten -Oz into Tachyon's cache; the services ship as Lua source that the runtime reads";
     const ENGINE: &'static str = concat!(
         include_str!("../native/browser/tac-task-answers.js"),
         include_str!("../native/browser/tac-ticket-http.js"),
@@ -76,6 +77,10 @@ const transport = (text) => lua.invoke(text)
         ]
         .map(|(path, bytes)| (String::from(path), bytes))
         .into())
+    }
+
+    pub(crate) fn release_note(profile: crate::BuildProfile) -> Option<String> {
+        (profile == crate::BuildProfile::Release).then(|| String::from(Self::RELEASE_NOTE))
     }
 
     pub(crate) fn engine(

@@ -849,6 +849,7 @@ fn service_diagnostic(
 #[allow(clippy::expect_used)]
 mod tests {
     use super::*;
+    use crate::one_test_per_case_tests::one_test_per_case;
     use tempfile::TempDir;
 
     fn project(files: &[(&str, &str)]) -> TempDir {
@@ -1096,6 +1097,44 @@ mod tests {
             assert!(basket.is_prototype());
         }
     }
+
+    fn ruby_basket_falls_back_on(target: &str) {
+        let native = serde_json::from_value::<tachyon_contracts::NativeTarget>(
+            serde_json::Value::from(target),
+        )
+        .ok();
+        assert_eq!(native.is_some(), target != "web", "{target}");
+        let root = project(&[(
+            "client/services/BasketService.rb",
+            "#[Service]\nclass BasketService\n  attr_accessor :count\nend\n",
+        )]);
+        let registry = ServiceRegistry::discover(root.path())
+            .expect("registry")
+            .for_target(native);
+        let basket = registry.get("basket").expect("basket");
+        let (language, path) = basket.web_assembly().expect("web assembly");
+        assert_eq!(language, WebLanguage::Ruby, "{target}");
+        assert!(path.ends_with("BasketService.rb"), "{target}");
+        assert_eq!(
+            basket.module_url().as_deref(),
+            Some("/.tachyon/services/BasketService.js"),
+            "{target}"
+        );
+    }
+
+    one_test_per_case!(
+        a_ruby_service_falls_back_to_web_assembly_on_every_native_target,
+        ruby_basket_falls_back_on,
+        all ["web", "macos", "ios", "android", "windows", "linux"],
+        [
+            web => "web",
+            macos => "macos",
+            ios => "ios",
+            android => "android",
+            windows => "windows",
+            linux => "linux",
+        ]
+    );
 
     #[test]
     fn a_cpp_needs_all_service_takes_its_props_once_per_component() {

@@ -76,6 +76,17 @@ impl HelperPage {
          console.log(JSON.stringify({ active: shelf.active() }))\n\
          process.exit(0)\n";
 
+    const UNIT_FILES: [(&str, &str); 2] = [
+        (
+            "client/tests/TallyTestSetup.lua",
+            "-- @TestSetup\n---@class TallyTestSetup\nTallyTestSetup = {}\n\n---@param execution table\n---@return table\nfunction TallyTestSetup.configure(execution)\n  return {}\nend\n",
+        ),
+        (
+            "client/tests/TallyServiceTest.lua",
+            "-- @Test(TallyTestSetup)\n---@class TallyServiceTest\nTallyServiceTest = {}\n\nfunction TallyServiceTest:test_the_service_raises_through_its_delegates()\n  local tally = self:construct(TallyService)\n  Assert.equals(41, tally:raise(4))\n  Assert.equals(42, tally:raise(4))\n  Assert.equals(41, self:construct(TallyService):raise(4))\nend\n",
+        ),
+    ];
+
     const HOOKED: &str = "-- @Delegate\n---@class ScaleDelegate\nScaleDelegate = {}\n\n---@return nil\n-- @OnStart\nfunction ScaleDelegate:start()\nend\n";
 
     fn node_available() -> bool {
@@ -87,11 +98,32 @@ impl HelperPage {
         found
     }
 
+    fn lua_available() -> bool {
+        let found = crate::lua_source::LuaProgram::new().is_some();
+        assert!(
+            found || std::env::var_os("CI").is_none(),
+            "CI must provide lua"
+        );
+        found
+    }
+
+    fn write_unit(root: &Path) {
+        for (relative, text) in Self::HELPERS.into_iter().chain(Self::UNIT_FILES) {
+            Self::write(root, relative, text);
+        }
+        Self::write(root, "client/services/TallyService.lua", Self::SERVICE);
+    }
+
     pub(super) fn skip_reason() -> Option<String> {
         if !Self::node_available() {
             return Some(String::from("node is unavailable"));
         }
-        LuaRuntimeBuild::unavailable_reason()
+        let reason = LuaRuntimeBuild::unavailable_reason();
+        assert!(
+            reason.is_none() || std::env::var_os("CI").is_none(),
+            "CI installs Emscripten to build the pinned Lua runtime, so the Lua Tac page tests must run there: {reason:?}"
+        );
+        reason
     }
 
     pub(super) fn write(root: &Path, relative: &str, text: &str) -> PathBuf {
@@ -283,4 +315,20 @@ fn a_lua_helper_with_a_lifecycle_hook_stops_the_build() {
         start,
         "{failure}"
     );
+}
+
+#[test]
+fn a_lua_test_unit_fills_the_delegate_fields_of_its_service() {
+    if !HelperPage::lua_available() {
+        eprintln!("skipping: lua is unavailable");
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    HelperPage::write_unit(root.path());
+    let report =
+        crate::client_tests::run(root.path(), Path::new("client/tests/TallyServiceTest.lua"))
+            .unwrap_or_else(|failure| panic!("{failure}"));
+    assert_eq!(report.unit, "TallyServiceTest");
+    assert_eq!(report.cases.len(), 1, "{:?}", report.failure);
+    assert!(report.cases[0].passed, "{:?}", report.cases[0].error);
 }
