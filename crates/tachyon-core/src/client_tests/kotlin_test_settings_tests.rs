@@ -1,5 +1,6 @@
 #![allow(clippy::expect_used)]
 
+use crate::one_test_per_case_tests::one_test_per_case;
 use std::path::Path;
 
 struct KotlinTestSettingsProject;
@@ -96,38 +97,52 @@ class __NAME__ {
     }
 }
 
-#[test]
-fn kotlin_test_settings_reach_the_setup_gate_as_tac_settings() {
+fn kotlin_test_settings_reach_the_setup_gate_in(unit: &str) {
     if KotlinTestSettingsProject::kotlinc_missing() {
         eprintln!("skipping: kotlinc is unavailable");
         return;
     }
     let root = tempfile::tempdir().expect("test project");
     KotlinTestSettingsProject::write_project(root.path());
-    for (name, _, _, refusal) in KotlinTestSettingsProject::UNITS {
-        let relative = format!("client/tests/{name}.kt");
-        let outcome = super::run(root.path(), Path::new(&relative));
-        match refusal {
-            None => {
-                let report = outcome.expect("native Kotlin test unit");
-                let outcomes: Vec<(&str, bool)> = report
-                    .cases
-                    .iter()
-                    .map(|case| (case.name.as_str(), case.passed))
-                    .collect();
-                assert_eq!(
-                    outcomes,
-                    [("testTheSetupIsActive", true)],
-                    "{name}: {report:?}"
-                );
-            }
-            Some(code) => {
-                let failure = format!(
-                    "{:?}",
-                    outcome.expect_err("an inactive setup stops the unit")
-                );
-                assert!(failure.contains(code), "{name}: {failure}");
-            }
+    let (name, _, _, refusal) = KotlinTestSettingsProject::UNITS
+        .into_iter()
+        .find(|(name, _, _, _)| *name == unit)
+        .unwrap_or_else(|| panic!("no Kotlin settings unit is named {unit}"));
+    let relative = format!("client/tests/{name}.kt");
+    let outcome = super::run(root.path(), Path::new(&relative));
+    match refusal {
+        None => {
+            let report = outcome.expect("native Kotlin test unit");
+            let outcomes: Vec<(&str, bool)> = report
+                .cases
+                .iter()
+                .map(|case| (case.name.as_str(), case.passed))
+                .collect();
+            assert_eq!(
+                outcomes,
+                [("testTheSetupIsActive", true)],
+                "{name}: {report:?}"
+            );
+        }
+        Some(code) => {
+            let failure = format!(
+                "{:?}",
+                outcome.expect_err("an inactive setup stops the unit")
+            );
+            assert!(failure.contains(code), "{name}: {failure}");
         }
     }
 }
+
+one_test_per_case!(
+    kotlin_test_settings_reach_the_setup_gate_as_tac_settings,
+    kotlin_test_settings_reach_the_setup_gate_in,
+    all KotlinTestSettingsProject::UNITS.map(|(name, _, _, _)| name),
+    [
+        cache_settings => "CacheSettingsTest",
+        page_settings => "PageSettingsTest",
+        title_settings => "TitleSettingsTest",
+        cache_off => "CacheOffTest",
+        no_settings => "NoSettingsTest",
+    ]
+);

@@ -1,4 +1,5 @@
 #![allow(clippy::expect_used)]
+use crate::support::one_test_per_case::one_test_per_case;
 use tachyon_contracts::{HandlerRequest, HttpMethod};
 use tachyon_core::{
     HandlerCancellation, HandlerSource, HandlerSupervisor, HandlerSupervisorOptions,
@@ -742,6 +743,29 @@ public:
         },
     ];
 
+    fn named(extension: &str) -> &'static Self {
+        Self::LANGUAGES
+            .iter()
+            .find(|language| language.extension == extension)
+            .unwrap_or_else(|| panic!("no proof language uses .{extension}"))
+    }
+
+    fn yon_extensions() -> Vec<&'static str> {
+        Self::LANGUAGES
+            .iter()
+            .filter(|language| language.yon)
+            .map(|language| language.extension)
+            .collect()
+    }
+
+    fn tac_extensions() -> Vec<&'static str> {
+        Self::LANGUAGES
+            .iter()
+            .filter(|language| language.tac)
+            .map(|language| language.extension)
+            .collect()
+    }
+
     fn available(&self) -> bool {
         let available =
             crate::support::program_probe::ProgramProbe::answers(self.program, self.flag);
@@ -920,35 +944,76 @@ impl MarkerProof {
     }
 }
 
-#[tokio::test]
-async fn yon_test_settings_profiles_fresh_start_and_inputs_run_in_every_language() {
-    for language in ProofLanguage::LANGUAGES {
-        if !language.yon || !language.available() {
-            continue;
-        }
-        let root = language.project("yon");
-        for (name, _) in language.units("yon") {
-            let relative = format!("server/tests/{name}.{}", language.extension);
-            let outcome = MarkerProof::yon_cases(root.path(), &relative, language.extension).await;
-            language.check("yon", name, outcome);
-        }
+async fn yon_settings_profiles_run_in(extension: &str) {
+    let language = ProofLanguage::named(extension);
+    if !language.available() {
+        return;
+    }
+    let root = language.project("yon");
+    for (name, _) in language.units("yon") {
+        let relative = format!("server/tests/{name}.{}", language.extension);
+        let outcome = MarkerProof::yon_cases(root.path(), &relative, language.extension).await;
+        language.check("yon", name, outcome);
     }
 }
 
-#[test]
-fn tac_test_settings_profiles_fresh_start_and_inputs_run_in_every_language() {
-    for language in ProofLanguage::LANGUAGES {
-        if !language.tac || !language.available() {
-            continue;
-        }
-        let root = language.project("tac");
-        for (name, _) in language.units("tac") {
-            let relative = format!("client/tests/{name}.{}", language.extension);
-            let outcome = MarkerProof::tac_cases(root.path(), &relative);
-            language.check("tac", name, outcome);
-        }
+fn tac_settings_profiles_run_in(extension: &str) {
+    let language = ProofLanguage::named(extension);
+    if !language.available() {
+        return;
+    }
+    let root = language.project("tac");
+    for (name, _) in language.units("tac") {
+        let relative = format!("client/tests/{name}.{}", language.extension);
+        let outcome = MarkerProof::tac_cases(root.path(), &relative);
+        language.check("tac", name, outcome);
     }
 }
+
+one_test_per_case!(
+    yon_test_settings_profiles_fresh_start_and_inputs_run_in_every_language,
+    async yon_settings_profiles_run_in,
+    all ProofLanguage::yon_extensions(),
+    [
+        javascript => "js",
+        typescript => "ts",
+        python => "py",
+        php => "php",
+        java => "java",
+        groovy => "groovy",
+        kotlin => "kt",
+        csharp => "cs",
+        fsharp => "fs",
+        dart => "dart",
+        rust => "rs",
+        go => "go",
+        ruby => "rb",
+        lua => "lua",
+        cpp => "hpp",
+    ]
+);
+
+one_test_per_case!(
+    tac_test_settings_profiles_fresh_start_and_inputs_run_in_every_language,
+    tac_settings_profiles_run_in,
+    all ProofLanguage::tac_extensions(),
+    [
+        javascript => "js",
+        typescript => "ts",
+        python => "py",
+        java => "java",
+        kotlin => "kt",
+        csharp => "cs",
+        fsharp => "fs",
+        dart => "dart",
+        rust => "rs",
+        go => "go",
+        ruby => "rb",
+        lua => "lua",
+        swift => "swift",
+        cpp => "hpp",
+    ]
+);
 
 struct DescribedService {
     extension: &'static str,
@@ -1727,22 +1792,44 @@ public:
     }
 }
 
-#[test]
-fn tac_cache_keys_and_descriptions_run_in_every_language() {
-    for service in DescribedService::SERVICES {
-        if !service.available() {
-            continue;
-        }
-        let root = tempfile::tempdir().expect("project");
-        for (relative, source) in service.files {
-            ProofLanguage::write(root.path(), relative, source);
-        }
-        let cases = MarkerProof::tac_cases(root.path(), service.unit)
-            .unwrap_or_else(|error| panic!("{}: {error}", service.extension));
-        assert_eq!(cases.len(), 1, "{}: {cases:?}", service.extension);
-        assert!(cases[0].passed, "{}: {cases:?}", service.extension);
+fn tac_cache_keys_and_descriptions_run_in(wanted: &str) {
+    let case = DescribedService::SERVICES
+        .into_iter()
+        .find(|case| case.extension == wanted)
+        .unwrap_or_else(|| panic!("no case named {wanted:?}"));
+    let service = case;
+
+    if !service.available() {
+        return;
     }
+    let root = tempfile::tempdir().expect("project");
+    for (relative, source) in service.files {
+        ProofLanguage::write(root.path(), relative, source);
+    }
+    let cases = MarkerProof::tac_cases(root.path(), service.unit)
+        .unwrap_or_else(|error| panic!("{}: {error}", service.extension));
+    assert_eq!(cases.len(), 1, "{}: {cases:?}", service.extension);
+    assert!(cases[0].passed, "{}: {cases:?}", service.extension);
 }
+
+one_test_per_case!(
+    tac_cache_keys_and_descriptions_run_in_every_language,
+    tac_cache_keys_and_descriptions_run_in,
+    all DescribedService::SERVICES.into_iter().map(|case| case.extension),
+    [
+        javascript => "js",
+        typescript => "ts",
+        dart => "dart",
+        rust => "rs",
+        csharp => "cs",
+        kotlin => "kt",
+        swift => "swift",
+        go => "go",
+        ruby => "rb",
+        python => "py",
+        cpp => "hpp",
+    ]
+);
 
 #[tokio::test]
 async fn a_csharp_case_that_fails_after_an_await_is_reported_as_failed() {

@@ -1,5 +1,6 @@
 #![allow(clippy::expect_used)]
 
+use crate::support::one_test_per_case::one_test_per_case;
 use crate::support::program_probe::ProgramProbe;
 use std::fs;
 use std::path::Path;
@@ -472,46 +473,96 @@ fn phase_header(response: &HandlerResponse) -> Option<&str> {
     values.first().map(String::as_str)
 }
 
-#[tokio::test]
-async fn every_language_calls_before_and_after_for_every_http_method() {
-    for language in &Language::ALL {
-        if !language.is_usable() {
-            continue;
-        }
-        let (_root, source) = language.middleware(language.both_phases);
-        for (method, name) in [(HttpMethod::Options, "OPTIONS"), (HttpMethod::Post, "POST")] {
-            for (operation, phase) in [
-                ("middleware.before", "before"),
-                ("middleware.after", "after"),
-            ] {
-                let response = run_phase(language, &source, operation, method).await;
-                let label = format!("{} {operation} {name}", language.extension);
-                assert!(response.error.is_none(), "{label}: {:?}", response.error);
-                assert_eq!(response.status, 204, "{label}: {response:?}");
-                let expected = format!("{phase}-{name}");
-                assert_eq!(phase_header(&response), Some(expected.as_str()), "{label}");
-            }
+async fn calls_before_and_after_for_every_http_method_in(wanted: &str) {
+    let case = Language::ALL
+        .iter()
+        .find(|case| case.extension == wanted)
+        .unwrap_or_else(|| panic!("no case named {wanted:?}"));
+    let language = case;
+
+    if !language.is_usable() {
+        return;
+    }
+    let (_root, source) = language.middleware(language.both_phases);
+    for (method, name) in [(HttpMethod::Options, "OPTIONS"), (HttpMethod::Post, "POST")] {
+        for (operation, phase) in [
+            ("middleware.before", "before"),
+            ("middleware.after", "after"),
+        ] {
+            let response = run_phase(language, &source, operation, method).await;
+            let label = format!("{} {operation} {name}", language.extension);
+            assert!(response.error.is_none(), "{label}: {:?}", response.error);
+            assert_eq!(response.status, 204, "{label}: {response:?}");
+            let expected = format!("{phase}-{name}");
+            assert_eq!(phase_header(&response), Some(expected.as_str()), "{label}");
         }
     }
 }
 
-#[tokio::test]
-async fn a_missing_phase_passes_the_request_through() {
-    for language in &Language::ALL {
-        if !language.is_usable() {
-            continue;
-        }
-        let (_root, source) = language.middleware(language.after_only);
-        let label = language.extension;
-        let before = run_phase(language, &source, "middleware.before", HttpMethod::Delete).await;
-        assert!(before.error.is_none(), "{label}: {:?}", before.error);
-        assert_eq!(before.status, 204, "{label}: {before:?}");
-        assert_eq!(phase_header(&before), None, "{label}");
-        let after = run_phase(language, &source, "middleware.after", HttpMethod::Delete).await;
-        assert_eq!(after.status, 204, "{label}: {after:?}");
-        assert_eq!(phase_header(&after), Some("after"), "{label}");
+one_test_per_case!(
+    every_language_calls_before_and_after_for_every_http_method,
+    async calls_before_and_after_for_every_http_method_in,
+    all Language::ALL.iter().map(|case| case.extension),
+    [
+        javascript => "js",
+        typescript => "ts",
+        python => "py",
+        php => "php",
+        java => "java",
+        groovy => "groovy",
+        kotlin => "kt",
+        csharp => "cs",
+        rust => "rs",
+        dart => "dart",
+        go => "go",
+        lua => "lua",
+        ruby => "rb",
+        cpp => "hpp",
+    ]
+);
+
+async fn missing_phase_passes_the_request_through_in(wanted: &str) {
+    let case = Language::ALL
+        .iter()
+        .find(|case| case.extension == wanted)
+        .unwrap_or_else(|| panic!("no case named {wanted:?}"));
+    let language = case;
+
+    if !language.is_usable() {
+        return;
     }
+    let (_root, source) = language.middleware(language.after_only);
+    let label = language.extension;
+    let before = run_phase(language, &source, "middleware.before", HttpMethod::Delete).await;
+    assert!(before.error.is_none(), "{label}: {:?}", before.error);
+    assert_eq!(before.status, 204, "{label}: {before:?}");
+    assert_eq!(phase_header(&before), None, "{label}");
+    let after = run_phase(language, &source, "middleware.after", HttpMethod::Delete).await;
+    assert_eq!(after.status, 204, "{label}: {after:?}");
+    assert_eq!(phase_header(&after), Some("after"), "{label}");
 }
+
+one_test_per_case!(
+    a_missing_phase_passes_the_request_through,
+    async missing_phase_passes_the_request_through_in,
+    all Language::ALL.iter().map(|case| case.extension),
+    [
+        javascript => "js",
+        typescript => "ts",
+        python => "py",
+        php => "php",
+        java => "java",
+        groovy => "groovy",
+        kotlin => "kt",
+        csharp => "cs",
+        rust => "rs",
+        dart => "dart",
+        go => "go",
+        lua => "lua",
+        ruby => "rb",
+        cpp => "hpp",
+    ]
+);
 
 struct NativeRequest;
 

@@ -1,6 +1,7 @@
 #![allow(clippy::expect_used)]
 
 use crate::support::json_http::JsonHttp;
+use crate::support::one_test_per_case::one_test_per_case;
 use crate::support::program_probe::ProgramProbe;
 use std::path::{Path, PathBuf};
 
@@ -72,6 +73,13 @@ impl CheckLanguage {
             programs: &["lua"],
         },
     ];
+
+    fn named(extension: &str) -> &'static Self {
+        Self::ALL
+            .iter()
+            .find(|language| language.extension == extension)
+            .unwrap_or_else(|| panic!("no check language uses .{extension}"))
+    }
 
     fn available(&self) -> bool {
         let found = self.programs.iter().all(|program| Self::runs(program));
@@ -206,18 +214,39 @@ impl CheckRejections {
     }
 }
 
-#[tokio::test]
-async fn every_language_answers_the_same_problem_for_the_same_invalid_input() {
+async fn answers_the_same_problem_in(extension: &str) {
     let expected: Vec<String> = CheckRejections::rejected()
         .into_iter()
         .map(|(_, errors)| errors)
         .collect();
-    for language in CheckLanguage::ALL {
-        if !language.available() {
-            continue;
-        }
-        let answers = language.answers().await;
-        let bodies = CheckRejections::check(language.extension, &answers);
-        assert_eq!(bodies, expected, "{}", language.extension);
+    let language = CheckLanguage::named(extension);
+    if !language.available() {
+        return;
     }
+    let answers = language.answers().await;
+    let bodies = CheckRejections::check(language.extension, &answers);
+    assert_eq!(bodies, expected, "{}", language.extension);
 }
+
+one_test_per_case!(
+    every_language_answers_the_same_problem_for_the_same_invalid_input,
+    async answers_the_same_problem_in,
+    all CheckLanguage::ALL.map(|language| language.extension),
+    [
+        java => "java",
+        groovy => "groovy",
+        cpp => "hpp",
+        csharp => "cs",
+        fsharp => "fs",
+        javascript => "js",
+        typescript => "ts",
+        kotlin => "kt",
+        dart => "dart",
+        php => "php",
+        ruby => "rb",
+        python => "py",
+        go => "go",
+        rust => "rs",
+        lua => "lua",
+    ]
+);

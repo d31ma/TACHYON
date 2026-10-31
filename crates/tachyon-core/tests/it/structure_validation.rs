@@ -63,24 +63,43 @@ fn structure_problems(root: &Path) -> Vec<(u16, String, String)> {
         .collect()
 }
 
-#[test]
-fn every_init_language_and_feature_passes_the_structure_validation() {
-    let mut every = choices(RealmChoice::Both, TacLanguage::ALL, YonLanguage::ALL);
-    every.features = AppFeature::ALL.to_vec();
-    let mut projects = vec![("every language and feature".to_owned(), every)];
-    projects.extend(TacLanguage::ALL.iter().map(|language| {
-        let picked = choices(RealmChoice::Client, &[*language], &[]);
-        (format!("tac {}", language.flag_name()), picked)
-    }));
-    projects.extend(YonLanguage::ALL.iter().map(|language| {
-        let picked = choices(RealmChoice::Server, &[], &[*language]);
-        (format!("yon {}", language.flag_name()), picked)
-    }));
+fn assert_every_project_passes(projects: Vec<(String, ProjectChoices)>) {
     for (name, picked) in projects {
         let (_workspace, root) = scaffolded(&picked);
         let found = problems(&root);
         assert!(found.is_empty(), "{name}: {found:#?}");
     }
+}
+
+#[test]
+fn every_init_language_and_feature_passes_the_structure_validation() {
+    let mut every = choices(RealmChoice::Both, TacLanguage::ALL, YonLanguage::ALL);
+    every.features = AppFeature::ALL.to_vec();
+    assert_every_project_passes(vec![("every language and feature".to_owned(), every)]);
+}
+
+#[test]
+fn each_tac_language_alone_passes_the_structure_validation() {
+    let projects = TacLanguage::ALL
+        .iter()
+        .map(|language| {
+            let picked = choices(RealmChoice::Client, &[*language], &[]);
+            (format!("tac {}", language.flag_name()), picked)
+        })
+        .collect();
+    assert_every_project_passes(projects);
+}
+
+#[test]
+fn each_yon_language_alone_passes_the_structure_validation() {
+    let projects = YonLanguage::ALL
+        .iter()
+        .map(|language| {
+            let picked = choices(RealmChoice::Server, &[], &[*language]);
+            (format!("yon {}", language.flag_name()), picked)
+        })
+        .collect();
+    assert_every_project_passes(projects);
 }
 
 #[test]

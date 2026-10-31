@@ -1,5 +1,6 @@
 #![allow(clippy::expect_used)]
 
+use crate::support::one_test_per_case::one_test_per_case;
 use std::fs;
 use std::path::Path;
 use std::time::Duration;
@@ -231,29 +232,49 @@ class Handler {
     }
 }
 
-#[tokio::test]
-async fn migrated_middleware_runs_its_old_code_in_both_phases_for_every_method() {
-    for old in &OldMiddleware::ALL {
-        if !old.is_available() {
-            continue;
-        }
-        let (_root, source) = old.migrated();
-        for (method, name) in [(HttpMethod::Options, "OPTIONS"), (HttpMethod::Post, "POST")] {
-            for operation in ["middleware.before", "middleware.after"] {
-                let response = old.run_phase(&source, operation, method).await;
-                let label = format!("{} {operation} {name}", old.extension);
-                assert!(response.error.is_none(), "{label}: {:?}", response.error);
-                assert_eq!(response.status, 204, "{label}: {response:?}");
-                let phase = response
-                    .headers
-                    .get("x-phase")
-                    .and_then(|values| values.first());
-                assert_eq!(
-                    phase.map(String::as_str),
-                    Some(format!("seen-{name}").as_str()),
-                    "{label}"
-                );
-            }
+async fn migrated_middleware_runs_its_old_code_in(wanted: &str) {
+    let case = OldMiddleware::ALL.iter()
+        
+        .find(|case| case.extension == wanted)
+        .unwrap_or_else(|| panic!("no case named {wanted:?}"));
+    let old = case;
+
+    if !old.is_available() {
+        return;
+    }
+    let (_root, source) = old.migrated();
+    for (method, name) in [(HttpMethod::Options, "OPTIONS"), (HttpMethod::Post, "POST")] {
+        for operation in ["middleware.before", "middleware.after"] {
+            let response = old.run_phase(&source, operation, method).await;
+            let label = format!("{} {operation} {name}", old.extension);
+            assert!(response.error.is_none(), "{label}: {:?}", response.error);
+            assert_eq!(response.status, 204, "{label}: {response:?}");
+            let phase = response
+                .headers
+                .get("x-phase")
+                .and_then(|values| values.first());
+            assert_eq!(
+                phase.map(String::as_str),
+                Some(format!("seen-{name}").as_str()),
+                "{label}"
+            );
         }
     }
 }
+
+one_test_per_case!(
+    migrated_middleware_runs_its_old_code_in_both_phases_for_every_method,
+    async migrated_middleware_runs_its_old_code_in,
+    all OldMiddleware::ALL.iter().into_iter().map(|case| case.extension),
+    [
+        javascript => "js",
+        typescript => "ts",
+        python => "py",
+        php => "php",
+        java => "java",
+        kotlin => "kt",
+        csharp => "cs",
+        rust => "rs",
+        dart => "dart",
+    ]
+);

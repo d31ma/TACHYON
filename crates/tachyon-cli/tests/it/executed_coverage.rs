@@ -1,4 +1,5 @@
 #![allow(clippy::expect_used)]
+use crate::one_test_per_case::one_test_per_case;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 
@@ -508,47 +509,80 @@ impl NamedMethod {
     fn label(&self) -> String {
         format!("{} {}", self.realm, self.extension)
     }
-}
 
-#[test]
-fn a_method_a_case_only_names_fails_coverage_and_a_called_method_passes() {
-    for case in &NamedMethod::CASES {
-        if !CoverageProject::available(case.program) {
-            eprintln!("skipping {}: {} is unavailable", case.label(), case.program);
-            continue;
-        }
-        let root = tempfile::tempdir().expect("project");
-        case.project(root.path(), case.named);
-        let named = CoverageProject::test(root.path());
-        let missing = format!("missing  {}", case.method);
-        assert!(!named.passed, "{}: {}", case.label(), named.report);
-        assert!(
-            named.report.contains(&missing),
-            "{}: {}",
-            case.label(),
-            named.report
-        );
-        assert!(
-            named.report.contains("TY2022"),
-            "{}: {}",
-            case.label(),
-            named.report
-        );
-        case.project(root.path(), case.called);
-        let called = CoverageProject::test(root.path());
-        let first = format!(
-            "called   {} (first by CounterServiceTest.{})",
-            case.method, case.case
-        );
-        assert!(called.passed, "{}: {}", case.label(), called.report);
-        assert!(
-            called.report.contains(&first),
-            "{}: {}",
-            case.label(),
-            called.report
-        );
+    fn for_realm((realm, extension): (&str, &str)) -> &'static Self {
+        Self::CASES
+            .iter()
+            .find(|case| case.realm == realm && case.extension == extension)
+            .unwrap_or_else(|| panic!("no named-method case for {realm} {extension}"))
     }
 }
+
+fn named_method_fails_and_called_method_passes(realm_and_extension: (&str, &str)) {
+    let case = NamedMethod::for_realm(realm_and_extension);
+    if !CoverageProject::available(case.program) {
+        eprintln!("skipping {}: {} is unavailable", case.label(), case.program);
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    case.project(root.path(), case.named);
+    let named = CoverageProject::test(root.path());
+    let missing = format!("missing  {}", case.method);
+    assert!(!named.passed, "{}: {}", case.label(), named.report);
+    assert!(
+        named.report.contains(&missing),
+        "{}: {}",
+        case.label(),
+        named.report
+    );
+    assert!(
+        named.report.contains("TY2022"),
+        "{}: {}",
+        case.label(),
+        named.report
+    );
+    case.project(root.path(), case.called);
+    let called = CoverageProject::test(root.path());
+    let first = format!(
+        "called   {} (first by CounterServiceTest.{})",
+        case.method, case.case
+    );
+    assert!(called.passed, "{}: {}", case.label(), called.report);
+    assert!(
+        called.report.contains(&first),
+        "{}: {}",
+        case.label(),
+        called.report
+    );
+}
+
+one_test_per_case!(
+    a_method_a_case_only_names_fails_coverage_and_a_called_method_passes,
+    named_method_fails_and_called_method_passes,
+    all NamedMethod::CASES.map(|case| (case.realm, case.extension)),
+    [
+        server_javascript => ("server", "js"),
+        server_typescript => ("server", "ts"),
+        server_python => ("server", "py"),
+        server_ruby => ("server", "rb"),
+        server_php => ("server", "php"),
+        server_java => ("server", "java"),
+        server_kotlin => ("server", "kt"),
+        server_csharp => ("server", "cs"),
+        server_rust => ("server", "rs"),
+        server_go => ("server", "go"),
+        server_dart => ("server", "dart"),
+        client_javascript => ("client", "js"),
+        client_typescript => ("client", "ts"),
+        client_ruby => ("client", "rb"),
+        client_dart => ("client", "dart"),
+        client_rust => ("client", "rs"),
+        client_csharp => ("client", "cs"),
+        client_go => ("client", "go"),
+        client_swift => ("client", "swift"),
+        client_kotlin => ("client", "kt"),
+    ]
+);
 
 #[test]
 fn preview_shows_a_method_no_case_called_after_running_the_tests_itself() {

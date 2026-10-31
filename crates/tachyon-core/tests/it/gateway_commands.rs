@@ -1,5 +1,6 @@
 #![allow(clippy::expect_used)]
 
+use crate::support::one_test_per_case::one_test_per_case;
 use std::fs;
 use std::path::Path;
 use std::process::Command as StdCommand;
@@ -553,12 +554,14 @@ fn jvm_callers() -> Vec<(&'static str, Project)> {
     callers
 }
 
-#[tokio::test]
-async fn jvm_callers_reach_a_command_and_see_only_fixed_failures() {
+async fn jvm_caller_reaches_a_command_and_sees_only_fixed_failures(wanted: &str) {
     if !usable("python3") {
         return;
     }
-    for (extension, project) in jvm_callers() {
+    let wanted_callers = jvm_callers()
+        .into_iter()
+        .filter(|(extension, _)| *extension == wanted);
+    for (extension, project) in wanted_callers {
         let supervisor = supervisor(&project, HandlerSupervisorOptions::default());
         let detail = serde_json::json!({"period": "2026-Q3", "totals": [1, 2.5, null, true]});
         let answer = call(&project, &supervisor, &serde_json::json!(["echo", detail])).await;
@@ -578,6 +581,17 @@ async fn jvm_callers_reach_a_command_and_see_only_fixed_failures() {
         }
     }
 }
+
+one_test_per_case!(
+    jvm_callers_reach_a_command_and_see_only_fixed_failures,
+    async jvm_caller_reaches_a_command_and_sees_only_fixed_failures,
+    all ["java", "kt", "groovy"],
+    [
+        java => "java",
+        kotlin => "kt",
+        groovy => "groovy",
+    ]
+);
 
 fn native_callers() -> Vec<(&'static str, Project)> {
     let mut callers = Vec::new();
@@ -602,12 +616,14 @@ fn native_callers() -> Vec<(&'static str, Project)> {
     callers
 }
 
-#[tokio::test]
-async fn native_callers_reach_a_command_and_see_only_fixed_failures() {
+async fn native_caller_reaches_a_command_and_sees_only_fixed_failures(wanted: &str) {
     if !usable("python3") {
         return;
     }
-    for (extension, project) in native_callers() {
+    let wanted_callers = native_callers()
+        .into_iter()
+        .filter(|(extension, _)| *extension == wanted);
+    for (extension, project) in wanted_callers {
         let supervisor = supervisor(&project, HandlerSupervisorOptions::default());
         let detail = serde_json::json!({"period": "2026-Q3", "totals": [1, 2.5, null, true]});
         let answer = call(&project, &supervisor, &serde_json::json!(["echo", detail])).await;
@@ -632,6 +648,19 @@ async fn native_callers_reach_a_command_and_see_only_fixed_failures() {
         }
     }
 }
+
+one_test_per_case!(
+    native_callers_reach_a_command_and_see_only_fixed_failures,
+    async native_caller_reaches_a_command_and_sees_only_fixed_failures,
+    all ["cs", "fs", "rs", "dart", "go"],
+    [
+        csharp => "cs",
+        fsharp => "fs",
+        rust => "rs",
+        dart => "dart",
+        go => "go",
+    ]
+);
 
 #[tokio::test]
 async fn a_second_program_answers_under_its_own_method_name() {

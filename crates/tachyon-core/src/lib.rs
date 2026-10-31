@@ -37,6 +37,10 @@ mod native;
 #[cfg(test)]
 mod node_driver;
 #[cfg(test)]
+mod one_test_per_case_tests;
+#[cfg(test)]
+mod probe_memory;
+#[cfg(test)]
 mod program_probe;
 mod project;
 mod python_parameters;

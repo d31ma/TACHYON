@@ -1,4 +1,5 @@
 #![allow(clippy::expect_used)]
+use crate::support::one_test_per_case::one_test_per_case;
 use tachyon_contracts::{HandlerRequest, HttpMethod};
 use tachyon_core::{
     HandlerCancellation, HandlerSource, HandlerSupervisor, HandlerSupervisorOptions,
@@ -305,36 +306,54 @@ fn tac_units_assert_and_run_one_case_per_input() {
     AssertedUnit::check("tac rs", &rust, &AssertedUnit::rust_expected());
 }
 
-#[tokio::test]
-async fn jvm_units_assert_with_the_helper_and_the_language_assert() {
-    for (extension, program, setup, unit) in [
-        (
-            "java",
-            "java",
-            AssertedUnit::JAVA_SETUP,
-            AssertedUnit::JAVA_UNIT,
-        ),
-        (
-            "groovy",
-            "groovyc",
-            AssertedUnit::GROOVY_SETUP,
-            AssertedUnit::GROOVY_UNIT,
-        ),
-        (
-            "kt",
-            "kotlinc",
-            AssertedUnit::KOTLIN_SETUP,
-            AssertedUnit::KOTLIN_UNIT,
-        ),
-    ] {
-        if !AssertedUnit::answers(program, "-version") {
-            eprintln!("skipping the {extension} unit: {program} is unavailable");
-            continue;
-        }
-        let cases = AssertedUnit::server_cases(extension, setup, unit).await;
-        AssertedUnit::check(extension, &cases, &AssertedUnit::jvm_expected());
-    }
+fn jvm_unit_asserts_with_the_helper_and_the_language_assert_cases() -> Vec<(&'static str, &'static str, &'static str, &'static str)> {
+    vec![
+    (
+        "java",
+        "java",
+        AssertedUnit::JAVA_SETUP,
+        AssertedUnit::JAVA_UNIT,
+    ),
+    (
+        "groovy",
+        "groovyc",
+        AssertedUnit::GROOVY_SETUP,
+        AssertedUnit::GROOVY_UNIT,
+    ),
+    (
+        "kt",
+        "kotlinc",
+        AssertedUnit::KOTLIN_SETUP,
+        AssertedUnit::KOTLIN_UNIT,
+    ),
+    ]
 }
+
+async fn jvm_unit_asserts_with_the_helper_and_the_language_assert(wanted: &str) {
+    let case = jvm_unit_asserts_with_the_helper_and_the_language_assert_cases()
+        .into_iter()
+        .find(|case| case.0 == wanted)
+        .unwrap_or_else(|| panic!("no case named {wanted:?}"));
+    let (extension, program, setup, unit) = case;
+
+    if !AssertedUnit::answers(program, "-version") {
+        eprintln!("skipping the {extension} unit: {program} is unavailable");
+        return;
+    }
+    let cases = AssertedUnit::server_cases(extension, setup, unit).await;
+    AssertedUnit::check(extension, &cases, &AssertedUnit::jvm_expected());
+}
+
+one_test_per_case!(
+    jvm_units_assert_with_the_helper_and_the_language_assert,
+    async jvm_unit_asserts_with_the_helper_and_the_language_assert,
+    all jvm_unit_asserts_with_the_helper_and_the_language_assert_cases().into_iter().map(|case| case.0),
+    [
+        java => "java",
+        groovy => "groovy",
+        kotlin => "kt",
+    ]
+);
 
 #[test]
 fn a_tac_kotlin_unit_asserts_and_runs_one_case_per_input() {
@@ -347,26 +366,41 @@ fn a_tac_kotlin_unit_asserts_and_runs_one_case_per_input() {
     AssertedUnit::check("tac kt", &cases, &AssertedUnit::jvm_expected());
 }
 
-#[tokio::test]
-async fn dotnet_units_assert_and_run_one_case_per_input() {
+fn dotnet_unit_cases() -> [(&'static str, &'static str, &'static str); 2] {
+    [
+        ("cs", AssertedUnit::CSHARP_SETUP, AssertedUnit::CSHARP_UNIT),
+        ("fs", AssertedUnit::FSHARP_SETUP, AssertedUnit::FSHARP_UNIT),
+    ]
+}
+
+async fn dotnet_unit_asserts_and_runs_one_case_per_input(wanted: &str) {
     if !AssertedUnit::available("dotnet") {
         eprintln!("skipping: dotnet is unavailable");
         return;
     }
-    for (extension, setup, unit) in [
-        ("cs", AssertedUnit::CSHARP_SETUP, AssertedUnit::CSHARP_UNIT),
-        ("fs", AssertedUnit::FSHARP_SETUP, AssertedUnit::FSHARP_UNIT),
-    ] {
-        let yon = AssertedUnit::server_cases(extension, setup, unit).await;
-        AssertedUnit::check(extension, &yon, &AssertedUnit::javascript_expected());
-        let tac = AssertedUnit::client_cases(extension, setup, unit);
-        AssertedUnit::check(
-            &format!("tac {extension}"),
-            &tac,
-            &AssertedUnit::javascript_expected(),
-        );
-    }
+    let (extension, setup, unit) = dotnet_unit_cases()
+        .into_iter()
+        .find(|(extension, _, _)| *extension == wanted)
+        .unwrap_or_else(|| panic!("no .NET unit uses .{wanted}"));
+    let yon = AssertedUnit::server_cases(extension, setup, unit).await;
+    AssertedUnit::check(extension, &yon, &AssertedUnit::javascript_expected());
+    let tac = AssertedUnit::client_cases(extension, setup, unit);
+    AssertedUnit::check(
+        &format!("tac {extension}"),
+        &tac,
+        &AssertedUnit::javascript_expected(),
+    );
 }
+
+one_test_per_case!(
+    dotnet_units_assert_and_run_one_case_per_input,
+    async dotnet_unit_asserts_and_runs_one_case_per_input,
+    all dotnet_unit_cases().map(|(extension, _, _)| extension),
+    [
+        csharp => "cs",
+        fsharp => "fs",
+    ]
+);
 
 struct NativeUnit {
     extension: &'static str,

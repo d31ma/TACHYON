@@ -1,3 +1,4 @@
+use super::probe_memory::ProbeMemory;
 use std::process::{Command, Stdio};
 
 pub struct ProgramProbe;
@@ -10,6 +11,18 @@ impl ProgramProbe {
     /// find, so there a program the spawn misses is asked for through the shell, which searches
     /// `PATHEXT`.
     pub fn answers(program: &str, flag: &str) -> bool {
+        let memory = ProbeMemory::for_this_run();
+        Self::run_unless_remembered(&memory, program, flag)
+    }
+
+    fn run_unless_remembered(memory: &ProbeMemory, program: &str, flag: &str) -> bool {
+        if memory.answered(program, flag) {
+            return true;
+        }
+        memory.remember(program, flag, Self::runs(program, flag))
+    }
+
+    fn runs(program: &str, flag: &str) -> bool {
         let shell = Self::shell_command(program);
         [Some(Command::new(program)), shell]
             .into_iter()

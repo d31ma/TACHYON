@@ -11,6 +11,7 @@ mod lua_yon_cli;
 mod macos_release_cli;
 mod native_architecture_cli;
 mod native_capability_cli;
+mod one_test_per_case;
 mod phase1_cli;
 mod phase2_cli;
 mod phase3_cli;

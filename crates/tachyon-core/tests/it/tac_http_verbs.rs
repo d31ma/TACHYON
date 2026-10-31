@@ -1,5 +1,6 @@
 #![allow(clippy::expect_used)]
 
+use crate::support::one_test_per_case::one_test_per_case;
 use std::path::Path;
 
 struct HttpVerbProject;
@@ -79,16 +80,42 @@ impl HttpVerbProject {
     }
 }
 
-#[test]
-fn a_tac_http_client_sends_put_patch_delete_and_headers_in_every_language() {
-    let mut ran = 0;
-    for (extension, program) in HttpVerbProject::LANGUAGES {
-        if !HttpVerbProject::tool_available(program) {
-            eprintln!("skipping the {extension} HTTP verb unit: {program} is unavailable");
-            continue;
-        }
-        HttpVerbProject::assert_unit_passes(extension);
-        ran += 1;
+fn sends_put_patch_delete_and_headers_in(wanted: &str) {
+    let (extension, program) = HttpVerbProject::LANGUAGES
+        .into_iter()
+        .find(|(extension, _)| *extension == wanted)
+        .unwrap_or_else(|| panic!("no HTTP verb language uses .{wanted}"));
+    if !HttpVerbProject::tool_available(program) {
+        eprintln!("skipping the {extension} HTTP verb unit: {program} is unavailable");
+        return;
     }
-    assert!(ran > 0, "no Tac language toolchain is installed");
+    HttpVerbProject::assert_unit_passes(extension);
+}
+
+one_test_per_case!(
+    a_tac_http_client_sends_put_patch_delete_and_headers_in_every_language,
+    sends_put_patch_delete_and_headers_in,
+    all HttpVerbProject::LANGUAGES.map(|(extension, _)| extension),
+    [
+        javascript => "js",
+        typescript => "ts",
+        dart => "dart",
+        rust => "rs",
+        csharp => "cs",
+        kotlin => "kt",
+        swift => "swift",
+        go => "go",
+        ruby => "rb",
+        python => "py",
+        lua => "lua",
+        cpp => "hpp",
+    ]
+);
+
+#[test]
+fn at_least_one_tac_http_verb_language_toolchain_is_installed() {
+    let installed = HttpVerbProject::LANGUAGES
+        .into_iter()
+        .any(|(_, program)| HttpVerbProject::tool_available(program));
+    assert!(installed, "no Tac language toolchain is installed");
 }

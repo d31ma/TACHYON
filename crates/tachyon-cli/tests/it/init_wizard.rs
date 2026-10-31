@@ -1,5 +1,6 @@
 #![allow(clippy::expect_used)]
 
+use crate::one_test_per_case::one_test_per_case;
 use std::io::Write as _;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
@@ -12,6 +13,13 @@ struct WizardCase {
 }
 
 impl WizardCase {
+    fn named(name: &str) -> &'static Self {
+        Self::MATRIX
+            .iter()
+            .find(|case| case.name == name)
+            .unwrap_or_else(|| panic!("no wizard case is named {name}"))
+    }
+
     const MATRIX: [Self; 7] = [
         Self {
             name: "defaults",
@@ -148,34 +156,47 @@ fn initialized(workspace: &Path, case: &WizardCase) -> PathBuf {
     project
 }
 
-#[test]
-fn every_generated_combination_passes_its_tests_with_coverage_and_builds() {
+fn generated_combination_passes_its_tests_with_coverage_and_builds(name: &str) {
     let workspace = tempfile::tempdir().expect("workspace");
-    for case in &WizardCase::MATRIX {
-        if let Some(program) = case.missing_program() {
-            eprintln!("skipping {}: {program} is unavailable", case.name);
-            continue;
-        }
-        let typescript = repository_typescript();
-        if case.typescript_client && typescript.is_none() {
-            eprintln!(
-                "skipping {}: the repository has no TypeScript compiler in node_modules",
-                case.name
-            );
-            continue;
-        }
-        let project = initialized(workspace.path(), case);
-        if let (true, Some(modules)) = (case.typescript_client, &typescript) {
-            link_typescript(&project, modules);
-        }
-        let tested = run(ty().args(["test", "--coverage"]).arg(&project));
-        let report = text(&tested);
-        assert!(tested.status.success(), "{}: {report}", case.name);
-        assert!(report.contains(" 0 failed."), "{}: {report}", case.name);
-        let built = run(ty().arg("build").arg(&project));
-        assert!(built.status.success(), "{}: {}", case.name, text(&built));
+    let case = WizardCase::named(name);
+    if let Some(program) = case.missing_program() {
+        eprintln!("skipping {}: {program} is unavailable", case.name);
+        return;
     }
+    let typescript = repository_typescript();
+    if case.typescript_client && typescript.is_none() {
+        eprintln!(
+            "skipping {}: the repository has no TypeScript compiler in node_modules",
+            case.name
+        );
+        return;
+    }
+    let project = initialized(workspace.path(), case);
+    if let (true, Some(modules)) = (case.typescript_client, &typescript) {
+        link_typescript(&project, modules);
+    }
+    let tested = run(ty().args(["test", "--coverage"]).arg(&project));
+    let report = text(&tested);
+    assert!(tested.status.success(), "{}: {report}", case.name);
+    assert!(report.contains(" 0 failed."), "{}: {report}", case.name);
+    let built = run(ty().arg("build").arg(&project));
+    assert!(built.status.success(), "{}: {}", case.name, text(&built));
 }
+
+one_test_per_case!(
+    every_generated_combination_passes_its_tests_with_coverage_and_builds,
+    generated_combination_passes_its_tests_with_coverage_and_builds,
+    all WizardCase::MATRIX.map(|case| case.name),
+    [
+        defaults => "defaults",
+        client_typescript_dart_rust => "client-typescript-dart-rust",
+        server_python_go_java_kotlin => "server-python-go-java-kotlin",
+        both_csharp_go_ruby_php_rust_dart => "both-csharp-go-ruby-php-rust-dart",
+        native_swift_kotlin => "native-swift-kotlin",
+        javascript_features => "javascript-features",
+        typescript_features => "typescript-features",
+    ]
+);
 
 #[test]
 fn the_questions_can_be_answered_from_a_script() {

@@ -1,3 +1,4 @@
+use crate::probe_memory::ProbeMemory;
 use std::process::{Command, Stdio};
 
 pub(crate) struct ProgramProbe;
@@ -10,6 +11,18 @@ impl ProgramProbe {
     /// cannot find those, so a program is asked for through the launcher Tachyon builds with and,
     /// on Windows, through the shell, which searches `PATHEXT`.
     pub(crate) fn answers(program: &str, flag: &str) -> bool {
+        let memory = ProbeMemory::for_this_run();
+        Self::run_unless_remembered(&memory, program, flag)
+    }
+
+    fn run_unless_remembered(memory: &ProbeMemory, program: &str, flag: &str) -> bool {
+        if memory.answered(program, flag) {
+            return true;
+        }
+        memory.remember(program, flag, Self::runs(program, flag))
+    }
+
+    fn runs(program: &str, flag: &str) -> bool {
         let launcher = Some(crate::kotlin_home::KotlinHome::command(program));
         [launcher, Self::shell_command(program)]
             .into_iter()
