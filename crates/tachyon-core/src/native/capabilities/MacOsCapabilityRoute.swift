@@ -3,11 +3,11 @@ private enum MacOsCapabilityRoute {
     nonisolated(unsafe) private static var pending: Set<ObjectIdentifier> = []
 
     static func start(_ webView: WKWebView, _ task: WKURLSchemeTask) -> Bool {
-        guard let url = task.request.url, url.path.hasPrefix(path) else { return false }
+        guard let url = task.request.url, url.host == "bundle", url.path.hasPrefix(path) else { return false }
         let capability = String(url.path.dropFirst(path.count))
         guard task.request.httpMethod == "POST", capability.hasPrefix("filePicker."), capability.utf8.count <= 64,
               task.request.value(forHTTPHeaderField: "X-Tachyon-Capability") == capability,
-              task.request.mainDocumentURL.map({ $0.scheme == "tachyon-app" && $0.host == "bundle" }) ?? true,
+              task.request.mainDocumentURL.map({ $0.scheme == "tachyon-app" && $0.host == "bundle" }) ?? false,
               let body = task.request.httpBody, body.count <= 65536,
               let request = String(data: body, encoding: .utf8).flatMap(tachyonParseJSONRequest),
               let payload = tachyonCanonicalJSONRequest(request) else {

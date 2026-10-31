@@ -119,7 +119,7 @@ fn the_android_host_and_a_kotlin_listener_for_the_application_state_compile() {
     let root = tempfile::tempdir().expect("project");
     let host = root.path().join("StateHost.java");
     let program = format!(
-        "import android.webkit.WebView;\nclass StateHost extends android.app.Activity {{ private WebView view; private void record(String event) {{}}\n{}\n}}",
+        "import android.webkit.WebView;\nclass StateHost extends android.app.Activity {{ private WebView view; private void record(String event) {{}} private static boolean isBundlePage(WebView web) {{ return true; }}\n{}\n}}",
         include_str!("android_application_state.java")
     );
     std::fs::write(&host, program).expect("host source");

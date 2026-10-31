@@ -530,6 +530,7 @@ private final class TachyonAssetSchemeHandler: NSObject, WKURLSchemeHandler {
                 "Content-Type": TachyonAssetSchemeHandler.mimeType(file.pathExtension),
                 "Content-Length": String(data.count),
                 "Content-Security-Policy": "__CONTENT_SECURITY_POLICY__",
+                "X-Content-Type-Options": "nosniff",
             ]
         )
         guard let response else {
@@ -660,9 +661,11 @@ __NATIVE_MENUS__
 __NATIVE_MENU_CALLS__
 
 private func tachyonRelayPublish(_ payload: String) {
+    guard let quoted = try? JSONSerialization.data(withJSONObject: payload, options: [.fragmentsAllowed]),
+          let literal = String(data: quoted, encoding: .utf8) else { return }
     Task { @MainActor in
         NativeBridge.shared.webView?.evaluateJavaScript(
-            "globalThis.__tachyonCompanionPublish(" + payload + ")")
+            "globalThis.__tachyonCompanionPublish(JSON.parse(" + literal + "))")
     }
 }
 
@@ -1097,5 +1100,43 @@ mod tests {
         assert!(source.contains("globalThis.__tachyonApplicationState?.('"));
         assert!(source.contains("AppleApplicationState.shared.post()"));
         assert!(!source.contains("__NATIVE_APPLICATION_STATE__"));
+    }
+
+    #[test]
+    fn the_host_publishes_companion_signals_only_as_json() {
+        let source = swift_source(&application(), "tacNativeInvoke(payload)", &index());
+        assert!(source.contains(
+            "JSONSerialization.data(withJSONObject: payload, options: [.fragmentsAllowed])"
+        ));
+        assert!(
+            source.contains(
+                "\"globalThis.__tachyonCompanionPublish(JSON.parse(\" + literal + \"))\""
+            )
+        );
+        assert!(!source.contains("__tachyonCompanionPublish(\" + payload"));
+    }
+
+    #[test]
+    fn bundle_assets_forbid_content_type_sniffing() {
+        let source = swift_source(&application(), "tacNativeInvoke(payload)", &index());
+        let response = source
+            .split("\"Content-Type\": TachyonAssetSchemeHandler.mimeType(file.pathExtension),")
+            .nth(1)
+            .and_then(|rest| rest.split(']').next())
+            .unwrap_or_default();
+        assert!(
+            response.contains("\"X-Content-Type-Options\": \"nosniff\","),
+            "{response}"
+        );
+    }
+
+    #[test]
+    fn the_file_picker_route_answers_only_the_bundle_main_document() {
+        let route = include_str!("capabilities/IosCapabilityRoute.swift");
+        assert!(route.contains(
+            "guard let url = task.request.url, url.host == \"bundle\", url.path.hasPrefix(path)"
+        ));
+        assert!(route.contains("$0.host == \"bundle\" }) ?? false,"));
+        assert!(!route.contains("?? true"));
     }
 }

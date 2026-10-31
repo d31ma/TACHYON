@@ -154,3 +154,16 @@ fn an_outgoing_host_that_is_not_a_host_name_stops_the_native_build() {
         assert!(text.contains("tac.outgoing.hosts"), "{text}");
     }
 }
+
+#[test]
+fn every_native_host_posts_forms_only_to_its_own_bundle() {
+    let application = NativePolicyFixture::declared(&json!({
+        "hosts": ["api.example.com"]
+    }));
+    for (platform, source) in NativePolicyFixture::host_sources(&application) {
+        assert!(
+            source.contains("form-action 'self';"),
+            "{platform} host lets a form post leave the bundle"
+        );
+    }
+}

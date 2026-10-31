@@ -1022,11 +1022,15 @@ __NATIVE_RUST_SERVICES__
 
   private void relayPublish(String payload) {
     WebView web = view;
-    if (web == null) {
+    if (web == null || payload == null) {
       return;
     }
+    String script = "globalThis.__tachyonCompanionPublish(JSON.parse("
+        + org.json.JSONObject.quote(payload) + "))";
     web.post(
-        () -> web.evaluateJavascript("globalThis.__tachyonCompanionPublish(" + payload + ")", null));
+        () -> {
+          if (isBundlePage(web)) web.evaluateJavascript(script, null);
+        });
   }
 
   private static String safeName(String value) {
@@ -1102,6 +1106,7 @@ __NATIVE_RUST_SERVICES__
           @Override
           public WebResourceResponse shouldInterceptRequest(
               WebView web, WebResourceRequest request) {
+            if (request.isForMainFrame() && !isAssetUrl(request.getUrl())) return emptyAssetResponse();
             if (isOutgoingHost(request.getUrl()) || isYonOrigin(request.getUrl())) return null;
             WebResourceResponse capability = capabilityResponse(request);
             return capability != null ? capability : assetResponse(request.getUrl());
@@ -1150,6 +1155,11 @@ __NATIVE_RUST_SERVICES__
         && target.getUserInfo() == null && target.getPort() == -1;
   }
 
+  private static boolean isBundlePage(WebView web) {
+    String url = web.getUrl();
+    return url != null && isAssetUrl(Uri.parse(url));
+  }
+
   private static boolean isOutgoingHost(Uri target) {
     String host = target.getHost();
     if (!"https".equals(target.getScheme()) || host == null || target.getUserInfo() != null) return false;
@@ -1192,6 +1202,7 @@ __NATIVE_RUST_SERVICES__
       java.util.Map<String, String> headers = new java.util.HashMap<>();
       headers.put("Cache-Control", "no-store");
       headers.put("Content-Security-Policy", BOOTSTRAP_SECURITY_POLICY);
+      headers.put("X-Content-Type-Options", "nosniff");
       return new WebResourceResponse("text/html", "UTF-8", 200, "OK", headers,
           new ByteArrayInputStream(bootstrapDocument().getBytes(StandardCharsets.UTF_8)));
     }
@@ -1323,6 +1334,7 @@ __DEVELOPMENT_PAGES__
   private static WebResourceResponse bundleResponse(String name, InputStream data) {
     java.util.Map<String, String> headers = new java.util.HashMap<>();
     headers.put("Content-Security-Policy", CONTENT_SECURITY_POLICY);
+    headers.put("X-Content-Type-Options", "nosniff");
     return new WebResourceResponse(assetMimeType(name), "UTF-8", 200, "OK", headers, data);
   }
 
@@ -1800,5 +1812,44 @@ mod tests {
         );
         assert!(source.contains("\"event\".equals(operation)"));
         assert!(!source.contains("__APPLICATION_STATE__"));
+    }
+
+    #[test]
+    fn the_host_runs_its_page_scripts_only_while_the_main_frame_is_on_the_bundle() {
+        let source = catalog_java_source(true);
+        assert!(source.contains(
+            "if (request.isForMainFrame() && !isAssetUrl(request.getUrl())) return emptyAssetResponse();"
+        ));
+        assert!(source.contains(
+            "private static boolean isBundlePage(WebView web) {\n    String url = web.getUrl();\n    return url != null && isAssetUrl(Uri.parse(url));"
+        ));
+        assert!(source.contains("if (isBundlePage(web)) web.evaluateJavascript(script, null);"));
+        assert!(source.contains("WINDOW_INTEGRATED && web != null && isBundlePage(web)"));
+        assert_eq!(
+            source
+                .matches("if (isBundlePage(web)) web.evaluateJavascript(script, null);")
+                .count(),
+            2
+        );
+    }
+
+    #[test]
+    fn the_host_publishes_companion_signals_only_as_json() {
+        let source = catalog_java_source(true);
+        assert!(source.contains(
+            "\"globalThis.__tachyonCompanionPublish(JSON.parse(\"\n        + org.json.JSONObject.quote(payload) + \"))\""
+        ));
+        assert!(!source.contains("__tachyonCompanionPublish(\" + payload"));
+    }
+
+    #[test]
+    fn bundle_responses_forbid_content_type_sniffing() {
+        let source = catalog_java_source(true);
+        assert!(source.contains(
+            "headers.put(\"Content-Security-Policy\", BOOTSTRAP_SECURITY_POLICY);\n      headers.put(\"X-Content-Type-Options\", \"nosniff\");"
+        ));
+        assert!(source.contains(
+            "headers.put(\"Content-Security-Policy\", CONTENT_SECURITY_POLICY);\n    headers.put(\"X-Content-Type-Options\", \"nosniff\");"
+        ));
     }
 }

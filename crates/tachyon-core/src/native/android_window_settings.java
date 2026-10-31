@@ -67,5 +67,5 @@
     if (answer.equals(titleBarInsets)) return;
     titleBarInsets = answer;
     WebView web = view;
-    if (WINDOW_INTEGRATED && web != null) web.evaluateJavascript("globalThis.__tachyonTitleBar?.apply(" + answer + ")", null);
+    if (WINDOW_INTEGRATED && web != null && isBundlePage(web)) web.evaluateJavascript("globalThis.__tachyonTitleBar?.apply(" + answer + ")", null);
   }

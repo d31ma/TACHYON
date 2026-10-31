@@ -23,5 +23,7 @@
     WebView web = view;
     if (web == null) return;
     String script = "globalThis.__tachyonApplicationState?.('" + applicationState + "')";
-    web.post(() -> web.evaluateJavascript(script, null));
+    web.post(() -> {
+      if (isBundlePage(web)) web.evaluateJavascript(script, null);
+    });
   }
