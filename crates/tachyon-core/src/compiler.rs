@@ -59,6 +59,8 @@ mod script_marker_tests;
 mod script_named_needs_tests;
 #[cfg(test)]
 mod script_reach_marker_tests;
+#[cfg(test)]
+mod script_stored_state_tests;
 mod service_checks;
 mod service_script;
 mod service_worker;

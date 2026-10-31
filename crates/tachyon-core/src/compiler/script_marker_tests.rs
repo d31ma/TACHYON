@@ -1,9 +1,12 @@
 use super::script_named_needs_tests::ScriptNamedNeeds;
 use super::{BuildOptions, WebCompiler};
+use crate::one_test_per_case_tests::one_test_per_case;
 
-struct TypeScriptMarkers;
+struct ScriptMarkers;
 
-impl TypeScriptMarkers {
+impl ScriptMarkers {
+    const LANGUAGES: [&'static str; 2] = ["js", "ts"];
+
     const CONVERTERS: [(&'static str, &'static str); 9] = [
         ("client/pages/tac.html", "<catalog-panel />"),
         (
@@ -55,7 +58,7 @@ impl TypeScriptMarkers {
         "<label-panel :title=\"'A'\" :start=\"1\" />",
     );
 
-    const LABEL: [(&'static str, &'static str); 3] = [
+    const TYPESCRIPT_LABEL: [(&'static str, &'static str); 3] = [
         (
             "client/components/label/panel/tac.html",
             "<p>{label.shown()} {label.clicks}</p>",
@@ -77,45 +80,42 @@ impl TypeScriptMarkers {
          const second = await open({ title: 'B', start: 10 })\n\
          console.log(JSON.stringify({ shown: [first.shown(), second.shown()], required: module.__tachyon_required_args__ }))\n";
 
+    const JAVASCRIPT_LABEL: [(&'static str, &'static str); 3] = [
+        (
+            "client/components/label/panel/tac.html",
+            "<p>{label.shown()} {label.clicks}</p>",
+        ),
+        (
+            "client/delegates/TallyDelegate.js",
+            "@Delegate\nexport default class TallyDelegate {\n  start() {\n    return 3;\n  }\n}\n",
+        ),
+        (
+            "client/services/LabelService.js",
+            "@Service\n@NeedsAll\nexport default class LabelService {\n  /** @type {string} */\n  title;\n  /** @type {number} */\n  start;\n  \
+             /** @type {TallyDelegate} */\n  tallyDelegate;\n  clicks = 0;\n\n  \
+             /** @returns {string} */\n  shown() {\n    return `${this.title}:${this.start + this.tallyDelegate.start() + this.clicks}`;\n  }\n}\n",
+        ),
+    ];
+
     const UNFILLED_PAGE: (&'static str, &'static str) =
         ("client/pages/tac.html", "<label-panel :title=\"'A'\" />");
 
-    fn label(page: (&'static str, &'static str)) -> Vec<(&'static str, &'static str)> {
-        [page].into_iter().chain(Self::LABEL).collect()
+    fn label(
+        page: (&'static str, &'static str),
+        extension: &str,
+    ) -> Vec<(&'static str, &'static str)> {
+        let files = match extension {
+            "js" => Self::JAVASCRIPT_LABEL,
+            "ts" => Self::TYPESCRIPT_LABEL,
+            _ => panic!("no NeedsAll label uses .{extension}"),
+        };
+        [page].into_iter().chain(files).collect()
     }
 }
 
-#[tokio::test]
-async fn a_typescript_service_needs_converters_and_runs_their_mappings() {
-    if !crate::node_driver::NodeDriver::available() {
-        eprintln!("skipping: node is unavailable");
-        return;
-    }
-    let report = ScriptNamedNeeds::run(
-        &TypeScriptMarkers::CONVERTERS,
-        TypeScriptMarkers::CONVERTER_DRIVER,
-    )
-    .await;
-    assert_eq!(
-        report["typed"],
-        serde_json::json!({"id": 7, "name": "Anvil", "detail": {"name": "detail"}, "items": [{"name": "detail"}], "kind": "product"}),
-        "{report}"
-    );
-    assert_eq!(
-        report["plain"],
-        serde_json::json!({"productId": 7, "title": "Anvil", "absent": null, "kind": "product"}),
-        "{report}"
-    );
-}
-
-#[tokio::test]
-async fn a_typescript_needs_all_service_takes_its_properties_and_its_helper() {
-    if !crate::node_driver::NodeDriver::available() {
-        eprintln!("skipping: node is unavailable");
-        return;
-    }
-    let files = TypeScriptMarkers::label(TypeScriptMarkers::LABEL_PAGE);
-    let report = ScriptNamedNeeds::run(&files, TypeScriptMarkers::LABEL_DRIVER).await;
+async fn needs_all_service_takes_its_properties_and_its_helper_in(extension: &str) {
+    let project = ScriptMarkers::label(ScriptMarkers::LABEL_PAGE, extension);
+    let report = ScriptNamedNeeds::run(&project, ScriptMarkers::LABEL_DRIVER).await;
     assert_eq!(
         report["shown"],
         serde_json::json!(["A:4", "B:13"]),
@@ -128,10 +128,9 @@ async fn a_typescript_needs_all_service_takes_its_properties_and_its_helper() {
     );
 }
 
-#[tokio::test]
-async fn a_typescript_needs_all_field_that_the_page_leaves_out_fails_the_build() {
+async fn needs_all_field_that_the_page_leaves_out_fails_the_build_in(extension: &str) {
     let root = tempfile::tempdir().unwrap_or_else(|failure| panic!("project: {failure}"));
-    for (relative, source) in TypeScriptMarkers::label(TypeScriptMarkers::UNFILLED_PAGE) {
+    for (relative, source) in ScriptMarkers::label(ScriptMarkers::UNFILLED_PAGE, extension) {
         ScriptNamedNeeds::write(root.path(), relative, source);
     }
     let failure = WebCompiler::build_async(root.path(), &BuildOptions::default())
@@ -145,3 +144,37 @@ async fn a_typescript_needs_all_field_that_the_page_leaves_out_fails_the_build()
         "{failure}"
     );
 }
+
+#[tokio::test]
+async fn a_typescript_service_needs_converters_and_runs_their_mappings() {
+    if !crate::node_driver::NodeDriver::available() {
+        eprintln!("skipping: node is unavailable");
+        return;
+    }
+    let report =
+        ScriptNamedNeeds::run(&ScriptMarkers::CONVERTERS, ScriptMarkers::CONVERTER_DRIVER).await;
+    assert_eq!(
+        report["typed"],
+        serde_json::json!({"id": 7, "name": "Anvil", "detail": {"name": "detail"}, "items": [{"name": "detail"}], "kind": "product"}),
+        "{report}"
+    );
+    assert_eq!(
+        report["plain"],
+        serde_json::json!({"productId": 7, "title": "Anvil", "absent": null, "kind": "product"}),
+        "{report}"
+    );
+}
+
+one_test_per_case!(
+    a_script_needs_all_service_takes_its_properties_and_its_helper,
+    async needs_all_service_takes_its_properties_and_its_helper_in,
+    all ScriptMarkers::LANGUAGES,
+    [javascript => "js", typescript => "ts"]
+);
+
+one_test_per_case!(
+    a_script_needs_all_field_that_the_page_leaves_out_fails_the_build,
+    async needs_all_field_that_the_page_leaves_out_fails_the_build_in,
+    all ScriptMarkers::LANGUAGES,
+    [javascript => "js", typescript => "ts"]
+);

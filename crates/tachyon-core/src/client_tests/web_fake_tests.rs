@@ -40,6 +40,9 @@ impl Units {
 
     const JS_WINDOW_SERVICE: &str = "@Service\nexport default class StampService {\n  @Needs\n  windowControls;\n\n  shrink() {\n    this.windowControls.minimize();\n    return this.windowControls.granted('minimize');\n  }\n}\n";
     const JS_WINDOW_UNIT: &str = "@Test(StampTestSetup)\nexport default class StampServiceTest {\n  @Fake\n  windowControls;\n\n  async testUsesTheFakeWindow() {\n    this.windowControls = { minimize: () => null, granted: () => true };\n    const service = this.construct(StampService);\n    Assert.isTrue(service.shrink(), 'the fake window answers');\n  }\n}\n";
+    const TS_SETUP: &str = "@TestSetup()\nclass StampTestSetup {\n  static configure(): Record<string, unknown> { return {}; }\n}\n";
+    const TS_WINDOW_SERVICE: &str = "@Service\nexport default class StampService {\n  @Needs\n  windowControls!: TacWindowControls;\n\n  shrink(): boolean {\n    this.windowControls.minimize();\n    return this.windowControls.granted('minimize');\n  }\n}\n";
+    const TS_WINDOW_UNIT: &str = "@Test(StampTestSetup)\nexport default class StampServiceTest {\n  @Fake\n  windowControls!: TacWindowControls;\n\n  async testUsesTheFakeWindow(): Promise<void> {\n    const minimized: string[] = [];\n    this.windowControls = { granted: () => true, minimize: () => { minimized.push('minimize'); return null; }, maximize: () => null, fullscreen: () => null, close: () => null, resize: () => null, setTitle: () => null };\n    const service = this.construct(StampService);\n    Assert.isTrue(service.shrink(), 'the fake window answers');\n    Assert.equals(1, minimized.length);\n  }\n}\n";
     const GO_WINDOW_SERVICE: &str = "// @Service\ntype StampService struct {\n\t// @Needs\n\twindowControls WindowControls\n}\n\nfunc (stamp *StampService) Allowed() bool {\n\tgranted, _ := stamp.windowControls.Granted(\"minimize\")\n\treturn granted\n}\n";
     const GO_WINDOW_UNIT: &str = "// @Test(StampTestSetup)\ntype StampServiceTest struct {\n\tbehaviors *BehaviorContext\n}\n\nfunc (test *StampServiceTest) TestUsesTheFakeWindow() {\n\tBrowserFakes{}.Answer(\"windowControls\", \"granted\", true)\n\tservice := &StampService{}\n\tAssert.IsTrue(service.Allowed(), \"the fake window answers\")\n}\n";
     const RUBY_WINDOW_SERVICE: &str = "#[Service]\nclass StampService\n  def allowed\n    WindowControls.new.granted(\"minimize\")\n  end\nend\n";
@@ -259,4 +262,15 @@ fn a_unit_fakes_the_window_controls_in_every_language_with_browser_fakes() {
         let results = Units::passed(extension, files);
         assert_eq!(results.len(), 1, "{extension}: {results:?}");
     }
+}
+
+#[test]
+fn a_typescript_unit_fakes_the_window_controls() {
+    let files = [
+        Units::TS_SETUP,
+        Units::TS_WINDOW_SERVICE,
+        Units::TS_WINDOW_UNIT,
+    ];
+    let results = Units::passed("ts", files);
+    assert_eq!(results, [(String::from("testUsesTheFakeWindow"), true)]);
 }

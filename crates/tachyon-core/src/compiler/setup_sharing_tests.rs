@@ -2,6 +2,7 @@
 
 use super::setup_sharing::SetupSharing;
 use super::{BuildOptions, WebCompiler};
+use crate::one_test_per_case_tests::one_test_per_case;
 use std::path::Path;
 
 #[test]
@@ -59,36 +60,41 @@ fn a_setup_in_one_module_stays_in_that_module() {
     assert_eq!(String::from_utf8(without).expect("text"), alpha);
 }
 
+async fn two_services_share_one_setup_in(extension: &str) {
+    let language = SetupModuleFixture::language(extension);
+    let root = SetupModuleFixture::built(&[language]).await;
+    SetupModuleFixture::assert_shared(root.path(), language).await;
+}
+
+one_test_per_case!(
+    two_script_services_share_one_setup,
+    async two_services_share_one_setup_in,
+    all SetupModuleFixture::LANGUAGES,
+    [javascript => "js", typescript => "ts"]
+);
+
 #[tokio::test]
-async fn two_built_services_share_one_setup_class_and_one_configuration() {
-    let root = tempfile::tempdir().expect("project");
-    SetupModuleFixture::project(root.path());
-    WebCompiler::build_async(root.path(), &BuildOptions::default())
-        .await
-        .expect("bundle with two services for each script language");
-    for service in [
-        "AlphaService",
-        "BetaService",
-        "GammaService",
-        "DeltaService",
-    ] {
-        let path = root
-            .path()
-            .join(format!("dist/.tachyon/services/{service}.js"));
-        let module = std::fs::read_to_string(path).expect("service module");
-        assert!(!module.contains("class ScriptSetup"), "{module}");
-        assert!(!module.contains("class TypedSetup"), "{module}");
-    }
-    let runtime = std::fs::read_to_string(root.path().join("dist/.tachyon/behavior-runtime.js"))
-        .expect("runtime");
-    assert_eq!(runtime.matches("export class ScriptSetup").count(), 1);
-    assert_eq!(runtime.matches("export class TypedSetup").count(), 1);
-    SetupModuleFixture::invoke(root.path()).await;
+async fn javascript_and_typescript_services_on_one_page_each_share_their_own_setup() {
+    let root = SetupModuleFixture::built(&[
+        &SetupModuleFixture::JAVASCRIPT,
+        &SetupModuleFixture::TYPESCRIPT,
+    ])
+    .await;
+    SetupModuleFixture::assert_shared(root.path(), &SetupModuleFixture::JAVASCRIPT).await;
+    SetupModuleFixture::assert_shared(root.path(), &SetupModuleFixture::TYPESCRIPT).await;
+}
+
+struct SharedSetup {
+    name: &'static str,
+    services: [&'static str; 2],
+    files: [(&'static str, &'static str); 3],
 }
 
 struct SetupModuleFixture;
 
 impl SetupModuleFixture {
+    const LANGUAGES: [&'static str; 2] = ["js", "ts"];
+
     const PLAIN_SETUP: &'static str = "class PageSetup {\n  static configured = 0;\n  static configure() { PageSetup.configured += 1; return {}; }\n}";
 
     fn module(service: &str, setup: &str, methods: &str) -> String {
@@ -104,72 +110,106 @@ impl SetupModuleFixture {
         std::fs::write(path, source).expect("source");
     }
 
-    fn project(root: &Path) {
+    const JAVASCRIPT: SharedSetup = SharedSetup {
+        name: "ScriptSetup",
+        services: ["Alpha", "Beta"],
+        files: [
+            (
+                "client/setups/ScriptSetup.js",
+                "@Setup\nexport default class ScriptSetup {\n  static configured = 0;\n  static configure() { ScriptSetup.configured += 1; return {}; }\n}",
+            ),
+            (
+                "client/services/AlphaService.js",
+                "@Service\nexport default class AlphaService {\n  size = 0;\n  async open(signal) { return [ScriptSetup, await Behaviors.create(ScriptSetup, {partition: 'Alpha', signal})]; }\n}",
+            ),
+            (
+                "client/services/BetaService.js",
+                "@Service\nexport default class BetaService {\n  size = 0;\n  async open(signal) { return [ScriptSetup, await Behaviors.create(ScriptSetup, {partition: 'Beta', signal})]; }\n}",
+            ),
+        ],
+    };
+
+    const TYPESCRIPT: SharedSetup = SharedSetup {
+        name: "TypedSetup",
+        services: ["Gamma", "Delta"],
+        files: [
+            (
+                "client/setups/TypedSetup.ts",
+                "@Setup\nexport default class TypedSetup {\n  static configured = 0;\n  static configure(): object { TypedSetup.configured += 1; return {}; }\n}",
+            ),
+            (
+                "client/services/GammaService.ts",
+                "@Service\nexport default class GammaService {\n  size: number = 0;\n  async open(signal: AbortSignal): Promise<unknown[]> { return [TypedSetup, await Behaviors.create(TypedSetup, {partition: 'Gamma', signal})]; }\n}",
+            ),
+            (
+                "client/services/DeltaService.ts",
+                "@Service\nexport default class DeltaService {\n  size: number = 0;\n  async open(signal: AbortSignal): Promise<unknown[]> { return [TypedSetup, await Behaviors.create(TypedSetup, {partition: 'Delta', signal})]; }\n}",
+            ),
+        ],
+    };
+
+    fn project(root: &Path, languages: &[&SharedSetup]) {
         Self::write(
             root,
             "client/manifest.json",
             "{\"tac\":{\"visibility\":{\"check\":false},\"duplication\":{\"check\":false}}}",
         );
         Self::write(root, "client/pages/tac.html", "<size-panel />");
+        let reads = languages
+            .iter()
+            .flat_map(|language| language.services)
+            .map(|service| format!("{{{}.size}}", service.to_ascii_lowercase()))
+            .collect::<Vec<_>>();
         Self::write(
             root,
             "client/components/size/panel/tac.html",
-            "<p>{alpha.size} {beta.size} {gamma.size} {delta.size}</p>",
+            &format!("<p>{}</p>", reads.join(" ")),
         );
-        Self::write(
-            root,
-            "client/setups/ScriptSetup.js",
-            "@Setup\nexport default class ScriptSetup {\n  static configured = 0;\n  static configure() { ScriptSetup.configured += 1; return {}; }\n}",
-        );
-        Self::write(
-            root,
-            "client/setups/TypedSetup.ts",
-            "@Setup\nexport default class TypedSetup {\n  static configured = 0;\n  static configure(): object { TypedSetup.configured += 1; return {}; }\n}",
-        );
-        for name in ["Alpha", "Beta"] {
-            Self::write(
-                root,
-                &format!("client/services/{name}Service.js"),
-                &format!(
-                    "@Service\nexport default class {name}Service {{\n  size = 0;\n  async open(signal) {{ return [ScriptSetup, await Behaviors.create(ScriptSetup, {{partition: '{name}', signal}})]; }}\n}}"
-                ),
-            );
-        }
-        for name in ["Gamma", "Delta"] {
-            Self::write(
-                root,
-                &format!("client/services/{name}Service.ts"),
-                &format!(
-                    "@Service\nexport default class {name}Service {{\n  size: number = 0;\n  async open(signal: AbortSignal): Promise<unknown[]> {{ return [TypedSetup, await Behaviors.create(TypedSetup, {{partition: '{name}', signal}})]; }}\n}}"
-                ),
-            );
+        for (path, source) in languages.iter().flat_map(|language| language.files) {
+            Self::write(root, path, source);
         }
     }
 
-    async fn invoke(root: &Path) {
+    fn language(extension: &str) -> &'static SharedSetup {
+        match extension {
+            "js" => &Self::JAVASCRIPT,
+            "ts" => &Self::TYPESCRIPT,
+            _ => panic!("no shared setup uses .{extension}"),
+        }
+    }
+
+    async fn built(languages: &[&SharedSetup]) -> tempfile::TempDir {
+        let root = tempfile::tempdir().expect("project");
+        Self::project(root.path(), languages);
+        WebCompiler::build_async(root.path(), &BuildOptions::default())
+            .await
+            .expect("bundle with two services that open one setup");
+        root
+    }
+
+    fn built_module(root: &Path, service: &str) -> String {
+        let path = root.join(format!("dist/.tachyon/services/{service}Service.js"));
+        std::fs::read_to_string(path).expect("service module")
+    }
+
+    async fn assert_shared(root: &Path, language: &SharedSetup) {
+        let declared = format!("class {}", language.name);
+        let [first, second] = language.services;
+        let first = Self::built_module(root, first);
+        let second = Self::built_module(root, second);
+        assert!(!first.contains(&declared), "{first}");
+        assert!(!second.contains(&declared), "{second}");
+        let runtime = std::fs::read_to_string(root.join("dist/.tachyon/behavior-runtime.js"))
+            .expect("runtime");
+        assert_eq!(runtime.matches(&format!("export {declared}")).count(), 1);
+        Self::invoke(root, language).await;
+    }
+
+    async fn invoke(root: &Path, language: &SharedSetup) {
         Self::write(root, "dist/package.json", "{\"type\":\"module\"}");
         let mut command = crate::node_driver::NodeDriver::async_command();
         command
-            .args([
-                "--input-type=module",
-                "--eval",
-                r"import assert from 'node:assert/strict';
-const signal = new AbortController().signal;
-const opened = [];
-for (const name of ['Alpha', 'Beta', 'Gamma', 'Delta']) {
-  const {default: Service} = await import(`./.tachyon/services/${name}Service.js`);
-  opened.push(await new Service().open(signal));
-}
-const runtime = await import('./.tachyon/behavior-runtime.js');
-assert.equal(opened[0][0], opened[1][0]);
-assert.equal(opened[0][0], runtime.ScriptSetup);
-assert.equal(opened[2][0], opened[3][0]);
-assert.equal(opened[2][0], runtime.TypedSetup);
-assert.equal(runtime.ScriptSetup.configured, 1);
-assert.equal(runtime.TypedSetup.configured, 1);
-assert.notEqual(opened[0][1], opened[1][1]);
-console.log('one-setup-for-two-services-passed');",
-            ])
+            .args(["--input-type=module", "--eval", &Self::driver(language)])
             .current_dir(root.join("dist"));
         let output = crate::node_driver::NodeDriver::run_within(
             &mut command,
@@ -186,5 +226,25 @@ console.log('one-setup-for-two-services-passed');",
             String::from_utf8_lossy(&output.stdout).trim(),
             "one-setup-for-two-services-passed"
         );
+    }
+
+    fn driver(language: &SharedSetup) -> String {
+        let [first, second] = language.services;
+        let setup = language.name;
+        format!(
+            "import assert from 'node:assert/strict';
+const signal = new AbortController().signal;
+const opened = [];
+for (const name of ['{first}', '{second}']) {{
+  const {{default: Service}} = await import(`./.tachyon/services/${{name}}Service.js`);
+  opened.push(await new Service().open(signal));
+}}
+const runtime = await import('./.tachyon/behavior-runtime.js');
+assert.equal(opened[0][0], opened[1][0]);
+assert.equal(opened[0][0], runtime.{setup});
+assert.equal(runtime.{setup}.configured, 1);
+assert.notEqual(opened[0][1], opened[1][1]);
+console.log('one-setup-for-two-services-passed');"
+        )
     }
 }

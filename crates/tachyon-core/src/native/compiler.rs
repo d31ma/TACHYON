@@ -912,6 +912,21 @@ mod tests {
     }
 
     #[test]
+    fn a_typescript_service_reaches_every_native_target_as_the_page_script() {
+        assert_reach(&["ts"], [Reach::WebView; 5]);
+        let root = service_files(&["ts"]);
+        let registry = ServiceRegistry::discover(root.path())
+            .expect("registry")
+            .for_target(Some(NativeTarget::Ios));
+        let service = registry.get("tally").expect("tally");
+        assert_eq!(
+            service.module_url().as_deref(),
+            Some("/.tachyon/services/TallyService.js")
+        );
+        assert!(!service.linked());
+    }
+
+    #[test]
     fn csharp_links_on_windows_and_is_webassembly_everywhere_else() {
         let csharp = Reach::Linked(NativeCompanion::CSharp);
         let web = Reach::WebView;
