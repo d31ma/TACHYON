@@ -25,4 +25,6 @@ runs, not of the source — the same build runs either way.
 
 An invalid or half-declared policy fails as TY2010 before a
 handler runs, rather than falling back to something weaker than
-what was asked for.
+what was asked for. Firecracker is also refused with TY2010 on
+Windows, and for an application that uses a gateway: gateways
+need the warm or process backend.

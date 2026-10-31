@@ -4,7 +4,8 @@
 class [[Service]] CounterService {
 public:
     int count = 0;
-    std::string theme = "light";
+    [[SessionState]] int visits = 0;
+    [[LocalState]] std::string theme = "light";
 
     void increment() { count += 1; }
 };

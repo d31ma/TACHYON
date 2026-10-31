@@ -1,6 +1,6 @@
 BasketService.js, .ts, .dart  web, and every native target
-BasketService.rs               linked on macos, windows, linux;
-                               WebAssembly everywhere else
+BasketService.rs               linked on macos, ios, android, windows, linux;
+                               WebAssembly on the web
 BasketService.swift            linked on macos, ios;
                                WebAssembly everywhere else
 BasketService.kt               linked on android; WebAssembly everywhere else
@@ -11,7 +11,7 @@ BasketService.java             WebAssembly on every target
 BasketService.rb               WebAssembly on every target
 BasketService.lua              WebAssembly on every target
 BasketService.hpp              WebAssembly on every target
-BasketService.py               WebAssembly in web builds only
+BasketService.py               Pyodide (WebAssembly) on every target
 
 A service may declare several. A browser script answers the web; when
 more than one native language reaches the target being built, the
@@ -19,5 +19,4 @@ platform's own language wins over Rust, and only the winner is
 compiled. When no language of the service links on the target, the
 build uses its browser script, or failing that the first of its Rust,
 Go, C#, F#, Swift, C++, Kotlin, Java, Ruby, Lua and Python files, as
-WebAssembly. So every service reaches every target, except that a
-Python service builds only for the web.
+WebAssembly. So every service reaches every target.

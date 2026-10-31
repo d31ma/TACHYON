@@ -123,3 +123,11 @@ file.
   handlers, WebAssembly and other web services, the project-root middleware
   and test units. The statement above that the framework adds the realm's
   models files "to every program it builds" holds for those programs.
+
+## Amendment (2026-10-31): Java and Python models in client/models
+
+This amendment replaces "Only `server/models/` may hold `.java`, `.py` and
+`.php` files, because those are Yon-only languages" in the Decision. Java
+and Python are Tac service languages too (ADR 0083, ADR 0093), so
+`client/models/` may hold `.java` and `.py` files. PHP stays Yon-only,
+so only `server/models/` may hold `.php` files.

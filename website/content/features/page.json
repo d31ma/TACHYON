@@ -33,6 +33,7 @@
     { "include": "relays/feature.json" },
     { "include": "gateways/feature.json" },
     { "include": "middleware/feature.json" },
+    { "include": "error-handlers/feature.json" },
     { "include": "openapi/feature.json" },
     { "include": "realtime/feature.json" },
     { "include": "sockets/feature.json" },

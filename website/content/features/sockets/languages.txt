@@ -65,12 +65,14 @@ and a method that calls send is a page task.
 
 Limits: messages are JSON text of at most 64 KiB, at most 32
 sockets are open at once, five idle minutes or one hour close a
-socket, and only pages from the same origin may open it. A
+socket, and only pages from the same origin, or from an origin
+listed in server.origins in server/application.json, may open it. A
 socket path has no {variables}; send the value in a message.
 
 What the browser gets when a rule is broken:
 
-  403   the page comes from another origin
+  403   the page comes from another origin that server.origins
+        does not list
   426   a plain HTTP request asks for the socket path
   503   32 sockets are already open; try again later
   1007  the message is not JSON, or does not fit the model

@@ -3,6 +3,10 @@
 CounterService = {
   ---@type integer
   count = 0,
+  -- @SessionState
+  ---@type integer
+  visits = 0,
+  -- @LocalState
   ---@type string
   theme = "light",
 }

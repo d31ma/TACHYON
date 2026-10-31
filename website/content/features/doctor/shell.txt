@@ -14,9 +14,11 @@ ready     Ruby services on the web       tachyon-ruby.wasm                      
 ready     Lua services on the web        tachyon-lua.wasm                       built in ~/Library/Caches/Tachyon/lua-web/aaeadbda…/tachyon-lua.wasm
 ready     Lua services on the web        lua                                    Lua 5.4.9  Copyright (C) 1994-2026 Lua.org, PUC-Rio
 ready     Dart browser services          dart                                   Dart SDK version: 3.13.1 (stable) on "macos_arm64"
+ready     C++ services on the web        emcc                                   emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 6.0.10 (d6c521a7…)
+ready     C++ test units                 clang++                                Apple clang version 21.0.0 (clang-2100.4.1.1)
 missing   Yon JavaScript runtime 'node'  node                                   not on PATH
         Install Node.js or Bun, or correct YON_JAVASCRIPT_RUNTIME.
 
-13 of 15 ready
+15 of 17 ready
 $ echo $?
 1

@@ -495,3 +495,11 @@ TY1405.
   provider it names. The unit tests of `native/fsharp_service_needs.rs`
   check the namespace order, the type abbreviations, the member table and
   the refusals.
+
+## Amendment (2026-10-31): an F# test unit answers the browser APIs
+
+This amendment replaces "An F# test unit cannot use the browser APIs yet,
+like a C# test unit" in the Decision. An F# test unit answers the browser
+APIs with the browser fakes of its TestSetup, as the other Tac languages do
+(`client_tests/web_fake_tests.rs`,
+`an_fsharp_unit_answers_the_browser_apis_with_browser_fakes`).

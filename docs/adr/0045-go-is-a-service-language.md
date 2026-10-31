@@ -429,3 +429,21 @@ its asset table, so a Go page did not open offline.
   fails on that note.
 - After the change the Go fixture reloaded offline in Chromium, and its
   services ran from the cache.
+
+## Amendment (2026-10-31): release Go modules, publishing and streams
+
+This amendment records three changes that the earlier text still describes
+in their old form.
+
+- It replaces "TinyGo could make modules smaller later; it is not used now"
+  in Consequences. A release build compiles the Go services with TinyGo when
+  TinyGo 0.42 or newer is installed and can build them, and uses the standard
+  Go compiler otherwise (ADR 0081). `ty doctor` lists TinyGo as an optional
+  tool.
+- It replaces the signature in Web Service Notes. The publisher method is
+  `PublishEvent(value any, retain bool)`. The value is a model, and its type
+  names the event, as in the other languages (`native/prelude.go`).
+- It replaces "A Go route does not stream" in Final Notes. A Go method marked
+  `@StreamRoute` streams: it returns `iter.Seq[Model]`, or
+  `iter.Seq2[Model, error]` when the stream can fail
+  (`yon/go_stream_result.rs`).

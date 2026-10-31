@@ -1,0 +1,362 @@
+{
+  "id": "error-handlers",
+  "title": "Error handlers",
+  "group": "Yon server",
+  "summary": "An error handler turns a typed error into a public answer, in one place for every route, as Spring's `@ControllerAdvice` does (ADR 0051). Put `ErrorHandler` on a class in `server/controllers/` whose name ends with `ErrorHandler`, and `HandlesError` on each method that answers an error. `HandlesError` takes no argument: the type of the method's first parameter says which error it handles, and an optional second parameter receives the request in the language's own type. An error type lives in `server/errors/` and has no annotation. `ResponseStatus` sets a status from 400 to 599, and 500 when it is left out. Tachyon checks the answer against its model, and OPTIONS and `/api.json` list each handled error with its status and shape. The nearest type wins: a handler for a subclass runs before a handler for its base class. Go matches with `errors.As`, so a wrapped error matches too, and Rust matches the error type of the controller method's `Result`. Two methods that handle the same error type stop the build, and so do the Spring names `ControllerAdvice` and `ExceptionHandler`. An error that no method handles, or an error thrown inside a handler, keeps the fixed 500 answer; the one exception is the error of a `Check` parameter, which Yon answers with 422 and the broken rules (ADR 0101). Nothing from the error reaches the client unless the handler returns it. The order is the controller, then the error handler, then middleware `after`. Error handlers are Yon only, and every Yon language has them. `ty add feature error-handlers` adds a JavaScript or TypeScript example with its tests.",
+  "files": [
+    {
+      "name": "server/errors/OrderNotFound.js",
+      "code": {
+        "file": "../../docs/yon/error-handlers-in-every-yon-language/server/errors/OrderNotFound.js"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersErrorHandler.js",
+      "code": {
+        "file": "../../docs/yon/error-handlers-in-every-yon-language/server/controllers/OrdersErrorHandler.js"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.js",
+      "code": {
+        "file": "../../docs/yon/error-handlers-in-every-yon-language/server/controllers/OrdersController.js"
+      }
+    },
+    {
+      "name": "server/errors/OrderNotFound.ts",
+      "code": {
+        "file": "../../docs/yon/error-handlers-in-every-yon-language/server/errors/OrderNotFound.ts"
+      }
+    },
+    {
+      "name": "server/models/Problem.ts",
+      "code": {
+        "file": "../../docs/yon/error-handlers-in-every-yon-language/server/models/Problem.ts"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersErrorHandler.ts",
+      "code": {
+        "file": "../../docs/yon/error-handlers-in-every-yon-language/server/controllers/OrdersErrorHandler.ts"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.ts",
+      "code": {
+        "file": "../../docs/yon/error-handlers-in-every-yon-language/server/controllers/OrdersController.ts"
+      }
+    },
+    {
+      "name": "server/errors/OrderNotFound.py",
+      "code": {
+        "file": "../../docs/yon/error-handlers-in-every-yon-language/server/errors/OrderNotFound.py"
+      }
+    },
+    {
+      "name": "server/models/Problem.py",
+      "code": {
+        "file": "../../docs/yon/error-handlers-in-every-yon-language/server/models/Problem.py"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersErrorHandler.py",
+      "code": {
+        "file": "../../docs/yon/error-handlers-in-every-yon-language/server/controllers/OrdersErrorHandler.py"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.py",
+      "code": {
+        "file": "../../docs/yon/error-handlers-in-every-yon-language/server/controllers/OrdersController.py"
+      }
+    },
+    {
+      "name": "server/errors/OrderNotFound.php",
+      "code": {
+        "file": "../../docs/yon/error-handlers-in-every-yon-language/server/errors/OrderNotFound.php"
+      }
+    },
+    {
+      "name": "server/models/Problem.php",
+      "code": {
+        "file": "../../docs/yon/error-handlers-in-every-yon-language/server/models/Problem.php"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersErrorHandler.php",
+      "code": {
+        "file": "../../docs/yon/error-handlers-in-every-yon-language/server/controllers/OrdersErrorHandler.php"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.php",
+      "code": {
+        "file": "../../docs/yon/error-handlers-in-every-yon-language/server/controllers/OrdersController.php"
+      }
+    },
+    {
+      "name": "server/errors/OrderNotFound.java",
+      "code": {
+        "file": "../../docs/yon/error-handlers-in-every-yon-language/server/errors/OrderNotFound.java"
+      }
+    },
+    {
+      "name": "server/errors/OrderNotFound.groovy",
+      "code": {
+        "file": "../../docs/yon/error-handlers-in-every-yon-language/server/errors/OrderNotFound.groovy"
+      }
+    },
+    {
+      "name": "server/models/Problem.java",
+      "code": {
+        "file": "../../docs/yon/error-handlers-in-every-yon-language/server/models/Problem.java"
+      }
+    },
+    {
+      "name": "server/models/Problem.groovy",
+      "code": {
+        "file": "../../docs/yon/error-handlers-in-every-yon-language/server/models/Problem.groovy"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersErrorHandler.java",
+      "code": {
+        "file": "../../docs/yon/error-handlers-in-every-yon-language/server/controllers/OrdersErrorHandler.java"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersErrorHandler.groovy",
+      "code": {
+        "file": "../../docs/yon/error-handlers-in-every-yon-language/server/controllers/OrdersErrorHandler.groovy"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.java",
+      "code": {
+        "file": "../../docs/yon/error-handlers-in-every-yon-language/server/controllers/OrdersController.java"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.groovy",
+      "code": {
+        "file": "../../docs/yon/error-handlers-in-every-yon-language/server/controllers/OrdersController.groovy"
+      }
+    },
+    {
+      "name": "server/errors/OrderNotFound.kt",
+      "code": {
+        "file": "../../docs/yon/error-handlers-in-every-yon-language/server/errors/OrderNotFound.kt"
+      }
+    },
+    {
+      "name": "server/models/Problem.kt",
+      "code": {
+        "file": "../../docs/yon/error-handlers-in-every-yon-language/server/models/Problem.kt"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersErrorHandler.kt",
+      "code": {
+        "file": "../../docs/yon/error-handlers-in-every-yon-language/server/controllers/OrdersErrorHandler.kt"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.kt",
+      "code": {
+        "file": "../../docs/yon/error-handlers-in-every-yon-language/server/controllers/OrdersController.kt"
+      }
+    },
+    {
+      "name": "server/errors/OrderNotFound.cs",
+      "code": {
+        "file": "../../docs/yon/error-handlers-in-every-yon-language/server/errors/OrderNotFound.cs"
+      }
+    },
+    {
+      "name": "server/errors/OrderNotFound.fs",
+      "code": {
+        "file": "../../docs/yon/error-handlers-in-every-yon-language/server/errors/OrderNotFound.fs"
+      }
+    },
+    {
+      "name": "server/models/Problem.cs",
+      "code": {
+        "file": "../../docs/yon/error-handlers-in-every-yon-language/server/models/Problem.cs"
+      }
+    },
+    {
+      "name": "server/models/Problem.fs",
+      "code": {
+        "file": "../../docs/yon/error-handlers-in-every-yon-language/server/models/Problem.fs"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersErrorHandler.cs",
+      "code": {
+        "file": "../../docs/yon/error-handlers-in-every-yon-language/server/controllers/OrdersErrorHandler.cs"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersErrorHandler.fs",
+      "code": {
+        "file": "../../docs/yon/error-handlers-in-every-yon-language/server/controllers/OrdersErrorHandler.fs"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.cs",
+      "code": {
+        "file": "../../docs/yon/error-handlers-in-every-yon-language/server/controllers/OrdersController.cs"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.fs",
+      "code": {
+        "file": "../../docs/yon/error-handlers-in-every-yon-language/server/controllers/OrdersController.fs"
+      }
+    },
+    {
+      "name": "server/errors/OrderNotFound.rs",
+      "code": {
+        "file": "../../docs/yon/error-handlers-in-every-yon-language/server/errors/OrderNotFound.rs"
+      }
+    },
+    {
+      "name": "server/models/Problem.rs",
+      "code": {
+        "file": "../../docs/yon/error-handlers-in-every-yon-language/server/models/Problem.rs"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersErrorHandler.rs",
+      "code": {
+        "file": "../../docs/yon/error-handlers-in-every-yon-language/server/controllers/OrdersErrorHandler.rs"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.rs",
+      "code": {
+        "file": "../../docs/yon/error-handlers-in-every-yon-language/server/controllers/OrdersController.rs"
+      }
+    },
+    {
+      "name": "server/errors/OrderNotFound.go",
+      "code": {
+        "file": "../../docs/yon/error-handlers-in-every-yon-language/server/errors/OrderNotFound.go"
+      }
+    },
+    {
+      "name": "server/models/Problem.go",
+      "code": {
+        "file": "../../docs/yon/error-handlers-in-every-yon-language/server/models/Problem.go"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersErrorHandler.go",
+      "code": {
+        "file": "../../docs/yon/error-handlers-in-every-yon-language/server/controllers/OrdersErrorHandler.go"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.go",
+      "code": {
+        "file": "../../docs/yon/error-handlers-in-every-yon-language/server/controllers/OrdersController.go"
+      }
+    },
+    {
+      "name": "server/errors/OrderNotFound.dart",
+      "code": {
+        "file": "../../docs/yon/error-handlers-in-every-yon-language/server/errors/OrderNotFound.dart"
+      }
+    },
+    {
+      "name": "server/models/Problem.dart",
+      "code": {
+        "file": "../../docs/yon/error-handlers-in-every-yon-language/server/models/Problem.dart"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersErrorHandler.dart",
+      "code": {
+        "file": "../../docs/yon/error-handlers-in-every-yon-language/server/controllers/OrdersErrorHandler.dart"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.dart",
+      "code": {
+        "file": "../../docs/yon/error-handlers-in-every-yon-language/server/controllers/OrdersController.dart"
+      }
+    },
+    {
+      "name": "server/errors/OrderNotFound.rb",
+      "code": {
+        "file": "../../docs/yon/error-handlers-in-every-yon-language/server/errors/OrderNotFound.rb"
+      }
+    },
+    {
+      "name": "server/models/Problem.rb",
+      "code": {
+        "file": "../../docs/yon/error-handlers-in-every-yon-language/server/models/Problem.rb"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersErrorHandler.rb",
+      "code": {
+        "file": "../../docs/yon/error-handlers-in-every-yon-language/server/controllers/OrdersErrorHandler.rb"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.rb",
+      "code": {
+        "file": "../../docs/yon/error-handlers-in-every-yon-language/server/controllers/OrdersController.rb"
+      }
+    },
+    {
+      "name": "server/models/Problem.lua",
+      "code": {
+        "file": "../../docs/yon/error-handlers-in-every-yon-language/server/models/Problem.lua"
+      }
+    },
+    {
+      "name": "server/errors/OrderNotFound.lua",
+      "code": {
+        "file": "../../docs/yon/error-handlers-in-every-yon-language/server/errors/OrderNotFound.lua"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.lua",
+      "code": {
+        "file": "../../docs/yon/error-handlers-in-every-yon-language/server/controllers/OrdersController.lua"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersErrorHandler.lua",
+      "code": {
+        "file": "../../docs/yon/error-handlers-in-every-yon-language/server/controllers/OrdersErrorHandler.lua"
+      }
+    },
+    {
+      "name": "server/errors/OrderNotFound.hpp",
+      "code": {
+        "file": "../../docs/yon/error-handlers-in-every-yon-language/server/errors/OrderNotFound.hpp"
+      }
+    },
+    {
+      "name": "server/models/Problem.hpp",
+      "code": {
+        "file": "../../docs/yon/error-handlers-in-every-yon-language/server/models/Problem.hpp"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersErrorHandler.hpp",
+      "code": {
+        "file": "../../docs/yon/error-handlers-in-every-yon-language/server/controllers/OrdersErrorHandler.hpp"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.hpp",
+      "code": {
+        "file": "../../docs/yon/error-handlers-in-every-yon-language/server/controllers/OrdersController.hpp"
+      }
+    }
+  ]
+}

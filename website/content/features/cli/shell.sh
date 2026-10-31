@@ -8,8 +8,12 @@ ty preview --host shop.localhost
 ty bundle
 ty bundle --target macos,ios
 ty bundle --native --target macos
+ty bundle --target android --release
+ty bundle --target ios --device
+ty bundle --target windows --arch arm64
 ty start
 ty doctor
+ty doctor --release
 ty test
 ty test --coverage
 ty types

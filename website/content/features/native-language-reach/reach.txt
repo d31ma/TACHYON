@@ -4,7 +4,7 @@ client/services/BasketService.dart   the web platform, on every target
 client/services/BasketService.swift  Foundation, AppKit, UIKit
 client/services/BasketService.kt     the Android SDK
 client/services/BasketService.cs     the .NET base class library, on Windows
-client/services/BasketService.rs     the Rust standard library, on three desktops
+client/services/BasketService.rs     the Rust standard library, on every native target
 client/services/BasketService.go     no platform: WebAssembly, on every target
 
 Where no host links it, a Rust, C#, Swift or Kotlin service is
