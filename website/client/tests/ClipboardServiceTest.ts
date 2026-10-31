@@ -25,13 +25,25 @@ export default class ClipboardServiceTest {
     Assert.equals(1, renders(), 'and renders once')
   }
 
-  async testABlockedClipboardSuggestsTheShortcut() {
+  async blockedCopyLabel(platform: string, userAgent: string): Promise<string> {
+    Object.defineProperty(navigator, 'platform', { value: platform, configurable: true })
+    Object.defineProperty(navigator, 'userAgent', { value: userAgent, configurable: true })
     const clipboard = new ClipboardService()
     this.mounted(clipboard)
     this.clipboard(async () => { throw Error('denied') })
     await clipboard.copy(null, '01', 'ty preview')
     clipboard.dispose()
-    Assert.equals('Press ⌘C', clipboard.label('01'))
+    return clipboard.label('01')
+  }
+
+  async testABlockedClipboardSuggestsTheMacShortcutOnApplePlatforms() {
+    Assert.equals('Press ⌘C', await this.blockedCopyLabel('MacIntel', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)'), 'a Mac')
+    Assert.equals('Press ⌘C', await this.blockedCopyLabel('iPhone', 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)'), 'an iPhone')
+  }
+
+  async testABlockedClipboardSuggestsCtrlCElsewhere() {
+    Assert.equals('Press Ctrl+C', await this.blockedCopyLabel('Win32', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'), 'Windows')
+    Assert.equals('Press Ctrl+C', await this.blockedCopyLabel('Linux x86_64', 'Mozilla/5.0 (X11; Linux x86_64)'), 'Linux')
   }
 
   async testCopyDoesNothingOnceUnmounted() {

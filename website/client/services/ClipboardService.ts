@@ -38,7 +38,16 @@ export default class ClipboardService {
   }
 
   private labelAfterWriting(text: string): Promise<string> {
-    return navigator.clipboard.writeText(text).then(() => 'Copied', () => 'Press ⌘C')
+    return navigator.clipboard.writeText(text).then(() => 'Copied', () => `Press ${this.copyShortcut()}`)
+  }
+
+  private copyShortcut(): string {
+    if (this.onApplePlatform()) return '⌘C'
+    return 'Ctrl+C'
+  }
+
+  private onApplePlatform(): boolean {
+    return /Mac|iPhone|iPad|iPod/.test(`${navigator.platform} ${navigator.userAgent}`)
   }
 
   private async renderWhileMounted(): Promise<void> {

@@ -8,6 +8,20 @@ font-size: var(--step-sm);
 scroll-margin-top: 5rem;
 }
 
+.skip-link {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 50;
+  min-height: 44px;
+  padding-inline: 1rem;
+  transform: translateY(-200%);
+}
+
+.skip-link:focus {
+  transform: none;
+}
+
 @media (pointer: coarse) {
 .w-btn,
   w-btn > .w-btn,
@@ -20,39 +34,5 @@ min-height: 44px;
 
 /* @tachyon-generated-tailwind:start */
 /*! tailwindcss v4.3.3 | MIT License | https://tailwindcss.com */
-@layer utilities {
-  .sr-only {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-    border-width: 0;
-  }
-  .focus\:not-sr-only:focus {
-    position: static;
-    width: auto;
-    height: auto;
-    padding: 0;
-    margin: 0;
-    overflow: visible;
-    clip-path: none;
-    white-space: normal;
-  }
-  .focus\:absolute:focus {
-    position: absolute;
-  }
-  .focus\:top-2:focus {
-    top: calc(var(--spacing, 0.25rem) * 2);
-  }
-  .focus\:left-2:focus {
-    left: calc(var(--spacing, 0.25rem) * 2);
-  }
-  .focus\:z-50:focus {
-    z-index: 50;
-  }
-}
+@layer utilities;
 /* @tachyon-generated-tailwind:end */
