@@ -3,8 +3,10 @@
 use std::path::Path;
 
 #[test]
-#[ignore = "requires installed Kotlin/JVM; supervised native Test runner"]
 fn kotlin_document_title_tests_capture_typed_fakes_per_construction() {
+    if !crate::required_toolchain::RequiredToolchain::answers("kotlinc", "-version") {
+        return;
+    }
     let root = tempfile::tempdir().expect("project");
     let files = [
         (

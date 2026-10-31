@@ -68,7 +68,9 @@ impl GroovyMemberCheck {
 }
 
 #[tokio::test]
-#[ignore = "requires Groovy/JDK SDKs; explicit runtime qualification"]
 async fn groovy_bare_service_calls_are_recorded_by_runtime() {
+    if !crate::required_toolchain::RequiredToolchain::answers("groovyc", "--version") {
+        return;
+    }
     GroovyMemberCheck::run().await;
 }

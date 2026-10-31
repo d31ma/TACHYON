@@ -3,8 +3,10 @@
 use std::path::Path;
 
 #[test]
-#[ignore = "requires the installed JDK; validates per-construction typed publisher/preference Test fakes"]
 fn java_injected_publisher_tests_preserve_retention_and_independent_fake_owners() {
+    if !crate::required_toolchain::RequiredToolchain::answers("javac", "-version") {
+        return;
+    }
     let root = tempfile::tempdir().expect("project");
     let files = [
         (
@@ -80,8 +82,10 @@ class ChoiceServiceTest {
 }
 
 #[test]
-#[ignore = "requires the installed JDK; executes the actual website PlatformChoice Java Test with its model and typed fakes"]
 fn website_platform_choice_java_test_preserves_raw_storage_and_retained_events() {
+    if !crate::required_toolchain::RequiredToolchain::answers("javac", "-version") {
+        return;
+    }
     let project = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../website");
     let report = super::run(
         &project,

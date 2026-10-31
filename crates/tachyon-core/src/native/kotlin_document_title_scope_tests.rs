@@ -55,7 +55,7 @@ fun main() {
         )
         .expect("program");
         Self::execute(
-            Command::new("kotlinc")
+            crate::kotlin_home::KotlinHome::command("kotlinc")
                 .arg(source)
                 .arg("-include-runtime")
                 .arg("-d")
@@ -77,7 +77,9 @@ fun main() {
 }
 
 #[test]
-#[ignore = "requires installed Kotlin/JVM; actual captured provider scope"]
 fn kotlin_document_title_scope_retires_once_and_checks_unicode_byte_bounds() {
+    if !crate::required_toolchain::RequiredToolchain::answers("kotlinc", "-version") {
+        return;
+    }
     assert!(DocumentTitleScopeFixture::run().contains("document-title-scope-qualified"));
 }

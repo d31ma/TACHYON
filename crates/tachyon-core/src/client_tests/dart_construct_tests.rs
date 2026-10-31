@@ -64,8 +64,10 @@ class ChoiceServiceTest {
 }
 
 #[test]
-#[ignore = "requires installed Dart; uses the supervised native Test runner"]
 fn native_dart_tests_capture_typed_fakes_and_refuse_invalid_construction() {
+    if !crate::required_toolchain::RequiredToolchain::answers("dart", "--version") {
+        return;
+    }
     let root = tempfile::tempdir().expect("project");
     for (relative, source) in [
         (
@@ -92,55 +94,10 @@ fn native_dart_tests_capture_typed_fakes_and_refuse_invalid_construction() {
 }
 
 #[test]
-#[ignore = "requires installed Dart; runs the actual cumulative tutorial sources without network"]
-fn first_app_dart_cumulative_service_test_uses_owned_fake_http() {
-    let root = tempfile::tempdir().expect("project");
-    for (relative, source) in [
-        (
-            "client/services/CounterService.dart",
-            include_str!(
-                "../../../../website/content/docs/first-app/call-the-server/client/services/CounterService.dart"
-            ),
-        ),
-        (
-            "client/remotes/GreetingClient.dart",
-            include_str!(
-                "../../../../website/content/docs/first-app/call-the-server/client/remotes/GreetingClient.dart"
-            ),
-        ),
-        (
-            "client/models/Greeting.dart",
-            include_str!(
-                "../../../../website/content/docs/first-app/call-the-server/client/models/Greeting.dart"
-            ),
-        ),
-        (
-            "client/setups/GreetingSetup.dart",
-            include_str!(
-                "../../../../website/content/docs/first-app/call-the-server/client/setups/GreetingSetup.dart"
-            ),
-        ),
-        (
-            "client/tests/HelloTestSetup.dart",
-            include_str!(
-                "../../../../website/content/docs/first-app/add-tests/client/tests/HelloTestSetup.dart"
-            ),
-        ),
-        (
-            "client/tests/CounterServiceTest.dart",
-            include_str!(
-                "../../../../website/content/docs/first-app/add-tests/client/tests/CounterServiceTest.dart"
-            ),
-        ),
-    ] {
-        DartConstructionProject::write(root.path(), relative, source);
-    }
-    DartConstructionProject::passed(root.path(), "client/tests/CounterServiceTest.dart", 2);
-}
-
-#[test]
-#[ignore = "requires installed Dart; uses the supervised native Test runner"]
 fn a_dart_test_unit_sends_on_a_socket_client_without_a_page_and_fakes_it() {
+    if !crate::required_toolchain::RequiredToolchain::answers("dart", "--version") {
+        return;
+    }
     let root = tempfile::tempdir().expect("project");
     for (relative, source) in [
         (

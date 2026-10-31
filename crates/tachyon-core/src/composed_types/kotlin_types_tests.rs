@@ -284,9 +284,10 @@ fn kotlin_other_realms_roles_and_entry_folders_leave_existing_script_java_output
 }
 
 #[test]
-#[ignore = "requires an explicitly selected TypeScript compiler"]
 fn kotlin_composed_facades_typecheck_real_consumer_contracts() {
-    let executable = std::env::var_os("TAC_TSC").expect("TAC_TSC identifies installed tsc");
+    let Some(executable) = crate::required_toolchain::RequiredToolchain::typescript() else {
+        return;
+    };
     let root = tempfile::tempdir().expect("project");
     Fixtures::panel(root.path());
     Fixtures::generated(root.path());

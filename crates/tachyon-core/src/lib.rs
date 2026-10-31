@@ -44,6 +44,8 @@ mod probe_memory;
 mod program_probe;
 mod project;
 mod python_parameters;
+#[cfg(test)]
+mod required_toolchain;
 mod route_types;
 mod routing;
 mod ruby_source;

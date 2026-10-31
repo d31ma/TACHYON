@@ -665,9 +665,8 @@ fn usable(program: &str) -> bool {
     if available(program) {
         return true;
     }
-    let required = cfg!(unix) && std::env::var_os("CI").is_some();
     assert!(
-        !required,
+        std::env::var_os("CI").is_none(),
         "{program} is required for the gateway tests in CI"
     );
     eprintln!("skipping: {program} is unavailable");

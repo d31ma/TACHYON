@@ -67,13 +67,17 @@ impl DotnetHelperUnits {
 }
 
 #[test]
-#[ignore = "requires installed .NET; runs a C# service whose [Needs] field names a Delegate"]
 fn a_csharp_test_unit_gives_each_service_its_own_needed_helper() {
+    if !crate::required_toolchain::RequiredToolchain::answers("dotnet", "--version") {
+        return;
+    }
     DotnetHelperUnits::passes(&DotnetHelperUnits::CSHARP);
 }
 
 #[test]
-#[ignore = "requires installed .NET; runs an F# service whose [<Needs>] property names a Delegate"]
 fn an_fsharp_test_unit_gives_each_service_its_own_needed_helper() {
+    if !crate::required_toolchain::RequiredToolchain::answers("dotnet", "--version") {
+        return;
+    }
     DotnetHelperUnits::passes(&DotnetHelperUnits::FSHARP);
 }

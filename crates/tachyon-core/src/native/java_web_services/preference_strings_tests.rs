@@ -18,6 +18,10 @@ impl PreferenceFixture {
     static String value;
     static void emit(String payload) {}
     static void pause(double milliseconds) {}
+    static void httpStart(int ticket, String text) {}
+    static void httpCancel(int ticket) {}
+    static void socket(int ticket, String owner, String text) {}
+    static void taskDone(int task, String text) {}
     static String storage(String payload) { return "{\"value\":null}"; }
     static String web(String payload) {
         calls++;
@@ -56,6 +60,21 @@ impl PreferenceFixture {
     }
 }
 "#;
+
+    const TEAVM: [(&'static str, &'static str); 3] = [
+        (
+            "org/teavm/interop/AsyncCallback.java",
+            "package org.teavm.interop;\npublic interface AsyncCallback<T> {\n    void complete(T result);\n    void error(Throwable failure);\n}\n",
+        ),
+        (
+            "org/teavm/interop/Async.java",
+            "package org.teavm.interop;\npublic @interface Async {}\n",
+        ),
+        (
+            "org/teavm/runtime/Fiber.java",
+            "package org.teavm.runtime;\npublic final class Fiber {\n    public interface Runner {\n        void run() throws Exception;\n    }\n    public static void start(Runner runner, boolean daemon) {}\n}\n",
+        ),
+    ];
 
     fn prepared(root: &Path) -> (JavaService, super::java_value_type::JavaValueType) {
         Self::prepared_source(root, Self::SOURCE)
@@ -113,6 +132,11 @@ impl PreferenceFixture {
         let models = JavaModels::read(root, source).expect("models");
         files.extend(models.sources(&values).expect("model codecs"));
         files.extend(JavaWebApis::clients(Path::new("tachyon"), source));
+        files.extend(
+            Self::TEAVM
+                .iter()
+                .map(|(relative, text)| (std::path::PathBuf::from(relative), String::from(*text))),
+        );
         files.extend([
             (
                 std::path::PathBuf::from("ChoiceService.java"),
@@ -199,8 +223,10 @@ fn an_existing_java_no_argument_factory_keeps_unrelated_constructor_overloads() 
 }
 
 #[test]
-#[ignore = "requires the installed JDK; validates generated Java activation ownership with a typed fake host"]
 fn disposed_java_preference_providers_cannot_call_the_host_or_follow_new_activations() {
+    if !crate::required_toolchain::RequiredToolchain::answers("javac", "-version") {
+        return;
+    }
     let root = tempfile::tempdir().expect("project");
     let files = PreferenceFixture::staged(root.path());
     let classes = root.path().join("classes");
@@ -251,8 +277,10 @@ fn private_final_publisher_and_preference_fields_have_ordered_browser_factories(
 }
 
 #[test]
-#[ignore = "requires the installed JDK; validates captured Java publisher ownership and retained model envelopes"]
 fn a_java_injected_publisher_cannot_publish_through_another_activation() {
+    if !crate::required_toolchain::RequiredToolchain::answers("javac", "-version") {
+        return;
+    }
     let root = tempfile::tempdir().expect("project");
     let model = root.path().join("client/models/PlatformChanged.java");
     std::fs::create_dir_all(model.parent().expect("model parent")).expect("models");

@@ -3,8 +3,10 @@
 use std::path::Path;
 
 #[test]
-#[ignore = "requires the installed JDK; uses the supervised native Test runner"]
 fn java_preference_strings_use_per_construction_typed_fakes_without_browser_access() {
+    if !crate::required_toolchain::RequiredToolchain::answers("javac", "-version") {
+        return;
+    }
     let root = tempfile::tempdir().expect("project");
     let files = [
         (

@@ -89,8 +89,10 @@ public sealed class CallerOwnedDelegateTest
 }
 
 #[test]
-#[ignore = "requires installed .NET; runs genuine caller-owned C# Delegates through native Test assembly"]
 fn csharp_tac_helpers_compile_as_explicit_context_and_service_collaborators() {
+    if !crate::required_toolchain::RequiredToolchain::answers("dotnet", "--version") {
+        return;
+    }
     let root = tempfile::tempdir().expect("C# Delegate project");
     for (relative, source) in [
         (

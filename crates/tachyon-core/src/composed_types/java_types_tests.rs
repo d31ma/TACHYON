@@ -261,10 +261,10 @@ fn java_metadata_never_follows_linked_source_files_or_folders() {
 }
 
 #[test]
-#[ignore = "requires an explicitly selected TypeScript compiler"]
 fn java_composed_facades_typecheck_consumers_and_reject_wrong_arguments_and_private_providers() {
-    let executable =
-        std::env::var_os("TAC_TSC").expect("TAC_TSC must identify the installed tsc executable");
+    let Some(executable) = crate::required_toolchain::RequiredToolchain::typescript() else {
+        return;
+    };
     let root = tempfile::tempdir().expect("project");
     Fixtures::write(
         root.path(),
