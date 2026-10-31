@@ -288,16 +288,35 @@ fn managed_native_csharp_needs_and_needs_all_capture_providers() {
     }
 }
 
-#[test]
-fn managed_native_kotlin_needs_and_needs_all_capture_providers() {
-    if !ManagedCapabilityCheck::available("kotlinc", "-version")
-        || !ManagedCapabilityCheck::available("java", "-version")
-    {
+fn kotlin_tools_are_available() -> bool {
+    let available = ManagedCapabilityCheck::available("kotlinc", "-version")
+        && ManagedCapabilityCheck::available("java", "-version");
+    if !available {
         eprintln!("skipping: Kotlin JVM tools are unavailable");
+    }
+    available
+}
+
+#[test]
+fn managed_native_kotlin_needs_capture_providers() {
+    if !kotlin_tools_are_available() {
         return;
     }
-    for explicit in [false, true] {
-        assert!(ManagedCapabilityCheck::kotlin(explicit).contains("PASS managed capabilities"));
+    assert!(ManagedCapabilityCheck::kotlin(false).contains("PASS managed capabilities"));
+}
+
+#[test]
+fn managed_native_kotlin_needs_all_capture_providers() {
+    if !kotlin_tools_are_available() {
+        return;
+    }
+    assert!(ManagedCapabilityCheck::kotlin(true).contains("PASS managed capabilities"));
+}
+
+#[test]
+fn managed_native_kotlin_capture_providers_reach_the_android_companion() {
+    if !kotlin_tools_are_available() {
+        return;
     }
     ManagedCapabilityCheck::android_companion();
 }
