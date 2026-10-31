@@ -56,20 +56,38 @@ impl Language {
         found
     }
 
-    async fn run_every_section(&self) {
+    async fn run_access_section(&self) {
         if !self.available() {
             return;
         }
         let (_access, server) = Section::ACCESS.serve(self).await;
         Section::check_access(&server, self).await;
         server.stop().await;
+    }
+
+    async fn run_transaction_section(&self) {
+        if !self.available() {
+            return;
+        }
         let (_ledger, server) = Section::TRANSACTIONS.serve(self).await;
         Section::check_transaction(&server, self).await;
         server.stop().await;
+    }
+
+    async fn run_named_section(&self) {
+        if !self.available() {
+            return;
+        }
         let (_products, server) = Section::NAMED.serve(self).await;
         Section::check_named(&server, self).await;
         server.stop().await;
         Section::NAMED.refuse_an_unknown_name(self);
+    }
+
+    async fn run_delegate_section(&self) {
+        if !self.available() {
+            return;
+        }
         let (_taxes, server) = Section::DELEGATES.serve(self).await;
         Section::check_delegate(&server, self).await;
         server.stop().await;
@@ -397,77 +415,50 @@ impl Server {
     }
 }
 
-#[tokio::test]
-async fn javascript_runs_its_published_yon_sections() {
-    Language::JAVASCRIPT.run_every_section().await;
+macro_rules! published_section_tests {
+    ($($module:ident => $language:ident),+ $(,)?) => {
+        $(
+            mod $module {
+                use super::Language;
+
+                #[tokio::test]
+                async fn access() {
+                    Language::$language.run_access_section().await;
+                }
+
+                #[tokio::test]
+                async fn transactions() {
+                    Language::$language.run_transaction_section().await;
+                }
+
+                #[tokio::test]
+                async fn named() {
+                    Language::$language.run_named_section().await;
+                }
+
+                #[tokio::test]
+                async fn delegates() {
+                    Language::$language.run_delegate_section().await;
+                }
+            }
+        )+
+    };
 }
 
-#[tokio::test]
-async fn typescript_runs_its_published_yon_sections() {
-    Language::TYPESCRIPT.run_every_section().await;
-}
-
-#[tokio::test]
-async fn python_runs_its_published_yon_sections() {
-    Language::PYTHON.run_every_section().await;
-}
-
-#[tokio::test]
-async fn php_runs_its_published_yon_sections() {
-    Language::PHP.run_every_section().await;
-}
-
-#[tokio::test]
-async fn java_runs_its_published_yon_sections() {
-    Language::JAVA.run_every_section().await;
-}
-
-#[tokio::test]
-async fn groovy_runs_its_published_yon_sections() {
-    Language::GROOVY.run_every_section().await;
-}
-
-#[tokio::test]
-async fn kotlin_runs_its_published_yon_sections() {
-    Language::KOTLIN.run_every_section().await;
-}
-
-#[tokio::test]
-async fn csharp_runs_its_published_yon_sections() {
-    Language::CSHARP.run_every_section().await;
-}
-
-#[tokio::test]
-async fn fsharp_runs_its_published_yon_sections() {
-    Language::FSHARP.run_every_section().await;
-}
-
-#[tokio::test]
-async fn rust_runs_its_published_yon_sections() {
-    Language::RUST.run_every_section().await;
-}
-
-#[tokio::test]
-async fn dart_runs_its_published_yon_sections() {
-    Language::DART.run_every_section().await;
-}
-
-#[tokio::test]
-async fn go_runs_its_published_yon_sections() {
-    Language::GO.run_every_section().await;
-}
-
-#[tokio::test]
-async fn ruby_runs_its_published_yon_sections() {
-    Language::RUBY.run_every_section().await;
-}
-
-#[tokio::test]
-async fn lua_runs_its_published_yon_sections() {
-    Language::LUA.run_every_section().await;
-}
-
-#[tokio::test]
-async fn cpp_runs_its_published_yon_sections() {
-    Language::CPP.run_every_section().await;
-}
+published_section_tests!(
+    javascript_runs_its_published_yon_sections => JAVASCRIPT,
+    typescript_runs_its_published_yon_sections => TYPESCRIPT,
+    python_runs_its_published_yon_sections => PYTHON,
+    php_runs_its_published_yon_sections => PHP,
+    java_runs_its_published_yon_sections => JAVA,
+    groovy_runs_its_published_yon_sections => GROOVY,
+    kotlin_runs_its_published_yon_sections => KOTLIN,
+    csharp_runs_its_published_yon_sections => CSHARP,
+    fsharp_runs_its_published_yon_sections => FSHARP,
+    rust_runs_its_published_yon_sections => RUST,
+    dart_runs_its_published_yon_sections => DART,
+    go_runs_its_published_yon_sections => GO,
+    ruby_runs_its_published_yon_sections => RUBY,
+    lua_runs_its_published_yon_sections => LUA,
+    cpp_runs_its_published_yon_sections => CPP,
+);
