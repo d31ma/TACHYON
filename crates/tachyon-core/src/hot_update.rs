@@ -196,8 +196,16 @@ impl SourceChanges {
 #[cfg(test)]
 mod tests {
     use super::{SourceAction, SourceChanges};
+    use crate::one_test_per_case_tests::one_test_per_case;
     use notify::{Event, EventKind};
     use std::path::Path;
+
+    struct ReloadingBrowserLanguages;
+
+    impl ReloadingBrowserLanguages {
+        const EXTENSIONS: [&'static str; 8] =
+            ["py", "java", "rb", "go", "fs", "dart", "lua", "hpp"];
+    }
 
     fn action(paths: &[&str]) -> SourceAction {
         changes(paths).action()
@@ -312,4 +320,27 @@ mod tests {
         ]);
         assert!(changes.is_empty());
     }
+
+    fn a_browser_service_change_reloads_the_page_in(extension: &str) {
+        let path = format!("client/services/BasketService.{extension}");
+        let changed = changes(&[path.as_str()]);
+        assert_eq!(changed.paths(), vec![path]);
+        assert_eq!(changed.action(), SourceAction::Reload);
+    }
+
+    one_test_per_case!(
+        a_browser_service_change_reloads_the_page,
+        a_browser_service_change_reloads_the_page_in,
+        all ReloadingBrowserLanguages::EXTENSIONS,
+        [
+            python => "py",
+            java => "java",
+            ruby => "rb",
+            go => "go",
+            fsharp => "fs",
+            dart => "dart",
+            lua => "lua",
+            cpp => "hpp",
+        ]
+    );
 }
