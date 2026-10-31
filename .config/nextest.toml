@@ -22,6 +22,8 @@ test-group = 'serial'
 [[profile.default.overrides]]
 filter = 'binary(it) & test(/^relay_boundaries::/)'
 test-group = 'serial'
+# These run one at a time for about 200 s on an M4, so they start first instead of ending the run.
+priority = 90
 retries = 2
 
 [[profile.default.overrides]]
@@ -53,3 +55,8 @@ slow-timeout = { period = "60s", terminate-after = 15 }
 filter = 'test(pinned_python_tac_services_async_models_and_offline_reload_use_the_real_compiler)'
 slow-timeout = { period = "60s", terminate-after = 16 }
 
+
+# The longest tests start first, so none of them starts late and runs alone at the end of the run.
+[[profile.default.overrides]]
+filter = 'test(three_supervised_servers_remain_healthy_for_sixty_seconds) | test(/_test_settings_profiles_fresh_start_and_inputs_run_in_every_language::(kotlin|fsharp|csharp)$/) | test(/^phase[45]_cli::/) | test(/^executed_coverage::a_method_a_case_only_names_fails_coverage_and_a_called_method_passes::/) | test(fylo_scroll_pages_past_ten_thousand_documents_with_a_cursor) | test(two_linked_kotlin_services_share_one_setup_configuration) | test(every_generated_combination_passes_its_tests_with_coverage_and_builds)'
+priority = 80
