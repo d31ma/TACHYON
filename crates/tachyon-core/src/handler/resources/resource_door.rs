@@ -10,12 +10,10 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::Semaphore;
 
-pub(in crate::handler) type DoorRoutes = Arc<Mutex<HashMap<[u8; 32], SocketAddr>>>;
-
 #[derive(Debug)]
 pub(in crate::handler) struct ResourceDoor {
     address: SocketAddr,
-    routes: DoorRoutes,
+    routes: Arc<Mutex<HashMap<[u8; 32], SocketAddr>>>,
 }
 
 impl ResourceDoor {
@@ -29,6 +27,8 @@ impl ResourceDoor {
     const BEARER: &'static str = "Bearer ";
     const UNKNOWN: &'static [u8] =
         b"HTTP/1.1 401 Unauthorized\r\nConnection: close\r\nContent-Length: 0\r\n\r\n";
+    const BUSY: &'static [u8] =
+        b"HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\nContent-Length: 0\r\n\r\n";
 
     pub(in crate::handler) async fn open() -> Result<Arc<Self>, Failure> {
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0))
@@ -37,7 +37,7 @@ impl ResourceDoor {
         let address = listener
             .local_addr()
             .map_err(|error| Self::unavailable(&error))?;
-        let routes = DoorRoutes::default();
+        let routes = Arc::default();
         tokio::spawn(Self::accept(listener, Arc::clone(&routes)));
         Ok(Arc::new(Self { address, routes }))
     }
@@ -62,7 +62,7 @@ impl ResourceDoor {
         Sha256::digest(token.as_bytes()).into()
     }
 
-    async fn accept(listener: TcpListener, routes: DoorRoutes) {
+    async fn accept(listener: TcpListener, routes: Arc<Mutex<HashMap<[u8; 32], SocketAddr>>>) {
         let slots = Arc::new(Semaphore::new(Self::MAX_CONNECTIONS));
         loop {
             let Ok((stream, _)) = listener.accept().await else {
@@ -70,6 +70,7 @@ impl ResourceDoor {
                 continue;
             };
             let Ok(slot) = Arc::clone(&slots).try_acquire_owned() else {
+                tokio::spawn(Self::refuse_busy(stream));
                 continue;
             };
             let routes = Arc::clone(&routes);
@@ -80,7 +81,10 @@ impl ResourceDoor {
         }
     }
 
-    async fn serve(mut client: TcpStream, routes: &DoorRoutes) -> std::io::Result<()> {
+    async fn serve(
+        mut client: TcpStream,
+        routes: &Mutex<HashMap<[u8; 32], SocketAddr>>,
+    ) -> std::io::Result<()> {
         let head = tokio::time::timeout(Self::HEAD_TIMEOUT, Self::read_head(&mut client))
             .await
             .ok()
@@ -94,8 +98,11 @@ impl ResourceDoor {
         };
         let mut upstream = TcpStream::connect(target).await?;
         upstream.write_all(&head).await?;
-        tokio::io::copy_bidirectional(&mut client, &mut upstream).await?;
-        Ok(())
+        crate::handler::EgressPump::exchange(&mut client, &mut upstream).await
+    }
+
+    async fn refuse_busy(mut client: TcpStream) {
+        let _written = client.write_all(Self::BUSY).await;
     }
 
     async fn read_head(client: &mut TcpStream) -> Option<Vec<u8>> {
@@ -130,7 +137,7 @@ impl ResourceDoor {
             .strip_prefix(Self::BEARER)
     }
 
-    fn target(routes: &DoorRoutes, token: &str) -> Option<SocketAddr> {
+    fn target(routes: &Mutex<HashMap<[u8; 32], SocketAddr>>, token: &str) -> Option<SocketAddr> {
         let routes = routes.lock().ok()?;
         routes.get(&Self::key(token)).copied()
     }

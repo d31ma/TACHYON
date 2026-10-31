@@ -206,6 +206,7 @@ fn only_public_addresses_count_as_public() {
         "2001::1",
         "2001:db8::1",
         "::10.0.0.1",
+        "::ffff:0:a9fe:a9fe",
         "100::1",
         "ff02::1",
     ] {
@@ -395,7 +396,7 @@ fn the_seatbelt_profile_allows_only_the_listed_loopback_ports() {
     let profile = super::SeatbeltProfile::text(&[4100, 4200]);
     assert_eq!(
         profile,
-        "(version 1)(allow default)(deny network*)(allow network-outbound (remote ip \"localhost:4100\"))(allow network-outbound (remote ip \"localhost:4200\"))"
+        "(version 1)(allow default)(deny network*)(deny appleevent-send)(deny mach-lookup (global-name \"com.apple.coreservices.launchservicesd\") (global-name \"com.apple.nsurlsessiond\") (global-name-prefix \"com.apple.lsd.\"))(allow network-outbound (remote ip \"localhost:4100\"))(allow network-outbound (remote ip \"localhost:4200\"))"
     );
 }
 
@@ -430,16 +431,22 @@ async fn a_confined_command_keeps_its_environment_and_directory() {
 
 #[cfg(any(target_os = "macos", target_os = "linux"))]
 #[tokio::test]
-async fn a_confined_command_that_does_not_exist_is_never_started() {
+async fn a_program_that_is_not_on_the_path_is_still_confined() {
     let Ok(confinement) = EgressConfinement::prepare(EgressEnforcement::Os, true, &[1, 2]).await
     else {
         return;
     };
-    let mut command = tokio::process::Command::new("tachyon-no-such-program");
-    command.env_clear().env("PATH", "/usr/bin:/bin");
+    let mut command = tokio::process::Command::new("tachyon-local-program");
+    command.env_clear().env("PATH", "");
     confinement.apply(&mut command);
-    let error = command.spawn().expect_err("missing program");
-    assert_eq!(error.kind(), std::io::ErrorKind::NotFound);
+    let wrapped = command.as_std();
+    assert_ne!(wrapped.get_program(), "tachyon-local-program");
+    assert!(
+        wrapped
+            .get_args()
+            .any(|argument| argument == "tachyon-local-program"),
+        "{wrapped:?}"
+    );
 }
 
 async fn connected_pair(listener: &TcpListener) -> (TcpStream, TcpStream) {

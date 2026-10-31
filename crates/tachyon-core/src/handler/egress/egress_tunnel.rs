@@ -15,6 +15,8 @@ impl EgressTunnel {
     const ESTABLISHED: &'static [u8] = b"HTTP/1.1 200 Connection Established\r\n\r\n";
     const BAD_REQUEST: &'static str =
         "HTTP/1.1 400 Bad Request\r\nConnection: close\r\nContent-Length: 0\r\n\r\n";
+    const BUSY: &'static [u8] =
+        b"HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\nContent-Length: 0\r\n\r\n";
     const UNREACHABLE: &'static str =
         "HTTP/1.1 502 Bad Gateway\r\nConnection: close\r\nContent-Length: 0\r\n\r\n";
 
@@ -22,6 +24,10 @@ impl EgressTunnel {
         let head = tokio::time::timeout(Self::HEAD_TIMEOUT, Self::read_head(&mut client)).await;
         let target = Self::target(head.ok().flatten());
         let _ = Self::relay(client, target, &hosts).await;
+    }
+
+    pub(super) async fn refuse_busy(mut client: TcpStream) {
+        let _written = client.write_all(Self::BUSY).await;
     }
 
     async fn read_head(client: &mut TcpStream) -> Option<(String, Vec<u8>)> {

@@ -15,9 +15,14 @@ impl SocketFilter {
     const TCP: u64 = libc::IPPROTO_TCP as u64;
     const ANY_PROTOCOL: u64 = 0;
     const X32_BIT: i64 = 0x4000_0000;
+    const X32_SEND_MESSAGE: i64 = 518;
+    const X32_SEND_MESSAGES: i64 = 538;
     const NET_FAMILIES: [u64; 2] = [libc::AF_INET as u64, libc::AF_INET6 as u64];
     const LOCAL_FAMILY: u64 = libc::AF_NETLINK as u64;
     const REFUSED: u32 = libc::EACCES as u32;
+    const FAST_OPEN: u64 = libc::MSG_FASTOPEN as u64;
+    const SEND_TO_FLAGS: u8 = 3;
+    const SEND_MESSAGE_FLAGS: u8 = 2;
 
     pub(super) fn program() -> Result<BpfProgram, String> {
         let arch =
@@ -40,10 +45,34 @@ impl SocketFilter {
         let mut rules = BTreeMap::from([
             (libc::SYS_socket, Self::socket_rules()?),
             (libc::SYS_io_uring_setup, Vec::new()),
+            (
+                libc::SYS_sendto,
+                Self::fast_open_rules(Self::SEND_TO_FLAGS)?,
+            ),
+            (
+                libc::SYS_sendmsg,
+                Self::fast_open_rules(Self::SEND_MESSAGE_FLAGS)?,
+            ),
+            (
+                libc::SYS_sendmmsg,
+                Self::fast_open_rules(Self::SEND_TO_FLAGS)?,
+            ),
         ]);
         if cfg!(target_arch = "x86_64") {
             rules.insert(libc::SYS_socket | Self::X32_BIT, Vec::new());
             rules.insert(libc::SYS_io_uring_setup | Self::X32_BIT, Vec::new());
+            rules.insert(
+                libc::SYS_sendto | Self::X32_BIT,
+                Self::fast_open_rules(Self::SEND_TO_FLAGS)?,
+            );
+            rules.insert(
+                Self::X32_SEND_MESSAGE | Self::X32_BIT,
+                Self::fast_open_rules(Self::SEND_MESSAGE_FLAGS)?,
+            );
+            rules.insert(
+                Self::X32_SEND_MESSAGES | Self::X32_BIT,
+                Self::fast_open_rules(Self::SEND_TO_FLAGS)?,
+            );
         }
         Ok(rules)
     }
@@ -68,6 +97,14 @@ impl SocketFilter {
             ])?);
         }
         Ok(rules)
+    }
+
+    fn fast_open_rules(flags: u8) -> Result<Vec<SeccompRule>, String> {
+        Ok(vec![Self::rule(vec![Self::condition(
+            flags,
+            SeccompCmpOp::MaskedEq(Self::FAST_OPEN),
+            Self::FAST_OPEN,
+        )?])?])
     }
 
     fn rule(conditions: Vec<SeccompCondition>) -> Result<SeccompRule, String> {

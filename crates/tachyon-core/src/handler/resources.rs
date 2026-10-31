@@ -6,7 +6,6 @@ mod resource_request;
 
 use door_route::DoorRoute;
 pub(super) use piped_resources::PipedResources;
-use resource_door::DoorRoutes;
 pub(super) use resource_door::ResourceDoor;
 
 use super::gateway::GatewayCalls;

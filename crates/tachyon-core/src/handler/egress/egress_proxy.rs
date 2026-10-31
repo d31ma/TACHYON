@@ -66,6 +66,7 @@ impl EgressProxy {
             match listener.accept().await {
                 Ok((stream, _)) => {
                     let Ok(slot) = Arc::clone(&slots).try_acquire_owned() else {
+                        tokio::spawn(EgressTunnel::refuse_busy(stream));
                         continue;
                     };
                     let hosts = Arc::clone(&hosts);

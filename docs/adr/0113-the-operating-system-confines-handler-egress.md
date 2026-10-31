@@ -10,8 +10,8 @@
 
 ## Context
 
-A server started by `ty serve`, `ty start` or `ty preview` runs an outgoing
-request guard: a loopback HTTP proxy that lets a handler reach only the hosts
+A server that runs handlers, started by `ty serve`, `ty start` or
+`ty preview`, runs an outgoing request guard: a loopback HTTP proxy that lets a handler reach only the hosts
 in `outgoing.hosts` (ADR 0068). Until now the guard was advisory. Tachyon set
 the proxy variables, and a handler that honoured them went through the guard.
 A handler that did not reached the network directly:
@@ -62,8 +62,8 @@ process knows both ports when it starts.
 
 | Platform | Mechanism | What it enforces |
 | --- | --- | --- |
-| macOS | Seatbelt: the child starts through `/usr/bin/sandbox-exec` with a generated profile | `(allow default)`, `(deny network*)`, then outbound TCP to `localhost:<guard>` and `localhost:<resource>` only. Inherited by every child process. |
-| Linux | Landlock (ABI 4 or newer, Linux 6.7+) plus a seccomp filter, applied by `ty` itself just before it starts the handler (below) | Landlock allows TCP `connect` only to the two ports and refuses every TCP `bind`. seccomp refuses `socket` for every family except IPv4 and IPv6 TCP sockets and netlink, and refuses `io_uring_setup`, so UDP, ICMP, raw, packet, SCTP and Unix sockets cannot be opened. Both are inherited across `fork` and `exec` and set `no_new_privs`. |
+| macOS | Seatbelt: the child starts through `/usr/bin/sandbox-exec` with a generated profile | `(allow default)`, `(deny network*)`, then outbound connections to `localhost:<guard>` and `localhost:<resource>` only. It also denies Apple Events and the LaunchServices and background URL session services, which could open a connection on the handler's behalf. Inherited by every child process. |
+| Linux | Landlock (ABI 4 or newer, Linux 6.7+) plus a seccomp filter, applied by `ty` itself just before it starts the handler (below) | Landlock allows TCP `connect` only to the two ports and refuses every TCP `bind`. seccomp refuses `socket` for every family except IPv4 and IPv6 TCP sockets and netlink, so UDP, ICMP, raw, packet, SCTP and Unix sockets cannot be opened. It also refuses `io_uring_setup`, and any send with `MSG_FASTOPEN`, because TCP Fast Open connects without the `connect` call that Landlock checks. Both are inherited across `fork` and `exec` and set `no_new_privs`. |
 | Windows | None available to an unprivileged process | Fails closed (below). |
 
 The Linux and macOS layers are built once per server, when the guard starts,
@@ -72,9 +72,10 @@ and Gateway commands.
 
 ### Fail closed in production
 
-When the guard is active and the platform layer cannot be applied (no
-`sandbox-exec`, a Linux kernel without Landlock ABI 4, a Landlock or seccomp
-call that fails, or Windows):
+When the guard is active and the server finds at startup that the platform
+layer cannot be applied (no working `sandbox-exec`, a Linux kernel without
+Landlock ABI 4, a seccomp filter that cannot be built, no `ty` program to
+launch handlers with, or Windows):
 
 - `ty start` does not start. It reports `TY2113` with the reason.
 - `ty serve` and `ty preview` start, and log a `handler.egress_unenforced`
@@ -107,8 +108,9 @@ in the platform layer.
   benchmarking `198.18.0.0/15`, IETF protocol assignments `192.0.0.0/24`,
   reserved `240.0.0.0/4`, and multicast. As before, only an IP address listed
   in `outgoing.hosts`, or a localhost name, reaches such an address.
-- It holds at most 256 connections at once and closes a tunnel that has
-  carried nothing for 5 minutes.
+- It holds at most 256 connections at once, answers `503` to the next one,
+  and closes a tunnel that has carried nothing for 5 minutes. The resource
+  door has the same limits.
 - An accept error no longer ends the guard: it is logged once per kind as
   `handler.egress_accept_failed`, and the loop waits 100 ms and goes on
   (SRE-6).
@@ -127,15 +129,23 @@ forbids `unsafe` code, so Tachyon cannot apply them between `fork` and `exec`.
 Instead, a confined handler starts as `ty __yon-egress <guard> <door> --
 <program> <arguments>`. That mode applies Landlock and the seccomp filter to
 itself and then replaces itself with the program (`exec`), so the handler
-keeps the same process, process group and environment. A Tachyon library used
-from another program finds `ty` next to that program.
+keeps the same process, process group and environment. Neither wrapper
+looks the program up itself: `sandbox-exec` and the launcher find it inside
+the confined process, with the handler's own `PATH` and working directory,
+so a program that is not found never runs unconfined. On Linux the launcher
+is the running program when it is `ty`, and otherwise the `ty` in its folder
+or the folder above it (a test binary). If Landlock or seccomp still fails
+when a handler starts, that handler exits with status 126 and a
+`handler.egress_refused` event, under every server kind.
 
 ### Preludes
 
 The PHP prelude sets the default stream context to the guard, so
 `file_get_contents` and `fopen` on `http://` and `https://` go through it. The
 Go prelude already sends `http.DefaultTransport`, `http.DefaultClient` and
-every clone of the default transport through the guard. These keep working
+every clone of the default transport made after startup through the guard; a
+clone made in a package-level variable or `init` keeps the standard proxy
+rule, which skips loopback. These keep working
 clients working. They are not the control: a client that ignores the guard,
 such as a Go transport built from scratch, is refused by the operating system.
 
@@ -162,12 +172,15 @@ such as a Go transport built from scratch, is refused by the operating system.
   TCP to a remote host on the guard's or the resource door's port number.
   Both are random per server; a remote listener on every port still catches
   it. The network-namespace layer closes this.
-- Mach and XPC services on macOS are not restricted. A service that makes
-  network requests for its caller could carry data out.
+- On macOS, Mach and XPC services other than LaunchServices and background
+  URL sessions are not restricted. Another service that makes network
+  requests for its caller could carry data out.
 - On Linux, a Unix socket inherited from the parent is not covered by the
   seccomp `socket` rule. Tachyon passes handlers only their three standard
   streams.
-- On Linux, a 32-bit or x32 program is stopped by the seccomp architecture
-  check rather than confined.
+- On Linux, a 32-bit (i386 or arm32) program is stopped by the seccomp
+  architecture check rather than confined. x32 calls share the x86_64
+  architecture value, so the filter lists the x32 numbers of the calls it
+  refuses.
 - Filesystem, CPU and memory confinement are unchanged (process mode is still
   supervision, not a sandbox for hostile code).

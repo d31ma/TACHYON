@@ -76,7 +76,7 @@ impl EgressConfinement {
             "event": "handler.egress_unenforced",
             "level": "warning",
             "reason": reason,
-            "message": "Handlers can reach the network without the outgoing request guard. ty start refuses to run like this (ADR 0113).",
+            "message": "Handler processes can reach the network without going through the outgoing request guard (ADR 0113).",
         })
     }
 

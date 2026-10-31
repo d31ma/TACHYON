@@ -1,14 +1,16 @@
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpStream;
+use tokio::time::Instant;
 
-pub(super) struct EgressPump;
+pub(crate) struct EgressPump;
 
 impl EgressPump {
     const IDLE: Duration = Duration::from_mins(5);
     const CHUNK: usize = 16 * 1024;
 
-    pub(super) async fn exchange(
+    pub(crate) async fn exchange(
         client: &mut TcpStream,
         upstream: &mut TcpStream,
     ) -> std::io::Result<()> {
@@ -20,41 +22,53 @@ impl EgressPump {
         upstream: &mut TcpStream,
         idle: Duration,
     ) -> std::io::Result<()> {
-        let (mut client_read, mut client_write) = client.split();
-        let (mut upstream_read, mut upstream_write) = upstream.split();
-        let mut outgoing = vec![0_u8; Self::CHUNK];
-        let mut incoming = vec![0_u8; Self::CHUNK];
-        let mut open = [true, true];
-        while open.contains(&true) {
-            let step = async {
-                tokio::select! {
-                    read = client_read.read(&mut outgoing), if open[0] => {
-                        let read = read?;
-                        open[0] = read > 0;
-                        Self::forward(&mut upstream_write, &outgoing[..read]).await
-                    }
-                    read = upstream_read.read(&mut incoming), if open[1] => {
-                        let read = read?;
-                        open[1] = read > 0;
-                        Self::forward(&mut client_write, &incoming[..read]).await
-                    }
-                }
-            };
-            let Ok(result) = tokio::time::timeout(idle, step).await else {
-                return Ok(());
-            };
-            result?;
+        let started = Instant::now();
+        let last_activity = AtomicU64::new(0);
+        let (client_read, client_write) = client.split();
+        let (upstream_read, upstream_write) = upstream.split();
+        let both = async {
+            tokio::try_join!(
+                Self::forward(client_read, upstream_write, started, &last_activity),
+                Self::forward(upstream_read, client_write, started, &last_activity),
+            )
+        };
+        tokio::select! {
+            result = both => result.map(drop),
+            () = Self::idle_watch(started, &last_activity, idle) => Ok(()),
         }
-        Ok(())
     }
 
     async fn forward(
-        writer: &mut (impl AsyncWriteExt + Unpin),
-        bytes: &[u8],
+        mut reader: impl AsyncRead + Unpin,
+        mut writer: impl AsyncWrite + Unpin,
+        started: Instant,
+        last_activity: &AtomicU64,
     ) -> std::io::Result<()> {
-        if bytes.is_empty() {
-            return writer.shutdown().await;
+        let mut chunk = vec![0_u8; Self::CHUNK];
+        loop {
+            let read = reader.read(&mut chunk).await?;
+            Self::mark(started, last_activity);
+            if read == 0 {
+                return writer.shutdown().await;
+            }
+            writer.write_all(&chunk[..read]).await?;
+            Self::mark(started, last_activity);
         }
-        writer.write_all(bytes).await
+    }
+
+    async fn idle_watch(started: Instant, last_activity: &AtomicU64, idle: Duration) {
+        loop {
+            let last = Duration::from_millis(last_activity.load(Ordering::Relaxed));
+            let deadline = started + last + idle;
+            if Instant::now() >= deadline {
+                return;
+            }
+            tokio::time::sleep_until(deadline).await;
+        }
+    }
+
+    fn mark(started: Instant, last_activity: &AtomicU64) {
+        let elapsed = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
+        last_activity.store(elapsed, Ordering::Relaxed);
     }
 }

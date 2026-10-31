@@ -378,17 +378,19 @@ separate cybersecurity review for this reconciliation.
   access except those two `localhost` ports. On Linux `ty __yon-egress`
   applies Landlock (ABI 4, Linux 6.7 or newer: TCP `connect` only to the two
   ports, no TCP `bind`) and a seccomp filter (no socket except IPv4 and IPv6
-  TCP and netlink, no `io_uring`) to itself and then runs the program in its
+  TCP and netlink, no `io_uring`, no TCP Fast Open send) to itself and then runs the program in its
   place. Both are inherited by every child. When the platform layer cannot be
-  applied (Windows, an older Linux kernel, gVisor, no `sandbox-exec`),
+  applied (Windows, an older Linux kernel, gVisor, no working `sandbox-exec`,
+  no `ty` launcher),
   `ty start` refuses to start with `TY2113`, and `ty serve` and `ty preview`
   start with a `handler.egress_unenforced` warning. `YON_EGRESS_ENFORCEMENT=proxy`, an
   environment variable of `ty` only, keeps the advisory guard for a platform
   that enforces egress itself and logs `handler.egress_unenforced`. The
   Firecracker control program is not wrapped: its own policy is deny-only.
   Limits: Landlock filters by port, not address, so code written to attack
-  can reach a remote host on one of the two port numbers; macOS Mach and XPC
-  services are not restricted; `ty handler invoke` runs no guard and no
+  can reach a remote host on one of the two port numbers; on macOS, Mach and
+  XPC services other than LaunchServices, background URL sessions and Apple
+  Events are not restricted; `ty handler invoke` runs no guard and no
   confinement.
 - **Outgoing request guard.** The guard (ADR 0068) checks the target name
   against `outgoing.hosts`, resolves it once and connects to the address it
@@ -404,8 +406,9 @@ separate cybersecurity review for this reconciliation.
   redirect is a new request through the guard, so its host is checked again.
   The address filter also drops NAT64, 6to4, Teredo, IPv4-compatible,
   discard, documentation, benchmarking, IETF protocol, reserved and multicast
-  ranges. The guard serves at most 256 connections, closes a tunnel idle for
-  5 minutes, and keeps accepting after an accept error.
+  ranges. The guard and the resource door each serve at most 256 connections
+  and answer `503` beyond that, close a tunnel idle for 5 minutes, and keep
+  accepting after an accept error.
 - **Gateways (ADR 0042).** A caller reaches another language only through its
   invocation's resource endpoint, with a key that the build declared and
   checked (`TY1312`). A class target runs as a generated unit under
@@ -497,7 +500,9 @@ separate cybersecurity review for this reconciliation.
 Process mode is supervision, not a security sandbox. Application handlers keep
 the ambient filesystem access of the developer account that runs them. Their
 network access is confined to the outgoing guard only while the guard is
-active (ADR 0113). The operating system does not enforce CPU or memory quotas in this mode.
+active, the platform layer applies and `YON_EGRESS_ENFORCEMENT` is not
+`proxy`; otherwise (for example `ty serve` on Windows) they keep the account's
+network access (ADR 0113). The operating system does not enforce CPU or memory quotas in this mode.
 Application dependency imports and process pooling are still out of scope. No
 documentation may suggest that those controls exist.
 

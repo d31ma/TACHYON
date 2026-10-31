@@ -20,6 +20,7 @@ impl EgressAddress {
     const TRANSLATION_PREFIX: [u16; 6] = [0x64, 0xff9b, 0, 0, 0, 0];
     const LOCAL_TRANSLATION_PREFIX: [u16; 3] = [0x64, 0xff9b, 1];
     const DISCARD_PREFIX: [u16; 4] = [0x100, 0, 0, 0];
+    const TRANSLATED_PREFIX: [u16; 6] = [0, 0, 0, 0, 0xffff, 0];
 
     pub(super) async fn candidates(host: &str, port: u16) -> std::io::Result<Vec<SocketAddr>> {
         Self::resolved_unless_fixed(host, port, Self::fixed(host, port)).await
@@ -94,6 +95,7 @@ impl EgressAddress {
             segments[..3] == Self::LOCAL_TRANSLATION_PREFIX,
             segments[..6] == Self::TRANSLATION_PREFIX,
             segments[..6] == [0; 6],
+            segments[..6] == Self::TRANSLATED_PREFIX,
             segments[..4] == Self::DISCARD_PREFIX,
             address.is_multicast(),
             address.is_unique_local(),

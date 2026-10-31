@@ -28,7 +28,7 @@ use egress_confinement::EgressConfinement;
 use egress_enforcement::EgressEnforcement;
 pub use egress_launch::EgressLaunch;
 pub(crate) use egress_proxy::EgressProxy;
-use egress_pump::EgressPump;
+pub(crate) use egress_pump::EgressPump;
 pub(crate) use egress_setup::EgressSetup;
 use egress_target::EgressTarget;
 use egress_tunnel::EgressTunnel;
