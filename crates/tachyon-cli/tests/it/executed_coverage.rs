@@ -243,7 +243,7 @@ struct NamedMethod {
 
 impl NamedMethod {
     const CHECK: &'static str = "CHECK";
-    const CASES: [NamedMethod; 20] = [
+    const CASES: [NamedMethod; 25] = [
         NamedMethod {
             realm: "server",
             extension: "js",
@@ -262,7 +262,7 @@ impl NamedMethod {
             program: "bun",
             method: "total",
             case: "testCounts",
-            service: "@Service\nclass CounterService {\n  total() { return 2; }\n}\n",
+            service: "@Service\nclass CounterService {\n  total(): number { return 2; }\n}\n",
             setup: "@TestSetup\nclass CounterTestSetup {\n  static configure() { return {}; }\n}\n",
             unit: "@Test(CounterTestSetup, {\"partition\":\"tests\"})\nexport default class CounterServiceTest {\n  async testCounts() {\n    Assert.isTrue(CHECK, 'counted');\n  }\n}\n",
             named: "'CounterService.total' !== ''",
@@ -484,6 +484,66 @@ impl NamedMethod {
             named: "\"CounterService.total\".isNotEmpty()",
             called: "CounterService().total() == 2",
         },
+        NamedMethod {
+            realm: "server",
+            extension: "groovy",
+            program: "groovyc",
+            method: "total",
+            case: "testCounts",
+            service: "@Service\nclass CounterService {\n    int total() {\n        return 2\n    }\n}\n",
+            setup: "@TestSetup\nclass CounterTestSetup {\n    static Behaviors.Configuration configure(Behaviors.Execution execution) {\n        return new Behaviors.Configuration([:], [:], [:], null, null)\n    }\n}\n",
+            unit: "@Test(CounterTestSetup.class, {\"partition\":\"tests\"})\nclass CounterServiceTest {\n    void testCounts() {\n        Assert.isTrue(CHECK, 'counted')\n    }\n}\n",
+            named: "!'CounterService.total'.isEmpty()",
+            called: "new CounterService().total() == 2",
+        },
+        NamedMethod {
+            realm: "server",
+            extension: "hpp",
+            program: "clang++",
+            method: "total",
+            case: "testCounts",
+            service: "#pragma once\n\nclass [[Service]] CounterService {\npublic:\n    int total() { return 2; }\n};\n",
+            setup: "#pragma once\n\nclass [[TestSetup]] CounterTestSetup {\npublic:\n    static BehaviorAdapters configure(const BehaviorExecution&) {\n        return BehaviorAdapters();\n    }\n};\n",
+            unit: "#pragma once\n\nclass [[Test(CounterTestSetup, {\"partition\":\"tests\"})]] CounterServiceTest {\npublic:\n    BehaviorContext behaviors;\n\n    void testCounts() {\n        Assert::isTrue(CHECK, \"counted\");\n    }\n};\n",
+            named: "!std::string(\"CounterService.total\").empty()",
+            called: "construct<CounterService>().total() == 2",
+        },
+        NamedMethod {
+            realm: "client",
+            extension: "py",
+            program: "python3",
+            method: "total",
+            case: "test_counts",
+            service: "@service\nclass CounterService:\n    def total(self) -> int:\n        return 2\n",
+            setup: "@TestSetup\nclass CounterTestSetup:\n    @staticmethod\n    def configure(execution: object) -> dict[str, object]:\n        return {}\n",
+            unit: "@Test(CounterTestSetup, {\"partition\":\"tests\"})\nclass CounterServiceTest:\n    def test_counts(self):\n        Assert.is_true(CHECK, 'counted')\n",
+            named: "'CounterService.total' != ''",
+            called: "CounterService().total() == 2",
+        },
+        NamedMethod {
+            realm: "client",
+            extension: "java",
+            program: "javac",
+            method: "total",
+            case: "testCounts",
+            service: "@Service\nclass CounterService {\n    int total() {\n        return 2;\n    }\n}\n",
+            setup: "@TestSetup\nclass CounterTestSetup {\n    static Behaviors.Configuration configure(Behaviors.Execution execution) {\n        return new Behaviors.Configuration(java.util.Map.of(), java.util.Map.of(), java.util.Map.of(), null);\n    }\n}\n",
+            unit: "@Test(CounterTestSetup.class, {\"partition\":\"tests\"})\nclass CounterServiceTest {\n    void testCounts() {\n        Assert.isTrue(CHECK, \"counted\");\n    }\n}\n",
+            named: "!\"CounterService.total\".isEmpty()",
+            called: "construct(CounterService.class).total() == 2",
+        },
+        NamedMethod {
+            realm: "client",
+            extension: "hpp",
+            program: "clang++",
+            method: "total",
+            case: "testCounts",
+            service: "#pragma once\n\nclass [[Service]] CounterService {\npublic:\n    int total() { return 2; }\n};\n",
+            setup: "#pragma once\n\nclass [[TestSetup]] CounterTestSetup {\npublic:\n    static BehaviorAdapters configure() {\n        return BehaviorAdapters();\n    }\n};\n",
+            unit: "#pragma once\n#include \"../services/CounterService.hpp\"\n\nclass [[Test(CounterTestSetup, {\"partition\":\"tests\"})]] CounterServiceTest {\npublic:\n    void testCounts() {\n        Assert::isTrue(CHECK, \"counted\");\n    }\n};\n",
+            named: "!std::string(\"CounterService.total\").empty()",
+            called: "construct<CounterService>().total() == 2",
+        },
     ];
 
     fn project(&self, root: &Path, check: &str) {
@@ -572,6 +632,8 @@ one_test_per_case!(
         server_rust => ("server", "rs"),
         server_go => ("server", "go"),
         server_dart => ("server", "dart"),
+        server_groovy => ("server", "groovy"),
+        server_cpp => ("server", "hpp"),
         client_javascript => ("client", "js"),
         client_typescript => ("client", "ts"),
         client_ruby => ("client", "rb"),
@@ -581,6 +643,9 @@ one_test_per_case!(
         client_go => ("client", "go"),
         client_swift => ("client", "swift"),
         client_kotlin => ("client", "kt"),
+        client_python => ("client", "py"),
+        client_java => ("client", "java"),
+        client_cpp => ("client", "hpp"),
     ]
 );
 

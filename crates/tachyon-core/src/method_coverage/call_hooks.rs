@@ -7,9 +7,10 @@ pub(crate) struct CallHooks;
 impl CallHooks {
     const TEST_FOLDER: &'static str = "tests";
     const GENERATED_FOLDERS: [&'static str; 2] = ["remotes", "clients"];
-    const RECORDED: [(&'static str, &'static str); 28] = [
+    const RECORDED: [(&'static str, &'static str); 29] = [
         ("client", "js"),
         ("client", "ts"),
+        ("client", "py"),
         ("client", "rb"),
         ("client", "dart"),
         ("client", "rs"),
