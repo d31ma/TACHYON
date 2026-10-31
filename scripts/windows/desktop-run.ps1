@@ -1,7 +1,8 @@
 param(
     [Parameter(Mandatory = $true)] [string] $Command,
     [string] $Directory = (Get-Location).Path,
-    [int] $TimeoutMinutes = 40
+    [int] $TimeoutMinutes = 40,
+    [ValidateSet('Limited', 'Highest')] [string] $RunLevel = 'Limited'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -57,7 +58,9 @@ Set-Location -LiteralPath $state.directory
 $code = 1
 try {
     $line = "/d /s /c `"$($state.command) 1>`"$($state.log)`" 2>&1`""
-    $process = Start-Process -FilePath $env:ComSpec -ArgumentList $line -NoNewWindow -Wait -PassThru
+    $process = Start-Process -FilePath $env:ComSpec -ArgumentList $line -NoNewWindow -PassThru
+    $null = $process.Handle
+    $process.WaitForExit()
     $code = $process.ExitCode
 }
 catch { $_ | Out-String | Add-Content -LiteralPath $state.log }
@@ -113,7 +116,7 @@ function Invoke-DesktopRun {
     $name = 'desktop-run-' + [IO.Path]::GetFileName($run).Substring(21)
     $action = New-ScheduledTaskAction -Execute 'powershell.exe' -WorkingDirectory $run -Argument (
         "-NoProfile -ExecutionPolicy Bypass -WindowStyle Minimized -File `"$wrapper`" `"$state`"")
-    $principal = New-ScheduledTaskPrincipal -UserId $user -LogonType Interactive -RunLevel Limited
+    $principal = New-ScheduledTaskPrincipal -UserId $user -LogonType Interactive -RunLevel $RunLevel
     $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
         -ExecutionTimeLimit (New-TimeSpan -Minutes ($TimeoutMinutes + 5)) -MultipleInstances IgnoreNew
     Register-ScheduledTask -TaskPath $folder -TaskName $name -Action $action -Principal $principal `

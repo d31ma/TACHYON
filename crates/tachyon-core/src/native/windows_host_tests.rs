@@ -65,6 +65,21 @@ int main(void) {
     }
 
     fn host(menus: NativeMenuConfig) -> String {
+        let (application, index) = Self::parts(menus);
+        super::windows::c_source(&application, &index, &[])
+    }
+
+    fn release_host(menus: NativeMenuConfig) -> String {
+        let (application, index) = Self::parts(menus);
+        super::windows::c_release_source(&application, &index)
+    }
+
+    fn parts(
+        menus: NativeMenuConfig,
+    ) -> (
+        super::config::NativeApplication,
+        super::routes::NativeRouteIndex,
+    ) {
         let application = super::config::NativeApplication {
             name: String::from("Windows Host Check"),
             executable_name: String::from("WindowsHostCheck"),
@@ -96,7 +111,7 @@ int main(void) {
                 })
                 .collect(),
         };
-        super::windows::c_source(&application, &index, &[])
+        (application, index)
     }
 
     fn section<'s>(source: &'s str, start: &str) -> &'s str {
@@ -320,4 +335,47 @@ async fn windows_application_state_code_compiles_against_the_win32_headers() {
     )
     .await
     .expect("the application state code compiles and links");
+}
+
+#[test]
+fn windows_release_host_turns_webview2_devtools_off_before_the_first_navigation() {
+    let source = WindowsHostTests::release_host(WindowsHostTests::menus());
+    let dev_tools = WindowsHostTests::section(
+        &source,
+        "static void tachyon_dev_tools(ICoreWebView2 *view) {",
+    );
+    assert!(dev_tools.contains("ICoreWebView2Settings_put_AreDevToolsEnabled(settings, FALSE);"));
+    assert!(!source.contains("__DEV_TOOLS__"));
+    let controller = WindowsHostTests::section(
+        &source,
+        "static HRESULT STDMETHODCALLTYPE controller_invoke(",
+    );
+    assert!(
+        controller
+            .find("tachyon_dev_tools(g_webview);")
+            .expect("dev tools")
+            < controller
+                .find("ICoreWebView2Controller_put_IsVisible(controller, TRUE);")
+                .expect("visible")
+    );
+    assert!(!source.contains("ICoreWebView2Settings_put_AreDevToolsEnabled(settings, TRUE);"));
+}
+
+#[test]
+fn windows_development_host_keeps_webview2_devtools_on() {
+    let source = WindowsHostTests::host(WindowsHostTests::menus());
+    let dev_tools = WindowsHostTests::section(
+        &source,
+        "static void tachyon_dev_tools(ICoreWebView2 *view) {",
+    );
+    assert!(dev_tools.contains("ICoreWebView2Settings_put_AreDevToolsEnabled(settings, TRUE);"));
+}
+
+#[test]
+fn windows_host_sets_the_webview2_start_color_before_the_package_data_folder() {
+    let source = WindowsHostTests::host(WindowsHostTests::menus());
+    let main = WindowsHostTests::section(&source, "int WINAPI wWinMain(");
+    assert!(main.contains(
+        "  tachyon_window_background_environment();\n  wchar_t *data_folder = tachyon_package_data_folder();\n  CreateCoreWebView2EnvironmentWithOptions(\n      NULL, data_folder, NULL,"
+    ));
 }

@@ -110,7 +110,7 @@ function Write-NativeFailureDiagnostics($process, $window, [string] $log) {
 function Stop-NativeProcesses($process) {
     if ($null -eq $process) { return }
     $browsers = @(Get-CimInstance Win32_Process -Filter (
-        "ParentProcessId = $($process.Id) AND Name = 'msedgewebview2.exe'") -OperationTimeoutSec 2 |
+        "ParentProcessId = $($process.Id) AND (Name = 'msedgewebview2.exe' OR Name = 'msedge.exe')") -OperationTimeoutSec 2 |
         Select-Object -First 16 |
         ForEach-Object { Get-Process -Id $_.ProcessId -ErrorAction SilentlyContinue })
     $owned = @($process) + $browsers
@@ -132,7 +132,7 @@ function Stop-NativeProcesses($process) {
 function Remove-NativeFixture([string] $fixture) {
     $until = [DateTime]::UtcNow.AddSeconds(5)
     while (Test-Path -LiteralPath $fixture) {
-        try { Remove-Item -LiteralPath $fixture -Recurse -Force; return }
+        try { Remove-Item -LiteralPath ('\\?\' + $fixture) -Recurse -Force; return }
         catch [System.IO.IOException] {
             if ([DateTime]::UtcNow -ge $until) { throw }
             Start-Sleep -Milliseconds 200
@@ -230,6 +230,7 @@ function Test-RenderedControls([string] $app, [string] $log) {
     $script:deadline = [DateTime]::UtcNow.AddSeconds(120)
 
     Expect-Controls @('Root route', 'Root count 0', 'Shared module ready', 'Verify native Root')
+    Assert-DevTools $true
     Invoke-Control 'Verify native Root'
     Expect-Controls @('Root count 7', 'Native Rust 14', 'OS ready', 'Styles ready',
         'Route boundary ready', 'Publish received')
@@ -243,6 +244,54 @@ function Test-RenderedControls([string] $app, [string] $log) {
     Invoke-Control 'Leave app'
     Start-Sleep -Milliseconds 500
     Expect-Controls @('Root route', 'Root count 0', 'Verify native Root')
+}
+
+function Find-DevToolsWindow {
+    $windows = $script:desktop.FindAll([System.Windows.Automation.TreeScope]::Children,
+        [System.Windows.Automation.Condition]::TrueCondition)
+    foreach ($candidate in $windows) {
+        try {
+            $title = $candidate.Current.Name
+            if ($title -like 'DevTools*' -and $title -like '*tachyon.local*') { return $candidate }
+        }
+        catch [System.Windows.Automation.ElementNotAvailableException] { }
+    }
+    return $null
+}
+
+function Assert-DevTools([bool] $enabled) {
+    Add-Type -AssemblyName System.Windows.Forms
+    if (-not ('Tachyon.Foreground' -as [type])) {
+        Add-Type -Namespace Tachyon -Name Foreground -MemberDefinition @'
+[DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr window);
+[DllImport("user32.dll")] public static extern void keybd_event(byte key, byte scan, uint flags, UIntPtr extra);
+'@
+    }
+    if ($null -ne (Find-DevToolsWindow)) { throw 'a DevTools window was already open' }
+    [Tachyon.Foreground]::keybd_event(0x10, 0, 0, [UIntPtr]::Zero)
+    [Tachyon.Foreground]::keybd_event(0x10, 0, 2, [UIntPtr]::Zero)
+    if (-not [Tachyon.Foreground]::SetForegroundWindow([IntPtr]$script:window.Current.NativeWindowHandle)) {
+        throw 'the native window could not be brought to the foreground for the DevTools check'
+    }
+    try { (Find-Control 'Verify native Root').SetFocus() }
+    catch { Write-Host "NOTE: could not focus the page control: $($_.Exception.Message)" }
+    [System.Windows.Forms.SendKeys]::SendWait('{F12}')
+    $devToolsDeadline = [DateTime]::UtcNow.AddSeconds(10)
+    do {
+        $devTools = Find-DevToolsWindow
+        if ($null -ne $devTools) { break }
+        Start-Sleep -Milliseconds 200
+    } while ([DateTime]::UtcNow -lt $devToolsDeadline)
+    if ($enabled -and $null -eq $devTools) { throw 'F12 did not open DevTools in the debug build' }
+    if (-not $enabled -and $null -ne $devTools) { throw "F12 opened DevTools in the release build: $($devTools.Current.Name)" }
+    if ($null -ne $devTools) {
+        $pattern = $null
+        if ($devTools.TryGetCurrentPattern([System.Windows.Automation.WindowPattern]::Pattern, [ref]$pattern)) {
+            ([System.Windows.Automation.WindowPattern]$pattern).Close()
+        }
+    }
+    if ($enabled) { Write-Host 'OK: F12 opens DevTools in the debug build' }
+    else { Write-Host 'OK: F12 does not open DevTools in the release build' }
 }
 
 function Assert-LifecycleEvents([string] $log) {
@@ -311,16 +360,21 @@ function Assert-MsixPackage([string] $package, $certificate) {
     Write-Host 'OK: NativeGate.msix is signed with the gate certificate'
 }
 
+function Skip-InstalledMsix([string] $reason) {
+    if ($env:TAC_WINDOWS_REQUIRE_MSIX -eq '1') { throw "TAC_WINDOWS_REQUIRE_MSIX is set, but $reason" }
+    Write-Host "SKIP: $reason"
+}
+
 function Test-InstalledMsix([string] $package, $certificate, [string] $log) {
     $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
     $interactive = $identity.Groups -contains [Security.Principal.SecurityIdentifier]'S-1-5-4'
     if (-not $interactive -or (Get-Process -Id $PID).SessionId -eq 0) {
-        Write-Host 'SKIP: installing and running the package needs a signed-in desktop session'
+        Skip-InstalledMsix 'installing and running the package needs a signed-in desktop session'
         return
     }
     $principal = [Security.Principal.WindowsPrincipal]$identity
     if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-        Write-Host 'SKIP: installing the package needs an elevated prompt to trust the gate certificate'
+        Skip-InstalledMsix 'installing the package needs an elevated prompt to trust the gate certificate (desktop-run.ps1 -RunLevel Highest)'
         return
     }
     $public = Join-Path $env:TEMP ("tachyon-msix-" + [guid]::NewGuid().ToString('N') + '.cer')
@@ -347,6 +401,7 @@ function Test-InstalledMsix([string] $package, $certificate, [string] $log) {
     $data = Join-Path $env:LOCALAPPDATA "Packages\$($script:installed.PackageFamilyName)\LocalState\WebView2"
     if (-not (Test-Path $data)) { throw "WebView2 data is not in the package folder: $data" }
     Write-Host 'OK: the installed package runs and keeps WebView2 data in its LocalState folder'
+    Assert-DevTools $false
 }
 
 function Remove-MsixGate($certificate, [string] $pfx) {

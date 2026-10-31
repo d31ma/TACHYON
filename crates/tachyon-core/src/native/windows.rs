@@ -64,6 +64,7 @@ impl WindowsHostGenerator {
                 super::development_pages::DevelopmentPages::serving(
                     options.development_origin.as_ref(),
                 ),
+                !options.release,
             ),
         )?;
         if !options.package {
@@ -772,6 +773,21 @@ pub(super) fn c_source(
         index,
         companions,
         super::development_pages::DevelopmentPages::none(),
+        true,
+    )
+}
+
+#[cfg(test)]
+pub(super) fn c_release_source(
+    application: &NativeApplication,
+    index: &NativeRouteIndex,
+) -> String {
+    c_source_serving(
+        application,
+        index,
+        &[],
+        super::development_pages::DevelopmentPages::none(),
+        false,
     )
 }
 
@@ -780,6 +796,7 @@ pub(super) fn c_source_serving(
     index: &NativeRouteIndex,
     companions: &[super::registry::NativeCompanionInput],
     pages: super::development_pages::DevelopmentPages<'_>,
+    dev_tools: bool,
 ) -> String {
     let local_bundle = super::routes::c_local_bundle(index, companions, "https://tachyon.local");
     let service_companions = super::service_companions::ServiceCompanions::c_table(companions);
@@ -810,6 +827,7 @@ pub(super) fn c_source_serving(
             include_str!("windows_application_state.c"),
         )
         .replace("__DEVELOPMENT_PAGES__", &pages.windows())
+        .replace("__DEV_TOOLS__", ["FALSE", "TRUE"][usize::from(dev_tools)])
         .replace(
             "__NATIVE_BROWSER_APIS__",
             &super::windows_browser_apis::WindowsBrowserApis::source(&application.permissions),
@@ -1012,6 +1030,13 @@ static void tachyon_record(const char *event) {
 __APPLICATION_STATE__
 
 __WINDOW_TITLE_BAR__
+
+static void tachyon_dev_tools(ICoreWebView2 *view) {
+  ICoreWebView2Settings *settings = NULL;
+  if (FAILED(ICoreWebView2_get_Settings(view, &settings)) || settings == NULL) return;
+  ICoreWebView2Settings_put_AreDevToolsEnabled(settings, __DEV_TOOLS__);
+  ICoreWebView2Settings_Release(settings);
+}
 
 static void tachyon_companion_emit(const char *payload) {
   HWND window = (HWND)InterlockedCompareExchangePointer(&g_publish_window, NULL, NULL);
@@ -1511,6 +1536,7 @@ static HRESULT STDMETHODCALLTYPE controller_invoke(
   g_controller = controller;
   ICoreWebView2Controller_AddRef(controller);
   ICoreWebView2Controller_get_CoreWebView2(controller, &g_webview);
+  tachyon_dev_tools(g_webview);
   tachyon_title_bar_settings(g_webview);
   tachyon_web_view_background(controller);
   ICoreWebView2Controller_put_IsVisible(controller, TRUE);
