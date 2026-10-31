@@ -124,11 +124,14 @@ async fn connect(settings: Value) -> RedisStore {
 
 async fn run(store: &RedisStore, command: &str, key: &str) -> Result<Value, String> {
     let command = json!({"operation":"redis","command":command,"key":key,"value":{"works":true},"ttlSeconds":30});
-    store.execute(&command).await.map_err(message)
+    store
+        .execute(&command)
+        .await
+        .map_err(|error| message(&error))
 }
 
 /// The diagnostic's message, without its severity and code.
-fn message(error: crate::Failure) -> String {
+fn message(error: &crate::Failure) -> String {
     let text = error.to_string();
     let (_, message) = text.split_once("]: ").expect("diagnostic");
     message.lines().next().unwrap_or_default().to_owned()
@@ -249,7 +252,7 @@ async fn rediss_does_not_fall_back_to_plain_text() {
     let (server, port) = FakeRedis::start().await;
     let refused = RedisStore::connect(&json!({"url":format!("rediss://127.0.0.1:{port}")})).await;
     assert_eq!(
-        refused.err().map(message),
+        refused.err().map(|error| message(&error)),
         Some("Redis connection failed.".to_owned())
     );
     assert!(server.log().is_empty());
@@ -265,7 +268,7 @@ async fn an_unreachable_redis_fails_at_startup() {
         .port();
     let refused = RedisStore::connect(&json!({"url":format!("redis://127.0.0.1:{port}")})).await;
     assert_eq!(
-        refused.err().map(message),
+        refused.err().map(|error| message(&error)),
         Some("Redis connection failed.".to_owned())
     );
 }
@@ -274,7 +277,7 @@ async fn an_unreachable_redis_fails_at_startup() {
 async fn a_database_that_is_not_a_number_is_a_configuration_error() {
     let refused = RedisStore::connect(&json!({"url":"redis://127.0.0.1:6379/cache"})).await;
     assert_eq!(
-        refused.err().map(message),
+        refused.err().map(|error| message(&error)),
         Some("Invalid Redis connection configuration.".to_owned())
     );
 }
