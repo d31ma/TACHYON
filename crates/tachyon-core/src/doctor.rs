@@ -570,6 +570,72 @@ mod tests {
         }
     }
 
+    fn dotnet_web_workload_ready() -> bool {
+        let state = super::KnownToolchains::dotnet_web().state;
+        let ready = state != ToolchainState::Missing;
+        assert!(
+            ready || std::env::var_os("CI").is_none(),
+            "CI must provide the .NET wasm-tools workload"
+        );
+        if !ready {
+            eprintln!("skipping: the .NET wasm-tools workload is unavailable");
+        }
+        ready
+    }
+
+    fn assert_dotnet_web_workload(entry: &Toolchain) {
+        assert_eq!(
+            entry,
+            &Toolchain {
+                requirement: String::from("C# services on the web"),
+                command: String::from("dotnet workload wasm-tools"),
+                state: ToolchainState::Ready(String::from("wasm-tools")),
+                install: String::from("dotnet workload install wasm-tools"),
+                required: true,
+            }
+        );
+    }
+
+    #[test]
+    fn a_csharp_web_service_reports_the_dotnet_wasm_workload() {
+        if !dotnet_web_workload_ready() {
+            return;
+        }
+        let root = project_with(&[(
+            "client/services/BasketService.cs",
+            "[Service]\npublic class BasketService\n{\n    public int Count = 0;\n}\n",
+        )]);
+        let report = check(root.path()).expect("report");
+        assert_eq!(
+            command_names(&report),
+            ["dotnet", "dotnet workload wasm-tools"],
+            "{:?}",
+            report.toolchains
+        );
+        assert_dotnet_web_workload(&report.toolchains[1]);
+        assert!(report.is_ready(), "{:?}", report.toolchains);
+    }
+
+    #[test]
+    fn an_fsharp_web_service_reports_the_dotnet_wasm_workload() {
+        if !dotnet_web_workload_ready() {
+            return;
+        }
+        let root = project_with(&[(
+            "client/services/BasketService.fs",
+            "[<Service>]\ntype BasketService() =\n    member val Count = 0 with get, set\n",
+        )]);
+        let report = check(root.path()).expect("report");
+        assert_eq!(
+            command_names(&report),
+            ["dotnet workload wasm-tools"],
+            "{:?}",
+            report.toolchains
+        );
+        assert_dotnet_web_workload(&report.toolchains[0]);
+        assert!(report.is_ready(), "{:?}", report.toolchains);
+    }
+
     #[test]
     fn a_java_web_service_reports_teavm_and_binaryen() {
         let root = project_with(&[(

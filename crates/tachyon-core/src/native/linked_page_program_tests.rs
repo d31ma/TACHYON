@@ -74,6 +74,9 @@ fun main() {
     const CSHARP_DRIVER: &'static str =
         include_str!("../../tests/fixtures/native-csharp-page-program/PageProgramDriver.cs");
     const CSHARP_PROJECT: &'static str = "<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup><TargetFramework>net9.0</TargetFramework><OutputType>Exe</OutputType><Nullable>disable</Nullable><AllowUnsafeBlocks>true</AllowUnsafeBlocks><InvariantGlobalization>true</InvariantGlobalization><EnableDefaultCompileItems>false</EnableDefaultCompileItems></PropertyGroup><ItemGroup><Compile Include=\"TachyonCompanion.cs\" /><Compile Include=\"PageProgramDriver.cs\" /></ItemGroup></Project>";
+    const CSHARP_REACH_SERVICE: &'static str = "using System.IO;\nusing System.Security.Cryptography;\n\n[Service]\npublic sealed class ReachService\n{\n    public string Fingerprint(string text) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(text)));\n\n    public string RoundTrip(string text)\n    {\n        var path = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString(\"N\") + \".txt\");\n        File.WriteAllText(path, text);\n        var read = File.ReadAllText(path);\n        File.Delete(path);\n        return read;\n    }\n}\n";
+    const CSHARP_REACH_DRIVER: &'static str = "using System;\nusing System.Runtime.InteropServices;\n\npublic static class ReachDriver\n{\n    public static void Main()\n    {\n        Console.WriteLine(\"init \" + Ask(Request(\"init\", \"\")));\n        Console.WriteLine(\"fingerprint \" + Ask(Request(\"call\", \",\\\"name\\\":\\\"fingerprint\\\",\\\"args\\\":[\\\"tachyon\\\"]\")));\n        Console.WriteLine(\"round trip \" + Ask(Request(\"call\", \",\\\"name\\\":\\\"roundTrip\\\",\\\"args\\\":[\\\"kept on disk\\\"]\")));\n        Ask(\"{\\\"op\\\":\\\"host-dispose\\\"}\");\n    }\n\n    private static string Request(string operation, string rest) =>\n        \"{\\\"route\\\":\\\"/\\\",\\\"service\\\":\\\"reach\\\",\\\"owner\\\":\\\"00000000-0000-4000-8000-000000000001\\\",\\\"op\\\":\\\"\" + operation + \"\\\"\" + rest + \"}\";\n\n    private static unsafe string Ask(string request)\n    {\n        var text = Marshal.StringToCoTaskMemUTF8(request);\n        try\n        {\n            var answer = ((delegate* unmanaged<IntPtr, IntPtr>)&TacNative.NativeInvoke)(text);\n            try { return Marshal.PtrToStringUTF8(answer); }\n            finally { ((delegate* unmanaged<IntPtr, void>)&TacNative.NativeFree)(answer); }\n        }\n        finally { Marshal.FreeCoTaskMem(text); }\n    }\n}\n";
+    const CSHARP_REACH_PROJECT: &'static str = "<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup><TargetFramework>net9.0</TargetFramework><OutputType>Exe</OutputType><Nullable>disable</Nullable><AllowUnsafeBlocks>true</AllowUnsafeBlocks><InvariantGlobalization>true</InvariantGlobalization><EnableDefaultCompileItems>false</EnableDefaultCompileItems></PropertyGroup><ItemGroup><Compile Include=\"TachyonCompanion.cs\" /><Compile Include=\"ReachDriver.cs\" /></ItemGroup></Project>";
     #[cfg(windows)]
     const CSHARP_NATIVE_PROJECT: &'static str = "<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup><TargetFramework>net9.0</TargetFramework><OutputType>Exe</OutputType><Nullable>disable</Nullable><AllowUnsafeBlocks>true</AllowUnsafeBlocks><InvariantGlobalization>true</InvariantGlobalization><PublishAot>true</PublishAot><EnableDefaultCompileItems>false</EnableDefaultCompileItems></PropertyGroup><ItemGroup><Compile Include=\"TachyonCompanion.cs\" /><Compile Include=\"PageProgramDriver.cs\" /></ItemGroup></Project>";
     #[cfg(windows)]
@@ -155,6 +158,38 @@ fun main() {
 
     fn csharp_run(root: &Path) -> String {
         let project = Self::csharp_project(root, Self::CSHARP_PROJECT);
+        let mut command = Command::new("dotnet");
+        command.arg("run").arg("--project").arg(&project);
+        Self::printed(&mut command, std::time::Duration::from_mins(4))
+    }
+
+    fn csharp_reach_run(root: &Path) -> String {
+        let inputs = vec![NativeCompanionInput {
+            snapshot_root: root.to_path_buf(),
+            language: NativeCompanion::CSharp,
+            source: Self::write(
+                root,
+                "client/services/ReachService.cs",
+                Self::CSHARP_REACH_SERVICE,
+            ),
+            service: String::from("reach"),
+            class: String::from("ReachService"),
+            web_assembly: false,
+            application_provider: false,
+        }];
+        let project = super::windows::WindowsHostGenerator::staged_companion(
+            &inputs,
+            root,
+            ("dev.tachyon.reach", None),
+        )
+        .expect("stage")
+        .expect("a C# companion");
+        Self::write(
+            &project,
+            "TachyonCompanion.csproj",
+            Self::CSHARP_REACH_PROJECT,
+        );
+        Self::write(&project, "ReachDriver.cs", Self::CSHARP_REACH_DRIVER);
         let mut command = Command::new("dotnet");
         command.arg("run").arg("--project").arg(&project);
         Self::printed(&mut command, std::time::Duration::from_mins(4))
@@ -364,6 +399,31 @@ fn two_linked_csharp_services_share_one_setup_configuration() {
     let output = LinkedPageCheck::csharp_run(root.path());
     println!("{output}");
     LinkedPageCheck::assert_shared(&output);
+}
+
+#[test]
+fn a_linked_csharp_service_calls_the_base_class_library() {
+    if !LinkedPageCheck::available("dotnet", "--version") {
+        assert!(
+            std::env::var_os("CI").is_none(),
+            "CI must provide the .NET SDK"
+        );
+        eprintln!("skipping: dotnet is unavailable");
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    let output = LinkedPageCheck::csharp_reach_run(root.path());
+    println!("{output}");
+    assert_eq!(
+        LinkedPageCheck::answer(&output, "fingerprint "),
+        "{\"value\":\"3114FFFB82765FC3811B4AD6EB7422BC8E15A30D75F30D54DEE2EFEE561BDE14\"}",
+        "{output}"
+    );
+    assert_eq!(
+        LinkedPageCheck::answer(&output, "round trip "),
+        "{\"value\":\"kept on disk\"}",
+        "{output}"
+    );
 }
 
 #[cfg(windows)]

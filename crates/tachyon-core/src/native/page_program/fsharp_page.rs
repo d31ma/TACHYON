@@ -104,3 +104,100 @@ impl<'page> FsharpPage<'page> {
         self.page.add_part(path, text)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::expect_used)]
+
+    use crate::native::registry::{self, NativeCompanionInput};
+    use crate::project::NativeCompanion;
+    use std::path::Path;
+
+    struct FsharpPageCheck;
+
+    impl FsharpPageCheck {
+        const FILES: [(&'static str, &'static str); 3] = [
+            (
+                "client/setups/PageProgramSetup.fs",
+                "[<Setup>]\ntype PageProgramSetup() =\n    static member configure(execution: BehaviorExecution) : BehaviorAdapters =\n        execution.Check()\n        let adapters: BehaviorAdapters = BehaviorAdapters()\n        adapters.http.Add(\"pageprogram\", new ProgramHttpDelegate())\n        adapters\n",
+            ),
+            (
+                "client/delegates/ProgramHttpDelegate.fs",
+                "open System.Collections.Generic\nopen System.Threading.Tasks\n\n[<Delegate>]\ntype ProgramHttpDelegate() =\n    let identity = System.Guid.NewGuid().ToString()\n    let mutable count = 0\n\n    interface BehaviorHTTPAdapter with\n        member this.exchange(request: BehaviorJSON, execution: BehaviorExecution) : Task<BehaviorJSON> =\n            execution.Check()\n            count <- count + (if request.Get(\"method\").Text = \"POST\" then 1 else 0)\n            let state = Dictionary<string, BehaviorJSON>()\n            state[\"identity\"] <- BehaviorJSON.From(identity)\n            state[\"count\"] <- BehaviorJSON.From(count)\n            Task.FromResult(BehaviorJSON.Object(state))\n",
+            ),
+            (
+                "client/remotes/PageProgramClient.fs",
+                "open System.Threading.Tasks\n\n[<HTTPClient({\"adapter\":\"pageprogram\",\"path\":\"/program\",\"setup\":\"PageProgramSetup\"})>]\ntype PageProgramClient =\n    [<GetRequest(\"/read\")>]\n    abstract read: unit -> Task<BehaviorJSON>\n\n    [<PostRequest(\"/increment\")>]\n    abstract increment: unit -> Task<BehaviorJSON>\n",
+            ),
+        ];
+        const SERVICES: [(&'static str, &'static str); 2] =
+            [("writer", "WriterService"), ("reader", "ReaderService")];
+
+        fn service(class: &str) -> String {
+            format!(
+                "open System.Threading.Tasks\n\n[<Service>]\ntype {class}() =\n    [<Needs>]\n    member val PageProgramClient : PageProgramClient = Unchecked.defaultof<PageProgramClient> with get, set\n\n    member this.Read() : Task<BehaviorJSON> =\n        this.PageProgramClient.read ()\n"
+            )
+        }
+
+        fn write(root: &Path, relative: &str, text: &str) {
+            let path = root.join(relative);
+            std::fs::create_dir_all(path.parent().expect("parent")).expect("folder");
+            std::fs::write(path, text).expect("file");
+        }
+
+        fn source() -> String {
+            let root = tempfile::tempdir().expect("project");
+            for (relative, text) in Self::FILES {
+                Self::write(root.path(), relative, text);
+            }
+            let mut services = Vec::new();
+            for (instance, class) in Self::SERVICES {
+                let relative = format!("client/services/{class}.fs");
+                Self::write(root.path(), &relative, &Self::service(class));
+                services.push((
+                    instance.to_owned(),
+                    class.to_owned(),
+                    root.path().join(relative),
+                ));
+            }
+            let companions =
+                NativeCompanionInput::web_services(root.path(), NativeCompanion::CSharp, &services);
+            registry::source(&companions, NativeCompanion::CSharp)
+                .expect("the page lowers")
+                .expect("a .NET program")
+        }
+
+        fn assert_counted(source: &str, expected: &[(&str, usize)]) {
+            for (text, count) in expected {
+                assert_eq!(source.matches(text).count(), *count, "{text}:\n{source}");
+            }
+        }
+    }
+
+    #[test]
+    fn two_fsharp_services_share_one_page_namespace() {
+        let source = FsharpPageCheck::source();
+        FsharpPageCheck::assert_counted(
+            &source,
+            &[
+                ("namespace rec TachyonServiceFsharp\n", 1),
+                ("type PageProgramSetup", 1),
+                ("type ProgramHttpDelegate", 1),
+                ("type PageProgramClient", 1),
+                ("type WriterService", 1),
+                ("type ReaderService", 1),
+                ("namespace rec TachyonService0\n", 0),
+                ("namespace rec TachyonService1\n", 0),
+            ],
+        );
+        let namespace = source
+            .find("namespace rec TachyonServiceFsharp\n")
+            .expect("page namespace");
+        let setup = source.find("type PageProgramSetup").expect("setup");
+        let writer = source.find("type WriterService").expect("writer");
+        let reader = source.find("type ReaderService").expect("reader");
+        assert!(namespace < setup, "{source}");
+        assert!(namespace < writer, "{source}");
+        assert!(namespace < reader, "{source}");
+    }
+}

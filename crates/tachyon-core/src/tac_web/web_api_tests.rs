@@ -972,6 +972,47 @@ class StampService {
 }
 "#;
 
+    const CSHARP_WINDOW: &str = r#"[Service]
+public class StampService
+{
+    private readonly WindowControls windowControls = new();
+
+    public bool Allowed(string control) => windowControls.Granted(control);
+
+    public string Shrink() => Attempt(() => windowControls.Minimize());
+
+    public string Shut() => Attempt(() => windowControls.Close());
+
+    public string Rename(string title) => Attempt(() => windowControls.SetTitle(title));
+
+    private static string Attempt(System.Action control)
+    {
+        try
+        {
+            control();
+            return "sent";
+        }
+        catch (System.InvalidOperationException error)
+        {
+            return error.Message;
+        }
+    }
+}
+"#;
+
+    const WINDOW_SERVICE_DRIVER: &str = r"globalThis.document = { visibilityState: 'visible', addEventListener: () => {}, querySelector: () => null }
+;(0, eval)(await readFile('./tac-web.js', 'utf8'))
+const { default: StampService } = await import('./StampService.js')
+const stamp = new StampService({})
+const tab = { granted: stamp.allowed('minimize'), minimize: stamp.shrink() }
+const sent = []
+globalThis.__tachyonNativeHostCall = (capability, payload) => { sent.push([capability, JSON.parse(payload)]) }
+globalThis.__tachyonWindowControls = Object.freeze(['minimize', 'title'])
+const app = { granted: stamp.allowed('minimize'), closeGranted: stamp.allowed('close'), minimize: stamp.shrink(), close: stamp.shut(), title: stamp.rename('Report') }
+console.log(JSON.stringify({ tab, app, sent }))
+process.exit(0)
+";
+
     const CSHARP_PROMPTS: &str = r#"[Service]
 public class StampService
 {
@@ -1863,6 +1904,54 @@ async fn a_csharp_web_service_hears_the_answers_to_its_own_browser_calls() {
     let profile = crate::BuildProfile::Development;
     WebApis::publish_with(root.path(), WebLanguage::CSharp, source, profile).await;
     WebApis::assert_answered(root.path(), false);
+}
+
+#[tokio::test]
+async fn a_csharp_web_service_calls_only_granted_window_controls() {
+    let workload = Command::new("dotnet")
+        .args(["workload", "list"])
+        .output()
+        .is_ok_and(|output| String::from_utf8_lossy(&output.stdout).contains("wasm-tools"));
+    if !WebApis::node_available() || !workload {
+        assert!(
+            std::env::var_os("CI").is_none(),
+            "CI must provide node and the .NET wasm-tools workload"
+        );
+        eprintln!("skipping: node or the .NET wasm-tools workload is unavailable");
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    let source = ("cs", WebApis::CSHARP_WINDOW);
+    let profile = crate::BuildProfile::Development;
+    WebApis::publish_with(root.path(), WebLanguage::CSharp, source, profile).await;
+    let report = WebApis::run(root.path(), WebApis::WINDOW_SERVICE_DRIVER);
+    assert_eq!(
+        report["tab"],
+        serde_json::json!({
+            "granted": false,
+            "minimize": "The minimize window control needs the native app window.",
+        }),
+        "{report}"
+    );
+    assert_eq!(
+        report["app"],
+        serde_json::json!({
+            "granted": true,
+            "closeGranted": false,
+            "minimize": "sent",
+            "close": "The close window control is not granted. Add \"close\" to tac.application.window.controls in client/manifest.json.",
+            "title": "sent",
+        }),
+        "{report}"
+    );
+    assert_eq!(
+        report["sent"],
+        serde_json::json!([
+            ["window.minimize", {}],
+            ["window.title", {"title": "Report"}],
+        ]),
+        "{report}"
+    );
 }
 
 #[tokio::test]
