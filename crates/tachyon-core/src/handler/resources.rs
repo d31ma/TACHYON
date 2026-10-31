@@ -1,8 +1,13 @@
 mod access;
+mod door_route;
 mod piped_resources;
+mod resource_door;
 mod resource_request;
 
+use door_route::DoorRoute;
 pub(super) use piped_resources::PipedResources;
+use resource_door::DoorRoutes;
+pub(super) use resource_door::ResourceDoor;
 
 use super::gateway::GatewayCalls;
 use super::process::HandlerCancellation;
@@ -27,6 +32,7 @@ pub(super) struct ResourceAccess {
     gateways: Option<Arc<GatewayCalls>>,
     stop: HandlerCancellation,
     task: JoinHandle<()>,
+    _route: Option<DoorRoute>,
 }
 
 impl ResourceAccess {
@@ -48,12 +54,15 @@ impl ResourceAccess {
         topics: Option<TopicOutbox>,
         stop: HandlerCancellation,
         deadline: Instant,
+        door: Option<&ResourceDoor>,
     ) -> Result<Self, Failure> {
         let listener = TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0))
             .await
             .map_err(|_| Self::unavailable())?;
-        let address = listener.local_addr().map_err(|_| Self::unavailable())?;
+        let local = listener.local_addr().map_err(|_| Self::unavailable())?;
+        let address = door.map_or(local, ResourceDoor::address);
         let token = Self::random_token()?;
+        let route = door.map(|door| door.register(&token, local));
         let topics = topics.map(Arc::new);
         let gateways = gateways.map(Arc::new);
         let access = Access {
@@ -73,6 +82,7 @@ impl ResourceAccess {
             gateways,
             stop,
             task,
+            _route: route,
         })
     }
 
@@ -271,7 +281,7 @@ mod tests {
 
     async fn bind_storage(storage: &Arc<ManagedStorage>, deadline: Instant) -> ResourceAccess {
         let stop = HandlerCancellation::default();
-        ResourceAccess::bind(Some(Arc::clone(storage)), None, None, stop, deadline)
+        ResourceAccess::bind(Some(Arc::clone(storage)), None, None, stop, deadline, None)
             .await
             .expect("access")
     }
@@ -425,7 +435,7 @@ mod tests {
             async fn bind(&self, deadline: Instant) -> ResourceAccess {
                 let stop = HandlerCancellation::default();
                 let gateways = self.calls(deadline, &stop);
-                ResourceAccess::bind(None, Some(gateways), None, stop, deadline)
+                ResourceAccess::bind(None, Some(gateways), None, stop, deadline, None)
                     .await
                     .expect("gateway endpoint")
             }

@@ -541,6 +541,21 @@ final class YonRelayContext
         }
         self::$startedAt = hrtime(true);
         self::$environment = self::relayEnvironment(getenv());
+        self::sendStreamsThroughGuard();
+    }
+
+    private static function sendStreamsThroughGuard(): void
+    {
+        $guard = parse_url((string) getenv('YON_OUTGOING_PROXY'));
+        if (!is_array($guard) || !isset($guard['host'], $guard['port'])) {
+            return;
+        }
+        stream_context_set_default([
+            'http' => [
+                'proxy' => 'tcp://' . $guard['host'] . ':' . $guard['port'],
+                'request_fulluri' => true,
+            ],
+        ]);
     }
 
     public static function readInvocation(): __YonFrame

@@ -36,6 +36,7 @@ mod protocol_request;
 mod public_assets;
 mod route_guard;
 mod route_invocation;
+mod server_kind;
 mod server_listener;
 mod server_response;
 mod server_runtime;
@@ -64,6 +65,7 @@ pub use error_page_wait::ErrorPageWait;
 pub use preview_server::PreviewServer;
 pub use preview_server_options::PreviewServerOptions;
 pub use route_invocation::RouteInvocation;
+pub use server_kind::ServerKind;
 
 use crate::failure::diagnostic;
 use crate::handler::{HandlerSupervisor, RuntimeRequirements};
@@ -182,7 +184,9 @@ impl DevServer {
         policy.application = application;
         let supervisor = Arc::new(HandlerSupervisor::new(policy)?);
         let hosts = crate::safety::DeclaredHosts::yon(&project.capability());
-        supervisor.send_outgoing_requests_through(crate::handler::EgressProxy::start(hosts).await?);
+        supervisor
+            .guard_outgoing_requests(hosts, options.kind == ServerKind::Production)
+            .await?;
         Self::bind_project_with_supervisor(project, options, supervisor).await
     }
 

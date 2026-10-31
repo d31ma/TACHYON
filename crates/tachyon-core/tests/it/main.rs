@@ -40,6 +40,10 @@ mod models_client;
 mod models_yon;
 mod needs_fsharp;
 mod outgoing_loopback;
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+mod outgoing_raw_sockets;
+#[cfg(not(any(target_os = "macos", target_os = "linux")))]
+mod outgoing_unconfined;
 mod published_sections;
 mod relay_boundaries;
 mod request_sources;

@@ -1,3 +1,4 @@
+use super::ServerKind;
 use crate::{BuildOptions, DevelopmentOrigin};
 use std::ffi::OsString;
 use std::net::{IpAddr, Ipv4Addr};
@@ -14,6 +15,7 @@ pub struct DevServerOptions {
     pub restart_executable: Option<PathBuf>,
     pub restart_check_arguments: Vec<OsString>,
     pub native: Option<DevelopmentOrigin>,
+    pub kind: ServerKind,
 }
 
 impl Default for DevServerOptions {
@@ -28,6 +30,7 @@ impl Default for DevServerOptions {
             restart_executable: None,
             restart_check_arguments: vec![OsString::from("--version")],
             native: None,
+            kind: ServerKind::Development,
         }
     }
 }

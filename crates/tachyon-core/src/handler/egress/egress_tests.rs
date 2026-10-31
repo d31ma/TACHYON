@@ -1,4 +1,7 @@
-use super::{EgressAddress, EgressProxy, EgressTarget, NodeProxyGate};
+use super::{
+    EgressAddress, EgressConfinement, EgressEnforcement, EgressProxy, EgressPump, EgressTarget,
+    NodeProxyGate,
+};
 use crate::handler::{EnvironmentPolicy, HandlerRuntimePrograms};
 use crate::safety::DeclaredHosts;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -56,7 +59,7 @@ async fn an_undeclared_host_is_refused_and_a_declared_host_is_reached() {
         stream.write_all(answer.as_bytes()).await.expect("answer");
     });
     let hosts = DeclaredHosts::listed(&["127.0.0.1"], "outgoing.hosts");
-    let proxy = EgressProxy::start(hosts).await.expect("proxy");
+    let proxy = format!("http://{}", EgressProxy::start(hosts).await.expect("proxy"));
     let refused = through_proxy(
         &proxy,
         "GET http://evil.example/secret HTTP/1.1\r\nHost: evil.example\r\n\r\n",
@@ -101,7 +104,7 @@ async fn a_listed_name_that_resolves_to_a_loopback_address_is_refused() {
         "HTTP/1.1 502"
     };
     let hosts = DeclaredHosts::listed(&["127.1"], "outgoing.hosts");
-    let proxy = EgressProxy::start(hosts).await.expect("proxy");
+    let proxy = format!("http://{}", EgressProxy::start(hosts).await.expect("proxy"));
     let plain = through_proxy(
         &proxy,
         &format!("GET http://127.1:{port}/ HTTP/1.1\r\nHost: 127.1\r\n\r\n"),
@@ -117,7 +120,7 @@ async fn a_listed_name_that_resolves_to_a_loopback_address_is_refused() {
 async fn a_listed_localhost_name_reaches_loopback_without_asking_the_resolver() {
     let port = private_service().await;
     let hosts = DeclaredHosts::listed(&["*.localhost"], "outgoing.hosts");
-    let proxy = EgressProxy::start(hosts).await.expect("proxy");
+    let proxy = format!("http://{}", EgressProxy::start(hosts).await.expect("proxy"));
     let plain = through_proxy(
         &proxy,
         &format!("GET http://api.localhost:{port}/ HTTP/1.1\r\nHost: api.localhost\r\n\r\n"),
@@ -145,7 +148,7 @@ async fn a_listed_localhost_name_reaches_loopback_without_asking_the_resolver() 
 async fn an_unlisted_localhost_name_is_refused() {
     let port = private_service().await;
     let hosts = DeclaredHosts::listed(&["web.localhost"], "outgoing.hosts");
-    let proxy = EgressProxy::start(hosts).await.expect("proxy");
+    let proxy = format!("http://{}", EgressProxy::start(hosts).await.expect("proxy"));
     let refused = through_proxy(
         &proxy,
         &format!("GET http://api.localhost:{port}/ HTTP/1.1\r\nHost: api.localhost\r\n\r\n"),
@@ -164,6 +167,10 @@ fn only_public_addresses_count_as_public() {
         "100.128.0.1",
         "2606:4700::1111",
         "::ffff:93.184.216.34",
+        "198.20.0.1",
+        "192.0.1.1",
+        "223.255.255.254",
+        "2001:4860::8888",
     ] {
         let address = address.parse().expect("address");
         assert!(EgressAddress::is_public(address), "{address}");
@@ -187,6 +194,20 @@ fn only_public_addresses_count_as_public() {
         "fec0::1",
         "::ffff:127.0.0.1",
         "::ffff:169.254.169.254",
+        "198.18.0.1",
+        "198.19.255.255",
+        "192.0.0.170",
+        "240.0.0.1",
+        "224.0.0.251",
+        "192.0.2.1",
+        "64:ff9b::a9fe:a9fe",
+        "64:ff9b:1::a00:1",
+        "2002:a9fe:a9fe::1",
+        "2001::1",
+        "2001:db8::1",
+        "::10.0.0.1",
+        "100::1",
+        "ff02::1",
     ] {
         let address = address.parse().expect("address");
         assert!(!EgressAddress::is_public(address), "{address}");
@@ -282,4 +303,172 @@ async fn the_outgoing_guard_check_runs_the_runtime_once() {
         .check(&runtimes, &EnvironmentPolicy::default())
         .await
         .expect("remembered answer");
+}
+
+#[test]
+fn the_enforcement_setting_accepts_only_os_or_proxy() {
+    use std::ffi::OsStr;
+    assert_eq!(
+        EgressEnforcement::parse(None).expect("unset"),
+        EgressEnforcement::Os
+    );
+    assert_eq!(
+        EgressEnforcement::parse(Some(OsStr::new("os"))).expect("os"),
+        EgressEnforcement::Os
+    );
+    assert_eq!(
+        EgressEnforcement::parse(Some(OsStr::new("proxy"))).expect("proxy"),
+        EgressEnforcement::Proxy
+    );
+    for value in ["", "off", "OS", "none"] {
+        let refused = EgressEnforcement::parse(Some(OsStr::new(value))).expect_err(value);
+        assert!(refused.to_string().contains("TY2113"), "{value}: {refused}");
+    }
+}
+
+#[tokio::test]
+async fn the_proxy_setting_leaves_handlers_unconfined() {
+    let confinement = EgressConfinement::prepare(EgressEnforcement::Proxy, true, &[1, 2])
+        .await
+        .expect("proxy enforcement");
+    assert!(!confinement.enforced());
+}
+
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+#[tokio::test]
+async fn the_operating_system_confines_handlers_or_the_server_refuses_to_start() {
+    let prepared = EgressConfinement::prepare(EgressEnforcement::Os, true, &[1, 2]).await;
+    match prepared {
+        Ok(confinement) => assert!(confinement.enforced()),
+        Err(failure) => {
+            assert_ne!(
+                std::env::consts::OS,
+                "macos",
+                "macOS must always confine handlers: {failure}"
+            );
+            assert_ne!(
+                std::env::var("YON_EGRESS_REQUIRE_CONFINEMENT").as_deref(),
+                Ok("1"),
+                "this host cannot confine handlers: {failure}"
+            );
+            assert!(failure.to_string().contains("TY2113"), "{failure}");
+        }
+    }
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "linux")))]
+#[tokio::test]
+async fn a_platform_without_a_confinement_layer_refuses_to_start_a_production_server() {
+    let refused = EgressConfinement::prepare(EgressEnforcement::Os, true, &[1, 2])
+        .await
+        .expect_err("no layer");
+    let rendered = refused.to_string();
+    assert!(rendered.contains("TY2113"), "{rendered}");
+    assert!(
+        rendered.contains("YON_EGRESS_ENFORCEMENT=proxy"),
+        "{rendered}"
+    );
+}
+
+#[test]
+fn a_production_server_refuses_to_run_handlers_it_cannot_confine() {
+    let refused =
+        EgressConfinement::settle(Err(String::from("no layer")), true).expect_err("refused");
+    let rendered = refused.to_string();
+    assert!(rendered.contains("TY2113"), "{rendered}");
+    assert!(rendered.contains("no layer"), "{rendered}");
+}
+
+#[test]
+fn a_development_server_warns_and_runs_handlers_it_cannot_confine() {
+    let warned = EgressConfinement::settle(Err(String::from("no layer")), false).expect("warned");
+    assert!(!warned.enforced());
+    let event = EgressConfinement::unenforced_event("no layer");
+    assert_eq!(event["event"], "handler.egress_unenforced");
+    assert_eq!(event["level"], "warning");
+    assert_eq!(event["reason"], "no layer");
+}
+
+#[cfg(target_os = "macos")]
+#[test]
+fn the_seatbelt_profile_allows_only_the_listed_loopback_ports() {
+    let profile = super::SeatbeltProfile::text(&[4100, 4200]);
+    assert_eq!(
+        profile,
+        "(version 1)(allow default)(deny network*)(allow network-outbound (remote ip \"localhost:4100\"))(allow network-outbound (remote ip \"localhost:4200\"))"
+    );
+}
+
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+#[tokio::test]
+async fn a_confined_command_keeps_its_environment_and_directory() {
+    let Ok(confinement) = EgressConfinement::prepare(EgressEnforcement::Os, true, &[1, 2]).await
+    else {
+        return;
+    };
+    let directory = tempfile::tempdir().expect("directory");
+    let mut command = tokio::process::Command::new("sh");
+    command
+        .args(["-c", "printf '%s %s' \"$YON_PROBE\" \"$(pwd -P)\""])
+        .env_clear()
+        .env("PATH", "/usr/bin:/bin")
+        .env("YON_PROBE", "kept")
+        .current_dir(directory.path());
+    confinement.apply(&mut command);
+    assert_ne!(command.as_std().get_program(), "sh");
+    let output = command.output().await.expect("confined command");
+    let expected = format!(
+        "kept {}",
+        directory
+            .path()
+            .canonicalize()
+            .expect("real path")
+            .display()
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), expected);
+}
+
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+#[tokio::test]
+async fn a_confined_command_that_does_not_exist_is_never_started() {
+    let Ok(confinement) = EgressConfinement::prepare(EgressEnforcement::Os, true, &[1, 2]).await
+    else {
+        return;
+    };
+    let mut command = tokio::process::Command::new("tachyon-no-such-program");
+    command.env_clear().env("PATH", "/usr/bin:/bin");
+    confinement.apply(&mut command);
+    let error = command.spawn().expect_err("missing program");
+    assert_eq!(error.kind(), std::io::ErrorKind::NotFound);
+}
+
+async fn connected_pair(listener: &TcpListener) -> (TcpStream, TcpStream) {
+    let address = listener.local_addr().expect("address");
+    let near = TcpStream::connect(address).await.expect("connect");
+    let (far, _) = listener.accept().await.expect("accept");
+    (near, far)
+}
+
+#[tokio::test]
+async fn an_idle_tunnel_is_closed() {
+    let listener = TcpListener::bind("127.0.0.1:0").await.expect("listener");
+    let (mut handler, mut guard_side) = connected_pair(&listener).await;
+    let (mut upstream_side, mut service) = connected_pair(&listener).await;
+    let pump = tokio::spawn(async move {
+        EgressPump::exchange_until_idle(
+            &mut guard_side,
+            &mut upstream_side,
+            std::time::Duration::from_millis(200),
+        )
+        .await
+    });
+    handler.write_all(b"ping").await.expect("ping");
+    let mut forwarded = [0_u8; 4];
+    service.read_exact(&mut forwarded).await.expect("forwarded");
+    assert_eq!(&forwarded, b"ping");
+    tokio::time::timeout(std::time::Duration::from_secs(5), pump)
+        .await
+        .expect("closed when idle")
+        .expect("pump task")
+        .expect("pump result");
 }

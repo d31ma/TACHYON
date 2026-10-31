@@ -129,7 +129,7 @@ operator-owned Firecracker driver qualify as production isolation.
 | Environment secret disclosure | allowlisted environment that configuration, not code, decides (`server.environment` names and `PREFIX_*` patterns; `*` and `ty`'s own `TAC_*`, `TACHYON_*`, `YON_*` and proxy variables are refused), redacted diagnostics that name variables but never values, secret-canary tests; relay programs and Gateway commands never receive `YON_APPLICATION_JSON` or `YON_RESOURCE_*`. This scrubbing stops accidental inheritance only. It is not a sandbox: a program that runs as the same operating-system user can still read its parent's environment (for example `/proc/<parent>/environ` on Linux) and the project's files |
 | Cross-language call confusion (`@Gateway`) | build-declared keys only, per-invocation bearer capability on a loopback endpoint, bounded JSON (1 MiB, depth 32, 10,000 values, 32 arguments), 64 calls and 4 concurrent calls per invocation, separate process pool, one hop, fixed error kinds with no target messages, refusal under Firecracker |
 | Client address spoofing through forwarding headers | `ty` is the first proxy: it removes `Forwarded`, `X-Forwarded-*` and `X-Real-IP` from any peer that is not in `server.proxies` (empty by default, loopback included) and writes the peer address itself; from a trusted proxy it appends its own hop and resolves `X-Real-IP` to the nearest untrusted address; native peer fields (Go `RemoteAddr`, `HttpExchange.getRemoteAddress()`, PHP `REMOTE_ADDR`) come from that value (ADR 0096) |
-| SSRF and unrestricted egress | deny-by-default network capability, normalized origin allowlists, DNS/redirect revalidation, response limits |
+| SSRF and unrestricted egress | deny-by-default network capability, normalized origin allowlists, DNS/redirect revalidation, response limits; the operating system confines every handler, relay and Gateway command to its server's outgoing guard and resource door (Seatbelt on macOS, Landlock and seccomp on Linux), and `ty start` refuses to start with `TY2113` when it cannot confine them (development servers warn) unless the operator sets `YON_EGRESS_ENFORCEMENT=proxy` (ADR 0113) |
 | Native bridge escalation | declared capabilities; bounded per-route registry; operation/member/payload checks; trusted main-frame local origin only |
 | Native origin confusion | canonical bundle resource mapping; frame and navigation guards; no remote bridge; no arbitrary file URLs |
 | Cache poisoning or path replacement | versioned cache keys include compiler, contract, target, config, and source digests; directory capabilities that do not follow links; cleanup that checks identity; verified atomic writes; private runtime copies |
@@ -355,17 +355,41 @@ separate cybersecurity review for this reconciliation.
   adds `127.0.0.1` to `NO_PROXY` and `no_proxy` for a handler that has an
   endpoint. When the outgoing request guard is active (the servers started by
   `ty serve`, `ty start` and `ty preview`), the supervisor removes `NO_PROXY`
-  and `no_proxy` instead, so a client cannot skip the guard to reach another
-  port on `127.0.0.1` or any other host; the runners still reach their
-  endpoint directly. Node.js follows the proxy variables only from version
+  and `no_proxy` instead; the runners still reach their endpoint directly.
+  In that mode every endpoint names the server's one resource door, which
+  forwards a request to its invocation's own listener by bearer token, and
+  answers `401` to a token it does not know (ADR 0113). Node.js follows the proxy variables only from version
   24.5, with `NODE_USE_ENV_PROXY=1`; an older Node.js connects directly. While
   the guard is active, the supervisor therefore refuses every JavaScript
   runtime that is not Bun or Node.js 24.5 or newer, with `TY2101`, at startup
   and before it starts a JavaScript handler (ADR 0068 amendment). Go's
   standard client never sends loopback addresses to a proxy, so the Go
   prelude points `http.DefaultTransport` at the guard
-  (`YON_OUTGOING_PROXY`). A client that builds its own transport, and a raw
-  socket, still connect directly (ADR 0094).
+  (`YON_OUTGOING_PROXY`), and the PHP prelude sets the default stream context
+  to it. These keep ordinary clients working; they are not the control. A
+  client that builds its own transport, a raw socket in any language, UDP,
+  DNS and a Unix socket to a local daemon are refused by the operating system
+  (ADR 0113).
+- **Operating-system egress confinement (ADR 0113).** While the guard is
+  active, every handler process (cold, warm and streaming), every program it
+  starts (relays) and every Gateway command can connect only to its server's
+  guard port and resource door port on loopback. On macOS the process starts
+  through `/usr/bin/sandbox-exec` with a profile that denies all network
+  access except those two `localhost` ports. On Linux `ty __yon-egress`
+  applies Landlock (ABI 4, Linux 6.7 or newer: TCP `connect` only to the two
+  ports, no TCP `bind`) and a seccomp filter (no socket except IPv4 and IPv6
+  TCP and netlink, no `io_uring`) to itself and then runs the program in its
+  place. Both are inherited by every child. When the platform layer cannot be
+  applied (Windows, an older Linux kernel, gVisor, no `sandbox-exec`),
+  `ty start` refuses to start with `TY2113`, and `ty serve` and `ty preview`
+  start with a `handler.egress_unenforced` warning. `YON_EGRESS_ENFORCEMENT=proxy`, an
+  environment variable of `ty` only, keeps the advisory guard for a platform
+  that enforces egress itself and logs `handler.egress_unenforced`. The
+  Firecracker control program is not wrapped: its own policy is deny-only.
+  Limits: Landlock filters by port, not address, so code written to attack
+  can reach a remote host on one of the two port numbers; macOS Mach and XPC
+  services are not restricted; `ty handler invoke` runs no guard and no
+  confinement.
 - **Outgoing request guard.** The guard (ADR 0068) checks the target name
   against `outgoing.hosts`, resolves it once and connects to the address it
   resolved, so a second DNS answer cannot change the target. It drops
@@ -378,6 +402,10 @@ separate cybersecurity review for this reconciliation.
   listed localhost name is never resolved: the guard connects it to `[::1]`
   and then `127.0.0.1`, so an `/etc/hosts` entry cannot point it elsewhere. A
   redirect is a new request through the guard, so its host is checked again.
+  The address filter also drops NAT64, 6to4, Teredo, IPv4-compatible,
+  discard, documentation, benchmarking, IETF protocol, reserved and multicast
+  ranges. The guard serves at most 256 connections, closes a tunnel idle for
+  5 minutes, and keeps accepting after an accept error.
 - **Gateways (ADR 0042).** A caller reaches another language only through its
   invocation's resource endpoint, with a key that the build declared and
   checked (`TY1312`). A class target runs as a generated unit under
@@ -385,7 +413,9 @@ separate cybersecurity review for this reconciliation.
   `TY1310`). The unit is project code: it runs like a route, with its own
   storage capability and no Gateway table, so only one hop is possible. A
   command target runs without a shell, with the arguments on stdin and never
-  on the command line, and files only from `server/delegates/`. The caller
+  on the command line, and files only from `server/delegates/`. It gets the
+  outgoing guard's variables and the operating-system egress confinement like
+  a handler. The caller
   sees only `invalid`, `timeout`, `capacity` or `adapter`; the supervisor logs
   only `handler.gateway_failed` with that category. Closing an invocation
   cancels its calls and waits for their processes to be reaped.
@@ -465,8 +495,9 @@ separate cybersecurity review for this reconciliation.
   token. A ten-minute lease limits the risk of PID reuse.
 
 Process mode is supervision, not a security sandbox. Application handlers keep
-the ambient filesystem and network access of the developer account that runs
-them. The operating system does not enforce CPU or memory quotas in this mode.
+the ambient filesystem access of the developer account that runs them. Their
+network access is confined to the outgoing guard only while the guard is
+active (ADR 0113). The operating system does not enforce CPU or memory quotas in this mode.
 Application dependency imports and process pooling are still out of scope. No
 documentation may suggest that those controls exist.
 
@@ -633,8 +664,12 @@ run `go mod vendor` with `git diff --exit-code`, `go mod verify` and
   human assessment is recommended for major changes to trust boundaries, but
   it is not required before publication. Any accepted remaining risk must be
   recorded in the release review package.
-- Enforce handler filesystem, network, CPU and memory capabilities before
-  production routing.
+- Enforce handler filesystem, CPU and memory capabilities before production
+  routing. Network egress is enforced by the operating system on macOS and on
+  Linux 6.7 or newer (ADR 0113); Windows, older Linux kernels and gVisor need
+  a Windows Filtering Platform or network-namespace layer; until then
+  `ty start` runs there only with `YON_EGRESS_ENFORCEMENT=proxy` and the
+  platform's own egress policy.
 - Run live adversarial tests of `WebSurface` against remote origins, DNS and
   redirects.
 - Run secret-canary logging tests.

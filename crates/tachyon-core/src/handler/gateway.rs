@@ -522,6 +522,7 @@ impl GatewayCalls {
             .external_environment()
             .apply_external(command.as_std_mut());
         HandlerSupervisor::pipe_all_streams(&mut command);
+        self.supervisor.guard_external_command(&mut command);
         let mut child = command.group().kill_on_drop(true).spawn().ok()?;
         let process = child.inner();
         let (Some(stdin), Some(stdout), Some(stderr)) = (

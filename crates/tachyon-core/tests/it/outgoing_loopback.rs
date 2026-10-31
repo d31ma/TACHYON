@@ -6,14 +6,14 @@ use std::path::Path;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
-use tachyon_core::{DevServer, DevServerOptions};
+use tachyon_core::{DevServer, DevServerOptions, ServerKind};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 
-struct LoopbackProbe;
+pub(super) struct LoopbackProbe;
 
 impl LoopbackProbe {
-    const DATA_SOURCE: &str =
+    pub(super) const DATA_SOURCE: &str =
         r#"{"datasource":{"driver":"sqlite","url":"sqlite::memory:"},"cohesion":{"check":false}}"#;
     const LOCAL_NAME_SOURCE: &str = r#"{"datasource":{"driver":"sqlite","url":"sqlite::memory:"},"cohesion":{"check":false},"outgoing":{"hosts":["api.localhost"]}}"#;
     const REACHED: &str = "reached-the-private-loopback-service";
@@ -90,6 +90,19 @@ class ProbeController {
     }
 }
 "#;
+    const PHP: &str = r#"<?php
+#[RequestRoute("/probe")]
+#[Public]
+class ProbeController {
+    #[GetRoute]
+    public function get(#[FromQuery("target")] string $target): string {
+        stream_context_set_option(stream_context_get_default(), 'http', 'ignore_errors', true);
+        $body = @file_get_contents($target);
+        $status = explode(' ', $http_response_header[0] ?? 'failed none')[1] ?? 'failed';
+        return $status . ' ' . ($body === false ? '' : $body);
+    }
+}
+"#;
     const DART: &str = r#"import 'dart:convert';
 import 'dart:io';
 
@@ -118,13 +131,13 @@ class ProbeController {
         fs::write(path, contents).expect("file");
     }
 
-    fn available(program: &str) -> bool {
+    pub(super) fn available(program: &str) -> bool {
         Self::VERSION_FLAGS
             .iter()
             .any(|flag| ProgramProbe::answers(program, flag))
     }
 
-    async fn private_service() -> (u16, Arc<AtomicUsize>) {
+    pub(super) async fn private_service() -> (u16, Arc<AtomicUsize>) {
         let listener = TcpListener::bind("127.0.0.1:0").await.expect("service");
         let port = listener.local_addr().expect("address").port();
         let connections = Arc::new(AtomicUsize::new(0));
@@ -179,19 +192,32 @@ class ProbeController {
         .await
     }
 
-    async fn answer_from(file: &str, source: &str, application: &str, target: &str) -> String {
-        let project = tempfile::tempdir().expect("project");
-        Self::write(&project.path().join("server/application.json"), application);
-        Self::write(
-            &project.path().join("server/controllers").join(file),
-            source,
-        );
-        let options = DevServerOptions {
-            port: 0,
-            watch: false,
-            ..DevServerOptions::default()
-        };
-        let server = DevServer::bind(project.path(), &options)
+    pub(super) async fn answer_from(
+        file: &str,
+        source: &str,
+        application: &str,
+        target: &str,
+    ) -> String {
+        Self::answer_with(file, source, application, target, ServerKind::Development).await
+    }
+
+    pub(super) async fn production_refusal(file: &str, source: &str) -> Option<String> {
+        let project = Self::project(file, source, Self::DATA_SOURCE);
+        DevServer::bind(project.path(), &Self::options(ServerKind::Production))
+            .await
+            .err()
+            .map(|failure| failure.to_string())
+    }
+
+    pub(super) async fn answer_with(
+        file: &str,
+        source: &str,
+        application: &str,
+        target: &str,
+        kind: ServerKind,
+    ) -> String {
+        let project = Self::project(file, source, application);
+        let server = DevServer::bind(project.path(), &Self::options(kind))
             .await
             .expect("bind");
         let port = server.address().port();
@@ -202,6 +228,25 @@ class ProbeController {
         let answer = Self::ask(port, &format!("/probe?target={target}")).await;
         let _stopped = stop.send(());
         answer
+    }
+
+    fn project(file: &str, source: &str, application: &str) -> tempfile::TempDir {
+        let project = tempfile::tempdir().expect("project");
+        Self::write(&project.path().join("server/application.json"), application);
+        Self::write(
+            &project.path().join("server/controllers").join(file),
+            source,
+        );
+        project
+    }
+
+    pub(super) fn options(kind: ServerKind) -> DevServerOptions {
+        DevServerOptions {
+            port: 0,
+            watch: false,
+            kind,
+            ..DevServerOptions::default()
+        }
     }
 
     fn assert_guarded(language: &str, answer: &str, connections: &AtomicUsize) {
@@ -286,5 +331,11 @@ async fn a_kotlin_handler_goes_through_the_guard_and_reaches_localhost_names() {
 #[tokio::test]
 async fn a_dart_handler_goes_through_the_guard_and_reaches_localhost_names() {
     LoopbackProbe::check_language("Dart", "dart", "ProbeController.dart", LoopbackProbe::DART)
+        .await;
+}
+
+#[tokio::test]
+async fn a_php_stream_goes_through_the_guard_and_reaches_localhost_names() {
+    LoopbackProbe::check_language("PHP", "php-cgi", "ProbeController.php", LoopbackProbe::PHP)
         .await;
 }

@@ -126,7 +126,7 @@ pub struct HandlerSupervisor {
     gateway_permits: Arc<Semaphore>,
     resources: Arc<tokio::sync::OnceCell<Arc<ManagedStorage>>>,
     topics: Arc<std::sync::OnceLock<Arc<TopicBus>>>,
-    egress: Arc<std::sync::OnceLock<String>>,
+    egress: Arc<std::sync::OnceLock<crate::handler::EgressSetup>>,
     node_proxy_gate: crate::handler::NodeProxyGate,
     warm: Arc<WarmPool>,
 }
@@ -160,8 +160,14 @@ impl HandlerSupervisor {
         })
     }
 
-    pub(crate) fn send_outgoing_requests_through(&self, proxy: String) {
-        let _ = self.egress.set(proxy);
+    pub(crate) async fn guard_outgoing_requests(
+        &self,
+        hosts: crate::safety::DeclaredHosts,
+        required: bool,
+    ) -> Result<(), Failure> {
+        let setup = crate::handler::EgressSetup::start(hosts, required).await?;
+        let _ = self.egress.set(setup);
+        Ok(())
     }
 
     pub(crate) async fn invoke_socket(
@@ -389,20 +395,11 @@ impl HandlerSupervisor {
             .topics
             .get()
             .and_then(|bus| TopicOutbox::for_invocation(bus, source, request));
-        Self::bind_resources(storage, gateways, topics, stop, deadline).await
-    }
-
-    async fn bind_resources(
-        storage: Option<Arc<ManagedStorage>>,
-        gateways: Option<GatewayCalls>,
-        topics: Option<TopicOutbox>,
-        stop: HandlerCancellation,
-        deadline: Instant,
-    ) -> Result<Option<ResourceAccess>, Failure> {
         if storage.is_none() && gateways.is_none() && topics.is_none() {
             return Ok(None);
         }
-        ResourceAccess::bind(storage, gateways, topics, stop, deadline)
+        let door = self.egress.get().map(|setup| setup.door().as_ref());
+        ResourceAccess::bind(storage, gateways, topics, stop, deadline, door)
             .await
             .map(Some)
     }
@@ -593,6 +590,7 @@ impl HandlerSupervisor {
         self.options
             .isolation
             .apply_backend_environment(&mut planned.command);
+        self.confine_handler(&mut planned);
         let mut child = planned.runtime.spawn(&mut planned.command)?;
         let pipes = Self::take_process_pipes(&mut child);
         let (stdin, stdout, stderr) =
@@ -619,8 +617,25 @@ impl HandlerSupervisor {
     }
 
     fn apply_egress(&self, command: &mut Command) {
-        if let Some(proxy) = self.egress.get() {
-            crate::handler::EgressProxy::apply(proxy, command);
+        if let Some(setup) = self.egress.get() {
+            setup.apply_environment(command);
+        }
+    }
+
+    pub(super) fn guard_external_command(&self, command: &mut Command) {
+        if let Some(setup) = self.egress.get() {
+            setup.apply_environment(command);
+            setup.confine(command);
+        }
+    }
+
+    fn confine_handler(&self, planned: &mut PlannedCommand) {
+        let confined = self
+            .egress
+            .get()
+            .filter(|_| planned.runtime != RuntimeIdentity::Firecracker);
+        if let Some(setup) = confined {
+            setup.confine(&mut planned.command);
         }
     }
 
@@ -766,6 +781,7 @@ impl HandlerSupervisor {
         Self::mark_frames(&mut planned.command, Some(WarmProcess::SWITCH));
         ResourceAccess::bypass_loopback(&mut planned.command);
         self.apply_egress(&mut planned.command);
+        self.confine_handler(&mut planned);
         let mut child = planned.runtime.spawn(&mut planned.command)?;
         let pipes = Self::take_process_pipes(&mut child);
         let (stdin, stdout, stderr) =

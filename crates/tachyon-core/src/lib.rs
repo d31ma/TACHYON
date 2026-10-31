@@ -82,7 +82,7 @@ pub use compiler::{
 pub use composed_types::ComposedTypes;
 pub use failure::Failure;
 pub use handler::{
-    EnvironmentPolicy, FirecrackerIsolation, HandlerCancellation, HandlerLanguage,
+    EgressLaunch, EnvironmentPolicy, FirecrackerIsolation, HandlerCancellation, HandlerLanguage,
     HandlerRuntimePrograms, HandlerSource, HandlerSupervisor, HandlerSupervisorOptions,
     TopicDeliveries, WarmSettings, Workers, YonIsolationPolicy,
 };
@@ -109,7 +109,7 @@ pub use scaffold::{
 };
 pub use server::{
     DevServer, DevServerOptions, ErrorPageServer, ErrorPageWait, PreviewServer,
-    PreviewServerOptions, RouteInvocation,
+    PreviewServerOptions, RouteInvocation, ServerKind,
 };
 pub use tool_restart::ToolRestart;
 pub use ttid::{created_at_milliseconds as ttid_created_at, generate as generate_ttid};

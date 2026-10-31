@@ -598,6 +598,7 @@ impl FromStr for HeaderArgument {
 
 #[tokio::main]
 async fn main() {
+    tachyon_core::EgressLaunch::run_if_requested();
     let cli = Cli::parse();
     if cli.version || cli.version_upper {
         println!("{}", tachyon_contracts::PRODUCT_VERSION);
@@ -1090,6 +1091,11 @@ fn dev_server_options(
             .skip(1)
             .chain([std::ffi::OsString::from("--check-project")])
             .collect(),
+        kind: if policy.command == LongRunningCommand::Start {
+            tachyon_core::ServerKind::Production
+        } else {
+            tachyon_core::ServerKind::Development
+        },
     }
 }
 

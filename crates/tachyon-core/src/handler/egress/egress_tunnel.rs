@@ -1,4 +1,4 @@
-use super::{EgressAddress, EgressTarget};
+use super::{EgressAddress, EgressPump, EgressTarget};
 use crate::safety::DeclaredHosts;
 use std::sync::Arc;
 use std::time::Duration;
@@ -130,8 +130,7 @@ impl EgressTunnel {
         client.write_all(Self::client_greeting(target)).await?;
         upstream.write_all(Self::upstream_head(target)).await?;
         upstream.write_all(rest).await?;
-        tokio::io::copy_bidirectional(client, upstream).await?;
-        Ok(())
+        EgressPump::exchange(client, upstream).await
     }
 
     fn client_greeting(target: &EgressTarget) -> &'static [u8] {
