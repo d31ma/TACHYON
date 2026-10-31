@@ -1028,7 +1028,8 @@ describe('documentation structure', () => {
   test('the navigation is a drawer where the shell has no column for it', async () => {
     const css = await read('client/components/docs/sidebar/tac.css')
     expect(css).toContain('@container (max-width: 51.999rem)')
-    expect(css).toContain('visibility: hidden')
+    expect(css).toContain('.docs-nav:not(:popover-open)')
+    expect(css).toContain('env(safe-area-inset-bottom)')
 
     expect(css).toContain('.docs-nav__section[open] > .docs-nav__list')
     expect(css).toContain('.docs-nav__section:not([open]) > .docs-nav__list')
@@ -1036,7 +1037,11 @@ describe('documentation structure', () => {
     const html = await read('client/components/docs/sidebar/tac.html')
     expect(html).toContain('aria-expanded')
     expect(html).toContain('aria-controls="docs-nav-panel"')
-    expect(html).toContain('on:click="drawer.toggle()"')
+    expect(html).toContain('popovertarget="docs-nav-panel"')
+    expect(html).toContain('on:toggle="drawer.track($event.newState)"')
+
+    const shell = await read('client/components/docs/layout/tac.html')
+    expect(shell).toContain(':inert="drawer.open"')
   })
 
   test('the docs shell dissolves its wrappers where the rule can win', async () => {

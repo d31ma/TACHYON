@@ -1,12 +1,14 @@
-<button type="button" class="docs-nav-toggle" on:click="drawer.toggle()"
+<button type="button" class="docs-nav-toggle" popovertarget="docs-nav-panel"
         :aria-expanded="drawer.open ? 'true' : 'false'" aria-controls="docs-nav-panel">
   <span aria-hidden="true">☰</span> Documentation menu
 </button>
 
-<div class="docs-nav-scrim" :data-open="drawer.open ? 'true' : 'false'" on:click="drawer.close()"></div>
-
-<nav id="docs-nav-panel" aria-label="Documentation" class="docs-nav"
-     :data-open="drawer.open ? 'true' : 'false'" on:keydown="drawer.dismiss($event.key)">
+<nav id="docs-nav-panel" aria-label="Documentation" class="docs-nav" popover
+     on:toggle="drawer.track($event.newState)">
+  <button type="button" class="docs-nav__close" popovertarget="docs-nav-panel"
+          popovertargetaction="hide" autofocus>
+    <span aria-hidden="true">✕</span> Close menu
+  </button>
   <loop :for="section of sidebar.sections()">
     <p class="docs-nav__heading">{section.heading}</p>
     <details class="docs-nav__section" :open="section.open">

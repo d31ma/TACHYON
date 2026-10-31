@@ -7,27 +7,9 @@ class DrawerService
     @open = false
   end
 
+  # @param state [String]
   # @return [Boolean]
-  def toggle
-    @open = !@open
-  end
-
-  # @return [Boolean]
-  def close
-    @open = false
-  end
-
-  # @param key [String]
-  # @return [void]
-  def dismiss(key)
-    close_on_escape(key)
-  end
-
-  private
-
-  # @param key [String]
-  # @return [void]
-  def close_on_escape(key)
-    close if key == "Escape"
+  def track(state)
+    @open = state == "open"
   end
 end

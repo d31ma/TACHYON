@@ -43,7 +43,9 @@ grid-template-columns: 15rem minmax(0, 1fr) 13rem;
 }
 }
 
-.docs-shell > [data-tachyon-component] {
+.docs-shell > [data-tachyon-component],
+.docs-shell__content,
+.docs-shell__content > [data-tachyon-component] {
   display: contents;
 }
 

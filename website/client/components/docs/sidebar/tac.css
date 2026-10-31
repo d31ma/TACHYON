@@ -28,6 +28,16 @@ display: inline-flex;
   display: flex;
   flex-direction: column;
   gap: .125rem;
+  position: static;
+  inset: auto;
+  width: auto;
+  height: auto;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  overflow: visible;
+  background: none;
+  color: inherit;
   font-size: var(--step-nav);
   line-height: 1.5;
 }
@@ -75,7 +85,8 @@ display: inline-flex;
 }
 
 .docs-nav__link {
-  display: block;
+  display: flex;
+  align-items: center;
   padding: .3125rem .5rem;
   border-radius: var(--w-radius-md, 8px);
   color: inherit;
@@ -97,12 +108,20 @@ display: inline-flex;
 }
 
 .docs-nav-toggle,
-.docs-nav-scrim {
+.docs-nav__close {
   display: none;
 }
 
+@media (pointer: coarse) {
+  .docs-nav__summary,
+  .docs-nav__link {
+    min-height: 2.75rem;
+  }
+}
+
 @container (max-width: 51.999rem) {
-  .docs-nav-toggle {
+  .docs-nav-toggle,
+  .docs-nav__close {
     display: inline-flex;
     align-items: center;
     gap: .5rem;
@@ -118,35 +137,53 @@ display: inline-flex;
     cursor: pointer;
   }
 
-  .docs-nav-scrim[data-open="true"] {
-    display: block;
-    position: fixed;
-    inset: 0;
-    z-index: 39;
-    background: rgb(0 0 0 / 45%);
+  .docs-nav__close {
+    align-self: flex-end;
+    margin-bottom: .5rem;
+  }
+
+  .docs-nav__summary,
+  .docs-nav__link {
+    min-height: 2.75rem;
   }
 
   .docs-nav {
     position: fixed;
-    top: 0;
-    bottom: 0;
-    left: 0;
-    z-index: 41;
+    inset: 0 auto 0 0;
     width: min(20rem, 86vw);
-    padding: 1rem;
+    height: auto;
+    padding:
+      max(1rem, env(safe-area-inset-top))
+      1rem
+      max(1rem, env(safe-area-inset-bottom))
+      max(1rem, env(safe-area-inset-left));
     overflow-y: auto;
     overscroll-behavior: contain;
     background: var(--w-surface, canvas);
     border-right: 1px solid var(--w-border, currentColor);
-    visibility: hidden;
     transform: translateX(-100%);
-    transition: transform .2s ease, visibility 0s linear .2s;
+    transition:
+      transform .2s ease,
+      display .2s allow-discrete,
+      overlay .2s allow-discrete;
   }
 
-  .docs-nav[data-open='true'] {
-    visibility: visible;
+  .docs-nav:not(:popover-open) {
+    display: none;
+  }
+
+  .docs-nav:popover-open {
     transform: translateX(0);
-    transition-delay: 0s;
+  }
+
+  @starting-style {
+    .docs-nav:popover-open {
+      transform: translateX(-100%);
+    }
+  }
+
+  .docs-nav::backdrop {
+    background: rgb(0 0 0 / 45%);
   }
 }
 
