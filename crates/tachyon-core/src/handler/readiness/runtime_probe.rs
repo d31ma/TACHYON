@@ -69,12 +69,22 @@ impl RuntimeProbe {
         requirements: Vec<RuntimeRequirement>,
         environment: &EnvironmentPolicy,
     ) -> Result<Vec<RuntimeProbeResult>, Failure> {
-        let mut results = Vec::with_capacity(requirements.len());
-        for requirement in requirements {
-            let state = Self::probe_one(&requirement, environment).await?;
-            results.push(RuntimeProbeResult::new(requirement, state));
-        }
-        Ok(results)
+        let probes = requirements
+            .iter()
+            .map(|requirement| Self::probe_one(requirement, environment));
+        let states = futures_util::future::join_all(probes).await;
+        Self::paired(requirements, states)
+    }
+
+    fn paired(
+        requirements: Vec<RuntimeRequirement>,
+        states: Vec<Result<RuntimeProbeState, Failure>>,
+    ) -> Result<Vec<RuntimeProbeResult>, Failure> {
+        requirements
+            .into_iter()
+            .zip(states)
+            .map(|(requirement, state)| Ok(RuntimeProbeResult::new(requirement, state?)))
+            .collect()
     }
 
     fn probe_each_sync(
