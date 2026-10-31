@@ -1,6 +1,9 @@
 mod rejection;
 mod route_answer;
 mod route_arguments;
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod route_arguments_tests;
 mod route_request;
 mod route_result;
 mod route_verbs;

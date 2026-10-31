@@ -170,9 +170,6 @@ jobs:
           php --version && php-cgi --version && dart --version && lua -v
           groovyc --version && kotlinc -version
 
-      - name: Install checksum-pinned CHEX for real schema contracts
-        run: node scripts/ci/install-chex.mjs "${{ runner.temp }}/tachyon-chex"
-
       - name: Check formatting
         run: cargo fmt --check
 
@@ -503,9 +500,6 @@ jobs:
         run: |
           bun run test:behavior-runtime
           bun run test:behavior-browser
-
-      - name: Install checksum-pinned CHEX
-        run: node scripts/ci/install-chex.mjs "${{ runner.temp }}/tachyon-chex"
 
       - name: Exercise schema validation through the compiled CLI
         run: node scripts/schema-contract-smoke.mjs

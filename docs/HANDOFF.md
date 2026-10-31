@@ -700,9 +700,9 @@ Verification for this change:
   dependencies, exclusion of static and default fields, unchangeable
   execution, and rejection of invalid graphs.
 - **All 408 core unit tests** have passing evidence across batches. The broad
-  run passed 404 and failed four process/deadline checks in CHEX/isolation.
-  Exact retries of the unchanged binary passed all five CHEX tests and the
-  isolation test.
+  run passed 404 and failed four process/deadline checks in the external
+  schema validator and isolation. Exact retries of the unchanged binary passed
+  all five schema-validator tests and the isolation test.
 - **The full workspace run** stopped at a CLI application-configuration
   readiness timeout. Its unchanged focused retry passed. The remaining
   workspace targets were not all run again after that stop. Do not claim a

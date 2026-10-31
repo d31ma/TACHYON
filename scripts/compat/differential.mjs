@@ -206,7 +206,7 @@ function withoutRemovedLegacyScaffold(tree) {
   ).toString('base64');
   const readme = Buffer.from(normalized['README.md'], 'base64').toString('utf8')
     .replace(
-      /This shows a staged Tachyon progress bar while installing the `ty` binary plus\s+the `fylo`, `chex`, and `ttid` binaries it drives at runtime\./,
+      /This shows a staged Tachyon progress bar while installing the `ty` binary plus\s+the [^.]+ binaries it drives at runtime\./,
       'This shows a staged Tachyon progress bar while installing only the standalone `ty` binary.',
     );
   normalized['README.md'] = Buffer.from(readme).toString('base64');

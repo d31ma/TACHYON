@@ -35,7 +35,7 @@ ADR means architecture decision record (see `docs/adr/`).
 | HTML literals/bootstrap | Decode text references once. Never read them again as markup or expressions. UTF-8 byte order mark (BOM). Mobile viewport. | Restore. Keep the attributes the tokenizer decoded, without decoding them twice. |
 | Native targets | Trusted local WebView application, companions compiled for the native target, deterministic target precedence, dispatch per route | Behaviour is a service in `client/services/`. Native services are activated per browser-side service instance and addressed by instance name (ADR 0030). Restore the accepted local architecture with origin checks and the owned process and snapshot guarantees. |
 | Application/browser metadata | Captured manifest and config, validated metadata, icons and window settings, deterministic native and browser output | Restore. Do not let overlays skip validation. |
-| Request contracts | CHEX validates parameters, headers and body before the handler runs. An invalid schema or runtime fails before readiness. | Restore with bounded, supervised external validation and immutable schema capture. |
+| Request contracts | Parameters, headers and body are validated before the handler runs. An invalid schema fails before readiness. | Done in process: the server checks each request against the model types of the controller method (ADR 0048), with no external validator. |
 | API documentation | Deterministic api.json and schema viewer show the captured contracts. Dynamic OPTIONS uses the matched route. | Restore together with the request-contract gate. |
 | CLI | preview builds and watches Tac+Yon. start runs existing output without a rebuild or hot module replacement (HMR). bundle --native stages one target. | Restore. Keep the compatible legacy commands and structured shutdown. |
 | Tests/support/release | Native execution per platform, security, compatibility, signed provenance, acceptance of the installed artifact | Update the gates to match the real architecture. Do not weaken tests into checks of source shape. |
@@ -111,9 +111,9 @@ Linux/Windows checks and its local binary identity.
   - decoding entities only once;
   - BOM handling;
   - mobile bootstrap metadata.
-- The real CHEX integration and the compiled-CLI schema probe reject an invalid
-  body, headers, parameters and JSON. The server answers dynamic OPTIONS and
-  serves the API viewer.
+- The external schema validator used then and the compiled-CLI schema probe
+  reject an invalid body, headers, parameters and JSON. The server answers
+  dynamic OPTIONS and serves the API viewer.
 - The browser storage and runtime gates pass. They include counted-loop DOM
   behavior, aggregate bounds on empty loops, forwarding of native arguments,
   and cancelling a delayed mount. Service-worker privacy tests cover cache hits
@@ -159,8 +159,8 @@ Linux/Windows checks and its local binary identity.
     do not change its stream protocol.
 - `scripts/release/feature-smoke.mjs` passes against the reconciliation CLI. It
   proves client plans and production startup without recompiling or HMR.
-- The exact CHEX v26.32.02 artifact is pinned by digest for all five release
-  architectures. Its real validation protocol was probed locally.
+- The external schema validator used then was pinned by digest for all five
+  release architectures. In-process validation has since replaced it.
 - Eight browser gates and all 39 compatibility-ledger claims pass. Workflow
   syntax passes `actionlint -shellcheck=''`. Plain actionlint still reports
   five ShellCheck findings. The base commit shows the same five findings.
@@ -246,8 +246,9 @@ automated release qualification.
   - Companions must stay responsive. Hung native work can require the user to
     relaunch the application.
 - Some failures passed on a later run without any change:
-  - Earlier local CHEX startup and Apple helper timeout failures passed on later
-    runs, including the final full run. Their causes are not confirmed.
+  - Earlier local schema-validator startup and Apple helper timeout failures
+    passed on later runs, including the final full run. Their causes are not
+    confirmed.
   - One Android emulator installation failed during boot readiness. It passed
     on a retry with no change.
 

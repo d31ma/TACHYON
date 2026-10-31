@@ -265,6 +265,32 @@ fn model_records_refuse_unknown_fields_at_every_depth() {
 }
 
 #[test]
+fn values_nested_past_the_depth_limit_are_refused() {
+    let table = table("ts", "interface Node { next?: Node }\n");
+    let mut deep = json!({});
+    for _ in 0..40 {
+        deep = json!({"next": deep});
+    }
+    let refusal = table
+        .check(&model("Node"), &deep, "body")
+        .expect_err("too deep");
+    assert!(refusal.ends_with("is nested too deeply"), "{refusal}");
+    let mut shallow = json!({});
+    for _ in 0..4 {
+        shallow = json!({"next": shallow});
+    }
+    assert_eq!(table.check(&model("Node"), &shallow, "body"), Ok(()));
+    let mut lists = list(Shape::Integer);
+    let mut items = json!([1]);
+    for _ in 0..40 {
+        lists = list(lists);
+        items = json!([items]);
+    }
+    let refusal = table.check(&lists, &items, "body").expect_err("too deep");
+    assert!(refusal.ends_with("is nested too deeply"), "{refusal}");
+}
+
+#[test]
 fn text_values_become_typed_values() {
     assert_eq!(TextValue::convert(&Shape::Integer, "42"), Some(json!(42)));
     assert_eq!(TextValue::convert(&Shape::Integer, "4.2"), None);

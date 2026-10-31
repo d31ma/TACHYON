@@ -203,7 +203,7 @@ run" lists what the machine must already have.
 | .NET | `10.0.302` with workloads `wasm-tools` and `wasm-tools-net9` | `actions/setup-dotnet`, then `dotnet workload install` | `DOTNET_INSTALL_DIR` set to a folder the runner account owns |
 | TypeScript | `7.0.2` | `npm install --no-save`, then `node_modules/.bin` on `PATH` for the tests' own projects | nothing |
 | Emscripten | the `emsdk` and `emscripten` lines in `runtimes/ruby-web/sources.txt` | `scripts/ci/install-emscripten.mjs` | Python on `PATH` |
-| CHEX, FYLO | checksum pins in `scripts/ci/` | `scripts/ci/install-chex.mjs`, `scripts/ci/install-fylo.mjs` | nothing |
+| FYLO | checksum pins in `scripts/ci/` | `scripts/ci/install-fylo.mjs` | nothing |
 | JDK | 21 | preinstalled, read from `JAVA_HOME_21_arm64` (macOS) or `JAVA_HOME_21_X64` (Linux, Windows) | a JDK 21 and the matching variable in `.env` |
 | Kotlin, Kotlin/Wasm stdlib | `2.1.10` | checksum-pinned download (`macos-native`), `scripts/ci/install-toolchains.mjs` with `kotlin kotlin-wasm`, which sets `TAC_KOTLIN_WASM_STDLIB` (`native`, `coverage`, `sanitizers`, `browser-languages`) | `curl`, `unzip`, `shasum` |
 | Groovy | `5.1.3` | `scripts/ci/install-toolchains.mjs` (`native`, `coverage`, `sanitizers`) | `curl`, `unzip` |

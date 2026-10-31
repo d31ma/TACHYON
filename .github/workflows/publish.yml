@@ -366,9 +366,6 @@ jobs:
         with:
           bun-version: 1.4.3
 
-      - name: Install checksum-pinned schema validator
-        run: node scripts/ci/install-chex.mjs "${{ runner.temp }}/tachyon-chex"
-
       - name: Install exact native companion compiler
         shell: bash
         run: |

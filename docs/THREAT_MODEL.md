@@ -150,11 +150,16 @@ This section describes controls that are implemented. These documentation
 updates are not a new security assessment or sign-off. The user waived the
 separate cybersecurity review for this reconciliation.
 
-- **CHEX.** CHEX validates fixed, captured schemas against private request
-  files. Request bodies and authorization headers never enter argv or public
-  errors. Admission and execution share one deadline. Concurrency has a
-  limit. An invalid schema or a tool that fails to start fails before
-  publication and before the socket is ready.
+- **Request validation.** The server checks path, query, header and cookie
+  values and the JSON body against the model types of the controller method
+  before the handler runs (ADR 0048). The check runs inside the server
+  process, so request data never reaches an external program or its argv.
+  Model records refuse undeclared fields at every depth. Values nested more
+  than 32 levels deep are refused, and bodies larger than `yon.server.maxbody`
+  get 413. A refusal is a 400 answer that names the part and the declared
+  field path. It never repeats a request value, an undeclared field name or an
+  authorization header. A route type that names a missing or unreadable model
+  fails the build, before publication and before the socket is ready.
 - **Browser response storage.** Storing responses is opt-in, and only for
   same-origin GET or HEAD requests without credentials. These skip storage:
   requests with Authorization, requests with cookies, private or no-store

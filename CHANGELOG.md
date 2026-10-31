@@ -1943,6 +1943,16 @@ machine contracts have their own, independent major versions.
 
 ### Security
 
+- Removed the external schema validator from CI and the docs (CX1,
+  2026-10-31). The server has checked requests in process since the
+  annotation routes of ADR 0048: path, query, header and cookie values and
+  the JSON body must fit the model types of the controller method, records
+  refuse undeclared fields at every depth, and values nested more than 32
+  levels deep are refused. The validator's installer script and its CI steps
+  are gone, and `docs/THREAT_MODEL.md` describes the in-process check.
+  New contract tests prove that a 400 refusal never repeats a request value,
+  an undeclared field name, a cookie or an authorization header.
+
 - `webpki-roots` moves from 1.0.9 to 1.0.11 in `Cargo.lock` and
   `fuzz/Cargo.lock` (DN1, 2026-10-28). 1.0.10 removed the
   `emSign ECC Root CA - G3` root, through which distrusted emSign
@@ -6752,9 +6762,9 @@ machine contracts have their own, independent major versions.
   features: publish/subscribe, persistence decorators, bounded browser helpers,
   counted loops, manifest and configuration capture, and target-native
   companions.
-- Validate captured request body, header and parameter contracts with bounded
-  CHEX execution. Publish deterministic API schemas and an interactive
-  reference.
+- Validate captured request body, header and parameter contracts with a
+  bounded external schema validator. Publish deterministic API schemas and an
+  interactive reference.
 - Restore development `preview`, production `start` with an immutable bundle,
   and single-target `bundle --native`. Existing command aliases still work.
 - Before publication, run behavioral schema, companion ABI (application binary
@@ -7110,7 +7120,7 @@ verification of the Windows installer found a defect in atomic replacement.
   on every platform.
 - Handler and middleware process diagnostics no longer cross the HTTP boundary.
   Public failures include only a request reference.
-- Removed the installer's execution of CHEX and TTID. These were transitive
+- Removed the installer's execution of the schema validator and TTID. These were transitive
   dependencies that could change and were not verified. The Rust runtime uses
   neither external binary.
 - Removed the last FYLO environment keys, ambient APIs, generated README text,
@@ -7707,7 +7717,7 @@ verification of the Windows installer found a defect in atomic replacement.
   - `/_yon/realtime/messages` stores messages in FYLO's local queue. It also
     wakes any client stream that is connected at that moment.
 - The example app now includes a Yon realtime messaging part. It has MVC
-  (model-view-controller) routes under `/realtime`, FYLO/CHEX schemas for demo
+  (model-view-controller) routes under `/realtime`, FYLO and validation schemas for demo
   clients and messages, and a Tac companion script. The browser UI markup and
   styles are not done yet.
 - The compiler injects a `fylo` browser client into Tac. This client now:
@@ -7897,7 +7907,7 @@ verification of the Windows installer found a defect in atomic replacement.
   `<METHOD>/<routeFileName>` layout. After the Yon rename, the old `<METHOD>`
   fallback built paths that did not exist, without any error. As a result, most
   polyglot handlers were missing from the pool of warmed processes.
-- Restored `static chexSchemas = new Map()` on `Validate`. The schema
+- Restored the static schema map on `Validate`. The schema
   validator needs it to match responses. It had been removed from the working
   tree during a refactor.
 - `FyloMachineRepository.ensureDemoSchema()` now writes to a
@@ -7968,10 +7978,12 @@ verification of the Windows installer found a defect in atomic replacement.
 
 ### Fixed
 
-- Upgraded `@d31ma/fylo` to `26.21.2`, which brings `@d31ma/chex` `26.21.02`.
+- Upgraded `@d31ma/fylo` to `26.21.2`, which brings its schema validator
+  package `26.21.02`.
   This version added a `SchemaValidator` API. It requires the `.schema.json`
   extension in schema references and `path:`-prefixed cache keys. Changed
-  `validateWithChex` to fill the CHEX cache with keys in the expected format.
+  the validation helper to fill the validator cache with keys in the expected
+  format.
 - Changed `Router.optionsFileName` from `OPTIONS.json` to `OPTIONS.schema.json`
   so the route handler finds the renamed schema files.
 - Renamed route `OPTIONS.json` files to `OPTIONS.schema.json` and schema
