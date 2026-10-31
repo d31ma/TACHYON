@@ -11,6 +11,15 @@ fn routes(file: &str, source: &str) -> Vec<Route> {
         .routes
 }
 
+fn fsharp_routes(file: &str, source: &str) -> Vec<Route> {
+    crate::fsharp_source::FsharpView::run(Path::new(file), source, parse)
+        .expect("an F# source")
+        .expect("parsed controller")
+        .expect("managed controller")
+        .plan
+        .routes
+}
+
 fn refusal(file: &str, source: &str) -> String {
     let Err(failure) = parse(Path::new(file), source) else {
         panic!("the parser accepted {source}");
@@ -75,6 +84,81 @@ fn every_language_writes_role_types() {
         let found = routes(file, source);
         assert_eq!(found[0].access, roles(&["Admin", "Editor"]), "{file}");
     }
+}
+
+#[test]
+fn a_groovy_controller_writes_role_classes() {
+    let found = routes(
+        "server/controllers/OrdersController.groovy",
+        "@RequestRoute('/orders')\n@Allow([Admin.class, Editor.class])\nclass OrdersController {\n    @GetRoute\n    Object getOrders() { return null }\n}\n",
+    );
+    assert_eq!(found[0].access, roles(&["Admin", "Editor"]));
+}
+
+#[test]
+fn a_groovy_controller_writes_bare_role_names() {
+    let found = routes(
+        "server/controllers/OrdersController.groovy",
+        "@RequestRoute('/orders')\n@Allow(Admin)\nclass OrdersController {\n    @GetRoute\n    Object getOrders() { return null }\n}\n",
+    );
+    assert_eq!(found[0].access, roles(&["Admin"]));
+}
+
+#[test]
+fn a_groovy_controller_reads_every_access_rule() {
+    let found = routes(
+        "server/controllers/OrdersController.groovy",
+        "@RequestRoute('/orders')\n@SignedIn\nclass OrdersController {\n    @GetRoute\n    @Public\n    Object getOrders() { return null }\n    @PostRoute\n    Object postOrder() { return null }\n    @DeleteRoute\n    @Allow(Admin.class)\n    Object deleteOrders() { return null }\n}\n",
+    );
+    let access: Vec<RouteAccess> = found.into_iter().map(|route| route.access).collect();
+    assert_eq!(
+        access,
+        vec![RouteAccess::Public, RouteAccess::SignedIn, roles(&["Admin"])]
+    );
+}
+
+#[test]
+fn an_fsharp_controller_writes_role_types() {
+    let found = fsharp_routes(
+        "server/controllers/OrdersController.fs",
+        "[<RequestRoute(\"/orders\")>]\n[<Allow(typeof<Admin>, typeof<Editor>)>]\ntype OrdersController() =\n    [<GetRoute>]\n    member this.GetOrders() : string = \"\"\n",
+    );
+    assert_eq!(found[0].access, roles(&["Admin", "Editor"]));
+}
+
+#[test]
+fn an_fsharp_controller_reads_every_access_rule() {
+    let found = fsharp_routes(
+        "server/controllers/OrdersController.fs",
+        "[<RequestRoute(\"/orders\")>]\n[<SignedIn>]\ntype OrdersController() =\n    [<GetRoute>]\n    [<Public>]\n    member this.GetOrders() : string = \"\"\n\n    [<PostRoute>]\n    member this.PostOrder() : string = \"\"\n\n    [<DeleteRoute>]\n    [<Allow(typeof<Admin>)>]\n    member this.DeleteOrders() : string = \"\"\n",
+    );
+    let access: Vec<RouteAccess> = found.into_iter().map(|route| route.access).collect();
+    assert_eq!(
+        access,
+        vec![RouteAccess::Public, RouteAccess::SignedIn, roles(&["Admin"])]
+    );
+}
+
+#[test]
+fn an_fsharp_identity_provider_has_one_identify_method() {
+    let found = fsharp_routes(
+        "server/controllers/AppIdentityProvider.fs",
+        "[<IdentityProvider>]\ntype AppIdentityProvider() =\n    member this.Identify([<FromHeader(\"x-test-user\")>] user: string) : string = user\n",
+    );
+    assert_eq!(found.len(), 1);
+    assert_eq!(found[0].method, "Identify");
+    assert_eq!(found[0].verb, "GET");
+}
+
+#[test]
+fn a_groovy_identity_provider_has_one_identify_method() {
+    let found = routes(
+        "server/controllers/AppIdentityProvider.groovy",
+        "@IdentityProvider\nclass AppIdentityProvider {\n    String identify(@FromHeader('x-test-user') String user) { return user }\n}\n",
+    );
+    assert_eq!(found.len(), 1);
+    assert_eq!(found[0].method, "identify");
+    assert_eq!(found[0].verb, "GET");
 }
 
 #[test]

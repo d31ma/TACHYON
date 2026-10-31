@@ -172,6 +172,74 @@ impl IdentityProject {
             ),
         ],
     };
+
+    const FSHARP: Self = Self {
+        extension: "fs",
+        program: "dotnet",
+        files: &[
+            (
+                "server/models/Identity.fs",
+                "type Identity = { User: string; Roles: string[] }\n",
+            ),
+            (
+                "server/controllers/AppIdentityProvider.fs",
+                "open Models\n\n[<IdentityProvider>]\ntype AppIdentityProvider() =\n    member this.Identify([<FromHeader(\"x-test-user\")>] user: string, [<FromHeader(\"x-test-roles\")>] roles: string) : Identity =\n        { User = user; Roles = roles.Split(',') }\n",
+            ),
+        ],
+    };
+
+    const GROOVY: Self = Self {
+        extension: "groovy",
+        program: "groovyc",
+        files: &[
+            (
+                "server/models/Identity.groovy",
+                "record Identity(String user, List<String> roles) {}\n",
+            ),
+            (
+                "server/controllers/AppIdentityProvider.groovy",
+                "import models.Identity\n\n@IdentityProvider\nclass AppIdentityProvider {\n    Identity identify(@FromHeader('x-test-user') String user, @FromHeader('x-test-roles') String roles) {\n        return new Identity(user, roles.split(',').toList())\n    }\n}\n",
+            ),
+        ],
+    };
+}
+
+struct GuardedProject {
+    extension: &'static str,
+    program: &'static str,
+    controller: &'static str,
+}
+
+impl GuardedProject {
+    const JAVA: Self = Self {
+        extension: "java",
+        program: "java",
+        controller: "@RequestRoute(\"/orders\")\n@SignedIn\nclass OrdersController {\n    @GetRoute\n    @Public\n    String getOrders() {\n        return \"public\";\n    }\n\n    @PostRoute\n    String postOrder() {\n        return \"created\";\n    }\n\n    @DeleteRoute\n    @Allow(Admin.class)\n    String deleteOrders() {\n        return \"deleted\";\n    }\n}\n",
+    };
+
+    const GROOVY: Self = Self {
+        extension: "groovy",
+        program: "groovyc",
+        controller: "@RequestRoute('/orders')\n@SignedIn\nclass OrdersController {\n    @GetRoute\n    @Public\n    String getOrders() {\n        return 'public'\n    }\n\n    @PostRoute\n    String postOrder() {\n        return 'created'\n    }\n\n    @DeleteRoute\n    @Allow(Admin.class)\n    String deleteOrders() {\n        return 'deleted'\n    }\n}\n",
+    };
+
+    const KOTLIN: Self = Self {
+        extension: "kt",
+        program: "kotlinc",
+        controller: "@RequestRoute(\"/orders\")\n@SignedIn\nclass OrdersController {\n    @GetRoute\n    @Public\n    fun getOrders(): String = \"public\"\n\n    @PostRoute\n    fun postOrder(): String = \"created\"\n\n    @DeleteRoute\n    @Allow(Admin::class)\n    fun deleteOrders(): String = \"deleted\"\n}\n",
+    };
+
+    const CSHARP: Self = Self {
+        extension: "cs",
+        program: "dotnet",
+        controller: "[RequestRoute(\"/orders\")]\n[SignedIn]\nclass OrdersController {\n    [GetRoute]\n    [Public]\n    public string GetOrders() {\n        return \"public\";\n    }\n\n    [PostRoute]\n    public string PostOrder() {\n        return \"created\";\n    }\n\n    [DeleteRoute]\n    [Allow(typeof(Admin))]\n    public string DeleteOrders() {\n        return \"deleted\";\n    }\n}\n",
+    };
+
+    const FSHARP: Self = Self {
+        extension: "fs",
+        program: "dotnet",
+        controller: "[<RequestRoute(\"/orders\")>]\n[<SignedIn>]\ntype OrdersController() =\n    [<GetRoute>]\n    [<Public>]\n    member this.GetOrders() : string = \"public\"\n\n    [<PostRoute>]\n    member this.PostOrder() : string = \"created\"\n\n    [<DeleteRoute>]\n    [<Allow(typeof<Admin>)>]\n    member this.DeleteOrders() : string = \"deleted\"\n",
+    };
 }
 
 struct Project;
@@ -223,6 +291,18 @@ impl Project {
             Self::JAVASCRIPT_ORDERS,
         );
         for (relative, source) in identity.files {
+            Self::write(root, relative, source);
+        }
+    }
+
+    fn guarded(root: &Path, guarded: &GuardedProject) {
+        Self::base(root);
+        Self::write(
+            root,
+            &format!("server/controllers/OrdersController.{}", guarded.extension),
+            guarded.controller,
+        );
+        for (relative, source) in IdentityProject::JAVASCRIPT.files {
             Self::write(root, relative, source);
         }
     }
@@ -518,6 +598,93 @@ async fn a_dart_identity_provider_guards_routes() {
 #[tokio::test]
 async fn a_go_identity_provider_guards_routes() {
     assert_identity_provider(&IdentityProject::GO).await;
+}
+
+#[tokio::test]
+async fn an_fsharp_identity_provider_guards_routes() {
+    assert_identity_provider(&IdentityProject::FSHARP).await;
+}
+
+#[tokio::test]
+async fn a_groovy_identity_provider_guards_routes() {
+    assert_identity_provider(&IdentityProject::GROOVY).await;
+}
+
+async fn assert_guarded_routes(guarded: &GuardedProject) {
+    if !available(guarded.program) || !available("node") {
+        eprintln!(
+            "skipping {}: {} is unavailable",
+            guarded.extension, guarded.program
+        );
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    Project::guarded(root.path(), guarded);
+    let server = Server::start(root.path()).await;
+    let editor = "x-test-user: ada\r\nx-test-roles: Editor\r\n";
+    let admin = "x-test-user: ada\r\nx-test-roles: Editor,Admin\r\n";
+    let public = server.call("GET", "/orders", "").await;
+    assert!(
+        public.contains("200 OK") && public.contains("public"),
+        "{}: {public}",
+        guarded.extension
+    );
+    let anonymous = server.call("POST", "/orders", "").await;
+    assert!(
+        anonymous.contains("401 Unauthorized") && !anonymous.contains("created"),
+        "{}: {anonymous}",
+        guarded.extension
+    );
+    let anonymous_delete = server.call("DELETE", "/orders", "").await;
+    assert!(
+        anonymous_delete.contains("401 Unauthorized") && !anonymous_delete.contains("deleted"),
+        "{}: {anonymous_delete}",
+        guarded.extension
+    );
+    let refused = server.call("DELETE", "/orders", editor).await;
+    assert!(
+        refused.contains("403 Forbidden") && !refused.contains("deleted"),
+        "{}: {refused}",
+        guarded.extension
+    );
+    let signed_in = server.call("POST", "/orders", editor).await;
+    assert!(
+        signed_in.contains("200 OK") && signed_in.contains("created"),
+        "{}: {signed_in}",
+        guarded.extension
+    );
+    let allowed = server.call("DELETE", "/orders", admin).await;
+    assert!(
+        allowed.contains("200 OK") && allowed.contains("deleted"),
+        "{}: {allowed}",
+        guarded.extension
+    );
+    server.stop().await;
+}
+
+#[tokio::test]
+async fn a_java_signed_in_and_allow_routes_answer_401_and_403() {
+    assert_guarded_routes(&GuardedProject::JAVA).await;
+}
+
+#[tokio::test]
+async fn a_groovy_signed_in_and_allow_routes_answer_401_and_403() {
+    assert_guarded_routes(&GuardedProject::GROOVY).await;
+}
+
+#[tokio::test]
+async fn a_kotlin_signed_in_and_allow_routes_answer_401_and_403() {
+    assert_guarded_routes(&GuardedProject::KOTLIN).await;
+}
+
+#[tokio::test]
+async fn a_csharp_signed_in_and_allow_routes_answer_401_and_403() {
+    assert_guarded_routes(&GuardedProject::CSHARP).await;
+}
+
+#[tokio::test]
+async fn an_fsharp_signed_in_and_allow_routes_answer_401_and_403() {
+    assert_guarded_routes(&GuardedProject::FSHARP).await;
 }
 
 #[tokio::test]

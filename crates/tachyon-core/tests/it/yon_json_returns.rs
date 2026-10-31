@@ -232,6 +232,40 @@ class JsonController {
 }
 "#;
 
+    const GROOVY: &str = r#"
+@RequestRoute('/json')
+@Public
+@NeedsAll()
+class JsonController {
+    @GetRoute
+    Object getJson() { return [amount: 42, active: true] }
+    @PostRoute
+    Object postJson() { return [1, 'two', null] }
+    @PutRoute
+    String putJson() { return '{"not":"an object"}' }
+    @DeleteRoute
+    Object deleteJson() { return null }
+    @PatchRoute
+    void patchJson(com.sun.net.httpserver.HttpExchange exchange) throws java.io.IOException {
+        byte[] body = '{"explicit":true}'.getBytes(java.nio.charset.StandardCharsets.UTF_8)
+        exchange.getResponseHeaders().add('content-type', 'application/json')
+        exchange.getResponseHeaders().add('x-mode', 'explicit')
+        exchange.sendResponseHeaders(201, body.length)
+        exchange.getResponseBody().write(body)
+    }
+    @GetRoute('/parsing')
+    Object getParsing() {
+        List<String> malformed = ['', '{', '[1,]', '{"x" 1}', 'true false', '01', '"\\q"', '"raw\nline"']
+        boolean rejected = true
+        for (String text in malformed) { try { Json.parse(text); rejected = false } catch (IllegalArgumentException error) {} }
+        try { Json.stringify(Double.NaN); rejected = false } catch (IllegalArgumentException error) {}
+        try { Json.parse('[' * 66 + '0' + ']' * 66); rejected = false } catch (IllegalArgumentException error) {}
+        rejected = rejected && Json.stringify(Json.parse('9223372036854775807')) == '9223372036854775807'
+        return [rejected: rejected, unicode: Json.parse('"\\ud83d\\ude00"')]
+    }
+}
+"#;
+
     const KOTLIN: &str = r#"
 @RequestRoute("/json")
 @Public
@@ -405,6 +439,10 @@ async fn php_values() {
 #[tokio::test]
 async fn java_values() {
     exercise("java", "java", Fixtures::JAVA).await;
+}
+#[tokio::test]
+async fn groovy_values() {
+    exercise("groovy", "groovyc", Fixtures::GROOVY).await;
 }
 #[tokio::test]
 async fn kotlin_values() {
