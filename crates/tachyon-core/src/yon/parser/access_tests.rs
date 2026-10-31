@@ -113,7 +113,11 @@ fn a_groovy_controller_reads_every_access_rule() {
     let access: Vec<RouteAccess> = found.into_iter().map(|route| route.access).collect();
     assert_eq!(
         access,
-        vec![RouteAccess::Public, RouteAccess::SignedIn, roles(&["Admin"])]
+        vec![
+            RouteAccess::Public,
+            RouteAccess::SignedIn,
+            roles(&["Admin"])
+        ]
     );
 }
 
@@ -135,7 +139,11 @@ fn an_fsharp_controller_reads_every_access_rule() {
     let access: Vec<RouteAccess> = found.into_iter().map(|route| route.access).collect();
     assert_eq!(
         access,
-        vec![RouteAccess::Public, RouteAccess::SignedIn, roles(&["Admin"])]
+        vec![
+            RouteAccess::Public,
+            RouteAccess::SignedIn,
+            roles(&["Admin"])
+        ]
     );
 }
 

@@ -644,7 +644,11 @@ async fn assert_guarded_routes(guarded: &GuardedProject) {
         "{}: {anonymous}",
         guarded.extension
     );
-    assert!(!posted.exists(), "{}: POST ran signed out", guarded.extension);
+    assert!(
+        !posted.exists(),
+        "{}: POST ran signed out",
+        guarded.extension
+    );
     let anonymous_delete = server.call("DELETE", "/orders", "").await;
     assert!(
         anonymous_delete.starts_with("HTTP/1.1 401 ")
@@ -676,7 +680,11 @@ async fn assert_guarded_routes(guarded: &GuardedProject) {
         "{}: {allowed}",
         guarded.extension
     );
-    assert!(deleted.exists(), "{}: DELETE did not run", guarded.extension);
+    assert!(
+        deleted.exists(),
+        "{}: DELETE did not run",
+        guarded.extension
+    );
     server.stop().await;
 }
 
