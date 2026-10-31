@@ -3,8 +3,7 @@ use std::sync::Arc;
 
 use serde_json::{Value, json};
 
-use super::{execute, fylo_is_available, fylo_url, is_rejected, sqlite};
-use crate::storage::ManagedStorage;
+use super::{execute, fylo_is_available, fylo_store, is_rejected, sqlite};
 
 fn fylo_runs_here() -> bool {
     if fylo_is_available() {
@@ -19,13 +18,6 @@ fn fylo_runs_here() -> bool {
 
 fn canonical_root(directory: &tempfile::TempDir) -> PathBuf {
     std::fs::canonicalize(directory.path()).expect("canonical root")
-}
-
-async fn connect(root: &Path) -> ManagedStorage {
-    let url = fylo_url(root);
-    ManagedStorage::connect(&json!({"yon":{"datasource":{"driver":"fylo","url":url}}}))
-        .await
-        .unwrap_or_else(|error| panic!("{error}"))
 }
 
 fn document(command: &str, fields: Value) -> Value {
@@ -143,7 +135,7 @@ async fn fylo_documents_round_trip_in_a_hyphenated_collection() {
         return;
     }
     let directory = tempfile::tempdir().expect("root");
-    let store = connect(&canonical_root(&directory)).await;
+    let store = fylo_store(&canonical_root(&directory)).await;
     let exists = document("collectionExists", json!({}));
     assert_eq!(execute(&store, exists.clone()).await, json!(false));
     assert_eq!(
@@ -195,7 +187,7 @@ async fn fylo_stores_accept_a_hyphenated_table() {
         return;
     }
     let directory = tempfile::tempdir().expect("root");
-    let store = connect(&canonical_root(&directory)).await;
+    let store = fylo_store(&canonical_root(&directory)).await;
     execute(&store, document("createCollection", json!({}))).await;
     let save = json!({"operation":"save","table":"hd-events","entity":"Event","idField":"id","value":{"kind":"a"}});
     let saved = execute(&store, save).await;
@@ -209,7 +201,7 @@ async fn concurrent_fylo_patches_never_lose_an_update() {
         return;
     }
     let directory = tempfile::tempdir().expect("root");
-    let store = Arc::new(connect(&canonical_root(&directory)).await);
+    let store = Arc::new(fylo_store(&canonical_root(&directory)).await);
     execute(&store, document("createCollection", json!({}))).await;
     let saved = execute(
         &store,
@@ -245,7 +237,7 @@ async fn fylo_scroll_pages_past_ten_thousand_documents_with_a_cursor() {
     let directory = tempfile::tempdir().expect("root");
     let root = canonical_root(&directory);
     write_many_documents(&root, 10_050);
-    let store = connect(&root).await;
+    let store = fylo_store(&root).await;
     let mut cursor = Value::Null;
     let mut seen = Vec::new();
     loop {
@@ -287,7 +279,7 @@ async fn fylo_queue_publishes_claims_and_settles_deliveries() {
         return;
     }
     let directory = tempfile::tempdir().expect("root");
-    let store = connect(&canonical_root(&directory)).await;
+    let store = fylo_store(&canonical_root(&directory)).await;
     let publish = queue(
         "publish",
         json!({"payload":{"app":"web"},"key":"render:web"}),

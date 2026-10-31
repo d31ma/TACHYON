@@ -1,9 +1,9 @@
 use serde_json::{Value, json};
 
 use super::{
-    create_fylo_products_collection, execute, fylo_command, fylo_is_available, fylo_save, fylo_url,
+    create_fylo_products_collection, execute, fylo_command, fylo_is_available, fylo_save,
+    fylo_store,
 };
-use crate::storage::ManagedStorage;
 use crate::storage::fylo::SqlStatement;
 
 struct FyloSqlProbe;
@@ -161,11 +161,7 @@ async fn fylo_answers_injection_payloads_with_only_the_exact_match() {
     let root = tempfile::tempdir().expect("root");
     let canonical = std::fs::canonicalize(root.path()).expect("canonical");
     create_fylo_products_collection(&canonical);
-    let store = ManagedStorage::connect(
-        &json!({"yon":{"datasource":{"driver":"fylo","url":fylo_url(&canonical)}}}),
-    )
-    .await
-    .unwrap_or_else(|error| panic!("{error}"));
+    let store = fylo_store(&canonical).await;
     let tricky = "O'Brien \"quoted\" \u{2019}curly\u{2019} back\\slash ;--";
     fylo_save(&store, json!({"name":"rope","qty":7})).await;
     fylo_save(&store, json!({"name":tricky,"qty":2})).await;

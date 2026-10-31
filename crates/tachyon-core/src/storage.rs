@@ -28,6 +28,7 @@ pub(crate) struct ManagedStorage {
     fylo: Option<FyloStore>,
     redis: Option<RedisStore>,
     admission: Semaphore,
+    deadline_factor: u32,
 }
 
 impl std::fmt::Debug for ManagedStorage {
@@ -46,6 +47,7 @@ impl std::fmt::Debug for ManagedStorage {
 impl ManagedStorage {
     const MAX_BYTES: usize = 1024 * 1024;
     const MAX_ROWS: usize = 100;
+    const STARTUP_TIMEOUT: Duration = Duration::from_secs(10);
     const OPERATION_TIMEOUT: Duration = Duration::from_secs(5);
     const SCROLL_TIMEOUT: Duration = Duration::from_secs(30);
     const MAX_TRANSACTIONS: usize = 4;
@@ -62,7 +64,14 @@ impl ManagedStorage {
     ];
 
     pub(crate) async fn connect(configuration: &Value) -> Result<Self, Failure> {
-        tokio::time::timeout(Duration::from_secs(10), async {
+        Self::connect_with_deadline_factor(configuration, 1).await
+    }
+
+    async fn connect_with_deadline_factor(
+        configuration: &Value,
+        deadline_factor: u32,
+    ) -> Result<Self, Failure> {
+        tokio::time::timeout(Self::STARTUP_TIMEOUT * deadline_factor, async {
             let yon = &configuration["yon"];
             let (sql, fylo) = match yon.get("datasource") {
                 Some(value) if value["driver"] == "fylo" => {
@@ -80,6 +89,7 @@ impl ManagedStorage {
                 fylo,
                 redis,
                 admission: Semaphore::new(16),
+                deadline_factor,
             })
         })
         .await
@@ -92,20 +102,22 @@ impl ManagedStorage {
             .admission
             .try_acquire()
             .map_err(|_| failure("Managed storage admission is closed or full."))?;
-        tokio::time::timeout(Self::deadline(command), self.dispatch(command))
+        tokio::time::timeout(self.deadline(command), self.dispatch(command))
             .await
             .map_err(|_| {
                 failure("Managed storage operation deadline exceeded; writes may have committed.")
             })?
     }
 
-    fn deadline(command: &Value) -> Duration {
+    fn deadline(&self, command: &Value) -> Duration {
         let names = (command["operation"].as_str(), command["command"].as_str());
         let is_scroll = names == (Some("document"), Some("scroll"));
-        if is_scroll {
-            return Self::SCROLL_TIMEOUT;
-        }
-        Self::OPERATION_TIMEOUT
+        let base = if is_scroll {
+            Self::SCROLL_TIMEOUT
+        } else {
+            Self::OPERATION_TIMEOUT
+        };
+        base * self.deadline_factor
     }
 
     async fn dispatch(&self, command: &Value) -> Result<Value, Failure> {

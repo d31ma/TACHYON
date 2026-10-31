@@ -146,6 +146,12 @@ values out of the statement's structure instead:
   statement is unchanged. They also run the payloads against the `fylo`
   binary, which must answer with only the exact match.
 
+The storage deadlines (10 seconds to connect, 5 seconds per operation and 30
+seconds for a first scroll page) stay as they are. Tests that drive the `fylo`
+binary connect with every deadline multiplied by six, so a slow runner cannot
+fail them. The Windows lane runs the x64 binary under ARM emulation, where one
+round trip took 23 seconds.
+
 When FYLO adds bound parameters to `executeSQL`, the server passes the values
 through as data and the literal rendering goes away. That needs a FYLO
 protocol change.
