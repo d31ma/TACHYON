@@ -1,8 +1,9 @@
 #![allow(clippy::expect_used)]
 
+use crate::support::one_test_per_case::one_test_per_case;
 use crate::support::program_probe::ProgramProbe;
 use std::path::Path;
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 use tachyon_contracts::{HandlerBody, HandlerBodyEncoding, HandlerRequest, HttpMethod};
 use tachyon_core::{
     DevServer, DevServerOptions, HandlerCancellation, HandlerSource, HandlerSupervisor,
@@ -133,6 +134,19 @@ impl ScheduledWorker {
     const EVERY_SECOND: &'static str = r#"{"fixedDelaySeconds":1,"initialDelaySeconds":0}"#;
     const NEVER: &'static str = r#"{"fixedDelaySeconds":0}"#;
     const TICKS: usize = 2;
+    const SHORTEST_INTERVAL: Duration = Duration::from_millis(900);
+    const LONGEST_INTERVAL: Duration = Duration::from_secs(30);
+
+    const ALL: [Self; 8] = [
+        Self::GROOVY,
+        Self::FSHARP,
+        Self::LUA,
+        Self::RUST,
+        Self::DART,
+        Self::PHP,
+        Self::JAVASCRIPT,
+        Self::TYPESCRIPT,
+    ];
 
     const GROOVY: Self = Self {
         extension: "groovy",
@@ -150,6 +164,36 @@ impl ScheduledWorker {
         extension: "lua",
         program: "lua",
         source: "-- @Schedule(__SCHEDULE__)\n---@class Handler\nHandler = {}\n\n---@return nil\nfunction Handler.POST()\n  local file = assert(io.open(\"__TICKS__\", \"a\"))\n  file:write(\"tick\\n\")\n  file:close()\nend\n",
+    };
+
+    const RUST: Self = Self {
+        extension: "rs",
+        program: "cargo",
+        source: "#[Schedule(__SCHEDULE__)]\nstruct Handler {}\nimpl Handler {\n    fn POST() {\n        use std::io::Write;\n        let mut file = std::fs::OpenOptions::new().create(true).append(true).open(\"__TICKS__\").expect(\"ticks\");\n        file.write_all(b\"tick\\n\").expect(\"tick\");\n    }\n}\n",
+    };
+
+    const DART: Self = Self {
+        extension: "dart",
+        program: "dart",
+        source: "import 'dart:io';\n\n@Schedule(__SCHEDULE__)\nclass Handler {\n  void POST() {\n    File('__TICKS__').writeAsStringSync('tick\\n', mode: FileMode.append, flush: true);\n  }\n}\n",
+    };
+
+    const PHP: Self = Self {
+        extension: "php",
+        program: "php-cgi",
+        source: "<?php\n#[Schedule(__SCHEDULE__)]\nclass Handler {\n    public static function POST(): void {\n        file_put_contents('__TICKS__', \"tick\\n\", FILE_APPEND | LOCK_EX);\n    }\n}\n",
+    };
+
+    const JAVASCRIPT: Self = Self {
+        extension: "js",
+        program: "node",
+        source: "import { appendFileSync } from 'node:fs'\n\n@Schedule(__SCHEDULE__)\nexport class Handler {\n  static POST() {\n    appendFileSync('__TICKS__', 'tick\\n')\n  }\n}\n",
+    };
+
+    const TYPESCRIPT: Self = Self {
+        extension: "ts",
+        program: "node",
+        source: "import { appendFileSync } from 'node:fs'\n\n@Schedule(__SCHEDULE__)\nexport class Handler {\n  static POST(): void {\n    appendFileSync('__TICKS__', 'tick\\n')\n  }\n}\n",
     };
 
     fn write(&self, root: &Path, schedule: &str, ticks: &Path) -> String {
@@ -184,17 +228,39 @@ impl ScheduledWorker {
         assert!(failure.contains(&entry), "{}: {failure}", self.extension);
     }
 
-    async fn ticks(path: &Path) -> String {
-        tokio::time::timeout(Duration::from_mins(3), async {
-            loop {
-                if let Ok(contents) = std::fs::read_to_string(path)
-                    && contents.lines().count() >= Self::TICKS
-                    && contents.ends_with('\n')
-                {
-                    break contents;
-                }
-                tokio::time::sleep(Duration::from_millis(100)).await;
+    fn named(extension: &str) -> Self {
+        Self::ALL
+            .into_iter()
+            .find(|worker| worker.extension == extension)
+            .expect("scheduled worker")
+    }
+
+    fn observe(path: &Path) -> Option<(usize, SystemTime)> {
+        let before = std::fs::metadata(path).ok()?.modified().ok()?;
+        let contents = std::fs::read_to_string(path).ok()?;
+        let after = std::fs::metadata(path).ok()?.modified().ok()?;
+        (before == after && contents.ends_with('\n')).then(|| (contents.lines().count(), after))
+    }
+
+    async fn observed(path: &Path, at_least: usize) -> (usize, SystemTime) {
+        loop {
+            if let Some((ticks, written)) = Self::observe(path)
+                && ticks >= at_least
+            {
+                break (ticks, written);
             }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    }
+
+    async fn interval(path: &Path) -> Duration {
+        tokio::time::timeout(Duration::from_mins(3), async {
+            let (first, first_written) = Self::observed(path, 1).await;
+            let (later, later_written) = Self::observed(path, first + 1).await;
+            let between = later_written
+                .duration_since(first_written)
+                .expect("ticks are written in order");
+            between / u32::try_from(later - first).expect("tick count")
         })
         .await
         .expect("the worker ran on the cadence its Schedule marker declares")
@@ -225,11 +291,18 @@ impl ScheduledWorker {
         let running = tokio::spawn(server.run_until(async {
             let _ = stopped.await;
         }));
-        let written = Self::ticks(&ticks).await;
+        let interval = Self::interval(&ticks).await;
         stop.send(()).expect("stop");
         running.await.expect("task").expect("shutdown");
         assert!(
-            written.lines().all(|line| line == "tick"),
+            (Self::SHORTEST_INTERVAL..Self::LONGEST_INTERVAL).contains(&interval),
+            "{}: {interval:?}",
+            self.extension
+        );
+        let written = std::fs::read_to_string(&ticks).expect("ticks");
+        assert_eq!(
+            written.lines().take(Self::TICKS).collect::<Vec<_>>(),
+            ["tick"; Self::TICKS],
             "{}: {written}",
             self.extension
         );
@@ -367,20 +440,25 @@ async fn a_lua_worker_needs_no_request_parameter() {
     Worker::LUA.assert_runs().await;
 }
 
-#[tokio::test]
-async fn a_groovy_worker_runs_on_the_cadence_of_its_schedule_marker() {
-    ScheduledWorker::GROOVY.assert_scheduled().await;
+async fn runs_on_its_schedule(extension: &'static str) {
+    ScheduledWorker::named(extension).assert_scheduled().await;
 }
 
-#[tokio::test]
-async fn an_fsharp_worker_runs_on_the_cadence_of_its_schedule_marker() {
-    ScheduledWorker::FSHARP.assert_scheduled().await;
-}
-
-#[tokio::test]
-async fn a_lua_worker_runs_on_the_cadence_of_its_schedule_marker() {
-    ScheduledWorker::LUA.assert_scheduled().await;
-}
+one_test_per_case!(
+    a_worker_runs_on_the_cadence_of_its_schedule_marker,
+    async runs_on_its_schedule,
+    all ScheduledWorker::ALL.map(|worker| worker.extension),
+    [
+        groovy => "groovy",
+        fsharp => "fs",
+        lua => "lua",
+        rust => "rs",
+        dart => "dart",
+        php => "php",
+        javascript => "js",
+        typescript => "ts",
+    ]
+);
 
 #[tokio::test]
 async fn a_csharp_controller_reads_a_behavior_json_body() {
