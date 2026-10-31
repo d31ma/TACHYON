@@ -571,7 +571,7 @@ fn tac_test_unit_runs_in_its_own_realm_cases() -> Vec<(
     ]
 }
 
-async fn tac_test_unit_runs_in_its_own_realm(wanted: &str) {
+fn tac_test_unit_runs_in_its_own_realm(wanted: &str) {
     let case = tac_test_unit_runs_in_its_own_realm_cases()
         .into_iter()
         .find(|case| case.0 == wanted)
@@ -583,7 +583,7 @@ async fn tac_test_unit_runs_in_its_own_realm(wanted: &str) {
 
 one_test_per_case!(
     a_tac_test_unit_runs_in_its_own_realm,
-    async tac_test_unit_runs_in_its_own_realm,
+    tac_test_unit_runs_in_its_own_realm,
     all tac_test_unit_runs_in_its_own_realm_cases().into_iter().map(|case| case.0),
     [
         typescript => "ts",

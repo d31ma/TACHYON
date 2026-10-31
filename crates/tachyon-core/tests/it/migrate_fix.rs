@@ -265,7 +265,7 @@ async fn migrated_middleware_runs_its_old_code_in(wanted: &str) {
 one_test_per_case!(
     migrated_middleware_runs_its_old_code_in_both_phases_for_every_method,
     async migrated_middleware_runs_its_old_code_in,
-    all OldMiddleware::ALL.iter().into_iter().map(|case| case.extension),
+    all OldMiddleware::ALL.iter().map(|case| case.extension),
     [
         javascript => "js",
         typescript => "ts",

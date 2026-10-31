@@ -13,7 +13,7 @@ impl ProbeMemory {
     const RUN_VARIABLE: &'static str = "NEXTEST_RUN_ID";
     const FOLDER: &'static str = "tachyon-test-probes";
     const ANSWERED: &'static str = "answered";
-    const OLDEST_RUN: Duration = Duration::from_secs(24 * 60 * 60);
+    const OLDEST_RUN: Duration = Duration::from_hours(24);
 
     pub(crate) fn for_this_run() -> Self {
         let folder = Self::run_folder();
