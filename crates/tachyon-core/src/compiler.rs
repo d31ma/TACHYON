@@ -100,6 +100,8 @@ pub(crate) mod utility_module;
 mod utility_module_tests;
 mod view_transition_guard;
 mod web_artifact_manifest;
+#[cfg(test)]
+mod worker_registration_tests;
 mod yon_reads;
 #[cfg(test)]
 mod yon_reads_tests;
@@ -348,8 +350,21 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.getRegistrations()
       .then((registrations) => registrations.forEach((registration) => registration.unregister()))
       .catch(() => {})
-  else
+  else {
+    const replaced = Boolean(navigator.serviceWorker.controller)
+    let edited = false
+    globalThis.addEventListener('input', () => { edited = true }, { capture: true, once: true })
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!replaced || edited || navigator.onLine === false) return
+      try {
+        const last = Number(sessionStorage.getItem('tachyon:worker-reload'))
+        if (Date.now() - last < 10000) return
+        sessionStorage.setItem('tachyon:worker-reload', String(Date.now()))
+      } catch { return }
+      location.reload()
+    }, { once: true })
     navigator.serviceWorker.register('/tachyon-sw.js').catch(() => {})
+  }
 }
 ";
 

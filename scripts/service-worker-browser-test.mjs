@@ -272,6 +272,25 @@ async function checkOfflineDocument(page, context) {
   console.log(`    note server saw ${ServerState.requests - before} request(s) while offline`);
 }
 
+async function checkDeployReload(page, origin) {
+  const service = path.join(WorkerGate.project, 'client/services/WorkerPageService.js');
+  writeFileSync(service, readFileSync(service, 'utf8').replace("'Cached page'", "'Deployed page'"));
+  buildFixture();
+  let loads = 0;
+  const counted = () => { loads += 1; };
+  page.on('load', counted);
+  try {
+    await page.goto(`${origin}/`, { waitUntil: 'load' });
+    await page.waitForFunction(() => document.getElementById('title')?.textContent === 'Deployed page', undefined, { timeout: 10_000 }).catch(() => {});
+    await page.waitForTimeout(1500);
+    expect(loads, 2, 'a page the old worker served reloads once when the new worker takes control');
+    expect(await page.textContent('#title'), 'Deployed page', 'the reloaded page runs the new build');
+    await page.reload({ waitUntil: 'load' });
+    await page.waitForTimeout(1500);
+    expect(loads, 3, 'a page the new worker served does not reload again');
+  } finally { page.off('load', counted); }
+}
+
 async function checkNoWorkerRegistration(context, origin, port) {
   const loopbackPage = await context.newPage();
   await loopbackPage.goto(`https://127.0.0.1:${port}/`, { waitUntil: 'networkidle' });
@@ -313,6 +332,7 @@ async function main() {
     await checkRegistration(page, origin);
     await checkApiCaching(page, context, origin);
     await checkOfflineDocument(page, context);
+    await checkDeployReload(page, origin);
     await checkNoWorkerRegistration(context, origin, port);
   } finally {
     await context.close();
