@@ -2023,6 +2023,14 @@ machine contracts have their own, independent major versions.
   in. A default build now links 172 packages on Linux x86_64 (from 212) and
   169 on macOS arm64 (from 212); it leaves out rustls, ring, the sqlx network
   drivers and the Redis client. Release builds are unchanged.
+- Redis uses Tachyon's own client instead of the `redis` crate (RD3,
+  2026-10-30). It sends the same commands with the same TLS, `AUTH`/`SELECT`,
+  timeouts and reconnect backoff, and never retries a command. A release
+  build links 10 fewer packages (256 on Linux x86_64, 248 on macOS arm64,
+  257 on Windows x64), among them `redis`, `combine` and `rustls-native-certs`.
+  `ty` now connects to Redis when managed storage starts, as
+  `docs/MANAGED_STORAGE.md` describes, so a Redis it cannot reach stops startup
+  instead of failing the first Redis command.
 - `Toolchain::checked` also requires `dotnet` and `javac` under `CI` (RT1,
   2026-10-28), since the native jobs of `rust-ci.yml` install .NET SDK
   10.0.302 and select JDK 21, so a

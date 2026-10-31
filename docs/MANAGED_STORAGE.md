@@ -370,6 +370,31 @@ Which drivers a build has:
   passed through `TAC_STORAGE_TEST_BINARY` or `TAC_BIN` must be built with
   it too.
 
+Redis client:
+
+- Tachyon speaks to Redis with its own small client (RD3), not the `redis`
+  crate. It sends only the commands Yon offers: `GETRANGE`, `SET … EX` and
+  `DEL`, plus `AUTH` (only when a password is set, with the username when
+  there is one) and `SELECT` (only for a database other than 0) when it
+  connects. It uses RESP2.
+- `rediss://` uses TLS through rustls with the bundled WebPKI roots and
+  checks the certificate and host name. It never falls back to plain text.
+  There is no option to skip verification.
+- `ty` connects when it starts managed storage, and a Redis it cannot reach
+  then stops startup. Each attempt has 1 second for TCP, TLS, `AUTH` and
+  `SELECT`. After a failure it retries 6 times, waiting 100 ms, doubling
+  each time, plus random jitter.
+- Commands share one connection. Each reply must arrive within 500 ms, or
+  the command fails. A reply that does not fit the protocol, or is larger
+  than the value limit allows, closes the connection.
+- When the connection drops, the command that was waiting fails and is not
+  retried. The next command reconnects, with the same backoff.
+- `storage::redis_store::tests` checks this against an in-process RESP2
+  server on every platform. On 2026-10-30 the ignored
+  `storage::tests::redis_real_json_ttl_and_delete` contract passed against
+  Redis 8.10.3 (databases 0 and 3). A self-signed TLS Redis was refused
+  (`certificate unknown`).
+
 SQL Server:
 
 - On 2026-10-19, the ignored
