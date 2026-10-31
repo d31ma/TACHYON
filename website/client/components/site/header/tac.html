@@ -13,7 +13,10 @@
 
     <div class="site-bar__actions w-row align-center ga-1">
       <site-search hydrate="load" />
-      <w-btn variant="text" size="sm" w-theme-toggle aria-label="Switch between the light and dark theme">◐</w-btn>
+      <w-btn variant="text" size="sm" w-theme-toggle class="site-bar__theme" title="Change the theme: light, dark or auto">
+        <span class="site-bar__theme-icon" aria-hidden="true"></span>
+        <span class="site-bar__theme-name sr-only"></span>
+      </w-btn>
       <w-btn href="/docs/install" variant="filled" color="primary" size="sm">Get started</w-btn>
     </div>
   </w-container>

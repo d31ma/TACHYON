@@ -6,14 +6,28 @@ class ThemeDefault {
   /** @type {string} */
   static _THEME = 'dark'
 
+  /** @returns {string | null} */
+  static saved() {
+    try {
+      return localStorage.getItem(ThemeDefault._KEY)
+    } catch {
+      return null
+    }
+  }
+
   /** @returns {void} */
   static save() {
-    if (localStorage.getItem(ThemeDefault._KEY) === null) localStorage.setItem(ThemeDefault._KEY, ThemeDefault._THEME)
+    if (ThemeDefault.saved() !== null) return
+    try {
+      localStorage.setItem(ThemeDefault._KEY, ThemeDefault._THEME)
+    } catch {
+      return
+    }
   }
 
   /** @returns {void} */
   static show() {
-    const theme = localStorage.getItem(ThemeDefault._KEY) ?? ThemeDefault._THEME
+    const theme = ThemeDefault.saved() ?? ThemeDefault._THEME
     document.documentElement.setAttribute(ThemeDefault._ATTRIBUTE, theme)
   }
 }

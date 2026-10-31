@@ -705,7 +705,9 @@ describe('house style', () => {
     expect(run('light')).toBe('light')
     expect(run('auto')).toBe('auto')
     const blocked = { getItem: () => { throw new Error('denied') }, setItem: () => { throw new Error('denied') } }
-    expect(() => new Function('localStorage', 'document', source)(blocked, page)).toThrow('denied')
+    root.clear()
+    expect(() => new Function('localStorage', 'document', source)(blocked, page)).not.toThrow()
+    expect(root.get('w-theme')).toBe('dark')
 
     const manifest = await readJson('client/manifest.json')
     expect(manifest.tac.blockingScripts).toEqual(['/shared/scripts/ThemeDefault.js'])
@@ -714,6 +716,29 @@ describe('house style', () => {
     expect(css).toContain('--page-background: var(--tachyon-night);')
     expect(css).toContain('background: var(--page-background);')
     expect(css).toContain(':root[w-theme="dark"],\n:root[w-theme="light"],\n:root[w-theme="auto"] {\n--page-background: var(--w-surface);')
+  })
+
+  test('the auto theme follows the system with the full brand palette', async () => {
+    const css = await read('client/shared/styles/site.css')
+    const block = (/** @type {string} */ selector) => css.split(`${selector} {\n`)[1].split('\n}')[0]
+    const dark = block(':root[w-theme="dark"]')
+    expect(dark).toContain('--w-surface: var(--tachyon-night);')
+    expect(css).toContain(`@media (prefers-color-scheme: dark) {\n:root[w-theme="auto"] {\n${dark}\n}\n}`)
+    expect(css).toContain(':root[w-theme="light"],\n:root[w-theme="auto"] {\n--tachyon-from: #0891b2;')
+    expect(css).toContain('--w-text-very-subtle: #5f6b70;')
+    for (const theme of ['light', 'dark', 'auto']) {
+      expect(css).toContain(`:root[w-theme="${theme}"] {\n--theme-icon: `)
+      expect(css).toContain(`--theme-name: "Theme: ${theme}";`)
+    }
+
+    const header = await read('client/components/site/header/tac.html')
+    expect(header).toContain('w-theme-toggle class="site-bar__theme" title="Change the theme: light, dark or auto"')
+    expect(header).not.toContain('aria-label="Switch between the light and dark theme"')
+    const style = await read('client/components/site/header/tac.css')
+    expect(style).toContain('.site-bar__theme > .w-btn {\n  min-width: 44px;\n  min-height: 44px;')
+    expect(style).toContain('content: var(--theme-name);')
+    expect(style).toContain('padding-left: max(var(--w-space-4), env(safe-area-inset-left));')
+    expect(style).toContain('padding-right: max(var(--w-space-4), env(safe-area-inset-right));')
   })
 
   test('no page restates a number the data already carries', async () => {

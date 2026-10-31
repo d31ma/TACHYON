@@ -4,9 +4,7 @@
 
 @layer brand {
 :root {
---tachyon-from: #22d3ee;
-  --tachyon-to: #2dd4bf;
-  --tachyon-gradient: linear-gradient(120deg, var(--tachyon-from), var(--tachyon-to));
+--tachyon-gradient: linear-gradient(120deg, var(--tachyon-from), var(--tachyon-to));
   --tachyon-line: color-mix(in srgb, var(--tachyon-from) 18%, transparent);
   --tachyon-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
   --tachyon-night: #07090d;
@@ -30,8 +28,20 @@
   --section-space: clamp(2.75rem, 1.4rem + 6.6vw, 7rem);
 }
 
+:root[w-theme="light"],
+:root[w-theme="auto"] {
+--tachyon-from: #0891b2;
+  --tachyon-to: #0d9488;
+  --w-primary: #0e7490;
+  --w-text-very-subtle: #5f6b70;
+  --w-border: color-mix(in srgb, #0e7490 20%, transparent);
+  --w-divider: color-mix(in srgb, #0e7490 14%, transparent);
+}
+
 :root[w-theme="dark"] {
---w-surface: var(--tachyon-night);
+--tachyon-from: #22d3ee;
+  --tachyon-to: #2dd4bf;
+  --w-surface: var(--tachyon-night);
   --w-surface-container-low: #0a0e13;
   --w-surface-container: #0d121a;
   --w-surface-container-high: #10161f;
@@ -52,6 +62,32 @@
   --w-hover: #22d3ee14;
 }
 
+@media (prefers-color-scheme: dark) {
+:root[w-theme="auto"] {
+--tachyon-from: #22d3ee;
+  --tachyon-to: #2dd4bf;
+  --w-surface: var(--tachyon-night);
+  --w-surface-container-low: #0a0e13;
+  --w-surface-container: #0d121a;
+  --w-surface-container-high: #10161f;
+  --w-sidebar: #0a0e13;
+  --w-toolbar: #0a0e13;
+  --w-app-bar-frosted: #07090de6;
+  --w-primary: #22d3ee;
+  --w-on-primary: #04222a;
+  --w-primary-container: #22d3ee26;
+  --w-on-primary-container: #d6f7ff;
+  --w-selected: #22d3ee26;
+  --w-selected-text: #67e8f9;
+  --w-text: #e6edf3;
+  --w-text-subtle: #9fb3c0;
+  --w-text-very-subtle: #6f8494;
+  --w-border: var(--tachyon-line);
+  --w-divider: var(--tachyon-line);
+  --w-hover: #22d3ee14;
+}
+}
+
 :root[w-theme="dark"],
 :root[w-theme="light"],
 :root[w-theme="auto"] {
@@ -59,11 +95,18 @@
 }
 
 :root[w-theme="light"] {
---w-primary: #0e7490;
-  --w-border: color-mix(in srgb, #0e7490 20%, transparent);
-  --w-divider: color-mix(in srgb, #0e7490 14%, transparent);
-  --tachyon-from: #0891b2;
-  --tachyon-to: #0d9488;
+--theme-icon: "\2600\FE0E";
+  --theme-name: "Theme: light";
+}
+
+:root[w-theme="dark"] {
+--theme-icon: "\263E\FE0E";
+  --theme-name: "Theme: dark";
+}
+
+:root[w-theme="auto"] {
+--theme-icon: "\25D0\FE0E";
+  --theme-name: "Theme: auto";
 }
 
 body {
