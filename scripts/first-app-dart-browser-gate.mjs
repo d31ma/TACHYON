@@ -1,11 +1,13 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict'
+import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium, firefox, webkit } from 'playwright'
 import { withServer } from './release/server-probe.mjs'
+import { RunInputs } from './run-inputs.mjs'
 
 /**
  * @typedef {{name: string, code: string}} FirstAppCodeFile
@@ -27,20 +29,25 @@ class FirstAppDartBrowserGate {
     await FirstAppDartBrowserGate.#dispatch()
   }
 
-  /**
-   * @param {string} name
-   * @returns {string}
-   */
-  static #required(name) {
-    assert.ok(process.env[name], `${name} must identify the actual staged Step 4 project/compiler`)
-    return process.env[name]
-  }
-
   /** @returns {Promise<void>} */
   static async #dispatch() {
-    const project = path.resolve(FirstAppDartBrowserGate.#required('TAC_FIRST_APP_DART_PROJECT'))
+    const staged = process.env.TAC_FIRST_APP_DART_PROJECT
+    const project = await RunInputs.folder('TAC_FIRST_APP_DART_PROJECT', 'tac-first-app-dart-')
     if (process.argv.includes('--stage-only')) return FirstAppDartBrowserGate.stage(project)
+    if (!staged) {
+      await FirstAppDartBrowserGate.stage(project)
+      FirstAppDartBrowserGate.#bundle(project)
+    }
     return FirstAppDartBrowserGate.probe(project)
+  }
+
+  /**
+   * @param {string} project
+   * @returns {void}
+   */
+  static #bundle(project) {
+    const bundle = spawnSync(RunInputs.binary(), ['bundle', project, '--no-incremental'], { encoding: 'utf8', stdio: ['ignore', 'inherit', 'inherit'] })
+    assert.equal(bundle.status, 0, 'the staged first app bundles')
   }
 
   /**
@@ -92,8 +99,8 @@ class FirstAppDartBrowserGate {
    * @returns {Promise<void>}
    */
   static async probe(project) {
-    const binary = path.resolve(FirstAppDartBrowserGate.#required('TAC_BIN'))
-    const sourceCommit = FirstAppDartBrowserGate.#required('TAC_FIRST_APP_DART_SOURCE_COMMIT')
+    const binary = RunInputs.binary()
+    const sourceCommit = RunInputs.sourceCommit('TAC_FIRST_APP_DART_SOURCE_COMMIT')
     const compilerSha256 = createHash('sha256').update(await readFile(binary)).digest('hex')
     /** @type {FirstAppReceipt} */
     const receipt = { status: 'starting', sourceCommit, compilerSha256, browsers: [] }

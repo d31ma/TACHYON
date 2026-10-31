@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-import { CargoArtifacts } from './cargo-artifacts.mjs'
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import { once } from 'node:events'
@@ -10,6 +9,7 @@ import path from 'node:path'
 import { createInterface } from 'node:readline'
 import { fileURLToPath } from 'node:url'
 import { chromium, firefox, webkit } from 'playwright'
+import { RunInputs } from './run-inputs.mjs'
 
 /** @typedef {import('playwright').BrowserType} BrowserType */
 /** @typedef {import('node:child_process').ChildProcess} ChildProcess */
@@ -17,7 +17,7 @@ import { chromium, firefox, webkit } from 'playwright'
 
 class LocalhostSubdomainGate {
   static repository = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-  static binary = process.env.TAC_BIN ?? CargoArtifacts.path('debug', process.platform === 'win32' ? 'ty.exe' : 'ty')
+  static binary = RunInputs.binary()
   static fixture = path.join(LocalhostSubdomainGate.repository, 'crates/tachyon-cli/tests/fixtures/localhost-subdomain')
   static template = 'client/components/home/view/tac.html'
   static readyLine = /http:\/\/app\.localhost:(\d+)\//

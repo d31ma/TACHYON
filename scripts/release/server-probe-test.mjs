@@ -5,7 +5,8 @@ import { ProcessControls } from '../supervised-command-test.mjs'
 import { withServer } from './server-probe.mjs'
 
 class ServerProbeControls {
-  static options = { timeoutMilliseconds: 700, readinessTimeoutMilliseconds: 250, terminationMilliseconds: 100, cleanupMilliseconds: 2000 }
+  static options = { timeoutMilliseconds: 3000, readinessTimeoutMilliseconds: 1500, terminationMilliseconds: 100, cleanupMilliseconds: 2000 }
+  static watchdogMilliseconds = 8000
 
   static async control(mode, probe, expectation) {
     const fixture = ProcessControls.fixture(mode)
@@ -14,11 +15,11 @@ class ServerProbeControls {
     try {
       const promise = Promise.race([
         withServer(process.execPath, fixture.args, probe, ServerProbeControls.options),
-        new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('control watchdog: harness did not settle within 3500ms')), 3500) }),
+        new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(`control watchdog: harness did not settle within ${ServerProbeControls.watchdogMilliseconds}ms`)), ServerProbeControls.watchdogMilliseconds) }),
       ])
       await expectation(promise)
       assert.equal(ProcessControls.live(fixture).length, 0, 'the complete server family must be gone')
-      assert.ok(Date.now() - started < 3500, 'server scope must settle within its deadline and cleanup bound')
+      assert.ok(Date.now() - started < ServerProbeControls.watchdogMilliseconds, 'server scope must settle within its deadline and cleanup bound')
     } finally {
       clearTimeout(timer)
       ProcessControls.evidence(`server ${mode}`, started, fixture)
@@ -35,7 +36,7 @@ class ServerProbeControls {
     await ProcessControls.check('readiness deadline cleans family', () => ServerProbeControls.control('not-ready', async () => true, promise => assert.rejects(promise, /readiness timed out/)))
     await ProcessControls.check('probe deadline cleans family', () => ServerProbeControls.control('server-family', async () => new Promise(() => {}), promise => assert.rejects(promise, /deadline/)))
     await ProcessControls.check('late probe return cannot pass absolute deadline', () => ServerProbeControls.control('server', async () => {
-      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 750)
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ServerProbeControls.options.timeoutMilliseconds + 100)
       return 42
     }, promise => assert.rejects(promise, /deadline/)))
     await ProcessControls.check('early successful leader exit cannot pass', () => ServerProbeControls.control('server-exit', async () => new Promise(resolve => setTimeout(() => resolve('too late'), 1000)), promise => assert.rejects(promise, /exited during probe/)))

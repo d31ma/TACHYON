@@ -7,6 +7,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium, firefox, webkit } from 'playwright'
 import { withServer } from './release/server-probe.mjs'
+import { RunInputs } from './run-inputs.mjs'
 
 /** @typedef {{engine: string, version: string, count: string, heard: string, message: string, direct: unknown[], remote: unknown[]}} EngineProof */
 
@@ -20,8 +21,7 @@ class CppServicesBrowserGate {
 
   /** @returns {Promise<void>} */
   static async run() {
-    const binary = process.env.TAC_BIN
-    assert.ok(binary, 'TAC_BIN names the ty binary to check')
+    const binary = RunInputs.binary()
     const root = await mkdtemp(path.join(os.tmpdir(), 'tac-cpp-services-'))
     try {
       await cp(CppServicesBrowserGate.fixture, root, { recursive: true })

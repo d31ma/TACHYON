@@ -61,7 +61,18 @@
     "test:logic-controls-browser": "node scripts/logic-controls-browser-gate.mjs",
     "test:scaffold-browser": "node scripts/scaffold-browser-gate.mjs",
     "test:native-companion": "node scripts/native/companion-test.mjs",
-    "test:wasm-features-app": "node scripts/native/wasm-features-app-test.mjs"
+    "test:wasm-features-app": "node scripts/native/wasm-features-app-test.mjs",
+    "test:cpp-services-browser": "node scripts/cpp-services-browser-gate.mjs",
+    "test:lua-null-arguments-browser": "node scripts/lua-null-arguments-browser-gate.mjs",
+    "test:go-page-provider-identity-browser": "node scripts/go-page-provider-identity-browser-test.mjs",
+    "test:first-app-dart-browser": "node scripts/first-app-dart-browser-gate.mjs",
+    "test:website-lua-browser": "node scripts/website-lua-browser-test.mjs",
+    "test:topics-browser": "node scripts/topics-browser-test.mjs",
+    "test:localhost-subdomain-browser": "node scripts/localhost-subdomain-browser-gate.mjs",
+    "test:remotes-socket-browser": "node scripts/remotes-socket-test.mjs",
+    "test:native-bridge-bounds": "node scripts/native-bridge-bounds-test.mjs",
+    "test:python-tac-public-assets": "node --test scripts/python-tac-public-assets.test.mjs",
+    "test:server-probe": "node scripts/release/server-probe-test.mjs"
   },
   "keywords": [
     "tachyon",

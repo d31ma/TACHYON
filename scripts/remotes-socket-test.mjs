@@ -6,10 +6,11 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright'
 import { withServer } from './release/server-probe.mjs'
+import { RunInputs } from './run-inputs.mjs'
 
 class RemotesSocketTest {
   static repository = fileURLToPath(new URL('..', import.meta.url))
-  static binary = process.env.TAC_BIN
+  static binary = RunInputs.binary()
   static fixture = mkdtempSync(path.join(process.env.TAC_PROBE_DIR ?? tmpdir(), 'remotes-socket-'))
 
   static write(name, text) {
@@ -29,7 +30,6 @@ class RemotesSocketTest {
   }
 
   static async run() {
-    assert.ok(this.binary, 'Set TAC_BIN to a qualified compiler checkpoint')
     this.prepare()
     await withServer(this.binary, ['serve', this.fixture, '--no-watch', '--port', '0'], async request => {
       const response = await request('/')

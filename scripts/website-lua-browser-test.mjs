@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict'
+import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { chromium } from 'playwright'
 import { withServer } from './release/server-probe.mjs'
+import { RunInputs } from './run-inputs.mjs'
 
 /** @typedef {{name: string, code: string}} FeatureSnippet */
 /** @typedef {{name: string | undefined, code: string | null | undefined}} RenderedFeatureSnippet */
@@ -22,15 +24,17 @@ class WebsiteLuaGate {
     await WebsiteLuaGate.#execute()
   }
 
-  static #required(name) {
-    assert.ok(process.env[name], `${name} must identify the retained ordinary website build`)
-    return process.env[name]
+  static #bundle(binary, fixture) {
+    const website = path.join(RunInputs.repository, 'website')
+    const bundle = spawnSync(binary, ['bundle', website, '--out-dir', fixture, '--no-incremental'], { encoding: 'utf8', stdio: ['ignore', 'inherit', 'inherit'] })
+    assert.equal(bundle.status, 0, 'the website bundles')
   }
 
   static async #execute() {
-    const fixture = path.resolve(WebsiteLuaGate.#required('TAC_WEBSITE_LUA_OUT'))
-    const binary = path.resolve(WebsiteLuaGate.#required('TAC_BIN'))
-    const sourceCommit = WebsiteLuaGate.#required('TAC_WEBSITE_SOURCE_COMMIT')
+    const binary = RunInputs.binary()
+    const fixture = await RunInputs.folder('TAC_WEBSITE_LUA_OUT', 'tac-website-lua-')
+    if (!process.env.TAC_WEBSITE_LUA_OUT) WebsiteLuaGate.#bundle(binary, fixture)
+    const sourceCommit = RunInputs.sourceCommit('TAC_WEBSITE_SOURCE_COMMIT')
     const compilerSha256 = createHash('sha256').update(await readFile(binary)).digest('hex')
     const diagnostics = { status: 'starting', sourceCommit, compilerSha256, errors: [], routes: [] }
     try {

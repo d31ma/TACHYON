@@ -6,6 +6,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { SupervisedCommand } from './supervised-command.mjs'
 import { withServer } from './release/server-probe.mjs'
+import { RunInputs } from './run-inputs.mjs'
 
 class GoPageProviderIdentity {
   static repository = fileURLToPath(new URL('../', import.meta.url))
@@ -235,12 +236,6 @@ func (service *${className}) Stop() { service.Release() }
     return process.argv.find(argument => argument.startsWith(`${name}=`))?.slice(name.length + 1)
   }
 
-  static required(name) {
-    const value = process.env[name]
-    assert.ok(value, `${name} must identify the retained run`)
-    return value
-  }
-
   static async emit(root) {
     const hashes = {}
     for (const [relative, source] of Object.entries(GoPageProviderIdentity.sources())) {
@@ -262,9 +257,9 @@ func (service *${className}) Stop() { service.Release() }
   }
 
   static async run() {
-    const output = path.resolve(GoPageProviderIdentity.required('TAC_GO_PAGE_OUT'))
-    const binary = path.resolve(GoPageProviderIdentity.required('TAC_BIN'))
-    const sourceCommit = GoPageProviderIdentity.required('TAC_GO_PAGE_SOURCE_COMMIT')
+    const output = await RunInputs.folder('TAC_GO_PAGE_OUT', 'tac-go-page-')
+    const binary = RunInputs.binary()
+    const sourceCommit = RunInputs.sourceCommit('TAC_GO_PAGE_SOURCE_COMMIT')
     const chosen = GoPageProviderIdentity.option('--engine')
     const engines = chosen ? [chosen] : GoPageProviderIdentity.engines
     assert.ok(engines.every(engine => GoPageProviderIdentity.engines.includes(engine)), 'unknown engine; nothing was run')

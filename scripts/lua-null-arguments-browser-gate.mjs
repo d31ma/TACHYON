@@ -7,6 +7,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright'
 import { withServer } from './release/server-probe.mjs'
+import { RunInputs } from './run-inputs.mjs'
 
 /** @typedef {{rendered: string | undefined, direct: string[], browserVersion: string}} NullArgumentsProof */
 
@@ -20,8 +21,7 @@ class LuaNullArgumentsBrowserGate {
 
   /** @returns {Promise<void>} */
   static async run() {
-    const binary = process.env.TAC_BIN
-    assert.ok(binary, 'TAC_BIN names the ty binary to check')
+    const binary = RunInputs.binary()
     const root = await mkdtemp(path.join(os.tmpdir(), 'tac-lua-null-arguments-'))
     try {
       await cp(LuaNullArgumentsBrowserGate.fixture, root, { recursive: true })

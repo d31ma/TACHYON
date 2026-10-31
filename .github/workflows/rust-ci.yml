@@ -506,6 +506,33 @@ jobs:
         env:
           TAC_BIN: ${{ github.workspace }}/target/release/ty
 
+      - name: Check native bridge byte limits, offline Python assets and the server probe
+        run: |
+          bun run test:native-bridge-bounds
+          bun run test:python-tac-public-assets
+          bun run test:server-probe
+
+      - name: Run topic streams, .localhost names and the published socket client in browsers
+        run: |
+          bun run test:topics-browser
+          bun run test:localhost-subdomain-browser
+          bun run test:remotes-socket-browser
+        env:
+          TAC_BIN: ${{ github.workspace }}/target/release/ty
+
+      - name: Install the checksum-pinned Dart for the first app gate
+        run: node scripts/ci/install-toolchains.mjs "${RUNNER_TEMP}/tachyon-toolchains" dart
+
+      - name: Run Lua, C++, Go and Dart services and the website's Lua service in browsers
+        run: |
+          bun run test:lua-null-arguments-browser
+          bun run test:cpp-services-browser
+          bun run test:go-page-provider-identity-browser
+          bun run test:first-app-dart-browser
+          bun run test:website-lua-browser
+        env:
+          TAC_BIN: ${{ github.workspace }}/target/release/ty
+
       - name: Check the website layout at every responsive width
         run: |
           set -euo pipefail
