@@ -2507,6 +2507,15 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- The last Windows test failures are gone (WA1, 2026-10-31). Node 24.18.0
+  aborted with `Assertion failed: !(handle->flags & UV_HANDLE_CLOSING)` as a
+  test's Node driver called `process.exit()` after loading a WebAssembly
+  service (the Rust `web_api_tests`, the Ruby web model test and the Ruby
+  `needs` test). Node's delayed task scheduler still woke its own libuv
+  handle after exit had begun to close it (nodejs/node#56645). Node 24.20.0
+  fixed this (nodejs/node#61999), so CI now uses Node 24.22.2. In
+  `windows-vm`, 24.18.0 and 24.19.0 failed 3 to 4 of the 5 tests in every
+  round, and 24.20.0 and 24.22.2 passed every round.
 - Yon readiness no longer reports a working `kotlinc` as "not usable" on a
   slow or busy machine (GF1, 2026-10-30). Each toolchain probe now has
   30 seconds instead of 10: `kotlinc -version` starts a JVM and took 8.6 to

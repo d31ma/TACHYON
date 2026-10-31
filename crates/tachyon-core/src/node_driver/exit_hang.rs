@@ -6,7 +6,8 @@ use std::process::{Command, Stdio};
 /// platform worker that missed its wake-up (seen in a debugger on 2026-10-17),
 /// and a platform worker can wake an event-loop handle that exit is already
 /// closing, which aborts in libuv (seen on windows-latest on 2026-10-19). A
-/// driver caught there is run once more instead of failing.
+/// driver caught there is run once more instead of failing. Node 24.20.0 fixed
+/// the abort (nodejs/node#61999), and CI uses a Node release with that fix.
 pub(super) struct ExitHang;
 
 impl ExitHang {

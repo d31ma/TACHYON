@@ -195,7 +195,7 @@ run" lists what the machine must already have.
 | Rust nightly | `nightly-2026-07-20` with `rust-src` | `rustup` (fuzz, sanitizers) | install it in WSL (step 7) |
 | Cargo tools | cargo-deny 0.19.7, cargo-fuzz 0.13.1, cargo-cyclonedx 0.5.7, cargo-auditable 0.7.0, cargo-llvm-cov 0.8.6 | `cargo install --locked` | a C compiler and linker |
 | cargo-nextest | `0.9.146` | checksum-pinned release binary from `scripts/ci/install-toolchains.mjs` (`native`, `coverage`), with builds for Linux and Windows on x64 or arm64 and for macOS | `curl`, and `tar` or `unzip` |
-| Node.js | `24.18.0` | `actions/setup-node` in some jobs | Node.js 24.18.0 on `PATH`, because the `browser`, `macos-native`, and `android-native` jobs call `node` without a setup step |
+| Node.js | `24.22.2` | `actions/setup-node` in some jobs | Node.js 24.22.2 on `PATH`, because the `browser`, `macos-native`, and `android-native` jobs call `node` without a setup step |
 | Bun | `1.4.3` | `oven-sh/setup-bun` | nothing |
 | Python | `3.14.6` | `actions/setup-python` in `native` | `python3` on macOS and WSL; `python` on Windows (used by `windows-native`) |
 | Ruby | `4.0.6` | `ruby/setup-ruby` | a writable hosted tool-cache path (see each machine) |
@@ -308,7 +308,7 @@ connected, the runner fails its jobs; turn the switch off first.
 
 2. Install Homebrew, then `brew install redis` and
    `brew install --cask temurin@21` (JDK 21).
-3. Install Node.js 24.18.0 and Python 3 from their official macOS
+3. Install Node.js 24.22.2 and Python 3 from their official macOS
    installers. The `node` on `PATH` must match the workflow pin; Homebrew's
    `node@24` can be a newer 24.x.
 4. `setup-php` and the Redis step call `brew` as `runner`. Let `runner` use
@@ -336,7 +336,7 @@ connected, the runner fails its jobs; turn the switch off first.
 
    Use the `ImageOS` value of the current `macos-latest` image.
 3. Add `/Volumes/<volume>/tachyon-runner/cargo/bin`, `/opt/homebrew/bin`, and the
-   Node.js 24.18.0 folder to the start of `.path`.
+   Node.js 24.22.2 folder to the start of `.path`.
 4. Install the runner as a launch agent: `./svc.sh install` and
    `./svc.sh start`. A launch agent runs only while `runner` is signed in to
    the graphical session. This is required: the macOS gates open windows,
@@ -516,7 +516,7 @@ Then install:
   `linux-native` job builds `scripts/linux/Dockerfile` (which contains Xvfb
   and D-Bus) and runs it with `SYS_ADMIN` and no seccomp profile, so Docker
   must run as root (not rootless).
-- Node.js 24.18.0 on `PATH` (for example from the official tarball in
+- Node.js 24.22.2 on `PATH` (for example from the official tarball in
   `/usr/local`).
 - `rustup` for `runner`, then step 7 of
   [Steps for Every Machine](#steps-for-every-machine).

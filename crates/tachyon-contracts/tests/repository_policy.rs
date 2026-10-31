@@ -722,7 +722,7 @@ fn completed_phase_acceptance_is_enforced_by_ci_and_documentation()
 
     assert!(workflow.contains("Run unit and Phase 4 real-process acceptance tests"));
     assert!(workflow.contains("actions/setup-node@820762786026740c76f36085b0efc47a31fe5020"));
-    assert!(workflow.contains("node-version: 24.18.0"));
+    assert!(workflow.contains("node-version: 24.22.2"));
     assert!(workflow.contains("actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97"));
     assert!(workflow.contains("python-version: 3.14.6"));
     assert!(workflow.contains("ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8"));

@@ -56,7 +56,7 @@ server binds.
   `sha256:77fac8b98f9f46062bb680b6d25d5bcaabfc400143952ebc572e924bcbedc3fa`.
 - Windows x86_64: all workspace targets and features compile locally for
   `x86_64-pc-windows-gnu`. The repository's `windows-latest` job installs
-  Node.js 24.18.0 and CPython 3.14.6. This job is the official check that
+  Node.js 24.22.2 and CPython 3.14.6. This job is the official check that
   processes run natively. The cross-compilation shows only that the code
   builds.
 
