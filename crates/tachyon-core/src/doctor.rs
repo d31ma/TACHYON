@@ -398,6 +398,29 @@ mod tests {
     }
 
     #[test]
+    fn dart_handlers_report_the_dart_compiler_once() {
+        let root = project_with(&[
+            ("server/controllers/AController.dart", "source"),
+            ("server/controllers/BController.dart", "source"),
+            ("middleware.dart", "source"),
+            ("server/workers/cleanup.dart", "source"),
+            (
+                ".tachyonrc",
+                r#"{"workers":{"server/workers/cleanup.dart":{"every_seconds":60}}}"#,
+            ),
+        ]);
+        let report = check(root.path()).expect("report");
+        let commands = command_names(&report);
+        assert_eq!(commands, ["dart"], "{:?}", report.toolchains);
+        let entry = &report.toolchains[0];
+        assert_eq!(entry.requirement, "Yon Dart compiler 'dart'");
+        assert_eq!(
+            entry.install,
+            "Install the Dart SDK before starting Tachyon."
+        );
+    }
+
+    #[test]
     fn ruby_handlers_report_the_ruby_runtime_once() {
         let root = project_with(&[
             ("server/controllers/AController.rb", "source"),

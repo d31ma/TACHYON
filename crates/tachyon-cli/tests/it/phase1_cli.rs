@@ -154,6 +154,72 @@ fn preview_builds_a_fresh_bundle_but_start_preserves_the_published_bundle() {
     }
 }
 
+fn groovy_available() -> bool {
+    let found = Command::new("groovyc")
+        .arg("--version")
+        .output()
+        .is_ok_and(|output| output.status.success());
+    let required = cfg!(unix) && std::env::var_os("CI").is_some();
+    assert!(
+        found || !required,
+        "groovyc is required for the Groovy controller tests in CI"
+    );
+    found
+}
+
+#[test]
+fn a_started_bundle_serves_a_groovy_controller() {
+    if !groovy_available() {
+        return;
+    }
+    let project = tempfile::tempdir().expect("project");
+    write(
+        &project.path().join("client/pages/tac.html"),
+        "<app-view />",
+    );
+    write(
+        &project.path().join("client/components/app/view/tac.html"),
+        "<main>Orders</main>",
+    );
+    write(
+        &project.path().join("server/models/Order.groovy"),
+        "record Order(String name, long count) {}\n",
+    );
+    write(
+        &project
+            .path()
+            .join("server/controllers/OrdersController.groovy"),
+        "import models.Order\n\n@RequestRoute('/orders')\n@Public\nclass OrdersController {\n    @GetRoute\n    List<Order> getOrders() {\n        return [new Order('a', 1)]\n    }\n}\n",
+    );
+    let bundled = run(ty().arg("bundle").arg(project.path()));
+    assert!(bundled.status.success(), "{}", stderr(&bundled));
+
+    let mut child = ty()
+        .arg("start")
+        .arg(project.path())
+        .args(["--host", "127.0.0.1", "--port", "0"])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("server");
+    let ready = wait_preview_ready(&mut child);
+    let address = ready
+        .split_whitespace()
+        .find(|part| part.starts_with("http://"))
+        .expect("address")
+        .trim_start_matches("http://")
+        .trim_end_matches('/');
+    let response = request(
+        address,
+        b"GET /orders HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n",
+    );
+    stop(&mut child);
+    assert!(response.starts_with("HTTP/1.1 200 OK"), "{response}");
+    let (_, body) = response.split_once("\r\n\r\n").expect("response body");
+    let orders: serde_json::Value = serde_json::from_str(body).expect("JSON orders");
+    assert_eq!(orders, serde_json::json!([{"name": "a", "count": 1}]));
+}
+
 fn wait_preview_ready(child: &mut Child) -> String {
     let pipe = child.stdout.take().expect("readiness pipe");
     let (sender, receiver) = mpsc::channel();

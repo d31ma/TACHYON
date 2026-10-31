@@ -3,7 +3,8 @@
 use crate::support::program_probe::ProgramProbe;
 use crate::support::toolchain::Toolchain;
 use std::fs;
-use std::time::Duration;
+use std::path::{Path, PathBuf};
+use std::time::{Duration, SystemTime};
 use tachyon_contracts::{
     HandlerBody, HandlerBodyEncoding, HandlerRequest, HandlerResponse, HttpMethod,
 };
@@ -104,6 +105,29 @@ class Handler {
         fs::write(path, contents).expect("handler source");
         HandlerSource::discover(root.path(), &relative).expect("validated source")
     }
+}
+
+fn cached_jars(root: &tempfile::TempDir) -> Vec<PathBuf> {
+    let cache = root.path().join(".tachyon/handlers");
+    let mut jars: Vec<PathBuf> = fs::read_dir(cache)
+        .expect("handler cache")
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(|path| path.extension().is_some_and(|extension| extension == "jar"))
+        .collect();
+    jars.sort();
+    jars
+}
+
+fn modified_time(path: &Path) -> SystemTime {
+    fs::metadata(path)
+        .expect("metadata")
+        .modified()
+        .expect("modified time")
+}
+
+fn runtime_jar(source: &HandlerSource) -> PathBuf {
+    PathBuf::from(source.interpreter().last().expect("runtime jar"))
 }
 
 fn request(id: &str, mode: &str) -> HandlerRequest {
@@ -216,4 +240,35 @@ async fn a_warm_jvm_stream_ends_with_its_end_frame_and_stays_warm() {
         let second = stream_pid(&supervisor, &source, "stream_second").await;
         assert_eq!(first, second, "{} stayed warm", handler.extension);
     }
+}
+
+#[test]
+fn a_groovy_handler_reuses_its_cached_jar_until_the_source_changes() {
+    let handler = JvmHandler::GROOVY;
+    if !handler.available() {
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    let first = handler.source(&root, handler.counter);
+    let built = cached_jars(&root);
+    assert_eq!(built.len(), 1, "{built:?}");
+    let stamp = modified_time(&built[0]);
+
+    let second = handler.source(&root, handler.counter);
+    assert_eq!(cached_jars(&root), built);
+    assert_eq!(
+        modified_time(&built[0]),
+        stamp,
+        "an unchanged Groovy handler must not be rebuilt"
+    );
+    assert_ne!(runtime_jar(&second), runtime_jar(&first));
+    assert_eq!(
+        fs::read(runtime_jar(&second)).expect("second copy"),
+        fs::read(runtime_jar(&first)).expect("first copy")
+    );
+
+    handler.source(&root, handler.stream);
+    let rebuilt = cached_jars(&root);
+    assert_eq!(rebuilt.len(), 2, "{rebuilt:?}");
+    assert!(rebuilt.contains(&built[0]), "{rebuilt:?}");
 }
