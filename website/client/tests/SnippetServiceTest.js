@@ -64,4 +64,88 @@ export default class SnippetServiceTest {
     const unknown = this.snippet(this.files(), undefined, 'amiga')
     Assert.isTrue(unknown.platforms().some((platform) => platform.current), 'an unknown saved platform falls back to a known one')
   }
+
+  /**
+   * @param {string[]} names
+   * @param {string[]} moves
+   * @returns {HTMLElement[]}
+   */
+  tabs(names, moves) {
+    const list = { querySelectorAll: () => tabs }
+    const tabs = names.map((name) => ({
+      id: name,
+      closest: () => list,
+      focus: () => moves.push(`focus ${name}`),
+      click: () => moves.push(`click ${name}`),
+    }))
+    return /** @type {HTMLElement[]} */ (/** @type {unknown} */ (tabs))
+  }
+
+  /**
+   * @param {SnippetService} snippet
+   * @param {HTMLElement} tab
+   * @param {string} key
+   * @returns {boolean}
+   */
+  press(snippet, tab, key) {
+    let prevented = false
+    const event = { target: tab, preventDefault: () => { prevented = true } }
+    snippet.moveTab(/** @type {KeyboardEvent} */ (/** @type {unknown} */ (event)), key)
+    return prevented
+  }
+
+  async testArrowsHomeAndEndMoveAndChooseTheTab() {
+    const snippet = this.snippet(this.files(), 'language')
+    /** @type {string[]} */
+    const moves = []
+    const tabs = this.tabs(['JavaScript', 'Python', 'Swift'], moves)
+    Assert.isTrue(this.press(snippet, tabs[0], 'ArrowRight'), 'an arrow key is handled')
+    this.press(snippet, tabs[2], 'ArrowRight')
+    this.press(snippet, tabs[0], 'ArrowLeft')
+    this.press(snippet, tabs[2], 'Home')
+    this.press(snippet, tabs[0], 'End')
+    Assert.equals('focus Python,click Python,focus JavaScript,click JavaScript,focus Swift,click Swift,focus JavaScript,click JavaScript,focus Swift,click Swift', moves.join(), 'arrows wrap around, Home and End go to the ends')
+    Assert.isTrue(!this.press(snippet, tabs[1], 'Enter') && moves.length === 10, 'other keys are left alone')
+  }
+
+  async testTheChosenTabKeepsFocusAfterRendering() {
+    const snippet = this.snippet(this.files(), 'language')
+    let renders = 0
+    snippet.taskScheduler = { render: async () => { renders += 1 } }
+    /** @type {string[]} */
+    const moves = []
+    const tabs = this.tabs(['JavaScript', 'Python'], moves)
+    snippet.pick(new Event('click'), 'Python')
+    Assert.equals(0, renders, 'a click needs no extra render')
+    this.press(snippet, tabs[0], 'ArrowRight')
+    snippet.pick(new Event('click'), 'Python')
+    await Promise.resolve()
+    Assert.equals(1, renders, 'a key move renders once, then focuses the chosen tab')
+    Assert.equals('', snippet._focusing)
+  }
+
+  async testTabsAndPanelAreLinked() {
+    const snippet = this.snippet(this.files(), 'language')
+    snippet.pick(new Event('click'), 'Python')
+    const tab = snippet.languageTabId('Python')
+    Assert.isTrue(tab.startsWith(`${snippet.panelId()}-language-`), tab)
+    Assert.equals(tab, snippet.panelLabels(), 'the panel is labelled by the selected tab')
+    Assert.equals('tabpanel', snippet.panelRole())
+    Assert.isTrue(snippet.languageTabId('C#') !== snippet.languageTabId('C++'), 'names that differ only in symbols get their own ids')
+    Assert.isTrue(/^[\w-]+$/.test(snippet.languageTabId('C++')), 'an id holds only letters, digits and dashes')
+    Assert.isTrue(this.snippet(this.files()).panelId() !== snippet.panelId(), 'each snippet has its own panel')
+  }
+
+  async testThePlatformTabLabelsThePanel() {
+    const snippet = this.snippet(this.files())
+    snippet.platformChanged({ platform: 'web' })
+    const labels = String(snippet.panelLabels())
+    Assert.isTrue(labels.startsWith(`${snippet.platformTabId('web')} `), labels)
+  }
+
+  async testOneFileHasNoTabPanel() {
+    const snippet = this.snippet([{ name: 'client/pages/tac.html', code: '<basket-tally />' }], 'language')
+    Assert.equals(null, snippet.panelRole(), 'without tabs there is no tab panel')
+    Assert.equals(null, snippet.panelLabels())
+  }
 }

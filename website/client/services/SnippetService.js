@@ -5,11 +5,23 @@ import { PlatformUtils } from '/shared/utils/PlatformUtils.js'
 /** @import { PlatformChoice } from '/models/PlatformChoice.ts' */
 /** @import { LanguageChoice } from '/models/LanguageChoice.ts' */
 /** @import { ShownFile } from '/models/ShownFile.ts' */
+/** @import { TaskScheduler } from '/models/TaskScheduler.ts' */
 @Service
 @NeedsAll
 export default class SnippetService {
   static _FEWEST_CHOICES = 2
   static _PLATFORM_KEY = 'tachyon.platform'
+  static _LANGUAGE = 'language'
+  static _PLATFORM = 'platform'
+  static _TAB_PANEL = 'tabpanel'
+  /** @type {Map<string, (index: number, count: number) => number>} */
+  static _MOVES = new Map([
+    ['ArrowRight', (/** @type {number} */ index, /** @type {number} */ count) => (index + 1) % count],
+    ['ArrowLeft', (/** @type {number} */ index, /** @type {number} */ count) => (index - 1 + count) % count],
+    ['Home', () => 0],
+    ['End', (/** @type {number} */ _index, /** @type {number} */ count) => count - 1],
+  ])
+  static _made = 0
   /** @type {SnippetFile[]} */
   files
   /** @type {string} */
@@ -17,10 +29,16 @@ export default class SnippetService {
   /** @type {PreferenceStrings} */
   @Needs
   preferenceStrings
+  /** @type {TaskScheduler} */
+  @Needs
+  taskScheduler
 
   /** @type {string} */
   _platform = ''
   companion = ''
+  _focusing = ''
+  /** @type {string} */
+  _panel = SnippetService._nextPanel()
 
   /** @returns {boolean} */
   spans() {
@@ -52,6 +70,48 @@ export default class SnippetService {
    */
   pick(_event, name) {
     this.companion = name
+    void this._focusAfterRender()
+  }
+
+  /** @returns {string} */
+  panelId() {
+    return this._panel
+  }
+
+  /**
+   * @param {string} id
+   * @returns {string}
+   */
+  platformTabId(id) {
+    return this._tabId(SnippetService._PLATFORM, id)
+  }
+
+  /**
+   * @param {string} name
+   * @returns {string}
+   */
+  languageTabId(name) {
+    return this._tabId(SnippetService._LANGUAGE, name)
+  }
+
+  /** @returns {string | null} */
+  panelRole() {
+    return this._roleFor(this._selectedTabIds(this._platformTabIds(this.spans(), this._currentPlatform()), this.companions()))
+  }
+
+  /** @returns {string | null} */
+  panelLabels() {
+    return this._labelsFor(this._selectedTabIds(this._platformTabIds(this.spans(), this._currentPlatform()), this.companions()))
+  }
+
+  /**
+   * @param {KeyboardEvent} event
+   * @param {string} key
+   */
+  moveTab(event, key) {
+    const current = /** @type {HTMLElement} */ (event.target)
+    const tabs = this._tabsBeside(current)
+    this._choose(event, this._nextTab(tabs, tabs.indexOf(current), SnippetService._MOVES.get(key)))
   }
 
   /** @param {PlatformChanged} value */
@@ -59,6 +119,99 @@ export default class SnippetService {
   platformChanged(value) {
     this._platform = value.platform
     this.companion = ''
+    void this._focusAfterRender()
+  }
+
+  /** @returns {string} */
+  static _nextPanel() {
+    SnippetService._made += 1
+    return `snippet-${SnippetService._made}`
+  }
+
+  /**
+   * @param {string} kind
+   * @param {string} name
+   * @returns {string}
+   */
+  _tabId(kind, name) {
+    return `${this._panel}-${kind}-${encodeURIComponent(name).replaceAll('%', '-')}`
+  }
+
+  /**
+   * @param {boolean} spans
+   * @param {string} platform
+   * @returns {string[]}
+   */
+  _platformTabIds(spans, platform) {
+    if (!spans) return []
+    return [this._tabId(SnippetService._PLATFORM, platform)]
+  }
+
+  /**
+   * @param {string[]} platformIds
+   * @param {LanguageChoice[]} companions
+   * @returns {string[]}
+   */
+  _selectedTabIds(platformIds, companions) {
+    const languageIds = companions.filter((entry) => entry.current).map((entry) => this._tabId(SnippetService._LANGUAGE, entry.name))
+    return [...platformIds, ...languageIds]
+  }
+
+  /**
+   * @param {string[]} tabIds
+   * @returns {string | null}
+   */
+  _roleFor(tabIds) {
+    return tabIds.length > 0 ? SnippetService._TAB_PANEL : null
+  }
+
+  /**
+   * @param {string[]} tabIds
+   * @returns {string | null}
+   */
+  _labelsFor(tabIds) {
+    return tabIds.length > 0 ? tabIds.join(' ') : null
+  }
+
+  /**
+   * @param {HTMLElement} tab
+   * @returns {HTMLElement[]}
+   */
+  _tabsBeside(tab) {
+    const list = tab.closest('[role="tablist"]')
+    if (!list) return []
+    return [...list.querySelectorAll('[role="tab"]')].map((element) => /** @type {HTMLElement} */ (element))
+  }
+
+  /**
+   * @param {HTMLElement[]} tabs
+   * @param {number} index
+   * @param {((index: number, count: number) => number) | undefined} move
+   * @returns {HTMLElement | undefined}
+   */
+  _nextTab(tabs, index, move) {
+    if (!move) return undefined
+    return tabs[move(index, tabs.length)]
+  }
+
+  /**
+   * @param {KeyboardEvent} event
+   * @param {HTMLElement | undefined} tab
+   */
+  _choose(event, tab) {
+    if (!tab) return
+    event.preventDefault()
+    this._focusing = tab.id
+    tab.focus()
+    tab.click()
+  }
+
+  async _focusAfterRender() {
+    const id = this._focusing
+    if (!id) return
+    this._focusing = ''
+    await this.taskScheduler.render()
+    document.getElementById(id)?.focus()
   }
 
   /** @returns {SnippetFile[]} */
@@ -71,7 +224,7 @@ export default class SnippetService {
    * @returns {boolean}
    */
   _spansFiles(files) {
-    return this.axis !== 'language' && PlatformUtils.spansPlatforms(files)
+    return this.axis !== SnippetService._LANGUAGE && PlatformUtils.spansPlatforms(files)
   }
 
   /** @returns {string} */

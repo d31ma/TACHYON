@@ -61,23 +61,28 @@ margin: .5rem 1rem 1rem;
 
 .code-copy {
 position: absolute;
-  top: .5rem;
-  right: .5rem;
-  padding: .25rem .5rem;
+  top: .375rem;
+  right: .375rem;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  padding: .5rem .75rem;
   border: 1px solid var(--w-border, currentColor);
   border-radius: var(--w-radius-md, 8px);
   background: var(--w-surface, canvas);
-  color: inherit;
+  color: var(--w-text, inherit);
   font: inherit;
   font-size: var(--step-sm);
   line-height: 1.5;
-  opacity: .45;
   cursor: pointer;
 }
 
-.code-block:hover .code-copy,
+.code-copy:hover {
+background: var(--w-surface-container-high, canvas);
+}
+
 .code-copy:focus-visible {
-opacity: 1;
+outline: 2px solid var(--w-primary, currentColor);
+  outline-offset: 2px;
 }
 
 .panel,
@@ -91,7 +96,8 @@ background: var(--w-surface-container-low);
 position: relative;
   max-width: 100%;
   margin: 0;
-  padding: 1rem 4.5rem 1rem 1rem;
+  min-height: 3.5rem;
+  padding: 1rem 6rem 1rem 1rem;
   overflow-x: auto;
   font-size: var(--step-sm);
   line-height: 1.6;
@@ -131,6 +137,17 @@ color: var(--w-text);
 /*! tailwindcss v4.3.3 | MIT License | https://tailwindcss.com */
 @layer properties;
 @layer utilities {
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border-width: 0;
+  }
   .mt-3 {
     margin-top: calc(var(--spacing, 0.25rem) * 3);
   }
