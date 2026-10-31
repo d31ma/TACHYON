@@ -2,6 +2,7 @@ use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 use tachyon_contracts::CONTRACTS;
+use yaml_rust2::{Yaml, YamlLoader};
 
 fn repository_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -303,6 +304,94 @@ fn github_actions_are_pinned_to_full_commits() -> Result<(), Box<dyn std::error:
     Ok(())
 }
 
+#[test]
+fn the_workflow_folder_holds_exactly_the_parsed_workflows() -> Result<(), Box<dyn std::error::Error>>
+{
+    let expected = [
+        "fuzz-scheduled.yml",
+        "publish.yml",
+        "ruby-runtime.yml",
+        "rust-ci.yml",
+    ]
+    .map(String::from);
+    assert_eq!(workflow_file_names()?, BTreeSet::from(expected));
+    Ok(())
+}
+
+#[test]
+fn the_rust_ci_workflow_parses_as_yaml_with_jobs() -> Result<(), Box<dyn std::error::Error>> {
+    parsed_workflow("rust-ci.yml")?;
+    Ok(())
+}
+
+#[test]
+fn the_publish_workflow_parses_as_yaml_with_jobs() -> Result<(), Box<dyn std::error::Error>> {
+    parsed_workflow("publish.yml")?;
+    Ok(())
+}
+
+#[test]
+fn the_ruby_runtime_workflow_parses_as_yaml_with_jobs() -> Result<(), Box<dyn std::error::Error>> {
+    parsed_workflow("ruby-runtime.yml")?;
+    Ok(())
+}
+
+#[test]
+fn the_fuzz_workflow_parses_as_yaml_with_jobs() -> Result<(), Box<dyn std::error::Error>> {
+    parsed_workflow("fuzz-scheduled.yml")?;
+    Ok(())
+}
+
+#[test]
+fn the_only_token_minting_job_refuses_pull_requests_from_forks()
+-> Result<(), Box<dyn std::error::Error>> {
+    let root = repository_root();
+    let contents = fs::read_to_string(root.join(".github/workflows/rust-ci.yml"))?;
+    let workflow = parsed_workflow("rust-ci.yml")?;
+    let job = &workflow["jobs"]["release-lifecycle"];
+    assert_eq!(contents.matches("id-token:").count(), 1);
+    assert!(!contents.contains("write-all"));
+    assert_eq!(job["permissions"]["id-token"].as_str(), Some("write"));
+    assert_eq!(
+        job["if"].as_str(),
+        Some(
+            "(github.event_name != 'pull_request' || (github.head_ref == 'develop' && github.event.pull_request.head.repo.full_name == github.repository)) && (!inputs.jobs || contains(format(',{0},', inputs.jobs), ',release-lifecycle,'))"
+        )
+    );
+    Ok(())
+}
+
+fn parsed_workflow(name: &str) -> Result<Yaml, Box<dyn std::error::Error>> {
+    let contents = fs::read_to_string(repository_root().join(".github/workflows").join(name))?;
+    let mut documents = YamlLoader::load_from_str(&contents)
+        .map_err(|error| format!("{name} is not valid YAML: {error}"))?;
+    assert_eq!(documents.len(), 1, "{name} holds one YAML document");
+    let workflow = documents.remove(0);
+    assert!(
+        workflow["jobs"]
+            .as_hash()
+            .is_some_and(|jobs| !jobs.is_empty()),
+        "{name} declares its jobs as a mapping"
+    );
+    Ok(workflow)
+}
+
+fn workflow_file_names() -> Result<BTreeSet<String>, std::io::Error> {
+    let directory = repository_root().join(".github/workflows");
+    let mut files = collect_files(&directory, "yml")?;
+    files.extend(collect_files(&directory, "yaml")?);
+    Ok(files
+        .iter()
+        .filter_map(|file| file.file_name()?.to_str().map(str::to_owned))
+        .collect())
+}
+
+#[test]
+fn workflow_parse_check_rejects_a_plain_scalar_ending_in_a_colon() {
+    let workflow = "jobs:\n  native:\n    steps:\n      - run: cargo nextest run storage::\n";
+    assert!(YamlLoader::load_from_str(workflow).is_err());
+}
+
 fn assert_pinned_actions(root: &Path, workflow: &Path, contents: &str) {
     for line in contents.lines() {
         let Some(action) = line.trim().strip_prefix("uses: ") else {
@@ -596,8 +685,16 @@ fn github_ci_runs_only_for_develop_into_main() -> Result<(), Box<dyn std::error:
                 let selected = format!(
                     "if: (github.event_name != 'pull_request' || github.head_ref == 'develop') && (!inputs.jobs || contains(format(',{{0}},', inputs.jobs), ',{job},'))"
                 );
+                let same_repository = format!(
+                    "if: (github.event_name != 'pull_request' || (github.head_ref == 'develop' && github.event.pull_request.head.repo.full_name == github.repository)) && (!inputs.jobs || contains(format(',{{0}},', inputs.jobs), ',{job},'))"
+                );
                 assert!(
-                    [Some(guard), Some(selected.as_str())].contains(&next),
+                    [
+                        Some(guard),
+                        Some(selected.as_str()),
+                        Some(same_repository.as_str())
+                    ]
+                    .contains(&next),
                     "{name}: job {line} must run only for develop into main"
                 );
             }
@@ -686,6 +783,7 @@ fn ci_runs_the_browser_gates_that_exist() -> Result<(), Box<dyn std::error::Erro
         "node website/scripts/build-styles.mjs --check",
         "node website/scripts/language-coverage.mjs --strict",
         "node website/scripts/check-responsive.mjs",
+        "node website/scripts/check-migration.mjs",
         "node scripts/ignored-browser-gates.mjs --groups=dotnet,kotlin,java",
         "TAC_KOTLIN_WEB_REQUIRE_TOOLCHAINS: \"1\"",
         "TAC_BROWSER_REQUIRE_TOOLCHAINS: \"1\"",

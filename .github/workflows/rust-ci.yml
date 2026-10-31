@@ -186,7 +186,7 @@ jobs:
         run: cargo nextest run --workspace --all-targets --all-features --locked --no-tests=fail
 
       - name: Run the storage tests without the optional storage drivers
-        run: cargo nextest run -p tachyon-core --lib --locked --no-tests=fail storage::
+        run: "cargo nextest run -p tachyon-core --lib --locked --no-tests=fail storage::"
 
       - name: Execute target-native companion behavior through the built CLI
         run: node scripts/native/companion-test.mjs
@@ -522,6 +522,18 @@ jobs:
             sleep 1
           done
           node website/scripts/check-responsive.mjs
+
+      - name: Hold the website to its script budget and migration acceptance
+        run: |
+          set -euo pipefail
+          ./target/release/ty build website --out-dir "${TAC_WEBSITE_OUTPUT}"
+          node website/scripts/check-migration.mjs
+        env:
+          TAC_BIN: ${{ github.workspace }}/target/release/ty
+          TAC_WEBSITE_OUTPUT: ${{ runner.temp }}/tachyon-migration-site
+          TAC_WEBSITE_ACCEPTANCE_RECEIPT: ${{ runner.temp }}/website-acceptance-receipt.json
+          TAC_WEBSITE_SOURCE_COMMIT: ${{ github.sha }}
+          TAC_BROWSER_DEPENDENCIES: ${{ github.workspace }}/node_modules
 
       - name: Verify every claim in the parity ledger
         run: bash scripts/compat/verify-ledger.sh
@@ -1360,7 +1372,7 @@ jobs:
           path: "**/*.cdx.json"
 
   release-lifecycle:
-    if: (github.event_name != 'pull_request' || github.head_ref == 'develop') && (!inputs.jobs || contains(format(',{0},', inputs.jobs), ',release-lifecycle,'))
+    if: (github.event_name != 'pull_request' || (github.head_ref == 'develop' && github.event.pull_request.head.repo.full_name == github.repository)) && (!inputs.jobs || contains(format(',{0},', inputs.jobs), ',release-lifecycle,'))
     name: Cutover release lifecycle drill
     runs-on: ${{ ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/heads/') && vars.TACHYON_SELF_HOSTED == 'true') && fromJSON(matrix.self_hosted_labels) || matrix.os }}
     timeout-minutes: 40
