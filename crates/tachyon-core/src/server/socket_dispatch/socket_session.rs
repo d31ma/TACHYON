@@ -12,6 +12,7 @@ use axum::extract::ws::{CloseFrame, Message, WebSocket, WebSocketUpgrade};
 use axum::http::header::{HOST, ORIGIN, UPGRADE};
 use axum::http::request::Parts;
 use axum::http::{HeaderMap, HeaderValue, Request, Response, StatusCode};
+use std::future::Future;
 use std::sync::Arc;
 use std::time::Duration;
 use tachyon_contracts::{HandlerRequest, HttpMethod};
@@ -38,6 +39,7 @@ impl SocketSession {
     const IDLE: Duration = Duration::from_mins(5);
     const LIFETIME: Duration = Duration::from_hours(1);
     const CLOSE_GRACE: Duration = Duration::from_secs(5);
+    const WRITE: Duration = Duration::from_secs(10);
     const QUEUE: usize = 16;
     const MAX_REASON_BYTES: usize = 120;
 
@@ -189,7 +191,7 @@ impl SocketSession {
         let close = self
             .talk(&mut socket, &input, &mut outputs, &mut peers)
             .await;
-        let _sent = socket.send(Message::Close(Some(close))).await;
+        let _sent = timeout(Self::CLOSE_GRACE, socket.send(Message::Close(Some(close)))).await;
         let _closed = timeout(Self::CLOSE_GRACE, input.send(SocketInput::Close)).await;
         drop(input);
         let _answered = timeout(Self::CLOSE_GRACE, Self::finish_closing(&mut socket)).await;
@@ -230,10 +232,10 @@ impl SocketSession {
         if let Ok(Err(failure)) = result
             && !self.cancellation.is_cancelled()
         {
-            InvocationLog::log_failure(
+            InvocationLog::log_handler_failure(
                 "handler.socket",
-                &self.request.request_id,
-                InvocationLog::runtime_family(&self.handler),
+                &self.request,
+                &self.handler,
                 &failure,
             );
         }
@@ -291,7 +293,7 @@ impl SocketSession {
                 *idle = Instant::now() + Self::IDLE;
                 self.outgoing(socket, input, output).await
             }
-            peer = peers.recv() => Self::forward_peer(socket, peer).await,
+            peer = peers.recv() => self.forward_peer(socket, peer).await,
         }
     }
 
@@ -301,37 +303,88 @@ impl SocketSession {
         input: &mpsc::Sender<SocketInput>,
     ) -> Option<CloseFrame> {
         let text = self.incoming(received);
-        Self::send_incoming(text, input).await
+        self.send_incoming(text, input).await
     }
 
     async fn send_incoming(
+        &self,
         text: Result<Option<String>, CloseFrame>,
         input: &mpsc::Sender<SocketInput>,
     ) -> Option<CloseFrame> {
         match text {
             Ok(None) => None,
             Err(close) => Some(close),
-            Ok(Some(text)) => Self::send_message(input, text).await,
+            Ok(Some(text)) => self.send_message(input, text).await,
         }
     }
 
-    async fn send_message(input: &mpsc::Sender<SocketInput>, text: String) -> Option<CloseFrame> {
-        let sent = input.send(SocketInput::Message(text)).await;
-        sent.is_err()
-            .then(|| Self::close(1011, "The socket handler stopped."))
+    async fn send_message(
+        &self,
+        input: &mpsc::Sender<SocketInput>,
+        text: String,
+    ) -> Option<CloseFrame> {
+        let sent = input.send(SocketInput::Message(text));
+        Self::queued_within(sent, &self.cancellation, Self::WRITE).await
     }
 
-    async fn forward_peer(socket: &mut WebSocket, peer: Option<String>) -> Option<CloseFrame> {
+    async fn queued_within<Q, E>(
+        queued: Q,
+        cancellation: &CancellationToken,
+        limit: Duration,
+    ) -> Option<CloseFrame>
+    where
+        Q: Future<Output = Result<(), E>>,
+    {
+        tokio::select! {
+            () = cancellation.cancelled() => Some(Self::close(1001, "The server is stopping.")),
+            queued = timeout(limit, queued) => Self::queue_outcome(&queued),
+        }
+    }
+
+    fn queue_outcome<E>(queued: &Result<Result<(), E>, Elapsed>) -> Option<CloseFrame> {
+        match queued {
+            Ok(Ok(())) => None,
+            Ok(Err(_)) => Some(Self::close(1011, "The socket handler stopped.")),
+            Err(_) => Some(Self::close(1013, "The socket handler fell behind.")),
+        }
+    }
+
+    async fn forward_peer(
+        &self,
+        socket: &mut WebSocket,
+        peer: Option<String>,
+    ) -> Option<CloseFrame> {
         match peer {
             None => Some(Self::close(1013, "The socket fell too far behind.")),
-            Some(data) => Self::send_text(socket, data).await,
+            Some(data) => self.send_text(socket, data).await,
         }
     }
 
-    async fn send_text(socket: &mut WebSocket, data: String) -> Option<CloseFrame> {
-        let sent = socket.send(Message::Text(data.into())).await;
-        sent.is_err()
-            .then(|| Self::close(1001, "The browser went away."))
+    async fn send_text(&self, socket: &mut WebSocket, data: String) -> Option<CloseFrame> {
+        let sent = socket.send(Message::Text(data.into()));
+        Self::written_within(sent, &self.cancellation, Self::WRITE).await
+    }
+
+    async fn written_within<W, E>(
+        write: W,
+        cancellation: &CancellationToken,
+        limit: Duration,
+    ) -> Option<CloseFrame>
+    where
+        W: Future<Output = Result<(), E>>,
+    {
+        tokio::select! {
+            () = cancellation.cancelled() => Some(Self::close(1001, "The server is stopping.")),
+            written = timeout(limit, write) => Self::write_outcome(&written),
+        }
+    }
+
+    fn write_outcome<E>(written: &Result<Result<(), E>, Elapsed>) -> Option<CloseFrame> {
+        match written {
+            Ok(Ok(())) => None,
+            Ok(Err(_)) => Some(Self::close(1001, "The browser went away.")),
+            Err(_) => Some(Self::close(1013, "The browser stopped reading.")),
+        }
     }
 
     fn incoming(
@@ -400,7 +453,7 @@ impl SocketSession {
                 self.seat.hub.deliver(&self.seat.route, &id, data);
                 None
             }
-            Some(SocketOutput::Send { data, .. }) => Self::send_text(socket, data).await,
+            Some(SocketOutput::Send { data, .. }) => self.send_text(socket, data).await,
             Some(SocketOutput::AskSessions) => self.send_sessions(input).await,
             Some(SocketOutput::Close { code }) => Some(Self::close(code, "")),
         }
@@ -408,10 +461,8 @@ impl SocketSession {
 
     async fn send_sessions(&self, input: &mpsc::Sender<SocketInput>) -> Option<CloseFrame> {
         let ids = self.seat.hub.ids(&self.seat.route);
-        let asked = input.send(SocketInput::Sessions(ids)).await;
-        asked
-            .is_err()
-            .then(|| Self::close(1011, "The socket handler stopped."))
+        let asked = input.send(SocketInput::Sessions(ids));
+        Self::queued_within(asked, &self.cancellation, Self::WRITE).await
     }
 
     fn close(code: u16, reason: &str) -> CloseFrame {
@@ -434,6 +485,8 @@ mod tests {
     use crate::safety::AppOrigins;
     use axum::http::header::{HOST, ORIGIN};
     use axum::http::{HeaderMap, HeaderValue};
+    use std::time::Duration;
+    use tokio_util::sync::CancellationToken;
 
     fn allowed(origin: Option<&str>, listed: &[&str]) -> bool {
         let mut headers = HeaderMap::new();
@@ -467,5 +520,72 @@ mod tests {
         ] {
             assert!(!allowed(Some(origin), listed), "{origin}");
         }
+    }
+
+    #[tokio::test]
+    async fn a_write_the_browser_never_reads_closes_the_socket_within_the_limit() {
+        let stalled = std::future::pending::<Result<(), ()>>();
+        let close = tokio::time::timeout(
+            Duration::from_secs(5),
+            SocketSession::written_within(
+                stalled,
+                &CancellationToken::new(),
+                Duration::from_millis(50),
+            ),
+        )
+        .await
+        .expect("bounded write")
+        .expect("close frame");
+        assert_eq!(close.code, 1013);
+    }
+
+    #[tokio::test]
+    async fn a_stalled_write_still_sees_the_server_stop() {
+        let cancellation = CancellationToken::new();
+        cancellation.cancel();
+        let stalled = std::future::pending::<Result<(), ()>>();
+        let close = SocketSession::written_within(stalled, &cancellation, Duration::from_mins(1))
+            .await
+            .expect("close frame");
+        assert_eq!(close.code, 1001);
+        assert_eq!(close.reason.as_str(), "The server is stopping.");
+    }
+
+    #[tokio::test]
+    async fn a_finished_write_keeps_the_socket_open() {
+        let written = std::future::ready(Ok::<(), ()>(()));
+        let close = SocketSession::written_within(
+            written,
+            &CancellationToken::new(),
+            Duration::from_secs(1),
+        )
+        .await;
+        assert!(close.is_none());
+    }
+
+    #[tokio::test]
+    async fn a_full_handler_queue_closes_the_socket_within_the_limit() {
+        let stalled = std::future::pending::<Result<(), ()>>();
+        let close = tokio::time::timeout(
+            Duration::from_secs(5),
+            SocketSession::queued_within(
+                stalled,
+                &CancellationToken::new(),
+                Duration::from_millis(50),
+            ),
+        )
+        .await
+        .expect("bounded queue wait")
+        .expect("close frame");
+        assert_eq!(close.code, 1013);
+        let stopped = std::future::ready(Err::<(), ()>(()));
+        let close = SocketSession::queued_within(
+            stopped,
+            &CancellationToken::new(),
+            Duration::from_secs(1),
+        )
+        .await
+        .expect("close frame");
+        assert_eq!(close.code, 1011);
     }
 }

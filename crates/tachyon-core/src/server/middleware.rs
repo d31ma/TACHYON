@@ -54,15 +54,16 @@ impl Middleware {
             Ok(response) if response.status == 204 => MiddlewareOutcome::Continue,
             Ok(response) => MiddlewareOutcome::Respond(ServerResponse::from_middleware(response)),
             Err(failure) => {
-                InvocationLog::log_failure(
+                InvocationLog::log_handler_failure(
                     "middleware",
-                    &protocol_request.request_id,
-                    InvocationLog::runtime_family(middleware),
+                    protocol_request,
+                    middleware,
                     &failure,
                 );
-                MiddlewareOutcome::Respond(ServerResponse::invocation_failure(
+                MiddlewareOutcome::Respond(ServerResponse::failure_answer(
                     "Middleware execution",
                     &protocol_request.request_id,
+                    &failure,
                 ))
             }
         }
@@ -78,10 +79,10 @@ impl Middleware {
             Ok(decision) if decision.status != 204 => ServerResponse::from_handler(decision),
             Ok(decision) => Self::add_headers(response, &decision),
             Err(failure) => {
-                InvocationLog::log_failure(
+                InvocationLog::log_handler_failure(
                     "middleware.after",
-                    &protocol_request.request_id,
-                    InvocationLog::runtime_family(middleware),
+                    protocol_request,
+                    middleware,
                     &failure,
                 );
                 response

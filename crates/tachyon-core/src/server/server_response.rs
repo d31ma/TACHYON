@@ -1,9 +1,10 @@
 use super::HeaderNames;
 use super::HotUpdateHub;
+use crate::Failure;
 use axum::Router;
 use axum::body::Body;
 use axum::http::header::{
-    CACHE_CONTROL, CONTENT_TYPE, HeaderValue, REFERRER_POLICY, X_CONTENT_TYPE_OPTIONS,
+    CACHE_CONTROL, CONTENT_TYPE, HeaderValue, REFERRER_POLICY, RETRY_AFTER, X_CONTENT_TYPE_OPTIONS,
 };
 use axum::http::response::Builder;
 use axum::http::{Response, StatusCode};
@@ -16,6 +17,9 @@ pub(in crate::server) struct ServerResponse;
 impl ServerResponse {
     const FRAMING_HEADERS: [&'static str; 3] =
         ["content-length", "transfer-encoding", "connection"];
+    const TIMED_OUT: u16 = 2110;
+    const CANCELLED: u16 = 2111;
+    const RETRY_AFTER_SECONDS: &'static str = "1";
 
     pub(in crate::server) fn text(status: StatusCode, message: &str) -> Response<Body> {
         Response::builder()
@@ -32,6 +36,42 @@ impl ServerResponse {
         );
         Self::insert_request_id(&mut response, request_id);
         response
+    }
+
+    pub(in crate::server) fn failure_answer(
+        kind: &str,
+        request_id: &str,
+        failure: &Failure,
+    ) -> Response<Body> {
+        let status = Self::failure_status(failure);
+        let mut response = Self::text(status, &format!("{kind} failed. Reference: {request_id}."));
+        Self::insert_request_id(&mut response, request_id);
+        Self::insert_retry_after(&mut response, status);
+        response
+    }
+
+    pub(in crate::server) fn failure_status(failure: &Failure) -> StatusCode {
+        let codes: Vec<u16> = failure
+            .diagnostics()
+            .iter()
+            .map(|diagnostic| diagnostic.code.number())
+            .collect();
+        if codes.contains(&Self::CANCELLED) {
+            StatusCode::SERVICE_UNAVAILABLE
+        } else if codes.contains(&Self::TIMED_OUT) {
+            StatusCode::GATEWAY_TIMEOUT
+        } else {
+            StatusCode::INTERNAL_SERVER_ERROR
+        }
+    }
+
+    fn insert_retry_after(response: &mut Response<Body>, status: StatusCode) {
+        if status == StatusCode::SERVICE_UNAVAILABLE {
+            response.headers_mut().insert(
+                RETRY_AFTER,
+                HeaderValue::from_static(Self::RETRY_AFTER_SECONDS),
+            );
+        }
     }
 
     pub(in crate::server) fn insert_request_id(response: &mut Response<Body>, request_id: &str) {
@@ -200,5 +240,28 @@ mod tests {
         assert_eq!(bytes.as_ref(), b"\x00\x7f\x80\xffPNG");
         let broken = ServerResponse::from_handler(answer("not base64!"));
         assert_eq!(broken.status(), StatusCode::INTERNAL_SERVER_ERROR);
+    }
+
+    fn failure(code: u16) -> Failure {
+        Failure::one(crate::failure::diagnostic(code, "canary", None, None))
+    }
+
+    #[test]
+    fn a_handler_failure_answers_with_the_status_that_names_its_cause() {
+        for (code, status, retry) in [
+            (2110, StatusCode::GATEWAY_TIMEOUT, None),
+            (2111, StatusCode::SERVICE_UNAVAILABLE, Some("1")),
+            (2104, StatusCode::INTERNAL_SERVER_ERROR, None),
+        ] {
+            let response =
+                ServerResponse::failure_answer("Handler execution", "0ABC", &failure(code));
+            assert_eq!(response.status(), status, "TY{code}");
+            let retry_after = response
+                .headers()
+                .get(RETRY_AFTER)
+                .and_then(|value| value.to_str().ok());
+            assert_eq!(retry_after, retry, "TY{code}");
+            assert!(response.headers().contains_key(HeaderNames::REQUEST_ID));
+        }
     }
 }

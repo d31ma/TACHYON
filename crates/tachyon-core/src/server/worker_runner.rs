@@ -15,6 +15,7 @@ pub(in crate::server) struct WorkerRunner {
     relative: String,
     interval: Duration,
     runtime_cancellation: CancellationToken,
+    runtime_stopping: CancellationToken,
 }
 
 impl WorkerRunner {
@@ -22,6 +23,7 @@ impl WorkerRunner {
         worker: &crate::project::ScheduledWorker,
         supervisor: &Arc<HandlerSupervisor>,
         cancellation: &CancellationToken,
+        stopping: &CancellationToken,
         tasks: &mut JoinSet<()>,
     ) {
         let runner = Self {
@@ -30,6 +32,7 @@ impl WorkerRunner {
             relative: worker.relative().to_owned(),
             interval: Duration::from_secs(worker.every_seconds()),
             runtime_cancellation: cancellation.clone(),
+            runtime_stopping: stopping.clone(),
         };
         tasks.spawn(runner.run(Duration::from_secs(worker.initial_seconds())));
     }
@@ -93,7 +96,7 @@ impl WorkerRunner {
     {
         tokio::select! {
             biased;
-            () = self.runtime_cancellation.cancelled() => {
+            () = self.runtime_stopping.cancelled() => {
                 cancellation.cancel();
                 tokio::time::timeout(ServerRuntime::WORKER_CANCELLATION_SETTLE, &mut invocation).await.ok()
             }
@@ -109,12 +112,9 @@ impl WorkerRunner {
                     self.relative, response.status
                 );
             }
-            Some(Err(failure)) => InvocationLog::log_failure(
-                "worker",
-                &request.request_id,
-                InvocationLog::runtime_family(&self.source),
-                failure,
-            ),
+            Some(Err(failure)) => {
+                InvocationLog::log_handler_failure("worker", request, &self.source, failure);
+            }
             Some(Ok(_)) | None => {}
         }
     }

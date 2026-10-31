@@ -1722,7 +1722,7 @@ export class Handler {
 }
 
 #[tokio::test]
-async fn protocol_smuggling_oversize_mismatch_and_stderr_flood_fail_closed() {
+async fn protocol_smuggling_oversize_and_mismatch_fail_closed_and_a_stderr_flood_is_truncated() {
     let root = tempfile::tempdir().expect("project");
     let source = source(
         &root,
@@ -1769,7 +1769,6 @@ export class Handler {
         ("trailing", "TY2103"),
         ("oversized", "TY2103"),
         ("mismatch", "TY2102"),
-        ("stderr", "TY2107"),
     ] {
         let failure = supervisor
             .invoke(
@@ -1781,6 +1780,15 @@ export class Handler {
             .expect_err("protocol failure");
         assert!(failure.to_string().contains(code), "{mode}: {failure}");
     }
+    let flooded = supervisor
+        .invoke(
+            &source,
+            &request("stderr", HttpMethod::Post, Some("stderr")),
+            &HandlerCancellation::default(),
+        )
+        .await
+        .expect("a stderr flood is truncated, not a failed call");
+    assert_eq!(flooded.status, 200);
 }
 
 fn write_compiled_relay_delegate(root: &tempfile::TempDir) {

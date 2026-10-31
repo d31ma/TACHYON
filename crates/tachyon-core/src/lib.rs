@@ -55,6 +55,7 @@ mod safety;
 mod scaffold;
 mod schedule;
 mod server;
+mod setting_switch;
 mod storage;
 mod tac_cpp;
 mod tac_dart;

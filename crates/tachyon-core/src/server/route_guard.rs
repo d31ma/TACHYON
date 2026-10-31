@@ -105,12 +105,7 @@ impl RouteGuard {
         source: &HandlerSource,
     ) {
         if let Err(failure) = result {
-            InvocationLog::log_failure(
-                Self::LOG_KIND,
-                &request.request_id,
-                InvocationLog::runtime_family(source),
-                failure,
-            );
+            InvocationLog::log_handler_failure(Self::LOG_KIND, request, source, failure);
         }
     }
 }

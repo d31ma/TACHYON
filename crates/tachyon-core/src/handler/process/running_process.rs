@@ -79,8 +79,8 @@ impl RunningProcess {
         ProcessReaper::terminate(&mut child, request_id).await;
         let settled = Drained::settle_pair(stdout_task, stderr_task, deadline).await;
         let (status, stdout, stderr) = Self::exit_output(status, settled)?;
-        Drained::validate_output(status, &stdout, &stderr)?;
         stderr.surface_events(request_id);
+        Drained::validate_output(status, &stdout, &stderr)?;
         Self::response(&stdout.bytes, request_id, direct_protocol, topics).await
     }
 

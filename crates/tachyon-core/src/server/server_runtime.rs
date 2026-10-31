@@ -17,6 +17,7 @@ use tokio_util::sync::CancellationToken;
 pub(in crate::server) struct ServerRuntime {
     pub(in crate::server) supervisor: Arc<HandlerSupervisor>,
     pub(in crate::server) cancellation: CancellationToken,
+    pub(in crate::server) stopping: CancellationToken,
     pub(in crate::server) tasks: JoinSet<()>,
     pub(in crate::server) producers: ProducerTasks,
     pub(in crate::server) plan: Option<BackgroundPlan>,
@@ -35,6 +36,7 @@ impl std::fmt::Debug for ServerRuntime {
 impl Drop for ServerRuntime {
     fn drop(&mut self) {
         self.cancellation.cancel();
+        self.stopping.cancel();
         self.tasks.abort_all();
         self.producers.close_and_abort();
     }
@@ -46,11 +48,15 @@ impl ServerRuntime {
     const COOPERATIVE_TASK_SETTLEMENT: Duration = Duration::from_secs(1);
     pub(in crate::server) const WORKER_CANCELLATION_SETTLE: Duration = Duration::from_secs(1);
     const YIELD_EVERY: usize = 16;
+    const DRAIN_SETTING: &'static str = "TAC_SHUTDOWN_GRACE_SECONDS";
+    const DEFAULT_DRAIN_SECONDS: u64 = 10;
+    const LONGEST_DRAIN_SECONDS: u64 = 300;
 
     pub(in crate::server) fn new(plan: BackgroundPlan) -> Self {
         Self {
             supervisor: Arc::clone(&plan.supervisor),
             cancellation: CancellationToken::new(),
+            stopping: CancellationToken::new(),
             tasks: JoinSet::new(),
             producers: ProducerTasks::new(),
             plan: Some(plan),
@@ -66,8 +72,22 @@ impl ServerRuntime {
         self.start_when_planned(plan);
     }
 
+    pub(in crate::server) fn drain_grace() -> Duration {
+        Self::drain_grace_from(std::env::var(Self::DRAIN_SETTING).ok().as_deref())
+    }
+
+    pub(in crate::server) fn drain_grace_from(configured: Option<&str>) -> Duration {
+        let seconds = configured
+            .and_then(|value| value.trim().parse::<u64>().ok())
+            .map_or(Self::DEFAULT_DRAIN_SECONDS, |seconds| {
+                seconds.min(Self::LONGEST_DRAIN_SECONDS)
+            });
+        Duration::from_secs(seconds)
+    }
+
     pub(in crate::server) async fn shutdown_until(&mut self, hard_deadline: Instant) {
         self.cancellation.cancel();
+        self.stopping.cancel();
         let mut background = std::mem::take(&mut self.tasks);
         let mut producers = self.producers.take();
         let cooperative_deadline = Self::cooperative_shutdown_deadline(hard_deadline)
@@ -116,7 +136,7 @@ impl ServerRuntime {
         self.spawn_workers(&plan.workers, &plan.supervisor);
         self.tasks.spawn(
             plan.topics
-                .run(Arc::clone(&plan.supervisor), self.cancellation.clone()),
+                .run(Arc::clone(&plan.supervisor), self.stopping.clone()),
         );
         self.spawn_watcher(plan.watcher);
         let producers = self.producers.clone();
@@ -131,7 +151,13 @@ impl ServerRuntime {
         supervisor: &Arc<HandlerSupervisor>,
     ) {
         for worker in workers {
-            WorkerRunner::spawn(worker, supervisor, &self.cancellation, &mut self.tasks);
+            WorkerRunner::spawn(
+                worker,
+                supervisor,
+                &self.cancellation,
+                &self.stopping,
+                &mut self.tasks,
+            );
         }
     }
 

@@ -1,3 +1,4 @@
+mod access_log;
 mod access_verdict;
 mod asset_cache_policy;
 mod check_answer;
@@ -71,6 +72,7 @@ use crate::failure::diagnostic;
 use crate::handler::{HandlerSupervisor, RuntimeRequirements};
 use crate::tool_restart::ToolRestart;
 use crate::{BuildResult, Failure, Project, ProjectDiscovery, WebCompiler};
+use access_log::AccessLog;
 use access_verdict::AccessVerdict;
 use asset_cache_policy::AssetCachePolicy;
 use axum::Router;
@@ -105,9 +107,9 @@ use std::future::{Future, IntoFuture};
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::net::TcpListener;
 use tokio::time::Instant;
-use tokio_util::sync::CancellationToken;
 use topic_admission::TopicAdmission;
 use topic_failure::TopicFailure;
 use topic_files::TopicFiles;
@@ -297,7 +299,8 @@ impl DevServer {
         );
         let edge = ForwardedHeaders::new(supervisor.application().trusted_proxies().clone());
         let cross = CrossOrigin::new(&Self::app_origins(options, supervisor.application()));
-        let application = dispatch_state.into_router(&page_hosts, guard, edge, cross);
+        let application =
+            AccessLog::wrap(dispatch_state.into_router(&page_hosts, guard, edge, cross));
         let public_host = Self::public_host(options, supervisor.application());
         Ok(Self {
             listener: Some(listener),
@@ -419,15 +422,17 @@ impl DevServer {
     where
         F: Future<Output = ()> + Send + 'static,
     {
-        let (served, deadline) = Self::serve_until_shutdown(
+        let served = Self::serve_until_shutdown(
             listener,
             application,
-            &self.runtime.producers,
-            self.runtime.cancellation.clone(),
+            &self.runtime,
+            ServerRuntime::drain_grace(),
             shutdown,
         )
         .await;
-        self.runtime.shutdown_until(deadline).await;
+        self.runtime
+            .shutdown_until(Instant::now() + ServerRuntime::SHUTDOWN)
+            .await;
         Self::served_result(served)
     }
 
@@ -448,36 +453,49 @@ impl DevServer {
     async fn serve_until_shutdown<F>(
         listener: TcpListener,
         application: Router,
-        producers: &ProducerTasks,
-        cancellation: CancellationToken,
+        runtime: &ServerRuntime,
+        grace: Duration,
         shutdown: F,
-    ) -> (Option<std::io::Result<()>>, Instant)
+    ) -> Option<std::io::Result<()>>
     where
         F: Future<Output = ()>,
     {
-        let graceful_cancellation = cancellation.clone();
+        let draining = runtime.cancellation.clone();
         let served = axum::serve(
             listener,
             application.into_make_service_with_connect_info::<std::net::SocketAddr>(),
         )
         .with_graceful_shutdown(async move {
-            graceful_cancellation.cancelled().await;
+            draining.cancelled().await;
         })
         .into_future();
         tokio::pin!(served);
         tokio::pin!(shutdown);
         tokio::select! {
-            result = &mut served => {
-                (Some(result), Instant::now() + ServerRuntime::SHUTDOWN)
-            }
-            () = &mut shutdown => {
-                producers.close();
-                cancellation.cancel();
-                let deadline = Instant::now() + ServerRuntime::SHUTDOWN;
-                let graceful_deadline = ServerRuntime::cooperative_shutdown_deadline(deadline);
-                (tokio::time::timeout_at(graceful_deadline, &mut served).await.ok(), deadline)
-            }
+            result = &mut served => Some(result),
+            () = &mut shutdown => Self::drain(&mut served, runtime, grace).await,
+            () = runtime.cancellation.cancelled() => Self::drain(&mut served, runtime, grace).await,
         }
+    }
+
+    async fn drain<S>(
+        served: &mut S,
+        runtime: &ServerRuntime,
+        grace: Duration,
+    ) -> Option<std::io::Result<()>>
+    where
+        S: Future<Output = std::io::Result<()>> + Unpin,
+    {
+        runtime.producers.close();
+        runtime.cancellation.cancel();
+        let drained = tokio::time::timeout(grace, &mut *served).await.ok();
+        if drained.is_some() {
+            return drained;
+        }
+        runtime.stopping.cancel();
+        tokio::time::timeout(ServerRuntime::WORKER_CANCELLATION_SETTLE, served)
+            .await
+            .ok()
     }
 }
 
@@ -570,6 +588,7 @@ mod tests {
                 HandlerSupervisor::new(HandlerSupervisorOptions::default()).expect("supervisor"),
             ),
             cancellation: CancellationToken::new(),
+            stopping: CancellationToken::new(),
             tasks: tokio::task::JoinSet::new(),
             producers: ProducerTasks::new(),
             plan: None,
@@ -1102,6 +1121,57 @@ mod tests {
         assert!(runtime.tasks.is_empty());
     }
 
+    #[test]
+    fn the_drain_grace_defaults_to_ten_seconds_and_stays_bounded() {
+        for (configured, seconds) in [
+            (None, 10),
+            (Some("soon"), 10),
+            (Some("0"), 0),
+            (Some(" 25 "), 25),
+            (Some("9999"), 300),
+        ] {
+            assert_eq!(
+                ServerRuntime::drain_grace_from(configured),
+                Duration::from_secs(seconds),
+                "{configured:?}"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn shutdown_lets_in_flight_requests_finish_within_the_grace() {
+        let runtime = runtime_without_plan();
+        let mut served = Box::pin(async {
+            tokio::time::sleep(Duration::from_millis(50)).await;
+            Ok::<(), std::io::Error>(())
+        });
+        let drained = DevServer::drain(&mut served, &runtime, Duration::from_secs(5)).await;
+        assert!(matches!(drained, Some(Ok(()))));
+        assert!(
+            runtime.cancellation.is_cancelled(),
+            "streams and sockets close"
+        );
+        assert!(
+            !runtime.stopping.is_cancelled(),
+            "handlers are not cancelled"
+        );
+    }
+
+    #[tokio::test]
+    async fn shutdown_cancels_requests_that_outlive_the_grace() {
+        let runtime = runtime_without_plan();
+        let stopping = runtime.stopping.clone();
+        let mut served = Box::pin(async move {
+            stopping.cancelled().await;
+            Ok::<(), std::io::Error>(())
+        });
+        let started = Instant::now();
+        let drained = DevServer::drain(&mut served, &runtime, Duration::from_millis(50)).await;
+        assert!(matches!(drained, Some(Ok(()))));
+        assert!(runtime.stopping.is_cancelled());
+        assert!(started.elapsed() < Duration::from_secs(1));
+    }
+
     struct DropCanary(Arc<AtomicBool>);
 
     impl Drop for DropCanary {
@@ -1214,6 +1284,33 @@ mod tests {
             assert!(!event.contains("failure_kind"));
             assert!(!event.contains("secret-canary"));
         }
+    }
+
+    #[test]
+    fn a_handler_failure_event_names_its_route_and_handler_file() {
+        let root = tempfile::tempdir().expect("project");
+        let relative = "server/workers/report.js";
+        fs::create_dir_all(root.path().join("server/workers")).expect("workers");
+        fs::write(
+            root.path().join(relative),
+            "export class Handler {\n  static async POST() { return {} }\n}\n",
+        )
+        .expect("handler");
+        let source =
+            crate::handler::HandlerSource::discover(root.path(), relative).expect("source");
+        let request = tachyon_contracts::HandlerRequest::route(
+            "0ABC123DEFG",
+            "/items/{id}",
+            tachyon_contracts::HttpMethod::Get,
+        );
+        let failure = Failure::one(diagnostic(2110, "secret-canary", None, None));
+        let event = InvocationLog::handler_failure_event("handler", &request, &source, &failure);
+        let event: serde_json::Value = serde_json::from_str(&event).expect("JSON event");
+        assert_eq!(event["route"], "/items/{id}");
+        assert_eq!(event["handler"], relative);
+        assert_eq!(event["request_id"], "0ABC123DEFG");
+        assert_eq!(event["diagnostic_codes"][0], "TY2110");
+        assert!(!event.to_string().contains("secret-canary"));
     }
 
     #[tokio::test]

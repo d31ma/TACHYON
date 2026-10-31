@@ -97,12 +97,7 @@ impl HandlerEventBridge {
         if let Some(failure) = failure
             && !cancellation.is_cancelled()
         {
-            InvocationLog::log_failure(
-                "handler.stream",
-                &request.request_id,
-                InvocationLog::runtime_family(handler),
-                failure,
-            );
+            InvocationLog::log_handler_failure("handler.stream", request, handler, failure);
         }
     }
 

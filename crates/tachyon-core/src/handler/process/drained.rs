@@ -24,6 +24,9 @@ impl Drained {
     const KNOWN_RELAY_CATEGORIES: [&'static str; 5] =
         ["start", "timeout", "overflow", "exit", "protocol"];
     const EXCEPTION_EVENT: &'static str = "handler.cpp_exception";
+    const STDERR_EVENT: &'static str = "handler.stderr";
+    const STDERR_SETTING: &'static str = "TAC_HANDLER_STDERR";
+    const MAX_TAIL_BYTES: usize = 16 * 1024;
 
     pub(in crate::handler) async fn read_all<R>(mut reader: R, limit: usize) -> Self
     where
@@ -65,13 +68,11 @@ impl Drained {
     ) -> Result<(), Failure> {
         stdout.check_stdout_fits()?;
         stdout.check_stdout_complete()?;
-        stderr.check_stderr_fits()?;
         stderr.check_stderr_complete()?;
         stderr.check_exit_status(status)
     }
 
     pub(super) fn check_diagnostics(&self) -> Result<(), Failure> {
-        self.check_stderr_fits()?;
         self.check_stderr_complete()
     }
 
@@ -97,11 +98,27 @@ impl Drained {
     }
 
     pub(super) fn bounded_sideband(bytes: &[u8]) -> String {
+        Self::visible_text(bytes, Self::MAX_SIDEBAND_CHARACTERS)
+    }
+
+    pub(super) fn stderr_event(&self, request_id: &str) -> Option<Value> {
+        let text = Self::visible_text(&self.bytes, usize::MAX);
+        (!text.is_empty()).then(|| {
+            serde_json::json!({
+                "event": Self::STDERR_EVENT,
+                "request_id": request_id,
+                "stderr": text,
+                "truncated": self.overflow,
+            })
+        })
+    }
+
+    fn visible_text(bytes: &[u8], limit: usize) -> String {
         let text = String::from_utf8_lossy(bytes);
         let visible: String = text
             .chars()
             .filter(|character| Self::visible_character(*character))
-            .take(Self::MAX_SIDEBAND_CHARACTERS)
+            .take(limit)
             .collect();
         visible.trim().to_owned()
     }
@@ -114,6 +131,11 @@ impl Drained {
         self.exceptions(request_id)
             .iter()
             .for_each(|line| eprintln!("{line}"));
+        if crate::setting_switch::SettingSwitch::is_set(Self::STDERR_SETTING)
+            && let Some(event) = self.stderr_event(request_id)
+        {
+            eprintln!("{event}");
+        }
     }
 
     pub(super) fn reports_relay_failure(&self, request_id: &str) -> bool {
@@ -178,10 +200,21 @@ impl Drained {
     }
 
     pub(super) fn keep(&mut self, data: &[u8], limit: usize) {
-        let available = limit.saturating_sub(self.bytes.len());
-        let retained = available.min(data.len());
-        self.bytes.extend_from_slice(&data[..retained]);
-        self.overflow |= retained < data.len();
+        let tail = Self::MAX_TAIL_BYTES.min(limit / 4);
+        let head = limit - tail;
+        if self.overflow || self.bytes.len() + data.len() > limit {
+            self.keep_head_and_tail(data, head, tail);
+        } else {
+            self.bytes.extend_from_slice(data);
+        }
+    }
+
+    fn keep_head_and_tail(&mut self, data: &[u8], head: usize, tail: usize) {
+        self.overflow = true;
+        self.bytes.extend_from_slice(data);
+        let length = self.bytes.len();
+        let dropped_end = length.saturating_sub(tail).max(head);
+        self.bytes.drain(head.min(length)..dropped_end);
     }
 
     async fn settled_stdout(
@@ -262,20 +295,6 @@ impl Drained {
         Ok(())
     }
 
-    fn check_stderr_fits(&self) -> Result<(), Failure> {
-        if self.overflow {
-            return Err(Failure::one(diagnostic(
-                2107,
-                "Handler stderr exceeded its configured diagnostic limit.",
-                Some(String::from(
-                    "Reduce handler logging and retry the invocation.",
-                )),
-                None,
-            )));
-        }
-        Ok(())
-    }
-
     fn check_stderr_complete(&self) -> Result<(), Failure> {
         if self.read_error {
             return Err(Failure::one(diagnostic(
@@ -327,5 +346,59 @@ impl Drained {
                 "category": category,
             })
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::expect_used)]
+
+    use super::Drained;
+    use std::process::ExitStatus;
+
+    fn stderr(text: &str, limit: usize) -> Drained {
+        let mut drained = Drained {
+            bytes: Vec::new(),
+            overflow: false,
+            read_error: false,
+        };
+        drained.keep(text.as_bytes(), limit);
+        drained
+    }
+
+    #[test]
+    fn stderr_past_its_limit_is_truncated_and_the_call_still_succeeds() {
+        let stderr = stderr(&"x".repeat(70 * 1024), 64 * 1024);
+        assert_eq!(stderr.bytes.len(), 64 * 1024);
+        assert!(stderr.overflow);
+        assert!(stderr.check_diagnostics().is_ok());
+        assert!(Drained::validate_stream_output(ExitStatus::default(), &stderr).is_ok());
+    }
+
+    #[test]
+    fn the_stderr_event_carries_the_kept_text_and_says_when_it_was_cut() {
+        let event = stderr("first line\nsecond\u{7}", 1024)
+            .stderr_event("0ABC")
+            .expect("event");
+        assert_eq!(event["event"], "handler.stderr");
+        assert_eq!(event["request_id"], "0ABC");
+        assert_eq!(event["stderr"], "first line\nsecond");
+        assert_eq!(event["truncated"], false);
+        let cut = stderr("abcdef", 3).stderr_event("0ABC").expect("cut event");
+        assert_eq!(cut["stderr"], "abc");
+        assert_eq!(cut["truncated"], true);
+        assert!(stderr("", 3).stderr_event("0ABC").is_none());
+    }
+
+    #[test]
+    fn an_overflowing_stderr_keeps_its_start_and_its_last_events() {
+        let mut stderr = stderr(&"x".repeat(80 * 1024), 64 * 1024);
+        let event =
+            "{\"event\":\"handler.relay_failed\",\"request_id\":\"0ABC\",\"category\":\"exit\"}\n";
+        stderr.keep(format!("\n{event}").as_bytes(), 64 * 1024);
+        assert!(stderr.overflow);
+        assert_eq!(stderr.bytes.len(), 64 * 1024);
+        assert!(stderr.bytes.starts_with(b"xxxx"));
+        assert!(stderr.reports_relay_failure("0ABC"));
     }
 }
