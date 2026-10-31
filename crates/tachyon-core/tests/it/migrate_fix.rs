@@ -233,8 +233,8 @@ class Handler {
 }
 
 async fn migrated_middleware_runs_its_old_code_in(wanted: &str) {
-    let case = OldMiddleware::ALL.iter()
-        
+    let case = OldMiddleware::ALL
+        .iter()
         .find(|case| case.extension == wanted)
         .unwrap_or_else(|| panic!("no case named {wanted:?}"));
     let old = case;

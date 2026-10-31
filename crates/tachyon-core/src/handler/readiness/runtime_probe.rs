@@ -83,7 +83,9 @@ impl RuntimeProbe {
         requirements
             .into_iter()
             .zip(states)
-            .map(|(requirement, state)| Ok(RuntimeProbeResult::new(requirement, state?)))
+            .map(|(requirement, state)| {
+                state.map(|state| RuntimeProbeResult::new(requirement, state))
+            })
             .collect()
     }
 

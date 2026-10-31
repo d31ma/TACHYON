@@ -306,26 +306,27 @@ fn tac_units_assert_and_run_one_case_per_input() {
     AssertedUnit::check("tac rs", &rust, &AssertedUnit::rust_expected());
 }
 
-fn jvm_unit_asserts_with_the_helper_and_the_language_assert_cases() -> Vec<(&'static str, &'static str, &'static str, &'static str)> {
+fn jvm_unit_asserts_with_the_helper_and_the_language_assert_cases()
+-> Vec<(&'static str, &'static str, &'static str, &'static str)> {
     vec![
-    (
-        "java",
-        "java",
-        AssertedUnit::JAVA_SETUP,
-        AssertedUnit::JAVA_UNIT,
-    ),
-    (
-        "groovy",
-        "groovyc",
-        AssertedUnit::GROOVY_SETUP,
-        AssertedUnit::GROOVY_UNIT,
-    ),
-    (
-        "kt",
-        "kotlinc",
-        AssertedUnit::KOTLIN_SETUP,
-        AssertedUnit::KOTLIN_UNIT,
-    ),
+        (
+            "java",
+            "java",
+            AssertedUnit::JAVA_SETUP,
+            AssertedUnit::JAVA_UNIT,
+        ),
+        (
+            "groovy",
+            "groovyc",
+            AssertedUnit::GROOVY_SETUP,
+            AssertedUnit::GROOVY_UNIT,
+        ),
+        (
+            "kt",
+            "kotlinc",
+            AssertedUnit::KOTLIN_SETUP,
+            AssertedUnit::KOTLIN_UNIT,
+        ),
     ]
 }
 
