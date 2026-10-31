@@ -14,13 +14,17 @@ export default class SearchService {
   /** @type {SearchResult[]} */
   results = []
   term = ''
+  keyHint = 'Ctrl K'
   _searching = false
   /** @type {ReturnType<typeof setTimeout> | undefined} */
   _timer = undefined
+  /** @type {HTMLElement | null} */
+  _opener = null
 
   open() {
+    this._opener = this._openerOf(this._focused())
     this.showing = true
-    setTimeout(() => this._focusSearchInput(), 0)
+    setTimeout(() => this._presentDialog(), 0)
   }
 
   close() {
@@ -32,12 +36,32 @@ export default class SearchService {
     setTimeout(() => this._afterClose(), 0)
   }
 
+  /** @param {Event} event */
+  cancel(event) {
+    event.preventDefault()
+    this.close()
+  }
+
   /**
    * @param {Event} _event
-   * @param {string} key
+   * @param {EventTarget | null} target
    */
-  dismiss(_event, key) {
-    this._closeOnEscape(key)
+  closeFromBackdrop(_event, target) {
+    this._closeWhen(target === this._dialog())
+  }
+
+  /**
+   * @param {Event} event
+   * @param {string} key
+   * @param {boolean} backwards
+   */
+  handleKey(event, key, backwards = false) {
+    this._closeOnEscape(event, key)
+    const dialog = this._dialog()
+    const focused = this._focused()
+    const order = this._inTabOrder(this._focusStops(dialog), backwards)
+    const leaving = this._leavesDialog(this._isInside(dialog, focused), focused, order.at(-1))
+    this._wrapFocusOnTab(event, key, leaving, order[0])
   }
 
   /** @returns {string} */
@@ -59,6 +83,7 @@ export default class SearchService {
 
   @OnStart
   initialize() {
+    this.keyHint = this._hintFor(this._platformName())
     addEventListener('keydown', (event) => this._onKeyDown(event, this._isShortcut(event)), { signal: this.lifecycle })
   }
 
@@ -67,13 +92,47 @@ export default class SearchService {
     clearTimeout(this._timer)
   }
 
-  _focusSearchInput() {
-    if (this.showing) document.getElementById('site-search-input')?.focus()
+  /** @returns {Element | null} */
+  _focused() {
+    return document.activeElement
+  }
+
+  /** @returns {HTMLDialogElement | null} */
+  _dialog() {
+    return /** @type {HTMLDialogElement | null} */ (document.getElementById('site-search-dialog'))
+  }
+
+  /** @returns {HTMLElement | null} */
+  _trigger() {
+    return /** @type {HTMLElement | null} */ (document.querySelector('.site-search__trigger button'))
+  }
+
+  /**
+   * @param {Element | null} focused
+   * @returns {HTMLElement | null}
+   */
+  _openerOf(focused) {
+    return focused === document.body ? null : /** @type {HTMLElement | null} */ (focused)
+  }
+
+  _presentDialog() {
+    if (!this.showing) return
+    this._dialog()?.showModal()
+    document.getElementById('site-search-input')?.focus()
+  }
+
+  /** @param {boolean} outside */
+  _closeWhen(outside) {
+    if (!outside) return
+    this.close()
+    void this.taskScheduler.render()
   }
 
   async _afterClose() {
     await this._renderWhileMounted()
-    this._focusTriggerWhenClosed()
+    const target = this._returnTarget(this._connectedOpener(), this._trigger())
+    this._opener = null
+    this._focusWhenClosed(target)
   }
 
   async _renderWhileMounted() {
@@ -81,15 +140,82 @@ export default class SearchService {
     await this.taskScheduler.render()
   }
 
-  _focusTriggerWhenClosed() {
-    if (!this.showing) /** @type {HTMLElement | null} */ (document.querySelector('.site-search__trigger button'))?.focus()
+  /** @returns {HTMLElement | null} */
+  _connectedOpener() {
+    return this._opener?.isConnected ? this._opener : null
   }
 
-  /** @param {string} key */
-  _closeOnEscape(key) {
+  /**
+   * @param {HTMLElement | null} opener
+   * @param {HTMLElement | null} trigger
+   * @returns {HTMLElement | null}
+   */
+  _returnTarget(opener, trigger) {
+    return opener ?? trigger
+  }
+
+  /** @param {HTMLElement | null} target */
+  _focusWhenClosed(target) {
+    if (!this.showing) target?.focus()
+  }
+
+  /**
+   * @param {Event} event
+   * @param {string} key
+   */
+  _closeOnEscape(event, key) {
     if (key !== 'Escape') return
+    event.preventDefault()
     this.close()
     void this.taskScheduler.render()
+  }
+
+  /**
+   * @param {HTMLElement | null} dialog
+   * @returns {HTMLElement[]}
+   */
+  _focusStops(dialog) {
+    return /** @type {HTMLElement[]} */ ([...(dialog?.querySelectorAll('input, button, a[href]') ?? [])])
+  }
+
+  /**
+   * @param {HTMLElement[]} stops
+   * @param {boolean} backwards
+   * @returns {HTMLElement[]}
+   */
+  _inTabOrder(stops, backwards) {
+    return backwards ? stops.toReversed() : stops
+  }
+
+  /**
+   * @param {HTMLElement | null} dialog
+   * @param {Element | null} focused
+   * @returns {boolean}
+   */
+  _isInside(dialog, focused) {
+    return Boolean(dialog?.contains(focused)) && focused !== dialog
+  }
+
+  /**
+   * @param {boolean} inside
+   * @param {Element | null} focused
+   * @param {HTMLElement | undefined} last
+   * @returns {boolean}
+   */
+  _leavesDialog(inside, focused, last) {
+    return !inside || focused === last
+  }
+
+  /**
+   * @param {Event} event
+   * @param {string} key
+   * @param {boolean} leaving
+   * @param {HTMLElement | undefined} first
+   */
+  _wrapFocusOnTab(event, key, leaving, first) {
+    if (key !== 'Tab' || !leaving) return
+    event.preventDefault()
+    first?.focus()
   }
 
   /** @returns {string} */
@@ -123,6 +249,20 @@ export default class SearchService {
     this.results = DocumentationUtils.search(query)
     this._searching = false
     await this.taskScheduler.render()
+  }
+
+  /** @returns {string} */
+  _platformName() {
+    const browser = /** @type {Navigator & { userAgentData?: { platform: string } }} */ (navigator)
+    return browser.userAgentData?.platform ?? browser.platform
+  }
+
+  /**
+   * @param {string} platform
+   * @returns {string}
+   */
+  _hintFor(platform) {
+    return /mac|iphone|ipad|ipod/i.test(platform) ? '⌘K' : 'Ctrl K'
   }
 
   /**
