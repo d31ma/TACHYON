@@ -2008,9 +2008,14 @@ machine contracts have their own, independent major versions.
 
 ### Changed
 
-- The test suite is faster on every lane (TS1, 2026-10-31), with no test
-  dropped and every assertion kept. On an idle M4 the full nextest run went
-  from 493 s to 377 s; the VM lanes are measured in the TS1 evidence.
+- The full nextest run is faster on an idle M4 (TS1, 2026-10-31): 377 s
+  instead of 493 s, with no test dropped and every assertion kept. On the
+  test VM, with 6 threads per lane, Windows is unchanged (832 s against
+  841 s). Linux in WSL1 does the same total work (about 86 minutes of test
+  time), but took 1,077 s against 917 s: four development-server tests
+  stalled at the 300 s limit there and then passed on retry, a WSL1 stall
+  that develop shows too and that is not yet diagnosed. Ten threads per VM
+  lane were slower still, so the lanes keep 6.
   - The slowest proofs that ran every language in turn are now one test per
     language, unit or section (`one_test_per_case!`), so they spread across
     the test threads. Each split module has a test that fails when its list
