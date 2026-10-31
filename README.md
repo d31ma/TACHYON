@@ -7,7 +7,7 @@ write standard HTML. Depending on the target, Tachyon then does this:
 - It compiles Tac into web applications that render in the browser, and it
   dispatches Yon REST endpoints.
 - It packages those views in native web-view hosts for macOS, iOS, Android,
-  Linux, and Windows.
+  Linux, and Windows (tiers in [docs/SUPPORT_TIERS.md](docs/SUPPORT_TIERS.md)).
 
 Target-native services give access to each platform's own SDKs.
 
@@ -16,10 +16,10 @@ layer. Both use the standalone `ty` executable.
 
 > [!IMPORTANT]
 > This branch contains the Rust rewrite, written from scratch. Engineering
-> phases 0–7 are implemented. The rewrite is not yet a supported Tachyon
-> release. [docs/CUTOVER.md](docs/CUTOVER.md) and
-> [docs/SUPPORT_TIERS.md](docs/SUPPORT_TIERS.md) record the exact promotion
-> evidence and the external gates that remain.
+> phases 0 to 7 are implemented. The next version published from `develop` is
+> a release candidate. It is not a supported release and not a preview, and no
+> target is promoted. [docs/CUTOVER.md](docs/CUTOVER.md) lists the gates, and
+> [docs/SUPPORT_TIERS.md](docs/SUPPORT_TIERS.md) records each target's tier.
 
 ## Why Tachyon
 
@@ -30,23 +30,28 @@ layer. Both use the standalone `ty` executable.
   mode.
 - Yon handlers return an HTTP status, headers, and a body. Tachyon does not
   render Yon templates. It does not run handlers during a build.
-- Browser services are written in JavaScript, TypeScript, Dart (compiled to
-  JavaScript), Rust, C#, F# or Go (all four compiled to WebAssembly), or Ruby (on
-  Tachyon's mruby WebAssembly runtime, which the developer's machine builds
-  once with Ruby and Emscripten 6.0.10 or newer; `ty doctor` lists the
-  tools). Swift, Kotlin, C#, and Rust implement the same services for native
-  targets.
+- A Tac service can be written in 14 languages: JavaScript, TypeScript, Dart,
+  Rust, C#, F#, Go, Swift, Kotlin, Java, Ruby, Lua, Python and C++. In the
+  browser, JavaScript and TypeScript run as they are. Ruby, Lua and Python
+  run on a WebAssembly runtime (mruby, Lua 5.4 and Pyodide), and the others
+  compile to WebAssembly (Dart, Kotlin and Java to WasmGC, C++ with
+  Emscripten). Lua, Python and C++ work with limits. A native app can run Rust
+  on every target, Swift on macOS and iOS, Kotlin on Android and C# on
+  Windows natively instead. `ty doctor` lists the tools each language needs.
+  [Which languages can I use?](https://tachyon.del.ma/docs/service-languages)
+  gives what each language can do.
 - Content that is only data lives in `client/shared/data`. A view reads it as
   `data.<name>`.
-- Yon runs JavaScript, TypeScript, Python, Java, Groovy, C#, Kotlin, PHP,
-  Rust, Dart, Go, Ruby, F# and Lua. Routes expose plain `Handler` types or annotated controllers.
+- Yon runs 15 languages: JavaScript, TypeScript, Python, Java, Groovy, C#,
+  F#, Kotlin, PHP, Rust, Dart, Go, Ruby, Lua and C++. `ty init` and `ty add`
+  offer every one of them except C++. Routes are annotated controllers.
   Go annotations are comments such as `// @Service` (ADR 0050), Ruby
   annotations are comment lines such as `#[Service]` (ADR 0054), F#
-  annotations are F# attributes such as `[<Service>]` (ADR 0073), and Lua
+  annotations are F# attributes such as `[<Service>]` (ADR 0073), Lua
   annotations are comment lines such as `-- @Service` above a class table
-  (ADR 0085). Programs in
-  other languages can still be called through an explicit
-  `relay(command, request)` call.
+  (ADR 0085), and C++ annotations are attributes such as
+  `class [[Service]] OrderService` (ADR 0099). Programs in other languages
+  can still be called through an explicit `relay(command, request)` call.
 - One project produces deterministic web and native artifacts. Deterministic
   means the same input always gives the same output.
 - Tachyon sets explicit limits on generated output, child processes, input
@@ -89,6 +94,36 @@ Two environment variables change the defaults:
 | `TAC_INSTALL_DIR` | The folder that receives `ty`. |
 | `TAC_BASE_URL` | Where the installer downloads the binary and `SHA256SUMS` from. |
 
+### Install a specific release, or roll back
+
+To install one release instead of the latest, point `TAC_BASE_URL` at that
+release's download folder. Set it on `sh`, not on `curl`, and leave off the
+trailing slash. For example, to go back to 26.36.01:
+
+```sh
+curl -fsSL https://github.com/d31ma/Tachyon/releases/download/v26.36.01/install.sh \
+  | TAC_BASE_URL=https://github.com/d31ma/Tachyon/releases/download/v26.36.01 sh
+```
+
+```powershell
+$env:TAC_BASE_URL = 'https://github.com/d31ma/Tachyon/releases/download/v26.36.01'
+irm https://github.com/d31ma/Tachyon/releases/download/v26.36.01/install.ps1 | iex
+```
+
+The installer checks the binary against that release's `SHA256SUMS`, and
+replaces the installed `ty`. 26.36.01 has no Windows arm64 binary.
+
+Rolling back `ty` alone is not enough after a project was migrated. An older
+`ty` does not read the new layout: 26.36.01 ignores `server/controllers/`,
+for example, and serves the page instead of the controller, without an
+error. Restore the project's sources from before `ty migrate fix --write`
+together with the older `ty`. See
+[Architecture and contribution](#architecture-and-contribution) for the
+rest of a coordinated restore.
+
+<!-- TODO(FU-09): align with the rollback drill in docs/RELEASE_ENGINEERING.md
+once fix/fu09-rollback-drill merges (the drill's steps and its last result). -->
+
 ### Build from source
 
 The rewrite also builds from source with stable Rust 1.97.1:
@@ -97,26 +132,30 @@ The rewrite also builds from source with stable Rust 1.97.1:
 cargo build --release --locked -p tachyon-cli --features storage-all
 ./target/release/ty init hello --name "Hello"
 cd hello
-../target/release/ty serve
+../target/release/ty preview
 ```
 
-Open `http://127.0.0.1:8080/`. The generated project has an HTML page at
-`client/pages/tac.html`. The compiler produces a render plan for it. The
-external Tac runtime uses that plan to build the page's DOM in the browser.
+`ty preview` is the development server. It builds the app, watches the
+sources and dispatches Yon. Open the address it prints: a project with a
+server listens on the port in `server/application.json`, which `ty init` sets
+to `8080`, and a client-only project on `3000`. The generated project has an
+HTML page at `client/pages/tac.html`. The compiler produces a render plan for
+it. The external Tac runtime uses that plan to build the page's DOM in the
+browser.
 
-Build and preview static output in production style:
+Build the release output, then serve it:
 
 ```sh
 ty bundle
-ty preview
+ty start
 ```
 
-The build writes the web bundle to `dist/web/`. Static `preview` serves an
-existing bundle on `127.0.0.1:3000`. Add `--watch` to rebuild it when source
-files change. Dynamic web preview also dispatches Yon and uses the private
-application configuration. Scaffolded projects configure `127.0.0.1:8080`.
+The build writes the web bundle to `dist/web/`. `ty start` serves that bundle
+and dispatches Yon. It never builds, watches or restarts itself, so it is the
+command for a deployed server. `ty preview --static` serves an existing bundle
+without Yon on `127.0.0.1:3000`.
 
-`ty serve` and dynamic `ty preview` start fast. When the output folder already
+`ty preview` and `ty serve` start fast. When the output folder already
 holds a build, they serve it at once and rebuild in the background; open pages
 reload when the new build is ready. Each build prints how long every phase took.
 The WebAssembly languages build in parallel: `TAC_BUILD_JOBS` sets how many
@@ -125,7 +164,7 @@ The development server builds C# services without the slow native relink;
 `ty bundle` keeps the release settings. For a preview that runs for a long
 time, use a release `ty` (`cargo build --release --bin ty`).
 
-A watching `ty serve` or `ty preview` notices when the `ty` file on disk
+A watching `ty preview` or `ty serve` notices when the `ty` file on disk
 changes, for example after `cargo build`. Open pages show "Tachyon was updated
 on disk. Restarting the preview…", the server restarts itself with the new
 `ty` and the same arguments, and the pages reload. If the new `ty` does not
@@ -155,19 +194,21 @@ client/
     data/
     scripts/
     styles/
+  models/
+  tests/
 server/
   application.json
-  routes/
-    products/
-      yon.js
+  controllers/
+    ProductsController.js
   services/
   stores/
   remotes/
   delegates/
+  models/
   workers/
-    cleanup/
-      yon.py
-middleware.py
+    cleanup.py
+  tests/
+middleware.js
 .tachyonrc
 ```
 
@@ -180,6 +221,8 @@ Some files in this tree have a special role:
 - `server/application.json` holds Yon's settings that are not secret. It has
   no root key. Secrets go in the ignored `.env` file.
 - `.tachyonrc` holds only worker intervals.
+- `middleware.<ext>` at the project root is the root middleware, in any Yon
+  language.
 
 A project needs only the files it uses. A client-only, server-only, or
 full-stack project is valid.
@@ -296,10 +339,13 @@ service is one class in `client/services/<Name>Service.<ext>`:
 
 - The class name is exactly the file name without its extension.
 - The class has the `@Service` annotation and is the default export.
-- `js` and `ts` are the browser languages.
-- `swift` (Apple), `kt` (Android), `cs` (Windows) and `rs` (desktop)
-  implement the same service for a native target. They compile into the host,
-  not into WebAssembly.
+- The extension is one of `js`, `ts`, `dart`, `rs`, `cs`, `fs`, `go`,
+  `swift`, `kt`, `java`, `rb`, `lua`, `py` or `hpp` (C++). Every one of them
+  runs in the browser.
+- `rs` (every native target), `swift` (macOS and iOS), `kt` (Android) and
+  `cs` (Windows) also run natively in a native app. There they compile into
+  the host instead of into WebAssembly. When a service has both, the platform
+  language wins over Rust.
 
 A `tac.js`, `tac.ts` or native `tac.*` file beside a component view fails
 with `TY1310`. `ty doctor` reports the toolchains you need.
@@ -506,34 +552,40 @@ features from the deferred transaction and container capabilities.
 stdout, stderr, and deadline are bounded, and Tachyon cleans up its process
 tree. `.tachyonrc.interpreters`, shebang handlers, and executable-handler
 fallbacks are removed. `.tachyonrc.workers` remains. Middleware and workers
-must use one of the eleven Yon languages.
+can use any of the 15 Yon languages.
 
-A generator HTTP method is a stream. In JavaScript, TypeScript, Python, PHP,
-Kotlin, C#, and Ruby, Yon sends each yielded value as a bounded server-sent
-event.
-Java and Rust still send a single response. When a subscriber drops or a
-deadline passes, Tachyon ends the whole handler process group.
+A `StreamRoute` method is a stream: it answers GET with server-sent events,
+and Yon sends each value it yields as one bounded event. Every Yon language
+streams, each with its own form of generator: an async generator in
+JavaScript and TypeScript, a `Stream` or `Iterator` in Java and Groovy,
+`iter.Seq` in Go, `impl Iterator` in Rust, `coroutine.yield` in Lua and
+`tachyon::Generator` with `co_yield` in C++
+([Yon annotations](docs/YON_ANNOTATIONS.md) lists them all). When a
+subscriber drops or a deadline passes, Tachyon ends the whole handler process
+group.
 `YON_JAVASCRIPT_RUNTIME`, `YON_PYTHON_RUNTIME` and `YON_RUBY_RUNTIME` override
 the runtimes.
 
 ## Server runtime
 
-`ty serve` builds the web output, dispatches Yon handlers, and watches project
-sources by default. If a rebuild fails, the last good output stays available.
+`ty preview` and `ty serve` build the web output, dispatch Yon handlers, and
+watch project sources by default. If a rebuild fails, the last good output
+stays available. `ty start` serves an existing build and never rebuilds.
 
 ```sh
-ty serve
+ty preview
 ty serve --port 9000
 ty serve --host 127.0.0.1 --no-watch
+ty start --port 8080
 ```
 
 The default bind address is loopback. A non-loopback address requires the
 explicit `--allow-non-loopback` flag.
 
-`ty serve` first runs bounded capability probes for every runtime that the
-discovered Yon entry points need. It runs them before it prepares output,
-binds a socket, reports readiness, registers routes or middleware, or starts
-workers. This also applies to `--no-bundle`. A static-only project needs no
+`ty serve`, `ty preview` and `ty start` first run bounded capability probes
+for every runtime that the discovered Yon entry points need. They run them
+before they prepare output, bind a socket, report readiness, register routes
+or middleware, or start workers. This also applies to `--no-bundle`. A static-only project needs no
 Yon runtime.
 
 - JavaScript and TypeScript share one JavaScript-runtime probe.
@@ -586,6 +638,10 @@ exposing child stderr or internal diagnostics over HTTP. A `TY2112` event adds
 only the logical `runtime_family` and `failure_kind: "not_found"`. It does not
 include the executable path, the operating-system error, environment values,
 source, request body, or child output.
+
+<!-- TODO(FU-05): add the route and handler fields, the 504/503 status codes, the
+stderr truncation, the access log and the WebSocket write timeout from the merged
+code once fix/fu05-server-lifecycle merges. -->
 
 OpenAPI generation and built-in telemetry from the legacy implementation are
 deliberately out of scope.
@@ -667,12 +723,18 @@ successful cross-build is `buildable`. It is not `native-tested` or
 | --- | --- |
 | `ty init [directory] --name <name>` | Create an app in a missing or empty directory. In a terminal it asks which parts, Tac and Yon languages, targets and examples you want; `--realm`, `--tac`, `--yon`, `--target` and `--features` give the same answers. It then checks the tools that the app needs and offers to install each one (`--yes`, `--skip-tools`) (ADR 0066) |
 | `ty add language client\|server <language>`, `ty add target <target>`, `ty add feature <example>` | Add a language, a target or an example, with its tests and the same tool check |
-| `ty serve [project]` | Build, serve, dispatch handlers, watch, and hot-update |
-| `ty bundle [project] --target <target>` | Build web or native artifacts |
+| `ty preview [project]` | The development server: build, watch, dispatch Yon, and hot-update. It refuses to start while a public method has no test, unless `TAC_ALLOW_UNTESTED=1`. With a native `--target`, it opens the native app against this server |
+| `ty preview [project] --static` | Serve an existing bundle without Yon |
+| `ty serve [project]` (alias `ty dev`) | The older development-server command: build, serve, dispatch Yon, watch, and hot-update, on port 8080 by default |
+| `ty start [project]` | Serve an existing bundle and dispatch Yon, without building, watching or restarting; for a deployed server |
+| `ty bundle [project] --target <target>` | Build web or native artifacts. `--native` stages the native host without packaging it |
 | `ty native-bundle [project] --target <target>` | Build a selected native host |
-| `ty preview [project] --target <target>` | Serve the embedded web bundle of an existing target |
-| `ty cache [status\|clean]` | Inspect or remove the cache that an earlier installation left |
+| `ty test [project]` | Run the project's `Test` units. `--coverage` fails when a public method of an annotated class has no test case |
 | `ty types [project]` | Write TypeScript globals for the composed JavaScript and TypeScript classes into `.tachyon/types/` (ADR 0053) |
+| `ty api freeze [project]` | Save the current API as the baseline in `server/api-baseline.json` |
+| `ty cache [status\|clean]` | Inspect or remove the cache that an earlier installation left |
+| `ty doctor [project]` | Report the toolchains the project needs; `--install` offers to install each missing tool that Tachyon can install |
+| `ty migrate check\|fix [project]` | Report what an older project must change; `fix --write` applies the automatic changes (see [Migration](#migration-from-the-released-implementation)) |
 
 `ty cache` manages the installation and runtime cache that `TAC_CACHE_DIR`
 selects, including the shared copies of compiled Kotlin, Rust, Dart, Go and
@@ -684,19 +746,26 @@ Groovy handlers in `runtime/handlers-v1` (ADR 0037 amendment). It does
 Useful options:
 
 ```text
+-v, --version
 --diagnostic-format human|json
+--target <target>[,<target>...]
 --out-dir <project-relative-directory>
 --no-incremental
 --no-bundle
 --no-watch
 --no-self-restart
---skip-package
 --watch
+--static
+--native
+--arch x64|arm64|universal
+--release
 --host <address>
---hostname <address>
 --port <0..65535>
 --allow-non-loopback
+--coverage
 ```
+
+`--hostname` is another name for `--host`.
 
 `--target` accepts one target, a comma-separated list, or `all`. Aliases such
 as `browser`, `darwin`, and `win32` are still accepted. Multi-target output
@@ -711,17 +780,22 @@ mode.
 The public command names from the latest standalone binary are still
 accepted. Internal qualification commands such as `doctor`, `migrate`, and
 `handler invoke` are intentionally left out of normal help until cutover.
+<!-- TODO(FU-14): update this sentence once fix/fu14-cli merges (it unhides doctor
+and migrate). -->
 
 ### Long-running command readiness and shutdown
 
-For `serve`, `preview`, and `bundle --watch`, standard error is a stream of
-compact JSON lifecycle events. Parse it one line at a time. The
+For `serve`, `start`, `preview`, and `bundle --watch`, standard error is a
+stream of compact JSON lifecycle events. Parse it one line at a time. The
 `runtime.signal_handlers_ready` event only proves which operating-system
 signal handlers were installed. Despite its name, it does **not** prove that
 the application is ready. Before you send traffic, wait for the command's
 readiness line on standard output. For a deployed service, also wait for a
 successful health probe.
 
+<!-- TODO(FU-05): describe the drain (stop accepting, the grace period, 503 with
+Retry-After, then the 3 s stop) from the merged code once fix/fu05-server-lifecycle
+merges. -->
 The first supported signal emits `runtime.shutdown_requested` and requests a
 graceful shutdown. The development server puts limits on the internal tasks it
 owns. However, preview may wait for connections to drain cooperatively, and
@@ -767,6 +841,29 @@ file is the `yon` namespace, so it has no root key.
 
 See [Application configuration](docs/APPLICATION_CONFIGURATION.md) for the
 complete precedence rules, language examples, and deployment boundaries.
+
+### Environment settings
+
+These variables change how `ty` builds and runs a project.
+
+| Variable | What it changes |
+| --- | --- |
+| `TAC_HANDLER_COMPILE_SECONDS` | How long one Yon handler compile may run. Default 60, at most 900. `0` or a value that is not a whole number keeps the default. |
+| `TAC_BUILD_JOBS` | How many WebAssembly toolchains run at once. Default a third of the CPU cores, from 1 to 4. |
+| `TAC_ALLOW_UNTESTED` | `1` lets `ty preview` start while a public method has no test. |
+| `TAC_CACHE_DIR` | The installation and runtime cache that `ty cache` manages. |
+| `TAC_DIST_PATH` | The output root instead of `dist/`. |
+| `TAC_CPP_WASM_COMPILER` | The `em++` that compiles C++ services to WebAssembly. Default `em++` on `PATH` (Emscripten 6.0.10 or newer). |
+| `TAC_CPP_TEST_COMPILER` | The compiler for C++ test units. Default `clang++`. |
+| `TAC_SWIFT_WASM_SDK` | The folder of the Swift SDK for WebAssembly, for Swift services on the web. |
+| `TAC_SWIFT_WASM_COMPILER` | The `swiftc` for Swift services on the web. Default `swiftc`. |
+| `TAC_KOTLIN_WASM_STDLIB` | The Kotlin/Wasm standard library (`kotlin-stdlib-wasm-js` `.klib`, the same version as `kotlinc`), for Kotlin services on the web. |
+| `TAC_TEAVM_HOME` | The folder of the TeaVM 0.15.0 jars, for Java services. Without it, Tachyon can install TeaVM into its cache. |
+
+`ty doctor` names the tools that a project still needs.
+
+<!-- TODO(FU-05): add the rows for TAC_SHUTDOWN_GRACE_SECONDS, TAC_ACCESS_LOG and
+TAC_HANDLER_STDERR from the merged code once fix/fu05-server-lifecycle merges. -->
 
 When the manifest sets `tac.origin`, the build writes `sitemap.xml` and
 `robots.txt` itself. The sitemap lists every page route without a path
@@ -833,6 +930,10 @@ account's normal access to the file system and the network. The process
 supervisor controls the protocol and the lifecycle. It is not an
 operating-system sandbox. Deploy handlers inside the isolation boundary that
 your environment requires.
+
+<!-- TODO(FU-03): add the operator note on egress enforcement (ty start refuses
+without OS-level enforcement unless YON_EGRESS_ENFORCEMENT=proxy, TY2113; serve
+and preview warn) from the merged code once fix/fu03-egress-os merges. -->
 
 ### Environment-selected Yon isolation
 
@@ -937,10 +1038,14 @@ cargo fmt --check
 cargo check --workspace --all-targets --all-features --locked
 cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 cargo clippy --workspace --all-targets --locked -- -D warnings
-cargo test --workspace --all-targets --all-features --locked
+cargo nextest run --workspace --all-targets --all-features --locked --no-tests=fail
 RUSTDOCFLAGS="-D warnings" cargo doc --workspace --all-features --no-deps --locked
 cargo deny check advisories bans licenses sources
 ```
+
+The tests run with [cargo-nextest](https://nexte.st/). `.config/nextest.toml`
+retries a failed test once by default, and a test that passes only on the retry is
+reported as flaky.
 
 The matching `docs/PHASE_*_EVIDENCE.md` files record the browser,
 compatibility, native, recovery, soak, performance, and release lifecycle
@@ -963,10 +1068,13 @@ Start with:
   rollback policy.
 
 A rollback across the mandatory-layer migration is one coordinated restore.
-Restore the matching `ty` binary, the Yon handler sources, and `.tachyonrc`
-together. If you restore only one of them, removed interpreter, shebang, or
-`Handler` fallback assumptions can come back. That is not a supported
-rollback.
+Restore the matching `ty` binary, the project sources from before
+`ty migrate fix --write`, and `.tachyonrc` together. If you restore only one
+of them, removed interpreter, shebang, or `Handler` fallback assumptions can
+come back, or the older `ty` can skip the new layout without an error. That
+is not a supported rollback.
+[Install a specific release, or roll back](#install-a-specific-release-or-roll-back)
+gives the installer command.
 
 The Rust implementation was written from scratch. The former JavaScript
 framework and its test tree are removed. Compatibility gates compare Rust with

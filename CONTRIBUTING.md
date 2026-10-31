@@ -74,12 +74,14 @@ understand on the first read.
 ## Phase 1 CLI
 
 The implemented slice accepts static `client/pages/**/tac.html` views. It
-finds `server/routes/**/yon.*` REST handlers. A `yon.html` file is invalid.
+finds the REST routes of annotated controllers in `server/controllers/`.
+Tachyon no longer reads `server/routes/` or `yon.*` files, and a `yon.html`
+file is invalid.
 
 ```text
 cargo run --locked --bin ty -- init hello --name "Hello"
-cargo run --locked --bin ty -- build hello
-cargo run --locked --bin ty -- dev hello
+cargo run --locked --bin ty -- bundle hello
+cargo run --locked --bin ty -- preview hello
 ```
 
 The `phase1_cli` behavior test starts this same compiled executable and a real
@@ -92,7 +94,7 @@ has found:
 
 ```text
 cargo run --locked --bin ty -- handler invoke \
-  server/routes/products/yon.js \
+  server/controllers/ProductsController.js \
   --project . \
   --route /products \
   --method GET
@@ -139,7 +141,7 @@ packaging.
 
 ```text
 cargo build --locked --bin ty
-cargo run --locked --bin ty -- build <project> --target macos
+cargo run --locked --bin ty -- bundle <project> --target macos
 bun run test:phase4-macos
 ```
 
@@ -160,7 +162,7 @@ cargo fmt --check
 cargo check --workspace --all-targets --all-features --locked
 cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 cargo clippy --workspace --all-targets --locked -- -D warnings
-cargo test --workspace --all-targets --all-features --locked
+cargo nextest run --workspace --all-targets --all-features --locked --no-tests=fail
 RUSTDOCFLAGS="-D warnings" cargo doc --workspace --all-features --no-deps --locked
 cargo deny check advisories bans licenses sources
 ```
@@ -200,8 +202,9 @@ set up each machine and the security rules for this public repository.
 - Write down acceptance criteria that can be observed before you implement.
 - First add the smallest behavior test that fails.
 - Include negative tests and boundary tests.
-- If the behavior affects contracts, the threat model, the support matrix or
-  the documentation, update them in the same change.
+- If the behavior affects contracts, the threat model, the support tiers
+  ([docs/SUPPORT_TIERS.md](docs/SUPPORT_TIERS.md)) or the documentation,
+  update them in the same change.
 - Do not add empty crates or placeholder modules.
 - Do not mix generated output with unrelated handwritten refactors.
 

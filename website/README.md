@@ -42,7 +42,7 @@ relative dependency imports. Empty controller-owned Yon markers contain no impor
 | `bun install` | Installs the Tailwind tools. |
 | `bun run dev` | Writes the site data from `content/`, then starts the development server. |
 | `bun run bundle` | Writes the site data from `content/`, then builds the site into `dist/web`. |
-| `bun run content` | Writes `client/shared/data/docs.json`, `features.json` and `languages.json` from `content/`. |
+| `bun run content` | Writes `client/shared/data/docs.json`, `guides.json`, `features.json` and `languages.json` from `content/`. `content/generated-files.json` lists them. |
 | `bun run content:check` | Fails when those files do not match `content/`. |
 | `bun run test` | Runs the site tests. |
 | `ty test .` | Runs the services' test units. |
@@ -69,6 +69,8 @@ A skipped step shows `(cached)`. HTTP and browser checks always run. A step that
 is never remembered. The cache lives in `.step-cache` inside the staging
 folder (`TAC_SNIPPETS_SCRATCH`, or `tachyon-snippets` in the system temporary
 folder), never in the repository.
+Nothing prunes that folder or its `.runtime-cache`, and a full run adds
+gigabytes to it. Delete the folder after a large run.
 
 Tac Rust, Swift, Kotlin and C# examples are compiled for the web, the way the
 site ships them. When a language's web toolchain is missing, the verifier

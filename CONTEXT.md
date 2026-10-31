@@ -23,16 +23,17 @@ The rewrite never imports private code from the legacy implementation.
 
 - **Tac** is the client-side layer for views and user interaction. A page's
   `tac.html` combines components. A component's `tac.html` can have a
-  `tac.*` presentation model and styles in the same folder.
+  `tac.css` style in the same folder. Behaviour lives in services.
 - **Yon** is the server-side layer for REST endpoints and handlers.
   `RequestRoute` and method route annotations on classes in
   `server/controllers/` declare paths and HTTP verbs (ADR 0048).
 - **HTTPClient** is Tachyon's declarative HTTP role, like a Spring
   `@HttpExchange` interface: a contract with no implementation that Tachyon
   generates. `GetRequest` and the other request annotations give the request
-  metadata. Tachyon finds browser JavaScript/TypeScript clients next
-  to their entry point. It injects them with a cancellation that is bound to
-  their owner. Native HTTP adapters still need explicit configuration.
+  metadata. A client lives in `client/remotes/` or `server/remotes/` (the
+  older `clients/` folder still works). Tachyon injects it with a
+  cancellation that is bound to its owner. Native HTTP adapters still need
+  explicit configuration.
 - **Managed resource** is a datasource or Redis connection that the server
   owns. Private Yon configuration selects it. Tachyon injects it into
   stores that live only for one invocation. The datasource driver can be
@@ -58,28 +59,58 @@ The rewrite never imports private code from the legacy implementation.
   object. ADR 0028, ADR 0031 and docs/APPLICATION_EVENTS.md describe
   the limits and the rules for each language.
 - **View source** is `tac.html`. It contains HTML. It can use structural
-  control tags, which the client interprets. A page combines components. A
-  component is a view and an optional `tac.css`.
-- **Service** is Tac's unit of behaviour. It is one `@Service()` class in
+  control tags, which the client interprets. A page is a `tac.html` under
+  `client/pages/` that holds component tags only. Any other file beside it,
+  such as markup, a script or a stylesheet, fails with TY1309 (ADR 0029).
+- **Component** is a part of a page that you can use again: a folder in
+  `client/components/` with a `tac.html` view and an optional `tac.css`
+  style. A `tac.js`, `tac.ts` or other `tac.*` file beside the view fails
+  with TY1310. The build finds components through the project's component
+  graph. The old annotation `Component` is now `Delegate` (TY1308).
+- **Annotation** (also called a marker) is a compile-time tag on a class,
+  field or method, such as `@Service`. It tells Tachyon what to do, and the
+  build erases it. Each language has its own spelling, for example
+  `#[Service]` in Rust, `[Service]` in C#, `// @Service` in Go and
+  `@service` in Python.
+- **Service** is Tac's unit of behaviour. It is one `@Service` class in
   `client/services/<Name>Service.<ext>`. A view refers to it by its instance
   name (`BasketService` is `basket`). A service has one instance per page (a
   page singleton), unless it declares `@Lifetime({"value":"prototype"})`.
-  Services in `js`/`ts` run in the browser. Services in
-  `swift`/`kt`/`cs`/`rs` run on native targets. See ADR 0030.
+  A service can be written in 14 languages: JavaScript, TypeScript, Dart,
+  Rust, C#, F#, Go, Ruby, Lua, C++, Swift, Kotlin, Java and Python. All of
+  them run in the browser: JavaScript and TypeScript as they are, the others
+  as WebAssembly. A native app can also run a service natively: Swift on
+  macOS and iOS, Kotlin on Android, C# on Windows, and Rust on all five
+  native targets. When a service has both, the platform language wins over
+  Rust. See ADR 0030.
+- **Delegate** is a class marked `@Delegate` in `client/delegates/` or
+  `server/delegates/`, with a name that ends in `Delegate` (ADR 0112). Each
+  class that needs a Delegate gets its own instance through `Needs`. A
+  Delegate may need one service of its realm as its base. The build then
+  writes a forwarding method for each public method of the base that the
+  Delegate does not write itself, so the Delegate can override or overload
+  base methods. A forward goes to the one shared base instance. In Tac, the
+  languages whose browser services cannot need another service refuse a base
+  with TY1406. `Delegate` replaces the older `Helper` and `Component`
+  annotations; `@Helper` fails with TY1308.
 - **Route graph** is the result of file-system discovery. Tachyon creates it
   before a build or server generation starts. It is deterministic (the same
   input always gives the same result) and immutable (it never changes).
 - **Authored role file** contains one annotated class and its imports, with
   nested types and same-type Rust impl blocks allowed (ADR 0044). Yon handler,
-  worker and root middleware files follow the same rule. Yon route marker
-  files are retired; each controller is an entry point. Root middleware is a `Middleware` class with `before(request)` and
+  worker and root middleware files follow the same rule. Yon route files
+  (`yon.<ext>`) are no longer read; each controller is an entry point. Root
+  middleware is a `Middleware` class with `before(request)` and
   `after(request)`. A test selects a TestSetup from a separate
   same-language sibling file; it is never bundled for clients.
-- **Control tag** is `if`, `else`, `for` or `loop`. It is compiler syntax, and
-  the Tac browser renderer interprets it. A browser or native renderer never
-  receives it as an unknown HTML element.
-- **Tac component** is a framework component. Tachyon finds it through the
-  project's component graph.
+- **Control tag** (a control element in the glossary) is `<logic>` or
+  `<loop>`. `<logic :if>`, `<logic :else-if>` and `<logic else>` are
+  conditionals, and `<loop :for="item of items">` is a loop. `<switch>` with
+  `<case>` is compiled into conditional branches. The old `<if>`, `<else>` and
+  `<for>` elements fail with TY1367; `ty migrate fix --write` rewrites them.
+  A control tag is compiler syntax, and the Tac browser renderer interprets
+  it. A browser or native renderer never receives it as an unknown HTML
+  element.
 - **Web component** is a custom element that follows the web standards. It can
   render on the web or use a registered native adapter.
 - **View IR** is the canonical intermediate representation (IR) of a view. It
@@ -108,8 +139,9 @@ The rewrite never imports private code from the legacy implementation.
 6. Native planning reads View IR. For each subtree, it chooses a native
    adapter or a WebSurface boundary.
 7. The server calls Yon handlers through a versioned protocol. The environment
-   selects a supervised isolation backend for them. The server validates their
-   HTTP responses and passes them on without changes.
+   selects a supervised isolation backend for them; by default a warm handler
+   process serves many requests, one at a time (ADR 0111). The server
+   validates their HTTP responses and passes them on without changes.
 8. Packaging records the inputs, toolchains, contract versions, outputs and
    digests in an artifact manifest.
 
@@ -126,8 +158,8 @@ The rewrite never imports private code from the legacy implementation.
 - Control tags never reach a browser or native renderer as unknown elements.
 - Source discovery, route order, diagnostics, IR and artifacts are
   deterministic: the same inputs give the same results.
-- A route can contain several `yon.*` handlers at the same level. They run in
-  a deterministic source order.
+- Yon routes come only from controller annotations in `server/controllers/`.
+  Tachyon does not read `yon.*` route files or `server/routes/`.
 - When native rendering does not support some content, only the smallest safe
   subtree falls back.
 - When one subtree falls back, its supported sibling subtrees stay native.
@@ -153,19 +185,21 @@ The rewrite never imports private code from the legacy implementation.
 
 ## Current Implementation Boundary
 
-Engineering phases 0–7 are implemented. The current Rust data path does these
+Engineering phases 0 to 7 are implemented. The current Rust data path does these
 steps:
 
-1. It finds static and dynamic `tac.html` routes and `yon.*` REST handlers.
+1. It finds static and dynamic `tac.html` routes and the REST routes of
+   annotated controllers in `server/controllers/`.
 2. It parses, with size limits: HTML, expressions, control tags, components,
    slots, events, styles, the schedules for mounting browser components, and
    the services that a view names.
 3. It validates Yon endpoints. These are plain `Handler` endpoints, or
    annotated controllers with scoped provider plans, composed from role files
    in the same language (ADR 0044). It lowers constructor injection without running
-   application code. It supervises JavaScript, TypeScript, Python, Java, C#,
-   Kotlin, PHP, Rust, Dart and Go endpoints. Go endpoints use the Rust
-   annotation spelling (ADR 0045). It starts them only when an HTTP request, a
+   application code. It supervises endpoints in 15 languages: JavaScript,
+   TypeScript, Python, Java, Groovy, PHP, Kotlin, C#, F#, Rust, Dart, Go,
+   Ruby, Lua and C++. Go annotations are `// @Name` comments (ADR 0050). It
+   starts them only when an HTTP request, a
    middleware phase, a worker tick or an explicit invocation reaches them.
 4. It produces deterministic Tac client render plans, View IR, source maps,
    client modules, shared assets, a service worker and Route Manifest v1.
@@ -195,17 +229,16 @@ language. It provides:
 
 ADR 0046 makes the annotations, lifecycle names, `Behaviors` and the framework
 types global in every language. No source file imports them, and JS/TS refuses
-an import from `tachyon:behaviors` with `TY1308`. The markers are erased at
+an import from `tachyon:behaviors` with `TY1308`. The annotations are erased at
 compile time; the types are ambient declarations only.
 
 Contexts have explicit partitions and cancellation lifetimes. There is no
-global container. Tac never receives server secrets. Tac JS/TS services,
-native Swift/Kotlin/C#/Rust services and Go web services have their own
-execution adapters. Yon adds Python/PHP/Java to those shared languages.
+global container. Tac never receives server secrets. Each Tac service
+language and each Yon language has its own execution adapter.
 Deadline checks in native and synchronous code are cooperative: the code must
 check them itself. The owner
 disposes of them explicitly. The existing Yon controller and dependency
-injection (DI) support for eight languages does not change.
+injection (DI) support does not change.
 
 The shared extensions add:
 
@@ -254,23 +287,28 @@ optional HTTP response helper. Configuration v2 works like this:
 ADR 0027 adds managed datasource/Redis injection in Yon, and the construction
 of browser Clients. It does this without a global dependency container.
 
-ADR 0029 makes a page only a composition of components. ADR 0030 moves
+ADR 0029 makes a page only a composition of components: its `tac.html` holds
+component tags only, and a file beside it fails with TY1309. ADR 0030 moves
 behaviour out of the component directory into `client/services/`. A component
 view names the services it uses, and the runtime loads only those services.
-`Service` and `Lifetime` are Tac markers as well as Yon markers. The host
+`Service` and `Lifetime` are Tac annotations as well as Yon annotations. The host
 activates native services once for each browser-side service instance, and
 refers to them by instance name.
 
 ADR 0031 makes the two realms mirror each other:
 
 - Each realm has shared role folders, `client/<role>` and `server/<role>`.
-  Data types without a role live in `client/models/` and `server/models/`,
-  in every service language except JavaScript (ADR 0041, ADR 0043).
-  Every route uses them.
-- A Yon route directory holds only its `yon.<ext>` entry and its
-  `controllers/` folder. A role file next to a route fails with TY1310.
-- Only `Controller` and `Stream` are still Yon-only. Tac gained `Component`
-  and bare `Store`. Both realms inject with `@Needs` (ADR 0038).
+  The role folders are `services/`, `remotes/`, `stores/`, `setups/`,
+  `entities/`, `delegates/` and `converters/`. Data types without a role
+  live in `client/models/` and `server/models/` (ADR 0041, ADR 0043); a
+  JavaScript models file holds only JSDoc `@typedef` comments. Every route
+  uses them.
+- Controllers live in `server/controllers/` and declare their routes with
+  annotations (ADR 0048). A role file outside its role folder fails with
+  TY1310.
+- Only the HTTP side stays Yon-only: `Controller`, `StreamRoute` and
+  `SocketRoute`. Tac gained `Delegate` (first named `Component`, then
+  `Helper`) and bare `Store`. Both realms inject with `@Needs` (ADR 0038).
 - Events have the same shape as Spring's. `EventPublisher` is removed. A class
   injects an `ApplicationEventPublisher` and calls `publishEvent(model)`.
   Listeners hear the model type of their parameter and have `condition`, `id`,
@@ -284,8 +322,8 @@ ADR 0047 gives every annotation a plain English name, such as `Needs`,
 `Store`, `Setup` and `OnStart`. The names no longer copy Spring, Lombok or
 JUnit. The role folders follow: `stores/`, `setups/` and `converters/`. An old
 name fails with TY1308, and an old folder fails with TY1310. Each message
-names the new name. `ty migrate fix --write` renames markers, moves files and
-renames role types.
+names the new name. `ty migrate fix --write` renames annotations, moves files
+and renames role types.
 
 ADR 0052 makes `client/manifest.json` the whole Tac configuration. Its
 standard members give a native build its name, entry route and icons. Its
@@ -295,9 +333,24 @@ and the sitemap values. `tac.config.js` and `tachyon.json` are removed and
 stop the build; the build writes `sitemap.xml` and `robots.txt` itself. The
 manifest is public, so none of these values may be secret.
 
-The implementation is not yet a supported release. Buildable,
-simulator-tested, native-tested, preview and supported remain separate
-evidence levels in `docs/SUPPORT_TIERS.md`.
+ADR 0111 keeps Yon handler processes warm by default. `YON_ISOLATION` selects
+`warm` (the default), `process` (a new process for every request) or
+`firecracker`. A warm process belongs to one handler snapshot, serves one
+request at a time, and is replaced after any failure.
+
+ADR 0112 renames `Helper` to `Delegate`, with the role folder `delegates/` in
+both realms. A Delegate may take on the methods of one service, its base. The
+build writes the forwards into its source snapshot. Go, Rust and Dart refuse
+an overload with TY1374, because those languages have no overloading. Other
+Delegate errors are TY1373 (more than one service, or a base that is not a
+service of the realm) and TY1375 (an override with another return type, or a
+name clash).
+
+The next version published from `develop` is a release candidate, not a
+supported release or a preview; no target is promoted (see
+[the cutover gate](docs/CUTOVER.md)). Buildable, simulator-tested,
+native-tested, preview and supported remain separate evidence levels in
+`docs/SUPPORT_TIERS.md`.
 
 ## Deliberately Deferred Decisions
 
@@ -329,4 +382,4 @@ to production code quietly without one.
 - giving remote or local WebSurfaces a bridge to native capabilities;
 - treating a successful cross-compilation as evidence that the native runtime
   works;
-- publishing a production release before the cutover gate passes.
+- publishing a supported release before the cutover gate passes.
