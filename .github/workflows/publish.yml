@@ -175,6 +175,30 @@ jobs:
           chmod 0755 "release/${{ matrix.asset }}"
           "release/${{ matrix.asset }}" --version | grep -Fx "${{ needs.validate.outputs.version }}"
 
+      - name: Install Node.js for the lifecycle drill's sample app
+        if: runner.os != 'Windows'
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.22.2
+
+      - name: Drill install, upgrade from the previous release, and rollback
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="$(find release -maxdepth 1 -type f -name 'tachyon-*.tar.gz' -print -quit)"
+          test -n "${archive}"
+          ./scripts/release/lifecycle-drill.sh --candidate "${archive}" --log-dir "${RUNNER_TEMP}/lifecycle-drill"
+
+      - name: Keep the lifecycle drill logs
+        if: failure() && runner.os != 'Windows'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: lifecycle-drill-${{ matrix.asset }}
+          path: ${{ runner.temp }}/lifecycle-drill
+          if-no-files-found: ignore
+          retention-days: 30
+
       - name: Attest the native executable and archive
         uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
         with:
