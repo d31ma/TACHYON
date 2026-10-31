@@ -286,7 +286,8 @@ end
         (file, template): (&str, &str),
         kind: ServerKind,
     ) {
-        if !LoopbackProbe::available(program) {
+        let found = LoopbackProbe::available(program);
+        if !crate::support::toolchain::Toolchain::checked(program, found) {
             eprintln!("skipping {language}: {program} is unavailable");
             return;
         }

@@ -20,16 +20,18 @@ impl SeatbeltProfile {
     }
 
     pub(super) fn text(ports: &[u16]) -> String {
-        let mut profile = String::from(
-            "(version 1)(allow default)(deny network*)(deny appleevent-send)(deny mach-lookup (global-name \"com.apple.coreservices.launchservicesd\") (global-name \"com.apple.nsurlsessiond\") (global-name-prefix \"com.apple.lsd.\"))",
-        );
-        for port in ports {
-            let _ = write!(
-                profile,
-                "(allow network-outbound (remote ip \"localhost:{port}\"))"
-            );
-        }
-        profile
+        ports.iter().fold(
+            String::from(
+                "(version 1)(allow default)(deny network*)(deny appleevent-send)(deny mach-lookup (global-name \"com.apple.coreservices.launchservicesd\") (global-name \"com.apple.nsurlsessiond\") (global-name-prefix \"com.apple.lsd.\"))",
+            ),
+            |mut profile, port| {
+                let _ = write!(
+                    profile,
+                    "(allow network-outbound (remote ip \"localhost:{port}\"))"
+                );
+                profile
+            },
+        )
     }
 
     async fn check(profile: &str) -> Result<(), String> {

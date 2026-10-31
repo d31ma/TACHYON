@@ -19,9 +19,10 @@ impl EgressEnforcement {
     }
 
     pub(crate) fn parse(value: Option<&OsStr>) -> Result<Self, Failure> {
-        let Some(value) = value else {
-            return Ok(Self::Os);
-        };
+        value.map_or(Ok(Self::Os), Self::named)
+    }
+
+    fn named(value: &OsStr) -> Result<Self, Failure> {
         match value.to_str() {
             Some(Self::OS) => Ok(Self::Os),
             Some(Self::PROXY) => Ok(Self::Proxy),

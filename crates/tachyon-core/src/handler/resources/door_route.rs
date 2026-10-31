@@ -19,8 +19,9 @@ impl DoorRoute {
 
 impl Drop for DoorRoute {
     fn drop(&mut self) {
-        if let Ok(mut routes) = self.routes.lock() {
-            routes.remove(&self.key);
-        }
+        let _removed = self
+            .routes
+            .lock()
+            .map(|mut routes| routes.remove(&self.key));
     }
 }

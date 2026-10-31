@@ -1091,11 +1091,10 @@ fn dev_server_options(
             .skip(1)
             .chain([std::ffi::OsString::from("--check-project")])
             .collect(),
-        kind: if policy.command == LongRunningCommand::Start {
-            tachyon_core::ServerKind::Production
-        } else {
-            tachyon_core::ServerKind::Development
-        },
+        kind: [
+            tachyon_core::ServerKind::Development,
+            tachyon_core::ServerKind::Production,
+        ][usize::from(policy.command == LongRunningCommand::Start)],
     }
 }
 

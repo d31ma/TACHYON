@@ -21,16 +21,20 @@ impl CommandWrapper {
             .args(&self.prefix)
             .arg(original.get_program())
             .args(original.get_args())
-            .env_clear();
-        for (name, value) in original.get_envs() {
-            if let Some(value) = value {
-                wrapped.env(name, value);
-            }
-        }
+            .env_clear()
+            .envs(
+                original
+                    .get_envs()
+                    .filter_map(|(name, value)| Some((name, value?))),
+            );
+        Self::keep_directory(original, &mut wrapped);
+        crate::handler::HandlerSupervisor::pipe_all_streams(&mut wrapped);
+        *command = wrapped;
+    }
+
+    fn keep_directory(original: &std::process::Command, wrapped: &mut Command) {
         if let Some(directory) = original.get_current_dir() {
             wrapped.current_dir(directory);
         }
-        crate::handler::HandlerSupervisor::pipe_all_streams(&mut wrapped);
-        *command = wrapped;
     }
 }

@@ -14,33 +14,45 @@ impl EgressConfinement {
         required: bool,
         ports: &[u16],
     ) -> Result<Self, Failure> {
-        if enforcement == EgressEnforcement::Proxy {
-            Self::report_unenforced(&format!("{}=proxy", EgressEnforcement::NAME));
-            return Ok(Self::default());
-        }
-        Self::settle(Self::platform(ports).await, required)
+        let wanted = enforcement == EgressEnforcement::Os;
+        let platform = Self::layer(wanted, ports).await;
+        Self::settle(platform, [required, wanted] == [true, true])
     }
 
     pub(super) fn settle(
         platform: Result<CommandWrapper, String>,
         required: bool,
     ) -> Result<Self, Failure> {
-        match platform {
-            Ok(wrapper) => Ok(Self {
-                wrapper: Some(wrapper),
-            }),
-            Err(reason) if required => Err(Self::unavailable(&reason)),
-            Err(reason) => {
-                Self::report_unenforced(&reason);
-                Ok(Self::default())
-            }
+        platform
+            .map(Self::confined)
+            .or_else(|reason| Self::unconfined(&reason, required))
+    }
+
+    async fn layer(wanted: bool, ports: &[u16]) -> Result<CommandWrapper, String> {
+        if !wanted {
+            return Err(format!("{}=proxy", EgressEnforcement::NAME));
+        }
+        Self::platform(ports).await
+    }
+
+    fn confined(wrapper: CommandWrapper) -> Self {
+        Self {
+            wrapper: Some(wrapper),
         }
     }
 
-    pub(crate) fn apply(&self, command: &mut Command) {
-        if let Some(wrapper) = &self.wrapper {
-            wrapper.wrap(command);
+    fn unconfined(reason: &str, required: bool) -> Result<Self, Failure> {
+        if required {
+            return Err(Self::unavailable(reason));
         }
+        Self::report_unenforced(reason);
+        Ok(Self::default())
+    }
+
+    pub(crate) fn apply(&self, command: &mut Command) {
+        self.wrapper
+            .iter()
+            .for_each(|wrapper| wrapper.wrap(command));
     }
 
     #[cfg(test)]

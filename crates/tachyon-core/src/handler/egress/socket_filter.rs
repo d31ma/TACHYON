@@ -78,25 +78,36 @@ impl SocketFilter {
     }
 
     fn socket_rules() -> Result<Vec<SeccompRule>, String> {
-        let mut rules = vec![Self::rule(vec![
+        let foreign = Self::rule(vec![
             Self::condition(Self::FAMILY, SeccompCmpOp::Ne, Self::NET_FAMILIES[0])?,
             Self::condition(Self::FAMILY, SeccompCmpOp::Ne, Self::NET_FAMILIES[1])?,
             Self::condition(Self::FAMILY, SeccompCmpOp::Ne, Self::LOCAL_FAMILY)?,
-        ])?];
-        for family in Self::NET_FAMILIES {
-            for kind in (0..=Self::KIND_MASK).filter(|kind| *kind != Self::STREAM) {
-                rules.push(Self::rule(vec![
-                    Self::condition(Self::FAMILY, SeccompCmpOp::Eq, family)?,
-                    Self::condition(Self::KIND, SeccompCmpOp::MaskedEq(Self::KIND_MASK), kind)?,
-                ])?);
-            }
-            rules.push(Self::rule(vec![
-                Self::condition(Self::FAMILY, SeccompCmpOp::Eq, family)?,
-                Self::condition(Self::PROTOCOL, SeccompCmpOp::Ne, Self::ANY_PROTOCOL)?,
-                Self::condition(Self::PROTOCOL, SeccompCmpOp::Ne, Self::TCP)?,
-            ])?);
-        }
-        Ok(rules)
+        ]);
+        let kinds = Self::NET_FAMILIES.into_iter().flat_map(|family| {
+            (0..=Self::KIND_MASK)
+                .filter(|kind| *kind != Self::STREAM)
+                .map(move |kind| Self::kind_rule(family, kind))
+        });
+        let protocols = Self::NET_FAMILIES.into_iter().map(Self::protocol_rule);
+        std::iter::once(foreign)
+            .chain(kinds)
+            .chain(protocols)
+            .collect()
+    }
+
+    fn kind_rule(family: u64, kind: u64) -> Result<SeccompRule, String> {
+        Self::rule(vec![
+            Self::condition(Self::FAMILY, SeccompCmpOp::Eq, family)?,
+            Self::condition(Self::KIND, SeccompCmpOp::MaskedEq(Self::KIND_MASK), kind)?,
+        ])
+    }
+
+    fn protocol_rule(family: u64) -> Result<SeccompRule, String> {
+        Self::rule(vec![
+            Self::condition(Self::FAMILY, SeccompCmpOp::Eq, family)?,
+            Self::condition(Self::PROTOCOL, SeccompCmpOp::Ne, Self::ANY_PROTOCOL)?,
+            Self::condition(Self::PROTOCOL, SeccompCmpOp::Ne, Self::TCP)?,
+        ])
     }
 
     fn fast_open_rules(flags: u8) -> Result<Vec<SeccompRule>, String> {

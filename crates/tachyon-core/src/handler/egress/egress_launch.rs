@@ -12,10 +12,14 @@ impl EgressLaunch {
 
     pub fn run_if_requested() {
         let mut arguments = std::env::args_os().skip(1);
-        if arguments.next().as_deref() != Some(OsStr::new(Self::SWITCH)) {
-            return;
+        let requested = arguments.next().as_deref() == Some(OsStr::new(Self::SWITCH));
+        Self::launch_when(requested, arguments);
+    }
+
+    fn launch_when(requested: bool, arguments: impl Iterator<Item = OsString>) {
+        if requested {
+            Self::launch(arguments);
         }
-        Self::launch(arguments);
     }
 
     #[cfg(target_os = "linux")]
@@ -58,12 +62,10 @@ impl EgressLaunch {
             .take_while(|argument| argument != Self::END)
             .filter_map(|argument| argument.to_str()?.parse().ok())
             .collect();
-        let Some(program) = arguments.next() else {
-            Self::refuse("no program was named");
-        };
-        if let Err(reason) = Self::confine(&ports) {
-            Self::refuse(&reason);
-        }
+        let program = arguments
+            .next()
+            .unwrap_or_else(|| Self::refuse("no program was named"));
+        Self::confine(&ports).unwrap_or_else(|reason| Self::refuse(&reason));
         let error = std::process::Command::new(program).args(arguments).exec();
         Self::report(&error.to_string());
         std::process::exit(Self::MISSING_STATUS);

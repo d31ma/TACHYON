@@ -623,8 +623,12 @@ impl HandlerSupervisor {
     }
 
     pub(super) fn guard_external_command(&self, command: &mut Command) {
+        self.apply_egress(command);
+        self.confine_command(command);
+    }
+
+    fn confine_command(&self, command: &mut Command) {
         if let Some(setup) = self.egress.get() {
-            setup.apply_environment(command);
             setup.confine(command);
         }
     }

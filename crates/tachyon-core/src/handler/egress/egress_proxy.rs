@@ -7,9 +7,9 @@ use std::io::ErrorKind;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::net::TcpListener;
+use tokio::net::{TcpListener, TcpStream};
 use tokio::process::Command;
-use tokio::sync::Semaphore;
+use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 
 pub(crate) struct EgressProxy;
 
@@ -63,34 +63,56 @@ impl EgressProxy {
         let slots = Arc::new(Semaphore::new(Self::MAX_CONNECTIONS));
         let mut reported = HashSet::new();
         loop {
-            match listener.accept().await {
-                Ok((stream, _)) => {
-                    let Ok(slot) = Arc::clone(&slots).try_acquire_owned() else {
-                        tokio::spawn(EgressTunnel::refuse_busy(stream));
-                        continue;
-                    };
-                    let hosts = Arc::clone(&hosts);
-                    tokio::spawn(async move {
-                        EgressTunnel::serve(stream, hosts).await;
-                        drop(slot);
-                    });
-                }
-                Err(error) => Self::pause_after(&error, &mut reported).await,
+            Self::take(listener.accept().await, &hosts, &slots, &mut reported).await;
+        }
+    }
+
+    async fn take(
+        accepted: std::io::Result<(TcpStream, SocketAddr)>,
+        hosts: &Arc<DeclaredHosts>,
+        slots: &Arc<Semaphore>,
+        reported: &mut HashSet<ErrorKind>,
+    ) {
+        match accepted {
+            Ok((stream, _)) => Self::admit(stream, hosts, slots),
+            Err(error) => Self::pause_after(&error, reported).await,
+        }
+    }
+
+    fn admit(stream: TcpStream, hosts: &Arc<DeclaredHosts>, slots: &Arc<Semaphore>) {
+        let slot = Arc::clone(slots).try_acquire_owned().ok();
+        tokio::spawn(Self::serve_or_refuse(stream, Arc::clone(hosts), slot));
+    }
+
+    async fn serve_or_refuse(
+        stream: TcpStream,
+        hosts: Arc<DeclaredHosts>,
+        slot: Option<OwnedSemaphorePermit>,
+    ) {
+        match slot {
+            Some(slot) => {
+                EgressTunnel::serve(stream, hosts).await;
+                drop(slot);
             }
+            None => EgressTunnel::refuse_busy(stream).await,
         }
     }
 
     async fn pause_after(error: &std::io::Error, reported: &mut HashSet<ErrorKind>) {
-        if reported.insert(error.kind()) {
-            eprintln!(
-                "{}",
-                serde_json::json!({
-                    "event": "handler.egress_accept_failed",
-                    "reason": error.kind().to_string(),
-                })
-            );
-        }
+        let _reported = reported
+            .insert(error.kind())
+            .then(|| Self::report_accept_failure(error));
         tokio::time::sleep(Self::ACCEPT_PAUSE).await;
+    }
+
+    fn report_accept_failure(error: &std::io::Error) {
+        eprintln!(
+            "{}",
+            serde_json::json!({
+                "event": "handler.egress_accept_failed",
+                "reason": error.kind().to_string(),
+            })
+        );
     }
 
     fn failure(error: &std::io::Error) -> Failure {

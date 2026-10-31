@@ -13,13 +13,12 @@ impl ConnectRules {
     }
 
     pub(super) fn restrict(ports: &[u16]) -> Result<(), String> {
-        let mut ruleset = Self::ruleset()?;
-        for port in ports {
-            ruleset = ruleset
-                .add_rule(NetPort::new(*port, AccessNet::ConnectTcp))
-                .map_err(|error| error.to_string())?;
-        }
-        ruleset
+        ports
+            .iter()
+            .try_fold(Self::ruleset()?, |ruleset, port| {
+                ruleset.add_rule(NetPort::new(*port, AccessNet::ConnectTcp))
+            })
+            .map_err(|error| error.to_string())?
             .restrict_self()
             .map(drop)
             .map_err(|error| error.to_string())

@@ -17,7 +17,7 @@ impl LoopbackProbe {
         r#"{"datasource":{"driver":"sqlite","url":"sqlite::memory:"},"cohesion":{"check":false}}"#;
     const LOCAL_NAME_SOURCE: &str = r#"{"datasource":{"driver":"sqlite","url":"sqlite::memory:"},"cohesion":{"check":false},"outgoing":{"hosts":["api.localhost"]}}"#;
     const REACHED: &str = "reached-the-private-loopback-service";
-    const VERSION_FLAGS: [&str; 3] = ["version", "--version", "-version"];
+    const VERSION_FLAGS: [&str; 4] = ["version", "--version", "-version", "-v"];
     const JAVASCRIPT: &str = r"
 @RequestRoute('/probe')
 @Public
@@ -94,12 +94,14 @@ class ProbeController {
 #[RequestRoute("/probe")]
 #[Public]
 class ProbeController {
+    private const SEPARATOR = ' ';
+
     #[GetRoute]
     public function get(#[FromQuery("target")] string $target): string {
         stream_context_set_option(stream_context_get_default(), 'http', 'ignore_errors', true);
         $body = @file_get_contents($target);
-        $status = explode(' ', $http_response_header[0] ?? 'failed none')[1] ?? 'failed';
-        return $status . ' ' . ($body === false ? '' : $body);
+        $status = explode(self::SEPARATOR, $http_response_header[0] ?? 'failed none')[1] ?? 'failed';
+        return $status . self::SEPARATOR . ($body === false ? '' : $body);
     }
 }
 "#;

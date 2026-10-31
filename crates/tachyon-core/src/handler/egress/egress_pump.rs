@@ -32,9 +32,16 @@ impl EgressPump {
                 Self::forward(upstream_read, client_write, started, &last_activity),
             )
         };
+        Self::until_idle(both, Self::idle_watch(started, &last_activity, idle)).await
+    }
+
+    async fn until_idle(
+        both: impl Future<Output = std::io::Result<((), ())>>,
+        idle: impl Future<Output = ()>,
+    ) -> std::io::Result<()> {
         tokio::select! {
             result = both => result.map(drop),
-            () = Self::idle_watch(started, &last_activity, idle) => Ok(()),
+            () = idle => Ok(()),
         }
     }
 
@@ -45,26 +52,38 @@ impl EgressPump {
         last_activity: &AtomicU64,
     ) -> std::io::Result<()> {
         let mut chunk = vec![0_u8; Self::CHUNK];
-        loop {
-            let read = reader.read(&mut chunk).await?;
-            Self::mark(started, last_activity);
-            if read == 0 {
-                return writer.shutdown().await;
-            }
-            writer.write_all(&chunk[..read]).await?;
-            Self::mark(started, last_activity);
+        let activity = (started, last_activity);
+        while Self::step(&mut reader, &mut writer, &mut chunk, activity).await? {}
+        Ok(())
+    }
+
+    async fn step(
+        reader: &mut (impl AsyncRead + Unpin),
+        writer: &mut (impl AsyncWrite + Unpin),
+        chunk: &mut [u8],
+        (started, last_activity): (Instant, &AtomicU64),
+    ) -> std::io::Result<bool> {
+        let read = reader.read(chunk).await?;
+        Self::mark(started, last_activity);
+        if read == 0 {
+            writer.shutdown().await?;
+            return Ok(false);
         }
+        writer.write_all(&chunk[..read]).await?;
+        Self::mark(started, last_activity);
+        Ok(true)
     }
 
     async fn idle_watch(started: Instant, last_activity: &AtomicU64, idle: Duration) {
-        loop {
-            let last = Duration::from_millis(last_activity.load(Ordering::Relaxed));
-            let deadline = started + last + idle;
-            if Instant::now() >= deadline {
-                return;
-            }
-            tokio::time::sleep_until(deadline).await;
-        }
+        while Self::still_active(started, last_activity, idle).await {}
+    }
+
+    async fn still_active(started: Instant, last_activity: &AtomicU64, idle: Duration) -> bool {
+        let last = Duration::from_millis(last_activity.load(Ordering::Relaxed));
+        let deadline = started + last + idle;
+        let active = Instant::now() < deadline;
+        tokio::time::sleep_until(deadline).await;
+        active
     }
 
     fn mark(started: Instant, last_activity: &AtomicU64) {

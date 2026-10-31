@@ -1,6 +1,7 @@
 use super::DoorRoute;
 use crate::Failure;
 use crate::failure::diagnostic;
+use futures_util::future::OptionFuture;
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::net::{Ipv4Addr, SocketAddr};
@@ -8,7 +9,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
-use tokio::sync::Semaphore;
+use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 
 #[derive(Debug)]
 pub(in crate::handler) struct ResourceDoor {
@@ -52,9 +53,10 @@ impl ResourceDoor {
 
     pub(super) fn register(&self, token: &str, listener: SocketAddr) -> DoorRoute {
         let key = Self::key(token);
-        if let Ok(mut routes) = self.routes.lock() {
-            routes.insert(key, listener);
-        }
+        let _registered = self
+            .routes
+            .lock()
+            .map(|mut routes| routes.insert(key, listener));
         DoorRoute::new(Arc::clone(&self.routes), key)
     }
 
@@ -65,44 +67,58 @@ impl ResourceDoor {
     async fn accept(listener: TcpListener, routes: Arc<Mutex<HashMap<[u8; 32], SocketAddr>>>) {
         let slots = Arc::new(Semaphore::new(Self::MAX_CONNECTIONS));
         loop {
-            let Ok((stream, _)) = listener.accept().await else {
-                tokio::time::sleep(Self::ACCEPT_PAUSE).await;
-                continue;
-            };
-            let Ok(slot) = Arc::clone(&slots).try_acquire_owned() else {
-                tokio::spawn(Self::refuse_busy(stream));
-                continue;
-            };
-            let routes = Arc::clone(&routes);
-            tokio::spawn(async move {
-                let _result = Self::serve(stream, &routes).await;
-                drop(slot);
-            });
+            Self::take(listener.accept().await, &routes, &slots).await;
         }
+    }
+
+    async fn take(
+        accepted: std::io::Result<(TcpStream, SocketAddr)>,
+        routes: &Arc<Mutex<HashMap<[u8; 32], SocketAddr>>>,
+        slots: &Arc<Semaphore>,
+    ) {
+        match accepted {
+            Ok((stream, _)) => Self::admit(stream, routes, slots),
+            Err(_) => tokio::time::sleep(Self::ACCEPT_PAUSE).await,
+        }
+    }
+
+    fn admit(
+        stream: TcpStream,
+        routes: &Arc<Mutex<HashMap<[u8; 32], SocketAddr>>>,
+        slots: &Arc<Semaphore>,
+    ) {
+        let slot = Arc::clone(slots).try_acquire_owned().ok();
+        tokio::spawn(Self::serve(stream, Arc::clone(routes), slot));
     }
 
     async fn serve(
         mut client: TcpStream,
-        routes: &Mutex<HashMap<[u8; 32], SocketAddr>>,
+        routes: Arc<Mutex<HashMap<[u8; 32], SocketAddr>>>,
+        slot: Option<OwnedSemaphorePermit>,
     ) -> std::io::Result<()> {
-        let head = tokio::time::timeout(Self::HEAD_TIMEOUT, Self::read_head(&mut client))
+        let answer = [Self::UNKNOWN, Self::BUSY][usize::from(slot.is_none())];
+        let head = OptionFuture::from(slot.as_ref().map(|_| Self::read_head_in_time(&mut client)))
             .await
-            .ok()
             .flatten();
         let target = head
             .as_deref()
             .and_then(Self::token)
-            .and_then(|token| Self::target(routes, token));
+            .and_then(|token| Self::target(&routes, token));
         let (Some(head), Some(target)) = (head, target) else {
-            return client.write_all(Self::UNKNOWN).await;
+            return client.write_all(answer).await;
         };
         let mut upstream = TcpStream::connect(target).await?;
         upstream.write_all(&head).await?;
-        crate::handler::EgressPump::exchange(&mut client, &mut upstream).await
+        let exchanged = crate::handler::EgressPump::exchange(&mut client, &mut upstream).await;
+        drop(slot);
+        exchanged
     }
 
-    async fn refuse_busy(mut client: TcpStream) {
-        let _written = client.write_all(Self::BUSY).await;
+    async fn read_head_in_time(client: &mut TcpStream) -> Option<Vec<u8>> {
+        tokio::time::timeout(Self::HEAD_TIMEOUT, Self::read_head(client))
+            .await
+            .ok()
+            .flatten()
     }
 
     async fn read_head(client: &mut TcpStream) -> Option<Vec<u8>> {
