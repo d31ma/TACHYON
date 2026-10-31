@@ -330,6 +330,10 @@ General contract rules:
 - A native claim requires execution on the native OS and architecture.
 - Tests are deterministic, except fuzz, chaos, load, and soak tests that are
   marked as such.
+- A proof that runs the same behavior in several languages is one test per
+  language (or per case), written with `one_test_per_case!`, so the languages
+  run on separate test threads. The macro also adds a test that fails when the
+  list of languages gains one that has no test of its own.
 - Whole-workspace coverage must not fall below 80% for lines, functions, or
   regions.
   - The measurement includes CLI, operating-system, toolchain, and fuzz-only

@@ -2008,6 +2008,24 @@ machine contracts have their own, independent major versions.
 
 ### Changed
 
+- The test suite is faster on every lane (TS1, 2026-10-31), with no test
+  dropped and every assertion kept. On an idle M4 the full nextest run went
+  from 493 s to 377 s; the VM lanes are measured in the TS1 evidence.
+  - The slowest proofs that ran every language in turn are now one test per
+    language, unit or section (`one_test_per_case!`), so they spread across
+    the test threads. Each split module has a test that fails when its list
+    of cases gains one without a test of its own.
+  - The serial relay-boundary tests and the longest tests start first
+    (nextest `priority`), instead of running alone at the end.
+  - Test toolchain probes such as `kotlinc -version`, which start a JVM, are
+    remembered for the rest of a nextest run once they succeed. A probe that
+    fails is run again.
+  - `.config/nextest.toml` retries a failed test once by default; the
+    relay-boundary and other timing tests keep two retries.
+- Yon readiness runs a server's toolchain probes at the same time instead of
+  one after another (TS1, 2026-10-31). A Kotlin server no longer waits for
+  `java` and then `kotlinc` in turn. The results and the first failure
+  reported are unchanged.
 - SQL Server support is the optional `storage-sqlserver` cargo feature (RD1,
   2026-10-30). Release builds keep it (`scripts/release/build-artifact.sh`
   builds `tachyon-cli` with `--features storage-all`). A default build
