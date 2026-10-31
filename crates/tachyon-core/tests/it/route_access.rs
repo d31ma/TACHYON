@@ -85,7 +85,7 @@ impl IdentityProject {
 
     const JAVA: Self = Self {
         extension: "java",
-        program: "java",
+        program: "javac",
         files: &[
             (
                 "server/models/Identity.java",
@@ -213,32 +213,32 @@ struct GuardedProject {
 impl GuardedProject {
     const JAVA: Self = Self {
         extension: "java",
-        program: "java",
-        controller: "@RequestRoute(\"/orders\")\n@SignedIn\nclass OrdersController {\n    @GetRoute\n    @Public\n    String getOrders() {\n        return \"public\";\n    }\n\n    @PostRoute\n    String postOrder() {\n        return \"created\";\n    }\n\n    @DeleteRoute\n    @Allow(Admin.class)\n    String deleteOrders() {\n        return \"deleted\";\n    }\n}\n",
+        program: "javac",
+        controller: "@RequestRoute(\"/orders\")\n@SignedIn\nclass OrdersController {\n    @GetRoute\n    @Public\n    String getOrders() {\n        return \"orders-public-body\";\n    }\n\n    @PostRoute\n    String postOrder() throws java.io.IOException {\n        java.nio.file.Files.writeString(java.nio.file.Path.of(\"MARKERS/posted.marker\"), \"posted\");\n        return \"orders-created-body\";\n    }\n\n    @DeleteRoute\n    @Allow(Admin.class)\n    String deleteOrders() throws java.io.IOException {\n        java.nio.file.Files.writeString(java.nio.file.Path.of(\"MARKERS/deleted.marker\"), \"deleted\");\n        return \"orders-deleted-body\";\n    }\n}\n",
     };
 
     const GROOVY: Self = Self {
         extension: "groovy",
         program: "groovyc",
-        controller: "@RequestRoute('/orders')\n@SignedIn\nclass OrdersController {\n    @GetRoute\n    @Public\n    String getOrders() {\n        return 'public'\n    }\n\n    @PostRoute\n    String postOrder() {\n        return 'created'\n    }\n\n    @DeleteRoute\n    @Allow(Admin.class)\n    String deleteOrders() {\n        return 'deleted'\n    }\n}\n",
+        controller: "@RequestRoute('/orders')\n@SignedIn\nclass OrdersController {\n    @GetRoute\n    @Public\n    String getOrders() {\n        return 'orders-public-body'\n    }\n\n    @PostRoute\n    String postOrder() {\n        new File('MARKERS/posted.marker').text = 'posted'\n        return 'orders-created-body'\n    }\n\n    @DeleteRoute\n    @Allow(Admin.class)\n    String deleteOrders() {\n        new File('MARKERS/deleted.marker').text = 'deleted'\n        return 'orders-deleted-body'\n    }\n}\n",
     };
 
     const KOTLIN: Self = Self {
         extension: "kt",
         program: "kotlinc",
-        controller: "@RequestRoute(\"/orders\")\n@SignedIn\nclass OrdersController {\n    @GetRoute\n    @Public\n    fun getOrders(): String = \"public\"\n\n    @PostRoute\n    fun postOrder(): String = \"created\"\n\n    @DeleteRoute\n    @Allow(Admin::class)\n    fun deleteOrders(): String = \"deleted\"\n}\n",
+        controller: "@RequestRoute(\"/orders\")\n@SignedIn\nclass OrdersController {\n    @GetRoute\n    @Public\n    fun getOrders(): String = \"orders-public-body\"\n\n    @PostRoute\n    fun postOrder(): String {\n        java.io.File(\"MARKERS/posted.marker\").writeText(\"posted\")\n        return \"orders-created-body\"\n    }\n\n    @DeleteRoute\n    @Allow(Admin::class)\n    fun deleteOrders(): String {\n        java.io.File(\"MARKERS/deleted.marker\").writeText(\"deleted\")\n        return \"orders-deleted-body\"\n    }\n}\n",
     };
 
     const CSHARP: Self = Self {
         extension: "cs",
         program: "dotnet",
-        controller: "[RequestRoute(\"/orders\")]\n[SignedIn]\nclass OrdersController {\n    [GetRoute]\n    [Public]\n    public string GetOrders() {\n        return \"public\";\n    }\n\n    [PostRoute]\n    public string PostOrder() {\n        return \"created\";\n    }\n\n    [DeleteRoute]\n    [Allow(typeof(Admin))]\n    public string DeleteOrders() {\n        return \"deleted\";\n    }\n}\n",
+        controller: "[RequestRoute(\"/orders\")]\n[SignedIn]\nclass OrdersController {\n    [GetRoute]\n    [Public]\n    public string GetOrders() {\n        return \"orders-public-body\";\n    }\n\n    [PostRoute]\n    public string PostOrder() {\n        System.IO.File.WriteAllText(\"MARKERS/posted.marker\", \"posted\");\n        return \"orders-created-body\";\n    }\n\n    [DeleteRoute]\n    [Allow(typeof(Admin))]\n    public string DeleteOrders() {\n        System.IO.File.WriteAllText(\"MARKERS/deleted.marker\", \"deleted\");\n        return \"orders-deleted-body\";\n    }\n}\n",
     };
 
     const FSHARP: Self = Self {
         extension: "fs",
         program: "dotnet",
-        controller: "[<RequestRoute(\"/orders\")>]\n[<SignedIn>]\ntype OrdersController() =\n    [<GetRoute>]\n    [<Public>]\n    member this.GetOrders() : string = \"public\"\n\n    [<PostRoute>]\n    member this.PostOrder() : string = \"created\"\n\n    [<DeleteRoute>]\n    [<Allow(typeof<Admin>)>]\n    member this.DeleteOrders() : string = \"deleted\"\n",
+        controller: "[<RequestRoute(\"/orders\")>]\n[<SignedIn>]\ntype OrdersController() =\n    [<GetRoute>]\n    [<Public>]\n    member this.GetOrders() : string = \"orders-public-body\"\n\n    [<PostRoute>]\n    member this.PostOrder() : string =\n        System.IO.File.WriteAllText(\"MARKERS/posted.marker\", \"posted\")\n        \"orders-created-body\"\n\n    [<DeleteRoute>]\n    [<Allow(typeof<Admin>)>]\n    member this.DeleteOrders() : string =\n        System.IO.File.WriteAllText(\"MARKERS/deleted.marker\", \"deleted\")\n        \"orders-deleted-body\"\n",
     };
 }
 
@@ -297,10 +297,11 @@ impl Project {
 
     fn guarded(root: &Path, guarded: &GuardedProject) {
         Self::base(root);
+        let markers = root.to_string_lossy().replace('\\', "/");
         Self::write(
             root,
             &format!("server/controllers/OrdersController.{}", guarded.extension),
-            guarded.controller,
+            &guarded.controller.replace("MARKERS", &markers),
         );
         for (relative, source) in IdentityProject::JAVASCRIPT.files {
             Self::write(root, relative, source);
@@ -620,45 +621,56 @@ async fn assert_guarded_routes(guarded: &GuardedProject) {
     }
     let root = tempfile::tempdir().expect("project");
     Project::guarded(root.path(), guarded);
+    let posted = root.path().join("posted.marker");
+    let deleted = root.path().join("deleted.marker");
     let server = Server::start(root.path()).await;
     let editor = "x-test-user: ada\r\nx-test-roles: Editor\r\n";
     let admin = "x-test-user: ada\r\nx-test-roles: Editor,Admin\r\n";
     let public = server.call("GET", "/orders", "").await;
     assert!(
-        public.contains("200 OK") && public.contains("public"),
+        public.starts_with("HTTP/1.1 200 ") && public.contains("orders-public-body"),
         "{}: {public}",
         guarded.extension
     );
     let anonymous = server.call("POST", "/orders", "").await;
     assert!(
-        anonymous.contains("401 Unauthorized") && !anonymous.contains("created"),
+        anonymous.starts_with("HTTP/1.1 401 ") && !anonymous.contains("orders-created-body"),
         "{}: {anonymous}",
         guarded.extension
     );
+    assert!(!posted.exists(), "{}: POST ran signed out", guarded.extension);
     let anonymous_delete = server.call("DELETE", "/orders", "").await;
     assert!(
-        anonymous_delete.contains("401 Unauthorized") && !anonymous_delete.contains("deleted"),
+        anonymous_delete.starts_with("HTTP/1.1 401 ")
+            && !anonymous_delete.contains("orders-deleted-body"),
         "{}: {anonymous_delete}",
         guarded.extension
     );
     let refused = server.call("DELETE", "/orders", editor).await;
     assert!(
-        refused.contains("403 Forbidden") && !refused.contains("deleted"),
+        refused.starts_with("HTTP/1.1 403 ") && !refused.contains("orders-deleted-body"),
         "{}: {refused}",
+        guarded.extension
+    );
+    assert!(
+        !deleted.exists(),
+        "{}: DELETE ran without the role",
         guarded.extension
     );
     let signed_in = server.call("POST", "/orders", editor).await;
     assert!(
-        signed_in.contains("200 OK") && signed_in.contains("created"),
+        signed_in.starts_with("HTTP/1.1 200 ") && signed_in.contains("orders-created-body"),
         "{}: {signed_in}",
         guarded.extension
     );
+    assert!(posted.exists(), "{}: POST did not run", guarded.extension);
     let allowed = server.call("DELETE", "/orders", admin).await;
     assert!(
-        allowed.contains("200 OK") && allowed.contains("deleted"),
+        allowed.starts_with("HTTP/1.1 200 ") && allowed.contains("orders-deleted-body"),
         "{}: {allowed}",
         guarded.extension
     );
+    assert!(deleted.exists(), "{}: DELETE did not run", guarded.extension);
     server.stop().await;
 }
 
