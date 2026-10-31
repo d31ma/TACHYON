@@ -1,6 +1,5 @@
 node_modules
 node_modules*/
-examples/node_modules*/
 .env
 .tachyon/
 dist
@@ -23,15 +22,13 @@ fuzz/corpus/*/*
 !fuzz/corpus/*/seed-*
 
 .graphify*
+!.graphifyignore
 graphify-out/
-CLAUDE.md
 .github/copilot-instructions.md
 
 .tac-cache/
 
 .codex
 .vscode
-node_modules/
-package-lock.json
 
 /runtimes/ruby-web/tachyon-ruby.wasm

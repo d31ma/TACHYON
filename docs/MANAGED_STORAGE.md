@@ -296,8 +296,9 @@ Redis:
   the whole request. A cancellation does not prove that a mutation did not
   commit.
 
-Before you claim support or release readiness, check the execution matrix for
-all drivers and the language runtime results in `HANDOFF.md`.
+Before you claim support or release readiness, check the qualification
+evidence below and the language runtime results in
+[`SUPPORT_TIERS.md`](SUPPORT_TIERS.md).
 
 ## Qualification evidence
 

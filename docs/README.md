@@ -42,6 +42,9 @@ Start with:
 11. [`SELF_HOSTED_RUNNERS.md`](SELF_HOSTED_RUNNERS.md) for running the Rust CI
     workflow on maintainer machines.
 
+[`FRAMEWORK_PATTERN_RESEARCH.md`](FRAMEWORK_PATTERN_RESEARCH.md) surveys the
+most used framework and design pattern in each supported language.
+
 Decisions that are hard to undo are in [`adr/`](adr/). Public machine
 contracts are in [`../api/`](../api/). The `tachyon-contracts` test suite runs
 them as tests.

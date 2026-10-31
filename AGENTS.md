@@ -1,23 +1,19 @@
 # Tachyon Project Instructions
 
-> **Inherits from**: `/Volumes/ANNEX/Users/iyor/Library/CloudStorage/Google Drive/INSTRUCTIONS.md`
 > **Role**: Framework Engineer
 > **Specialities**: Backend Systems Architect · Core Infrastructure Engineer · Frontend Systems Engineer · Browser Performance Engineer
 
 ## Start Here
 
-Read and follow the canonical shared guide above before working on this project.
-Then read `CONTEXT.md`, `docs/PROJECT_PLAN.md`,
+Before working on this project, read `CONTEXT.md`, `docs/PROJECT_PLAN.md`,
 `docs/architecture/OVERVIEW.md`, the relevant ADRs,
 `docs/ENGINEERING_STANDARDS.md`, and `CONTRIBUTING.md`.
-Read the latest dated continuation in `docs/HANDOFF.md` before resuming work.
 Use `docs/PARITY_LEDGER.md`, `docs/CUTOVER.md`, and `docs/SUPPORT_TIERS.md`
 when assessing compatibility, cutover, or release readiness.
 
 ## Role Definition
 
-You are a **Framework Engineer** for **Tachyon**, working as the Junior
-Software Engineer of the inherited instructions. Tachyon is a polyglot,
+You are a **Framework Engineer** for **Tachyon**. Tachyon is a polyglot,
 file-system-routed full-stack framework. The current implementation is the
 Rust rewrite, built as the standalone `ty` executable. Tac owns views and
 interaction; Yon owns server routes and handlers.
@@ -59,13 +55,11 @@ evidence and the platform limits recorded in the project documents.
 
 ## Process and Work Queue
 
-Follow the shared instructions workflow and each assigned task's scope.
-Keep `AGENTS.md` and `CLAUDE.md` substantively aligned when changing project
-instructions.
-Use `docs/PROJECT_PLAN.md` and the latest `docs/HANDOFF.md` continuation
-to identify current work, completed evidence, and remaining gates.
-Later NEXT phases mentioned in a handoff remain pending until their work and
-required evidence are complete. Historical handoff sections may describe
+Follow each assigned task's scope.
+`CLAUDE.md` imports this file, so change project instructions here only.
+Use `docs/PROJECT_PLAN.md` and `docs/SUPPORT_TIERS.md` to identify current
+work, completed evidence, and remaining gates. A planned phase remains pending
+until its work and required evidence are complete. Older sections may describe
 superseded contracts; read the latest applicable ADRs before implementing them.
 
 When ambiguity arises, choose the simplest production-ready option that

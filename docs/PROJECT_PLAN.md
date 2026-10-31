@@ -28,8 +28,8 @@ decision record) 0028, as amended by ADR 0031. The slice contains:
 - migrated website examples.
 
 ADR 0031 also shares role folders per realm. ADR 0032 adds the `fylo`
-datasource driver. docs/HANDOFF.md records the current qualification and
-platform limits. This slice does not establish an unqualified stable release.
+datasource driver. docs/SUPPORT_TIERS.md records the current qualification
+and platform limits. This slice does not establish an unqualified stable release.
 
 The principles:
 
@@ -377,9 +377,9 @@ true:
 
 ADR 0026 specifies direct JSON results and Application Configuration v2.
 Application Configuration v2 has public tac configuration, private yon
-configuration, and separate .env secrets. docs/HANDOFF.md records the
-implementation and runtime evidence. That evidence is separate from release
-qualification and from native SDK availability.
+configuration, and separate .env secrets. docs/APPLICATION_CONFIGURATION.md
+describes the implementation. It is separate from release qualification and
+from native SDK availability.
 
 Status: complete on 2026-08-09. The decision and safety boundary are recorded
 in [`adr/0013-semantic-hot-updates.md`](adr/0013-semantic-hot-updates.md) and

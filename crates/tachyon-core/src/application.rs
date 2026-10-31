@@ -157,10 +157,6 @@ impl ApplicationConfig {
         Self::load_directory_for_client(&open_directory(root)?)
     }
 
-    pub fn load_project_for_client(project: &crate::Project) -> Result<Self, Failure> {
-        Self::load_directory_for_client(&project.capability())
-    }
-
     pub(crate) fn load_directory_for_client(directory: &Dir) -> Result<Self, Failure> {
         reject_legacy_locations(directory)?;
         read_document(directory, Self::APPLICATION, false)?;

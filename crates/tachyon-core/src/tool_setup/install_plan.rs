@@ -30,16 +30,6 @@ impl InstallPlan {
     }
 
     #[must_use]
-    pub fn needs_admin(tool: NeededTool, lines: Vec<String>) -> Self {
-        Self {
-            tool,
-            kind: PlanKind::NeedsAdmin,
-            steps: Vec::new(),
-            lines,
-        }
-    }
-
-    #[must_use]
     pub fn manual(tool: NeededTool, lines: Vec<String>) -> Self {
         Self {
             tool,
