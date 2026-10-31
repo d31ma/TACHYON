@@ -11,6 +11,8 @@ use tachyon_core::{
 use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
 use tokio::net::TcpStream;
 
+use crate::support::one_test_per_case::one_test_per_case;
+
 struct Exchange;
 
 impl Exchange {
@@ -453,3 +455,156 @@ async fn a_typescript_controller_uses_a_shared_service() {
     let body = response.body.expect("body").data;
     assert_eq!(body, r#"{"id":"9","name":"lamp"}"#);
 }
+
+struct RouteSchemaProject {
+    extension: &'static str,
+    program: &'static str,
+    version_flag: &'static str,
+    files: [(&'static str, &'static str); 2],
+}
+
+impl RouteSchemaProject {
+    const ALL: [Self; 2] = [Self::FSHARP, Self::LUA];
+
+    const FSHARP: Self = Self {
+        extension: "fs",
+        program: "dotnet",
+        version_flag: "--version",
+        files: [
+            (
+                "server/models/Item.fs",
+                "type Item = { Name: string; Level: int64; Note: string option }\n",
+            ),
+            (
+                "server/controllers/ItemsController.fs",
+                "open Models\n\n[<RequestRoute(\"/items\")>]\n[<Public>]\ntype ItemsController() =\n    [<GetRoute(\"/{id}\")>]\n    member this.GetItems([<FromPath>] id: int64, [<FromQuery(\"tag\")>] label: string option) : Item list =\n        [ { Name = \"read\"; Level = id; Note = label } ]\n\n    [<PutRoute(\"/{id}\")>]\n    member this.PutItem([<FromPath>] id: int64, [<FromBody>] item: Item) : Item =\n        { item with Level = id }\n",
+            ),
+        ],
+    };
+
+    const LUA: Self = Self {
+        extension: "lua",
+        program: "lua",
+        version_flag: "-v",
+        files: [
+            (
+                "server/models/Item.lua",
+                "---@class Item\n---@field name string\n---@field level integer\n---@field note string?\nItem = {}\n",
+            ),
+            (
+                "server/controllers/ItemsController.lua",
+                "-- @RequestRoute(\"/items\")\n-- @Public\n---@class ItemsController\nItemsController = {}\n\n---@param id integer\n---@param label string?\n---@return Item[]\n-- @GetRoute(\"/{id}\")\nfunction ItemsController:get_items(\n  -- @FromPath\n  id,\n  -- @FromQuery(\"tag\")\n  label\n)\n  return { { name = \"read\", level = id, note = label } }\nend\n\n---@param id integer\n---@param item Item\n---@return Item\n-- @PutRoute(\"/{id}\")\nfunction ItemsController:put_item(\n  -- @FromPath\n  id,\n  -- @FromBody\n  item\n)\n  item.level = id\n  return item\nend\n",
+            ),
+        ],
+    };
+
+    fn named(extension: &str) -> &'static Self {
+        Self::ALL
+            .iter()
+            .find(|project| project.extension == extension)
+            .expect("route schema project")
+    }
+
+    fn available(&self) -> bool {
+        crate::support::toolchain::Toolchain::checked(
+            self.program,
+            crate::support::program_probe::ProgramProbe::answers(self.program, self.version_flag),
+        )
+    }
+
+    async fn api_and_options(&self) -> (serde_json::Value, serde_json::Value) {
+        let root = tempfile::tempdir().expect("project");
+        for (relative, source) in self.files {
+            write(root.path(), relative, source);
+        }
+        let (port, stop, running) = serve_orders(root.path()).await;
+        let api = Exchange::without_body(port, "GET", "/api.json").await;
+        let options = Exchange::without_body(port, "OPTIONS", "/items/5").await;
+        stop.send(()).expect("stop");
+        tokio::time::timeout(Duration::from_secs(20), running)
+            .await
+            .expect("bounded shutdown")
+            .expect("server task")
+            .expect("server shutdown");
+        (Self::body(&api), Self::body(&options))
+    }
+
+    fn body(response: &str) -> serde_json::Value {
+        assert!(response.starts_with("HTTP/1.1 200"), "{response}");
+        let body = response.split_once("\r\n\r\n").expect("body").1;
+        serde_json::from_str(body).unwrap_or_else(|error| panic!("{error}: {response}"))
+    }
+
+    fn methods() -> serde_json::Value {
+        serde_json::json!({
+            "GET": {
+                "request": {
+                    "parameters": {"id": {"type": "integer"}},
+                    "query": {"tag?": {"anyOf": [{"type": "string"}, {"type": "null"}]}}
+                },
+                "status": 200,
+                "ok": {"type": "array", "items": {"$ref": "#/models/Item"}}
+            },
+            "PUT": {
+                "request": {
+                    "parameters": {"id": {"type": "integer"}},
+                    "body": {"$ref": "#/models/Item"}
+                },
+                "status": 200,
+                "ok": {"$ref": "#/models/Item"}
+            }
+        })
+    }
+
+    fn item() -> serde_json::Value {
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+                "level": {"type": "integer"},
+                "note": {"anyOf": [{"type": "string"}, {"type": "null"}]}
+            },
+            "required": ["name", "level"],
+            "additionalProperties": false
+        })
+    }
+}
+
+async fn writes_its_schema_and_api_json_in(extension: &str) {
+    let project = RouteSchemaProject::named(extension);
+    if !project.available() {
+        eprintln!("skipping {extension}: {} is unavailable", project.program);
+        return;
+    }
+    let (api, options) = project.api_and_options().await;
+    let written = serde_json::json!({
+        "routes": api["routes"],
+        "api_models": api["models"],
+        "path": options["path"],
+        "options_methods": options["methods"],
+        "options_models": options["models"],
+    });
+    let expected = serde_json::json!({
+        "routes": [{
+            "route": "/items/_id",
+            "path": "/items/{id}",
+            "parameters": ["id"],
+            "methods": RouteSchemaProject::methods(),
+        }],
+        "api_models": {"Item": RouteSchemaProject::item()},
+        "path": "/items/{id}",
+        "options_methods": RouteSchemaProject::methods(),
+        "options_models": {"Item": RouteSchemaProject::item()},
+    });
+    assert_eq!(written, expected, "{api}\n{options}");
+}
+
+one_test_per_case!(
+    a_route_writes_its_schema_and_api_json,
+    async writes_its_schema_and_api_json_in,
+    all RouteSchemaProject::ALL.map(|project| project.extension),
+    [
+        fsharp => "fs",
+        lua => "lua",
+    ]
+);
