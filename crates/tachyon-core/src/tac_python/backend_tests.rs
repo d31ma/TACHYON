@@ -399,6 +399,10 @@ impl PythonPage {
             .arg("--version")
             .output()
             .is_ok_and(|output| output.status.success());
+        assert!(
+            found || std::env::var_os("CI").is_none(),
+            "CI installs python3, so the Python Tac backend tests must run there"
+        );
         if !found {
             eprintln!("skipping: python3 is unavailable");
         }

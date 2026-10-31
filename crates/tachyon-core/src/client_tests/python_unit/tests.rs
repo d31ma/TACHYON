@@ -206,3 +206,13 @@ fn a_python_socket_client_in_a_test_unit_has_no_page_to_send_on() {
     assert_eq!(report.cases.len(), 1);
     assert!(report.cases[0].passed, "{:?}", report.cases[0]);
 }
+
+#[test]
+fn a_python_client_unit_fake_starts_empty_in_every_case() {
+    let unit = "from typing import Annotated\n\n@Test(UnitTestSetup)\nclass CounterServiceTest:\n    counter: Annotated[CounterService, fake]\n\n    def test_01_fills_its_fake(self) -> None:\n        Assert.is_true(self.counter is None, 'the fake starts empty')\n        self.counter = CounterService()\n        self.kept = self.counter.increment()\n        Assert.equals(1, self.counter.count)\n\n    def test_02_starts_with_an_empty_fake(self) -> None:\n        Assert.equals(1, self.kept, 'the unit keeps its plain fields')\n        Assert.is_true(self.counter is None, 'the first case left its fake behind')\n";
+    let project = PythonProject::project(unit);
+    let report = run(project.path(), Path::new(PythonProject::UNIT_PATH)).expect("Python unit");
+    assert_eq!(report.cases.len(), 2);
+    assert!(report.cases[0].passed, "{:?}", report.cases[0]);
+    assert!(report.cases[1].passed, "{:?}", report.cases[1]);
+}

@@ -213,14 +213,60 @@ fn native_targets_reject_an_unreachable_entry_route_before_any_toolchain() {
     }
 }
 
+struct NativeServiceProject;
+
+impl NativeServiceProject {
+    const TARGETS: [&'static str; 5] = ["macos", "ios", "linux", "windows", "android"];
+    const PAGE: &'static str = "<counter-panel hydrate=\"load\" />";
+    const PANEL: &'static str = "<main><button type=\"button\" on:click=\"counter.increment()\">Add one</button><output>{counter.count}</output></main>";
+
+    fn write(project: &Path, manifest: &str, service: (&str, &str)) {
+        let (file, source) = service;
+        write(&project.join("client/manifest.json"), manifest);
+        write(&project.join("client/pages/tac.html"), Self::PAGE);
+        write(
+            &project.join("client/components/counter/panel/tac.html"),
+            Self::PANEL,
+        );
+        write(&project.join("client/services").join(file), source);
+    }
+
+    fn assert_bundles(workspace: &Path, project: &Path, target: &str, runtime: &str) {
+        let published = workspace.join("published");
+        let output = run(ty()
+            .arg("bundle")
+            .arg(project)
+            .args(["--target", target, "--skip-package"])
+            .env("TAC_DIST_PATH", &published));
+        assert!(output.status.success(), "{target}: {}", stderr(&output));
+        let web = published.join(target).join("web");
+        assert!(
+            web.join(".tachyon/services/CounterService.js").is_file(),
+            "{target} bundled no service module"
+        );
+        assert!(
+            web.join(runtime).is_file(),
+            "{target} bundled no runtime at {runtime}"
+        );
+        assert!(
+            published
+                .join(target)
+                .join("artifact-manifest.json")
+                .is_file(),
+            "{target} wrote no artifact manifest"
+        );
+    }
+}
+
 struct RubyNativeProject;
 
 impl RubyNativeProject {
-    const TARGETS: [&'static str; 5] = ["macos", "ios", "linux", "windows", "android"];
     const MANIFEST: &'static str = r#"{"name":"RubyNative","start_url":"/","tac":{"application":{"id":"dev.tachyon.ruby-native","version":"0.1.0"}}}"#;
-    const PAGE: &'static str = "<counter-panel hydrate=\"load\" />";
-    const PANEL: &'static str = "<main><button type=\"button\" on:click=\"counter.increment()\">Add one</button><output>{counter.count}</output></main>";
-    const SERVICE: &'static str = "#[Service]\nclass CounterService\n  # @return [Integer]\n  attr_reader :count\n\n  def initialize\n    @count = 0\n  end\n\n  def increment\n    @count += 1\n  end\nend\n";
+    const SERVICE: (&'static str, &'static str) = (
+        "CounterService.rb",
+        "#[Service]\nclass CounterService\n  # @return [Integer]\n  attr_reader :count\n\n  def initialize\n    @count = 0\n  end\n\n  def increment\n    @count += 1\n  end\nend\n",
+    );
+    const RUNTIME: &'static str = ".tachyon/services/ruby/tachyon-ruby.wasm";
     const RUNTIME_REQUIREMENT: &'static str = "Ruby services on the web";
 
     fn has_ruby_runtime(project: &Path) -> bool {
@@ -241,58 +287,87 @@ impl RubyNativeProject {
         }
         missing.is_empty()
     }
-
-    fn write(project: &Path) {
-        write(&project.join("client/manifest.json"), Self::MANIFEST);
-        write(&project.join("client/pages/tac.html"), Self::PAGE);
-        write(
-            &project.join("client/components/counter/panel/tac.html"),
-            Self::PANEL,
-        );
-        write(
-            &project.join("client/services/CounterService.rb"),
-            Self::SERVICE,
-        );
-    }
 }
 
 fn ruby_service_bundles_into(target: &str) {
     let workspace = tempfile::tempdir().expect("workspace");
     let project = workspace.path().join("ruby-native");
-    RubyNativeProject::write(&project);
+    NativeServiceProject::write(
+        &project,
+        RubyNativeProject::MANIFEST,
+        RubyNativeProject::SERVICE,
+    );
     if !RubyNativeProject::has_ruby_runtime(&project) {
         return;
     }
-    let published = workspace.path().join("published");
-    let output = run(ty()
-        .arg("bundle")
-        .arg(&project)
-        .args(["--target", target, "--skip-package"])
-        .env("TAC_DIST_PATH", &published));
-    assert!(output.status.success(), "{target}: {}", stderr(&output));
-    let web = published.join(target).join("web");
-    assert!(
-        web.join(".tachyon/services/CounterService.js").is_file(),
-        "{target} bundled no Ruby service module"
-    );
-    assert!(
-        web.join(".tachyon/services/ruby/tachyon-ruby.wasm")
-            .is_file(),
-        "{target} bundled no mruby runtime"
-    );
-    assert!(
-        published
-            .join(target)
-            .join("artifact-manifest.json")
-            .is_file(),
-        "{target} wrote no artifact manifest"
+    NativeServiceProject::assert_bundles(
+        workspace.path(),
+        &project,
+        target,
+        RubyNativeProject::RUNTIME,
     );
 }
 
 one_test_per_case!(
     a_ruby_service_bundles_into_every_native_target,
     ruby_service_bundles_into,
-    all RubyNativeProject::TARGETS,
+    all NativeServiceProject::TARGETS,
+    [
+        macos => "macos",
+        ios => "ios",
+        linux => "linux",
+        windows => "windows",
+        android => "android",
+    ]
+);
+
+struct PythonNativeProject;
+
+impl PythonNativeProject {
+    const MANIFEST: &'static str = r#"{"name":"PythonNative","start_url":"/","tac":{"application":{"id":"dev.tachyon.python-native","version":"0.1.0"},"python":{"runtime":"pyodide-314.0.7","profile":"offline"}}}"#;
+    const SERVICE: (&'static str, &'static str) = (
+        "CounterService.py",
+        "@service\nclass CounterService:\n    count: int = 0\n\n    def increment(self) -> None:\n        self.count += 1\n",
+    );
+    const RUNTIME: &'static str = ".tachyon/services/python/314.0.7/pyodide.asm.wasm";
+    const PYODIDE: &'static str = "python-web/314.0.7/pyodide.asm.wasm";
+
+    fn has_pyodide() -> bool {
+        let cached = tachyon_core::cache::root().join(Self::PYODIDE).is_file();
+        assert!(
+            cached || std::env::var_os("CI").is_none(),
+            "CI installs the pinned Pyodide with scripts/ci/install-toolchains.mjs, so the Python native bundles must run there"
+        );
+        if !cached {
+            eprintln!("skipping: the pinned Pyodide runtime is not in the Tachyon cache");
+        }
+        cached
+    }
+}
+
+fn python_service_bundles_into(target: &str) {
+    if !PythonNativeProject::has_pyodide() {
+        return;
+    }
+    let workspace = tempfile::tempdir().expect("workspace");
+    let project = workspace.path().join("python-native");
+    NativeServiceProject::write(
+        &project,
+        PythonNativeProject::MANIFEST,
+        PythonNativeProject::SERVICE,
+    );
+    NativeServiceProject::assert_bundles(
+        workspace.path(),
+        &project,
+        target,
+        PythonNativeProject::RUNTIME,
+    );
+}
+
+one_test_per_case!(
+    a_python_service_bundles_into_every_native_target,
+    python_service_bundles_into,
+    all NativeServiceProject::TARGETS,
     [
         macos => "macos",
         ios => "ios",

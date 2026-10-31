@@ -100,6 +100,32 @@ impl StreamProject {
         ],
     ];
 
+    const TOPIC_FILES: [(&'static str, &'static str); 1] = [(
+        "client/models/ShelfChanged.py",
+        "from dataclasses import dataclass\n\n@topic\n@dataclass\nclass ShelfChanged:\n    count: int\n",
+    )];
+
+    const SHELF: &'static str = "from models import ShelfChanged\n\n@service\nclass ShelfService:\n    total: int = 0\n\n    @on_event\n    def changed(self, changed: ShelfChanged) -> None:\n        self.total += changed.count\n";
+
+    const TOPIC_DRIVER: &'static str = "globalThis.location = { href: 'http://127.0.0.1:4000/page' }\n\
+         const sources = []\n\
+         globalThis.EventSource = class { constructor(url) { this.url = String(url); this.closed = false; sources.push(this) } addEventListener() {} close() { this.closed = true } }\n\
+         const { default: ShelfService, __tachyon_event_plan__: plan } = await import('./ShelfService.js')\n\
+         const { default: ApplicationEvents } = await import('./application-events.mjs')\n\
+         const bus = new ApplicationEvents({ changed: () => {}, failed: () => { throw new Error('Event delivery failed') } })\n\
+         const shelf = new ShelfService({})\n\
+         bus.attach(shelf, plan.types[0], { applicationEventPublisher: null })\n\
+         await bus.initialize(shelf)\n\
+         const before = shelf.total\n\
+         for (const source of sources) source.onmessage({ data: JSON.stringify({ count: 3 }), lastEventId: '1' })\n\
+         for (const source of sources) source.onmessage({ data: JSON.stringify({ count: 4 }), lastEventId: '2' })\n\
+         const report = { topics: sources.map((source) => source.url), before, total: shelf.total }\n\
+         bus.dispose(shelf)\n\
+         await new Promise((resolve) => setTimeout(resolve, 50))\n\
+         report.closed = sources.map((source) => source.closed)\n\
+         console.log(JSON.stringify(report))\n\
+         process.exit(0)\n";
+
     fn write_files(root: &Path) {
         for (relative, text) in Self::FILES {
             PythonPage::write(root, relative, text);
@@ -118,6 +144,18 @@ impl StreamProject {
     async fn publish(root: &Path) {
         Self::write_files(root);
         PythonPage::publish(root, &[("ticks", "TicksService", Self::SERVICE)]).await;
+        Self::write_events(root);
+    }
+
+    async fn publish_shelf(root: &Path) {
+        for (relative, text) in Self::TOPIC_FILES {
+            PythonPage::write(root, relative, text);
+        }
+        PythonPage::publish(root, &[("shelf", "ShelfService", Self::SHELF)]).await;
+        Self::write_events(root);
+    }
+
+    fn write_events(root: &Path) {
         PythonPage::write(
             root,
             "application-events.mjs",
@@ -192,6 +230,27 @@ async fn a_python_service_receives_streams_and_sends_on_its_socket() {
     assert_eq!(
         report["closed"],
         serde_json::json!([true, true]),
+        "{report}"
+    );
+}
+
+#[tokio::test]
+async fn a_python_topic_model_reaches_its_listener_from_its_topic_stream_on_the_page() {
+    if let Some(reason) = PythonPage::skip_reason() {
+        eprintln!("skipping: {reason}");
+        return;
+    }
+    let root = tempfile::tempdir().unwrap_or_else(|error| panic!("project: {error}"));
+    StreamProject::publish_shelf(root.path()).await;
+    let report = PythonPage::run(root.path(), StreamProject::TOPIC_DRIVER);
+    assert_eq!(
+        report,
+        serde_json::json!({
+            "topics": ["/.tachyon/topics/shelf-changed"],
+            "before": 0,
+            "total": 7,
+            "closed": [true],
+        }),
         "{report}"
     );
 }
