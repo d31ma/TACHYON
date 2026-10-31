@@ -1039,6 +1039,7 @@ async fn no_watch_serves_documents_untouched() {
     let document = get(port, "/").await;
     assert!(document.contains("Plain"), "{document}");
     assert!(!document.contains("live-reload"), "reload client leaked in");
+    assert!(!document.contains("data-tachyon-environment"), "{document}");
     for endpoint in [
         "/.tachyon/hot",
         "/.tachyon/live",
@@ -1051,6 +1052,70 @@ async fn no_watch_serves_documents_untouched() {
 
     let _stopped = stop.send(());
     let _joined = running.await;
+}
+
+#[tokio::test]
+async fn the_development_server_marks_every_document_and_a_bundle_never_does() {
+    let project = tempfile::tempdir().expect("project");
+    write(
+        &project.path().join("client/pages/tac.html"),
+        "<mark-home />",
+    );
+    write(
+        &project.path().join("client/pages/about/tac.html"),
+        "<mark-about />",
+    );
+    write(
+        &project.path().join("client/components/mark/home/tac.html"),
+        "<main aria-label=\"Home\"><h1>Home</h1></main>",
+    );
+    write(
+        &project.path().join("client/components/mark/about/tac.html"),
+        "<main aria-label=\"About\"><h1>About</h1></main>",
+    );
+    let server = DevServer::bind(
+        project.path(),
+        &DevServerOptions {
+            port: 0,
+            watch: true,
+            ..DevServerOptions::default()
+        },
+    )
+    .await
+    .expect("bind");
+    let port = server.address().port();
+    let output = server
+        .build()
+        .expect("initial build")
+        .output_directory()
+        .to_path_buf();
+    let (stop, wait) = tokio::sync::oneshot::channel::<()>();
+    let running = tokio::spawn(async move {
+        server
+            .run_until(async {
+                let _stopped = wait.await;
+            })
+            .await
+    });
+
+    let home = get(port, "/").await;
+    let about = get(port, "/about/").await;
+    let _stopped = stop.send(());
+    let _joined = running.await;
+
+    let mark = "<body data-tachyon-environment=\"development\"";
+    assert!(home.contains(mark), "{home}");
+    assert!(about.contains(mark), "{about}");
+    let bundled_home = fs::read_to_string(output.join("index.html")).expect("bundled home");
+    let bundled_about = fs::read_to_string(output.join("about/index.html")).expect("bundled about");
+    assert!(
+        !bundled_home.contains("data-tachyon-environment"),
+        "{bundled_home}"
+    );
+    assert!(
+        !bundled_about.contains("data-tachyon-environment"),
+        "{bundled_about}"
+    );
 }
 
 fn available(program: &str) -> bool {

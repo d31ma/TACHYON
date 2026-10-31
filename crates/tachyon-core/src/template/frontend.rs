@@ -1642,6 +1642,55 @@ mod tests {
     }
 
     #[test]
+    fn a_switch_lowers_its_cases_and_keeps_default_last() {
+        let program = compile_without_components(
+            "<switch :value=\"status\">\n<case :when=\"'paid'\"><p>paid</p></case>\n<!-- next case -->\n<case :when=\"'late'\"><p>late</p></case>\n<case default><p>unknown</p></case>\n</switch>",
+        )
+        .expect("switch");
+        let json = serde_json::to_value(program.view_ir()).expect("view IR");
+        let late = &json["root"]["else"][0];
+        assert_eq!(json["root"]["kind"], "conditional");
+        assert_eq!(json["root"]["condition"], "status == 'paid'");
+        assert_eq!(json["root"]["then"][0]["children"][0]["value"], "paid");
+        assert_eq!(late["condition"], "status == 'late'");
+        assert_eq!(late["then"][0]["children"][0]["value"], "late");
+        assert_eq!(late["else"][0]["children"][0]["value"], "unknown");
+        assert!(!json.to_string().contains("\"tag\":\"case\""), "{json}");
+    }
+
+    fn switch_failure(source: &str) -> (String, usize) {
+        let failure = compile_without_components(source).expect_err("refused switch");
+        let diagnostic = diagnostic_with_number(&failure, 1302);
+        let span = diagnostic.spans.first().expect("span on the case");
+        let start = usize::try_from(span.start).expect("span start");
+        (String::from(&diagnostic.message), start)
+    }
+
+    #[test]
+    fn a_case_default_that_is_not_last_is_refused() {
+        let source = "<switch :value=\"status\"><case :when=\"'paid'\"><p>paid</p></case><case default><p>unknown</p></case><case :when=\"'late'\"><p>late</p></case></switch>";
+        assert_eq!(
+            switch_failure(source),
+            (
+                String::from("<case default> must be the last case."),
+                source.find("<case :when=\"'late'\">").expect("late case")
+            )
+        );
+    }
+
+    #[test]
+    fn a_case_default_before_any_case_when_is_refused() {
+        let source = "<switch :value=\"status\"><case default><p>unknown</p></case><case :when=\"'paid'\"><p>paid</p></case></switch>";
+        assert_eq!(
+            switch_failure(source),
+            (
+                String::from("<switch> needs at least one <case :when> before <case default>."),
+                source.find("<case default>").expect("default case")
+            )
+        );
+    }
+
+    #[test]
     fn removed_if_element_names_the_logic_form() {
         assert_eq!(
             removed_control_message("<if :when=\"ready\"><p>ready</p></if>"),
