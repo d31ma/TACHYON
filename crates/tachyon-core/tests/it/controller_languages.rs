@@ -215,6 +215,48 @@ impl OrderProject {
     };
 }
 
+struct SharedHelper {
+    label: &'static str,
+    controller: &'static str,
+}
+
+impl SharedHelper {
+    const PHP: Self = Self {
+        label: "<?php\nclass Label\n{\n    public static function of(string $name): string\n    {\n        return 'shared:' . $name;\n    }\n}\n",
+        controller: "<?php\nuse Models\\Order;\n\n#[RequestRoute(\"/orders\")]\n#[Public]\nclass OrdersController {\n    #[GetRoute]\n    public function getOrders(): array {\n        return [new Order(Label::of('a'), 1)];\n    }\n}\n",
+    };
+
+    const JAVA: Self = Self {
+        label: "public class Label {\n  static String of(String name) {\n    return \"shared:\" + name;\n  }\n}\n",
+        controller: "import models.Order;\n\n@RequestRoute(\"/orders\")\n@Public\nclass OrdersController {\n    @GetRoute\n    java.util.List<Order> getOrders() {\n        return java.util.List.of(new Order(Label.of(\"a\"), 1));\n    }\n}\n",
+    };
+
+    const KOTLIN: Self = Self {
+        label: "object Label {\n    fun of(name: String): String = \"shared:\" + name\n}\n",
+        controller: "import models.Order\n\n@RequestRoute(\"/orders\")\n@Public\nclass OrdersController {\n    @GetRoute\n    fun getOrders(): List<Order> {\n        return listOf(Order(Label.of(\"a\"), 1))\n    }\n}\n",
+    };
+
+    const GROOVY: Self = Self {
+        label: "public class Label {\n  static String of(String name) {\n    return 'shared:' + name\n  }\n}\n",
+        controller: "import models.Order\n\n@RequestRoute('/orders')\n@Public\nclass OrdersController {\n    @GetRoute\n    List<Order> getOrders() {\n        return [new Order(Label.of('a'), 1)]\n    }\n}\n",
+    };
+
+    const RUST: Self = Self {
+        label: "pub struct Label;\n\nimpl Label {\n    pub fn of(name: &str) -> String {\n        format!(\"shared:{name}\")\n    }\n}\n",
+        controller: "use crate::models::Order;\n\n#[RequestRoute(\"/orders\")]\n#[Public]\nstruct OrdersController {}\nimpl OrdersController {\n    fn new() -> Self { Self {} }\n\n    #[GetRoute]\n    fn get_orders(&self) -> Vec<Order> {\n        vec![Order { name: Label::of(\"a\"), count: 1 }]\n    }\n}\n",
+    };
+
+    const DART: Self = Self {
+        label: "class Label {\n  static String of(String name) => 'shared:$name';\n}\n",
+        controller: "import 'models/Order.dart';\n\n@RequestRoute(\"/orders\")\n@Public\nclass OrdersController {\n  @GetRoute\n  List<Order> getOrders() {\n    return [Order(Label.of('a'), 1)];\n  }\n}\n",
+    };
+
+    const LUA: Self = Self {
+        label: "---@class Label\nLabel = {}\n\n---@param name string\n---@return string\nfunction Label.of(name)\n  return \"shared:\" .. name\nend\n",
+        controller: "-- @RequestRoute(\"/orders\")\n-- @Public\n---@class OrdersController\nOrdersController = {}\n\n---@return Order[]\n-- @GetRoute\nfunction OrdersController:get_orders()\n  return { { name = Label.of(\"a\"), count = 1 } }\nend\n",
+    };
+}
+
 fn available(program: &str) -> bool {
     let flag = match program {
         "kotlinc" => "-version",
@@ -296,6 +338,36 @@ async fn assert_orders(project: &OrderProject) {
     );
 }
 
+async fn assert_shared_helper(project: &OrderProject, helper: &SharedHelper) {
+    if !available(project.program) {
+        eprintln!(
+            "skipping {}: {} is unavailable",
+            project.extension, project.program
+        );
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    for (relative, source) in project.files {
+        write(root.path(), relative, source);
+    }
+    let entry = format!("server/controllers/OrdersController.{}", project.extension);
+    write(root.path(), &entry, helper.controller);
+    write(
+        root.path(),
+        &format!("server/shared/labels.{}", project.extension),
+        helper.label,
+    );
+    let source = HandlerSource::discover(root.path(), &entry)
+        .unwrap_or_else(|failure| panic!("{}: {failure}", project.extension));
+    let listed = call(&source, "/orders", HttpMethod::Get, Vec::new()).await;
+    assert_eq!(
+        listed,
+        serde_json::json!([{"name": "shared:a", "count": 1}]),
+        "{}",
+        project.extension
+    );
+}
+
 #[tokio::test]
 async fn a_python_controller_binds_arguments_and_models() {
     assert_orders(&OrderProject::PYTHON).await;
@@ -359,6 +431,41 @@ async fn a_go_controller_binds_arguments_and_models() {
 #[tokio::test]
 async fn a_typescript_controller_binds_arguments_and_models() {
     assert_orders(&OrderProject::TYPESCRIPT).await;
+}
+
+#[tokio::test]
+async fn a_php_controller_calls_a_server_shared_helper() {
+    assert_shared_helper(&OrderProject::PHP, &SharedHelper::PHP).await;
+}
+
+#[tokio::test]
+async fn a_groovy_controller_calls_a_server_shared_helper() {
+    assert_shared_helper(&OrderProject::GROOVY, &SharedHelper::GROOVY).await;
+}
+
+#[tokio::test]
+async fn a_kotlin_controller_calls_a_server_shared_helper() {
+    assert_shared_helper(&OrderProject::KOTLIN, &SharedHelper::KOTLIN).await;
+}
+
+#[tokio::test]
+async fn a_java_controller_calls_a_server_shared_helper() {
+    assert_shared_helper(&OrderProject::JAVA, &SharedHelper::JAVA).await;
+}
+
+#[tokio::test]
+async fn a_rust_controller_calls_a_server_shared_helper() {
+    assert_shared_helper(&OrderProject::RUST, &SharedHelper::RUST).await;
+}
+
+#[tokio::test]
+async fn a_dart_controller_calls_a_server_shared_helper() {
+    assert_shared_helper(&OrderProject::DART, &SharedHelper::DART).await;
+}
+
+#[tokio::test]
+async fn a_lua_controller_calls_a_server_shared_helper() {
+    assert_shared_helper(&OrderProject::LUA, &SharedHelper::LUA).await;
 }
 
 #[tokio::test]
