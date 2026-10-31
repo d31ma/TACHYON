@@ -407,7 +407,6 @@ impl ClientStyleFixture {
         assert!(foundation.contains("background: #0f172a"), "{foundation}");
         assert!(foundation.contains("color: #e2e8f0"), "{foundation}");
         assert!(foundation.contains("line-height: 1.6"), "{foundation}");
-        assert!(foundation.contains("min-height: 44px"), "{foundation}");
         assert!(
             foundation.contains("prefers-reduced-motion"),
             "{foundation}"
@@ -428,7 +427,8 @@ impl ClientStyleFixture {
         let component = app.join(format!("client/components/greeting/{}", language.slug()));
         let styles = fs::read_to_string(component.join("tac.css")).expect("greeting styles");
         assert_eq!(
-            styles, ".greeting { margin-top: 1.5rem; }\n",
+            styles,
+            ".greeting { margin-top: 1.5rem; }\n.greeting button { min-height: 44px; padding: 0.5rem 1rem; font: inherit; cursor: pointer; }\n.greeting button:focus-visible { outline: 2px solid #93c5fd; outline-offset: 2px; }\n",
             "{language:?}"
         );
         let view = fs::read_to_string(component.join("tac.html")).expect("greeting view");
@@ -645,7 +645,10 @@ fn adding_a_greeting_language_preserves_existing_foundation_styles() {
     );
     let styles = fs::read_to_string(app.join("client/components/greeting/go/tac.css"))
         .expect("greeting styles");
-    assert_eq!(styles, ".greeting { margin-top: 1.5rem; }\n");
+    assert_eq!(
+        styles,
+        ".greeting { margin-top: 1.5rem; }\n.greeting button { min-height: 44px; padding: 0.5rem 1rem; font: inherit; cursor: pointer; }\n.greeting button:focus-visible { outline: 2px solid #93c5fd; outline-offset: 2px; }\n"
+    );
 }
 
 #[test]

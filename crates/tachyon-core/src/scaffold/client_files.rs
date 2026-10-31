@@ -106,7 +106,9 @@ impl ClientFiles {
                 ),
                 (
                     format!("client/components/greeting/{}/tac.css", language.slug()),
-                    String::from(".greeting { margin-top: 1.5rem; }\n"),
+                    String::from(
+                        ".greeting { margin-top: 1.5rem; }\n.greeting button { min-height: 44px; padding: 0.5rem 1rem; font: inherit; cursor: pointer; }\n.greeting button:focus-visible { outline: 2px solid #93c5fd; outline-offset: 2px; }\n",
+                    ),
                 ),
             ]
         })
@@ -139,7 +141,7 @@ impl ClientFiles {
             (
                 "client/shared/styles/app.css",
                 String::from(
-                    ":root {\n  color-scheme: dark;\n}\nbody { margin: 0; font-family: \"IBM Plex Sans\", ui-sans-serif, system-ui, sans-serif; line-height: 1.6; background: #0f172a; color: #e2e8f0; }\nbutton { min-height: 44px; padding: 0.5rem 1rem; font: inherit; cursor: pointer; }\n:focus-visible { outline: 2px solid #93c5fd; outline-offset: 2px; }\n@media (prefers-reduced-motion: reduce) {\n  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }\n}\n",
+                    ":root {\n  color-scheme: dark;\n}\nbody { margin: 0; font-family: \"IBM Plex Sans\", ui-sans-serif, system-ui, sans-serif; line-height: 1.6; background: #0f172a; color: #e2e8f0; }\n@media (prefers-reduced-motion: reduce) {\n  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }\n}\n",
                 ),
             ),
             (Self::ICON_PATH, String::from(Self::ICON)),
@@ -147,7 +149,7 @@ impl ClientFiles {
             (
                 "client/components/app/shell/tac.css",
                 String::from(
-                    ".shell { max-width: 72rem; margin: 0 auto; padding: 2rem 1.25rem 4rem; }\n.brand { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2rem; }\n.brand a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 0.5rem; color: inherit; text-decoration: none; }\n",
+                    ".shell { max-width: 72rem; margin: 0 auto; padding: 2rem 1.25rem 4rem; }\n.brand { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2rem; }\n.brand a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 0.5rem; color: inherit; text-decoration: none; }\n.brand a:focus-visible { outline: 2px solid #93c5fd; outline-offset: 2px; }\n",
                 ),
             ),
             (
