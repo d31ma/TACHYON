@@ -8,7 +8,7 @@ pub(super) fn validate(document: &Value) -> Result<(), Failure> {
     for (namespace, value) in root {
         if !matches!(namespace.as_str(), "tac" | "yon") {
             return Err(invalid(
-                "application.json has one root namespace, yon, and Tac's public configuration is the tac member of manifest.json; move old server/datasource/properties settings under yon.",
+                "The configuration has two namespaces: yon, read from the top level of server/application.json, and tac, read from the tac member of client/manifest.json. Move old server/datasource/properties settings to the top level of server/application.json.",
             ));
         }
         if !value.is_object() {

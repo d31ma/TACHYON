@@ -107,7 +107,7 @@ impl BuildTarget {
     about = "Tachyon CLI",
     disable_version_flag = true,
     disable_help_subcommand = true,
-    help_template = "ty {version} — Tachyon CLI\n\nUsage: ty <command> [options]\n\nCommands:\n  init [name]        Create a new Tachyon app (asks questions in a terminal)\n  add                Add a language, a target or an example to an app\n  preview            Development server: Tac, Yon, or both\n  start              Serve a built bundle with Yon in production\n  bundle             Build client + native artifacts\n  bundle --native    Stage the native host without packaging\n  serve              Compatibility development-server command\n  cache [status|clean] Inspect or clear standalone runtime cache\n  test               Run the project's Test units\n  types              Write TypeScript globals for composed classes\n\nRun 'ty <command> --help' for command-specific options.\n"
+    help_template = "ty {version} — Tachyon CLI\n\nUsage: ty <command> [options]\n\nCommands:\n  init [name]        Create a new Tachyon app (asks questions in a terminal)\n  add                Add a language, a target or an example to an app\n  preview            Development server: Tac, Yon, or both\n  start              Serve a built bundle with Yon in production\n  bundle             Build client + native artifacts\n  bundle --native    Stage the native host without packaging\n  serve              Compatibility development-server command\n  cache [status|clean] Inspect or clear standalone runtime cache\n  test               Run the project's Test units\n  types              Write TypeScript globals for composed classes\n  doctor             Check this machine's toolchains for a project\n  api freeze         Save the API baseline that later builds compare against\n  migrate [check|fix] Find and fix what a project must change for this release\n\nRun 'ty <command> --help' for command-specific options.\n"
 )]
 struct Cli {
     #[arg(short = 'v', long = "version", global = true)]
@@ -367,8 +367,7 @@ enum Command {
     },
     #[command(
         about = "Report whether this machine has the toolchains a project needs",
-        after_help = "Exit status:\n  0  every toolchain the project needs to build and serve is ready\n  1  a needed toolchain is missing or too old, or the project cannot be read\n\nToolchains needed only to bundle or release a native target are reported as info and do not change the exit status. With --release, those of the targets this machine can build are needed too.",
-        hide = true
+        after_help = "Exit status:\n  0  every toolchain the project needs to build and serve is ready\n  1  a needed toolchain is missing or too old, or the project cannot be read\n\nToolchains needed only to bundle or release a native target are reported as info and do not change the exit status. With --release, those of the targets this machine can build are needed too."
     )]
     Doctor {
         #[arg(help = "Tachyon project root", default_value = ".")]
@@ -418,7 +417,7 @@ enum Command {
         #[arg(help = "Tachyon project root", default_value = ".")]
         project: PathBuf,
     },
-    #[command(about = "Save or check the API that callers of the last release rely on")]
+    #[command(about = "Save the API baseline that later builds compare against")]
     Api {
         #[command(subcommand)]
         command: ApiCommand,
@@ -429,8 +428,8 @@ enum Command {
         command: HandlerCommand,
     },
     #[command(
-        about = "Analyze a legacy project for migration to this implementation",
-        hide = true
+        about = "Find what a project must change for this release, and apply the automatic fixes",
+        after_help = "`ty migrate check` lists the constructs this release does not support. `ty migrate fix` prints the automatic fixes for Tachyon's breaking changes and the manual steps; `ty migrate fix --write` applies the fixes."
     )]
     Migrate {
         #[command(subcommand)]
@@ -447,7 +446,7 @@ enum Command {
 enum CacheCommand {
     #[command(about = "Report where the cache lives and what it holds")]
     Status,
-    #[command(about = "Remove the cache directory")]
+    #[command(about = "Remove the runtime and build caches")]
     Clean,
 }
 
@@ -533,7 +532,7 @@ enum HandlerCommand {
         #[arg(help = "Complete invocation deadline in milliseconds", long, default_value_t = 30_000, value_parser = clap::value_parser!(u64).range(1..=300_000))]
         timeout_ms: u64,
         #[arg(
-            help = "Explicit environment variable name to inherit",
+            help = "Environment variable the handler may inherit; ty's own TAC_*, TACHYON_*, YON_* and proxy variables are refused",
             long = "allow-env"
         )]
         allow_environment: Vec<String>,
@@ -2084,7 +2083,7 @@ impl HandlerCommand {
             timeout_ms,
             ..
         } = self;
-        let environment = EnvironmentPolicy::from_names(allow_environment.clone())?;
+        let environment = EnvironmentPolicy::from_operator_names(allow_environment.clone())?;
         let mut runtimes = HandlerRuntimePrograms::default();
         if let Some(javascript_runtime) = javascript_runtime {
             runtimes.javascript.clone_from(javascript_runtime);

@@ -41,6 +41,20 @@ impl EnvironmentPolicy {
         Ok(policy)
     }
 
+    pub fn from_operator_names<I, S>(names: I) -> Result<Self, Failure>
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        let mut policy = Self::default();
+        names.into_iter().try_for_each(|name| {
+            let name = name.into();
+            Self::check_unreserved(&name)?;
+            policy.allow(name)
+        })?;
+        Ok(policy)
+    }
+
     pub fn allow(&mut self, name: impl Into<String>) -> Result<(), Failure> {
         let name = name.into();
         Self::check_name(&name)?;
@@ -121,6 +135,20 @@ impl EnvironmentPolicy {
         }
         Ok(())
     }
+
+    fn check_unreserved(name: &str) -> Result<(), Failure> {
+        if EnvironmentAllowlist::is_reserved(name) {
+            return Err(Failure::one(diagnostic(
+                2006,
+                format!("Environment allowlist name '{name}' is one of ty's own variables."),
+                Some(String::from(
+                    "TAC_*, TACHYON_*, YON_* and the proxy settings of the outgoing request guard stay with ty. Allow only the application's own variables.",
+                )),
+                None,
+            )));
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -170,6 +198,34 @@ mod tests {
         host.push("YON_PUBLIC_SETTING");
         let names = HostEnvironment::passed(&policy, &host);
         assert_eq!(names, ["YON_PUBLIC_SETTING"]);
+    }
+
+    #[test]
+    fn operator_allowlists_refuse_ty_variables_and_keep_application_names() {
+        for name in [
+            "TAC_TOKEN",
+            "tachyon_home",
+            "YON_PUBLIC_SETTING",
+            "HTTPS_PROXY",
+            "no_proxy",
+            "NODE_USE_ENV_PROXY",
+        ] {
+            let failure =
+                EnvironmentPolicy::from_operator_names([name]).expect_err("reserved name");
+            let message = failure.to_string();
+            assert!(message.contains("TY2006"), "{name}: {message}");
+            assert!(message.contains("ty's own variables"), "{name}: {message}");
+        }
+        let invalid = EnvironmentPolicy::from_operator_names(["BAD-NAME"]).expect_err("invalid");
+        assert!(invalid.to_string().contains("is invalid"));
+        let policy =
+            EnvironmentPolicy::from_operator_names(["HOME", "TACO_SETTING", "HTTP_PROXY_EXTRA"])
+                .expect("application names");
+        let names = HostEnvironment::passed(
+            &policy,
+            &["HOME", "TACO_SETTING", "HTTP_PROXY_EXTRA", "TAC_TOKEN"],
+        );
+        assert_eq!(names, ["HOME", "TACO_SETTING", "HTTP_PROXY_EXTRA"]);
     }
 
     #[test]

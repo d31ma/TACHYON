@@ -625,12 +625,12 @@ fn released_command_surface_and_web_bundle_path_remain_compatible() {
     let help = run(ty().arg("help"));
     assert!(help.status.success(), "{}", stderr(&help));
     let help = stdout(&help);
-    for command in ["init", "serve", "bundle", "start", "preview", "cache"] {
+    for command in [
+        "init", "serve", "bundle", "start", "preview", "cache", "doctor", "migrate",
+    ] {
         assert!(help.contains(command), "missing {command}: {help}");
     }
-    for internal in ["doctor", "handler", "migrate"] {
-        assert!(!help.contains(internal), "leaked {internal}: {help}");
-    }
+    assert!(!help.contains("handler"), "leaked handler: {help}");
 
     let bundled = run(ty().arg("bundle").arg(&project));
     assert!(bundled.status.success(), "{}", stderr(&bundled));
