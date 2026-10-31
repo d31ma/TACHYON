@@ -2,6 +2,7 @@ use super::host::{native_tool_failure, run_tool, write};
 use super::native_reproducibility::NativeReproducibility;
 pub(super) use super::rust_companion_output::RustCompanionOutput;
 use super::rust_native_libraries::RustNativeLibraries;
+use super::rust_wasm_cache::RustWasmCache;
 use super::rust_web_module::RustWebModule;
 use crate::Failure;
 use crate::wasm_release_step::WasmReleaseStep;
@@ -435,15 +436,6 @@ pub(super) fn cache_key(compiler_version: &str, source: &[u8]) -> String {
     key
 }
 
-pub(super) fn store_in_cache(cached: &Path, bytes: &[u8]) {
-    let Some(parent) = cached.parent() else {
-        return;
-    };
-    if std::fs::create_dir_all(parent).is_ok() {
-        let _ = std::fs::write(cached, bytes);
-    }
-}
-
 pub(crate) async fn web_assembly(
     snapshot_root: &Path,
     services: &[(String, String, PathBuf)],
@@ -467,10 +459,8 @@ pub(crate) async fn web_assembly(
     let version = run_tool("rustc", &["-vV"]).await? + &release.identity() + &settings;
     let source_bytes = super::host::native_io(std::fs::read(&source), &source)?;
     let key = cache_key(&version, &source_bytes);
-    let cached = crate::cache::root()
-        .join("rust-wasm")
-        .join(format!("{key}.wasm"));
-    if let Ok(bytes) = std::fs::read(&cached) {
+    let cache = RustWasmCache::new(&crate::cache::root().join("rust-wasm"), &key);
+    if let Some(bytes) = cache.read() {
         return Ok(RustWebModule::built(bytes, &release, release.will_shrink()));
     }
     let output = staged.path().join("services.wasm");
@@ -486,7 +476,7 @@ pub(crate) async fn web_assembly(
         .await;
     let bytes = super::host::native_io(std::fs::read(&output), &output)?;
     if shrunk == release.will_shrink() {
-        store_in_cache(&cached, &bytes);
+        let _ = cache.store(&bytes);
     }
     Ok(RustWebModule::built(bytes, &release, shrunk))
 }
