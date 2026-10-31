@@ -2026,8 +2026,8 @@ machine contracts have their own, independent major versions.
 - Redis uses Tachyon's own client instead of the `redis` crate (RD3,
   2026-10-30). It sends the same commands with the same TLS, `AUTH`/`SELECT`,
   timeouts and reconnect backoff, and never retries a command. A release
-  build links 10 fewer packages (256 on Linux x86_64, 248 on macOS arm64,
-  257 on Windows x64), among them `redis`, `combine` and `rustls-native-certs`.
+  build links 10 fewer packages on Linux, macOS and Windows, among them
+  `redis`, `combine` and `rustls-native-certs`.
   `ty` now connects to Redis when managed storage starts, as
   `docs/MANAGED_STORAGE.md` describes, so a Redis it cannot reach stops startup
   instead of failing the first Redis command.
