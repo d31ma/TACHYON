@@ -94,11 +94,8 @@ display: inline-flex;
   .text-pretty {
     text-wrap: pretty;
   }
-  .opacity-60 {
-    opacity: 60%;
-  }
-  .opacity-70 {
-    opacity: 70%;
+  .text-\(--w-text-subtle\) {
+    color: var(--w-text-subtle);
   }
 }
 

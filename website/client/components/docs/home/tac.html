@@ -1,4 +1,4 @@
-<main class="docs-article">
+<article class="docs-article">
   <docs-pagelinks :source="documentation.source" :path="page.path" />
 
   <h1 class="text-title font-semibold text-balance">Documentation</h1>
@@ -45,7 +45,7 @@
   </section>
 
   <docs-pager :path="page.path" :documents="data.guides" :features="data.features" />
-</main>
+</article>
 
 <aside class="docs-toc" aria-label="On this page">
   <docs-toc :entries="documentation.contents" />

@@ -1,4 +1,4 @@
-<main class="docs-article">
+<article class="docs-article">
   <docs-pagelinks :source="feature.source" :path="feature.path()" />
 
   <logic :if="feature.entry().group">
@@ -16,12 +16,12 @@
   </logic>
 
   <logic :if="feature.entry().verify">
-    <p class="mt-4 text-sm opacity-60 text-pretty">
+    <p class="mt-4 text-sm text-(--w-text-subtle) text-pretty">
       Checked by <code>{feature.entry().verify}</code>.
     </p>
   </logic>
 
   <docs-pager :path="feature.path()" :documents="data.guides" :features="data.features" />
-</main>
+</article>
 
 <aside class="docs-toc" aria-hidden="true"></aside>

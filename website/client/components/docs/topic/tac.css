@@ -119,8 +119,8 @@ padding: .05em .35em;
   .text-pretty {
     text-wrap: pretty;
   }
-  .opacity-60 {
-    opacity: 60%;
+  .text-\(--w-text-subtle\) {
+    color: var(--w-text-subtle);
   }
   .opacity-80 {
     opacity: 80%;

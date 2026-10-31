@@ -1,20 +1,23 @@
 .docs-pagelinks {
   display: flex;
   flex-wrap: wrap;
-  gap: 1rem;
-  margin-bottom: 1rem;
+  gap: 0 1rem;
+  margin-bottom: .5rem;
   font-size: var(--step-sm);
   line-height: 1.5;
 }
 
 .docs-pagelinks__link {
-  color: inherit;
-  opacity: .6;
+  display: inline-flex;
+  align-items: center;
+  gap: .25rem;
+  min-height: 44px;
+  color: var(--w-text-subtle);
   text-decoration: none;
 }
 
 .docs-pagelinks__link:hover {
-  opacity: 1;
+  color: var(--w-text);
   text-decoration: underline;
 }
 

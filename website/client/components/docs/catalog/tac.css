@@ -112,7 +112,7 @@ min-height: 44px;
   width: 100%;
   box-sizing: border-box;
   padding: 0.75rem 1rem;
-  border: 1px solid var(--w-border, color-mix(in srgb, var(--w-text) 14%, transparent));
+  border: 1px solid var(--w-outline);
   border-radius: var(--w-radius-lg, 0.75rem);
   background: transparent;
   color: var(--w-text);
@@ -177,8 +177,8 @@ min-height: 44px;
   .text-pretty {
     text-wrap: pretty;
   }
-  .opacity-70 {
-    opacity: 70%;
+  .text-\(--w-text-subtle\) {
+    color: var(--w-text-subtle);
   }
   .opacity-80 {
     opacity: 80%;
