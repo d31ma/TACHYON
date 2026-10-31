@@ -8,27 +8,37 @@ impl RustConstructProject {
     const FILES: [(&'static str, &'static str); 7] = [
         (
             "client/models/Greeting.rs",
-            "#[derive(Clone, Debug, Default)]\npub struct Greeting {\n    pub message: String,\n}\n",
+            include_str!(
+                "../../../../website/content/docs/first-app/call-the-server/client/models/Greeting.rs"
+            ),
         ),
         (
             "client/remotes/GreetingClient.rs",
-            "use crate::models::Greeting;\n\n#[HTTPClient(\"/api\")]\ntrait GreetingClient {\n    #[GetRequest(\"/greeting\")]\n    async fn get_greeting(&self) -> BehaviorResult<Greeting>;\n}\n",
+            include_str!(
+                "../../../../website/content/docs/first-app/call-the-server/client/remotes/GreetingClient.rs"
+            ),
         ),
         (
             "client/setups/GreetingSetup.rs",
-            "#[tac::setup]\nstruct GreetingSetup {}\nimpl GreetingSetup {\n    fn configure(_execution: &BehaviorExecution) -> BehaviorResult<BehaviorConfiguration> {\n        Ok(BehaviorConfiguration::default())\n    }\n}\n",
+            include_str!(
+                "../../../../website/content/docs/first-app/call-the-server/client/setups/GreetingSetup.rs"
+            ),
         ),
         (
             "client/services/CounterService.rs",
-            "#[Service]\npub struct CounterService {\n    #[Needs]\n    greeting_client: std::sync::Arc<GreetingClient>,\n    pub count: i32,\n    pub message: String,\n}\n\nimpl CounterService {\n    pub fn increment(&mut self) {\n        self.count += 1;\n    }\n\n    pub async fn ask_server(&mut self) -> BehaviorResult<()> {\n        self.message = self.greeting_client.get_greeting().await?.message;\n        Ok(())\n    }\n}\n",
+            include_str!(
+                "../../../../website/content/docs/first-app/call-the-server/client/services/CounterService.rs"
+            ),
         ),
         (
             "client/tests/HelloTestSetup.rs",
-            "#[TestSetup]\nstruct HelloTestSetup {}\nimpl HelloTestSetup {\n    fn configure(_execution: &BehaviorExecution) -> BehaviorResult<BehaviorConfiguration> {\n        struct GreetingFake;\n        impl BehaviorHttpAdapter for GreetingFake {\n            fn exchange(&self, _request: &BehaviorHttpRequest, _execution: &BehaviorExecution) -> BehaviorResult<BehaviorValue> {\n                Ok(BehaviorValue::object([(\"message\", BehaviorValue::from(\"Hi\"))]))\n            }\n        }\n\n        let mut configuration = BehaviorConfiguration::default();\n        configuration.http.insert(\"greeting\".into(), std::sync::Arc::new(GreetingFake));\n        Ok(configuration)\n    }\n}\n",
+            include_str!(
+                "../../../../website/content/docs/first-app/add-tests/client/tests/HelloTestSetup.rs"
+            ),
         ),
         (
-            "client/tests/CounterServiceTest.rs",
-            "#[Test(HelloTestSetup, {\"partition\":\"tests\"})]\nstruct CounterServiceTest {\n    behaviors: std::cell::RefCell<Option<BehaviorContext>>,\n    #[Fake]\n    greeting_client: std::cell::RefCell<Option<std::sync::Arc<GreetingClient>>>,\n}\nimpl CounterServiceTest {\n    fn new() -> Self {\n        Self { behaviors: std::cell::RefCell::new(None), greeting_client: std::cell::RefCell::new(None) }\n    }\n\n    fn testIncrementAddsOne(&self) {\n        let mut counter: CounterService = self.construct();\n        counter.increment();\n        Assert::equals(1, counter.count);\n    }\n\n    async fn testAskServerSavesTheTypedMessage(&self) {\n        let mut counter: CounterService = self.construct();\n        let answer = counter.ask_server().await;\n        Assert::is_true(answer.is_ok());\n        Assert::equals(\"Hi\", counter.message);\n    }\n\n    async fn testAnAssignedFakeIsUsedAsIs(&self) {\n        self.greeting_client.replace(Some(std::sync::Arc::new(GreetingClient::new())));\n        let mut counter: CounterService = self.construct();\n        let answer = counter.ask_server().await;\n        Assert::equals(Some(\"HTTP_MISSING\"), answer.err().map(|error| error.code));\n        Assert::equals(\"\", counter.message);\n    }\n}\n",
+            "client/tests/AssignedFakeTest.rs",
+            "#[Test(HelloTestSetup, {\"partition\":\"tests\"})]\nstruct AssignedFakeTest {\n    behaviors: std::cell::RefCell<Option<BehaviorContext>>,\n    #[Fake]\n    greeting_client: std::cell::RefCell<Option<std::sync::Arc<GreetingClient>>>,\n}\nimpl AssignedFakeTest {\n    fn new() -> Self {\n        Self { behaviors: std::cell::RefCell::new(None), greeting_client: std::cell::RefCell::new(None) }\n    }\n\n    async fn testAnAssignedFakeIsUsedAsIs(&self) {\n        self.greeting_client.replace(Some(std::sync::Arc::new(GreetingClient::new())));\n        let mut counter: CounterService = self.construct();\n        let answer = counter.ask_server().await;\n        Assert::equals(Some(\"HTTP_MISSING\"), answer.err().map(|error| error.code));\n        Assert::equals(\"\", counter.message);\n    }\n}\n",
         ),
         (
             "client/tests/WrongShapeTest.rs",
@@ -48,18 +58,20 @@ impl RustConstructProject {
             std::fs::write(path, source).expect("fixture source");
         }
     }
+
+    fn passed(root: &Path, relative: &str) {
+        let report = super::run(root, Path::new(relative)).expect("native Rust test unit");
+        assert_eq!(report.cases.len(), 1, "{relative}: {report:?}");
+        assert!(report.cases[0].passed, "{relative}: {report:?}");
+    }
 }
 
 #[test]
 fn rust_tests_construct_services_with_injected_fake_clients_and_await_typed_answers() {
     let root = tempfile::tempdir().expect("test project");
     RustConstructProject::write(root.path());
-    for (name, cases) in [("CounterServiceTest", 3), ("WrongShapeTest", 1)] {
-        let relative = format!("client/tests/{name}.rs");
-        let report = super::run(root.path(), Path::new(&relative)).expect("native Rust test unit");
-        assert_eq!(report.cases.len(), cases, "{name}");
-        assert!(report.cases.iter().all(|case| case.passed), "{report:?}");
-    }
+    RustConstructProject::passed(root.path(), "client/tests/AssignedFakeTest.rs");
+    RustConstructProject::passed(root.path(), "client/tests/WrongShapeTest.rs");
 }
 
 struct RustSocketProject;

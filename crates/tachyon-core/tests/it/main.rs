@@ -20,6 +20,7 @@ mod controller_routes;
 mod coverage_fsharp;
 mod dispatch;
 mod events_fsharp;
+mod first_app_tabs;
 mod forwarded_headers;
 mod gateway_classes;
 mod gateway_commands;
