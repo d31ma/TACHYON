@@ -1,14 +1,11 @@
 #![allow(clippy::expect_used)]
 
-use super::{BuildJobs, WebLanguage, build_all};
-use crate::node_driver::NodeDriver;
-use std::path::{Path, PathBuf};
-use std::process::Command;
+use super::rust_marker_proof_tests::RustPage;
 
 struct RustStreams;
 
 impl RustStreams {
-    const FILES: [(&str, &str); 4] = [
+    const FILES: [(&'static str, &'static str); 5] = [
         (
             "client/models/Tick.rs",
             "#[derive(Clone, Debug, Default)]\npub struct Tick {\n    pub sku: String,\n    pub level: i64,\n}\n",
@@ -25,18 +22,16 @@ impl RustStreams {
             "client/remotes/ChatClient.rs",
             "use crate::models::ChatMessage;\n\n#[HTTPClient(\"/chat\")]\ntrait ChatClient {\n    #[SocketRequest]\n    fn receive(&self, message: ChatMessage);\n}\n",
         ),
-    ];
-
-    const SERVICE: (&str, &str, &str) = (
-        "ticks",
-        "TicksService",
-        "#[Service]\npub struct TicksService {\n    #[Needs]\n    ticks: std::sync::Arc<TicksClient>,\n    #[Needs]\n    chat: std::sync::Arc<ChatClient>,\n    pub level: i64,\n    pub said: String,\n}\n\n\
+        (
+            "client/services/TicksService.rs",
+            "#[Service]\npub struct TicksService {\n    #[Needs]\n    ticks: std::sync::Arc<TicksClient>,\n    #[Needs]\n    chat: std::sync::Arc<ChatClient>,\n    pub level: i64,\n    pub said: String,\n}\n\n\
          impl TicksService {\n    #[OnEvent]\n    fn heard(&mut self, tick: Tick) {\n        self.level = tick.level;\n    }\n\n    \
          #[OnEvent]\n    fn answered(&mut self, message: ChatMessage) {\n        self.said = message.text;\n    }\n\n    \
          pub async fn say(&mut self, text: String) -> BehaviorResult<()> {\n        self.chat.send(ChatMessage { text }).await\n    }\n}\n",
-    );
+        ),
+    ];
 
-    const DRIVER: &str = "import { readFile } from 'node:fs/promises'\n\
+    const DRIVER: &'static str = "import { readFile } from 'node:fs/promises'\n\
          globalThis.fetch = async (url) => new Response(await readFile(url))\n\
          globalThis.location = { href: 'http://127.0.0.1:4000/page' }\n\
          const opened = []\n\
@@ -70,92 +65,18 @@ impl RustStreams {
          report.afterDispose = opened.length\n\
          console.log(JSON.stringify(report))\n\
          process.exit(0)\n";
-
-    fn tools_available() -> bool {
-        let target = Command::new("rustc")
-            .args([
-                "--print",
-                "target-libdir",
-                "--target",
-                crate::native::RustCompanion::WEB_TARGET,
-            ])
-            .output()
-            .is_ok_and(|output| {
-                output.status.success()
-                    && Path::new(String::from_utf8_lossy(&output.stdout).trim()).is_dir()
-            });
-        let node = NodeDriver::available();
-        [target, node] == [true, true]
-    }
-
-    fn write(root: &Path, relative: &str, bytes: &[u8]) -> PathBuf {
-        let path = root.join(relative);
-        std::fs::create_dir_all(path.parent().expect("folder")).expect("folder");
-        std::fs::write(&path, bytes).expect("file");
-        path
-    }
-
-    async fn publish(root: &Path) {
-        for (relative, text) in Self::FILES {
-            Self::write(root, relative, text.as_bytes());
-        }
-        let (instance, class, text) = Self::SERVICE;
-        let path = Self::write(
-            root,
-            &format!("client/services/{class}.rs"),
-            text.as_bytes(),
-        );
-        let services = [(
-            String::from(instance),
-            String::from(class),
-            WebLanguage::Rust,
-            path,
-        )];
-        let profile = crate::BuildProfile::Development;
-        let built = build_all(root, &services, &BuildJobs::new(1), profile)
-            .await
-            .unwrap_or_else(|failure| panic!("{failure}"));
-        for (name, bytes) in built.files {
-            Self::write(root, &name, &bytes);
-        }
-        Self::write(
-            root,
-            "application-events.mjs",
-            concat!(
-                include_str!("../template/application-events.js"),
-                "\nexport default TacApplicationEvents\n"
-            )
-            .as_bytes(),
-        );
-    }
-
-    fn drive(root: &Path) -> serde_json::Value {
-        Self::write(root, "drive.mjs", Self::DRIVER.as_bytes());
-        let output = NodeDriver::output(NodeDriver::command().arg("drive.mjs").current_dir(root))
-            .expect("node");
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        assert!(
-            output.status.success(),
-            "{stdout}{}",
-            String::from_utf8_lossy(&output.stderr)
-        );
-        serde_json::from_str(stdout.trim()).expect("report")
-    }
 }
 
 #[tokio::test]
 async fn a_rust_service_receives_its_client_streams_as_events_and_sends_on_its_socket() {
-    if !RustStreams::tools_available() {
-        assert!(
-            std::env::var_os("CI").is_none(),
-            "CI must provide the wasm32 Rust target and node"
-        );
+    if !RustPage::ready() {
         eprintln!("skipping: the wasm32 Rust target or node is unavailable");
         return;
     }
     let root = tempfile::tempdir().expect("project");
-    RustStreams::publish(root.path()).await;
-    let report = RustStreams::drive(root.path());
+    let service = ("ticks", "TicksService");
+    RustPage::publish(root.path(), &RustStreams::FILES, service).await;
+    let report = RustPage::drive(root.path(), RustStreams::DRIVER);
     assert_eq!(
         report["urls"],
         serde_json::json!(["/ticks", "ws://127.0.0.1:4000/chat"]),

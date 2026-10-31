@@ -7,6 +7,11 @@ pub struct OrderService {
 }
 
 impl OrderService {
+    pub async fn create(&self) -> BehaviorResult<SentRequest> {
+        let order = BehaviorValue::object([("item", BehaviorValue::from("anvil"))]);
+        self.orders_client.create(order, String::from("west")).await
+    }
+
     pub async fn replace(&self) -> BehaviorResult<SentRequest> {
         let order = BehaviorValue::object([("item", BehaviorValue::from("hammer"))]);
         self.orders_client.replace(String::from("a-7"), order, String::from("north")).await

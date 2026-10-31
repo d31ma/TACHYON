@@ -12,6 +12,17 @@ impl OrderServiceTest {
         }
     }
 
+    async fn testPostSendsThePathTheHeaderAndTheBody(&self) {
+        let service: OrderService = self.construct();
+        let sent = service.create().await;
+        Assert::equals(None, sent.as_ref().err().map(|error| error.code));
+        let sent = sent.unwrap_or_default();
+        Assert::equals("POST", sent.method);
+        Assert::equals("/api/orders", sent.path);
+        Assert::equals("west", sent.header);
+        Assert::equals("anvil", sent.item);
+    }
+
     async fn testPutSendsThePathTheHeaderAndTheBody(&self) {
         let service: OrderService = self.construct();
         let sent = service.replace().await;

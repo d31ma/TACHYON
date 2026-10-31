@@ -896,7 +896,11 @@ mod cpp_marker_tests;
 #[cfg(test)]
 mod cpp_stop_tests;
 #[cfg(test)]
+mod rust_marker_proof_tests;
+#[cfg(test)]
 mod rust_stream_tests;
+#[cfg(test)]
+mod rust_topic_tests;
 
 #[cfg(test)]
 mod kotlin_behavior_tests;

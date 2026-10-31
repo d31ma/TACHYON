@@ -21,7 +21,7 @@ impl HttpVerbProject {
         ("hpp", "clang++"),
     ];
     const VERBS: [&'static str; 3] = ["put", "patch", "delete"];
-    const POSTED: [&'static str; 2] = ["ts", "swift"];
+    const POSTED: [&'static str; 3] = ["ts", "rs", "swift"];
 
     const VERSION_FLAGS: [(&'static str, &'static str); 3] =
         [("kotlinc", "-version"), ("go", "version"), ("lua", "-v")];
