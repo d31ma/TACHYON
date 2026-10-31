@@ -72,6 +72,10 @@ struct CoverageProject;
 impl CoverageProject {
     const YON_FAKE_LANGUAGES: [(&'static str, &'static str); 3] =
         [("js", "bun"), ("ts", "bun"), ("rb", "ruby")];
+    const INSTALLED_IN_CI: [&'static str; 15] = [
+        "php", "php-cgi", "groovyc", "kotlinc", "dart", "lua", "go", "ruby", "bun", "cargo",
+        "clang++", "dotnet", "javac", "python3", "node",
+    ];
     const PREVIEW_WAIT_SECONDS: u64 = 120;
     const TEST_ONLY_SERVICE_SETTINGS: &'static str = r#"{"visibility":{"check":false}}"#;
 
@@ -83,7 +87,20 @@ impl CoverageProject {
     }
 
     fn available(program: &str) -> bool {
-        Command::new(program)
+        let found = Self::installed(program);
+        let required = [
+            std::env::var_os("CI").is_some(),
+            Self::INSTALLED_IN_CI.contains(&program),
+        ] == [true, true];
+        assert!(
+            [required, found] != [true, false],
+            "{program} is installed in CI, so this test must run there instead of skipping"
+        );
+        found
+    }
+
+    fn installed(program: &str) -> bool {
+        Command::new(Self::command_name(program))
             .arg(match program {
                 "go" => "version",
                 "kotlinc" => "-version",
@@ -93,6 +110,13 @@ impl CoverageProject {
             .stderr(Stdio::null())
             .status()
             .is_ok_and(|status| status.success())
+    }
+
+    fn command_name(program: &str) -> &str {
+        match program {
+            "python3" if cfg!(windows) => "python",
+            other => other,
+        }
     }
 
     fn fixture(extension: &str) -> PathBuf {
