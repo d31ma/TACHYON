@@ -38,7 +38,8 @@ Start with:
    expects from contributions.
 10. [`RELEASE_ENGINEERING.md`](RELEASE_ENGINEERING.md) and
     [`SUPPORT_TIERS.md`](SUPPORT_TIERS.md) for release claims based on
-    evidence.
+    evidence, and the release-candidate gate table in
+    [`CUTOVER.md`](CUTOVER.md).
 11. [`SELF_HOSTED_RUNNERS.md`](SELF_HOSTED_RUNNERS.md) for running the Rust CI
     workflow on maintainer machines.
 
