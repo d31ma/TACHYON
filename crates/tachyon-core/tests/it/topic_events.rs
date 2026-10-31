@@ -31,11 +31,11 @@ impl TypedTopic {
         models: [
             (
                 "server/models/OrderPlaced.java",
-                "@Topic\nrecord OrderPlaced(String id) {}\n",
+                "@Topic\n@Public\nrecord OrderPlaced(String id) {}\n",
             ),
             (
                 "server/models/OrderSeen.java",
-                "@Topic\nrecord OrderSeen(String by) {}\n",
+                "@Topic\n@Public\nrecord OrderSeen(String by) {}\n",
             ),
         ],
         publisher: r#"
@@ -85,11 +85,11 @@ class JavaAuditController {
         models: [
             (
                 "server/models/OrderPlaced.kt",
-                "@Topic\ndata class OrderPlaced(val id: String)\n",
+                "@Topic\n@Public\ndata class OrderPlaced(val id: String)\n",
             ),
             (
                 "server/models/OrderSeen.kt",
-                "@Topic\ndata class OrderSeen(val by: String)\n",
+                "@Topic\n@Public\ndata class OrderSeen(val by: String)\n",
             ),
         ],
         publisher: r#"
@@ -139,11 +139,11 @@ class KtAuditController {
         models: [
             (
                 "server/models/OrderPlaced.cs",
-                "[Topic]\npublic record OrderPlaced(string Id);\n",
+                "[Topic]\n[Public]\npublic record OrderPlaced(string Id);\n",
             ),
             (
                 "server/models/OrderSeen.cs",
-                "[Topic]\npublic record OrderSeen(string By);\n",
+                "[Topic]\n[Public]\npublic record OrderSeen(string By);\n",
             ),
         ],
         publisher: r#"
@@ -189,11 +189,11 @@ class CsAuditController {
         models: [
             (
                 "server/models/OrderPlaced.dart",
-                "@Topic\nclass OrderPlaced {\n  final String id;\n\n  const OrderPlaced(this.id);\n}\n",
+                "@Topic\n@Public\nclass OrderPlaced {\n  final String id;\n\n  const OrderPlaced(this.id);\n}\n",
             ),
             (
                 "server/models/OrderSeen.dart",
-                "@Topic\nclass OrderSeen {\n  final String by;\n\n  const OrderSeen(this.by);\n}\n",
+                "@Topic\n@Public\nclass OrderSeen {\n  final String by;\n\n  const OrderSeen(this.by);\n}\n",
             ),
         ],
         publisher: r#"
@@ -258,11 +258,11 @@ class DartAuditController {
         models: [
             (
                 "server/models/OrderPlaced.rs",
-                "#[Topic]\npub struct OrderPlaced {\n    pub id: String,\n}\n",
+                "#[Topic]\n#[Public]\npub struct OrderPlaced {\n    pub id: String,\n}\n",
             ),
             (
                 "server/models/OrderSeen.rs",
-                "#[Topic]\npub struct OrderSeen {\n    pub by: String,\n}\n",
+                "#[Topic]\n#[Public]\npub struct OrderSeen {\n    pub by: String,\n}\n",
             ),
         ],
         publisher: r#"
@@ -322,11 +322,11 @@ impl RsAuditController {
         models: [
             (
                 "server/models/OrderPlaced.php",
-                "<?php\n#[Topic]\nclass OrderPlaced {\n    public function __construct(public string $id) {}\n}\n",
+                "<?php\n#[Topic]\n#[Public]\nclass OrderPlaced {\n    public function __construct(public string $id) {}\n}\n",
             ),
             (
                 "server/models/OrderSeen.php",
-                "<?php\n#[Topic]\nclass OrderSeen {\n    public function __construct(public string $by) {}\n}\n",
+                "<?php\n#[Topic]\n#[Public]\nclass OrderSeen {\n    public function __construct(public string $by) {}\n}\n",
             ),
         ],
         publisher: r#"<?php
@@ -372,11 +372,11 @@ class PhpAuditController {
         models: [
             (
                 "server/models/OrderPlaced.lua",
-                "-- @Topic\n---@class OrderPlaced\n---@field id string\nOrderPlaced = {}\n",
+                "-- @Topic\n-- @Public\n---@class OrderPlaced\n---@field id string\nOrderPlaced = {}\n",
             ),
             (
                 "server/models/OrderSeen.lua",
-                "-- @Topic\n---@class OrderSeen\n---@field by string\nOrderSeen = {}\n",
+                "-- @Topic\n-- @Public\n---@class OrderSeen\n---@field by string\nOrderSeen = {}\n",
             ),
         ],
         publisher: r#"-- @RequestRoute("/orders")
@@ -429,11 +429,11 @@ end
         models: [
             (
                 "server/models/OrderPlaced.hpp",
-                "#pragma once\n#include <string>\n\nstruct [[Topic]] OrderPlaced {\n    std::string id;\n};\n",
+                "#pragma once\n#include <string>\n\nstruct [[Topic]] [[Public]] OrderPlaced {\n    std::string id;\n};\n",
             ),
             (
                 "server/models/OrderSeen.hpp",
-                "#pragma once\n#include <string>\n\nstruct [[Topic]] OrderSeen {\n    std::string by;\n};\n",
+                "#pragma once\n#include <string>\n\nstruct [[Topic]] [[Public]] OrderSeen {\n    std::string by;\n};\n",
             ),
         ],
         publisher: r#"#pragma once
@@ -484,11 +484,11 @@ public:
         models: [
             (
                 "server/models/OrderPlaced.ts",
-                "/** @Topic */\nexport interface OrderPlaced {\n  id: string\n}\n",
+                "/** @Topic */\n/** @Public */\nexport interface OrderPlaced {\n  id: string\n}\n",
             ),
             (
                 "server/models/OrderSeen.ts",
-                "/** @Topic */\nexport interface OrderSeen {\n  by: string\n}\n",
+                "/** @Topic */\n/** @Public */\nexport interface OrderSeen {\n  by: string\n}\n",
             ),
         ],
         publisher: r#"
@@ -537,11 +537,11 @@ class TsAuditController {
         models: [
             (
                 "server/models/OrderPlaced.fs",
-                "[<Topic>]\ntype OrderPlaced = { Id: string }\n",
+                "[<Topic>]\n[<Public>]\ntype OrderPlaced = { Id: string }\n",
             ),
             (
                 "server/models/OrderSeen.fs",
-                "[<Topic>]\ntype OrderSeen = { By: string }\n",
+                "[<Topic>]\n[<Public>]\ntype OrderSeen = { By: string }\n",
             ),
         ],
         publisher: r#"open Models
@@ -580,11 +580,11 @@ type FsAuditController() =
         models: [
             (
                 "server/models/OrderPlaced.groovy",
-                "@Topic\nrecord OrderPlaced(String id) {}\n",
+                "@Topic\n@Public\nrecord OrderPlaced(String id) {}\n",
             ),
             (
                 "server/models/OrderSeen.groovy",
-                "@Topic\nrecord OrderSeen(String by) {}\n",
+                "@Topic\n@Public\nrecord OrderSeen(String by) {}\n",
             ),
         ],
         publisher: r"
@@ -718,11 +718,13 @@ impl TopicFixture {
     const JAVASCRIPT_PUBLISHER: &'static str = r#"
 /**
  * @Topic
+ * @Public
  * @typedef {Object} OrderPlaced
  * @property {string} id
  */
 /**
  * @Topic
+ * @Public
  * @typedef {Object} OrderSeen
  * @property {string} by
  */
@@ -755,11 +757,13 @@ class OrdersController {
     const JAVASCRIPT_LISTENER: &'static str = r#"
 /**
  * @Topic
+ * @Public
  * @typedef {Object} OrderPlaced
  * @property {string} id
  */
 /**
  * @Topic
+ * @Public
  * @typedef {Object} OrderSeen
  * @property {string} by
  */
@@ -785,11 +789,11 @@ class JsAuditController {
     const PYTHON_MODELS: [(&'static str, &'static str); 2] = [
         (
             "server/models/OrderPlaced.py",
-            "from dataclasses import dataclass\n\n\n@topic\n@dataclass\nclass OrderPlaced:\n    id: str\n",
+            "from dataclasses import dataclass\n\n\n@topic\n@public\n@dataclass\nclass OrderPlaced:\n    id: str\n",
         ),
         (
             "server/models/OrderSeen.py",
-            "from dataclasses import dataclass\n\n\n@topic\n@dataclass\nclass OrderSeen:\n    by: str\n",
+            "from dataclasses import dataclass\n\n\n@topic\n@public\n@dataclass\nclass OrderSeen:\n    by: str\n",
         ),
     ];
 
@@ -835,11 +839,11 @@ class PyAuditController:
     const GO_MODELS: [(&'static str, &'static str); 2] = [
         (
             "server/models/OrderPlaced.go",
-            "package main\n\n// @Topic\ntype OrderPlaced struct {\n\tID string `json:\"id\"`\n}\n",
+            "package main\n\n// @Topic\n// @Public\ntype OrderPlaced struct {\n\tID string `json:\"id\"`\n}\n",
         ),
         (
             "server/models/OrderSeen.go",
-            "package main\n\n// @Topic\ntype OrderSeen struct {\n\tBy string `json:\"by\"`\n}\n",
+            "package main\n\n// @Topic\n// @Public\ntype OrderSeen struct {\n\tBy string `json:\"by\"`\n}\n",
         ),
     ];
 
@@ -867,11 +871,11 @@ func (controller *GoAuditController) GetAudit() any {
     const RUBY_MODELS: [(&'static str, &'static str); 2] = [
         (
             "server/models/OrderPlaced.rb",
-            "#[Topic]\n# @!attribute [r] id\n#   @return [String]\nOrderPlaced = Data.define(:id)\n",
+            "#[Topic]\n#[Public]\n# @!attribute [r] id\n#   @return [String]\nOrderPlaced = Data.define(:id)\n",
         ),
         (
             "server/models/OrderSeen.rb",
-            "#[Topic]\n# @!attribute [r] by\n#   @return [String]\nOrderSeen = Data.define(:by)\n",
+            "#[Topic]\n#[Public]\n# @!attribute [r] by\n#   @return [String]\nOrderSeen = Data.define(:by)\n",
         ),
     ];
 

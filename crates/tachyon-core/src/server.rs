@@ -284,6 +284,7 @@ impl DevServer {
             middleware,
             identity,
             topic_hub,
+            topics: Arc::new(project.topics().clone()),
             sockets: socket_dispatch::SocketHub::default(),
             cancellation: runtime.cancellation.clone(),
             producers: runtime.producers.clone(),
@@ -644,8 +645,12 @@ mod tests {
         let log = directory.join("orders.jsonl");
         fs::write(&log, "{\"value\":1}\n{\"value\":2}\n").expect("initial log");
         let (hub, cancellation, producers) = topic_hub(root.path());
-        let (topic, first) = hub.subscribe("orders").expect("first subscriber");
-        let (_same, second) = hub.subscribe("orders").expect("second subscriber");
+        let (topic, first) = hub
+            .subscribe("orders", "127.0.0.1")
+            .expect("first subscriber");
+        let (_same, second) = hub
+            .subscribe("orders", "127.0.0.1")
+            .expect("second subscriber");
         wait_until("tailer read", || replay_length(&topic) == 2).await;
         {
             let replay = topic.replay.lock().expect("replay");
@@ -674,11 +679,36 @@ mod tests {
         let root = tempfile::tempdir().expect("topic root");
         let (hub, cancellation, _producers) = topic_hub(root.path());
         let mut admissions = Vec::new();
-        for _ in 0..TopicHub::MAX_SUBSCRIBERS_PER_TOPIC {
-            admissions.push(hub.subscribe("bounded").expect("within limit").1);
+        for client in 0..TopicHub::MAX_SUBSCRIBERS_PER_TOPIC {
+            let client = client.to_string();
+            admissions.push(hub.subscribe("bounded", &client).expect("within limit").1);
         }
-        assert!(hub.subscribe("bounded").is_err());
+        assert!(hub.subscribe("bounded", "late").is_err());
         drop(admissions);
+        cancellation.cancel();
+    }
+
+    #[tokio::test]
+    async fn one_client_cannot_take_every_topic_stream() {
+        let root = tempfile::tempdir().expect("topic root");
+        let (hub, cancellation, _producers) = topic_hub(root.path());
+        let mut admissions = Vec::new();
+        for _ in 0..TopicHub::MAX_SUBSCRIBERS_PER_CLIENT {
+            admissions.push(
+                hub.subscribe("crowded", "10.0.0.1")
+                    .expect("within limit")
+                    .1,
+            );
+        }
+        assert!(hub.subscribe("crowded", "10.0.0.1").is_err());
+        let (_state, other) = hub
+            .subscribe("crowded", "10.0.0.2")
+            .expect("another client");
+        admissions.pop();
+        let (_state, again) = hub
+            .subscribe("crowded", "10.0.0.1")
+            .expect("a closed stream frees its slot");
+        drop((admissions, other, again));
         cancellation.cancel();
     }
 
@@ -688,7 +718,9 @@ mod tests {
         let (hub, cancellation, producers) = topic_hub(root.path());
         for index in 0..(TopicHub::MAX_ACTIVE_TOPICS * 3) {
             let name = format!("topic-{index}");
-            let (_, admission) = hub.subscribe(&name).expect("sequential admission");
+            let (_, admission) = hub
+                .subscribe(&name, "127.0.0.1")
+                .expect("sequential admission");
             drop(admission);
             assert!(hub.topics.lock().expect("topics").is_empty());
         }
@@ -711,12 +743,16 @@ mod tests {
     async fn topic_hub_concurrent_resubscribe_keeps_the_current_generation() {
         let root = tempfile::tempdir().expect("topic root");
         let (hub, cancellation, _producers) = topic_hub(root.path());
-        let (first_state, first) = hub.subscribe("race").expect("first subscriber");
+        let (first_state, first) = hub
+            .subscribe("race", "127.0.0.1")
+            .expect("first subscriber");
         let (ready_sender, ready_receiver) = tokio::sync::oneshot::channel();
         let (release_sender, release_receiver) = tokio::sync::oneshot::channel();
         let other_hub = hub.clone();
         let subscriber = tokio::spawn(async move {
-            let (state, admission) = other_hub.subscribe("race").expect("resubscriber");
+            let (state, admission) = other_hub
+                .subscribe("race", "127.0.0.1")
+                .expect("resubscriber");
             assert!(ready_sender.send(state).is_ok(), "state receiver");
             let _ = release_receiver.await;
             drop(admission);
@@ -730,8 +766,9 @@ mod tests {
         subscriber.await.expect("resubscriber task");
         assert!(hub.topics.lock().expect("topics").is_empty());
 
-        let (replacement, replacement_admission) =
-            hub.subscribe("race").expect("replacement generation");
+        let (replacement, replacement_admission) = hub
+            .subscribe("race", "127.0.0.1")
+            .expect("replacement generation");
         assert!(!Arc::ptr_eq(&first_state, &replacement));
         assert_eq!(replay_length(&replacement), 0);
         drop(replacement_admission);
@@ -742,7 +779,7 @@ mod tests {
     async fn topic_hub_marks_a_slow_subscriber_lagged_without_growing_its_queue() {
         let root = tempfile::tempdir().expect("topic root");
         let (hub, cancellation, _producers) = topic_hub(root.path());
-        let (topic, _admission) = hub.subscribe("slow").expect("subscriber");
+        let (topic, _admission) = hub.subscribe("slow", "127.0.0.1").expect("subscriber");
         let mut receiver = topic.sender.subscribe();
         for position in 0..=TopicHub::BROADCAST_RECORDS as u64 {
             let _ = topic.sender.send((position, String::from("frame"), false));
@@ -836,7 +873,7 @@ mod tests {
         )
         .expect("hostile topic");
         let (hub, cancellation, producers) = topic_hub(root.path());
-        let (state, admission) = hub.subscribe("hostile").expect("subscription");
+        let (state, admission) = hub.subscribe("hostile", "127.0.0.1").expect("subscription");
         tokio::time::timeout(Duration::from_secs(1), async {
             while replay_length(&state) == 0 {
                 tokio::task::yield_now().await;
@@ -951,7 +988,7 @@ mod tests {
     async fn topic_replay_floor_rejects_only_evicted_cursors_and_closes_once() {
         let root = tempfile::tempdir().expect("topic root");
         let (hub, cancellation, _producers) = topic_hub(root.path());
-        let (state, admission) = hub.subscribe("cursor").expect("subscription");
+        let (state, admission) = hub.subscribe("cursor", "127.0.0.1").expect("subscription");
         let last = fill_replay_past_capacity(&state);
         let oldest = 3;
 

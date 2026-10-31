@@ -352,7 +352,7 @@ export default class ProductService {
 }
 `,
     'server/models/Note.ts': 'export type Note = { text: string }\n',
-    'server/models/OrderPlaced.ts': '/** @Topic */\nexport interface OrderPlaced {\n  item: string\n}\n',
+    'server/models/OrderPlaced.ts': '/** @Topic */\n/** @Public */\nexport interface OrderPlaced {\n  item: string\n}\n',
     'server/models/Product.ts': 'export interface Product {\n  name: string;\n  level: number;\n}\n',
     'server/models/ProductInput.js': `@Checked
 export default class ProductInput {

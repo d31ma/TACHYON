@@ -36,6 +36,7 @@ pub(in crate::server) struct Dispatch {
     pub(in crate::server) middleware: Option<Arc<HandlerSource>>,
     pub(in crate::server) identity: Option<Arc<HandlerSource>>,
     pub(in crate::server) topic_hub: TopicHub,
+    pub(in crate::server) topics: Arc<crate::topic_table::TopicTable>,
     pub(in crate::server) sockets: SocketHub,
     pub(in crate::server) cancellation: CancellationToken,
     pub(in crate::server) producers: ProducerTasks,
@@ -179,14 +180,24 @@ impl Dispatch {
     }
 
     async fn serve_path(&self, path: &str, request: Request<Body>) -> Response<Body> {
-        let answer = self.framework_answer(path, &request);
+        let topic = path
+            .strip_prefix(TopicHub::ENDPOINT)
+            .map(|topic| Box::pin(TopicStream::open(self, topic, &request)));
+        let answer = Self::opened(topic)
+            .await
+            .or_else(|| self.framework_answer(path));
         self.serve_unless_answered(answer, path, request).await
     }
 
-    fn framework_answer(&self, path: &str, request: &Request<Body>) -> Option<Response<Body>> {
-        if let Some(topic) = path.strip_prefix(TopicHub::ENDPOINT) {
-            Some(TopicStream::open(self, topic, request))
-        } else if path == HotUpdateHub::LIVE_SCRIPT_ENDPOINT && self.watch {
+    async fn opened(topic: Option<impl Future<Output = Response<Body>>>) -> Option<Response<Body>> {
+        match topic {
+            Some(opening) => Some(opening.await),
+            None => None,
+        }
+    }
+
+    fn framework_answer(&self, path: &str) -> Option<Response<Body>> {
+        if path == HotUpdateHub::LIVE_SCRIPT_ENDPOINT && self.watch {
             Some(ServerResponse::live_script())
         } else if HotUpdateHub::is_endpoint(path) {
             Some(ServerResponse::text(StatusCode::NOT_FOUND, "Not found."))
@@ -385,14 +396,17 @@ impl Dispatch {
     ) -> Response<Body> {
         let mappings: Vec<&crate::yon::plan::Route> =
             entries.iter().map(|entry| entry.mapping.as_ref()).collect();
-        let typed: Vec<_> = entries
-            .iter()
-            .map(|entry| (entry.mapping.as_ref(), entry.handler.models()))
-            .collect();
         let verbs = RouteVerbs::allowed(&mappings);
         let serves_page = self.page_routes.contains(&matched.route);
-        self.answer_by_verb(method, serves_page, &verbs, &typed, &matched.route, request)
-            .await
+        self.answer_by_verb(
+            method,
+            serves_page,
+            &verbs,
+            entries,
+            &matched.route,
+            request,
+        )
+        .await
     }
 
     async fn answer_by_verb(
@@ -400,18 +414,57 @@ impl Dispatch {
         method: HttpMethod,
         serves_page: bool,
         verbs: &[HttpMethod],
-        typed: &[(&crate::yon::plan::Route, &crate::route_types::ModelTable)],
+        entries: &[&DispatchRoute],
         route: &str,
         request: Request<Body>,
     ) -> Response<Body> {
         if method == HttpMethod::Options {
-            let schema = crate::handler::RouteSchema::for_path(route, typed);
-            RouteAnswer::options(verbs, &schema)
+            self.answer_options(entries, route, request.uri(), request.headers())
+                .await
         } else if serves_page && Self::PAGE_METHODS.contains(&method) {
             self.clone().serve_static(request).await
         } else {
             RouteAnswer::method_not_allowed(verbs)
         }
+    }
+
+    async fn answer_options(
+        &self,
+        entries: &[&DispatchRoute],
+        route: &str,
+        uri: &Uri,
+        headers: &HeaderMap,
+    ) -> Response<Body> {
+        let mut callable = Vec::new();
+        let mut refusals = Vec::new();
+        for entry in entries {
+            let refusal = RouteGuard::refusal(self, &entry.mapping.access, uri, headers).await;
+            callable.extend(refusal.is_none().then_some(*entry));
+            refusals.extend(refusal);
+        }
+        Self::options_or_refusal(&callable, refusals.into_iter().next(), route)
+    }
+
+    fn options_or_refusal(
+        callable: &[&DispatchRoute],
+        refusal: Option<Response<Body>>,
+        route: &str,
+    ) -> Response<Body> {
+        match (callable.is_empty(), refusal) {
+            (true, Some(response)) => response,
+            _ => Self::options_for(callable, route),
+        }
+    }
+
+    fn options_for(entries: &[&DispatchRoute], route: &str) -> Response<Body> {
+        let mappings: Vec<&crate::yon::plan::Route> =
+            entries.iter().map(|entry| entry.mapping.as_ref()).collect();
+        let typed: Vec<_> = entries
+            .iter()
+            .map(|entry| (entry.mapping.as_ref(), entry.handler.models()))
+            .collect();
+        let schema = crate::handler::RouteSchema::for_path(route, &typed);
+        RouteAnswer::options(&RouteVerbs::allowed(&mappings), &schema)
     }
 
     async fn serve_route(

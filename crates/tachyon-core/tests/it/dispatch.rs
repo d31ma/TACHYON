@@ -7,6 +7,13 @@ use tachyon_core::{DevServer, DevServerOptions};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 
+fn declare_public_chat_topic(root: &Path) {
+    write(
+        &root.join("server/models/Chat.js"),
+        "/**\n * @Topic\n * @Public\n * @typedef {Object} Chat\n * @property {string} message\n */\nexport {}\n",
+    );
+}
+
 fn write(path: &Path, contents: &str) {
     fs::create_dir_all(path.parent().expect("parent")).expect("directory");
     fs::write(path, contents).expect("source");
@@ -395,6 +402,7 @@ async fn shutdown_closes_active_handler_hot_and_topic_streams_and_reaps_the_hand
             "from pathlib import Path\nimport os\nimport time\n@request_route('/infinite')\n@public\nclass InfiniteController:\n    @stream_route\n    def stream(self, _request):\n        Path({pid_path:?}).write_text(str(os.getpid()))\n        yield from self._forever()\n\n    def _forever(self):\n        while True:\n            with Path({effects_path:?}).open('a') as effects:\n                effects.write('event\\n')\n            yield {{\"event\": \"owned\"}}\n            time.sleep(0.03)\n"
         ),
     );
+    declare_public_chat_topic(project.path());
     write(
         &project.path().join("data/topics/chat.jsonl"),
         "{\"message\":\"owned\"}\n",
@@ -1906,6 +1914,7 @@ async fn topics_stream_as_server_sent_events_with_a_resumable_cursor() {
             .join("client/components/test/view19/tac.html"),
         "<main aria-label=\"R\"><h1>R</h1></main>",
     );
+    declare_public_chat_topic(project.path());
     let old_log = project.path().join(".tachyon/topics/chat.jsonl");
     write(&old_log, "{\"seq\":1}\n{\"seq\":2}\n");
 
@@ -1973,6 +1982,14 @@ async fn topics_stream_as_server_sent_events_with_a_resumable_cursor() {
     ))
     .await;
     assert!(refused.contains("400"), "{refused}");
+
+    let undeclared = read_stream(String::from(
+        "GET /.tachyon/topics/other HTTP/1.1\r\nHost: 127.0.0.1\r\n\
+         Connection: close\r\n\r\n",
+    ))
+    .await;
+    assert!(undeclared.contains("404"), "{undeclared}");
+    assert!(!undeclared.contains("text/event-stream"), "{undeclared}");
 
     let _stopped = stop.send(());
     let _joined = running.await;

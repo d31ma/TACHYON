@@ -2,7 +2,7 @@
 #include <cstdint>
 #include <string>
 
-struct [[Topic]] InventoryRecord {
+struct [[Topic]] [[Public]] InventoryRecord {
     std::string sku;
     std::int64_t level = 0;
 };

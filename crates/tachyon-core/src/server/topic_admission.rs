@@ -6,6 +6,7 @@ pub(in crate::server) struct TopicAdmission {
     pub(in crate::server) hub: TopicHub,
     pub(in crate::server) name: String,
     pub(in crate::server) topic: Arc<TopicState>,
+    pub(in crate::server) client: Option<String>,
 }
 
 impl Drop for TopicAdmission {
@@ -16,6 +17,9 @@ impl Drop for TopicAdmission {
 
 impl TopicAdmission {
     fn release(&self) {
+        self.client
+            .iter()
+            .for_each(|client| self.hub.release_client(client));
         let mut topics = self.hub.lock_topics();
         self.hub.subscribers.fetch_sub(1, Ordering::AcqRel);
         let previous = self.topic.subscribers.fetch_sub(1, Ordering::AcqRel);

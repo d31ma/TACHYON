@@ -9,6 +9,16 @@ For each of them, Tachyon:
 
 Topic log subscriptions have these controls:
 
+- They follow the access rule of the topic's server model (`@Public`,
+  `@SignedIn` or `@Allow(Role)`, ADR 0061 amended 2026-10-31). A server
+  topic without a rule fails the build (`TY1322`). The server runs the same
+  `RouteGuard` as for a route before it opens a topic: 401 without an
+  identity, 403 without one of the roles, 500 when the identity provider
+  fails. A refused caller reads no log line and takes no subscriber slot.
+- They open only topics that a server model declares. Any other slug answers
+  404, so made-up names cannot use up the 32 active topics.
+- One client address holds at most 16 of the 128 subscriber slots, so one
+  client cannot lock out every other subscriber.
 - They accept only bounded slugs (short, URL-safe names).
 - They reject inputs that are symlinks, that are not regular files, or whose
   identity changes during the check (a race).
@@ -160,6 +170,16 @@ separate cybersecurity review for this reconciliation.
   field path. It never repeats a request value, an undeclared field name or an
   authorization header. A route type that names a missing or unreadable model
   fails the build, before publication and before the socket is ready.
+- **Access to every entry point.** Every route, socket, topic stream and
+  `OPTIONS` answer goes through `RouteGuard`, which is deny by default
+  (ADR 0068). The only paths without a rule are the framework's own: static
+  files, the live-reload script, and the hot-update, live and diagnostics
+  endpoints that exist only in watch mode. `OPTIONS` shows the verbs and the
+  schema of the routes that the caller may call, and nothing to a caller who
+  may call none of them. A CORS preflight still answers first, without
+  credentials, as browsers require. The repository policy test
+  `every_dispatch_path_reaches_the_route_guard_or_is_declared_public` keeps
+  this so.
 - **Browser response storage.** Storing responses is opt-in, and only for
   same-origin GET or HEAD requests without credentials. These skip storage:
   requests with Authorization, requests with cookies, private or no-store

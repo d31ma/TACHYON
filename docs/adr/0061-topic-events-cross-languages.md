@@ -1,11 +1,14 @@
 # ADR 0061: Topic Events Cross Languages
 
-- Status: Accepted; amended 2026-09-28 (topic logs are saved data)
+- Status: Accepted; amended 2026-09-28 (topic logs are saved data) and
+  2026-10-31 (a topic says who may read its stream)
 - Date: 2026-09-27
 - Extends: [ADR 0028](0028-owned-application-events-and-lifecycle.md) (Yon
   events were local to one invocation) and
   [ADR 0058](0058-streams-are-a-route-and-a-request.md) (a page reads a topic
-  as a stream)
+  as a stream) and
+  [ADR 0068](0068-safety-rules-are-build-errors.md) (every route says who
+  may call it)
 - Preserves: [ADR 0055](0055-annotation-arguments-use-types.md) (the event is
   a model, and the model type name is the event name) and
   [ADR 0056](0056-every-annotation-checks-its-target.md) (the rule table)
@@ -103,3 +106,92 @@ record), so deleting the folder to clean up also deleted the app's events.
 - The URL stays `/.tachyon/topics/<name>`. It is a server route, not a
   folder, and pages already use it.
 - `.tachyon` and `dist/.tachyon` are generated and safe to delete.
+
+## Amendment (2026-10-31): a topic says who may read its stream
+
+`/.tachyon/topics/<name>` served every topic to anyone who could reach the
+server. It never asked the identity provider, so a caller could replay a
+topic's log (up to 16 MiB) and read every event that a Yon class published.
+Any slug opened a topic, so 32 made-up names, or 128 streams from one client,
+locked out every real subscriber. Every other way into the server already
+says who may use it (ADR 0068), so the topic stream was the one hole in deny
+by default.
+
+### Access markers on a topic model
+
+- A `@Topic` model in `server/` says who may read its stream with the access
+  markers of ADR 0068, written next to `@Topic` on the same model:
+  - `@Public`: anyone, also a caller who is not signed in;
+  - `@SignedIn`: any signed-in user;
+  - `@Allow(Role, ...)`: only a signed-in user with one of these roles.
+- The marker goes in the same block of lines as `@Topic`, directly above or
+  below it and before the model declaration. Each language uses its own
+  spelling, the same one as on a controller:
+
+  | Language | Spelling |
+  | --- | --- |
+  | Java | `@Public`, `@SignedIn`, `@Allow(Admin.class)` |
+  | Kotlin | `@Public`, `@SignedIn`, `@Allow(Admin::class)` |
+  | Groovy, Dart | `@Public`, `@SignedIn`, `@Allow(Admin)` |
+  | Python | `@public`, `@signed_in`, `@allow(Admin)` |
+  | JavaScript | ` * @Public`, ` * @SignedIn`, ` * @Allow(Admin)` in the `@typedef` block |
+  | TypeScript | `/** @Public */`, `/** @SignedIn */`, `/** @Allow(Admin) */` |
+  | Go | `// @Public`, `// @SignedIn`, `// @Allow(Admin)` |
+  | Lua | `-- @Public`, `-- @SignedIn`, `-- @Allow(Admin)` |
+  | Rust, Ruby | `#[Public]`, `#[SignedIn]`, `#[Allow(Admin)]` |
+  | PHP | `#[Public]`, `#[SignedIn]`, `#[Allow(Admin::class)]` |
+  | C# | `[Public]`, `[SignedIn]`, `[Allow(typeof(Admin))]` |
+  | F# | `[<Public>]`, `[<SignedIn>]`, `[<Allow(typeof<Admin>)>]` |
+  | C++ | `struct [[Topic]] [[SignedIn]] OrderPlaced`, `[[Allow(Admin)]]` |
+
+- The rules of ADR 0068 apply unchanged:
+  - A server topic without a rule stops the build with `TY1322`.
+  - A topic has one rule. `@Public` and `@SignedIn` take no arguments, and
+    `@Allow` takes one or more role types from `server/roles/`. A role
+    with no type there stops the build with `TY1322`.
+  - A `@SignedIn` or `@Allow` topic without an identity provider stops the
+    build with `TY1323`.
+- Each language declares its own model (see Decision). When several
+  languages declare one topic, they all write the same rule, or the build
+  stops with `TY1322` and names both files.
+- A page cannot grant itself access. An access marker on a `@Topic` model in
+  `client/` stops the build with `TY1308`: the rule goes on the server model.
+
+### The server checks every subscription
+
+- The server serves only the topics that a server model declares. Any other
+  slug answers 404 and opens nothing, so made-up names cannot use up the
+  active-topic capacity.
+- Before it opens a topic, the server runs the same guard as for a route:
+  a `@Public` topic opens at once and never calls the identity provider. For
+  a `@SignedIn` or `@Allow` topic it calls the identity provider with the
+  headers and the URL of the request. No identity answers 401, a user without
+  one of the roles answers 403, and a failing identity provider answers 500.
+  In each case no log line is read and no subscriber slot is taken.
+- A page opens a topic stream with the browser's own request, so the stream
+  carries the page's cookies. An identity provider that signs users in with
+  a cookie therefore guards a page's topic listeners as well.
+- One client address holds at most 16 open topic streams, so one client can
+  no longer take all 128 subscriber slots. The address is the peer address,
+  or the client that a trusted proxy names (`X-Real-IP` after
+  `ForwardedHeaders`).
+- Delivery to Yon listeners does not change: it runs inside the server and
+  never passes through the topic route.
+
+### OPTIONS answers after the guard
+
+`OPTIONS` on a route path returned the route's verbs and its JSON schema
+before any access rule ran. It now answers only with the verbs and the
+schema of the routes on that path that the caller may call. When the caller
+may call none of them, it answers with the guard's refusal (401, 403 or
+500). A CORS preflight still answers first, from `CrossOrigin`, because a
+browser sends it without credentials.
+
+### Consequences
+
+- Every way into the server goes through `RouteGuard` or is a declared
+  framework endpoint (live reload, hot updates and diagnostics in watch mode,
+  the live-reload script, and static files). A repository policy test keeps
+  it that way.
+- An existing server `@Topic` model must add a rule. `@Public` keeps the old
+  behavior. This is a breaking change for this release candidate.

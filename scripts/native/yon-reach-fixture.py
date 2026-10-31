@@ -23,6 +23,7 @@ class YonReachFixture:
         "server/models/ChatMessage.ts": "export interface ChatMessage {\n  text: string\n}\n",
         "server/models/ReachNews.js": """/**
  * @Topic
+ * @Public
  * @typedef {Object} ReachNews
  * @property {string} text
  */

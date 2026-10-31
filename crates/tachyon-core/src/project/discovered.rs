@@ -7,6 +7,7 @@ use crate::Failure;
 use crate::compiler::PortablePath;
 use crate::failure::{diagnostic, source_span};
 use crate::handler::HandlerSource;
+use crate::yon::route_access::RouteAccess;
 use std::collections::BTreeSet;
 use std::ffi::OsStr;
 use std::path::Path;
@@ -26,6 +27,11 @@ impl Discovered {
     pub(super) fn inspect(&mut self, context: &SnapshotContext<'_>, captured: &CapturedSources) {
         self.add_pages(context, &captured.pages);
         self.add_controllers(context, &captured.controllers);
+        self.add_topics(context, &captured.server);
+    }
+
+    pub(super) fn topic_table(&self) -> crate::topic_table::TopicTable {
+        self.access.topic_table()
     }
 
     pub(super) fn identity_provider(&mut self) -> Option<HandlerSource> {
@@ -36,6 +42,47 @@ impl Discovered {
     pub(super) fn into_route_graph(self, exports_elements: bool) -> Result<RouteGraph, Failure> {
         let checked = self.checked(exports_elements)?;
         RouteGraph::build(checked.views, checked.handlers)
+    }
+
+    fn add_topics(&mut self, context: &SnapshotContext<'_>, files: &[CapturedFile]) {
+        let rules: Vec<((String, RouteAccess), String)> = files
+            .iter()
+            .flat_map(|file| {
+                let path = file.portable();
+                Self::topic_rules(file)
+                    .into_iter()
+                    .map(move |rule| (rule, path.clone()))
+            })
+            .collect();
+        for (rule, path) in rules {
+            self.access.check_topic(rule, &path, context.project);
+        }
+    }
+
+    fn topic_rules(file: &CapturedFile) -> Vec<(String, RouteAccess)> {
+        std::str::from_utf8(&file.bytes)
+            .ok()
+            .filter(|_| crate::convention::YonConvention::is_yon_language(&file.relative))
+            .map(|text| Self::rules_in(&file.relative, text))
+            .unwrap_or_default()
+    }
+
+    fn rules_in(relative: &Path, text: &str) -> Vec<(String, RouteAccess)> {
+        if crate::tac_cpp::CppSource::is_cpp(relative) {
+            return Self::cpp_rule(relative, text);
+        }
+        let extension = relative.extension().and_then(OsStr::to_str).unwrap_or("");
+        let declared = crate::route_types::ModelTable::declared_names(extension, text);
+        crate::topics::Topics::rules(relative, text, &declared)
+    }
+
+    fn cpp_rule(relative: &Path, text: &str) -> Vec<(String, RouteAccess)> {
+        crate::tac_cpp::CppModel::read(relative, text)
+            .ok()
+            .filter(crate::tac_cpp::CppModel::is_topic)
+            .map(|model| (model.name().to_owned(), model.access()))
+            .into_iter()
+            .collect()
     }
 
     fn add_pages(&mut self, context: &SnapshotContext<'_>, files: &[CapturedFile]) {

@@ -101,6 +101,7 @@ export default class SignalService {
 `,
     'server/models/ReachSignal.js': `/**
  * @Topic
+ * @Public
  * @typedef {Object} ReachSignal
  * @property {string} text
  */

@@ -59,7 +59,7 @@ mod test_unit_tests;
 mod tests;
 
 pub(crate) use cpp_yon::CppYon;
-use cpp_yon_access::CppYonAccess;
+pub(crate) use cpp_yon_access::CppYonAccess;
 use cpp_yon_container::CppYonContainer;
 use cpp_yon_controller::CppYonController;
 use cpp_yon_dispatcher::CppYonDispatcher;

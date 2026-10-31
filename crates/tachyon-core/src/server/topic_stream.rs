@@ -1,9 +1,10 @@
 use super::{
-    Dispatch, EventStream, ServerResponse, TopicAdmission, TopicFailure, TopicHub, TopicRecord,
-    TopicReplay, TopicState,
+    Dispatch, EventStream, ForwardedHeaders, RouteGuard, ServerResponse, TopicAdmission,
+    TopicFailure, TopicHub, TopicRecord, TopicReplay, TopicState,
 };
+use crate::yon::route_access::RouteAccess;
 use axum::body::Body;
-use axum::http::{Request, Response, StatusCode};
+use axum::http::{HeaderMap, Request, Response, StatusCode, Uri};
 use std::sync::Arc;
 use tokio::io::DuplexStream;
 use tokio::sync::broadcast;
@@ -14,13 +15,55 @@ pub(in crate::server) struct TopicStream;
 impl TopicStream {
     const SLUG_SYMBOL: u8 = b'-';
 
-    pub(in crate::server) fn open(
+    pub(in crate::server) fn open<'a>(
+        state: &'a Dispatch,
+        topic: &'a str,
+        request: &Request<Body>,
+    ) -> impl Future<Output = Response<Body>> + Send + 'a {
+        let requested = Self::requested_position(request);
+        let client = request
+            .headers()
+            .get(ForwardedHeaders::REAL_IP)
+            .and_then(|value| value.to_str().ok())
+            .unwrap_or_default()
+            .to_owned();
+        let asked = (request.uri().clone(), request.headers().clone());
+        async move { Self::open_declared(state, topic, asked, requested, &client).await }
+    }
+
+    async fn open_declared(
         state: &Dispatch,
         topic: &str,
-        request: &Request<Body>,
+        asked: (Uri, HeaderMap),
+        requested: Option<u64>,
+        client: &str,
     ) -> Response<Body> {
-        let slug = Self::is_topic_slug(topic);
-        Self::open_slug(slug, state, topic, request)
+        let refusal = Self::refusal(state, topic, asked).await;
+        refusal.unwrap_or_else(|| Self::subscribe(state, topic, requested, client))
+    }
+
+    async fn refusal(
+        state: &Dispatch,
+        topic: &str,
+        (uri, headers): (Uri, HeaderMap),
+    ) -> Option<Response<Body>> {
+        match Self::declared_access(state, topic) {
+            Err((status, message)) => Some(ServerResponse::text(status, message)),
+            Ok(access) => RouteGuard::refusal(state, access, &uri, &headers).await,
+        }
+    }
+
+    fn declared_access<'a>(
+        state: &'a Dispatch,
+        topic: &str,
+    ) -> Result<&'a RouteAccess, (StatusCode, &'static str)> {
+        let slug = Self::is_topic_slug(topic)
+            .then_some(topic)
+            .ok_or((StatusCode::BAD_REQUEST, "Topic must be a bounded slug."))?;
+        state.topics.access(slug).ok_or((
+            StatusCode::NOT_FOUND,
+            "No server model declares this topic.",
+        ))
     }
 
     pub(in crate::server) fn requested_position(request: &Request<Body>) -> Option<u64> {
@@ -51,21 +94,13 @@ impl TopicStream {
         byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == Self::SLUG_SYMBOL
     }
 
-    fn open_slug(
-        slug: bool,
+    fn subscribe(
         state: &Dispatch,
         topic: &str,
-        request: &Request<Body>,
+        requested: Option<u64>,
+        client: &str,
     ) -> Response<Body> {
-        if !slug {
-            return ServerResponse::text(StatusCode::BAD_REQUEST, "Topic must be a bounded slug.");
-        }
-        Self::subscribe(state, topic, request)
-    }
-
-    fn subscribe(state: &Dispatch, topic: &str, request: &Request<Body>) -> Response<Body> {
-        let requested = Self::requested_position(request);
-        let subscription = state.topic_hub.subscribe(topic);
+        let subscription = state.topic_hub.subscribe(topic, client);
         Self::stream_subscription(subscription, requested, state)
     }
 

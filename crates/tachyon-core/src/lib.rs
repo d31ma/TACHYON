@@ -63,6 +63,8 @@ mod tac_web;
 mod template;
 mod tool_restart;
 pub mod tool_setup;
+mod topic_access;
+mod topic_table;
 mod topics;
 mod ttid;
 mod unicode_name;

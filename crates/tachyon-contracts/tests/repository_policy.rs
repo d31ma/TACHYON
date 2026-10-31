@@ -884,6 +884,119 @@ fn self_hosted_runners_serve_only_opted_in_branch_pushes_and_dispatches()
     Ok(())
 }
 
+fn function_bodies(source: &str) -> Vec<(String, String)> {
+    let mut bodies: Vec<(String, String)> = Vec::new();
+    for line in source.lines() {
+        let signature = line
+            .strip_prefix("    ")
+            .filter(|rest| !rest.starts_with(' '))
+            .and_then(|rest| rest.split_once("fn "))
+            .map(|(_, rest)| rest.split(['(', '<']).next().unwrap_or("").to_owned());
+        match (signature, bodies.last_mut()) {
+            (Some(name), _) => bodies.push((name, format!("{line}\n"))),
+            (None, Some((_, body))) => {
+                body.push_str(line);
+                body.push('\n');
+            }
+            (None, None) => {}
+        }
+    }
+    bodies
+}
+
+#[test]
+fn every_dispatch_path_reaches_the_route_guard_or_is_declared_public()
+-> Result<(), Box<dyn std::error::Error>> {
+    let server = repository_root().join("crates/tachyon-core/src/server");
+    let dispatch = fs::read_to_string(server.join("dispatch.rs"))?;
+    let topics = fs::read_to_string(server.join("topic_stream.rs"))?;
+    let route_guard = "RouteGuard::refusal(";
+    let guarded = [
+        (
+            "dispatch.rs",
+            &dispatch,
+            route_guard,
+            "SocketSession::open(",
+        ),
+        (
+            "dispatch.rs",
+            &dispatch,
+            route_guard,
+            "self.serve_allowed_route(",
+        ),
+        (
+            "dispatch.rs",
+            &dispatch,
+            route_guard,
+            "Self::options_or_refusal(",
+        ),
+        (
+            "topic_stream.rs",
+            &topics,
+            "Self::refusal(",
+            "Self::subscribe(",
+        ),
+    ];
+    for (file, source, guard, sink) in guarded {
+        let callers: Vec<(String, String)> = function_bodies(source)
+            .into_iter()
+            .filter(|(_, body)| body.contains(sink))
+            .collect();
+        assert!(!callers.is_empty(), "{file} no longer calls `{sink}`");
+        for (name, body) in callers {
+            let first_guard = body.find(guard);
+            let call = body.find(sink);
+            assert!(
+                first_guard.zip(call).is_some_and(|(at, call)| at <= call),
+                "{file}: `{name}` calls `{sink}` without `{guard}` first"
+            );
+        }
+    }
+    let only_from = [
+        (&dispatch, "RouteSchema::for_path(", "options_for"),
+        (&dispatch, "Self::options_for(", "options_or_refusal"),
+        (
+            &dispatch,
+            "self.clone().serve_public_static(",
+            "serve_found",
+        ),
+        (&dispatch, "TopicStream::open(", "serve_path"),
+        (&topics, "Self::open_declared(", "open"),
+        (&topics, "RouteGuard::refusal(state, access", "refusal"),
+    ];
+    for (source, call, owner) in only_from {
+        let callers: Vec<String> = function_bodies(source)
+            .into_iter()
+            .filter(|(name, body)| name != owner && body.contains(call))
+            .map(|(name, _)| name)
+            .collect();
+        assert!(
+            callers.is_empty(),
+            "`{call}` is reached from {callers:?}, not only from `{owner}`"
+        );
+    }
+    let declared_public = [
+        "HotUpdateHub::LIVE_ENDPOINT",
+        "HotUpdateHub::HOT_ENDPOINT",
+        "HotUpdateHub::DIAGNOSTICS_ENDPOINT",
+        "HotUpdateHub::LIVE_SCRIPT_ENDPOINT",
+    ];
+    let guarded_prefixes = ["TopicHub::ENDPOINT"];
+    for line in dispatch.lines() {
+        let compared = line
+            .split_once("path == ")
+            .or_else(|| line.split_once(".strip_prefix("))
+            .map(|(_, rest)| rest.split([' ', ')', '&']).next().unwrap_or(""));
+        if let Some(endpoint) = compared {
+            assert!(
+                declared_public.contains(&endpoint) || guarded_prefixes.contains(&endpoint),
+                "dispatch.rs serves `{endpoint}`, which is neither guarded nor declared public"
+            );
+        }
+    }
+    Ok(())
+}
+
 #[test]
 fn ci_runs_the_browser_gates_that_exist() -> Result<(), Box<dyn std::error::Error>> {
     let root = repository_root();

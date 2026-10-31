@@ -56,6 +56,7 @@ pub struct Project {
     capability: Arc<Dir>,
     middleware: Option<HandlerSource>,
     identity: Option<HandlerSource>,
+    topics: crate::topic_table::TopicTable,
     workers: Vec<ScheduledWorker>,
 }
 
@@ -94,6 +95,10 @@ impl Project {
 
     pub(crate) fn identity_provider(&self) -> Option<&HandlerSource> {
         self.identity.as_ref()
+    }
+
+    pub(crate) fn topics(&self) -> &crate::topic_table::TopicTable {
+        &self.topics
     }
 
     pub(crate) fn workers(&self) -> &[ScheduledWorker] {

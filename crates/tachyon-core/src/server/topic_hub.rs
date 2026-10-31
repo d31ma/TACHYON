@@ -14,6 +14,7 @@ pub(in crate::server) struct TopicHub {
     pub(in crate::server) files: TopicFiles,
     pub(in crate::server) topics: Arc<Mutex<HashMap<String, Arc<TopicState>>>>,
     pub(in crate::server) subscribers: Arc<AtomicUsize>,
+    clients: Arc<Mutex<HashMap<String, usize>>>,
     cancellation: CancellationToken,
     producers: ProducerTasks,
 }
@@ -27,6 +28,7 @@ impl TopicHub {
     pub(in crate::server) const MAX_RECORD_BYTES: usize = 64 * 1024;
     pub(in crate::server) const POLL_INTERVAL: Duration = Duration::from_millis(50);
     const MAX_SUBSCRIBERS: usize = 128;
+    pub(in crate::server) const MAX_SUBSCRIBERS_PER_CLIENT: usize = 16;
     pub(in crate::server) const MAX_SUBSCRIBERS_PER_TOPIC: usize = 32;
     pub(in crate::server) const MAX_ACTIVE_TOPICS: usize = 32;
     pub(in crate::server) const REPLAY_RECORDS: usize = 256;
@@ -47,6 +49,7 @@ impl TopicHub {
             },
             topics: Arc::new(Mutex::new(HashMap::new())),
             subscribers: Arc::new(AtomicUsize::new(0)),
+            clients: Arc::new(Mutex::new(HashMap::new())),
             cancellation,
             producers,
         })
@@ -82,11 +85,47 @@ impl TopicHub {
     pub(in crate::server) fn subscribe(
         &self,
         topic: &str,
+        client: &str,
     ) -> Result<(Arc<TopicState>, TopicAdmission), &'static str> {
+        self.reserve_client(client)?;
+        let joined = self.join(topic);
+        self.release_client_when_refused(client, joined.is_err());
+        let (state, mut admission) = joined?;
+        admission.client = Some(client.to_owned());
+        Ok((state, admission))
+    }
+
+    pub(in crate::server) fn release_client(&self, client: &str) {
+        let mut clients = self.lock_clients();
+        let held = clients.remove(client).unwrap_or_default().saturating_sub(1);
+        clients.extend((held > 0).then(|| (client.to_owned(), held)));
+    }
+
+    fn release_client_when_refused(&self, client: &str, refused: bool) {
+        if refused {
+            self.release_client(client);
+        }
+    }
+
+    fn join(&self, topic: &str) -> Result<(Arc<TopicState>, TopicAdmission), &'static str> {
         self.reserve_subscriber()?;
         let (state, created) = self.join_or_create_topic(topic)?;
         self.start_when_created(topic, &state, created)?;
         Ok((Arc::clone(&state), self.admission(topic, state)))
+    }
+
+    fn reserve_client(&self, client: &str) -> Result<(), &'static str> {
+        let mut clients = self.lock_clients();
+        let held = clients.get(client).copied().unwrap_or_default();
+        if held >= Self::MAX_SUBSCRIBERS_PER_CLIENT {
+            return Err("This client holds too many topic streams.");
+        }
+        clients.insert(client.to_owned(), held + 1);
+        Ok(())
+    }
+
+    fn lock_clients(&self) -> MutexGuard<'_, HashMap<String, usize>> {
+        self.clients.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
     fn reserve_subscriber(&self) -> Result<(), &'static str> {
@@ -205,6 +244,7 @@ impl TopicHub {
             hub: self.clone(),
             name: topic.to_owned(),
             topic: state,
+            client: None,
         }
     }
 }

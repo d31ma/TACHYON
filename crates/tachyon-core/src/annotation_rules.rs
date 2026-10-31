@@ -320,8 +320,8 @@ impl AnnotationRules {
     const FIELD_OR_TYPE: &'static [Target] = &[Target::Field, Target::Type];
     const TYPE_OR_METHOD: &'static [Target] = &[Target::Type, Target::Method];
     const ACCESS: &'static [&'static str] = &["Public", "SignedIn", "Allow"];
-    const CONTROLLERS: &'static [&'static str] = &["RequestRoute", "SocketRoute"];
-    const ACCESS_ADVICE: &'static str = "Every route says who may call it (ADR 0068). Write @Public, @SignedIn or @Allow(Role) on the controller class or on a route method; the method wins";
+    const GUARDED_CLASSES: &'static [&'static str] = &["RequestRoute", "SocketRoute", "Topic"];
+    const ACCESS_ADVICE: &'static str = "Every route and every server topic says who may use it (ADR 0068, ADR 0061). Write @Public, @SignedIn or @Allow(Role) on the controller class or on a route method, where the method wins, or next to @Topic on a server model";
     const TEST_CLASSES: &'static [&'static str] = &["Test", "TestSetup"];
     const SETUP_CLASSES: &'static [&'static str] = &["Setup", "TestSetup"];
     const ANSWERS: &'static [&'static str] = &[
@@ -1219,7 +1219,7 @@ impl Rule {
             tac: AnnotationRules::NOWHERE,
             yon: AnnotationRules::YON,
             clashes: AnnotationRules::ACCESS,
-            class_needs: AnnotationRules::CONTROLLERS,
+            class_needs: AnnotationRules::GUARDED_CLASSES,
             advice: AnnotationRules::ACCESS_ADVICE,
             code: 2015,
             ..self

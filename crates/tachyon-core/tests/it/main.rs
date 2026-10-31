@@ -67,6 +67,7 @@ mod tac_model_binding;
 mod test_assertions;
 mod test_marker_proofs;
 mod test_units;
+mod topic_access;
 mod topic_events;
 mod warm_benchmark;
 mod warm_cpp;

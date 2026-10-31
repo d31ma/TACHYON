@@ -52,6 +52,7 @@ impl ProjectDiscovery {
             source_root: &source_root,
         };
         found.inspect(&context, &captured);
+        let topics = found.topic_table();
         let identity = found.identity_provider();
         let middleware = context.middleware(captured.middleware.take(), &mut found.diagnostics);
         let workers = WorkerSchedules::discover(&context, &captured, &mut found.diagnostics);
@@ -65,6 +66,7 @@ impl ProjectDiscovery {
             capability,
             middleware,
             identity,
+            topics,
             workers,
         })
     }

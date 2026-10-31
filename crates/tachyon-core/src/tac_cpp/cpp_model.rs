@@ -3,6 +3,8 @@ use super::{
     CppSettings, CppSetup, CppStore,
 };
 use crate::Failure;
+use crate::yon::route_access::RouteAccess;
+use crate::yon_cpp::CppYonAccess;
 use serde_json::Value;
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
@@ -24,6 +26,8 @@ impl CppModel {
         "[[Description]] describes a model that has another Tachyon marker, such as [[Checked]]";
     const PURE_ENDS: [&'static str; 4] = [")=0;", ")const=0;", ")noexcept=0;", ")constnoexcept=0;"];
     const REALM: &'static str = "A C++ model goes in client/models or server/models (ADR 0099)";
+    const MISSING_ACCESS_CODE: u16 = 1322;
+    const MISSING_ACCESS: &'static str = "A [[Topic]] model in server/models says who may read its stream: write [[Public]], [[SignedIn]] or [[Allow(Role)]] after [[Topic]], for example `struct [[Topic]] [[SignedIn]] OrderPlaced` (ADR 0061)";
 
     pub(crate) fn read(relative: &Path, source: &str) -> Result<Self, Failure> {
         let file = CppFile::read(relative, source)?;
@@ -42,6 +46,7 @@ impl CppModel {
             .transpose()
             .map(drop)?;
         Self::check_topic(relative, source, &file)?;
+        Self::check_topic_access(relative, &file)?;
         CppMarkerCheck::described_alone(&file.class).map_or(Ok(()), |at| {
             Err(CppFailure::unreadable(relative, at, Self::DESCRIBED_ALONE))
         })?;
@@ -67,6 +72,33 @@ impl CppModel {
                     .then_some(())
                     .ok_or_else(|| CppFailure::unreadable(relative, marker.at, Self::TOPIC_FORM))
             })
+    }
+
+    fn check_topic_access(relative: &Path, file: &CppFile) -> Result<(), Failure> {
+        let topic = file
+            .class
+            .markers
+            .iter()
+            .find(|marker| marker.name == Self::TOPIC);
+        let server = matches!(
+            crate::annotation_rules::Realm::of(relative),
+            Some(crate::annotation_rules::Realm::Yon)
+        );
+        let missing = CppYonAccess::read(&file.class.markers).is_missing();
+        topic
+            .filter(|_| [server, missing] == [true, true])
+            .map_or(Ok(()), |marker| {
+                Err(CppFailure::coded(
+                    Self::MISSING_ACCESS_CODE,
+                    relative,
+                    marker.at,
+                    Self::MISSING_ACCESS,
+                ))
+            })
+    }
+
+    pub(crate) fn access(&self) -> RouteAccess {
+        CppYonAccess::read(&self.file.class.markers)
     }
 
     pub(crate) fn check(relative: &Path, source: &str) -> Result<(), Failure> {

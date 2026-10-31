@@ -16,7 +16,7 @@ pub(in crate::server) struct ForwardedHeaders {
 impl ForwardedHeaders {
     const FORWARDED_FOR: HeaderName = HeaderName::from_static("x-forwarded-for");
     const FORWARDED_PROTO: HeaderName = HeaderName::from_static("x-forwarded-proto");
-    const REAL_IP: HeaderName = HeaderName::from_static("x-real-ip");
+    pub(in crate::server) const REAL_IP: HeaderName = HeaderName::from_static("x-real-ip");
     const UNTRUSTED: [HeaderName; 7] = [
         FORWARDED,
         Self::FORWARDED_FOR,

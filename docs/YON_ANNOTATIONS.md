@@ -391,7 +391,9 @@ of a parent model (`extends`, a Python base class, a Go embedded struct) are
 part of the record. When a parent is not in `server/models/`, or a field type
 cannot be read, the record accepts extra fields instead of refusing them.
 JavaScript uses JSDoc types. Input mismatches return 400; response mismatches
-return 500. `OPTIONS` publishes the generated schema and `HEAD` uses GET.
+return 500. `OPTIONS` publishes the generated schema of the routes on the
+path that the caller may call, after the access rule (see Who may call a
+route), and `HEAD` uses GET.
 Unsupported verbs on known paths return 405 with Allow. See
 [ADR 0048](adr/0048-yon-routes-come-from-annotations.md).
 
@@ -531,6 +533,17 @@ these cases. A guarded route without an identity provider, or two identity
 providers, stops the build with `TY1323`. In C++ the method is
 `std::optional<Identity> identify(const tachyon::http::HttpRequestMessage& request)`
 and returns `std::nullopt` when nobody is signed in.
+
+A `@Topic` model in `server/` says who may read its stream
+(`/.tachyon/topics/<name>`) with the same three markers, written next to
+`@Topic` in the spelling of its language (ADR 0061): for example `@public`
+in Python, `// @SignedIn` in Go, `/** @Allow(Admin) */` in TypeScript,
+`[<Public>]` in F# and `struct [[Topic]] [[SignedIn]] OrderPlaced` in C++.
+A server topic without a rule stops the build with `TY1322`, and every
+language that declares one topic writes the same rule. The server answers
+404 for a topic that no server model declares, and runs the identity
+provider before it opens a `@SignedIn` or `@Allow` topic. An `OPTIONS`
+request answers after the same check, with the routes the caller may call.
 
 ## Error handlers
 

@@ -432,6 +432,13 @@ A model marked `@Topic` works like a Spring Cloud Bus remote event
   itself; all listeners of one topic share one stream, which replays the kept
   records, resumes after the last record it received and reconnects like
   `@StreamRequest`. A page's own `publishEvent` stays in the page.
+- A server Topic model says who may read its stream with `@Public`,
+  `@SignedIn` or `@Allow(Role)` next to `@Topic`, as a controller does
+  (ADR 0061, amended 2026-10-31). A server topic without a rule stops the
+  build with `TY1322`. The server answers 404 for a topic that no server
+  model declares and 401 or 403 before it opens a guarded one. A page's
+  stream carries the page's cookies; a client model takes no access marker.
+  One client address holds at most 16 open topic streams.
 
 ### Native Tac
 

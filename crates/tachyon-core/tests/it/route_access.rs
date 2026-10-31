@@ -702,6 +702,30 @@ one_test_per_case!(
 );
 
 #[tokio::test]
+async fn options_answers_only_after_the_route_guard() {
+    if !available("node") {
+        eprintln!("skipping: node is unavailable");
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    Project::guarded_javascript(root.path(), &IdentityProject::JAVASCRIPT);
+    let server = Server::start(root.path()).await;
+    let anonymous = server.call("OPTIONS", "/orders", "").await;
+    assert!(anonymous.contains("401 Unauthorized"), "{anonymous}");
+    assert!(!anonymous.contains("GET"), "{anonymous}");
+    let editor = "x-test-user: ada\r\nx-test-roles: Editor\r\n";
+    let refused = server.call("OPTIONS", "/orders", editor).await;
+    assert!(refused.contains("403 Forbidden"), "{refused}");
+    let admin = "x-test-user: ada\r\nx-test-roles: Admin\r\n";
+    let allowed = server.call("OPTIONS", "/orders", admin).await;
+    assert!(
+        allowed.contains("200 OK") && allowed.contains("GET"),
+        "{allowed}"
+    );
+    server.stop().await;
+}
+
+#[tokio::test]
 async fn a_browser_navigation_gets_the_page_that_shares_a_guarded_route_path() {
     if !available("node") {
         eprintln!("skipping: node is unavailable");
