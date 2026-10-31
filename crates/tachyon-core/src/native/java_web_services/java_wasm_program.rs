@@ -231,3 +231,64 @@ impl JavaWasmProgram {
         command
     }
 }
+
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod tests {
+    use super::super::JavaWebServices;
+    use super::{JavaWasmProgram, TeaVmToolchain, WasmReleaseStep};
+    use std::path::PathBuf;
+
+    #[tokio::test]
+    async fn a_repeated_java_build_writes_the_same_bytes() {
+        let javac = std::process::Command::new("javac")
+            .arg("-version")
+            .output()
+            .is_ok_and(|output| output.status.success());
+        if !javac {
+            eprintln!("skipping: javac is unavailable");
+            return;
+        }
+        let Some(toolchain) = TeaVmToolchain::find() else {
+            eprintln!("skipping: TeaVM (TAC_TEAVM_HOME) is unavailable");
+            return;
+        };
+        let root = tempfile::tempdir().expect("project");
+        let path = root.path().join("client/services/CounterService.java");
+        std::fs::create_dir_all(path.parent().expect("folder")).expect("folder");
+        std::fs::write(
+            &path,
+            "@Service\nclass CounterService {\n    int count = 0;\n\n    int increment() {\n        count += 1;\n        return count;\n    }\n}\n",
+        )
+        .expect("service");
+        let services = [(
+            String::from("counter"),
+            String::from("CounterService"),
+            path,
+        )];
+        let sources: Vec<(PathBuf, String)> =
+            JavaWebServices::sources(root.path(), &services).expect("sources");
+        let again = JavaWebServices::sources(root.path(), &services).expect("sources again");
+        assert_eq!(sources, again);
+        let release = WasmReleaseStep::prepare(crate::BuildProfile::Release).await;
+        let saved = tempfile::tempdir().expect("saved builds");
+        let first = JavaWasmProgram::built(
+            (&toolchain, &release),
+            &sources,
+            &saved.path().join("first"),
+        )
+        .await
+        .expect("first build");
+        let second = JavaWasmProgram::built(
+            (&toolchain, &release),
+            &sources,
+            &saved.path().join("second"),
+        )
+        .await
+        .expect("second build");
+        assert!(!first.binary.is_empty());
+        assert_eq!(first.binary, second.binary);
+        assert_eq!(first.runtime, second.runtime);
+        assert_eq!(first.made_smaller, second.made_smaller);
+    }
+}

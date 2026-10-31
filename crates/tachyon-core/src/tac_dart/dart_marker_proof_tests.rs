@@ -205,6 +205,44 @@ impl DartMarkerProofs {
          console.log(JSON.stringify({ returned, after, listeners, failures }))\n\
          process.exit(0)\n";
 
+    const ORDER_FILES: [(&'static str, &'static str); 3] = [
+        (
+            "client/models/OrderPlaced.dart",
+            "class OrderPlaced {\n  final int total;\n\n  const OrderPlaced(this.total);\n}\n",
+        ),
+        (
+            "client/models/OrderSettled.dart",
+            "class OrderSettled {\n  final int total;\n\n  const OrderSettled(this.total);\n}\n",
+        ),
+        (
+            "client/services/JournalService.dart",
+            "import 'models/OrderPlaced.dart';\nimport 'models/OrderSettled.dart';\n\n@Service\nclass JournalService {\n  @Needs\n  final ApplicationEventPublisher applicationEventPublisher;\n  List<String> heard = [];\n\n  \
+             void place(int total) {\n    applicationEventPublisher.publishEvent(OrderPlaced(total));\n    heard = [...heard, 'placed $total'];\n  }\n\n  \
+             @OnEvent\n  @Order(20)\n  void later(OrderPlaced order) {\n    heard = [...heard, 'later ${order.total}'];\n  }\n\n  \
+             @OnEvent\n  @Order(-5)\n  OrderSettled early(OrderPlaced order) {\n    heard = [...heard, 'early ${order.total}'];\n    return OrderSettled(order.total * 2);\n  }\n\n  \
+             @OnEvent\n  void settled(OrderSettled order) {\n    heard = [...heard, 'settled ${order.total}'];\n  }\n}\n",
+        ),
+    ];
+
+    const ORDER_SERVICES: [(&'static str, &'static str); 1] =
+        [("JournalService", "client/services/JournalService.dart")];
+
+    const ORDER_DRIVER: &'static str = "const { default: JournalService, __tachyon_event_plan__: plan } = await import('./JournalService.js')\n\
+         const { default: ApplicationEvents } = await import('./application-events.js')\n\
+         const events = []\n\
+         let failures = 0\n\
+         const bus = new ApplicationEvents({ changed: () => {}, failed: () => { failures += 1 } })\n\
+         bus.attach({ receive: (value) => events.push(['OrderPlaced', value.total]) }, { listeners: [{ method: 'receive', event: 'OrderPlaced', order: 100 }] }, {})\n\
+         bus.attach({ receive: (value) => events.push(['OrderSettled', value.total]) }, { listeners: [{ method: 'receive', event: 'OrderSettled', order: 100 }] }, {})\n\
+         const journal = new JournalService({})\n\
+         bus.attach(journal, plan.types[0], { applicationEventPublisher: null })\n\
+         await bus.initialize(journal)\n\
+         journal.place(3)\n\
+         const heard = [...journal.heard]\n\
+         const listeners = plan.types[0].listeners.map(({ method, order }) => [method, order ?? 0])\n\
+         console.log(JSON.stringify({ heard, events, listeners, failures }))\n\
+         process.exit(0)\n";
+
     fn write(root: &Path, relative: &str, text: &str) {
         let path = root.join(relative);
         if let Some(folder) = path.parent() {
@@ -385,6 +423,39 @@ async fn a_dart_in_background_listener_runs_after_the_publishing_call_returns() 
     assert_eq!(
         report["after"],
         json!(["place 3", "record 3", "placed 3", "audit 3"]),
+        "{report}"
+    );
+    assert_eq!(report["failures"], 0, "{report}");
+}
+
+#[tokio::test]
+async fn a_dart_web_service_runs_its_ordered_listeners_in_order() {
+    if !DartStreams::tools_available() {
+        eprintln!("skipping: dart or node is unavailable");
+        return;
+    }
+    let root = DartMarkerProofs::project();
+    DartStreams::publish(
+        root.path(),
+        &DartMarkerProofs::ORDER_FILES,
+        &DartMarkerProofs::ORDER_SERVICES,
+        &["journal"],
+    )
+    .await;
+    let report = DartStreams::drive(root.path(), DartMarkerProofs::ORDER_DRIVER);
+    assert_eq!(
+        report["listeners"],
+        json!([["later", 20], ["early", -5], ["settled", 0]]),
+        "{report}"
+    );
+    assert_eq!(
+        report["heard"],
+        json!(["early 3", "settled 6", "later 3", "placed 3"]),
+        "{report}"
+    );
+    assert_eq!(
+        report["events"],
+        json!([["OrderSettled", 6], ["OrderPlaced", 3]]),
         "{report}"
     );
     assert_eq!(report["failures"], 0, "{report}");

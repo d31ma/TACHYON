@@ -239,4 +239,33 @@ mod tests {
         assert!(note.starts_with("Dart: dart compile wasm -O4"), "{note}");
         assert_eq!(WasmProgram::note(BuildProfile::Development), None);
     }
+
+    #[tokio::test]
+    async fn the_same_dart_program_gives_the_same_module_and_cache_key() {
+        if !dart_installed() {
+            eprintln!("skipping: dart is unavailable");
+            return;
+        }
+        let libraries = [(String::from("main.dart"), String::from(MAIN))];
+        let level = WasmProgram::optimization_level(BuildProfile::Release);
+        let first_key = WasmProgram::cached_folder(&libraries, "main.dart", level)
+            .await
+            .expect("first cache key");
+        let second_key = WasmProgram::cached_folder(&libraries, "main.dart", level)
+            .await
+            .expect("second cache key");
+        assert_eq!(first_key, second_key);
+        let saved = tempfile::tempdir().expect("saved builds");
+        let build = (&libraries[..], "main.dart", level);
+        let first = WasmProgram::compile_fresh(build, &saved.path().join("first"))
+            .await
+            .expect("first build");
+        let second = WasmProgram::compile_fresh(build, &saved.path().join("second"))
+            .await
+            .expect("second build");
+        assert!(!first.binary.is_empty());
+        assert_eq!(first.binary, second.binary);
+        assert_eq!(first.loader, second.loader);
+        assert_eq!(first.support, second.support);
+    }
 }

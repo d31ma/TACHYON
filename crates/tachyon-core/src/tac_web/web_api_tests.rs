@@ -820,6 +820,80 @@ final class StampService {
 }
 "#;
 
+    const WINDOW_CALLS_DRIVER: &str = r"globalThis.document = { visibilityState: 'visible', addEventListener: () => {}, querySelector: () => null }
+;(0, eval)(await readFile('./tac-web.js', 'utf8'))
+const { default: StampService } = await import('./StampService.js')
+const stamp = new StampService({})
+const tab = { allowed: stamp.allowed(), shrink: stamp.shrink() }
+const sent = []
+globalThis.__tachyonNativeHostCall = async (capability, payload) => { sent.push([capability, JSON.parse(payload)]); return '{}' }
+globalThis.__tachyonWindowControls = Object.freeze(['minimize', 'resize', 'title'])
+const native = { allowed: stamp.allowed(), shrink: stamp.shrink(), grow: stamp.grow(), rename: stamp.rename(), shut: stamp.shut() }
+console.log(JSON.stringify({ tab, native, sent }))
+process.exit(0)
+";
+
+    const JAVA_WINDOW: &str = r#"@Service
+class StampService {
+    private final WindowControls windowControls = new WindowControls();
+
+    boolean allowed() {
+        return windowControls.granted("minimize");
+    }
+
+    String shrink() {
+        return refusal(windowControls::minimize);
+    }
+
+    String shut() {
+        return refusal(windowControls::close);
+    }
+
+    String grow() {
+        return refusal(() -> windowControls.resize(1280, 800));
+    }
+
+    String rename() {
+        return refusal(() -> windowControls.setTitle("Report"));
+    }
+
+    private String refusal(Runnable call) {
+        try {
+            call.run();
+            return "";
+        } catch (IllegalStateException refused) {
+            return refused.getMessage();
+        }
+    }
+}
+"#;
+
+    const DART_WINDOW: &str = r"@Service()
+class StampService {
+  @Needs()
+  final WindowControls windowControls;
+
+  bool allowed() => windowControls.granted('minimize');
+
+  String shrink() => _refusal(() => windowControls.minimize());
+
+  String shut() => _refusal(() => windowControls.close());
+
+  String grow() => _refusal(() => windowControls.resize(1280, 800));
+
+  String rename() => _refusal(() => windowControls.setTitle('Report'));
+
+  String _refusal(void Function() call) {
+    try {
+      call();
+      return '';
+    } on StateError catch (error) {
+      return error.message;
+    }
+  }
+}
+";
+
     const JAVA_SERVICE: &str = r#"@Service
 class StampService {
     private final Clock clock = new Clock();
@@ -1451,6 +1525,36 @@ process.exit(0)
         );
     }
 
+    fn assert_window_calls(root: &Path) {
+        let driver = format!("{}{}", Self::FILE_FETCH, Self::WINDOW_CALLS_DRIVER);
+        let report = Self::run(root, &driver);
+        assert_eq!(
+            report["tab"],
+            serde_json::json!({"allowed": false, "shrink": "The minimize window control needs the native app window."}),
+            "{report}"
+        );
+        assert_eq!(
+            report["native"],
+            serde_json::json!({
+                "allowed": true,
+                "shrink": "",
+                "grow": "",
+                "rename": "",
+                "shut": "The close window control is not granted. Add \"close\" to tac.application.window.controls in client/manifest.json.",
+            }),
+            "{report}"
+        );
+        assert_eq!(
+            report["sent"],
+            serde_json::json!([
+                ["window.minimize", {}],
+                ["window.resize", {"width": 1280, "height": 800}],
+                ["window.title", {"title": "Report"}],
+            ]),
+            "{report}"
+        );
+    }
+
     fn assert_uuid(value: &serde_json::Value) {
         let text = value.as_str().expect("uuid");
         assert_eq!(text.len(), 36, "{text}");
@@ -1783,6 +1887,17 @@ async fn a_dart_service_reads_and_hears_connectivity_visibility_and_preferences(
 }
 
 #[tokio::test]
+async fn a_dart_web_service_calls_only_granted_window_controls() {
+    if !WebApis::node_available() || !WebApis::dart_available() {
+        eprintln!("skipping: node or dart is unavailable");
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    WebApis::publish_dart(root.path(), WebApis::DART_WINDOW).await;
+    WebApis::assert_window_calls(root.path());
+}
+
+#[tokio::test]
 async fn a_ruby_web_service_reads_the_clock_and_secure_random_from_the_page() {
     let unavailable = crate::tac_ruby::RubyRuntimeBuild::unavailable_reason();
     if !WebApis::node_available() || unavailable.is_some() {
@@ -2097,6 +2212,15 @@ async fn a_java_web_service_hears_the_answers_to_its_own_browser_calls() {
     }
     let driver = WebApis::PROMPTS_DRIVER.replace("stamp.notify()", "stamp.notifyPage()");
     WebApis::assert_answered_by(root.path(), true, &driver);
+}
+
+#[tokio::test]
+async fn a_java_web_service_calls_only_granted_window_controls() {
+    let root = tempfile::tempdir().expect("project");
+    if !publish_java(root.path(), WebApis::JAVA_WINDOW).await {
+        return;
+    }
+    WebApis::assert_window_calls(root.path());
 }
 
 #[tokio::test]
