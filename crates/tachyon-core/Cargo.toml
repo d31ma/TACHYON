@@ -26,6 +26,9 @@ command-group = { version = "5.0.1", features = ["with-tokio"] }
 html5gum = { version = "0.8.4", default-features = false }
 futures-util = { version = "0.3.31", default-features = false, features = ["io", "std"] }
 getrandom = "0.4.2"
+# Pins url's IDNA back end to unicode-rs (full UTS 46, as with ICU4X) instead of
+# ICU4X, which pulls in about 20 more packages. Not used directly.
+idna_adapter = "~1.1.0"
 rustls = { version = "0.23.46", default-features = false, optional = true }
 sqlx = { version = "0.9.0", default-features = false, features = ["sqlite-bundled", "runtime-tokio"] }
 tiberius = { version = "0.12.3", default-features = false, features = ["tds73", "native-tls"], optional = true }

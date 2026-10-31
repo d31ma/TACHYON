@@ -2031,6 +2031,11 @@ machine contracts have their own, independent major versions.
   `ty` now connects to Redis when managed storage starts, as
   `docs/MANAGED_STORAGE.md` describes, so a Redis it cannot reach stops startup
   instead of failing the first Redis command.
+- `url`'s IDNA back end is pinned to unicode-rs (`idna_adapter` 1.1; RD4,
+  2026-10-30) instead of ICU4X. Host names map the same way: 36 test hosts
+  (Unicode, bidi, joiners, punycode, deviation characters) gave identical
+  results with both back ends. Builds link 19 fewer packages with
+  `storage-all` and 16 fewer without, on Linux, macOS and Windows.
 - `Toolchain::checked` also requires `dotnet` and `javac` under `CI` (RT1,
   2026-10-28), since the native jobs of `rust-ci.yml` install .NET SDK
   10.0.302 and select JDK 21, so a
