@@ -512,6 +512,58 @@ fn swift_scaffold_keeps_foundation_and_component_styles_separate() {
     ClientStyleFixture::language(TacLanguage::Swift);
 }
 
+#[tokio::test]
+async fn a_scaffolded_swift_service_answers_the_web_as_webassembly() {
+    let choices = ProjectChoices {
+        tac: vec![TacLanguage::Swift],
+        ..ProjectChoices::defaults()
+    };
+    let (_root, app) = generated(&choices);
+    let source = app.join("client/services/SwiftGreetingService.swift");
+    let copy = app.join("client/services/SwiftGreetingService.js");
+    let registry = crate::template::ServiceRegistry::discover(&app).expect("services");
+    let greeting = registry
+        .get("swiftGreeting")
+        .expect("Swift greeting service");
+    assert_eq!(greeting.script_path(), Some(copy.as_path()));
+    assert_eq!(greeting.web_assembly(), None);
+    fs::remove_file(&copy).expect("the JavaScript copy is deleted");
+    let registry = crate::template::ServiceRegistry::discover(&app).expect("services");
+    let greeting = registry
+        .get("swiftGreeting")
+        .expect("Swift greeting service");
+    assert_eq!(
+        greeting.web_assembly(),
+        Some((crate::tac_web::WebLanguage::Swift, source.as_path()))
+    );
+    if !crate::tac_web::swift_tests::swift_web_ready() {
+        eprintln!(
+            "skipping the page run: the Swift SDK for WebAssembly, swiftc or node is unavailable"
+        );
+        return;
+    }
+    crate::tac_web::swift_tests::publish(&app, "swiftGreeting", "SwiftGreetingService").await;
+    assert!(app.join("swift/services.wasm").is_file());
+    let report = crate::tac_web::swift_tests::run_driver(&app, ScaffoldedSwift::DRIVER);
+    assert_eq!(
+        report,
+        serde_json::json!({"before": "Hello from Swift", "after": "Swift says hello again."})
+    );
+}
+
+struct ScaffoldedSwift;
+
+impl ScaffoldedSwift {
+    const DRIVER: &'static str = "import { readFile } from 'node:fs/promises'\n\
+         globalThis.fetch = async (url) => new Response(await readFile(url))\n\
+         const { default: SwiftGreetingService } = await import('./SwiftGreetingService.js')\n\
+         const greeting = new SwiftGreetingService({})\n\
+         const before = greeting.message\n\
+         greeting.greet()\n\
+         console.log(JSON.stringify({ before, after: greeting.message }))\n\
+         process.exit(0)\n";
+}
+
 #[test]
 fn kotlin_scaffold_keeps_foundation_and_component_styles_separate() {
     ClientStyleFixture::language(TacLanguage::Kotlin);

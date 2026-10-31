@@ -295,7 +295,7 @@ pub(crate) fn swift_web_ready() -> bool {
     has_sdk && runs(&compiler, "--version") && runs("node".as_ref(), "--version")
 }
 
-fn run_driver(root: &Path, script: &str) -> serde_json::Value {
+pub(crate) fn run_driver(root: &Path, script: &str) -> serde_json::Value {
     std::fs::write(root.join("drive.mjs"), script).expect("driver");
     let output =
         NodeDriver::output(NodeDriver::command().arg("drive.mjs").current_dir(root)).expect("node");
@@ -380,14 +380,14 @@ async fn a_swift_release_build_is_made_smaller_by_binaryen() {
     assert_eq!(counter["after"], 41);
 }
 
-fn write(root: &Path, relative: &str, text: &str) -> PathBuf {
+pub(crate) fn write(root: &Path, relative: &str, text: &str) -> PathBuf {
     let path = root.join(relative);
     std::fs::create_dir_all(path.parent().expect("parent")).expect("folder");
     std::fs::write(&path, text).expect("file");
     path
 }
 
-async fn publish(root: &Path, instance: &str, class: &str) {
+pub(crate) async fn publish(root: &Path, instance: &str, class: &str) {
     let services = [(
         String::from(instance),
         String::from(class),

@@ -260,6 +260,45 @@ mod tests {
     }
 
     #[test]
+    fn a_swift_web_service_reports_the_swift_wasm_sdk_and_wasm_opt() {
+        let root = project_with(&[(
+            "client/services/TallyService.swift",
+            "@Service\nfinal class TallyService {\n    var count: Int = 0\n}\n",
+        )]);
+        let report = check(root.path()).expect("report");
+        let mut requirements = Vec::new();
+        for entry in &report.toolchains {
+            requirements.push((entry.requirement.as_str(), entry.command.as_str()));
+        }
+        assert_eq!(
+            requirements,
+            [
+                ("Swift services for macos, ios", "swiftc"),
+                ("smaller release WebAssembly", "wasm-opt"),
+                ("Swift services on the web", "swiftc + TAC_SWIFT_WASM_SDK"),
+            ],
+            "{:?}",
+            report.toolchains
+        );
+        let web = report.toolchains.last().expect("Swift on the web");
+        assert!(web.required, "{web:?}");
+        assert!(web.install.contains("TAC_SWIFT_WASM_SDK"), "{web:?}");
+        assert!(report.to_text().contains("swiftc + TAC_SWIFT_WASM_SDK"));
+        if !crate::tac_web::swift_tests::swift_web_ready()
+            || !crate::wasm_optimizer::WasmOptimizer::is_installed()
+        {
+            eprintln!(
+                "skipping the ready check: the Swift SDK for WebAssembly, swiftc, node or wasm-opt is unavailable"
+            );
+            return;
+        }
+        assert!(
+            matches!(&web.state, ToolchainState::Ready(version) if version.contains("Swift version")),
+            "{web:?}"
+        );
+    }
+
+    #[test]
     fn a_retired_companion_beside_a_view_reports_nothing() {
         let root = project_with(&[
             ("client/pages/tac.html", "<div>x</div>"),

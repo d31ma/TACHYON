@@ -45,7 +45,7 @@ impl TacLanguage {
             "swift",
             "Swift",
             "swiftGreeting",
-            "Swift services run natively in macOS and iOS apps. On the web and the other targets, they compile to WebAssembly with the Swift SDK for WebAssembly.",
+            "Swift services run natively in macOS and iOS apps. On the web and the other targets, the page runs the JavaScript copy written beside the generated Swift service. Delete that copy to compile the service to WebAssembly with the Swift SDK for WebAssembly.",
         ),
         (
             "kt,kotlin",

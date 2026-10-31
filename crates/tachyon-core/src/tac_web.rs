@@ -939,6 +939,8 @@ pub(crate) mod swift_tests;
 #[cfg(test)]
 mod swift_helper_tests;
 #[cfg(test)]
+mod swift_marker_tests;
+#[cfg(test)]
 mod swift_named_tests;
 
 #[cfg(test)]
