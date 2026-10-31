@@ -165,8 +165,8 @@ ahead-of-time C# build needs a signed `--release` build).
 
 This amendment narrows "Still `runOwed` on macOS: `tac.browserApis`
 notifications" in the RM1 amendment above, which stays as the history of this
-decision. On the same Mac, a copy of the RM1 browser API app under a new id
-asked for notification permission from a page, and Samuel allowed the
+decision. On the same macOS test machine, a copy of the RM1 browser API app under a new id
+asked for notification permission from a page, and a person allowed the
 prompt. The page heard `granted`, and its notification was delivered and
 presented as a banner while the app was in front (`docs/SUPPORT_TIERS.md`,
 macOS runs owed, RM1). The support table marks `tac.browserApis`

@@ -336,7 +336,7 @@ declared Yon origin.
   Android emulator against a Yon on the build machine. It covers an HTTP
   route, a stream, a socket, a topic, a `@Check` 422, a `SignedIn` route and
   a linked Kotlin client. It passed on 2026-10-19 on the Android 15 (API 35,
-  arm64) emulator, with Yon on the Mac reached through `adb reverse`. The
+  arm64) emulator, with Yon on the macOS test machine reached through `adb reverse`. The
   linked Kotlin client's request came from the app's own process.
 
 ## Amendment (2026-10-19): Windows and linked native services (NET3)
@@ -433,7 +433,7 @@ Not yet run:
 
 `scripts/windows/yon-reach.ps1` builds the fixture for Windows, starts Yon
 on `http://localhost`, and clicks every path, including the linked Rust and
-C# ones, through UI Automation. It is owed on the Surface desktop, run with
+C# ones, through UI Automation. It is owed on the Windows test machine, run with
 N1. One open question is whether WebView2 asks for local network access
 before a page on `https://tachyon.local` may call `http://localhost`. If it
 does, the run shows it, and that run decides the answer. (Superseded: the

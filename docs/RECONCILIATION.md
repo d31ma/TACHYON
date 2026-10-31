@@ -15,6 +15,13 @@ and deciding to keep, restore, replace or reject it.
     compatibility decision;
   - the downloadable binaries pass the same gates.
 
+Status (2026-10-31): v26.36.01 was published from this reconciliation on
+2026-08-31. The next version from `develop` is a release candidate (maintainer
+decision D1). It is published only after the release-candidate gates in
+[`CUTOVER.md`](CUTOVER.md) pass on the release commit; those gates include the
+downloaded-binary checks above. A release candidate is not a supported
+release, and no target is promoted to `supported`.
+
 Graphify gives dependency context. Source snapshots and executable tests
 decide what is included. Existing recovery branches and release branches stay
 as permanent references.
@@ -265,7 +272,8 @@ executables:
 - schema, native ABI, and template/CLI gates;
 - storage and runtime browser gates on the downloaded Linux executable.
 
-These are still required:
+These are still required for the release candidate, and are tracked in the
+release-candidate gate table of [`CUTOVER.md`](CUTOVER.md):
 
 - checks on the current-head release PR, including Linux/Windows native GUI;
 - review feedback;

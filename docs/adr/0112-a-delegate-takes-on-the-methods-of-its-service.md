@@ -272,7 +272,7 @@ The numbers are checked against `develop` again before merge.
 
 ## Plan
 
-Each step is edited in the cloud and gated on the Mac through Remote Control,
+Each step is edited in the cloud and gated on a local macOS machine through Remote Control,
 then merged to `develop` by fast-forward.
 
 1. **Rename.** `Helper` to `Delegate` in every language and both realms,

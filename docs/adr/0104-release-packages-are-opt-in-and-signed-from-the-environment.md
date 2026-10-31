@@ -69,7 +69,7 @@ Each item below is decided by its own ADR amendment when its packaging lands:
   --arch universal` builds an arm64 and an x86_64 app and joins the app and
   each Rust helper with `lipo` (ADR 0097 amendment of 2026-10-18), and a
   `--release` build signs that app (below). The 2026-10-24 amendment below
-  records the Mac run of the universal build. Still owed: a run on an
+  records the macOS run of the universal build. Still owed: a run on an
   Intel Mac.
 - Android ABI selection.
 
@@ -133,7 +133,7 @@ Apple Developer team. A Mac App Store variant comes later and is not built.
 Consequences: the macOS row of the support table's "release packaging"
 entry says `honored`, since a Developer ID release was notarized, stapled and
 accepted by Gatekeeper on a Mac on 2026-10-19;
-`crates/tachyon-cli/tests/it/macos_release_cli.rs` holds the Mac tests, the
+`crates/tachyon-cli/tests/it/macos_release_cli.rs` holds the macOS tests, the
 Developer ID one ignored unless the team's certificate and profile are
 present.
 
@@ -266,7 +266,7 @@ app an identity, which toast notifications and protocol activation need.
   `windows_package_tests::the_package_folder_helper_runs_unpackaged_under_wine`
   (ignored; MinGW and Wine) passed: the helper builds the package folder path
   and returns no folder when the process has no package identity.
-- Windows (Surface, ARM64, Windows SDK 10.0.26100, MSVC 14.44, develop
+- Windows (a Windows 11 ARM64 test machine, Windows SDK 10.0.26100, MSVC 14.44, develop
   51abbc50): `scripts/windows/native-test.ps1 -Msix` built the gate app with
   `--release` and a self-signed certificate. `makeappx` packed an arm64
   `NativeGate.msix`, `signtool` signed it, and the script found the gate
@@ -400,7 +400,7 @@ With `TAC_LINUX_DISPLAY=desktop` and `TAC_LINUX_DESKTOP_USER`,
 installed app as the signed-in desktop user in that user's session: from
 `PATH`, from its desktop file, and by its desktop file id through
 `gtk-launch`, as the desktop's app menu starts it. It passed in an Ubuntu
-GNOME X11 session (xrdp) in WSL Ubuntu 24.04 (aarch64) on the Surface, after
+GNOME X11 session (xrdp) in WSL Ubuntu 24.04 (aarch64) on the Windows test machine, after
 the script learned to stop the installed command by its own name,
 `nativegate` (`docs/SUPPORT_TIERS.md`, "Linux in a live desktop session").
 This is evidence only. WSL is an ARM64 VM, so an install on a physical

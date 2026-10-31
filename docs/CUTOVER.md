@@ -3,9 +3,76 @@
 "Cutover" means making the Rust implementation Tachyon's default. The cutover
 gate is the list of conditions that must hold first.
 
-## Current reconciliation gate (2026-08-30)
+## Current status: release candidate (2026-10-31)
 
-The cutover assessment further below is a historical record.
+Maintainer decision D1 (2026-10-31): the next version published from
+`develop` is a **release candidate**. It is not a supported release and not a
+preview. No target is promoted to `supported` or `preview`. Each target keeps
+the tier that [`SUPPORT_TIERS.md`](SUPPORT_TIERS.md) records for it, and a
+promotion still needs the full promotion evidence listed there.
+
+The candidate is published only after every gate in the table below has a
+passing result on the release commit. These gates replace the open
+reconciliation gate of 2026-08-30 (below) for this version.
+
+- Release commit: **pending**
+- Version: **pending**
+
+A **pending** cell is filled with the date, the commit and the run (a CI run
+link, or the name of the local run) when the gate runs on the release commit.
+
+| Gate | Command | Result on the release commit |
+| --- | --- | --- |
+| Rust suite on macOS, Linux and Windows | `tachyon-ci --vms develop`: fmt, clippy `-D warnings`, the full nextest suite and rustdoc `-D warnings` in every lane | **pending** |
+| Website typing | `ty types website`, `bun run typecheck` | **pending** |
+| Website content, styles and language coverage | `website/scripts/build-content.mjs --check`, `build-styles.mjs --check`, `language-coverage.mjs --strict` | **pending** |
+| Page size budget (TY1337) and responsive widths | `ty build website`, `ty preview --static`, `website/scripts/check-responsive.mjs` | **pending** |
+| Browser gates | the `bun run test:*-browser` steps of the `rust-ci.yml` browser job, and `bun run test:website-browser` | **pending** |
+| Website acceptance | `bun run test:website` | **pending** |
+| Published snippets | `website/scripts/verify-snippets.mjs --no-cache` | **pending** |
+| macOS native | `bun run test:phase4-macos` | **pending** |
+| iOS simulator | `scripts/ios/native-test.mjs` | **pending** |
+| Android emulator | `scripts/android/native-test.sh` | **pending** |
+| Linux GTK4 | `scripts/linux/native-test.sh`, `scripts/linux/application-state-test.sh` and the icon gate, in the pinned container | **pending** |
+| Windows WebView2 | `scripts/windows/native-test.ps1` | **pending** |
+| Native GUI tests that are ignored by default | `scripts/linux/compositor-test.sh`, `scripts/linux/wine-tests.sh`, the macOS GUI tests | **pending** |
+| Fuzzing | the six `rust-ci.yml` fuzz targets, 300 seconds each | **pending** |
+| Install, upgrade, rollback and uninstall | `scripts/release/lifecycle-drill.sh`, from v26.36.01 to the candidate and back to v26.36.01 | **pending** |
+| Full CI on the `develop` to `main` pull request | `.github/workflows/rust-ci.yml` | **pending** |
+| Signed, attested and verified assets | the sign, stage and verify jobs of `.github/workflows/publish.yml` | **pending** |
+
+Passed before the release commit was chosen, on `develop` at `e5c2fc8d4`
+(2026-10-31):
+
+- The full nextest suite in the Linux lane (a linux/arm64 container): 5,103
+  of 5,103 tests passed.
+- The release candidate blockers of 2026-10-11 that needed code are closed:
+  - the gateway runtime text test passes in that run;
+  - `ty test` reports a unit that does not answer as failed and runs the other
+    units;
+  - a C# contract interface that is not public is refused (TY1308);
+  - the website lists Java and Ruby on the browser HTTP transport.
+
+Not passed, and not claimed by this release candidate:
+
+- Before 2026-10-31 these gates had never passed on `develop`: published
+  snippets, website acceptance, website browser typing, the page size budget,
+  responsive widths, macOS native and iOS. The table above is their first
+  run.
+- No run used a physical iOS or Android device. iOS runs use the simulator
+  without an Apple team ID.
+- The Linux desktop evidence comes from WSL on ARM64 and from containers, not
+  from a physical x86_64 desktop.
+- The Windows desktop gates other than `native-test.ps1` ran on ARM64 only.
+- The macOS Accessibility automation is still a named local evidence gap.
+- A hung native service is not stopped by the native call time limit (see
+  [`SUPPORT_TIERS.md`](SUPPORT_TIERS.md), "Native apps reach Yon through a
+  declared origin").
+
+Human security review is still optional. Automated qualification of the exact
+release commit is still required.
+
+## Reconciliation gate (2026-08-30)
 
 Release v26.35.07 completed the real
 [Stable Release run 33301688118](https://github.com/d31ma/Tachyon/actions/runs/33301688118).
@@ -17,13 +84,10 @@ That result does not qualify the newer native architecture:
 
 - The reconciliation in [`RECONCILIATION.md`](RECONCILIATION.md) must pass new
   gates before a new immutable version is published. These gates cover browser,
-  schema, native-host, security, and downloaded-artifact behavior.
+  schema, native-host, security, and downloaded-artifact behavior. For the
+  release candidate, the gate table above is that check.
 - Old widget and WebAssembly results cannot replace the host and companion
   gates of ADR 0018/0019 (ADR means architecture decision record).
-- Human security review is still optional.
-- Automated qualification of the exact head commit is still required.
-
-Current status: **reconciliation in progress, not release-ready**.
 
 ## Historical cutover assessment (2026-08-01)
 
@@ -36,8 +100,8 @@ the tag workflow published v26.35.07 and v26.36.01; see section 4.
 - Automated security qualification is the security gate before tagging.
 - An independent human review is optional. It does not block merge, tagging,
   or publication.
-- Meeting this historical gate does not make the current head release-ready.
-  The reconciliation gate above decides that.
+- Meeting this historical gate does not qualify a new version. The
+  release-candidate gates above decide that.
 
 Every claim below is one of two things:
 
@@ -126,7 +190,7 @@ dynamic `/docs/introduction` route, not a 404.
 
 ## 2. Native Evidence Profiles — Met, with macOS and Windows Named
 
-Executed 2026-07-31 on this machine:
+Executed 2026-07-31 on a macOS arm64 test machine:
 
 | Target | Command | Result |
 | --- | --- | --- |
@@ -288,9 +352,11 @@ evidence:
 
 ## What Happens Next
 
-1. Complete the pull-request matrix.
-2. Run the release workflow from the qualified immutable tag.
-3. Verify its staged assets.
+1. Run the release-candidate gates on the release commit and record each
+   result in the table above.
+2. Open the `develop` to `main` pull request and complete its CI matrix.
+3. Run the release workflow from the qualified immutable tag.
+4. Verify its staged assets.
 
 The macOS Accessibility automation is still a named local evidence gap. Do not
 present it as completed platform promotion work.

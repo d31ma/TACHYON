@@ -18,6 +18,15 @@ One label never replaces another. Containers do not replace filesystem and
 process tests on a native host. Emulation does not replace evidence from a
 device or the native architecture when a target claims `supported`.
 
+## Release candidate status (2026-10-31)
+
+The next version published from `develop` is a release candidate (maintainer
+decision D1, 2026-10-31). No target is promoted to `supported` or `preview` by
+it. The release-candidate gates, with the ones passed and the ones still
+pending on the release commit, are in [`CUTOVER.md`](CUTOVER.md). A target
+moves to `supported` only with all of the evidence in "Promotion Evidence"
+below.
+
 ## Reconciliation candidate evidence (unpublished)
 
 These results qualify only the working candidate. The Tier column names the
@@ -32,8 +41,8 @@ only after the same gate passes on its download. No target is `preview` or
 | macOS WKWebView | native-tested (candidate) | full arm64 application gate passed: controls, accessibility, typing, lifecycle and visual parity at 420x752 | exact release artifact and current-head CI |
 | iOS WKWebView | simulator-tested | isolated iPhone SE (3rd generation), iOS 26.5. Passed: Swift calls, publish, input/focus, assets and route state `7 -> 9 -> 7`. On 2026-10-19 the same gate also linked a Rust service (`aarch64-apple-ios-sim` static library, beside the two Swift services): its start hook wrote a file from the app's own process and its rendered count doubled after a page click (MR1) | exact release artifact; support on physical devices is still not claimed |
 | Android WebView | simulator-tested (emulator) | Android 15 emulator. Passed: Kotlin calls, publish, input/focus per character with a delayed setter, service-worker retirement, packaged dynamic routes, window controls (granted minimize, resize and title act; ungranted maximize, fullscreen and close are refused, 2026-10-18), and a `@LocalState` field set by a Kotlin method kept across navigation and reload. Browser APIs (clipboard, share, notifications through the host; geolocation through the web view with the host's location question, 2026-10-19): `scripts/android/browser-apis-test.mjs` passed end to end on 2026-10-24 (RM3), with geolocation fed by `fused`, `network` and `gps` test providers. RM3 also ran granted maximize, fullscreen and close, background and foreground, external links, offline Yon reads, preference strings after a relaunch and a Python service, and the Yon reach, linked Rust and release checks on a Google Play production image ("Android runs owed, RM3" below) | exact release artifact; support on physical devices is still not claimed |
-| Linux WebKitGTK | native-tested (candidate), from a live desktop session on WSL aarch64 (LD1), not a physical machine: AT-SPI read the page roles and names and activated page controls there, as the Phase 5 rule in `PROJECT_PLAN.md` requires | Rust native service compiles. The shared route/security probe passes. On 2026-10-18 `scripts/linux/native-test.sh` ran the GTK 4 / WebKitGTK host under Xvfb with an AT-SPI (Linux accessibility bus) session, in a cloud Linux VM (Ubuntu 24.04, GTK 4.14.5) and in the pinned Debian trixie image (GTK 4.18.6). Passed: the window name, the menu bar and its item names, page roles and names (landmark, heading, button, link), AT-SPI activation of Rust calls and route changes, and the lifecycle log. RL1 (2026-10-19) added headless Wayland (mutter), a compositing window manager and WSL (aarch64) runs. On 2026-10-28 (LD1) the six Linux gates ran in a signed-in desktop session, two of them passing after test-script fixes (one only for its picker steps): Ubuntu GNOME on X11 through xrdp, in WSL Ubuntu 24.04 (aarch64) on the Surface, under GNOME's own window manager, notification server, tray host (the AppIndicator extension) and desktop portal. `scripts/linux/native-test.sh` with its AT-SPI probe, the release packages and Yon reach, the host tests of `compositor-test.sh --desktop`, `desktop-services-test.sh`, `desktop-links-test.sh`, `page-services-native-test.mjs` and `deb-install-test.sh` as root with a start by desktop file id (see Linux in a live desktop session below). LD2 (2026-10-28) ran the whole page-services gate there with no wrapper, and ran the compositor and desktop-services gates in a headless GNOME Shell 46 Wayland session (see Linux page services and GNOME Shell on Wayland below). WL1 (2026-10-28) ran `desktop-services-test.sh` and `compositor-test.sh --desktop` in a GNOME Shell 46 Wayland session that a person opened and signed in to, a remote login through GNOME Remote Desktop opened with FreeRDP from the Mac, on the same WSL; GNOME Shell ran there without a GPU and showed nothing on a local display (see A Wayland desktop session a person opens below). CI3 (2026-10-29) ran the `linux-native` job locally: `native-test.sh` and the application-state steps in Docker on that WSL, and the icon gate in a linux/arm64 container on the Mac | exact release artifact; Linux native GUI CI on the current head; a physical Linux desktop (x86_64), because WSL is an ARM64 VM, which would also give a local Wayland session with a GPU (WL1's was remote and had none) |
-| Windows WebView2 | native-tested (candidate), from signed-in arm64 desktop runs: UI Automation exposed semantic roles of page controls (SD1), as the Phase 5 rule in `PROJECT_PLAN.md` requires | generated C compiles with the official software development kit (SDK). Real C# protocol/OS execution. On 2026-10-19, on the signed-in desktop of a Windows 11 ARM64 Surface, `scripts/windows/native-test.ps1 -Msix` built a release MSIX package, installed it and launched it (PKG4). WebView2 rendered the page, UI Automation found the page controls by name and invoked one, the native Rust, OS and publish calls answered, and the WebView2 data was in the package's LocalState folder. On the same desktop, links opened the built app and the installed package at their routes (LK2). On 2026-10-24 the SD1 gates ran there from SSH through `scripts/windows/desktop-run.ps1`: both routes of `scripts/windows/native-test.ps1`, `scripts/windows/yon-reach.ps1` (NET3, LS1), the menus, Edit commands and Minimize/Maximize, the tray, the caption color, page window controls, background and foreground, web storage across relaunch, external links, the browser APIs, page services and an x64 build under emulation (see Windows on the signed-in desktop below). CI2's run [40705121906](https://github.com/d31ma/TACHYON/actions/runs/40705121906) (2026-10-28, develop `a62ab084`) passed the Windows WebView2 native gate, `scripts/windows/native-test.ps1`, on GitHub's x64 `windows-latest`; CI3 (2026-10-29) did not run that job locally, because PowerShell scripts are not allowed for the Surface's user | exact release artifact; Windows native GUI CI on the current head (CI2's pass was on `a62ab084`); the SD1 gates other than `native-test.ps1` on an x64 machine |
+| Linux WebKitGTK | native-tested (candidate), from a live desktop session on WSL aarch64 (LD1), not a physical machine: AT-SPI read the page roles and names and activated page controls there, as the Phase 5 rule in `PROJECT_PLAN.md` requires | Rust native service compiles. The shared route/security probe passes. On 2026-10-18 `scripts/linux/native-test.sh` ran the GTK 4 / WebKitGTK host under Xvfb with an AT-SPI (Linux accessibility bus) session, in a cloud Linux VM (Ubuntu 24.04, GTK 4.14.5) and in the pinned Debian trixie image (GTK 4.18.6). Passed: the window name, the menu bar and its item names, page roles and names (landmark, heading, button, link), AT-SPI activation of Rust calls and route changes, and the lifecycle log. RL1 (2026-10-19) added headless Wayland (mutter), a compositing window manager and WSL (aarch64) runs. On 2026-10-28 (LD1) the six Linux gates ran in a signed-in desktop session, two of them passing after test-script fixes (one only for its picker steps): Ubuntu GNOME on X11 through xrdp, in WSL Ubuntu 24.04 (aarch64) on the Windows test machine, under GNOME's own window manager, notification server, tray host (the AppIndicator extension) and desktop portal. `scripts/linux/native-test.sh` with its AT-SPI probe, the release packages and Yon reach, the host tests of `compositor-test.sh --desktop`, `desktop-services-test.sh`, `desktop-links-test.sh`, `page-services-native-test.mjs` and `deb-install-test.sh` as root with a start by desktop file id (see Linux in a live desktop session below). LD2 (2026-10-28) ran the whole page-services gate there with no wrapper, and ran the compositor and desktop-services gates in a headless GNOME Shell 46 Wayland session (see Linux page services and GNOME Shell on Wayland below). WL1 (2026-10-28) ran `desktop-services-test.sh` and `compositor-test.sh --desktop` in a GNOME Shell 46 Wayland session that a person opened and signed in to, a remote login through GNOME Remote Desktop opened with FreeRDP from the macOS test machine, on the same WSL; GNOME Shell ran there without a GPU and showed nothing on a local display (see A Wayland desktop session a person opens below). CI3 (2026-10-29) ran the `linux-native` job locally: `native-test.sh` and the application-state steps in Docker on that WSL, and the icon gate in a linux/arm64 container on the macOS test machine | exact release artifact; Linux native GUI CI on the current head; a physical Linux desktop (x86_64), because WSL is an ARM64 VM, which would also give a local Wayland session with a GPU (WL1's was remote and had none) |
+| Windows WebView2 | native-tested (candidate), from signed-in arm64 desktop runs: UI Automation exposed semantic roles of page controls (SD1), as the Phase 5 rule in `PROJECT_PLAN.md` requires | generated C compiles with the official software development kit (SDK). Real C# protocol/OS execution. On 2026-10-19, on the signed-in desktop of a Windows 11 ARM64 Surface, `scripts/windows/native-test.ps1 -Msix` built a release MSIX package, installed it and launched it (PKG4). WebView2 rendered the page, UI Automation found the page controls by name and invoked one, the native Rust, OS and publish calls answered, and the WebView2 data was in the package's LocalState folder. On the same desktop, links opened the built app and the installed package at their routes (LK2). On 2026-10-24 the SD1 gates ran there from SSH through `scripts/windows/desktop-run.ps1`: both routes of `scripts/windows/native-test.ps1`, `scripts/windows/yon-reach.ps1` (NET3, LS1), the menus, Edit commands and Minimize/Maximize, the tray, the caption color, page window controls, background and foreground, web storage across relaunch, external links, the browser APIs, page services and an x64 build under emulation (see Windows on the signed-in desktop below). CI2's run [40705121906](https://github.com/d31ma/TACHYON/actions/runs/40705121906) (2026-10-28, develop `a62ab084`) passed the Windows WebView2 native gate, `scripts/windows/native-test.ps1`, on GitHub's x64 `windows-latest`; CI3 (2026-10-29) did not run that job locally, because PowerShell scripts are not allowed for the Windows test machine's user | exact release artifact; Windows native GUI CI on the current head (CI2's pass was on `a62ab084`); the SD1 gates other than `native-test.ps1` on an x64 machine |
 
 Android release packages (2026-10-18, ADR 0104): `ty bundle --target android
 --release` was built in an x86_64 Linux cloud container (Android SDK platform
@@ -41,7 +50,7 @@ Android release packages (2026-10-18, ADR 0104): `ty bundle --target android
 PKCS12 keystore. `apksigner verify` and `jarsigner -verify` showed both the APK
 and the `.aab` signed with that key, `aapt2` showed the declared version code
 and name and no `debuggable` flag, and no generated file held the password.
-On 2026-10-19 `scripts/android/native-test.mjs` passed on the Mac's Android
+On 2026-10-19 `scripts/android/native-test.mjs` passed on the macOS test machine's Android
 35 emulator (develop `26d76ebf`): after the debug checks it built a release
 with a throwaway keystore, verified both signatures, and installed and
 launched the release APK, which kept the declared version code and was not
@@ -123,7 +132,7 @@ iOS device and App Store packages (2026-10-19, ADR 0104 amendment): in an
 x86_64 Linux cloud container, unit tests covered the profile checks (team, app
 ID, kind), the certificate choice, the entitlements, the Xcode build keys and
 the device `Info.plist`, and CLI tests covered the `TY1001` and `TY1605`
-refusals. On the Mac (macOS 26.6, Xcode 27.1 27A9275, iphoneos SDK 27.1, develop
+refusals. On the macOS test machine (macOS 26.6, Xcode 27.1 27A9275, iphoneos SDK 27.1, develop
 fd0384ad), `scripts/ios/native-test.mjs` passed without signing variables
 (iPhone SE simulator, iOS 26.5) and again with `TAC_APPLE_TEAM_ID` and a
 wildcard development profile: `ty bundle --target ios --device` chose the
@@ -147,8 +156,8 @@ entry. This evidence does not promote any tier.
 | macOS WKWebView | yes | the generated AppDelegate is compiled and run with a real Rust library (ignored SDK-lane tests in `native_application_host_tests` and `native_menu_host_tests`) |
 | Linux WebKitGTK | yes | `linux_host_tests::linux_generated_host_runs_menu_actions_and_one_application_lifetime` compiled the generated host with GTK 4.14.5 and WebKitGTK 2.52.6 (warnings as errors) and a real Rust library, and ran it under Xvfb on WSL Ubuntu 24.04 (aarch64), passing three of three runs: the service started once at launch, a menu action reached the page service without a reload, the item was disabled with no recipient, Help and Home kept the service, and Close Window stopped it once. Not covered: a physical Linux desktop, Wayland, x86_64, and clicks or keys by a person. WSLg's display did not accept connections from the remote test lane, and with WebKit's sandbox on, the first page load took up to about 80 seconds on that machine. This run predates `594a5833` (2026-10-18). Before that fix, GTK 4 did not draw the menu bar, and the popover menu items had no accessible name. The test activates the menu actions through the application's action group, so it passed without a visible menu bar. Since the fix the test also checks that the window shows its menu bar, the AT-SPI probe of `scripts/linux/native-test.sh` reads the drawn menu items by name, and the test passed again in the WSL run of `38eaed29` |
 | Windows WebView2 (x64) | yes | built and run on Windows 11 ARM64 on 2026-10-04 with Visual Studio Build Tools 2022 17.14 (MSVC 14.44, ARM64-hosted x64 tools), Windows SDK 10.0.26100.0 and WebView2 SDK 1.0.3485.44. `ty`, built natively for `aarch64-pc-windows-msvc`, ran `ty bundle --target windows` for the `menu-actions` and `menu-items-that-open-a-page` examples: the whole host compiled with `cl /W4 /WX`, linked `WebView2LoaderStatic.lib`, and `TachyonRustCompanion.dll` was built (after the C4100 fix of 2026-10-04). The WebView2 handler interface IDs match `WebView2.h`. The apps ran from an SSH session and were driven with Win32 messages: the application service started once before the window, the File, View and Help menus showed the declared items and shortcuts, a menu action ran, an item whose event had no recipient stayed disabled and did not run, and Close Window ended the process with exit code 0 after exactly one stop (also after `WM_ENDSESSION`). This SSH run did not reach WebView2: outside a signed-in desktop session `CreateCoreWebView2Controller` fails with `0x80070578` (invalid window handle). WebView2 pages ran later on the signed-in desktop (2026-10-19): the MSIX gate rendered pages and made native calls (PKG4), and links opened the app at their routes (LK2); see the Windows row and the Windows release packages above. On 2026-10-24 route items, the `AcceleratorKeyPressed` handler (Ctrl+K) and `scripts/windows/native-test.ps1` without `-Msix` passed there (SD1). On the same day View > Show Running and Ctrl+2 sent their events to the page, which now shows them (SD1) |
-| iOS WKWebView | route items yes (MN1a); action items yes (LT1, MN1b); the application lifetime adapted (LT1, MN1b, as in the support table): the application `OnStop` runs when a person ends the app from the app switcher (MA4), not when iOS ends a suspended app | `scripts/ios/menus-test.mjs` on this Mac (2026-10-19, MN1a, Xcode with iOS 26.5): on an iPhone 17 Pro simulator Command-K from a simulated hardware keyboard reached the route item through `keyCommands`, and on an iPad Pro 13-inch (M5) simulator through the main menu that `buildMenu(with:)` fills; a Swift service on the opened page recorded `/status` both times. On 2026-10-24 (LT1, MN1b) `scripts/ios/application-lifetime-test.mjs` passed on the same simulators (iOS 26.5, Xcode 27.1, commit `566c24e9`): one Rust application service started at launch and served two pages, Command-1 and Command-2 called it through the iPhone key commands and the iPad menu bar, and Command-1 did nothing on a page without a listener. iPadOS keeps Command-G for Find Next, so an item with that shortcut never fires on iPad. On 2026-10-25 (MA4, commit `e6c017f1`) the same script opened the iPad menu bar by touch, a swipe down from the top edge, and touches on View and What's Running called the application service. On iPhone and iPad, ending the app from the app switcher ran `applicationWillTerminate`: the open page's Rust service stopped first, then the application service, once. Not covered: the iPad menu bar opened by a pointer, a person's keyboard, and a stop when iOS ends a suspended app (iOS does not tell the app) |
-| Android WebView | route items, action items and the application lifetime yes (MN1a, LT1, MN1b) | `scripts/android/menus-test.mjs` on this Mac's emulator-5554 (API 35 arm64, 2026-10-19, MN1a): the system keyboard shortcuts list (Meta+/) showed File > Status Ctrl+K, `input keycombination` Ctrl+K opened `/status`, and a tap on the app bar's More options and then Guide opened `/guide`, read through the WebView's DevTools socket. On 2026-10-24 (LT1, MN1b) `scripts/android/application-lifetime-test.mjs` passed there (commit `566c24e9`): one Rust application service started at launch, served two pages and a rotation, stopped once on Back, and started again on the next launch in the same process; Ctrl+1 and Ctrl+2 called it, the page showed the forwarded section without a reload, and the overflow item was disabled on a page without a listener |
+| iOS WKWebView | route items yes (MN1a); action items yes (LT1, MN1b); the application lifetime adapted (LT1, MN1b, as in the support table): the application `OnStop` runs when a person ends the app from the app switcher (MA4), not when iOS ends a suspended app | `scripts/ios/menus-test.mjs` on the macOS test machine (2026-10-19, MN1a, Xcode with iOS 26.5): on an iPhone 17 Pro simulator Command-K from a simulated hardware keyboard reached the route item through `keyCommands`, and on an iPad Pro 13-inch (M5) simulator through the main menu that `buildMenu(with:)` fills; a Swift service on the opened page recorded `/status` both times. On 2026-10-24 (LT1, MN1b) `scripts/ios/application-lifetime-test.mjs` passed on the same simulators (iOS 26.5, Xcode 27.1, commit `566c24e9`): one Rust application service started at launch and served two pages, Command-1 and Command-2 called it through the iPhone key commands and the iPad menu bar, and Command-1 did nothing on a page without a listener. iPadOS keeps Command-G for Find Next, so an item with that shortcut never fires on iPad. On 2026-10-25 (MA4, commit `e6c017f1`) the same script opened the iPad menu bar by touch, a swipe down from the top edge, and touches on View and What's Running called the application service. On iPhone and iPad, ending the app from the app switcher ran `applicationWillTerminate`: the open page's Rust service stopped first, then the application service, once. Not covered: the iPad menu bar opened by a pointer, a person's keyboard, and a stop when iOS ends a suspended app (iOS does not tell the app) |
+| Android WebView | route items, action items and the application lifetime yes (MN1a, LT1, MN1b) | `scripts/android/menus-test.mjs` on the macOS test machine's emulator-5554 (API 35 arm64, 2026-10-19, MN1a): the system keyboard shortcuts list (Meta+/) showed File > Status Ctrl+K, `input keycombination` Ctrl+K opened `/status`, and a tap on the app bar's More options and then Guide opened `/guide`, read through the WebView's DevTools socket. On 2026-10-24 (LT1, MN1b) `scripts/android/application-lifetime-test.mjs` passed there (commit `566c24e9`): one Rust application service started at launch, served two pages and a rotation, stopped once on Back, and started again on the next launch in the same process; Ctrl+1 and Ctrl+2 called it, the page showed the forwarded section without a reload, and the overflow item was disabled on a page without a listener |
 
 Standard menus on Linux and Windows (2026-10-18, ADR 0097 amendment): both
 hosts now always show a menu bar with File, Edit (Undo, Redo, Cut, Copy,
@@ -206,7 +215,7 @@ app without Rust services holds no native code.
 
 Rust on Android (2026-10-19, ADR 0019 amendment): Rust services are linked
 into the Android app through JNI. `scripts/android/rust-services-test.mjs`
-passed on the Mac's Android 15 (API 35, arm64) emulator with NDK r30: the APK
+passed on the macOS test machine's Android 15 (API 35, arm64) emulator with NDK r30: the APK
 held `libtachyoncompanion.so` for `arm64-v8a` and `x86_64` and no WebAssembly,
 and a Rust service ran in the app's own process next to a Kotlin service.
 Calls, an awaited method, an event, the granted and refused window controls
@@ -290,7 +299,7 @@ window menu, the insets held the caption height and button width and were
 buttons. Wine has no DWM, so this used the fallback button size. The page
 script, run in Chromium with Playwright, turned a drag region into
 `app-region: drag` and its button into `no-drag`, and sent no
-`window.dragRegions`. On the Surface (Windows 11 ARM64, over SSH, cl
+`window.dragRegions`. On the Windows test machine (Windows 11 ARM64, over SSH, cl
 19.44.35229 for ARM64, WebView2 SDK 1.0.3485.44) the same fixture compiled
 with `cl /W4 /WX` and passed on a real HWND
 (`the_windows_title_bar_drives_a_real_win32_window`), and `ty build --target
@@ -425,7 +434,7 @@ WSL2 (kernel 6.18.54.1), GTK 4.14.5, WebKitGTK 2.52.6, node 24.21.0, bun
   bar tests are left out there: they press the pointer through Mutter's
   RemoteDesktop D-Bus API, which WSLg does not have, and they pass under
   mutter and xfwm4.
-- WSL, round 4 on `fe191f12`, after Samuel installed mutter 46.2, xdg-utils
+- WSL, round 4 on `fe191f12`, after the tester installed mutter 46.2, xdg-utils
   1.1.3 and gcc-mingw-w64-x86-64 13.2.0: `compositor-test.sh` passed both
   halves (xfwm4 compositing two and two; headless mutter Wayland ten host
   tests and three link tests), and `desktop-links-test.sh` passed through GIO
@@ -447,9 +456,8 @@ WSL2 (kernel 6.18.54.1), GTK 4.14.5, WebKitGTK 2.52.6, node 24.21.0, bun
 Every Linux GUI run before LD1 used Xvfb, headless mutter or WSLg. LD1
 (branch `claude/project-thread-owrzrl`, on develop as `135fccd5` and
 `47d07919`) ran the six Linux gates in the signed-in desktop session that
-Samuel opens through the Windows App: Ubuntu GNOME on X11 through xrdp
-(Xorg with xorgxrdp, display `:10`), in WSL Ubuntu 24.04 (aarch64) on the
-Surface, driven over SSH from the Mac. `TAC_LINUX_DISPLAY=desktop` (and
+a person opens through the Windows App: Ubuntu GNOME on X11 through xrdp
+(Xorg with xorgxrdp, display `:10`), in WSL Ubuntu 24.04 (aarch64) on the Windows test machine, driven over SSH from the macOS test machine. `TAC_LINUX_DISPLAY=desktop` (and
 `compositor-test.sh --desktop`) makes a gate find that session from the
 user's own processes (`scripts/linux/linux-display-session.mjs`: its
 display, runtime folder and session bus) and use the desktop's own window
@@ -457,8 +465,7 @@ manager, notification server, StatusNotifierItem host and portal instead of
 starting Xvfb, mutter, dunst or a test watcher.
 `linux-display-session.mjs describe` reported the tray, notifications,
 portal, remote-desktop and accessibility services, and GNOME owned the
-compositing selection. Screenshots and logs are in the FORGE logs
-(`TACHYON/ld1`). Passed there:
+compositing selection. Passed there:
 
 - `compositor-test.sh --desktop` (302 s): the `native::linux_` and
   `the_linux_` host tests under GNOME's window manager, among them the host
@@ -519,7 +526,7 @@ WSL start in emergency mode from it). The line is commented out
 (backup `/etc/fstab.bak-ld1`), `mount -a` succeeds, and WSL came back
 normally after a restart; it still reports `degraded` because
 `lightdm` keeps crashing, which does not matter because xrdp gives the
-desktop (LD2 disabled `lightdm`, below). When Samuel signed out of Windows during the runs, the WSL VM
+desktop (LD2 disabled `lightdm`, below). When the tester signed out of Windows during the runs, the WSL VM
 restarted and the desktop session ended. ImageMagick was
 installed for screenshots, and the Pyodide files were copied into the
 desktop user's Tachyon cache for the Python page service.
@@ -528,10 +535,9 @@ desktop user's Tachyon cache for the Python page service.
 
 LD2 (on develop as `5ceea52e` to `2dd69e1d`, iteration 10, D33 and D34)
 ran the rest of the Linux desktop work on the same WSL Ubuntu 24.04
-(aarch64) on the Surface, driven over SSH from the Mac.
+(aarch64) on the Windows test machine, driven over SSH from the macOS test machine.
 
-- The whole `page-services-native-test.mjs` passed on develop in Samuel's
-  Ubuntu GNOME X11 desktop session (xrdp), with no wrapper (440 s): the
+- The whole `page-services-native-test.mjs` passed on develop in an Ubuntu GNOME X11 desktop session (xrdp), with no wrapper (440 s): the
   WebAssembly page services, the WindowControls and FilePicker callers and
   the stored field, with `page-steps-probe.py` focusing the portal's file
   dialog each time. The first whole run ran out of time on a cold `swiftc`
@@ -559,7 +565,7 @@ ran the rest of the Linux desktop work on the same WSL Ubuntu 24.04
   server, and the tray app's icon and menu worked in its tray, except the
   close step, which the probe skips on Wayland (no `xdotool` Alt+F4); the
   gate's PASS line now says so. The default `compositor-test.sh` (xfwm4
-  under Xvfb, then headless mutter) still passed (101 s), and on the Mac fmt and `repository_policy`
+  under Xvfb, then headless mutter) still passed (101 s), and on the macOS test machine fmt and `repository_policy`
   (25 of 25) passed.
 
 This is a GNOME Shell Wayland session, but nobody can see or sign in to
@@ -571,10 +577,10 @@ that session the same day (below).
 
 WL1 (iteration 11, D37; on develop as `14604526`) ran the Linux desktop
 gates in a GNOME Shell Wayland session that a person opened, on the same
-WSL Ubuntu 24.04 (aarch64) on the Surface, driven over SSH from the Mac.
+WSL Ubuntu 24.04 (aarch64) on the Windows test machine, driven over SSH from the macOS test machine.
 
 - gdm3 46.2 and GNOME Remote Desktop 46.3 in system mode gave a remote
-  login on port 3391. Samuel opened it from the Mac with FreeRDP 3.32.2
+  login on port 3391. A person opened it from the macOS test machine with FreeRDP 3.32.2
   (`sdl-freerdp`) and signed in. `loginctl` showed `Type=wayland`,
   `Remote=yes` and `Class=user`; GNOME Shell 46.0 ran headless (mutter
   46.2, no GPU) with the desktop icons, Ubuntu Dock and AppIndicator
@@ -596,7 +602,7 @@ WSL Ubuntu 24.04 (aarch64) on the Surface, driven over SSH from the Mac.
   `lightdm` was disabled, the distribution was stopped (`wsl --terminate`)
   and started again, and it reported `running` with no failed unit (LD2
   above had not restarted it).
-- On the Mac, `repository_policy` (25 of 25) passed.
+- On the macOS test machine, `repository_policy` (25 of 25) passed.
 
 Beyond installing the packages, pointing the display manager at gdm3 and
 restarting GNOME Remote Desktop after configuring it, it took four changes:
@@ -623,8 +629,7 @@ stays owed.
 WebView2 does not start from an SSH session (`0x80070578`). On 2026-10-24
 `scripts/windows/desktop-run.ps1` ran each gate from SSH in the desktop
 session of the same signed-in user, through a one-time interactive
-scheduled task, and read its output from a file. The machine was the
-Windows 11 ARM64 Surface (build 26200, WebView2 Runtime 155.0.4283.62,
+scheduled task, and read its output from a file. The machine was a Windows 11 ARM64 test machine (build 26200, WebView2 Runtime 155.0.4283.62,
 MSVC 14.44 ARM64 tools, Windows SDK 10.0.26100.0, WebView2 SDK
 1.0.3485.44), signed in and unlocked. Passed there:
 
@@ -724,7 +729,7 @@ Wayland tests ran from the same signed-in session (see the WSL list above).
 
 LX2 ran four owed Linux checks on branch `claude/project-thread-ye5nxq`
 (`6d51eb78`, develop `4243f2b6`), each in an x86_64 Ubuntu 24.04 cloud container (GTK 4.14.5, WebKitGTK
-2.52.6, mutter 46.2) and on WSL Ubuntu 24.04.5 (aarch64) on the Surface (the same GTK, WebKitGTK and mutter).
+2.52.6, mutter 46.2) and on WSL Ubuntu 24.04.5 (aarch64) on the Windows test machine (the same GTK, WebKitGTK and mutter).
 This evidence does not promote any tier.
 
 - `scripts/linux/compositor-test.sh` now runs
@@ -811,7 +816,7 @@ The same day, on the same container:
 ### WebAssembly service features in the Android app (2026-10-27, MA9)
 
 MA9 added an Android driver to `scripts/native/wasm-features-app-test.mjs`
-(`--target=android`) and ran it on the Mac's emulator-5554: AVD
+(`--target=android`) and ran it on the macOS test machine's emulator-5554: AVD
 `tachyon-gate` (`system-images;android-35;google_apis;arm64-v8a`, Android
 15, `userdebug`, WebView 124.0.6367.219), with a debug `ty`, Node 26.12.1,
 Playwright 1.62.1, Swift 6.4.1 with its WebAssembly SDK, .NET SDK 10.0.402
@@ -821,7 +826,7 @@ probe through the WebView's DevTools socket, clicks the gesture buttons with
 real input events, taps Allow on Android's notification question, closes the
 share sheet with Back, and checks that every WebAssembly file came from
 `https://appassets.tachyon.local`. Checks that call Yon reach `ty serve`
-on the Mac through `adb reverse`. Kotlin and Rust are linked on Android, so
+on the macOS test machine through `adb reverse`. Kotlin and Rust are linked on Android, so
 DocumentTitle has no WebAssembly cell there. This evidence does not promote
 any tier.
 
@@ -871,8 +876,7 @@ changed.
 ### WebAssembly service features in the iOS app (2026-10-27, MA8)
 
 MA8 added an iOS driver to `scripts/native/wasm-features-app-test.mjs`
-(`--target=ios`, `scripts/native/wasm-features-ios.mjs`) and ran it on the
-Mac's iOS 26.5 simulator (iPhone 17 Pro, Xcode 27.1) with a debug `ty` from
+(`--target=ios`, `scripts/native/wasm-features-ios.mjs`) and ran it on the macOS test machine's iOS 26.5 simulator (iPhone 17 Pro, Xcode 27.1) with a debug `ty` from
 branch `d24ede56`. The driver builds the app with `ty build --target ios`,
 checks that no service of the check is linked into it, installs and launches
 it on one simulator, and links one Swift `wasmRecorder` service of its own
@@ -880,7 +884,7 @@ that writes the probe's verdict into the app's `tmp` folder. It reads the
 simulator screen to tap the gesture buttons, taps Allow on the notification
 question and closes the share sheet. With `TAC_IOS_WASM_VERDICT=screen` it
 links nothing and reads `Probe passed` and the probe's lines from the screen.
-Checks that call Yon reach `ty serve` on the Mac at `127.0.0.1`. Swift and
+Checks that call Yon reach `ty serve` on the macOS test machine at `127.0.0.1`. Swift and
 Rust are linked on iOS, so they have no cell here. This evidence does not
 promote any tier.
 
@@ -969,7 +973,7 @@ install in an x86_64 Ubuntu 24.04 cloud container (GTK 4.14.5, WebKitGTK
 
 #### Android runs owed, RM3 (2026-10-24)
 
-RM3 ran the Android rows of the runs-owed list on this Mac (Apple silicon,
+RM3 ran the Android rows of the runs-owed list on the macOS test machine (Apple silicon,
 macOS 26.6.2) on 2026-10-24, from branch `claude/rm3-android-20261024`: first
 on develop `4c052177`, then all nine Android scripts and the byte-identical
 test again after a rebase onto develop `259818ee`, which adds R8 shrinking to
@@ -1051,7 +1055,7 @@ and `TAC_BIN` set, as `node scripts/android/<script>.mjs`.
   `uiautomator`, without DevTools) reached the linked Rust service, whose count
   the page showed.
 
-Production-image stand-ins for a physical device: the Mac has no Android
+Production-image stand-ins for a physical device: the macOS test machine has no Android
 device, so a second AVD, `tachyon-play`, runs the Google Play image
 (`system-images;android-35;google_apis_playstore;arm64-v8a`, `user` build
 `AE3A.240806.036`, `release-keys`, `ro.debuggable=0`), on the same port in
@@ -1061,7 +1065,7 @@ installed and run) passed, and `native-test.mjs` passed with its release check
 asserting, not skipping: the release APK opened no
 `webview_devtools_remote_<pid>` socket. These are emulator runs on a
 production image, not device runs. Still owed: the `x86_64` Rust library on
-an x86_64 emulator or device (this Mac's emulator runs arm64 only), and runs
+an x86_64 emulator or device (the macOS test machine's emulator runs arm64 only), and runs
 on a physical device.
 
 #### macOS runs owed, RM1 (2026-10-24)
@@ -1107,7 +1111,7 @@ handler. Each item below names its command.
   allowed then: an unanswered prompt that closes with its app, or a banner
   closed with its X, records "allow: NO" for that app id, and the page then
   hears `denied` without a new prompt. On a retry the same app, copied under
-  a new id, opened the prompt again; Samuel allowed it, the page heard
+  a new id, opened the prompt again; a person allowed it, the page heard
   `granted`, and a notification from the page was delivered and presented as
   a banner while the app was in front (`usernoted`: "Authorization set ...
   allow: YES", then "Presenting ... as banner"). A page location request
@@ -1161,7 +1165,7 @@ applies to an unsigned bundle too (the iOS simulator run used one).
 
 ### macOS universal release with an ahead-of-time C# service (2026-10-25, MA6)
 
-On the Mac (Apple M4, macOS 26.6.2, Xcode 27.1, .NET SDK 10.0.402 with
+On the macOS test machine (Apple M4, macOS 26.6.2, Xcode 27.1, .NET SDK 10.0.402 with
 `wasm-tools`, Node 26.12, branch `0f082432`),
 `TAC_APPLE_TEAM_ID=JAU9V4WH99 TAC_APPLE_NOTARY_PROFILE=tachyon-notary
 scripts/native/macos-release-test.mjs` passed:
@@ -1205,7 +1209,7 @@ desktop on 2026-10-24 (SD1, the Windows row below).
 | --- | --- | --- |
 | Web | implemented | page transports, CORS, preflight, socket origin and `connect-src` unit tests; Chromium cross-port run, and cross-port offline reads in Chromium, Firefox and WebKit (NET8, below) |
 | macOS, iOS | run on the host | `scripts/native/yon-reach-test.mjs` passed on 2026-10-19 for the macOS app (macOS 26.6.2, Xcode 27.1) and the iOS 26.5 simulator (iPhone 17 Pro) over `http` and over `https` through a local TLS proxy. In all three runs Yon received `Origin: tachyon-app://bundle`, and the page reached it with HTTP, a CORS preflight, a stream, a socket, a topic, a 422 problem and a signed-in route. The linked Swift `@HTTPClient` read reached the origin through `URLSession` too; it is also unit-tested against a local server. On 2026-10-24 (LR1, branch `0ba1079e`, macOS 26.6.2, Xcode 27.1, Swift 6.4.1, iOS 26.5 simulator) the same script passed with `TAC_YON_SERVICES=rust` on macOS and on the simulator over `http` and `https`: a linked Rust `HTTPClient` read reached Yon through the host's `URLSession` sender, and linked Rust chat and stream services held their socket and stream through the page. The Swift services passed again on macOS and the simulator. `native_rust_apple_host_tests` links the Apple Rust shim with a Rust companion and passed on that Mac and in an x86_64 Linux container (Swift 6.2) |
-| Android | run on the emulator; an `https` origin, or a local `http` origin with cleartext to that one host | `scripts/android/yon-origin-test.mjs` passed on 2026-10-19 on the Android 15 (API 35, arm64) emulator against `ty serve` on the Mac through `adb reverse`. The packaged app reached Yon from `https://appassets.tachyon.local` with an HTTP read, a cross-origin write, a stream, a socket, a topic, a `@Check` 422 and a signed-in route (401 without a token, then with an `Authorization` header). A linked Kotlin `HTTPClient` reached Yon through the native transport in the app's own process. The transport is also tested on the JVM against a real HTTP server (`android_yon_http_tests`). The same script passed on the Google Play image (`tachyon-play`, above), and on 2026-10-25 a linked Kotlin service's stream and socket clients were held by the page (MA2, below). Not run: a physical device |
+| Android | run on the emulator; an `https` origin, or a local `http` origin with cleartext to that one host | `scripts/android/yon-origin-test.mjs` passed on 2026-10-19 on the Android 15 (API 35, arm64) emulator against `ty serve` on the macOS test machine through `adb reverse`. The packaged app reached Yon from `https://appassets.tachyon.local` with an HTTP read, a cross-origin write, a stream, a socket, a topic, a `@Check` 422 and a signed-in route (401 without a token, then with an `Authorization` header). A linked Kotlin `HTTPClient` reached Yon through the native transport in the app's own process. The transport is also tested on the JVM against a real HTTP server (`android_yon_http_tests`). The same script passed on the Google Play image (`tachyon-play`, above), and on 2026-10-25 a linked Kotlin service's stream and socket clients were held by the page (MA2, below). Not run: a physical device |
 | Windows | run on the signed-in desktop; linked Rust and C# `HTTPClient` calls reach it too | 2026-10-19 cloud runs and the MSVC and NativeAOT build on Windows 11 ARM64 (below); on 2026-10-24 `scripts/windows/yon-reach.ps1` passed inside WebView2 on the signed-in desktop of that machine: HTTP, a stream, a socket, a topic, a `@Check` 422 and a signed-in route from the page, Rust and C# `HTTPClient` reads, and a linked C# service's stream and socket clients held by the page (NET3, LS1); on 2026-10-25 a linked Rust service's stream and socket clients held by the page and a topic heard by a linked Rust service (SW1) |
 | Linux | run under Xvfb | `scripts/linux/yon-origin-native-test.mjs` built the packaged app with GTK 4.14.5, WebKitGTK 2.52.6 and libsoup 3.4.4 in an x86_64 Ubuntu 24.04 cloud container and drove it through AT-SPI. It reached Yon on `http://127.0.0.1` and `https://localhost`, once with JavaScript page services and once with linked Rust services: HTTP read and write, a preflighted `@SignedIn` call (401 without a token), a topic, a `@Check` 422, a stream and a socket. The Linux gate runs both. Both also passed on WSL Ubuntu 24.04.5 (aarch64) in RL1, on `19a95a65`. LX1 ran both again in a headless mutter 46.2 Wayland session (`TAC_LINUX_DISPLAY=wayland`), in the cloud and on WSL (aarch64), reading the page from the web process's own accessibility tree because GTK did not embed it in the window there. Not run: a Wayland desktop session |
 
@@ -1345,7 +1349,7 @@ Android runtime limits:
   refusal page instead of loading a page. The page names the installed System
   WebView and asks for an update from Google Play, the way the Windows app
   explains an old WebView2 Runtime. On 2026-10-25 (GP2, develop `750551be`)
-  `scripts/android/web-view-refusal-test.mjs` ran on the Mac emulators. On an
+  `scripts/android/web-view-refusal-test.mjs` ran on the macOS test machine emulators. On an
   Android 8.0 (API 26) google_apis arm64 image with
   `com.google.android.webview` 58.0.3029.125, the app showed the refusal
   page with that package and version, held no web view, recorded
@@ -1370,7 +1374,11 @@ Native calls have a ten-second browser wait limit. An app that grants
 start-up request, because a picker can stay open for 30 seconds (ADR 0089).
 This limit does not stop or
 roll back native service code. Services must stay responsive. A hung
-application may need to be relaunched.
+application may need to be relaunched. On macOS and iOS a native call runs on
+the main actor, so a hung service also freezes the window until it returns.
+On Android native calls run one at a time on one worker thread with a queue of
+128 calls, so a hung service holds every later call, and a call beyond the
+queue is refused. This release candidate accepts that limit.
 
 ### Web pages keep cross-origin Yon reads offline (2026-10-19)
 
@@ -1424,7 +1432,7 @@ tier.
 
 | Host | Implemented | Validated |
 | --- | --- | --- |
-| Linux WebKitGTK | yes, `GtkUriLauncher` | `native_external_link_tests::the_linux_host_hands_external_links_to_the_launcher_and_keeps_the_page` compiled the generated host with GTK 4.14.5 and WebKitGTK 2.52.6 (warnings as errors) and ran it under Xvfb in an x86_64 Ubuntu 24.04 cloud container, four of four runs: a page script's `location` changes, `window.open` calls and a `target="_blank"` link reached a fake launcher only for the `http`, `https` and `mailto` links, and the page stayed on `tachyon://app/`. The test also passed in the WSL (aarch64) run of `38eaed29` and under headless Wayland in RL1, and RL1's `scripts/linux/desktop-links-test.sh` handed `https` and `mailto` links from the real `GtkUriLauncher` to a default handler, with and without the OpenURI portal. On 2026-10-28 (LD1) `desktop-links-test.sh` ran in a live Ubuntu GNOME X11 desktop session (xrdp) in WSL Ubuntu 24.04 (aarch64) on the Surface: `GtkUriLauncher` handed the `https` and `mailto` links to the desktop's own OpenURI portal; no browser or mail client is installed there, so GNOME answered `mailto:` with its "No Apps available" dialog. Not run: a physical Linux desktop with a default browser and mail client |
+| Linux WebKitGTK | yes, `GtkUriLauncher` | `native_external_link_tests::the_linux_host_hands_external_links_to_the_launcher_and_keeps_the_page` compiled the generated host with GTK 4.14.5 and WebKitGTK 2.52.6 (warnings as errors) and ran it under Xvfb in an x86_64 Ubuntu 24.04 cloud container, four of four runs: a page script's `location` changes, `window.open` calls and a `target="_blank"` link reached a fake launcher only for the `http`, `https` and `mailto` links, and the page stayed on `tachyon://app/`. The test also passed in the WSL (aarch64) run of `38eaed29` and under headless Wayland in RL1, and RL1's `scripts/linux/desktop-links-test.sh` handed `https` and `mailto` links from the real `GtkUriLauncher` to a default handler, with and without the OpenURI portal. On 2026-10-28 (LD1) `desktop-links-test.sh` ran in a live Ubuntu GNOME X11 desktop session (xrdp) in WSL Ubuntu 24.04 (aarch64) on the Windows test machine: `GtkUriLauncher` handed the `https` and `mailto` links to the desktop's own OpenURI portal; no browser or mail client is installed there, so GNOME answered `mailto:` with its "No Apps available" dialog. Not run: a physical Linux desktop with a default browser and mail client |
 | Windows WebView2 | yes, `ShellExecuteW` | the opener and the shared check, built with MinGW-w64 and run under Wine 9.0, open only the external links. On 2026-10-24 `scripts/windows/external-links-test.mjs` opened http, https and mailto links from a WebView2 page on the signed-in Windows 11 ARM64 desktop (SD1) |
 | macOS WKWebView | yes, `NSWorkspace` (before 2026-10-18 for `http` and `https`) | On 2026-10-24 (RM1, macOS 26.6.2) a page's `http`, `https` and `mailto` links and a `location.assign` reached the default browser and mail handler (Edge), and the page stayed in the app; a link with a user name opened nothing ("macOS runs owed, RM1" above) |
 | iOS WKWebView | yes, `UIApplication` (before 2026-10-18 for `http` and `https`) | `scripts/ios/page-checks-test.mjs` on the iOS 26.5 simulator (RM2, 2026-10-24): `http`, `https` and a tapped `target="_blank"` link opened Safari; `mailto` reached the system, which has no Mail app on the simulator; links with a user name or a password, `ftp:` and an empty `mailto:` opened nothing and the app stayed in front |
@@ -1438,9 +1446,9 @@ not promote any tier.
 
 | Host | Implemented | Validated |
 | --- | --- | --- |
-| Linux WebKitGTK | yes: `.desktop` scheme handlers, `G_APPLICATION_HANDLES_OPEN` forwarding | `native_deep_link_tests::the_linux_app_opens_links_at_their_route_and_forwards_later_links_to_the_running_app` compiled the generated host with GTK 4 and WebKitGTK 6.0 (warnings as errors) and ran it with `dbus-run-session -- xvfb-run -a` in an x86_64 Ubuntu 24.04 cloud container: the launch link opened its route, and two later launches handed their links to the running window. In RL1 it passed on WSL (aarch64) and under headless Wayland, and `scripts/linux/desktop-links-test.sh` installed the `.deb`'s `.desktop` file and opened `linkgate://` links with `gio open` and `xdg-open` in the one running app. On 2026-10-28 (LD1) the same script ran in a live Ubuntu GNOME X11 desktop session (xrdp) in WSL Ubuntu 24.04 (aarch64) on the Surface, where the installed `.desktop` file opened `linkgate://` links in the one running app over the desktop's own session bus. Not run: a physical Linux desktop |
-| Windows WebView2 | yes: per-user scheme registration (MSIX: `windows.protocol` extensions), single instance, `WM_COPYDATA` forwarding | `native_deep_link_tests::a_second_windows_instance_forwards_its_link_to_the_first` built the registration and forwarding code with MinGW-w64 and ran it under Wine 9.0: the schemes were registered under `HKCU\Software\Classes` and a second process's link reached the first. `windows_package_tests::the_staged_layout_packs_and_signs_with_the_msix_sdk` packed a package that declares two schemes with `makemsix`, which validated its `windows.protocol` extensions against Microsoft's schemas (and refused an unknown extension category). On the Surface desktop (Windows 11 arm64, 2026-10-19), a built app opened `lk2check://alpha?x=1` at `/alpha/?x=1` on launch; later links reached the running window and their second instance exited, and an unknown route opened `start_url`. An installed test-signed MSIX package opened `lk2check://beta?x=5` at its route, and Windows, not the app, registered the scheme. Host links (LK3, 2026-10-19, commit `ce1b47e5`, x86_64 Ubuntu 24.04 cloud container): the same `makemsix` test packed and signed a package whose manifest also declares a `uap3:AppUriHandler` host, and `makemsix` refused a misspelled `uap3` element against the schema; the `windows-app-web-link` family name matches the publisher ID Windows gives Microsoft's own subject (`8wekyb3d8bbwe`). On 2026-10-24 the package registered in Developer Mode handed later `sd1check` links to its one running process (SD1). Host links from a hosted domain (LINKS, 2026-10-25, Windows 11 Home 25H2 build 26200.9711 ARM64, develop `1f06e1f8`): `browser-apis-test.ps1 -SkipUnpackaged -InstallRoute Machine -LinkHost d31ma.github.io -RequireHostLink`, run in an elevated PowerShell on the signed-in desktop, installed the signed `.msix` with the throwaway gate certificate trusted in `Cert:\LocalMachine\TrustedPeople`; Windows gave it the family `dev.tachyon.browser-gate-package_8htbb8zekacvc` that `https://d31ma.github.io/.well-known/windows-app-web-link` names, answered `Available` for `https://d31ma.github.io/alpha?x=3`, and the shell opened that link in the running package at `/alpha/?x=3`. A package registered from a folder in Developer Mode is listed as the handler too, but Windows never verifies its hosts, so the same link opened in Edge. Not run: a link clicked in a browser, which stays in the browser by design |
-| macOS, iOS WKWebView | yes: `CFBundleURLTypes`, `kAEGetURL` (macOS), launch URL, `open url` and universal-link activity (iOS); associated domains with `TAC_APPLE_TEAM_ID` | on the Mac (2026-10-19, Swift 6.4.1): `the_apple_link_rule_opens_declared_schemes_and_hosts_at_their_route` passed and the iOS host tests passed. A built macOS app opened `lk2check://alpha?x=1` at `/alpha?x=1` on launch; while it ran, later links moved the same window, and an unknown route opened `start_url`. The same app on an iOS 26.5 simulator (iPhone 17 Pro) did the same on a cold start and while running. macOS rewrites `#` to `%23` in a link without `//` (`lk2check:alpha#frag`), so such a link opens `start_url`. Host links on macOS (LK3, 2026-10-19, macOS 26.6.2, Xcode 27.1, Swift 6.4): `native_deep_link_tests::the_macos_app_delegate_opens_universal_links_to_listed_hosts_at_their_route` compiled the generated host and handed it browsing-web activities through the `NSApplicationDelegate` requirement: a listed host opened its route with its query, an unknown route opened `start_url`, and an unlisted host and a non-browsing activity were refused. An unsigned `ty build --target macos` printed the links note and opened `lk3check://alpha?x=1` at `/alpha?x=1`. The Developer ID profile check and the entitlements are unit-tested. Universal links from a hosted domain (LINKS, 2026-10-24, iOS 26.5 simulator, iPhone 17 Pro): `scripts/ios/universal-links-test.mjs` built the app with `TAC_APPLE_TEAM_ID`, found the entitlements in the executable and none in the ad hoc signature, and `https://d31ma.github.io/orders?x=1` opened the app at `/orders?x=1` on a cold start and `?x=2` in the running app. Owed: a signed device check of universal links on iOS, and a signed macOS release with a Developer ID profile that has Associated Domains (none exists for the team) opening a link from a hosted domain |
+| Linux WebKitGTK | yes: `.desktop` scheme handlers, `G_APPLICATION_HANDLES_OPEN` forwarding | `native_deep_link_tests::the_linux_app_opens_links_at_their_route_and_forwards_later_links_to_the_running_app` compiled the generated host with GTK 4 and WebKitGTK 6.0 (warnings as errors) and ran it with `dbus-run-session -- xvfb-run -a` in an x86_64 Ubuntu 24.04 cloud container: the launch link opened its route, and two later launches handed their links to the running window. In RL1 it passed on WSL (aarch64) and under headless Wayland, and `scripts/linux/desktop-links-test.sh` installed the `.deb`'s `.desktop` file and opened `linkgate://` links with `gio open` and `xdg-open` in the one running app. On 2026-10-28 (LD1) the same script ran in a live Ubuntu GNOME X11 desktop session (xrdp) in WSL Ubuntu 24.04 (aarch64) on the Windows test machine, where the installed `.desktop` file opened `linkgate://` links in the one running app over the desktop's own session bus. Not run: a physical Linux desktop |
+| Windows WebView2 | yes: per-user scheme registration (MSIX: `windows.protocol` extensions), single instance, `WM_COPYDATA` forwarding | `native_deep_link_tests::a_second_windows_instance_forwards_its_link_to_the_first` built the registration and forwarding code with MinGW-w64 and ran it under Wine 9.0: the schemes were registered under `HKCU\Software\Classes` and a second process's link reached the first. `windows_package_tests::the_staged_layout_packs_and_signs_with_the_msix_sdk` packed a package that declares two schemes with `makemsix`, which validated its `windows.protocol` extensions against Microsoft's schemas (and refused an unknown extension category). On the Windows test machine desktop (Windows 11 arm64, 2026-10-19), a built app opened `lk2check://alpha?x=1` at `/alpha/?x=1` on launch; later links reached the running window and their second instance exited, and an unknown route opened `start_url`. An installed test-signed MSIX package opened `lk2check://beta?x=5` at its route, and Windows, not the app, registered the scheme. Host links (LK3, 2026-10-19, commit `ce1b47e5`, x86_64 Ubuntu 24.04 cloud container): the same `makemsix` test packed and signed a package whose manifest also declares a `uap3:AppUriHandler` host, and `makemsix` refused a misspelled `uap3` element against the schema; the `windows-app-web-link` family name matches the publisher ID Windows gives Microsoft's own subject (`8wekyb3d8bbwe`). On 2026-10-24 the package registered in Developer Mode handed later `sd1check` links to its one running process (SD1). Host links from a hosted domain (LINKS, 2026-10-25, Windows 11 Home 25H2 build 26200.9711 ARM64, develop `1f06e1f8`): `browser-apis-test.ps1 -SkipUnpackaged -InstallRoute Machine -LinkHost d31ma.github.io -RequireHostLink`, run in an elevated PowerShell on the signed-in desktop, installed the signed `.msix` with the throwaway gate certificate trusted in `Cert:\LocalMachine\TrustedPeople`; Windows gave it the family `dev.tachyon.browser-gate-package_8htbb8zekacvc` that `https://d31ma.github.io/.well-known/windows-app-web-link` names, answered `Available` for `https://d31ma.github.io/alpha?x=3`, and the shell opened that link in the running package at `/alpha/?x=3`. A package registered from a folder in Developer Mode is listed as the handler too, but Windows never verifies its hosts, so the same link opened in Edge. Not run: a link clicked in a browser, which stays in the browser by design |
+| macOS, iOS WKWebView | yes: `CFBundleURLTypes`, `kAEGetURL` (macOS), launch URL, `open url` and universal-link activity (iOS); associated domains with `TAC_APPLE_TEAM_ID` | on the macOS test machine (2026-10-19, Swift 6.4.1): `the_apple_link_rule_opens_declared_schemes_and_hosts_at_their_route` passed and the iOS host tests passed. A built macOS app opened `lk2check://alpha?x=1` at `/alpha?x=1` on launch; while it ran, later links moved the same window, and an unknown route opened `start_url`. The same app on an iOS 26.5 simulator (iPhone 17 Pro) did the same on a cold start and while running. macOS rewrites `#` to `%23` in a link without `//` (`lk2check:alpha#frag`), so such a link opens `start_url`. Host links on macOS (LK3, 2026-10-19, macOS 26.6.2, Xcode 27.1, Swift 6.4): `native_deep_link_tests::the_macos_app_delegate_opens_universal_links_to_listed_hosts_at_their_route` compiled the generated host and handed it browsing-web activities through the `NSApplicationDelegate` requirement: a listed host opened its route with its query, an unknown route opened `start_url`, and an unlisted host and a non-browsing activity were refused. An unsigned `ty build --target macos` printed the links note and opened `lk3check://alpha?x=1` at `/alpha?x=1`. The Developer ID profile check and the entitlements are unit-tested. Universal links from a hosted domain (LINKS, 2026-10-24, iOS 26.5 simulator, iPhone 17 Pro): `scripts/ios/universal-links-test.mjs` built the app with `TAC_APPLE_TEAM_ID`, found the entitlements in the executable and none in the ad hoc signature, and `https://d31ma.github.io/orders?x=1` opened the app at `/orders?x=1` on a cold start and `?x=2` in the running app. Owed: a signed device check of universal links on iOS, and a signed macOS release with a Developer ID profile that has Associated Domains (none exists for the team) opening a link from a hosted domain |
 | Android WebView | yes: intent filters, `autoVerify` for hosts, `singleTask` with `onNewIntent` | the link rule ran with OpenJDK in the cloud. On emulator-5554 (2026-10-19), a launch link opened its route, later links reached the running activity through `onNewIntent`, and an unknown route opened `start_url`. Verified app links (LINKS, 2026-10-25, develop `1f06e1f8`, API 35 `google_apis` arm64 emulator): `scripts/android/verified-links-test.mjs` found the APK's certificate in `https://d31ma.github.io/.well-known/assetlinks.json`, Android verified `d31ma.github.io` for `dev.tachyon.link_gate`, and `https://d31ma.github.io/orders?x=1` opened the app at its route on a cold start without a chooser, as did `?x=2` in the running app. Owed: verified app links on a physical device |
 
 ### Browser APIs on native hosts (2026-10-19)
@@ -1451,11 +1459,11 @@ not promote any tier.
 
 | Host | Implemented | Validated |
 | --- | --- | --- |
-| Linux WebKitGTK | yes: the web view's clipboard and geolocation (GeoClue) behind one permission decision from the manifest grants; notifications bridged to `GNotification`; share copies to the clipboard | `linux_browser_api_tests::linux_browser_apis_follow_the_manifest_grants_in_the_real_web_view` compiled the generated host with GTK 4.14.5 and WebKitGTK 2.52.6 (warnings as errors) and ran it under Xvfb with XTest clicks in an x86_64 Ubuntu 24.04 cloud container, with and without a window manager: granted, the page read another source's clipboard text, wrote its own, got a test position, was granted and showed a notification, and shared a url to the clipboard; with nothing granted, each was refused. The test also passed in the WSL (aarch64) run of `38eaed29` and again in RL1 on `d7110f74`. LX1 ran `linux_browser_apis_reach_geoclue_and_the_notification_server` through `scripts/linux/desktop-services-test.sh`: the page's position came from GeoClue 2.7.0 on a private system bus (a GPS fix from an NMEA socket, allowed by the GeoClue demo agent) and its notification was shown by dunst 1.9.2, in the cloud and on WSL (aarch64). On 2026-10-25 (LX2) the same test ran in a headless mutter 46.2 Wayland session through `scripts/linux/compositor-test.sh`, clicking through Mutter's RemoteDesktop interface instead of XTest (`linux_wayland_input.c`), granted and refused, in an x86_64 Ubuntu 24.04 cloud container and on WSL Ubuntu 24.04.5 (aarch64) on the Surface. On 2026-10-28 (LD1) both tests ran in a live Ubuntu GNOME X11 desktop session (xrdp) in WSL Ubuntu 24.04 (aarch64) on the Surface: the grants test under GNOME's window manager (`compositor-test.sh --desktop`), and the GeoClue test with the page's notification shown by GNOME's own notification server (`desktop-services-test.sh`). Not run: a physical Linux desktop, and a Wayland desktop session with a person's clicks |
+| Linux WebKitGTK | yes: the web view's clipboard and geolocation (GeoClue) behind one permission decision from the manifest grants; notifications bridged to `GNotification`; share copies to the clipboard | `linux_browser_api_tests::linux_browser_apis_follow_the_manifest_grants_in_the_real_web_view` compiled the generated host with GTK 4.14.5 and WebKitGTK 2.52.6 (warnings as errors) and ran it under Xvfb with XTest clicks in an x86_64 Ubuntu 24.04 cloud container, with and without a window manager: granted, the page read another source's clipboard text, wrote its own, got a test position, was granted and showed a notification, and shared a url to the clipboard; with nothing granted, each was refused. The test also passed in the WSL (aarch64) run of `38eaed29` and again in RL1 on `d7110f74`. LX1 ran `linux_browser_apis_reach_geoclue_and_the_notification_server` through `scripts/linux/desktop-services-test.sh`: the page's position came from GeoClue 2.7.0 on a private system bus (a GPS fix from an NMEA socket, allowed by the GeoClue demo agent) and its notification was shown by dunst 1.9.2, in the cloud and on WSL (aarch64). On 2026-10-25 (LX2) the same test ran in a headless mutter 46.2 Wayland session through `scripts/linux/compositor-test.sh`, clicking through Mutter's RemoteDesktop interface instead of XTest (`linux_wayland_input.c`), granted and refused, in an x86_64 Ubuntu 24.04 cloud container and on WSL Ubuntu 24.04.5 (aarch64) on the Windows test machine. On 2026-10-28 (LD1) both tests ran in a live Ubuntu GNOME X11 desktop session (xrdp) in WSL Ubuntu 24.04 (aarch64) on the Windows test machine: the grants test under GNOME's window manager (`compositor-test.sh --desktop`), and the GeoClue test with the page's notification shown by GNOME's own notification server (`desktop-services-test.sh`). Not run: a physical Linux desktop, and a Wayland desktop session with a person's clicks |
 | macOS WKWebView | yes, all four: `NSPasteboard`, `NSSharingServicePicker`, `UNUserNotificationCenter`, CoreLocation | code level in a Linux cloud container (`native::browser_api_bridge`, `native::apple_browser_apis`). On a Mac (2026-10-24, RM1, macOS 26.6.2): `native_browser_api_host_tests::macos_page_calls_reach_the_pasteboard_through_the_browser_api_bridge` passed; a page opened the share picker and its Copy service finished the share (`ShareFinished`); a page opened the notification prompt; a page opened the location prompt, which showed the manifest reason ("macOS runs owed, RM1" above). On the retry, after the prompt was allowed, a notification from the page was presented as a banner while the app was in front. On 2026-10-25 (MA3) `scripts/native/geolocation-macos-test.mjs` allowed the CoreLocation prompt and a position reached the page ("Page checks on macOS, iOS and Android, MA3" below) |
 | iOS WKWebView | yes, all four: `UIPasteboard`, `UIActivityViewController`, `UNUserNotificationCenter`, CoreLocation | code level in a Linux cloud container (same tests). The simulator gate `scripts/ios/native-test.mjs` passed with its clipboard step on develop `fd0384ad` (iPhone SE (3rd generation) simulator, iOS 26.5): the bridge listed all four APIs, the page wrote text that `simctl pbpaste` read from `UIPasteboard`, the page read it back, and a share without a grant was refused. On 2026-10-24 (RM2) `scripts/ios/browser-prompts-test.mjs` tapped real buttons on the iOS 26.5 simulator and read each prompt from a `simctl io` screenshot: the location prompt carried the manifest reason and the page got the simulated position; the notification prompt was allowed and a foreground banner appeared; the share sheet opened, and closing it reported a cancelled share |
 | Android WebView | yes: clipboard, share and notifications through the host bridge; geolocation through the web view (BA2) | `scripts/android/browser-apis-test.mjs` passed on the API 35 emulator on 2026-10-24 (RM3): the clipboard round trip, the share sheet, the notification question, a posted notification and its channel name, a denied location question, the manifest reason before the second question, and a test-provider position after Allow. Not run: a physical device |
-| Windows WebView2 | yes: clipboard bridged to the Windows clipboard; share through the Windows share sheet (`IDataTransferManagerInterop`); notifications as toasts for the installed MSIX package (an unpackaged build answers `denied`); geolocation through WebView2 behind one `PermissionRequested` decision from the manifest grants (BA3) | `windows_browser_api_tests::the_windows_browser_apis_follow_the_manifest_grants_under_wine` compiled the bridge with MinGW (warnings as errors) and ran it under Wine 9.0 in an x86_64 Ubuntu 24.04 cloud container (BA3 branch on develop d7110f74): granted, a real clipboard round trip, the toast XML, the permission answers and the share values with a fake notifier and share sheet, and the permission decision; with nothing granted, each was refused. The whole generated host compiled with MinGW against the WebView2 1.0.3485.44 headers. `the_windows_browser_apis_match_the_windows_sdk_and_run_on_windows` passed on the Surface (Windows 11 ARM64 over SSH, MSVC 19.44.35229 ARM64, Windows SDK 10.0.26100.0, BA3 commit 971c6559): every declared Windows Runtime slot matched the SDK headers under `cl /W4 /WX`, and the program ran granted and refused with the runtime loaded and the share sheet opening for a message-only window. On the same machine `ty build --target windows` compiled and linked the desktop fixture app with all four APIs granted (`/W4 /WX`, WebView2 SDK 1.0.3485.44). On 2026-10-24 `scripts/windows/browser-apis-test.ps1` passed inside WebView2 on the signed-in desktop (SD1): the clipboard both ways, the share sheet opened, geolocation granted with no prompt, every API refused when none is granted, and, from the MSIX package installed by Developer Mode registration, a toast in the notification history. Not checked: whether the user shared from the sheet, which Windows does not report |
+| Windows WebView2 | yes: clipboard bridged to the Windows clipboard; share through the Windows share sheet (`IDataTransferManagerInterop`); notifications as toasts for the installed MSIX package (an unpackaged build answers `denied`); geolocation through WebView2 behind one `PermissionRequested` decision from the manifest grants (BA3) | `windows_browser_api_tests::the_windows_browser_apis_follow_the_manifest_grants_under_wine` compiled the bridge with MinGW (warnings as errors) and ran it under Wine 9.0 in an x86_64 Ubuntu 24.04 cloud container (BA3 branch on develop d7110f74): granted, a real clipboard round trip, the toast XML, the permission answers and the share values with a fake notifier and share sheet, and the permission decision; with nothing granted, each was refused. The whole generated host compiled with MinGW against the WebView2 1.0.3485.44 headers. `the_windows_browser_apis_match_the_windows_sdk_and_run_on_windows` passed on the Windows test machine (Windows 11 ARM64 over SSH, MSVC 19.44.35229 ARM64, Windows SDK 10.0.26100.0, BA3 commit 971c6559): every declared Windows Runtime slot matched the SDK headers under `cl /W4 /WX`, and the program ran granted and refused with the runtime loaded and the share sheet opening for a message-only window. On the same machine `ty build --target windows` compiled and linked the desktop fixture app with all four APIs granted (`/W4 /WX`, WebView2 SDK 1.0.3485.44). On 2026-10-24 `scripts/windows/browser-apis-test.ps1` passed inside WebView2 on the signed-in desktop (SD1): the clipboard both ways, the share sheet opened, geolocation granted with no prompt, every API refused when none is granted, and, from the MSIX package installed by Developer Mode registration, a toast in the notification history. Not checked: whether the user shared from the sheet, which Windows does not report |
 
 ### File picker on native hosts (2026-10-19)
 
@@ -1464,11 +1472,11 @@ This evidence does not promote any tier.
 
 | Host | Implemented | Validated |
 | --- | --- | --- |
-| Linux WebKitGTK | yes: `GtkFileDialog`, or the desktop portal's chooser where one runs, for JavaScript, TypeScript and linked Rust services, and for Swift, C# and Kotlin services, which run as WebAssembly and reach the dialog through the page (FP5) | `linux_file_picker_tests::linux_generated_host_opens_the_gtk_file_dialog_for_a_page_and_a_rust_service` compiled the generated host with GTK 4.14.5 and WebKitGTK 2.52.6 (warnings as errors) and drove the real dialog with XTest key presses under Xvfb in an x86_64 Ubuntu 24.04 cloud container on 2026-10-19: three runs through the portal's chooser (xdg-desktop-portal-gtk, xfwm4) and one each through GTK's own dialog with and without a window manager. It also passed on WSL Ubuntu 24.04 (aarch64, same GTK and WebKitGTK, Xvfb with xfwm4), once through each dialog; one earlier WSL run with a broken portal backend hit the 30-second dialog limit and answered `cancelled`, and its rerun passed. A page and a Rust service chose, read and released files; cancel, the second dialog, the handle and owner limits, the lifetime, another owner, a large and a non-UTF-8 file, the missing grant and a new page were checked. On 2026-10-24 (FP5) `scripts/linux/page-services-native-test.mjs` ran the packaged `native-capabilities` app with a Swift (6.3.3), a C# (.NET 10.0.302) and a Kotlin (2.1.10) WebAssembly service under Xvfb with xfwm4 in the same kind of container: each chose a file in GTK's dialog, read it, and answered `cancelled` after Escape. The same script passed on develop `0727eb7e` on WSL Ubuntu 24.04.5 (aarch64, GTK 4.14.5, WebKitGTK 2.52.6, Xvfb with xfwm4) with Swift 6.3.3, C# (.NET 9.0.317) and Kotlin 2.1.10, with `GIO_USE_VFS=local` and `GIO_USE_VOLUME_MONITOR=unix`: without them GVfs waited 25 seconds for UDisks2 there and the dialog reached its 30-second limit and answered `cancelled`. On 2026-10-25 (LX2) the test drove GTK's own dialog with key presses through Mutter's RemoteDesktop interface in a headless mutter 46.2 Wayland session (`scripts/linux/compositor-test.sh`), in an x86_64 Ubuntu 24.04 cloud container and on WSL Ubuntu 24.04.5 (aarch64) on the Surface: the page and the Rust service chose, read and released files and every check above passed. On 2026-10-28 (LD1) `linux_file_picker_tests` passed with GTK's own dialog in a live Ubuntu GNOME X11 desktop session (xrdp) in WSL Ubuntu 24.04 (aarch64) on the Surface (`compositor-test.sh --desktop`), and the picker steps of `scripts/linux/page-services-native-test.mjs` chose, read and cancelled through the desktop portal's chooser (xdg-desktop-portal-gtk) there, after `page-steps-probe.py` gave the dialog the focus. Not run: a physical Linux desktop, and the portal's chooser under Wayland |
+| Linux WebKitGTK | yes: `GtkFileDialog`, or the desktop portal's chooser where one runs, for JavaScript, TypeScript and linked Rust services, and for Swift, C# and Kotlin services, which run as WebAssembly and reach the dialog through the page (FP5) | `linux_file_picker_tests::linux_generated_host_opens_the_gtk_file_dialog_for_a_page_and_a_rust_service` compiled the generated host with GTK 4.14.5 and WebKitGTK 2.52.6 (warnings as errors) and drove the real dialog with XTest key presses under Xvfb in an x86_64 Ubuntu 24.04 cloud container on 2026-10-19: three runs through the portal's chooser (xdg-desktop-portal-gtk, xfwm4) and one each through GTK's own dialog with and without a window manager. It also passed on WSL Ubuntu 24.04 (aarch64, same GTK and WebKitGTK, Xvfb with xfwm4), once through each dialog; one earlier WSL run with a broken portal backend hit the 30-second dialog limit and answered `cancelled`, and its rerun passed. A page and a Rust service chose, read and released files; cancel, the second dialog, the handle and owner limits, the lifetime, another owner, a large and a non-UTF-8 file, the missing grant and a new page were checked. On 2026-10-24 (FP5) `scripts/linux/page-services-native-test.mjs` ran the packaged `native-capabilities` app with a Swift (6.3.3), a C# (.NET 10.0.302) and a Kotlin (2.1.10) WebAssembly service under Xvfb with xfwm4 in the same kind of container: each chose a file in GTK's dialog, read it, and answered `cancelled` after Escape. The same script passed on develop `0727eb7e` on WSL Ubuntu 24.04.5 (aarch64, GTK 4.14.5, WebKitGTK 2.52.6, Xvfb with xfwm4) with Swift 6.3.3, C# (.NET 9.0.317) and Kotlin 2.1.10, with `GIO_USE_VFS=local` and `GIO_USE_VOLUME_MONITOR=unix`: without them GVfs waited 25 seconds for UDisks2 there and the dialog reached its 30-second limit and answered `cancelled`. On 2026-10-25 (LX2) the test drove GTK's own dialog with key presses through Mutter's RemoteDesktop interface in a headless mutter 46.2 Wayland session (`scripts/linux/compositor-test.sh`), in an x86_64 Ubuntu 24.04 cloud container and on WSL Ubuntu 24.04.5 (aarch64) on the Windows test machine: the page and the Rust service chose, read and released files and every check above passed. On 2026-10-28 (LD1) `linux_file_picker_tests` passed with GTK's own dialog in a live Ubuntu GNOME X11 desktop session (xrdp) in WSL Ubuntu 24.04 (aarch64) on the Windows test machine (`compositor-test.sh --desktop`), and the picker steps of `scripts/linux/page-services-native-test.mjs` chose, read and cancelled through the desktop portal's chooser (xdg-desktop-portal-gtk) there, after `page-steps-probe.py` gave the dialog the focus. Not run: a physical Linux desktop, and the portal's chooser under Wayland |
 | macOS WKWebView | yes: `NSOpenPanel` for JavaScript, TypeScript and linked Swift and Rust services, and for C# and Kotlin services, which run as WebAssembly and reach it through the page (FP5) | see ADR 0089 and its amendments. On 2026-10-24 C# and Kotlin fields chose, read and cancelled in the panel on macOS 26 (FP5). On 2026-10-25 (MA1) a linked Rust field did the same ("macOS callers that moved cells back, MA1" below), and on 2026-10-27 (MA7) linked Rust and linked Swift fields did ("WebAssembly service features and linked callers in the macOS app, MA7" below) |
 | Windows WebView2 | yes: `IFileOpenDialog` for JavaScript, TypeScript and linked Rust and C# services (FP1), and for Swift and Kotlin services, which run as WebAssembly and reach it through the page (FP5) | under Wine in the cloud and on the signed-in desktop; see the Windows paragraph above. On 2026-10-24 the whole generated host, with the page route, compiled with MinGW against the WebView2 1.0.3240.44 headers and the Wine picker checks passed. On 2026-10-24 the MSVC build selected a file in the Windows dialog and closed an unanswered one on the signed-in desktop (SD1). The same day (FP5) `scripts/windows/page-services-native-test.mjs` ran a JavaScript page service, a linked C# service and a WebAssembly Kotlin service from a WebView2 page on that desktop: each chose a typed file in the dialog, read it, and answered `cancelled` after Escape. On 2026-10-25 (SW3) a WebAssembly Swift field (Swift 6.3.3 for Windows ARM64) did the same from a WebView2 page on that desktop. On 2026-10-25 (SW1) a linked Rust field did the same; before that it had run only under Wine |
-| iOS WKWebView | yes: `UIDocumentPickerViewController` for JavaScript, TypeScript and linked Swift and Rust services, and for C# and Kotlin services, which run as WebAssembly and reach it through the page (FP4) | code level in a Linux cloud container (`ios::tests`, `scripts/native/file-picker-runtime-test.mjs`). On 2026-10-24 (FP4) `scripts/ios/file-picker-test.mjs` passed on the Mac (macOS 26.6.2, Xcode 27.1) on the iOS 26.5 simulator (iPhone 17 Pro): a JavaScript page service, linked Swift and Rust services, and C# and Kotlin WebAssembly services each chose a file seeded into On My iPhone, read it, and answered `cancelled` when the next picker was closed. Not run: a physical device |
-| Android WebView | yes: `ACTION_OPEN_DOCUMENT` for JavaScript, TypeScript and linked Kotlin and Rust services, and for Swift and C# services, which run as WebAssembly and reach it through the page (FP2) | code level in a Linux cloud container (`android::tests`, `android_file_picker::tests`); the generated host compiled with `javac` against the API 35 `android.jar`. On 2026-10-24 (FP2) `scripts/android/file-picker-test.mjs` passed on the Mac's API 35 arm64 emulator (`tachyon-gate`, Android System WebView 124): a JavaScript page service, linked Kotlin and Rust services, and Swift and C# WebAssembly services each chose a file in DocumentsUI's Downloads, read it, and answered `cancelled` after Back. Not run: a physical device |
+| iOS WKWebView | yes: `UIDocumentPickerViewController` for JavaScript, TypeScript and linked Swift and Rust services, and for C# and Kotlin services, which run as WebAssembly and reach it through the page (FP4) | code level in a Linux cloud container (`ios::tests`, `scripts/native/file-picker-runtime-test.mjs`). On 2026-10-24 (FP4) `scripts/ios/file-picker-test.mjs` passed on the macOS test machine (macOS 26.6.2, Xcode 27.1) on the iOS 26.5 simulator (iPhone 17 Pro): a JavaScript page service, linked Swift and Rust services, and C# and Kotlin WebAssembly services each chose a file seeded into On My iPhone, read it, and answered `cancelled` when the next picker was closed. Not run: a physical device |
+| Android WebView | yes: `ACTION_OPEN_DOCUMENT` for JavaScript, TypeScript and linked Kotlin and Rust services, and for Swift and C# services, which run as WebAssembly and reach it through the page (FP2) | code level in a Linux cloud container (`android::tests`, `android_file_picker::tests`); the generated host compiled with `javac` against the API 35 `android.jar`. On 2026-10-24 (FP2) `scripts/android/file-picker-test.mjs` passed on the macOS test machine's API 35 arm64 emulator (`tachyon-gate`, Android System WebView 124): a JavaScript page service, linked Kotlin and Rust services, and Swift and C# WebAssembly services each chose a file in DocumentsUI's Downloads, read it, and answered `cancelled` after Back. Not run: a physical device |
 
 ### Window settings on iOS and Android (2026-10-19, WIN5)
 
@@ -1478,8 +1486,8 @@ This evidence does not promote any tier.
 
 | Host | Implemented | Validated |
 | --- | --- | --- |
-| iOS WKWebView | yes: the status bar strip and its text color, the web view and launch screen color (an asset catalog color), the hidden status bar, the supported interface orientations, edge to edge with the three `--tac-titlebar-*` properties from the safe-area insets, and `WindowControls` for linked Swift and Rust services | `scripts/ios/window-settings-test.mjs` on the Mac (macOS 26.6.2, Xcode 27.1 27A9275, iOS 26.5 simulators, WIN5 branch on develop eefb70b0) built three apps and read the running page, a linked Swift service and a screenshot. iPhone 17 Pro: a standard window with a dark `theme_color` showed it across the 62-point status bar with light text (`statusBarStyle` 1), started the page at the safe-area top and showed `background_color` through the transparent page; the bundle's `Assets.car` held the launch color. An integrated window with a light `theme_color` put the page at the top edge with dark text (3), set `--tac-titlebar-height` to `62px`, and the page's own bar filled the status bar in the screenshot. `display: "fullscreen"` with `landscape` hid the status bar and opened in landscape (750 by 382). The linked Swift service saw the `title` grant and no `minimize` grant and set the scene title to `Quarterly report` on the iPhone and on an iPad Pro 13-inch (M5). On 2026-10-25 (MA4, commit `e6c017f1`) the same script held the standard app before `main` with `simctl launch --wait-for-debugger`, and the screenshot showed the launch screen: `#ffaa00` behind the status bar and across the whole screen, before the page ran. On 2026-10-27 (IR1, commit `6784ff54`) the standard app also linked a Rust service: on the iPhone 17 Pro and the iPad Pro 13-inch (M5) it saw the `title` grant and no `minimize` grant, and `set_title` set the scene title to `Rust titled` before the Swift service renamed it. Not checked: a device turned by hand, and a physical device |
-| Android WebView | yes: the status and navigation bar colors and icon colors, the window, splash screen and web view color, hidden system bars, `screenOrientation`, and edge to edge with the three properties from the system-bar and cutout insets | `scripts/android/window-settings-test.mjs` on the Mac's API 35 arm64 emulator (`tachyon-gate`, 1080 by 2400 at 420 dpi) built three APKs and read the page over DevTools, `aapt2` for the manifest and `screencap` pixels. A standard window filled the status and navigation bars with `theme_color` and showed `background_color` through the page (412 by 842). An integrated window drew the page under the status bar, set `--tac-titlebar-height` to `49px`, and the page's bar reached the bottom of the status bar. `display: "fullscreen"` with `landscape` opened in landscape with no system bars (866 by 412, the 49 dp cutout still pads the leading side). On 2026-10-25 (MA4, commit `df1e8c26`) the same script also read the bar icons and the splash screen, on `tachyon-gate` (API 35, WebView 124.0.6367.219) and on `tachyon-api34` (API 34, WebView 113.0.5672.136). The dark `theme_color` gave light status and navigation icons (median luminance 215 to 255) and the light one dark icons (29 to 120, window flags `LIGHT_STATUS_BARS LIGHT_NAVIGATION_BARS`). With the app held before its first frame (`run-as` `kill -STOP`), `dumpsys` listed its splash window and the screen showed `background_color` `#ffaa00`. The integrated, standard and fullscreen checks passed on API 34 too. Not checked: Android below API 34, and a physical device |
+| iOS WKWebView | yes: the status bar strip and its text color, the web view and launch screen color (an asset catalog color), the hidden status bar, the supported interface orientations, edge to edge with the three `--tac-titlebar-*` properties from the safe-area insets, and `WindowControls` for linked Swift and Rust services | `scripts/ios/window-settings-test.mjs` on the macOS test machine (macOS 26.6.2, Xcode 27.1 27A9275, iOS 26.5 simulators, WIN5 branch on develop eefb70b0) built three apps and read the running page, a linked Swift service and a screenshot. iPhone 17 Pro: a standard window with a dark `theme_color` showed it across the 62-point status bar with light text (`statusBarStyle` 1), started the page at the safe-area top and showed `background_color` through the transparent page; the bundle's `Assets.car` held the launch color. An integrated window with a light `theme_color` put the page at the top edge with dark text (3), set `--tac-titlebar-height` to `62px`, and the page's own bar filled the status bar in the screenshot. `display: "fullscreen"` with `landscape` hid the status bar and opened in landscape (750 by 382). The linked Swift service saw the `title` grant and no `minimize` grant and set the scene title to `Quarterly report` on the iPhone and on an iPad Pro 13-inch (M5). On 2026-10-25 (MA4, commit `e6c017f1`) the same script held the standard app before `main` with `simctl launch --wait-for-debugger`, and the screenshot showed the launch screen: `#ffaa00` behind the status bar and across the whole screen, before the page ran. On 2026-10-27 (IR1, commit `6784ff54`) the standard app also linked a Rust service: on the iPhone 17 Pro and the iPad Pro 13-inch (M5) it saw the `title` grant and no `minimize` grant, and `set_title` set the scene title to `Rust titled` before the Swift service renamed it. Not checked: a device turned by hand, and a physical device |
+| Android WebView | yes: the status and navigation bar colors and icon colors, the window, splash screen and web view color, hidden system bars, `screenOrientation`, and edge to edge with the three properties from the system-bar and cutout insets | `scripts/android/window-settings-test.mjs` on the macOS test machine's API 35 arm64 emulator (`tachyon-gate`, 1080 by 2400 at 420 dpi) built three APKs and read the page over DevTools, `aapt2` for the manifest and `screencap` pixels. A standard window filled the status and navigation bars with `theme_color` and showed `background_color` through the page (412 by 842). An integrated window drew the page under the status bar, set `--tac-titlebar-height` to `49px`, and the page's bar reached the bottom of the status bar. `display: "fullscreen"` with `landscape` opened in landscape with no system bars (866 by 412, the 49 dp cutout still pads the leading side). On 2026-10-25 (MA4, commit `df1e8c26`) the same script also read the bar icons and the splash screen, on `tachyon-gate` (API 35, WebView 124.0.6367.219) and on `tachyon-api34` (API 34, WebView 113.0.5672.136). The dark `theme_color` gave light status and navigation icons (median luminance 215 to 255) and the light one dark icons (29 to 120, window flags `LIGHT_STATUS_BARS LIGHT_NAVIGATION_BARS`). With the app held before its first frame (`run-as` `kill -STOP`), `dumpsys` listed its splash window and the screen showed `background_color` `#ffaa00`. The integrated, standard and fullscreen checks passed on API 34 too. Not checked: Android below API 34, and a physical device |
 
 ### Desktop window colors and display (2026-10-24, WIN7)
 
@@ -1491,7 +1499,7 @@ amendment). This evidence does not promote any tier.
 | --- | --- | --- |
 | macOS WKWebView | yes: the title bar in `theme_color` with dark or light title text (standard title bar only), the window and the web view's layer in `background_color` before the first paint, and a full-screen start | on 2026-10-24 `native_window_appearance_host_tests::macos_window_takes_theme_color_background_color_and_fullscreen_display` passed on macOS 26.6.2 (Apple M4, Xcode 27.1 27A9275) on the WIN7 branch `55f114a4` (develop `4eac45df`): a standard window took `#1a237e` in the sampled title bar pixel with the dark appearance (white title text), `#fdf6e3` in the page area and on the web view's layer, and the page kept following the application's light and dark appearance; a `display: "fullscreen"` window started full screen over its `background_color`. Screenshot pixels are compared in the screenshot's own color space. Not run: an Intel Mac |
 | Windows WebView2 | yes: the window class brush, `WEBVIEW2_DEFAULT_BACKGROUND_COLOR` and the controller's `DefaultBackgroundColor` (only the last two with an integrated title bar) | on 2026-10-24 the whole generated host with a `background_color` compiled with MinGW against the WebView2 headers, standard and integrated, and `windows_window_background_tests::the_windows_window_background_paints_a_win32_window_under_wine` read the class brush, the painted client pixel and the WebView2 start color in an x86_64 Ubuntu 24.04 cloud container (Wine 9.0 under Xvfb). The same day `the_windows_window_background_paints_a_real_win32_window` passed with MSVC 14.44 (ARM64) on Windows 11 25H2 (build 26200, ARM64) in the signed-in desktop session, painting `RGB(26, 35, 126)` in the client area; over SSH (session 0) the brush and start color checks passed but `GetPixel` cannot see painted pixels. On 2026-10-25 (SW2, below) every sampled pixel below the content of a WebView2 page without its own background had the declared `#1565c0` on that desktop |
-| Linux WebKitGTK | yes: the web view background color and the GTK window background | on 2026-10-24 `linux_window_appearance_tests::linux_generated_host_opens_the_declared_size_minimum_and_theme_color` read `background_color` back from the WebKitGTK view and sampled it in the rendered page area, with GTK 4.14.5 and WebKitGTK 2.52.6 under Xvfb with xfwm4 in an x86_64 Ubuntu 24.04 cloud container. On 2026-10-25 (LX2) the same test passed in a headless mutter 46.2 Wayland session (`scripts/linux/compositor-test.sh`), in an x86_64 Ubuntu 24.04 cloud container and on WSL Ubuntu 24.04.5 (aarch64) on the Surface. On 2026-10-28 (LD1) it passed in a live Ubuntu GNOME X11 desktop session (xrdp) in WSL Ubuntu 24.04 (aarch64) on the Surface, under GNOME's window manager (`compositor-test.sh --desktop`). Not run: a physical Linux desktop |
+| Linux WebKitGTK | yes: the web view background color and the GTK window background | on 2026-10-24 `linux_window_appearance_tests::linux_generated_host_opens_the_declared_size_minimum_and_theme_color` read `background_color` back from the WebKitGTK view and sampled it in the rendered page area, with GTK 4.14.5 and WebKitGTK 2.52.6 under Xvfb with xfwm4 in an x86_64 Ubuntu 24.04 cloud container. On 2026-10-25 (LX2) the same test passed in a headless mutter 46.2 Wayland session (`scripts/linux/compositor-test.sh`), in an x86_64 Ubuntu 24.04 cloud container and on WSL Ubuntu 24.04.5 (aarch64) on the Windows test machine. On 2026-10-28 (LD1) it passed in a live Ubuntu GNOME X11 desktop session (xrdp) in WSL Ubuntu 24.04 (aarch64) on the Windows test machine, under GNOME's window manager (`compositor-test.sh --desktop`). Not run: a physical Linux desktop |
 
 ### App icons from the manifest (2026-10-28, IC1)
 
@@ -1511,8 +1519,8 @@ promote any tier.
 | macOS WKWebView | yes: the largest raster icon as `AppIcon.icns` (`CFBundleIconFile`); the tray image from `tac.application.tray.icon` | on 2026-10-28 `icon-test.mjs --targets=macos,ios,android --screen` passed on the signed-in Mac (9 checks for the three targets): the `.icns` read back with `iconutil`, the Finder icon and `NSRunningApplication.icon` of the running app, and the Dock and the menu bar tray on screen, each in the manifest icon's color |
 | iOS WKWebView | yes: the largest raster icon resized into the app icon files (simulator) or a 1024 pixel asset catalog (device and App Store) | on 2026-10-28, in the same run, the icon files of the simulator app and the simulator home screen showed the manifest icon. Not run: a device |
 | Android WebView | adapted: the largest raster icon as `mipmap-xxxhdpi/ic_launcher.png` | on 2026-10-28, in the same run, `aapt2 badging`, the icon inside the APK and the emulator's app drawer showed the manifest icon. Not run: a device |
-| Windows WebView2 | adapted: the largest icon of at most 256 pixels in the `.exe`, which the window class now loads for the title bar, Alt-Tab and the taskbar; MSIX tiles from the PNG icons | on 2026-10-28 on the Windows 11 ARM64 Surface, `icon-test.mjs --targets=windows` passed over SSH (the icon Explorer shows for the `.exe`), and with `--screen` in the signed-in session, started from `cmd.exe` as a one-time interactive scheduled task: the window class icon (title bar, Alt-Tab), 576 taskbar pixels in the icon's color, and `icon.loaded` and `tray.icon.loaded`. The checks use `scripts/native/WindowsIconCheck.c`, built with `cl.exe`, so no PowerShell script runs. That app's tray keeps the default `closeHidesWindow` false, which no longer stops MSVC with C4127. On 2026-10-29 (IC2, branch commit `f433e064`) `icon-test.mjs --targets=windows --release` passed over SSH on the Surface: with no `TAC_WINDOWS_CERTIFICATE` set, the gate made a throwaway code-signing certificate with `certreq.exe`, `ty` signed the MSIX with its thumbprint, `Square44x44Logo.png`, `Square150x150Logo.png` and `StoreLogo.png` inside the package and the `.exe` icon had the manifest icon's color, and the gate then removed the certificate and its key; `certutil` found none left. The same day `windows_tray_code_adds_an_icon_hides_on_close_and_quits_under_wine` passed in WSL Ubuntu 24.04 (aarch64) on the Surface under Xvfb, built for ARM64 Windows with llvm-mingw 20261020 and run under Wine 11.0 built from source for aarch64: the tray loaded the manifest's `tray.ico` rather than `IDI_APPLICATION`. Ubuntu's own arm64 Wine 9.0 hangs while it creates a prefix (its unwinder stops on an AArch64 pointer-authentication note), so it cannot run the test. With `--release --screen` in the signed-in session (branch commit `725f7e9e`), started from `cmd.exe` as a one-time elevated interactive scheduled task, the gate also trusted the throwaway certificate in `LocalMachine\TrustedPeople`, installed the package through `scripts/native/WindowsPackageCheck.cpp` (C++/WinRT `PackageManager`), and the icon the shell shows for `dev.tachyon.icon-gate_kbm575v9qmbb2!App` had the manifest icon's color at 44 and 150 pixels; the gate then removed the package and the trust, and `certutil` found no certificate, key or package left |
-| Linux WebKitGTK | adapted: the largest raster icon as `share/icons/hicolor/256x256/apps/<application id>.png`, added to the GTK icon theme search path and named as the window icon (X11 shows it as `_NET_WM_ICON`); packages install the hicolor icons | on 2026-10-28 in WSL Ubuntu 24.04 (aarch64) on the Surface, `icon-test.mjs --targets=linux --release --screen` passed under Xvfb (the `.deb` hicolor icons at 1024 and 256 pixels, the AppImage `.DirIcon`, and a 48 by 48 `_NET_WM_ICON` on the app's own X11 window), and `--screen` passed in the live GNOME X11 desktop (xrdp, `TAC_LINUX_DISPLAY=desktop`). The `.deb`, AppImage and status notifier tray tests passed. The first run found no `_NET_WM_ICON`: GTK 4 builds the window icon list only from icon theme folders, so the icon now goes in the app's own hicolor folder. The `linux-native` CI job is set to run the gate too; it has not run in GitHub CI yet, and CI3 ran it locally (3 of 3 at `48c2c09d`, 2026-10-29) in a linux/arm64 container on the Mac's Docker Desktop. A Wayland desktop finds the icon only through an installed desktop file |
+| Windows WebView2 | adapted: the largest icon of at most 256 pixels in the `.exe`, which the window class now loads for the title bar, Alt-Tab and the taskbar; MSIX tiles from the PNG icons | on 2026-10-28 on a Windows 11 ARM64 test machine, `icon-test.mjs --targets=windows` passed over SSH (the icon Explorer shows for the `.exe`), and with `--screen` in the signed-in session, started from `cmd.exe` as a one-time interactive scheduled task: the window class icon (title bar, Alt-Tab), 576 taskbar pixels in the icon's color, and `icon.loaded` and `tray.icon.loaded`. The checks use `scripts/native/WindowsIconCheck.c`, built with `cl.exe`, so no PowerShell script runs. That app's tray keeps the default `closeHidesWindow` false, which no longer stops MSVC with C4127. On 2026-10-29 (IC2, branch commit `f433e064`) `icon-test.mjs --targets=windows --release` passed over SSH on the Windows test machine: with no `TAC_WINDOWS_CERTIFICATE` set, the gate made a throwaway code-signing certificate with `certreq.exe`, `ty` signed the MSIX with its thumbprint, `Square44x44Logo.png`, `Square150x150Logo.png` and `StoreLogo.png` inside the package and the `.exe` icon had the manifest icon's color, and the gate then removed the certificate and its key; `certutil` found none left. The same day `windows_tray_code_adds_an_icon_hides_on_close_and_quits_under_wine` passed in WSL Ubuntu 24.04 (aarch64) on the Windows test machine under Xvfb, built for ARM64 Windows with llvm-mingw 20261020 and run under Wine 11.0 built from source for aarch64: the tray loaded the manifest's `tray.ico` rather than `IDI_APPLICATION`. Ubuntu's own arm64 Wine 9.0 hangs while it creates a prefix (its unwinder stops on an AArch64 pointer-authentication note), so it cannot run the test. With `--release --screen` in the signed-in session (branch commit `725f7e9e`), started from `cmd.exe` as a one-time elevated interactive scheduled task, the gate also trusted the throwaway certificate in `LocalMachine\TrustedPeople`, installed the package through `scripts/native/WindowsPackageCheck.cpp` (C++/WinRT `PackageManager`), and the icon the shell shows for `dev.tachyon.icon-gate_kbm575v9qmbb2!App` had the manifest icon's color at 44 and 150 pixels; the gate then removed the package and the trust, and `certutil` found no certificate, key or package left |
+| Linux WebKitGTK | adapted: the largest raster icon as `share/icons/hicolor/256x256/apps/<application id>.png`, added to the GTK icon theme search path and named as the window icon (X11 shows it as `_NET_WM_ICON`); packages install the hicolor icons | on 2026-10-28 in WSL Ubuntu 24.04 (aarch64) on the Windows test machine, `icon-test.mjs --targets=linux --release --screen` passed under Xvfb (the `.deb` hicolor icons at 1024 and 256 pixels, the AppImage `.DirIcon`, and a 48 by 48 `_NET_WM_ICON` on the app's own X11 window), and `--screen` passed in the live GNOME X11 desktop (xrdp, `TAC_LINUX_DISPLAY=desktop`). The `.deb`, AppImage and status notifier tray tests passed. The first run found no `_NET_WM_ICON`: GTK 4 builds the window icon list only from icon theme folders, so the icon now goes in the app's own hicolor folder. The `linux-native` CI job is set to run the gate too; it has not run in GitHub CI yet, and CI3 ran it locally (3 of 3 at `48c2c09d`, 2026-10-29) in a linux/arm64 container on the macOS test machine's Docker Desktop. A Wayland desktop finds the icon only through an installed desktop file |
 
 ### Native preview against the development server (2026-10-24, NET5)
 
@@ -1523,10 +1531,10 @@ origin (TY1601). This evidence does not promote any tier.
 
 | Host | Implemented | Validated |
 | --- | --- | --- |
-| Linux WebKitGTK | yes: libsoup fetch in the `tachyon://app` scheme handler; the app starts as a child process | on 2026-10-24 `scripts/linux/dev-loop-native-test.mjs` passed with GTK 4.14.5, WebKitGTK 2.52.6 and libsoup 3.4.4 under Xvfb in an x86_64 Ubuntu 24.04 cloud container, driven through AT-SPI: a Yon call reached the development server, a component CSS edit arrived while the page kept its state, a component HTML edit appeared, a manifest edit rebuilt and reopened the app, and stopping `ty preview` closed it. The same day it passed on WSL Ubuntu 24.04.5 (aarch64, WebKitGTK 2.52.6) on the Surface. On 2026-10-27 (LX3, above) it passed under headless mutter 46.2 on Wayland with `TAC_LINUX_DISPLAY=wayland`. On 2026-10-28 (LD1) `scripts/linux/native-test.sh` ran it in a live Ubuntu GNOME X11 desktop session (xrdp) in WSL Ubuntu 24.04 (aarch64) on the Surface, with `TAC_LINUX_DISPLAY=desktop`. Not run: a physical Linux desktop |
+| Linux WebKitGTK | yes: libsoup fetch in the `tachyon://app` scheme handler; the app starts as a child process | on 2026-10-24 `scripts/linux/dev-loop-native-test.mjs` passed with GTK 4.14.5, WebKitGTK 2.52.6 and libsoup 3.4.4 under Xvfb in an x86_64 Ubuntu 24.04 cloud container, driven through AT-SPI: a Yon call reached the development server, a component CSS edit arrived while the page kept its state, a component HTML edit appeared, a manifest edit rebuilt and reopened the app, and stopping `ty preview` closed it. The same day it passed on WSL Ubuntu 24.04.5 (aarch64, WebKitGTK 2.52.6) on the Windows test machine. On 2026-10-27 (LX3, above) it passed under headless mutter 46.2 on Wayland with `TAC_LINUX_DISPLAY=wayland`. On 2026-10-28 (LD1) `scripts/linux/native-test.sh` ran it in a live Ubuntu GNOME X11 desktop session (xrdp) in WSL Ubuntu 24.04 (aarch64) on the Windows test machine, with `TAC_LINUX_DISPLAY=desktop`. Not run: a physical Linux desktop |
 | macOS WKWebView | yes: `URLSession` fetch in the `tachyon-app://bundle` scheme handler; the app starts as a child process | on 2026-10-24 `scripts/native/dev-loop-macos-test.mjs` passed on macOS 26.6.2 (Apple M4, Xcode 27.1), reading the page through the Accessibility API: the same steps as Linux, with the app reopened after the manifest edit and closed when `ty preview` stopped. Not run: an Intel Mac |
 | iOS WKWebView | yes: the same Swift fetch; the app is installed and launched with `xcrun simctl` | on 2026-10-24 `scripts/ios/dev-loop-test.mjs` passed twice on an iOS 26.5 simulator (Xcode 27.1), reading the page by OCR of simulator screenshots: the same steps, with the app reinstalled after the manifest edit and ended when `ty preview` stopped. Not run: a device |
-| Android WebView | yes: `HttpURLConnection` fetch in `shouldInterceptRequest`, `adb reverse` for the port, `adb install -r` and `am start` | on 2026-10-24 the generated preview `MainActivity.java` compiled with `javac` against `android.jar` (API 35), AndroidX WebKit 1.14.0 and AndroidX Core in the cloud. The same day `scripts/android/dev-loop-test.mjs` passed on an API 35 emulator on the Mac, reading the page by OCR of screen captures: the same steps over `adb reverse`, with the app reinstalled after the manifest edit, and force-stopped with the port forward removed when `ty preview` stopped. Not run: a device |
+| Android WebView | yes: `HttpURLConnection` fetch in `shouldInterceptRequest`, `adb reverse` for the port, `adb install -r` and `am start` | on 2026-10-24 the generated preview `MainActivity.java` compiled with `javac` against `android.jar` (API 35), AndroidX WebKit 1.14.0 and AndroidX Core in the cloud. The same day `scripts/android/dev-loop-test.mjs` passed on an API 35 emulator on the macOS test machine, reading the page by OCR of screen captures: the same steps over `adb reverse`, with the app reinstalled after the manifest edit, and force-stopped with the port forward removed when `ty preview` stopped. Not run: a device |
 | Windows WebView2 | yes: WinHTTP fetch in the WebResourceRequested handler; the app starts as a child process | on 2026-10-24 `native_development_preview_tests::the_preview_windows_host_compiles_against_the_win32_and_webview2_headers` compiled the preview host with MinGW against the Win32, WinHTTP and WebView2 headers in the cloud. On 2026-10-25 (SW2, below) `scripts/windows/dev-loop-test.mjs` passed with the app open on the signed-in Windows 11 ARM64 desktop |
 
 ### Web storage across relaunch (2026-10-18)
@@ -1546,7 +1554,7 @@ This evidence does not promote any tier.
 
 ### iOS simulator runs (2026-10-24, RM2)
 
-Run on the Mac (macOS 26.6.2, Xcode 27.1 27A9275) on the iOS 26.5 (23F77)
+Run on the macOS test machine (macOS 26.6.2, Xcode 27.1 27A9275) on the iOS 26.5 (23F77)
 simulator, from develop `4c052177` with a debug `ty` of the RM2 branch. No
 host code changed. Each script builds its own app, uses its own simulator
 device set under `$TMPDIR` and deletes it after the run. This evidence does
@@ -1599,7 +1607,7 @@ Async linked Rust members (LR1) were not exercised on either runtime.
 
 Floor runtimes (2026-10-25, MA5). The iOS 17.4 (21E213) and 18.2 (22C150)
 images came from developer.apple.com and were attached from the external
-volume as above, on the Mac (macOS 26.6.2, Xcode 27.1), from branch
+volume as above, on the macOS test machine (macOS 26.6.2, Xcode 27.1), from branch
 `claude/project-thread-43besn` (`2c6a706a`, on develop `2aeb2de6`). Each
 runtime's first boot built its dyld cache on the internal disk (2.9 GB for
 17.4, 3.5 GB for 18.2, about 23 minutes each). Fresh devices timed out in
@@ -1617,7 +1625,7 @@ that floor.
 
 ### Page accessibility on iOS and Android (2026-10-24, AX1)
 
-Run on the Mac (macOS 26.6.2, Xcode 27.1) from branch
+Run on the macOS test machine (macOS 26.6.2, Xcode 27.1) from branch
 `claude/project-thread-muo2f6` (`b5d609c9`, on develop `b51b6b91`). No host
 code changed. Both gates build the page in
 `scripts/native/mobile-accessibility-fixture.mjs`: a heading, an `svg` with
@@ -1665,7 +1673,7 @@ On the iOS 26.5 simulator the same XCUITest edge drag pops a UIKit
 navigation stack (Settings > General) but moves neither the Tachyon web view
 nor Safari back a page. On iOS 18.0 the same app and drag go back and
 forward. A real touch on iOS 26 is not checked by these runs. Two System Back
-runs need Samuel: a real touch on an iOS 26 device, and a person at a Mac
+runs need a person: a real touch on an iOS 26 device, and a person at a Mac
 trackpad for the swipes. The support table claims the iOS 18.0 run and the
 macOS menu keys and items only.
 
@@ -1709,7 +1717,7 @@ and Kotlin keep theirs. This evidence does not promote any tier.
 | WebKitGTK (Linux app) | 2.46 | 2.48 | JavaScriptCore from the Ubuntu and Debian archives: 2.46.0 and 2.46.6 refused it, 2.48.1, 2.48.6, 2.50.4 and 2.52.6 loaded it |
 | iOS app | 18.2 | 18.4 | follows Safari; `system_floor` unit tests; an app built at 18.4 ran on iOS 26.5 (MA8); no 18.4 runtime could be fetched, so the 18.4 run is left to the developer (D20) |
 | macOS app | 15.2 | 15.4 | follows Safari; `system_floor` unit tests; an app built at 15.4 ran on macOS 27.2 (MA7) |
-| Windows app (WebView2) | 119.0 | 137.0 | follows Chrome; `system_floor` unit tests; a Java page-program cell ran in the Windows app on the Surface (SW4); no WebView2 at 137.0 itself has run |
+| Windows app (WebView2) | 119.0 | 137.0 | follows Chrome; `system_floor` unit tests; a Java page-program cell ran in the Windows app on the Windows test machine (SW4); no WebView2 at 137.0 itself has run |
 | Android app | API level 26, note names WebView 119 | API level 26, note names WebView 137 | follows Chrome; `system_floor` unit tests; a Java page service and a Java page program ran on Android 17 with WebView 145 (MA9); no WebView at 137 itself has run |
 
 All runs were in an x86_64 Ubuntu 24.04 cloud container. A browser without
@@ -1891,8 +1899,7 @@ to `element.click()` or a scripted fill. `window-controls`, `storage`,
 `svg-namespace`, `authored-node` and `preview-offline` were left out (calls
 WebDriver cannot make, above).
 
-Windows desktop (2026-10-25, IYOR-Surface, Windows 11 ARM64, in Samuel's
-signed-in session through `scripts/windows/desktop-run.ps1`; release `ty`
+Windows desktop (2026-10-25, a Windows 11 ARM64 test machine, in a signed-in desktop session through `scripts/windows/desktop-run.ps1`; release `ty`
 from develop `ad27e53b`, runner `f58b814b`; Node 24.21.0, JDK 21 with TeaVM
 0.15.0, Swift 6.3.3, .NET SDK 10.0.302, Go 1.27.1, Dart, Kotlin 2.1.10 and
 Ruby 4.0.6). In Microsoft Edge 155.0.4283.62 every gate of the default list
@@ -1921,7 +1928,7 @@ own background connections through the `preview-offline` CONNECT proxy
 were refused, then reset, with no error listener on the socket. `website`
 also hit its 120-second build limit once under load and passed alone.
 Google Chrome 156.0.8078.48 (installed with `winget install --id
-Google.Chrome` on Samuel's say-so, the arm64 enterprise MSI) then ran the
+Google.Chrome` with the maintainer's approval, the arm64 enterprise MSI) then ran the
 same default list on the same machine and runner: the same 14 gates
 passed, and `web-apis` (the share that never settles), `scaffold` (Chrome's
 own favicon 404) and `window-controls` (the 4070 KB route) failed for the
@@ -1935,24 +1942,23 @@ rerun on the machine that failed:
   `wasm-opt`, so release builds there never found `wasm-opt`. With the
   lookup fixed and nothing added to PATH, `ty doctor` reports `wasm-opt`
   ready, the Swift, Kotlin, Java, Rust and Go builds say "optimized by
-  Binaryen", and the route fits the budget. The Surface's emsdk carries
+  Binaryen", and the route fits the budget. The Windows test machine's emsdk carries
   Binaryen version 132.
 - `scaffold`: `ty init` now writes `client/shared/assets/icon.svg` and names
   it in `client/manifest.json`, so each page links its icon and browsers no
   longer ask for `/favicon.ico`. It passed in Google Chrome 156 in the
-  cloud and in Chrome 156 and Edge 155 on the Surface.
+  cloud and in Chrome 156 and Edge 155 on the Windows test machine.
 - `web-apis`: `scripts/branded/share-sheet.mjs` closes the share sheet for
   the person. The page's `navigator.share()` still calls the browser's own
   share; after 2 seconds, Chrome on Android presses Back on the real sheet
   (only while the sheet has the focus) and Chrome answers with an
   `AbortError`. Headless Chrome and Edge on Windows show no sheet, so the
   page answers that same `AbortError` itself, and the runner logs it. It
-  passed in Chrome 156 and Edge 155 on the Surface, and on `tachyon-play`
+  passed in Chrome 156 and Edge 155 on the Windows test machine, and on `tachyon-play`
   (Chrome 124, without Java), where Back closed eight real sheets.
 
 After the fixes, the default list (now 19 gates, with `wasm-offline` and
-`pwa-install`) passed 18 of 19 in both Chrome 156 and Edge 155 on the
-Surface, with nothing unsupported or left out. `wasm-offline` failed in
+`pwa-install`) passed 18 of 19 in both Chrome 156 and Edge 155 on the Windows test machine, with nothing unsupported or left out. `wasm-offline` failed in
 both, also in Playwright's own Chromium: the C++ reader service did not
 find the record saved before the network went away. That run's `ty` was
 built before `3bdc82f8` and `f4bf2cc6`, which make the gate wait for the
@@ -1983,7 +1989,7 @@ both services read the same identity, and the shared setup ran once.
 
 ### Yon handlers on Windows (2026-10-19, WY1)
 
-On Windows 11 ARM64 (IYOR-Surface, over SSH, commit 3d264ff3), with clang++
+On Windows 11 ARM64 (a test machine, over SSH, commit 3d264ff3), with clang++
 21.1.8, Temurin 21, Kotlin 2.1.10, Groovy 5.1.3, Dart 3.13.4, PHP 8.4.20,
 Lua 5.4.6 and Go 1.27.1 on PATH:
 
@@ -2022,14 +2028,14 @@ acceptance gate. This evidence does not promote any tier.
   languages) passed, as did `handler::isolation` 9 of 9 and
   `handler_process` 29 of 29. All of `tests/it` passed 768 of 769 and
   the tachyon-core library tests 3874 of 3876; the three failures came from
-  the Mac's deno 1.38.1, which rejects a flag. Run warm, the older suites
+  the macOS test machine's deno 1.38.1, which rejects a flag. Run warm, the older suites
   found these problems, fixed before the merge: Lua instances shared plain
   table fields between requests, a failed relay's descendant could survive,
   Dart code could extend its relay deadline, the first warm request of C#,
   Go, Java, Kotlin and Dart did not count runtime start-up against its
   deadline, and one test that expects a static counter to reset now runs in
   process mode.
-- Windows 11 ARM64 (WW1, 2026-10-28, IYOR-Surface over SSH, branch commit
+- Windows 11 ARM64 (WW1, 2026-10-28, a test machine over SSH, branch commit
   `db55b2eb`, on develop as `6cb5583e`, `CI=1`, with Go 1.27.1, Ruby
   4.0.6, bun 1.4.3, cargo 1.97.1 and clang++ 21.1.8): `tests/it` ran 745
   tests and 743 passed (three timing tests on their retry: a
@@ -2040,7 +2046,7 @@ acceptance gate. This evidence does not promote any tier.
   minutes. All 51 warm tests passed, including warm C++ and
   TypeScript under bun, and no handler process was left after the run.
   `scripts/test-managed-storage.mjs --without-docker` passed in 199 s.
-- Linux aarch64 (WW2, 2026-10-28, WSL Ubuntu 24.04 on the same Surface,
+- Linux aarch64 (WW2, 2026-10-28, WSL Ubuntu 24.04 on the same Windows test machine,
   over SSH, develop `32d94984`, `CI=1`, every Yon toolchain installed):
   `tests/it` passed 768 of 768 (two on their retry), with no timeouts and 1
   skipped (the `#[ignore]` warm benchmark). All 51 warm tests passed,
@@ -2050,10 +2056,10 @@ acceptance gate. This evidence does not promote any tier.
   is flaky on WSL (it failed 1 of 3 runs alone), because its 8 s default
   deadline includes the Ruby and Java start-up from a USB disk. (Fixed in
   RT1, "Relay deadline test and CI tools" below.)
-- For WW1 and WW2 the Mac also passed fmt, clippy, the 51 warm tests and
+- For WW1 and WW2 the macOS test machine also passed fmt, clippy, the 51 warm tests and
   `repository_policy` (25 of 25).
 
-The Mac benchmark (`tests/it/warm_benchmark.rs`, `--ignored --nocapture`,
+The macOS test machine benchmark (`tests/it/warm_benchmark.rs`, `--ignored --nocapture`,
 debug build, one JSON POST handler, times in ms). "Prime" is the first
 request in a fresh project with compiled artifacts cached. Each mode then
 gets a fresh supervisor: its first request, then the median and p95 of 50
@@ -2099,16 +2105,16 @@ the deadline stays covered by
 now also requires `dotnet` and `javac` under `CI`, since the native jobs
 of `rust-ci.yml` install .NET SDK 10.0.302 and select JDK 21. This evidence does not promote any tier.
 
-- WSL Ubuntu 24.04 (aarch64) on the Surface, on branch commit `41d7f117`
+- WSL Ubuntu 24.04 (aarch64) on the Windows test machine, on branch commit `41d7f117`
   (the same test code as `e0a32f24` outside Windows): the relay test passed
   10 of 10 runs in a row (74.5 to 78.4 s each).
-- Windows 11 ARM64 (the Surface, over SSH, `CI=1`): the relay test passed 3
+- Windows 11 ARM64 (the Windows test machine, over SSH, `CI=1`): the relay test passed 3
   of 3, the Yon and Tac settings-profiles proofs passed under their
   15-minute limit (63.0 s and 95.7 s, on `41d7f117`), and `tests/it` passed 744 of 745;
   `dotnet` and `javac` were found. The one failure was
   `go_streams::a_go_log_follow_ends_cleanly_at_the_request_time_limit`,
   which passed 3 of 3 alone; it is a load flake that WW1 saw too.
-- macOS (the Mac): fmt, clippy, `tests/it` (768 of 768) and
+- macOS (the macOS test machine): fmt, clippy, `tests/it` (768 of 768) and
   `repository_policy` (25 of 25) passed.
 
 Open finding: on Windows (Ruby 4.0.6, `aarch64-mingw-ucrt`) a warm Ruby handler's
@@ -2126,7 +2132,7 @@ below; the skip is gone.)
 ### Warm Ruby relays on Windows (2026-10-28, WR1)
 
 WR1 (branch `claude/project-thread-h0ns1x`, on develop as `a62ab084`) fixed
-the open finding above (iteration 10, D32). A probe on the Surface found the
+the open finding above (iteration 10, D32). A probe on the Windows test machine found the
 cause. On Windows, `Process.spawn` with `in:`, `out:` and `err:` puts the
 relay pipes over the parent's descriptors 0 to 2, starts the child, and puts
 the old ones back. Ruby's Windows `IO.select` keeps the operating system
@@ -2134,8 +2140,7 @@ handles it saw when the call started, so the warm runner's frame reader,
 waiting in `IO.select` on standard input, went on polling a handle that was
 no longer standard input and never read the next request. With Ruby 4.0.6
 (`aarch64-mingw-ucrt`) the probe's second line was never read when the reader used
-standard input, and was read when it used a private copy; Ruby 4.0.9 on the
-Mac read both. The runner (`ruby_runner.rb`, `YonRunnerFrames`) now reads
+standard input, and was read when it used a private copy; Ruby 4.0.9 on the macOS test machine read both. The runner (`ruby_runner.rb`, `YonRunnerFrames`) now reads
 its frames from a private copy of standard input (`STDIN.dup`) and points
 `STDIN` at the null device, so a relay's `Process.spawn` no longer touches
 the handle the reader waits on. The Windows Ruby skip in the RT1 relay test
@@ -2149,13 +2154,13 @@ longer depends on load. The handler's context ends one cancellation grace
 a new Go process inside that margin, so a slow start pushed the Go context
 past the deadline. The test now uses a 3 s grace and a 4 s deadline.
 
-- Windows 11 ARM64 (the Surface, over SSH, `CI=1`, branch commit
+- Windows 11 ARM64 (the Windows test machine, over SSH, `CI=1`, branch commit
   `b52ac16f`): `warm_ruby` passed 5 of 5, the relay test with the Ruby
   warm-up passed 3 of 3 (88.7, 76.5 and 76.5 s), `go_streams` passed 3 of 3
   (about 1.6 s each), and two full `tests/it` runs passed 746 each with 1
   skipped and no retries. With develop's old runner the new test fails at
   its second relay (`TY2110`). No handler process was left.
-- macOS (the Mac): fmt, clippy, `tests/it` (769 passed, 1 skipped) and
+- macOS (the macOS test machine): fmt, clippy, `tests/it` (769 passed, 1 skipped) and
   `repository_policy` (25 of 25) passed, and fmt, clippy and
   `repository_policy` passed again on the tree merged onto `dadbc877`.
 
@@ -2184,18 +2189,18 @@ frame fails with `TY2103`. Every runner now measures every request from
 when it reads it.
 
 `relay_boundaries::a_slow_warm_runtime_start_counts_against_the_relay_deadline`
-(new) starts the Python and Ruby runtimes 3 s late. On the Mac it failed
+(new) starts the Python and Ruby runtimes 3 s late. On the macOS test machine it failed
 before the fix (`TY2110`, 8.1 s) and passed after it, 4 of 4 (about 12 s
 each). `relay_boundaries::sequential_relays_and_a_longer_request_deadline_share_one_budget`
 now starts its handler before the timed relays, because its budget counts
 from when the process is ready and a loaded Windows start left the first
 relay too little of it; start-up has its own test.
 
-- macOS (the Mac): `warm` 52 of 52, `relay_boundaries` 26 of 26,
+- macOS (the macOS test machine): `warm` 52 of 52, `relay_boundaries` 26 of 26,
   `go_streams` 3 runs, `tests/it` 770 of 770, fmt, clippy and
   `repository_policy` (25 of 25); on the tree merged onto `711bc407`,
   `tests/it` 771 of 771 with fmt, clippy and `repository_policy`.
-- Windows 11 ARM64 (the Surface, over SSH): `warm` 52 of 52, the relay
+- Windows 11 ARM64 (the Windows test machine, over SSH): `warm` 52 of 52, the relay
   tests 19 of 19, the default-deadline tests 3 of 3,
   `go_streams::a_go_log_follow_ends_cleanly_at_the_request_time_limit` 3 of 3,
   and two full `tests/it` runs of 747 of 747, with no handler process left.
@@ -2223,12 +2228,12 @@ Failed, and fixed on develop `fb4d5e56` to `f5cfc838`:
 
 - Native Rust gate (`windows-latest`): clippy `large_futures` at three
   calls in `server/dispatch.rs` (futures of 16 to 17 KB). The middleware
-  tail is now `Box::pin`ned. On the Surface (Windows ARM64), clippy failed
+  tail is now `Box::pin`ned. On the Windows test machine (Windows ARM64), clippy failed
   the same three on the old develop and is clean on the fix.
 - Native Rust gate (`macos-latest`): Swift 6.3.3 (Xcode 26.6) crashed with
   signal 11 while compiling `NativeUiStyleCheck.importGraph()`, so 2 native
   UI tests failed (4799 of 4801 passed). The fixture now builds its graphs
-  with a plain loop. The Mac has Swift 6.4 and does not crash, so the
+  with a plain loop. The macOS test machine has Swift 6.4 and does not crash, so the
   workaround is unconfirmed until a later `macos-latest` run.
 - Phase 3 Chromium component and service behavior, and the Phase 5 Android
   native gate: the Yon origin tests ran on the runner's Node 22.23, which
@@ -2252,7 +2257,7 @@ Failed, and fixed on develop `fb4d5e56` to `f5cfc838`:
 Cancelled: the Rust coverage ratchet reached its 60-minute limit at 4677
 of 4766 tests with no failure; the limit is now 90 minutes.
 
-On the Mac, fmt, clippy, `repository_policy` (25 of 25), the `server::`
+On the macOS test machine, fmt, clippy, `repository_policy` (25 of 25), the `server::`
 tests (55 of 55), the compatibility differential (oracle v26.30.04), the
 Yon origin tests with Node 24, `behavior_jvm` (5 of 5, Groovy 5.1.3) and
 the C# and F# stream and topic tests (3 of 3) passed on the fixes, and
@@ -2267,13 +2272,13 @@ can only be confirmed on GitHub's runner.
 CI3 (iteration 11, D38) ran every job of `rust-ci.yml`, and
 `ruby-runtime.yml`'s rebuild, on our own machines instead of GitHub's
 runners, on develop `854ace78` with its fixes (on develop as `028bfd28` to
-`48c2c09d`). No GitHub Actions run was made. The jobs ran on the Mac (macOS
-arm64), in WSL Ubuntu 24.04 (aarch64) on the Surface, and on the Surface's
+`48c2c09d`). No GitHub Actions run was made. The jobs ran on the macOS test machine (macOS
+arm64), in WSL Ubuntu 24.04 (aarch64) on the Windows test machine, and on the Windows test machine's
 Windows 11 ARM64.
 
 Passed:
 
-- On the Mac: the Native Rust gate (nextest 4860 of 4860), the macOS and
+- On the macOS test machine: the Native Rust gate (nextest 4860 of 4860), the macOS and
   iOS simulator gate (Xcode 27.1, iOS 26.5), the browser job and the eight
   Tac service-language browser gates, the compatibility differential
   (oracle v26.30.04), the release lifecycle drill (macOS), the managed
@@ -2288,15 +2293,15 @@ Passed:
   provenance and fuzzing jobs (6 targets, 300 s each), the sanitizers, and
   the managed SQL contracts with PostgreSQL, MySQL, MariaDB, Redis, SQLite
   and FYLO in Docker.
-- On the Mac's Docker Desktop (linux/arm64): the Linux icon gate with
+- On the macOS test machine's Docker Desktop (linux/arm64): the Linux icon gate with
   `--screen` (3 of 3), the release lifecycle drill (Ubuntu), the sanitizer
   job's TSan deadline test again, and SQL Server (linux/amd64, under
   Rosetta).
-- On the Surface: the managed document and Redis contracts (Windows).
+- On the Windows test machine: the managed document and Redis contracts (Windows).
 
 Failed, left for iteration 12:
 
-- The Android native gate on the Mac's arm64 emulator (arm64-v8a,
+- The Android native gate on the macOS test machine's arm64 emulator (arm64-v8a,
   android-35): every script passes alone, but the chained run flakes. AN1
   found that no script leaves anything behind and fixed the accessibility
   probe; the chained gate then passed 3 times in a row (see "The Android
@@ -2306,20 +2311,20 @@ Failed, left for iteration 12:
   with `TY2110` even alone. FY1 found the cause: each write of the pinned
   FYLO starts `powershell.exe` on Windows, not x64 emulation (see the FYLO
   paragraph under the Windows native gate); with FY1's fix both passed on
-  the Surface, twice, in about 13 s. The
+  the Windows test machine, twice, in about 13 s. The
   other failures were load flakes that passed alone.
 
 Not run: the Windows WebView2 native gate, because PowerShell scripts are
-not allowed for the Surface's user and CI3 did not change that policy;
+not allowed for the Windows test machine's user and CI3 did not change that policy;
 `publish.yml` and `fuzz-scheduled.yml`; and the `#[ignore]` Wine tests,
 which CI never runs (WN1 ran them on arm64 afterwards, below).
 
 Substitutions: arm64 everywhere (the sanitizers built for
 `aarch64-unknown-linux-gnu`, the Android arm64-v8a image, Linux and Windows
 on arm64 machines); coverage on macOS; and the icon gate, the TSan rerun and
-the Ubuntu release lifecycle drill in linux/arm64 containers on the Mac
+the Ubuntu release lifecycle drill in linux/arm64 containers on the macOS test machine
 (image from `scripts/linux/Dockerfile`), after CI3's own WSL build folders
-filled the Surface's external drive and WSL's disk went read-only three
+filled the Windows test machine's external drive and WSL's disk went read-only three
 times. `install-toolchains.mjs` has no linux-arm64 or win32-arm64 entries
 for Dart and nextest, so installed copies were used (CI4 added them,
 below). What only GitHub's
@@ -2347,7 +2352,7 @@ CI3 and WL1 found. No GitHub Actions run was made.
 - `scripts/ci/install-toolchains.mjs` pins Dart 3.13.1 and cargo-nextest
   0.9.146 for `linux-arm64` and `win32-arm64`, with checksums from the
   downloaded archives (they match Dart's published `.sha256sum` files). Both
-  installed on the Mac, in a linux/arm64 container and on the Surface's
+  installed on the macOS test machine, in a linux/arm64 container and on the Windows test machine's
   Windows 11 ARM64 (Dart `windows_arm64`, nextest
   `aarch64-pc-windows-msvc`).
 - GNOME Shell maximizes a new window that covers more than 80% of the work
@@ -2365,16 +2370,16 @@ CI3 and WL1 found. No GitHub Actions run was made.
   graphical logind session when the desktop's processes have no
   `XDG_SESSION_ID`, as in a GNOME session that systemd starts.
 
-In a linux/arm64 container on the Mac's Docker Desktop (headless GNOME
+In a linux/arm64 container on the macOS test machine's Docker Desktop (headless GNOME
 Shell 48.7, GTK 4.18.6, WebKitGTK 2.54.0), `gnome-shell-session.sh
 compositor-test.sh --desktop` passed 12 and 3 host tests at 1024x768 and at
 1280x900, and the default `compositor-test.sh` passed (xfwm4 2 and 2, then
-headless mutter 12 and 3), with fmt and clippy. On the Mac, fmt, clippy
+headless mutter 12 and 3), with fmt and clippy. On the macOS test machine, fmt, clippy
 (`tachyon-core`) and `repository_policy` (25 of 25) passed at `807beea0`,
 and `cargo test -p tachyon-core --lib linux_` (51 passed, 1 ignored) at
 `be603ad4`. Not run: `describe` in a real systemd-mode GNOME session (WSL
 was out), and the Windows WebView2 gate, because
-the Surface user's PowerShell policy is unchanged, so CI2's x64 pass stays
+the Windows test machine user's PowerShell policy is unchanged, so CI2's x64 pass stays
 the record.
 
 ### The Wine tests on arm64 (2026-10-29, WN1)
@@ -2395,7 +2400,7 @@ targets, all checksum-pinned. `scripts/linux/wine-tests.sh` (new) runs the
 twelve Wine tests under Xvfb, and with `--with-compile-checks` the eight
 MinGW compile checks.
 
-In a linux/arm64 container of that image on the Mac's Docker Desktop, all
+In a linux/arm64 container of that image on the macOS test machine's Docker Desktop, all
 20 passed: the deep link, external link, menu action, Rust HTTP transport,
 tray, browser API, both file picker, package folder, task resume, title bar
 and window background tests under Wine, and the eight compile checks. The
@@ -2404,7 +2409,7 @@ rejects under `-Werror` where GCC did not: an unused tray stub, and DPI
 calls that mingw-w64 declares only for Windows 10 while llvm-mingw defaults
 `_WIN32_WINNT` to Windows 7 (the fixture now sets it), and a global that was
 set but never read. No Wine gap was
-found. On the Mac fmt, clippy and `repository_policy` passed, and clippy
+found. On the macOS test machine fmt, clippy and `repository_policy` passed, and clippy
 for `x86_64-pc-windows-gnu` passed in the container. These are Wine runs,
 not Windows; the tier does not change.
 
@@ -2412,7 +2417,7 @@ not Windows; the tier does not change.
 
 AN1 (iteration 12; on develop as `b2277545` to `a05a1c7e`) ran the
 android-native CI step, `scripts/android/native-test.sh`, as one chain on
-the Mac's emulator-5554 (AVD `tachyon-gate`, arm64-v8a, android-35,
+the macOS test machine's emulator-5554 (AVD `tachyon-gate`, arm64-v8a, android-35,
 `google_apis`, its data on the internal disk) with a prebuilt `ty`. It
 passed 3 times in a row (5.5 to 6.5 minutes each). No GitHub Actions run
 was made.
@@ -2440,7 +2445,7 @@ screen and the uncompressed tree.
 
 Known limits: the empty heading happened once more in a solo run at
 `7259cf7e` and not at `38859fd1` (6 solo runs and 3 chained), so it may be
-fixed or only rare. With the Mac's 1-minute load above about 40, a gate's
+fixed or only rare. With the macOS test machine's 1-minute load above about 40, a gate's
 native call can still run out the page bridge's 10 s limit, which AN1 left
 unchanged; timing gates should start with the load under 15. These are
 emulator runs; the tier does not change.
@@ -2449,7 +2454,7 @@ emulator runs; the tier does not change.
 
 `cargo deny check` passes again on develop `5fb767fb`, after the lock moves
 in the CHANGELOG Security entry (RUSTSEC-2026-0381, -0382, -0385 and
--0386). On the Mac at that commit, fmt, clippy, the managed storage
+-0386). On the macOS test machine at that commit, fmt, clippy, the managed storage
 contracts with Docker (all five real drivers), the tachyon-core library
 tests (3812), `tests/it` (768) and `repository_policy` (25) passed. New
 advisories keep landing (three in the week after `006773e3`), so
@@ -2457,7 +2462,7 @@ advisories keep landing (three in the week after `006773e3`), so
 
 ### Windows native gate (2026-10-25, WG2)
 
-On Windows 11 ARM64 (IYOR-Surface, over SSH, commit `a798b43f`) the whole
+On Windows 11 ARM64 (a test machine, over SSH, commit `a798b43f`) the whole
 native gate passed: `cargo nextest run --workspace --all-targets
 --all-features --locked --no-tests=fail` ran 4580 tests, all passed (one
 `relay_boundaries` deadline test on its retry), 77 skipped, in 946 s. The
@@ -2486,7 +2491,7 @@ gates above.
 
 FYLO writes are slow on Windows with the pinned FYLO v26.33.02: each write
 starts `powershell.exe` and takes about 0.8 s (FY1, 2026-10-29). The two
-`fylo_datasource` CLI tests failed with `TY2110` on the Surface for this
+`fylo_datasource` CLI tests failed with `TY2110` on the Windows test machine for this
 reason, not because of x64 emulation, which costs about 1.6 times on macOS
 under Rosetta. The tests now seed 12 documents instead of 120 and give
 Windows a 240 s deadline. Known limit: FYLO writes on Windows stay slow
@@ -2523,7 +2528,7 @@ cells on macOS, iOS and Windows already agreed with their runs.
 
 ### WebAssembly service features and linked callers in the macOS app (2026-10-27, MA7)
 
-On the Mac (Apple Silicon, macOS 27.2, Xcode 27.1, Swift 6.4 for the probe,
+On the macOS test machine (Apple Silicon, macOS 27.2, Xcode 27.1, Swift 6.4 for the probe,
 the Swift 6.4.1 WebAssembly SDK, Node 24.19.0, `ty` from branch `598db4a7`),
 MA7 added a macOS driver to `scripts/native/wasm-features-app-test.mjs`
 (LX3, "WebAssembly service features in the Linux app" above). It builds the
@@ -2573,12 +2578,12 @@ The same day, on the same Mac:
   page that share one Setup in the macOS app: the reader saw the writer's
   identity and a count of 1.
 - The SQL Server contract on Security.framework did not run: Docker Desktop
-  was not running on the Mac, so no SQL Server 2022 container could start.
+  was not running on the macOS test machine, so no SQL Server 2022 container could start.
   MA10 ran it later the same day (see "SQL Server from macOS and Windows").
 
 ### SQL Server from macOS and Windows (2026-10-27, MA10)
 
-On the Mac, with SQL Server 2022 (the digest-pinned image, `linux/amd64`
+On the macOS test machine, with SQL Server 2022 (the digest-pinned image, `linux/amd64`
 under Rosetta) in Docker Desktop, `scripts/test-managed-storage.mjs
 --drivers=sqlserver` first failed: the storage tests passed, but
 `storage::tests::sql_real_repository_nullable_columns` failed with `TY2160`
@@ -2596,10 +2601,10 @@ in 40 s, with the storage tests, clippy and `repository_policy`. Yon and
 managed storage do not run in an iOS app, so SQL Server has no iOS path for
 this fix to apply to.
 
-The same contract then passed from Windows over SChannel. The Mac served the
+The same contract then passed from Windows over SChannel. The macOS test machine served the
 container on its LAN address with `scripts/test-managed-storage.mjs --serve
 --drivers=sqlserver` (`TAC_STORAGE_PUBLISH_ADDRESS=192.168.8.159`, so the
-fixture certificate names that address), and on the Surface (Windows
+fixture certificate names that address), and on the Windows test machine (Windows
 10.0.26300.9711 ARM64, MSVC 14.44, Node 24.21.0) a `tachyon-core` test build
 from develop `d404af70`, made through `cmd.exe` and `vcvarsall.bat arm64`,
 ran `scripts/test-managed-storage.mjs --remote=... --drivers=sqlserver`:
@@ -2608,7 +2613,7 @@ the fixture CA.
 
 ### macOS callers that moved cells back (2026-10-25, MA1)
 
-On the Mac (macOS 26.6.2, Xcode 27.1, Swift 6.4, Node 26.12.0, a 1920 by
+On the macOS test machine (macOS 26.6.2, Xcode 27.1, Swift 6.4, Node 26.12.0, a 1920 by
 1080 screen, release `ty` from branch `100f335e`),
 `TAC_MACOS_SERVICE_LANGUAGES=go TAC_MACOS_WINDOW_CALLERS=cs,kt
 TAC_MACOS_PICKER_CALLERS=rs scripts/native/page-services-macos-test.mjs`
@@ -2630,7 +2635,7 @@ No permission prompt appeared. The macOS window controls, file picker and
 
 ### Android service runs (2026-10-25, MA2)
 
-On the Mac's emulator-5554 (`tachyon-gate` AVD: Android 15, API 35,
+On the macOS test machine's emulator-5554 (`tachyon-gate` AVD: Android 15, API 35,
 `google_apis` arm64-v8a, `userdebug`, WebView 124.0.6367.219), with a debug
 `ty` from branch `claude/project-thread-03rpod`, Node 24.19.0, Go 1.27.2,
 .NET SDK 10.0.402 with `wasm-tools` and `wasm-tools-net9`, and Swift 6.4.1
@@ -2676,7 +2681,7 @@ it never calls.
 ### Page checks on macOS, iOS and Android (2026-10-25, MA3)
 
 The page-check gates gained the steps the survey of `4243f2b6` found
-missing. They ran on the Mac (macOS 26.6.2 25G83, Xcode 27.1 27A9275, iOS
+missing. They ran on the macOS test machine (macOS 26.6.2 25G83, Xcode 27.1 27A9275, iOS
 26.5 simulator runtime 23F77 on an iPhone 17 Pro, the `tachyon-gate`
 emulator image `sdk_gphone64_arm64` Android 15 API 35 AE3A.240806.043 with
 Android System WebView 124.0.6367.219), on branch `b70dcc31`:
@@ -2720,15 +2725,15 @@ The macOS geolocation cell is `honored` again, and the Android
 ### WebAssembly service features in the Windows app (2026-10-27, SW4)
 
 SW4 added a Windows driver to `scripts/native/wasm-features-app-test.mjs`
-(`--target=windows`) and ran it on the Surface (Windows 11 Pro build 26300
-ARM64, WebView2, MSVC ARM64) in Samuel's signed-in Remote Desktop session,
+(`--target=windows`) and ran it on the Windows test machine (Windows 11 Pro build 26300
+ARM64, WebView2, MSVC ARM64) in a signed-in Remote Desktop session,
 through `scripts/windows/desktop-run.ps1`, with a debug `ty` from branch
 `3f5f2fce`. The driver builds the app with `ty build --target windows`,
 checks that no service of the check is linked into it, launches it, and
 reads the probe through UI Automation. It clicks the gesture buttons with
 the mouse, because a UI Automation Invoke may give the page no user action,
 and presses Escape after the share sheet. Checks that call Yon reach
-`ty serve` on the Surface. C# and Rust are linked on Windows, so they have no
+`ty serve` on the Windows test machine. C# and Rust are linked on Windows, so they have no
 cell here. This evidence does not promote any tier.
 
 | Check | Languages that passed in the Windows app | What the probe saw |
@@ -2782,7 +2787,7 @@ their window and minimum size in device-independent pixels scaled by the
 window's DPI, take the size Windows suggests on `WM_DPICHANGED`, and
 `windowControls.resize` sizes the client area in device-independent pixels.
 
-On the Surface (Windows 11 ARM64), in Samuel's signed-in Remote Desktop
+On the Windows test machine (Windows 11 ARM64), in a signed-in Remote Desktop
 session through `scripts/windows/desktop-run.ps1`: an app named with
 `Setup` started without asking for administrator rights;
 `scripts/windows/window-shell-test.ps1` passed 31 of 31;
@@ -2807,25 +2812,25 @@ MK4 moved every bare-name tool probe left in `crates/tachyon-core/tests/it`
 (`groovyc`, `kotlinc`, `lua`, `php-cgi` and `dart`, in 15 files) to
 `ProgramProbe`, so a `.bat` launcher such as `groovyc.bat` or `kotlinc.bat`
 is found on Windows, and `Toolchain::checked` fails a missing CI-installed
-tool instead of letting the test skip. On the Surface (Windows 11 ARM64)
+tool instead of letting the test skip. On the Windows test machine (Windows 11 ARM64)
 with `CI=1`, `tests/it` passed 694 of 694 and the MK3 marker library tests
 83 of 83; this is MK3's Windows run too. This evidence does not promote any
 tier.
 
-MK4 also found that with Homebrew Groovy 6.0.0 on the Mac, `GroovyHome`
+MK4 also found that with Homebrew Groovy 6.0.0 on the macOS test machine, `GroovyHome`
 found no Groovy library from the `groovyc` launcher, so 29 tests failed with
 `TY2112` unless `GROOVY_HOME` was set. Homebrew's `bin/groovyc` is a wrapper
 script, and the library is under `libexec/lib`. GH1 (2026-10-27, `c384dab5`)
 fixed this: the `groovyc` route on `PATH` also looks in `<home>/libexec`
 when `<home>/lib` is missing, and `GROOVY_HOME` keeps priority (iteration 7,
-D23). On the Mac with Homebrew Groovy 6.0.0 and no `GROOVY_HOME`, `tests/it`
+D23). On the macOS test machine with Homebrew Groovy 6.0.0 and no `GROOVY_HOME`, `tests/it`
 passed 768 tests with none failing (1 ignored, the warm handler benchmark),
 with no `TY2112`, along with the `groovy_home` unit tests, fmt, clippy and
 `repository_policy`.
 
 ### Windows runs over SSH (2026-10-27, SW4)
 
-SW4 ran these on the Surface (Windows 11 Pro build 26300 ARM64, MSVC ARM64)
+SW4 ran these on the Windows test machine (Windows 11 Pro build 26300 ARM64, MSVC ARM64)
 over SSH with a debug `ty` from this branch. This evidence does not promote
 any tier.
 
@@ -2849,14 +2854,14 @@ any tier.
   Windows once Swift 6.3.3 was installed there (SW3), on develop too: they
   link a Swift host against Foundation and pthread. They now skip on hosts
   that are not Unix.
-- No SQL Server 2022 was reachable from the Mac or the Surface (no Docker
+- No SQL Server 2022 was reachable from the macOS test machine or the Windows test machine (no Docker
   daemon running, and no SQL Server image for ARM64), so the SQL Server
   contract over SChannel stayed owed. MA10 ran it later the same day (see
   "SQL Server from macOS and Windows").
 
 ### Swift on the Windows desktop (2026-10-25, SW3)
 
-The Surface (Windows 11 ARM64, WebView2 Runtime 155.0.4283.62, MSVC ARM64)
+The Windows test machine (Windows 11 ARM64, WebView2 Runtime 155.0.4283.62, MSVC ARM64)
 now has Swift 6.3.3 for Windows ARM64
 (`swift-6.3.3-RELEASE-windows10-arm64.exe` from swift.org, installed
 without a UAC prompt) and the matching Swift SDK for WebAssembly
@@ -2881,7 +2886,7 @@ linked Rust callers, which ran in SW1 (below).
 
 ### Linked services in WebView2 (2026-10-25, SW1)
 
-On the Surface (Windows 11 25H2 build 26200 ARM64, WebView2 Runtime
+On the Windows test machine (Windows 11 25H2 build 26200 ARM64, WebView2 Runtime
 155.0.4283.62, MSVC 14.44 ARM64, Rust 1.97.1, .NET 10.0.302, Node 24.21.0)
 a debug `ty` from branch `f1f39fa8` ran four gates in the signed-in desktop
 session, each started through `scripts/windows/desktop-run.ps1` and
@@ -2918,7 +2923,7 @@ reaching Yon cells are `honored` again. (Reaching Yon on Windows is
 
 ### Native shell runs (2026-10-25, MA4)
 
-On the Mac (macOS 26.6.2, Apple M4, Xcode 27.1, iOS 26.5 simulators), with a
+On the macOS test machine (macOS 26.6.2, Apple M4, Xcode 27.1, iOS 26.5 simulators), with a
 debug `ty` from branch `claude/project-thread-t2wmoo` (commit `e6c017f1`):
 
 - `scripts/ios/window-settings-test.mjs` (iPhone 17 Pro and iPad Pro 13-inch
@@ -2946,7 +2951,7 @@ debug `ty` from branch `claude/project-thread-t2wmoo` (commit `e6c017f1`):
   `SectionChosen`. The touches come from `scripts/ios/simulator-tap.m`
   (`home` and `drag` modes).
 
-On the Mac's emulator-5554, with the same branch at commit `df1e8c26`:
+On the macOS test machine's emulator-5554, with the same branch at commit `df1e8c26`:
 
 - `scripts/android/window-settings-test.mjs` passed on `tachyon-gate`
   (Android 15, API 35, WebView 124.0.6367.219) and on a new `tachyon-api34`
@@ -2966,12 +2971,12 @@ On the Mac's emulator-5554, with the same branch at commit `df1e8c26`:
 
 The first API 34 boot needed several tries: Android killed the app while
 Play Services restarted, and a "System UI isn't responding" dialog dimmed the
-screen. Gradle 8.14 does not run on the Mac's default JDK 25, so the runs
-used JDK 21. Evidence on the Mac: `/Volumes/FORGE/Logs/TACHYON/ma4-20261025/`.
+screen. Gradle 8.14 does not run on the macOS test machine's default JDK 25, so the runs
+used JDK 21.
 
 ### Page and shell runs in WebView2 (2026-10-25, SW2)
 
-On the same Surface (Windows 11 ARM64, WebView2 Runtime 155.0.4283.62,
+On the same Windows test machine (Windows 11 ARM64, WebView2 Runtime 155.0.4283.62,
 WebView2 SDK 1.0.3485.44, MSVC ARM64, Python 3.14.7) a debug `ty` from
 branch `97f3fc29` ran three gates in the signed-in desktop session, each
 started through `scripts/windows/desktop-run.ps1` and
