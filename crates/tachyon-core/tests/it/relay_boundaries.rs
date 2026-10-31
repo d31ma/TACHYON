@@ -228,6 +228,14 @@ export class Handler {
                 "\nclass Handler {{\n    static void POST(com.sun.net.httpserver.HttpExchange exchange) throws java.io.IOException {{\n        Yon.relay(java.util.List.of(\"{program}\", \"{}\", \"{mode}\", \"{extra}\"), exchange);\n    }}\n}}\n",
                 Delegate::PATH
             ),
+            "groovy" => format!(
+                "\nclass Handler {{\n    static void POST(com.sun.net.httpserver.HttpExchange exchange) throws java.io.IOException {{\n        Yon.relay(java.util.List.of(\"{program}\", \"{}\", \"{mode}\", \"{extra}\"), exchange)\n    }}\n}}\n",
+                Delegate::PATH
+            ),
+            "fs" => format!(
+                "open System.Net.Http\n\ntype Handler =\n    static member POST(request: HttpRequestMessage) : HttpResponseMessage =\n        Yon.Relay([| \"{program}\"; \"{}\"; \"{mode}\"; \"{extra}\" |], request)\n",
+                Delegate::PATH
+            ),
             "kt" => format!(
                 "\nobject Handler {{\n    @JvmStatic fun POST(exchange: com.sun.net.httpserver.HttpExchange) =\n        Yon.relay(listOf(\"{program}\", \"{}\", \"{mode}\", \"{extra}\"), exchange)\n}}\n",
                 Delegate::PATH
@@ -262,7 +270,8 @@ fn toolchain(extension: &str) -> &'static str {
     match extension {
         "java" => "java",
         "kt" => "kotlinc",
-        "cs" => "dotnet",
+        "groovy" => "groovyc",
+        "cs" | "fs" => "dotnet",
         "rs" => "rustc",
         "dart" => "dart",
         "go" => "go",
@@ -507,6 +516,26 @@ async fn compiled_relay_programs_receive_only_the_baseline_and_allowlist() {
         let handler = Handlers::compiled(extension, "environment", name).expect("handler");
         relay_environment(extension, &handler, (name, &value)).await;
     }
+}
+
+async fn compiled_relay_environment(extension: &str) {
+    let found = runnable(extension);
+    if !crate::support::toolchain::Toolchain::checked(toolchain(extension), found) {
+        return;
+    }
+    let (name, value) = ordinary_variable();
+    let handler = Handlers::compiled(extension, "environment", name).expect("handler");
+    relay_environment(extension, &handler, (name, &value)).await;
+}
+
+#[tokio::test]
+async fn a_groovy_relay_program_receives_only_the_baseline_and_allowlist() {
+    compiled_relay_environment("groovy").await;
+}
+
+#[tokio::test]
+async fn an_fsharp_route_relays_to_a_program() {
+    compiled_relay_environment("fs").await;
 }
 
 async fn assert_relay_fails_before(

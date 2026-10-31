@@ -19,7 +19,7 @@ struct Language {
 }
 
 impl Language {
-    const ALL: [Self; 14] = [
+    const ALL: [Self; 15] = [
         Self {
             extension: "js",
             program: "node",
@@ -232,6 +232,37 @@ sealed class Middleware {
         return response;
     }
 }
+"#,
+        },
+        Self {
+            extension: "fs",
+            program: "dotnet",
+            version_flag: "--version",
+            both_phases: r#"
+open System.Net
+open System.Net.Http
+
+type Middleware =
+    static member before(request: HttpRequestMessage) : HttpResponseMessage =
+        Middleware.Phase("before-" + request.Method.Method)
+
+    static member after(request: HttpRequestMessage) : HttpResponseMessage =
+        Middleware.Phase("after-" + request.Method.Method)
+
+    static member Phase(value: string) : HttpResponseMessage =
+        let response = new HttpResponseMessage(HttpStatusCode.NoContent)
+        response.Headers.Add("x-phase", value)
+        response
+"#,
+            after_only: r#"
+open System.Net
+open System.Net.Http
+
+type Middleware =
+    static member after(request: HttpRequestMessage) : HttpResponseMessage =
+        let response = new HttpResponseMessage(HttpStatusCode.NoContent)
+        response.Headers.Add("x-phase", "after")
+        response
 "#,
         },
         Self {
@@ -512,6 +543,7 @@ one_test_per_case!(
         groovy => "groovy",
         kotlin => "kt",
         csharp => "cs",
+        fsharp => "fs",
         rust => "rs",
         dart => "dart",
         go => "go",
@@ -555,6 +587,7 @@ one_test_per_case!(
         groovy => "groovy",
         kotlin => "kt",
         csharp => "cs",
+        fsharp => "fs",
         rust => "rs",
         dart => "dart",
         go => "go",

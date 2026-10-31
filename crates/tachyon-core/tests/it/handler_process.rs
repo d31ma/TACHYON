@@ -1582,24 +1582,11 @@ async fn interpreted_relays_bound_both_streams_and_redact_process_details() {
         return;
     }
     let root = tempfile::tempdir().expect("project");
-    let helper = root.path().join("server/helpers/probe.py");
-    fs::create_dir_all(helper.parent().expect("helper parent")).expect("helpers");
-    fs::write(
-        &helper,
-        r#"import json
-import sys
-request = json.load(sys.stdin)
-mode = request.get("body", {}).get("data", "")
-if mode == "stdout":
-    sys.stdout.write("secret-canary:" + "x" * (17 * 1024 * 1024))
-    sys.stdout.flush()
-else:
-    sys.stderr.write("secret-canary:" + "x" * (128 * 1024))
-    sys.stderr.flush()
-    sys.exit(9)
-"#,
-    )
-    .expect("helper");
+    write_project_file(
+        &root,
+        "server/helpers/probe.py",
+        RelayFixtures::FLOODING_PROBE,
+    );
     let cases = [
         (
             "py",
@@ -1650,6 +1637,42 @@ export class Handler {
             assert!(rendered.len() < 1024, "{extension}: {rendered}");
         }
     }
+}
+
+async fn assert_typescript_relay_is_bounded(mode: &str) {
+    if !available("python3") || !available("node") {
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    write_project_file(
+        &root,
+        "server/helpers/probe.py",
+        RelayFixtures::FLOODING_PROBE,
+    );
+    let relay = source(&root, "ts", RelayFixtures::TYPESCRIPT);
+    let response = supervisor(HandlerSupervisorOptions::default())
+        .invoke(
+            &relay,
+            &request(
+                &format!("typescript_relay_{mode}"),
+                HttpMethod::Post,
+                Some(mode),
+            ),
+            &HandlerCancellation::default(),
+        )
+        .await
+        .expect("relay returns a sanitized upstream response");
+    assert_eq!(response.status, 502, "{mode}");
+    let rendered = response.body.expect("error body").data;
+    assert!(!rendered.contains("secret-canary"), "{mode}: {rendered}");
+    assert!(!rendered.contains("python3"), "{mode}: {rendered}");
+    assert!(rendered.len() < 1024, "{mode}: {rendered}");
+}
+
+#[tokio::test]
+async fn a_typescript_relay_bounds_both_streams() {
+    assert_typescript_relay_is_bounded("sideband").await;
+    assert_typescript_relay_is_bounded("stdout").await;
 }
 
 #[tokio::test]
@@ -1794,6 +1817,27 @@ else:
 struct RelayFixtures;
 
 impl RelayFixtures {
+    const FLOODING_PROBE: &str = r#"import json
+import sys
+request = json.load(sys.stdin)
+mode = request.get("body", {}).get("data", "")
+if mode == "stdout":
+    sys.stdout.write("secret-canary:" + "x" * (17 * 1024 * 1024))
+    sys.stdout.flush()
+else:
+    sys.stderr.write("secret-canary:" + "x" * (128 * 1024))
+    sys.stderr.flush()
+    sys.exit(9)
+"#;
+
+    const TYPESCRIPT: &str = r"
+export class Handler {
+  static POST(request: Request): Promise<Response> {
+    return relay(['python3', 'server/helpers/probe.py'], request)
+  }
+}
+";
+
     const COMPILED: [(&str, &str); 6] = [
         (
             "php",
