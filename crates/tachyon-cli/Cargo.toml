@@ -14,7 +14,7 @@ name = "ty"
 path = "src/main.rs"
 
 [dependencies]
-clap = { version = "4.6.4", features = ["derive"] }
+clap = { version = "4.6.4", default-features = false, features = ["derive", "error-context", "help", "std", "suggestions", "usage"] }
 serde_json.workspace = true
 tachyon-contracts.workspace = true
 tachyon-core.workspace = true

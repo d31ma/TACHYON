@@ -2036,6 +2036,10 @@ machine contracts have their own, independent major versions.
   (Unicode, bidi, joiners, punycode, deviation characters) gave identical
   results with both back ends. Builds link 19 fewer packages with
   `storage-all` and 16 fewer without, on Linux, macOS and Windows.
+- `ty` builds clap without its `color` feature (RD5, 2026-10-30), so help,
+  usage and argument errors are plain text on a terminal too; their wording
+  is unchanged. This drops anstream and its terminal-detection crates: 6
+  fewer packages on Linux and macOS, 8 on Windows.
 - `Toolchain::checked` also requires `dotnet` and `javac` under `CI` (RT1,
   2026-10-28), since the native jobs of `rust-ci.yml` install .NET SDK
   10.0.302 and select JDK 21, so a
