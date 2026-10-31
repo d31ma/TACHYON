@@ -3,6 +3,7 @@
 - Status: Accepted; qualification in progress
 - Date: 2026-09-15
 - Amended: 2026-10-04 (documents, collections, scroll and queue for HEIMDALL)
+- Amended: 2026-10-31 (raw SQL parameter contract)
 - Extends: managed storage, see [MANAGED_STORAGE](../MANAGED_STORAGE.md)
 
 ## Context
@@ -44,9 +45,9 @@ MySQL, SQLite and SQL Server share.
   | `count` and `exists` | Count the matching identifiers. |
 
   An entity's id field holds the TTID.
-- Raw `dataSource.query(sql, parameters)` is supported. The server replaces
-  each parameter with an escaped literal before it calls `executeSQL`. It
-  returns the id-keyed result as rows that carry the id field.
+- Raw `dataSource.query(sql, parameters)` is supported, under the parameter
+  contract in the 2026-10-31 amendment. It returns the id-keyed result as rows
+  that carry the id field.
 - A `save` that names an identifier that FYLO does not know fails. FYLO
   assigns identifiers; applications do not.
 
@@ -107,3 +108,44 @@ Decisions:
   request, the child is killed with it and the next call starts a new one, so
   a late answer is never read as the answer to the next request. Open scroll
   snapshots are not affected; FYLO cursors are no longer used.
+
+## Amendment (2026-10-31): raw SQL parameter contract
+
+The release security review (SEC-3) found that a placeholder written inside
+quotes, such as `WHERE name = '$1'` or `WHERE name = "$1"`, let a value close
+the string and add its own predicates: `x" OR name != "` returned every
+document.
+
+FYLO's machine protocol version 1 has no bound parameters: `executeSQL` takes
+only `sql` and `access`. The Security Architect rule is that values never
+become query text. FYLO cannot honour that rule yet, so the server keeps
+values out of the statement's structure instead:
+
+- **Placeholders are values, never text inside quotes.** The server reads the
+  statement with FYLO's own lexical rules: `'` and `"` both open strings, a
+  doubled quote is the only escape, and there are no backslash escapes and no
+  comments. `$n` is accepted only outside quotes. A `$` followed by a digit
+  inside quotes is refused, and so are an unterminated string, a `;`, a NUL, a
+  `$` without digits, and an index outside the parameter array (`TY2160`).
+- **Each value becomes one self-contained literal token**, with a space on
+  each side, so it can never join a neighbouring token:
+  - A string becomes `'…'` with each `'` doubled. Backslashes, `"`, Unicode
+    quotes such as `’` and `＇`, `;`, `--` and `$n` inside a value stay
+    characters of that one string.
+  - `true`, `false` and `NULL` are written as keywords.
+  - A number is written only as non-negative digits with an optional decimal
+    point. FYLO drops a leading `-` and reads `1e2` as `1`, so negative numbers
+    and exponents are refused instead of changing the query silently.
+- **Identifiers are never parameters.** FYLO accepts only bare identifier
+  tokens for collections and fields, and a string literal cannot stand in for
+  one. Repository, document and queue commands never build SQL: they send
+  structured FYLO operations whose collection names pass `CollectionName` and
+  whose field names pass the simple-identifier check.
+- Regression tests (`storage::tests::fylo_sql`) check that each injection
+  payload ends up as exactly one string token and that the rest of the
+  statement is unchanged. They also run the payloads against the `fylo`
+  binary, which must answer with only the exact match.
+
+When FYLO adds bound parameters to `executeSQL`, the server passes the values
+through as data and the literal rendering goes away. That needs a FYLO
+protocol change.

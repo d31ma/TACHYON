@@ -7,6 +7,7 @@ mod scroll_page;
 mod scroll_request;
 mod scroll_snapshot;
 mod scroll_snapshots;
+mod sql_statement;
 
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
@@ -28,6 +29,7 @@ use document_commands::DocumentCommands;
 use patch_queue::{PatchAnswer, PatchQueue};
 use queue_commands::QueueCommands;
 use scroll_snapshots::ScrollSnapshots;
+pub(super) use sql_statement::SqlStatement;
 
 pub(super) struct FyloStore {
     root: PathBuf,
@@ -350,7 +352,7 @@ impl FyloStore {
         for value in parameters {
             scalar(value)?;
         }
-        let rendered = render_sql_parameters(sql, parameters)?;
+        let rendered = SqlStatement::rendered(sql, parameters)?;
         let answer = self
             .call("executeSQL", json!({ "sql": rendered }))
             .await
@@ -580,28 +582,6 @@ fn matches_every_in_predicate(row: &Value, in_predicates: &[InPredicate]) -> boo
     true
 }
 
-fn render_sql_parameters(sql: &str, parameters: &[Value]) -> Result<String, Failure> {
-    let mut rendered = String::with_capacity(sql.len());
-    let mut rest = sql;
-    while let Some(at) = rest.find('$') {
-        rendered.push_str(&rest[..at]);
-        let after_dollar = &rest[at + 1..];
-        let digits = after_dollar.bytes().take_while(u8::is_ascii_digit).count();
-        if digits == 0 {
-            return Err(failure("FYLO SQL parameters are $1, $2, ..."));
-        }
-        let index = after_dollar[..digits]
-            .parse::<usize>()
-            .ok()
-            .filter(|index| *index >= 1 && *index <= parameters.len())
-            .ok_or_else(|| failure("SQL parameter index is out of range."))?;
-        rendered.push_str(&literal(&parameters[index - 1]));
-        rest = &after_dollar[digits..];
-    }
-    rendered.push_str(rest);
-    Ok(rendered)
-}
-
 impl FyloProcess {
     const MAX_RESPONSE_BYTES: usize = 8 * 1024 * 1024;
 
@@ -773,14 +753,5 @@ fn compare(left: &Value, right: &Value) -> std::cmp::Ordering {
         (Value::Null, _) => Ordering::Less,
         (_, Value::Null) => Ordering::Greater,
         _ => Ordering::Equal,
-    }
-}
-
-fn literal(value: &Value) -> String {
-    match value {
-        Value::Bool(value) => String::from(if *value { "true" } else { "false" }),
-        Value::Number(value) => value.to_string(),
-        Value::String(value) => format!("'{}'", value.replace('\'', "''")),
-        _ => String::from("NULL"),
     }
 }
