@@ -39,6 +39,7 @@ pub(in crate::server) struct Dispatch {
     pub(in crate::server) topics: Arc<crate::topic_table::TopicTable>,
     pub(in crate::server) sockets: SocketHub,
     pub(in crate::server) cancellation: CancellationToken,
+    pub(in crate::server) stopping: CancellationToken,
     pub(in crate::server) producers: ProducerTasks,
 }
 
@@ -628,27 +629,28 @@ impl Dispatch {
         let result = self
             .invoke_until_stopped(&entry.handler, protocol_request)
             .await;
-        Self::mapped_answer(result, entry, &protocol_request.request_id)
+        Self::mapped_answer(result, entry, protocol_request)
     }
 
     fn mapped_answer(
         result: Result<HandlerResponse, Failure>,
         entry: &DispatchRoute,
-        request_id: &str,
+        protocol_request: &HandlerRequest,
     ) -> Response<Body> {
+        let request_id = protocol_request.request_id.as_str();
         match result {
             Ok(response) if CheckAnswer::is_rejection(&response) => {
                 CheckAnswer::response(&response, request_id)
             }
             Ok(response) => Self::checked_answer(response, entry, request_id),
             Err(failure) => {
-                InvocationLog::log_failure(
+                InvocationLog::log_handler_failure(
                     "handler",
-                    request_id,
-                    InvocationLog::runtime_family(&entry.handler),
+                    protocol_request,
+                    &entry.handler,
                     &failure,
                 );
-                ServerResponse::invocation_failure("Handler execution", request_id)
+                ServerResponse::failure_answer("Handler execution", request_id, &failure)
             }
         }
     }
@@ -705,7 +707,7 @@ impl Dispatch {
         tokio::pin!(invocation);
         tokio::select! {
             result = &mut invocation => result,
-            () = self.cancellation.cancelled() => {
+            () = self.stopping.cancelled() => {
                 cancellation.cancel();
                 invocation.await
             }

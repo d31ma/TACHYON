@@ -1,3 +1,5 @@
+#![allow(clippy::expect_used)]
+
 use std::fs;
 use std::path::Path;
 use std::time::Duration;
@@ -16,7 +18,7 @@ fn write_slow_project(root: &Path) {
         &root.join("client/components/test/drain/tac.html"),
         "<main><h1>Drain</h1></main>",
     );
-    let started = root.join("slow.started");
+    let started = serde_json::json!(root.join("slow.started").display().to_string());
     write(
         &root.join("server/controllers/SlowController.js"),
         &format!(
@@ -27,7 +29,7 @@ export class SlowController {{
   @GetRoute
   async get() {{
     const fs = await import('node:fs')
-    fs.writeFileSync({started:?}, 'started')
+    fs.writeFileSync({started}, 'started')
     await new Promise((resolve) => setTimeout(resolve, 1500))
     return {{ finished: true }}
   }}

@@ -31,15 +31,6 @@ impl ServerResponse {
             .unwrap_or_else(|_| Response::new(Body::empty()))
     }
 
-    pub(in crate::server) fn invocation_failure(kind: &str, request_id: &str) -> Response<Body> {
-        let mut response = Self::text(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            &format!("{kind} failed. Reference: {request_id}."),
-        );
-        Self::insert_request_id(&mut response, request_id);
-        response
-    }
-
     pub(in crate::server) fn failure_answer(
         kind: &str,
         request_id: &str,

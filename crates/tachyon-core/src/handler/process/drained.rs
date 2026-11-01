@@ -134,6 +134,16 @@ impl Drained {
         self.report_stderr(request_id);
     }
 
+    pub(super) fn report_settled(settled: &Result<Self, Failure>, request_id: &str) {
+        Self::report_when_settled(settled.as_ref().ok(), request_id);
+    }
+
+    fn report_when_settled(settled: Option<&Self>, request_id: &str) {
+        if let Some(stderr) = settled {
+            stderr.report_stderr(request_id);
+        }
+    }
+
     pub(super) fn report_stderr(&self, request_id: &str) {
         let reported = crate::setting_switch::SettingSwitch::is_set(Self::STDERR_SETTING);
         self.print_stderr_event(reported, request_id);

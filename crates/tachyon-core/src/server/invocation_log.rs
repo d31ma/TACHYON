@@ -7,20 +7,8 @@ use tachyon_contracts::HandlerRequest;
 pub(in crate::server) struct InvocationLog;
 
 impl InvocationLog {
-    pub(in crate::server) fn runtime_family(source: &HandlerSource) -> Option<&'static str> {
+    fn runtime_family(source: &HandlerSource) -> Option<&'static str> {
         YonLanguage::from_path(Path::new(source.relative_path())).map(YonLanguage::family)
-    }
-
-    pub(in crate::server) fn log_failure(
-        operation: &str,
-        request_id: &str,
-        runtime_family: Option<&str>,
-        failure: &Failure,
-    ) {
-        eprintln!(
-            "{}",
-            Self::failure_event(operation, request_id, runtime_family, failure)
-        );
     }
 
     pub(in crate::server) fn log_handler_failure(
@@ -52,6 +40,7 @@ impl InvocationLog {
         event.to_string()
     }
 
+    #[cfg(test)]
     pub(in crate::server) fn failure_event(
         operation: &str,
         request_id: &str,

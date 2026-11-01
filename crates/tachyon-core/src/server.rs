@@ -289,6 +289,7 @@ impl DevServer {
             topics: Arc::new(project.topics().clone()),
             sockets: socket_dispatch::SocketHub::default(),
             cancellation: runtime.cancellation.clone(),
+            stopping: runtime.stopping.clone(),
             producers: runtime.producers.clone(),
         };
         let page_hosts = crate::safety::DeclaredHosts::tac(&project.capability());
@@ -1317,7 +1318,8 @@ mod tests {
     async fn invocation_failure_responses_are_correlatable_and_redacted() {
         for kind in ["Handler execution", "Middleware execution"] {
             let request_id = "0ABC123DEFG";
-            let response = ServerResponse::invocation_failure(kind, request_id);
+            let failure = Failure::one(diagnostic(2104, "secret-canary", None, None));
+            let response = ServerResponse::failure_answer(kind, request_id, &failure);
             assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
             let header = response
                 .headers()
