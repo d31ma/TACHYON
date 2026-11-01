@@ -1,5 +1,9 @@
 mod collection_name;
 mod document_commands;
+#[cfg(feature = "storage-fylo-in-process")]
+mod fylo_engine;
+#[cfg(not(feature = "storage-fylo-in-process"))]
+mod fylo_process;
 mod patch_queue;
 mod queue_commands;
 mod queue_name;
@@ -10,12 +14,9 @@ mod scroll_snapshots;
 mod sql_statement;
 
 use std::path::{Path, PathBuf};
-use std::process::Stdio;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use serde_json::{Map, Value, json};
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-use tokio::process::{Child, ChildStdin, ChildStdout};
 use tokio::sync::Mutex;
 
 use super::dialect::{
@@ -27,23 +28,21 @@ use crate::Failure;
 use crate::sorted_json::SortedJson;
 pub(super) use collection_name::CollectionName;
 use document_commands::DocumentCommands;
+#[cfg(feature = "storage-fylo-in-process")]
+use fylo_engine::{FyloLauncher, FyloProcess};
+#[cfg(not(feature = "storage-fylo-in-process"))]
+use fylo_process::{FyloLauncher, FyloProcess};
 use patch_queue::{PatchAnswer, PatchQueue};
 use queue_commands::QueueCommands;
 use scroll_snapshots::ScrollSnapshots;
 pub(super) use sql_statement::SqlStatement;
 
 pub(super) struct FyloStore {
-    root: PathBuf,
+    launcher: FyloLauncher,
     process: Mutex<Option<FyloProcess>>,
     patches: PatchQueue,
     closed: AtomicBool,
     scrolls: Mutex<ScrollSnapshots>,
-}
-
-struct FyloProcess {
-    child: Child,
-    stdin: ChildStdin,
-    stdout: BufReader<ChildStdout>,
 }
 
 impl FyloStore {
@@ -63,18 +62,11 @@ impl FyloStore {
         if !root.is_dir() {
             return Err(failure("FYLO root must be a directory."));
         }
-        let mut process = FyloProcess::spawn(&root).map_err(FyloError::into_failure)?;
-        let identity = process
-            .request(json!({ "op": "handshake" }))
+        let (launcher, process) = FyloLauncher::start(&root)
             .await
             .map_err(FyloError::into_failure)?;
-        if identity["protocolVersion"] != json!(1) {
-            return Err(failure(
-                "FYLO speaks an unsupported machine protocol version.",
-            ));
-        }
         Ok(Self {
-            root,
+            launcher,
             process: Mutex::new(Some(process)),
             patches: PatchQueue::new(),
             closed: AtomicBool::new(false),
@@ -124,10 +116,11 @@ impl FyloStore {
 
     pub(super) async fn close(&self) {
         self.closed.store(true, Ordering::Release);
-        if let Some(mut process) = self.process.lock().await.take() {
-            let _ = process.stdin.shutdown().await;
-            let _ = process.child.kill().await;
+        if let Some(process) = self.process.lock().await.take() {
+            process.stop().await;
         }
+        #[cfg(feature = "storage-fylo-in-process")]
+        self.launcher.stop().await;
     }
 
     async fn delete(&self, command: &Value, collection: &str) -> Result<Value, Failure> {
@@ -403,7 +396,7 @@ impl FyloStore {
         }
         let mut process = match guard.take() {
             Some(process) => process,
-            None => FyloProcess::spawn(&self.root)?,
+            None => self.launcher.launch()?,
         };
         let mut answers = Vec::with_capacity(requests.len());
         for (operation, mut fields) in requests {
@@ -583,76 +576,6 @@ fn matches_every_in_predicate(row: &Value, in_predicates: &[InPredicate]) -> boo
     true
 }
 
-impl FyloProcess {
-    const MAX_RESPONSE_BYTES: usize = 8 * 1024 * 1024;
-
-    fn spawn(root: &Path) -> Result<Self, FyloError> {
-        let mut child = tokio::process::Command::new("fylo")
-            .args(["exec", "--loop", "--root"])
-            .arg(root)
-            .args(["--max-request-bytes", "1048576", "--max-response-bytes", "8388608"])
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::null())
-            .kill_on_drop(true)
-            .spawn()
-            .map_err(|_| {
-                FyloError::protocol(
-                    "The fylo binary is not on PATH; install FYLO (fylo.del.ma) to use this datasource.",
-                )
-            })?;
-        let stdin = child
-            .stdin
-            .take()
-            .ok_or_else(|| FyloError::protocol("FYLO stdin is unavailable."))?;
-        let stdout = child
-            .stdout
-            .take()
-            .ok_or_else(|| FyloError::protocol("FYLO stdout is unavailable."))?;
-        Ok(Self {
-            child,
-            stdin,
-            stdout: BufReader::new(stdout),
-        })
-    }
-
-    async fn request(&mut self, request: Value) -> Result<Value, FyloError> {
-        let mut line = SortedJson::text(&request);
-        if line.len() > 1024 * 1024 {
-            return Err(FyloError::protocol("FYLO request exceeds 1 MiB."));
-        }
-        line.push('\n');
-        self.stdin
-            .write_all(line.as_bytes())
-            .await
-            .map_err(|_| FyloError::protocol("FYLO subprocess is not accepting requests."))?;
-        let mut answer = String::new();
-        let mut reader =
-            tokio::io::AsyncReadExt::take(&mut self.stdout, Self::MAX_RESPONSE_BYTES as u64 + 1);
-        let read = reader
-            .read_line(&mut answer)
-            .await
-            .map_err(|_| FyloError::protocol("FYLO subprocess closed its output."))?;
-        if read == 0 {
-            return Err(FyloError::protocol("FYLO subprocess exited."));
-        }
-        if answer.len() > Self::MAX_RESPONSE_BYTES {
-            return Err(FyloError::protocol("FYLO response exceeds 8 MiB."));
-        }
-        let envelope: Value = serde_json::from_str(answer.trim_end())
-            .map_err(|_| FyloError::protocol("FYLO returned a malformed frame."))?;
-        if envelope["ok"] == json!(true) {
-            return Ok(envelope["result"].clone());
-        }
-        Err(FyloError {
-            code: envelope["error"]["code"]
-                .as_str()
-                .unwrap_or("EUNKNOWN")
-                .to_owned(),
-        })
-    }
-}
-
 #[derive(Clone)]
 struct FyloError {
     code: String,
@@ -662,6 +585,41 @@ impl FyloError {
     fn protocol(_: &'static str) -> Self {
         Self {
             code: String::from("EPROTOCOL"),
+        }
+    }
+
+    #[cfg(not(feature = "storage-fylo-in-process"))]
+    fn unsupported_protocol() -> Self {
+        Self {
+            code: String::from("EPROTOCOL_VERSION"),
+        }
+    }
+
+    #[cfg(feature = "storage-fylo-in-process")]
+    fn bad_request() -> Self {
+        Self {
+            code: String::from("EBADREQUEST"),
+        }
+    }
+
+    #[cfg(feature = "storage-fylo-in-process")]
+    fn sql_unavailable() -> Self {
+        Self {
+            code: String::from("EINPROCESS_SQL_UNAVAILABLE"),
+        }
+    }
+
+    #[cfg(feature = "storage-fylo-in-process")]
+    fn response_too_large() -> Self {
+        Self {
+            code: String::from("EFRAME_RESPONSE_TOO_LARGE"),
+        }
+    }
+
+    #[cfg(feature = "storage-fylo-in-process")]
+    fn from_engine(error: &fylo::Error) -> Self {
+        Self {
+            code: error.code().to_owned(),
         }
     }
 
@@ -682,6 +640,10 @@ impl FyloError {
             "ENOTFOUND" | "ECOLLECTION_NOT_FOUND" | "ENATIVE_UNSAFE_PATH" => {
                 failure("FYLO collection does not exist; create it before use.")
             }
+            "EPROTOCOL_VERSION" => failure("FYLO speaks an unsupported machine protocol version."),
+            "EINPROCESS_SQL_UNAVAILABLE" => failure(
+                "FYLO SQL is not available in the in-process datasource yet; it arrives with FYLO's Turso SQL layer.",
+            ),
             "EPROTOCOL" => {
                 failure("FYLO subprocess failed; the datasource reconnects on the next call.")
             }

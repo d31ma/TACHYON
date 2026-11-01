@@ -14,6 +14,7 @@ fuzzing = []
 # Test builds only: proves TACHYON's output does not depend on serde_json map order.
 json-preserve-order = ["serde_json/preserve_order"]
 storage-all = ["storage-mysql", "storage-postgres", "storage-redis", "storage-sqlserver"]
+storage-fylo-in-process = ["dep:fylo"]
 storage-mysql = ["sqlx/any", "sqlx/mysql", "sqlx/tls-rustls-ring-webpki"]
 storage-postgres = ["sqlx/any", "sqlx/postgres", "sqlx/tls-rustls-ring-webpki"]
 storage-redis = ["dep:rustls", "dep:tokio-rustls", "dep:webpki-roots", "rustls/ring", "rustls/std"]
@@ -27,6 +28,7 @@ cap-std.workspace = true
 command-group = { version = "5.0.1", features = ["with-tokio"] }
 html5gum = { version = "0.8.4", default-features = false }
 futures-util = { version = "0.3.31", default-features = false, features = ["io", "std"] }
+fylo = { version = "0.1.0", git = "https://github.com/d31ma/FYLO", rev = "c08f8344d3281b48998c4f0ac5adc237ea941713", optional = true }
 getrandom = "0.4.2"
 # Pins url's IDNA back end to unicode-rs (full UTS 46, as with ICU4X) instead of
 # ICU4X, which pulls in about 20 more packages. Not used directly.

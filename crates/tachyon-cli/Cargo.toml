@@ -23,6 +23,7 @@ tokio = { workspace = true, features = ["macros", "rt-multi-thread", "signal", "
 
 [features]
 storage-all = ["tachyon-core/storage-all"]
+storage-fylo-in-process = ["tachyon-core/storage-fylo-in-process"]
 storage-mysql = ["tachyon-core/storage-mysql"]
 storage-postgres = ["tachyon-core/storage-postgres"]
 storage-redis = ["tachyon-core/storage-redis"]
