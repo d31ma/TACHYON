@@ -171,7 +171,7 @@ class IosDevLoopTest {
       writeFileSync(this.log, this.output)
     }
     this.preview = await SupervisedCommand.start(this.binary, ['preview', this.fixture, '--target', 'ios', '--port', String(port)], {
-      cwd: this.repository, env: { ...process.env, TAC_IOS_SIMULATOR: this.device }, timeoutMilliseconds: 1_800_000, onStdout: record, onStderr: record,
+      cwd: this.repository, env: { ...process.env, TAC_ALLOW_UNTESTED: '1', TAC_IOS_SIMULATOR: this.device }, timeoutMilliseconds: 1_800_000, onStdout: record, onStderr: record,
     })
     try {
       await this.drive()
