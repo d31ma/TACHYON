@@ -146,7 +146,9 @@ request fields, stderr, concurrency, and lifetime.
 
 This is not an operating-system security sandbox. A handler keeps the file
 system and network access of the developer account that runs it. Phase 2 does
-not enforce kernel limits on CPU or memory. [`THREAT_MODEL.md`](THREAT_MODEL.md)
+not enforce kernel limits on CPU or memory. (Update, 2026-10-31: the operating
+system now confines handler network access on macOS and Linux, see
+[ADR 0113](adr/0113-the-operating-system-confines-handler-egress.md). The file system access is unchanged.) [`THREAT_MODEL.md`](THREAT_MODEL.md)
 and [`SUPPORT_TIERS.md`](SUPPORT_TIERS.md) state this limitation clearly.
 
 The legacy implementation has not changed. It still passes its type and test

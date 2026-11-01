@@ -160,6 +160,11 @@ GET and HEAD.
 - An allowlist name that is invalid or not Unicode causes a failure. Tachyon
   does not continue with it.
 - Tachyon never logs environment values.
+- `YON_EGRESS_ENFORCEMENT` is read from the environment of `ty` only, never
+  from a project file, and handlers never receive it. `os`, the default, has
+  the operating system confine handler network access to the outgoing
+  request guard and the resource endpoint; `proxy` keeps only the guard
+  (ADR 0113).
 
 Each adapter looks up its runtime explicitly. If the runtime is missing,
 Tachyon reports a diagnostic that tells the user what to do. It does not fall
@@ -174,6 +179,9 @@ back to another language or to a shell command.
 - `TY2112`: a required Yon runtime executable is missing. This can happen
   during the readiness check, or in the race when the process is spawned after
   readiness. Tachyon hides (redacts) configured executable paths.
+- `TY2113`: the operating system cannot confine handler network access, so
+  `ty start` does not start, or `YON_EGRESS_ENFORCEMENT` is neither `os` nor
+  `proxy` (ADR 0113).
 - `TY2201`–`TY2209`: handler authoring or execution failures that the adapter
   reports. `TY2205` ("Input breaks a Checked rule.") carries the broken rules
   of a `@Check` parameter in the optional `violations` member of the v1 error

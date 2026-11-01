@@ -2,6 +2,8 @@
 
 - Status: Accepted
 - Date: 2026-10-03
+- Amended by: [ADR 0113](0113-the-operating-system-confines-handler-egress.md)
+  (2026-10-31: the operating system enforces the outgoing request guard)
 - Works with: ADR 0068 (outgoing requests go only to declared hosts: this
   ADR closes two ways around its run-time guard), ADR 0077 (the error page
   server gets the same Host check)
@@ -55,6 +57,11 @@ systemd-resolved do not resolve names under `.localhost`.
    `no_proxy`. The runners reach their resource endpoint over a direct socket,
    so they do not need it. The Go prelude points `http.DefaultTransport` at
    the guard (`YON_OUTGOING_PROXY`).
+
+   > Superseded on 2026-10-31 by [ADR 0113](0113-the-operating-system-confines-handler-egress.md):
+   > the resource endpoint is one door per server, and the operating system
+   > refuses a connection that skips the guard, on macOS and Linux. The Go
+   > prelude only keeps the default clients working; it is not the control.
 4. The guard resolves an allowed name once and connects to the addresses it
    resolved. It drops loopback, private, unique local, link-local, shared
    (`100.64.0.0/10`) and unspecified addresses, and refuses a name that has

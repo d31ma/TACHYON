@@ -89,12 +89,17 @@ We list these here so a reviewer does not spend time finding them again.
   source. TypeScript and prepared direct-language artifacts fail closed before
   the driver starts, because no artifact-transfer contract exists.
 - Production HTTP dispatch and middleware exist. They run application
-  handlers with the ambient filesystem and network access of the developer
-  account.
+  handlers with the ambient filesystem access of the developer account.
+  Since 2026-10-31 the operating system confines their network access to the
+  outgoing request guard and the resource endpoint on macOS and Linux
+  ([ADR 0113](adr/0113-the-operating-system-confines-handler-egress.md)). `ty start` refuses to start where it cannot apply
+  that layer (`TY2113`), unless the operator sets
+  `YON_EGRESS_ENFORCEMENT=proxy`.
   - Their public error responses must not expose process diagnostics.
   - Startup binds the initial build, routes, middleware, schedules, and worker
     sources to one immutable Project snapshot. Runtime process mode still
-    carries ambient OS capabilities outside that source-selection boundary.
+    carries ambient filesystem capabilities outside that source-selection
+    boundary.
   - The server owns its watcher and scheduled-worker tasks. At shutdown it
     settles them within a bound. A change to a worker schedule requires a
     server restart.

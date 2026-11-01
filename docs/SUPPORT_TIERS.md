@@ -3110,7 +3110,10 @@ No Phase 4 artifact is a Tachyon preview or supported release.
 
 - In the default warm mode and in process mode, the handler child process is
   supervised and gets a restricted environment. It still has the filesystem
-  and network access of the developer's account.
+  access of the developer's account. Since 2026-10-31 its network access is
+  confined to the outgoing request guard and its resource endpoint on macOS
+  and Linux ([ADR 0113](adr/0113-the-operating-system-confines-handler-egress.md)). On Windows, `ty start` needs
+  `YON_EGRESS_ENFORCEMENT=proxy`, which leaves only the guard.
 - The Firecracker driver transport does not meet the gate for OS-level resource
   and capability isolation. It will meet it only when its control program and
   host have native qualification evidence.

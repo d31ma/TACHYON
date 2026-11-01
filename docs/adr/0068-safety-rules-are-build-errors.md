@@ -2,6 +2,8 @@
 
 - Status: Accepted
 - Date: 2026-09-27
+- Amended by: [ADR 0113](0113-the-operating-system-confines-handler-egress.md)
+  (2026-10-31: the operating system enforces the outgoing request guard)
 - Preserves: [ADR 0048](0048-yon-routes-come-from-annotations.md) (routes
   come from annotations), [ADR 0055](0055-annotation-arguments-use-types.md)
   (annotation arguments are types), [ADR 0056](0056-every-annotation-checks-its-target.md)
@@ -131,6 +133,11 @@ This is deny by default, like Spring Security.
   (`ProxySelector.getDefault()`, `HttpClient.findProxyFromEnvironment`), and a
   raw socket does not use a proxy at all; for a limit that holds for every
   language, run Yon with Firecracker isolation and its egress setting.
+
+  > Superseded on 2026-10-31 by [ADR 0113](0113-the-operating-system-confines-handler-egress.md):
+  > the operating system now refuses a raw socket and every other connection
+  > that skips the guard, on macOS and Linux. `ty start` refuses to start
+  > where it cannot (`TY2113`), unless `YON_EGRESS_ENFORCEMENT=proxy`.
 
 ## Consequences
 

@@ -858,6 +858,7 @@ These variables change how `ty` builds and runs a project.
 | `TAC_SWIFT_WASM_COMPILER` | The `swiftc` for Swift services on the web. Default `swiftc`. |
 | `TAC_KOTLIN_WASM_STDLIB` | The Kotlin/Wasm standard library (`kotlin-stdlib-wasm-js` `.klib`, the same version as `kotlinc`), for Kotlin services on the web. |
 | `TAC_TEAVM_HOME` | The folder of the TeaVM 0.15.0 jars, for Java services. Without it, Tachyon can install TeaVM into its cache. |
+| `YON_EGRESS_ENFORCEMENT` | `os` (the default): the operating system confines handler network access, and `ty start` refuses with `TY2113` where it cannot. `proxy`: only the outgoing request guard, for a platform that limits egress itself. Set it in the environment of `ty`; no project file can set it, and handlers never receive it. Any other value fails with `TY2113`. See [Security boundary](#security-boundary). |
 
 `ty doctor` names the tools that a project still needs.
 
@@ -925,14 +926,34 @@ device APIs. [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) documents the
 threats and the remaining risks.
 
 Handler child processes, warm or not, still have the developer
-account's normal access to the file system and the network. The process
-supervisor controls the protocol and the lifecycle. It is not an
-operating-system sandbox. Deploy handlers inside the isolation boundary that
-your environment requires.
+account's normal access to the file system. The process supervisor controls
+the protocol and the lifecycle. It is not an operating-system sandbox for
+hostile code. Deploy handlers inside the isolation boundary that your
+environment requires.
 
-<!-- TODO(FU-03): add the operator note on egress enforcement (ty start refuses
-without OS-level enforcement unless YON_EGRESS_ENFORCEMENT=proxy, TY2113; serve
-and preview warn) from the merged code once fix/fu03-egress-os merges. -->
+The operating system confines the network access of handlers
+([ADR 0113](docs/adr/0113-the-operating-system-confines-handler-egress.md)). A handler, every process it starts and every
+Gateway command can connect only to its server's outgoing request guard and
+resource endpoint on loopback. The guard lets a request through only to a
+host in `outgoing.hosts`. Raw sockets, UDP (DNS included), other loopback
+ports and Unix sockets are refused. macOS uses Seatbelt (`sandbox-exec`), and
+Linux uses Landlock (Linux 6.7 or newer) with a seccomp filter. Windows has
+no layer that an unprivileged process can apply.
+
+When the server cannot apply the layer:
+
+- `ty start` does not start, and reports `TY2113` with the reason.
+- `ty serve` and `ty preview` start, and log a `handler.egress_unenforced`
+  warning.
+
+Where the platform already limits egress, such as a serverless network
+policy, a VPC egress rule or a container network policy, set
+`YON_EGRESS_ENFORCEMENT=proxy` in the environment of `ty`. `ty start` then
+runs the guard without the operating-system layer, and logs
+`handler.egress_unenforced` once. On Windows, and on Linux kernels older than
+6.7, `ty start` needs it. A handler can no longer open a connection that is
+not HTTP, such as its own database driver; managed storage goes through the
+resource endpoint and keeps working.
 
 ### Environment-selected Yon isolation
 
