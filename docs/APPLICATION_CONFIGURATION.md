@@ -1073,11 +1073,11 @@ variable except the reserved snapshot. Select the production file with
 }
 ```
 
-### `server/delegates/CatalogProperties.ts`
+### `server/models/CatalogProperties.ts`
 
 ```typescript
 @Settings({"prefix":"YON_CATALOG_"})
-class CatalogProperties {
+export default class CatalogProperties {
   @Min(1)
   @Max(100)
   pageSize: integer = 20;
@@ -1085,10 +1085,10 @@ class CatalogProperties {
 }
 ```
 
-### `server/delegates/Endpoint.ts`
+### `server/models/Endpoint.ts`
 
 ```typescript
-class Endpoint {
+export default class Endpoint {
   @Setting("${yon.server.port}")
   port!: number;
   @Setting("${yon.redis.url}")
@@ -1106,16 +1106,17 @@ class Endpoint {
 class ProductsController {
   @GetRoute
   async getProducts() {
-    const application = JSON.parse(process.env.YON_APPLICATION_JSON ?? '{}');
+    const application = JSON.parse(String(process.env.YON_APPLICATION_JSON));
     const catalog = Behaviors.properties(CatalogProperties, application);
-    const endpoint = Object.assign(new Endpoint(), Behaviors.values(Endpoint, application));
+    const endpoint = Behaviors.values(Endpoint, application);
     const lifetime = new AbortController();
     const context = await Behaviors.create(ProductionSetup, {
       partition: 'public-catalog', signal: lifetime.signal,
-      profiles: [endpoint.profile], properties: application,
+      profiles: [String(endpoint.profile)], properties: application,
     });
-    try { return { pageSize: catalog.pageSize, port: endpoint.port }; }
-    finally { context.dispose(); lifetime.abort(); }
+    context.dispose();
+    lifetime.abort();
+    return { pageSize: Number(catalog.pageSize), port: Number(endpoint.port) };
   }
 }
 ```
@@ -1131,10 +1132,13 @@ class ProductionSetup {
 }
 ```
 
-The compiler discovers these same-language files within their existing role
-folders (ADR 0031). `CatalogProperties` and `Endpoint` carry behavior
-annotations only; neither becomes an injectable provider. Unknown
-`YON_CATALOG_*` keys fail the `Settings` binding.
+The compiler discovers these same-language files in `server/models/` and
+the role folders (ADR 0031, ADR 0041). `CatalogProperties` and `Endpoint` are
+models: they carry binding annotations only, and neither becomes an
+injectable provider. A plain class in a role folder such as
+`server/delegates/` fails with `TY1363`. Unknown `YON_CATALOG_*` keys fail
+the `Settings` binding. A public controller method only coordinates, so it
+holds no `try` and no `??` (`TY1314`).
 
 What happens:
 
