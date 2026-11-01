@@ -367,6 +367,20 @@ fn a_typed_typescript_method_on_one_line_records_its_call() {
 }
 
 #[test]
+fn a_one_line_typescript_method_with_an_object_type_records_its_call_in_its_body() {
+    let output = hooked(
+        "server/services/CatalogService.ts",
+        "@Service\nclass CatalogService {\n  all(): Promise<{ items: string[] }> { return Promise.resolve({ items: [] }); }\n}\n",
+    );
+    assert!(
+        output.contains(
+            "all(): Promise<{ items: string[] }> { Behaviors.called(\"CatalogService.all\"); return"
+        ),
+        "{output}"
+    );
+}
+
+#[test]
 fn a_utility_records_its_static_methods() {
     let output = hooked(
         "client/shared/utils/PriceUtils.js",
