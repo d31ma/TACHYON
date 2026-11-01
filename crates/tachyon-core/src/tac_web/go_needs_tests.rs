@@ -205,3 +205,28 @@ async fn a_tinygo_module_shares_the_go_service_it_needs_with_the_page() {
     assert!(notes[0].starts_with("Go: TinyGo"), "{notes:?}");
     GoNeedsFixtures::assert_shared(root.path());
 }
+
+#[test]
+fn a_go_needs_all_file_picker_field_is_refused_with_ty1407() {
+    let source = "// @Service\n// @NeedsAll\ntype PickerService struct {\n\tFilePicker FilePicker\n\tTitle      string\n}\n";
+    let failure = crate::file_picker_page_tests::FilePickerPage::refusal((
+        "client/services/PickerService.go",
+        source,
+    ));
+    let diagnostic = &failure.diagnostics()[0];
+    assert_eq!(diagnostic.code.number(), 1407, "{failure}");
+    assert_eq!(
+        diagnostic.message,
+        "PickerService needs a FilePicker, but Go services have no FilePicker provider, so the page could never fill that field.",
+        "{failure}"
+    );
+    let span = &diagnostic.spans[0];
+    assert_eq!(span.file, "client/services/PickerService.go", "{failure}");
+    let start = usize::try_from(span.start).expect("start");
+    let end = usize::try_from(span.end).expect("end");
+    assert_eq!(&source[start..end], "FilePicker", "{failure}");
+    assert!(
+        source[start..].starts_with("FilePicker FilePicker"),
+        "{failure}"
+    );
+}

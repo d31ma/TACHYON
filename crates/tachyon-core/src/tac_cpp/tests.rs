@@ -1,6 +1,7 @@
 #![allow(clippy::expect_used)]
 
 use super::{CppFile, CppMemberKind, CppService};
+use crate::one_test_per_case_tests::one_test_per_case;
 use std::path::Path;
 
 struct Sources;
@@ -1113,3 +1114,108 @@ fn a_symlinked_folder_in_a_cpp_role_folder_is_listed_but_not_followed() {
     assert!(failure.contains("TY1371"), "{failure}");
     assert!(failure.contains("symlinked folder"), "{failure}");
 }
+
+#[test]
+fn a_file_picker_needs_field_is_refused_with_ty1372() {
+    let root = tempfile::tempdir().expect("project");
+    let services = root.path().join("client/services");
+    std::fs::create_dir_all(&services).expect("services");
+    let source = "class [[Service]] PickerService {\npublic:\n    [[Needs]] FilePicker& picker;\n\n    int count() { return 1; }\n};\n";
+    std::fs::write(services.join("PickerService.hpp"), source).expect("service");
+    let mut graph = super::CppServiceGraph::new(root.path()).expect("graph");
+    let failure = graph
+        .add_every()
+        .expect_err("FilePicker is not one of the C++ browser APIs");
+    let diagnostic = &failure.diagnostics()[0];
+    assert_eq!(diagnostic.code.number(), 1372, "{failure}");
+    assert!(
+        diagnostic
+            .message
+            .contains("there is no FilePicker.hpp in any of them"),
+        "{failure}"
+    );
+    assert!(
+        diagnostic
+            .message
+            .contains("(Clock, SecureRandom, Connectivity, PageVisibility, Preferences, Clipboard, Share, Notifications, Geolocation, WindowControls)"),
+        "{failure}"
+    );
+    assert_eq!(
+        diagnostic.spans[0].file, "client/services/PickerService.hpp",
+        "{failure}"
+    );
+    let start = usize::try_from(diagnostic.spans[0].start).expect("start");
+    assert!(source[start..].starts_with("picker;"), "{failure}");
+}
+
+#[test]
+fn a_cpp_task_with_all_or_nothing_is_refused_with_ty1371() {
+    let source = "class [[Service]] TallyService {\npublic:\n    [[AllOrNothing({\"adapter\":\"indexeddb\"})]] Task<int> read() { co_return 1; }\n};\n";
+    let failure = CppService::read(Path::new("client/services/TallyService.hpp"), source)
+        .err()
+        .expect("an AllOrNothing Task is refused");
+    let diagnostic = &failure.diagnostics()[0];
+    assert_eq!(diagnostic.code.number(), 1371, "{failure}");
+    assert_eq!(
+        diagnostic.spans[0].file, "client/services/TallyService.hpp",
+        "{failure}"
+    );
+    let start = usize::try_from(diagnostic.spans[0].start).expect("start");
+    assert!(source[start..].starts_with("read()"), "{failure}");
+    assert!(
+        diagnostic
+            .message
+            .contains("[[AllOrNothing]] goes on a method that returns no Task, because its transaction cannot stay open while the method waits"),
+        "{failure}"
+    );
+}
+
+struct ClientPolicies;
+
+impl ClientPolicies {
+    const RETRY: &'static str =
+        "[[GetRequest(\"/count\")]] [[Retry({\"maxRetries\":2})]]\n    Task<int> count() const;";
+    const MAX_AT_ONCE: &'static str = "[[GetRequest(\"/count\")]] [[MaxAtOnce({\"limit\":1,\"policy\":\"reject\"})]]\n    Task<int> count() const;";
+    const ALL_OR_NOTHING: &'static str = "[[GetRequest(\"/count\")]] [[AllOrNothing({\"adapter\":\"indexeddb\"})]]\n    Task<int> count() const;";
+    const PAGE_DEFAULTS: &'static str = "[[GetRequest(\"/count\")]]\n    Task<int> count([[PageDefaults({\"defaultSize\":20,\"maxSize\":100,\"sort\":[\"id\"]})]] int page) const;";
+    const ALL: [&'static str; 4] = [
+        Self::RETRY,
+        Self::MAX_AT_ONCE,
+        Self::ALL_OR_NOTHING,
+        Self::PAGE_DEFAULTS,
+    ];
+}
+
+fn a_cpp_http_client_method_with_a_policy_is_refused(method: &str) {
+    let source =
+        format!("class [[HTTPClient(\"/api\")]] OrderClient {{\npublic:\n    {method}\n}};\n");
+    let failure = CppService::read(Path::new("client/remotes/OrderClient.hpp"), &source)
+        .err()
+        .expect("a policy on an HTTPClient method is refused");
+    let diagnostic = &failure.diagnostics()[0];
+    assert_eq!(diagnostic.code.number(), 1371, "{failure}");
+    assert_eq!(
+        diagnostic.spans[0].file, "client/remotes/OrderClient.hpp",
+        "{failure}"
+    );
+    let start = usize::try_from(diagnostic.spans[0].start).expect("start");
+    assert!(source[start..].starts_with("count("), "{failure}");
+    assert!(
+        diagnostic
+            .message
+            .contains("[[Retry]], [[MaxAtOnce]], [[AllOrNothing]] and [[PageDefaults]] belong on a service method"),
+        "{failure}"
+    );
+}
+
+one_test_per_case!(
+    a_cpp_http_client_method_with_a_policy_is_refused_with_ty1371,
+    a_cpp_http_client_method_with_a_policy_is_refused,
+    all ClientPolicies::ALL,
+    [
+        retry => ClientPolicies::RETRY,
+        max_at_once => ClientPolicies::MAX_AT_ONCE,
+        all_or_nothing => ClientPolicies::ALL_OR_NOTHING,
+        page_defaults => ClientPolicies::PAGE_DEFAULTS,
+    ]
+);

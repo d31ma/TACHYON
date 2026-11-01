@@ -202,6 +202,10 @@ impl<'a> WrittenPolicies<'a> {
         self.input.failure(at, message.to_owned())
     }
 
+    pub(crate) fn coded_failure(&self, code: u16, at: usize, message: &str) -> Failure {
+        self.input.coded_failure(code, at, message.to_owned())
+    }
+
     fn marker(written: &WrittenMarker<'_>) -> Marker {
         Marker {
             name: written.name.to_owned(),

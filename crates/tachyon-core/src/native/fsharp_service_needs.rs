@@ -89,7 +89,8 @@ impl FsharpServiceNeeds {
             .to_string_lossy()
             .replace('\\', "/");
         let view = FsharpView::tac(Path::new(&relative), &source);
-        let roles = ServiceRoles::read(view.path(), view.text())?;
+        let roles = ServiceRoles::read(view.path(), view.text())
+            .map_err(|failure| view.failure(&failure))?;
         let needs_all = FsharpConstructorProps::needs_all(&source);
         self.instances
             .insert(item.class.clone(), item.service.clone());

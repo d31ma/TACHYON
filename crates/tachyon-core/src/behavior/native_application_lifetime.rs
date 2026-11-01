@@ -21,6 +21,17 @@ impl NativeApplicationLifetime {
         Self::message(value)
     }
 
+    pub(crate) fn unsupported(path: &Path, at: usize, value: &str) -> Option<Failure> {
+        (value == "application").then(|| {
+            Failure::one(crate::failure::diagnostic(
+                1406,
+                Self::message(value),
+                None,
+                crate::failure::source_span(&path.to_string_lossy(), at, at + "Lifetime".len()),
+            ))
+        })
+    }
+
     pub(crate) fn target(
         path: &Path,
         application: Option<usize>,

@@ -232,3 +232,28 @@ fn other_page_service_classes_are_named_through_their_holder() {
     );
     assert_eq!(qualified.lines().count(), source.lines().count());
 }
+
+#[test]
+fn a_java_needs_all_file_picker_field_is_refused_with_ty1407() {
+    let source = "@Service\n@NeedsAll\npublic class PickerService {\n    private final FilePicker filePicker;\n    public String title = \"Files\";\n}\n";
+    let failure = crate::file_picker_page_tests::FilePickerPage::refusal((
+        "client/services/PickerService.java",
+        source,
+    ));
+    let diagnostic = &failure.diagnostics()[0];
+    assert_eq!(diagnostic.code.number(), 1407, "{failure}");
+    assert_eq!(
+        diagnostic.message,
+        "PickerService needs a FilePicker, but Java services have no FilePicker provider, so the page could never fill that field.",
+        "{failure}"
+    );
+    let span = &diagnostic.spans[0];
+    assert_eq!(span.file, "client/services/PickerService.java", "{failure}");
+    let start = usize::try_from(span.start).expect("start");
+    let end = usize::try_from(span.end).expect("end");
+    assert_eq!(&source[start..end], "FilePicker", "{failure}");
+    assert!(
+        source[start..].starts_with("FilePicker filePicker;"),
+        "{failure}"
+    );
+}

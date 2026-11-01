@@ -190,7 +190,13 @@ impl CppBehaviors {
         let shapes = [Self::yon_shape, Self::service_shape, Self::client_shape];
         shapes[shape](source, member, (method_markers, parameter_markers))
             .then_some(())
-            .ok_or_else(|| written.failure(member.name_at, Self::SHAPES[shape]))?;
+            .ok_or_else(|| {
+                written.coded_failure(
+                    super::CppFailure::UNREADABLE,
+                    member.name_at,
+                    Self::SHAPES[shape],
+                )
+            })?;
         let mut metadata = Map::new();
         method_markers.iter().try_for_each(|marker| {
             Self::add_method_marker(written, &mut metadata, member, marker)

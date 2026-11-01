@@ -1,6 +1,7 @@
 #![allow(clippy::expect_used)]
 
 use super::registry::NativeCompanionInput;
+use crate::one_test_per_case_tests::one_test_per_case;
 use crate::project::NativeCompanion;
 use std::path::{Path, PathBuf};
 
@@ -171,6 +172,159 @@ fn native_application_lifetime_is_located_and_target_scoped() {
         .is_err()
     );
 }
+
+struct ApplicationLifetimeRefusals;
+
+impl ApplicationLifetimeRefusals {
+    const JAVASCRIPT: (&str, &str) = (
+        "client/services/CollectorService.js",
+        "@Service\n@Lifetime({\"value\":\"application\"})\nexport default class CollectorService {\n  count = 0\n}\n",
+    );
+    const TYPESCRIPT: (&str, &str) = (
+        "client/services/CollectorService.ts",
+        "@Service\n@Lifetime({\"value\":\"application\"})\nexport default class CollectorService {\n  count: number = 0\n}\n",
+    );
+    const PYTHON: (&str, &str) = (
+        "client/services/CollectorService.py",
+        "@service\n@lifetime({\"value\":\"application\"})\nclass CollectorService:\n    count: int = 0\n",
+    );
+    const JAVA: (&str, &str) = (
+        "client/services/CollectorService.java",
+        "@Service\n@Lifetime({\"value\":\"application\"})\npublic class CollectorService {\n    public int count = 0;\n}\n",
+    );
+    const KOTLIN: (&str, &str) = (
+        "client/services/CollectorService.kt",
+        "@Service\n@Lifetime({\"value\":\"application\"})\nclass CollectorService {\n    var count: Int = 0\n}\n",
+    );
+    const FSHARP: (&str, &str) = (
+        "client/services/CollectorService.fs",
+        "[<Service>]\n[<Lifetime({\"value\":\"application\"})>]\ntype CollectorService() =\n    member val Count : int = 0 with get, set\n",
+    );
+    const DART: (&str, &str) = (
+        "client/services/CollectorService.dart",
+        "@Service()\n@Lifetime({\"value\":\"application\"})\nclass CollectorService {\n  int count = 0;\n}\n",
+    );
+    const GO: (&str, &str) = (
+        "client/services/CollectorService.go",
+        "// @Service\n// @Lifetime({\"value\":\"application\"})\ntype CollectorService struct {\n\tCount int\n}\n",
+    );
+    const RUBY: (&str, &str) = (
+        "client/services/CollectorService.rb",
+        "#[Service]\n#[Lifetime({\"value\":\"application\"})]\nclass CollectorService\n  attr_reader :count\nend\n",
+    );
+    const LUA: (&str, &str) = (
+        "client/services/CollectorService.lua",
+        "-- @Service\n-- @Lifetime({\"value\":\"application\"})\n---@class CollectorService\nCollectorService = {\n  ---@type integer\n  count = 0,\n}\n",
+    );
+    const SERVICES: [(&str, &str); 10] = [
+        Self::JAVASCRIPT,
+        Self::TYPESCRIPT,
+        Self::PYTHON,
+        Self::JAVA,
+        Self::KOTLIN,
+        Self::FSHARP,
+        Self::DART,
+        Self::GO,
+        Self::RUBY,
+        Self::LUA,
+    ];
+
+    const PAGE: (&str, &str) = ("client/pages/tac.html", "<collector-panel />");
+    const MANIFEST: (&str, &str) = (
+        "client/manifest.json",
+        r#"{"tac":{"python":{"runtime":"pyodide-314.0.7","profile":"offline"}}}"#,
+    );
+    const PANEL: (&str, &str) = (
+        "client/components/collector/panel/tac.html",
+        "<p>{collector.count}</p>",
+    );
+
+    fn project(service: (&str, &str)) -> tempfile::TempDir {
+        let root = tempfile::tempdir().expect("project");
+        for (relative, text) in [Self::PAGE, Self::PANEL, Self::MANIFEST, service] {
+            let file = root.path().join(relative);
+            std::fs::create_dir_all(file.parent().expect("folder")).expect("folder");
+            std::fs::write(file, text).expect("source");
+        }
+        root
+    }
+
+    fn menus() -> super::native_menu_config::NativeMenuConfig {
+        serde_json::from_value(serde_json::json!({
+            "file": [{"id":"collect","label":"Collect","action":{"service":"CollectorService","method":"read"}}]
+        }))
+        .expect("menu declarations")
+    }
+}
+
+fn an_application_lifetime_service_is_refused((path, source): (&str, &str)) {
+    let root = ApplicationLifetimeRefusals::project((path, source));
+    let failure = crate::WebCompiler::build(root.path(), &crate::BuildOptions::default())
+        .expect_err("only a client Rust Service has an application lifetime");
+    let diagnostic = &failure.diagnostics()[0];
+    assert_eq!(diagnostic.code.number(), 1406, "{failure}");
+    assert_eq!(
+        diagnostic.message,
+        crate::behavior::NativeApplicationLifetime::advice("application"),
+        "{failure}"
+    );
+    assert_eq!(diagnostic.spans[0].file, path, "{failure}");
+    let start = usize::try_from(diagnostic.spans[0].start).expect("start");
+    assert_eq!(source[..start].matches('\n').count(), 1, "{failure}");
+    let registry = crate::template::ServiceRegistry::discover(root.path()).expect("registry");
+    let service = registry.get("collector").expect("collector");
+    let application_provider = super::native_application_inputs::NativeApplicationInputs::provider(
+        root.path(),
+        service,
+        tachyon_contracts::NativeTarget::Macos,
+        false,
+    )
+    .expect("provider check");
+    let companions = service
+        .native_companions()
+        .iter()
+        .map(|(language, source)| NativeCompanionInput {
+            snapshot_root: root.path().to_path_buf(),
+            language: *language,
+            source: source.clone(),
+            service: String::from("collector"),
+            class: String::from(service.class()),
+            web_assembly: false,
+            application_provider,
+        })
+        .collect::<Vec<_>>();
+    let refused = super::native_menu_action_check::NativeMenuActionCheck::validate(
+        &ApplicationLifetimeRefusals::menus(),
+        &companions,
+    )
+    .expect_err("a menu action needs an application Rust Service");
+    let text = refused.to_string();
+    assert!(text.contains("TY1370"), "{text}");
+    assert!(
+        text.contains(
+            "action service 'CollectorService' is not a client Rust Service with an application lifetime"
+        ),
+        "{text}"
+    );
+}
+
+one_test_per_case!(
+    an_application_lifetime_service_is_refused_in,
+    an_application_lifetime_service_is_refused,
+    all ApplicationLifetimeRefusals::SERVICES,
+    [
+        javascript => ApplicationLifetimeRefusals::JAVASCRIPT,
+        typescript => ApplicationLifetimeRefusals::TYPESCRIPT,
+        python => ApplicationLifetimeRefusals::PYTHON,
+        java => ApplicationLifetimeRefusals::JAVA,
+        kotlin => ApplicationLifetimeRefusals::KOTLIN,
+        fsharp => ApplicationLifetimeRefusals::FSHARP,
+        dart => ApplicationLifetimeRefusals::DART,
+        go => ApplicationLifetimeRefusals::GO,
+        ruby => ApplicationLifetimeRefusals::RUBY,
+        lua => ApplicationLifetimeRefusals::LUA,
+    ]
+);
 
 #[test]
 fn native_application_lifetime_refuses_page_capture_and_direct_binding() {

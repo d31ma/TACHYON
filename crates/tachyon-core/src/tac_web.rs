@@ -4,6 +4,7 @@ use std::time::{Duration, Instant};
 pub(crate) use topic_streams::TopicStreams;
 
 mod topic_streams;
+mod unprovided_file_picker;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum WebLanguage {
@@ -140,6 +141,7 @@ async fn build_language(
     ),
     Failure,
 > {
+    unprovided_file_picker::UnprovidedFilePicker::refuse(snapshot_root, language, &chosen)?;
     let started = Instant::now();
     let mut published = Vec::new();
     let mut note = None;

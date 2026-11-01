@@ -110,8 +110,12 @@ impl Input<'_> {
     }
 
     fn failure(&self, at: usize, message: impl Into<String>) -> Failure {
+        self.coded_failure(1308, at, message)
+    }
+
+    fn coded_failure(&self, code: u16, at: usize, message: impl Into<String>) -> Failure {
         Failure::one(diagnostic(
-            1308,
+            code,
             message,
             Some("Behavior annotations require named types, own-line markers and literal configuration; see docs/BEHAVIOR_ANNOTATIONS.md.".to_owned()),
             source_span(&self.path.to_string_lossy(), at, (at + 1).min(self.source.len())),
@@ -1762,7 +1766,12 @@ fn scope(input: &Input<'_>, marker: &Marker) -> Result<Value, Failure> {
         .and_then(Value::as_str)
         .ok_or_else(|| input.failure(marker.span.start, "Lifetime requires a literal value"))?;
     if !NativeApplicationLifetime::supported(input.path, scope) {
-        return Err(input.failure(marker.span.start, NativeApplicationLifetime::advice(scope)));
+        return Err(
+            NativeApplicationLifetime::unsupported(input.path, marker.span.start, scope)
+                .unwrap_or_else(|| {
+                    input.failure(marker.span.start, NativeApplicationLifetime::advice(scope))
+                }),
+        );
     }
     Ok(Value::String(scope.to_owned()))
 }
