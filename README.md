@@ -731,10 +731,10 @@ successful cross-build is `buildable`. It is not `native-tested` or
 | `ty native-bundle [project] --target <target>` | Build a selected native host |
 | `ty test [project]` | Run the project's `Test` units. `--coverage` fails when a public method of an annotated class has no test case |
 | `ty types [project]` | Write TypeScript globals for the composed JavaScript and TypeScript classes into `.tachyon/types/` (ADR 0053) |
-| `ty api freeze [project]` | Save the current API as the baseline in `server/api-baseline.json` |
-| `ty cache [status\|clean]` | Inspect or remove the cache that an earlier installation left |
+| `ty api freeze [project]` | Save the API baseline that later builds compare against, in `server/api-baseline.json` |
+| `ty cache [status\|clean]` | Report where the runtime and build caches live, or remove them |
 | `ty doctor [project]` | Report the toolchains the project needs; `--install` offers to install each missing tool that Tachyon can install |
-| `ty migrate check\|fix [project]` | Report what an older project must change; `fix --write` applies the automatic changes (see [Migration](#migration-from-the-released-implementation)) |
+| `ty migrate check\|fix [project]` | Find what a project must change for this release; `fix` prints the automatic fixes and the manual steps, and `fix --write` applies the fixes (see [Migration](#migration-from-the-released-implementation)) |
 
 `ty cache` manages the installation and runtime cache that `TAC_CACHE_DIR`
 selects, including the shared copies of compiled Kotlin, Rust, Dart, Go and
@@ -778,10 +778,9 @@ same Tac document in their platform web view and do not select a rendering
 mode.
 
 The public command names from the latest standalone binary are still
-accepted. Internal qualification commands such as `doctor`, `migrate`, and
-`handler invoke` are intentionally left out of normal help until cutover.
-<!-- TODO(FU-14): update this sentence once fix/fu14-cli merges (it unhides doctor
-and migrate). -->
+accepted. `ty help` lists `doctor`, `migrate` and `api freeze` with the
+other commands. The internal qualification command `handler invoke` is left
+out of normal help.
 
 ### Long-running command readiness and shutdown
 
