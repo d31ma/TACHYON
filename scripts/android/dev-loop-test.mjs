@@ -158,7 +158,7 @@ class AndroidDevLoopTest {
       writeFileSync(this.log, this.output)
     }
     this.preview = await SupervisedCommand.start(this.binary, ['preview', this.fixture, '--target', 'android', '--port', String(port)], {
-      cwd: this.repository, env: process.env, timeoutMilliseconds: 1_800_000, onStdout: record, onStderr: record,
+      cwd: this.repository, env: { ...process.env, TAC_ALLOW_UNTESTED: '1' }, timeoutMilliseconds: 1_800_000, onStdout: record, onStderr: record,
     })
     try {
       await this.drive()
