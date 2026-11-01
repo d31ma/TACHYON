@@ -66,13 +66,13 @@ layer. Both use the standalone `ty` executable.
 On macOS or Linux (x64 or arm64), run:
 
 ```sh
-curl -fsSL https://github.com/d31ma/Tachyon/releases/latest/download/install.sh | sh
+curl -fsSL https://github.com/d31ma/TACHYON/releases/latest/download/install.sh | sh
 ```
 
 On Windows (x64 or arm64), run this in PowerShell:
 
 ```powershell
-irm https://github.com/d31ma/Tachyon/releases/latest/download/install.ps1 | iex
+irm https://github.com/d31ma/TACHYON/releases/latest/download/install.ps1 | iex
 ```
 
 Each installer does these steps:
@@ -101,13 +101,13 @@ release's download folder. Set it on `sh`, not on `curl`, and leave off the
 trailing slash. For example, to go back to 26.36.01:
 
 ```sh
-curl -fsSL https://github.com/d31ma/Tachyon/releases/download/v26.36.01/install.sh \
-  | TAC_BASE_URL=https://github.com/d31ma/Tachyon/releases/download/v26.36.01 sh
+curl -fsSL https://github.com/d31ma/TACHYON/releases/download/v26.36.01/install.sh \
+  | TAC_BASE_URL=https://github.com/d31ma/TACHYON/releases/download/v26.36.01 sh
 ```
 
 ```powershell
-$env:TAC_BASE_URL = 'https://github.com/d31ma/Tachyon/releases/download/v26.36.01'
-irm https://github.com/d31ma/Tachyon/releases/download/v26.36.01/install.ps1 | iex
+$env:TAC_BASE_URL = 'https://github.com/d31ma/TACHYON/releases/download/v26.36.01'
+irm https://github.com/d31ma/TACHYON/releases/download/v26.36.01/install.ps1 | iex
 ```
 
 The installer checks the binary against that release's `SHA256SUMS`, and

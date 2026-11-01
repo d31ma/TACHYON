@@ -3,12 +3,12 @@
     {
       "system": "unix",
       "label": "macOS · Linux",
-      "command": "curl -fsSL https://github.com/d31ma/Tachyon/releases/latest/download/install.sh | sh"
+      "command": "curl -fsSL https://github.com/d31ma/TACHYON/releases/latest/download/install.sh | sh"
     },
     {
       "system": "windows",
       "label": "Windows",
-      "command": "irm https://github.com/d31ma/Tachyon/releases/latest/download/install.ps1 | iex"
+      "command": "irm https://github.com/d31ma/TACHYON/releases/latest/download/install.ps1 | iex"
     }
   ]
 }

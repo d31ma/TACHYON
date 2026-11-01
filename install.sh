@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-REPO="d31ma/Tachyon"
+REPO="d31ma/TACHYON"
 BASE="${TAC_BASE_URL:-https://github.com/${REPO}/releases/latest/download}"
 TACHYON_STEPS=5
 tachyon_step=0

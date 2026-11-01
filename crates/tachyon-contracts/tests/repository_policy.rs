@@ -615,6 +615,28 @@ fn stable_release_is_tag_gated_and_fail_closed() -> Result<(), Box<dyn std::erro
     Ok(())
 }
 
+/// GitHub renamed the repository from `d31ma/Tachyon` to `d31ma/TACHYON`.
+/// Sigstore compares the signing workflow's identity case-sensitively, so a
+/// release signed under the new name fails verification against the old one.
+#[test]
+fn release_signatures_and_downloads_use_the_current_repository_name()
+-> Result<(), Box<dyn std::error::Error>> {
+    let root = repository_root();
+    let workflow = fs::read_to_string(root.join(".github/workflows/publish.yml"))?;
+    let unix_installer = fs::read_to_string(root.join("install.sh"))?;
+    let windows_installer = fs::read_to_string(root.join("install.ps1"))?;
+    let manifest = fs::read_to_string(root.join("Cargo.toml"))?;
+
+    assert!(workflow.contains(
+        "--certificate-identity-regexp '^https://github.com/d31ma/TACHYON/.github/workflows/publish.yml@refs/tags/v'"
+    ));
+    assert!(!workflow.contains("d31ma/Tachyon"));
+    assert!(unix_installer.contains("REPO=\"d31ma/TACHYON\""));
+    assert!(windows_installer.contains("$repo = 'd31ma/TACHYON'"));
+    assert!(manifest.contains("repository = \"https://github.com/d31ma/TACHYON\""));
+    Ok(())
+}
+
 #[test]
 fn foundation_document_links_resolve_locally() -> Result<(), Box<dyn std::error::Error>> {
     let root = repository_root();

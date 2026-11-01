@@ -86,11 +86,11 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/d31ma/Tachyon.git"
+    "url": "git+https://github.com/d31ma/TACHYON.git"
   },
   "homepage": "https://tachyon.del.ma",
   "bugs": {
-    "url": "https://github.com/d31ma/Tachyon/issues"
+    "url": "https://github.com/d31ma/TACHYON/issues"
   },
   "devDependencies": {
     "@types/bun": "^1.4.3",

@@ -1183,7 +1183,7 @@ jobs:
           mkdir -p "${RUNNER_TEMP}/tachyon-compat"
           curl --fail --location --silent --show-error \
             --output "${legacy_binary}" \
-            https://github.com/d31ma/Tachyon/releases/download/v26.30.04/ty-linux-x64
+            https://github.com/d31ma/TACHYON/releases/download/v26.30.04/ty-linux-x64
           echo "${expected_checksum}  ${legacy_binary}" | sha256sum --check --strict
           chmod 0755 "${legacy_binary}"
           echo "TAC_LEGACY_BIN=${legacy_binary}" >> "${GITHUB_ENV}"

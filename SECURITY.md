@@ -2,7 +2,7 @@
 
 ## Reporting a Vulnerability
 
-Use GitHub's private vulnerability reporting for the `d31ma/Tachyon`
+Use GitHub's private vulnerability reporting for the `d31ma/TACHYON`
 repository. Do not open a public issue, discussion or pull request that
 contains any of these:
 

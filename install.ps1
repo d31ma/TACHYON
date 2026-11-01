@@ -24,7 +24,7 @@ function Get-TachyonBaseUrl {
     if ($env:TAC_BASE_URL) {
         return $env:TAC_BASE_URL
     }
-    $repo = 'd31ma/Tachyon'
+    $repo = 'd31ma/TACHYON'
     return "https://github.com/$repo/releases/latest/download"
 }
 

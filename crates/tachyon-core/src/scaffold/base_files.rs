@@ -68,9 +68,9 @@ impl BaseFiles {
             "# {app_name}\n\n\
              ## Install the CLI\n\n\
              On macOS or Linux:\n\n\
-             ```sh\ncurl -fsSL https://github.com/d31ma/Tachyon/releases/latest/download/install.sh | sh\n```\n\n\
+             ```sh\ncurl -fsSL https://github.com/d31ma/TACHYON/releases/latest/download/install.sh | sh\n```\n\n\
              On Windows, in PowerShell:\n\n\
-             ```powershell\nirm https://github.com/d31ma/Tachyon/releases/latest/download/install.ps1 | iex\n```\n\n\
+             ```powershell\nirm https://github.com/d31ma/TACHYON/releases/latest/download/install.ps1 | iex\n```\n\n\
              The installer checks the release checksum and installs only the `ty` binary.\n\n\
              ## Commands\n\n\
              | Command | What it does |\n|---|---|\n\

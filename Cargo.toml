@@ -17,7 +17,7 @@ edition = "2024"
 rust-version = "1.97.1"
 authors = ["Tachyon Contributors"]
 license = "MIT"
-repository = "https://github.com/d31ma/Tachyon"
+repository = "https://github.com/d31ma/TACHYON"
 
 [workspace.dependencies]
 cap-fs-ext = "4.0.2"
