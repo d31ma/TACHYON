@@ -27,6 +27,15 @@
     </loop>
   </div>
 
+  <div class="mt-4" role="status" aria-live="polite">
+    <logic :if="catalog.matchCount(featureFilter.query, groupFilter.group) > 0">
+      <p class="text-(--w-text-subtle)">{quantity.describe(catalog.matchCount(featureFilter.query, groupFilter.group), 'feature')}</p>
+    </logic>
+    <logic :if="catalog.matchCount(featureFilter.query, groupFilter.group) === 0">
+      <p class="catalogue-empty text-(--w-text-subtle)">No feature matches. Try another word, or search the whole site.</p>
+    </logic>
+  </div>
+
   <loop :for="group of catalog.list()">
     <logic :if="groupFilter.shows(group.name)">
       <section class="catalogue-group mt-10">
@@ -46,9 +55,6 @@
       </section>
     </logic>
   </loop>
-  <div role="status" aria-live="polite">
-    <p class="catalogue-empty mt-10 text-(--w-text-subtle)">No feature matches. Try another word, or search the whole site.</p>
-  </div>
 
   <docs-pager :path="page.path" :documents="data.guides" :features="data.features" />
 </article>

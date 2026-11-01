@@ -29,6 +29,12 @@ func (catalog *CatalogService) Contents() []TopicContents {
 	return catalog.contentsOf(catalog.List())
 }
 
+func (catalog *CatalogService) MatchCount(query string, group string) int {
+	words := strings.FieldsFunc(strings.ToLower(query), catalog.isSpace)
+	inGroup := slices.DeleteFunc(catalog.listedFeatures(), func(feature Feature) bool { return catalog.isOtherGroup(feature.Group, group) })
+	return len(slices.DeleteFunc(inGroup, func(feature Feature) bool { return !catalog.hasEveryWord(feature, words) }))
+}
+
 func (catalog *CatalogService) featuresByGroup() map[string][]Feature {
 	byGroup := map[string][]Feature{}
 	for _, feature := range catalog.Features.Features {
@@ -64,6 +70,31 @@ func (catalog *CatalogService) countFeatures(groups []FeatureGroup) int {
 		total += len(group.Features)
 	}
 	return total
+}
+
+func (catalog *CatalogService) listedFeatures() []Feature {
+	features := []Feature{}
+	for _, group := range catalog.List() {
+		features = append(features, group.Features...)
+	}
+	return features
+}
+
+func (catalog *CatalogService) isOtherGroup(name string, group string) bool {
+	return group != "" && group != name
+}
+
+func (catalog *CatalogService) space() rune {
+	return ' '
+}
+
+func (catalog *CatalogService) isSpace(character rune) bool {
+	return character == catalog.space()
+}
+
+func (catalog *CatalogService) hasEveryWord(feature Feature, words []string) bool {
+	text := strings.ToLower(feature.Title + string(catalog.space()) + feature.Summary)
+	return !slices.ContainsFunc(words, func(word string) bool { return !strings.Contains(text, word) })
 }
 
 func (catalog *CatalogService) contentsOf(groups []FeatureGroup) []TopicContents {
