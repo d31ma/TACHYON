@@ -1,3 +1,4 @@
+mod admission_permit;
 mod dialect;
 mod drivers;
 mod fylo;
@@ -9,6 +10,7 @@ mod sqlite;
 #[cfg(not(feature = "storage-redis"))]
 mod unbuilt_redis_store;
 
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use serde_json::Value;
@@ -16,6 +18,7 @@ use tokio::sync::Semaphore;
 
 use crate::Failure;
 use crate::failure::diagnostic;
+use admission_permit::AdmissionPermit;
 use drivers::SqlStore;
 use fylo::FyloStore;
 #[cfg(feature = "storage-redis")]
@@ -27,7 +30,7 @@ pub(crate) struct ManagedStorage {
     sql: Option<SqlStore>,
     fylo: Option<FyloStore>,
     redis: Option<RedisStore>,
-    admission: Semaphore,
+    admission: Arc<Semaphore>,
     deadline_factor: u32,
 }
 
@@ -88,7 +91,7 @@ impl ManagedStorage {
                 sql,
                 fylo,
                 redis,
-                admission: Semaphore::new(16),
+                admission: Arc::new(Semaphore::new(16)),
                 deadline_factor,
             })
         })
@@ -98,12 +101,12 @@ impl ManagedStorage {
 
     pub(crate) async fn execute(&self, command: &Value) -> Result<Value, Failure> {
         check_size(command)?;
-        let _permit = self
-            .admission
-            .try_acquire()
+        let permit = Arc::clone(&self.admission)
+            .try_acquire_owned()
             .map_err(|_| failure("Managed storage admission is closed or full."))?;
         let deadline = Instant::now() + self.time_limit(command);
-        tokio::time::timeout_at(deadline.into(), self.dispatch(command, deadline))
+        let work = AdmissionPermit::hold_during(permit, Box::pin(self.dispatch(command, deadline)));
+        tokio::time::timeout_at(deadline.into(), work)
             .await
             .map_err(|_| {
                 failure("Managed storage operation deadline exceeded; writes may have committed.")
