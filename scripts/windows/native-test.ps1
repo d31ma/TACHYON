@@ -264,25 +264,43 @@ function Assert-DevTools([bool] $enabled) {
     if (-not ('Tachyon.Foreground' -as [type])) {
         Add-Type -Namespace Tachyon -Name Foreground -MemberDefinition @'
 [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr window);
+[DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
 [DllImport("user32.dll")] public static extern void keybd_event(byte key, byte scan, uint flags, UIntPtr extra);
 '@
     }
     if ($null -ne (Find-DevToolsWindow)) { throw 'a DevTools window was already open' }
-    [Tachyon.Foreground]::keybd_event(0x10, 0, 0, [UIntPtr]::Zero)
-    [Tachyon.Foreground]::keybd_event(0x10, 0, 2, [UIntPtr]::Zero)
-    if (-not [Tachyon.Foreground]::SetForegroundWindow([IntPtr]$script:window.Current.NativeWindowHandle)) {
-        throw 'the native window could not be brought to the foreground for the DevTools check'
+    $handle = [IntPtr]$script:window.Current.NativeWindowHandle
+    # F12 only reaches the app while its window is the foreground window. Right after a console sign-in the window can
+    # lose the foreground once (application.background, then foreground), so the check waits for the foreground before
+    # each F12 and, in the debug build, tries up to three times. The release check also needs the confirmed foreground,
+    # or "F12 did not open DevTools" would pass without the key reaching the app.
+    $attempts = if ($enabled) { 3 } else { 1 }
+    $devTools = $null
+    for ($attempt = 1; $attempt -le $attempts -and $null -eq $devTools; $attempt++) {
+        [Tachyon.Foreground]::keybd_event(0x10, 0, 0, [UIntPtr]::Zero)
+        [Tachyon.Foreground]::keybd_event(0x10, 0, 2, [UIntPtr]::Zero)
+        [void][Tachyon.Foreground]::SetForegroundWindow($handle)
+        $foregroundDeadline = [DateTime]::UtcNow.AddSeconds(5)
+        while ([Tachyon.Foreground]::GetForegroundWindow() -ne $handle -and [DateTime]::UtcNow -lt $foregroundDeadline) {
+            Start-Sleep -Milliseconds 100
+            [void][Tachyon.Foreground]::SetForegroundWindow($handle)
+        }
+        $foreground = [Tachyon.Foreground]::GetForegroundWindow()
+        if ($foreground -ne $handle) {
+            throw "the native window is not the foreground window for the DevTools check (foreground is $foreground, the app is $handle)"
+        }
+        try { (Find-Control 'Verify native Root').SetFocus() }
+        catch { Write-Host "NOTE: could not focus the page control: $($_.Exception.Message)" }
+        [System.Windows.Forms.SendKeys]::SendWait('{F12}')
+        $devToolsDeadline = [DateTime]::UtcNow.AddSeconds(10)
+        do {
+            $devTools = Find-DevToolsWindow
+            if ($null -ne $devTools) { break }
+            Start-Sleep -Milliseconds 200
+        } while ([DateTime]::UtcNow -lt $devToolsDeadline)
+        if ($enabled -and $null -eq $devTools -and $attempt -lt $attempts) { Write-Host "NOTE: F12 attempt $attempt opened no DevTools; trying again" }
     }
-    try { (Find-Control 'Verify native Root').SetFocus() }
-    catch { Write-Host "NOTE: could not focus the page control: $($_.Exception.Message)" }
-    [System.Windows.Forms.SendKeys]::SendWait('{F12}')
-    $devToolsDeadline = [DateTime]::UtcNow.AddSeconds(10)
-    do {
-        $devTools = Find-DevToolsWindow
-        if ($null -ne $devTools) { break }
-        Start-Sleep -Milliseconds 200
-    } while ([DateTime]::UtcNow -lt $devToolsDeadline)
-    if ($enabled -and $null -eq $devTools) { throw 'F12 did not open DevTools in the debug build' }
+    if ($enabled -and $null -eq $devTools) { throw "F12 did not open DevTools in the debug build ($attempts attempts with the app in the foreground)" }
     if (-not $enabled -and $null -ne $devTools) { throw "F12 opened DevTools in the release build: $($devTools.Current.Name)" }
     if ($null -ne $devTools) {
         $pattern = $null
