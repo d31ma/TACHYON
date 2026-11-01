@@ -1,6 +1,7 @@
 #![allow(clippy::expect_used)]
 
 use super::{LuaRuntimeBuild, LuaWebServices};
+use crate::one_test_per_case_tests::one_test_per_case;
 use std::path::{Path, PathBuf};
 
 mod stream_tests;
@@ -515,3 +516,57 @@ async fn a_release_lua_build_names_its_runtime() {
     assert_eq!(release.notes, [LuaWebServices::RELEASE_NOTE]);
     assert!(development.notes.is_empty(), "{:?}", development.notes);
 }
+
+struct DelegateHooks;
+
+impl DelegateHooks {
+    const ON_START: &'static str =
+        "-- @OnStart\nfunction ScaleDelegate:start()\n  self.factor = 10\nend\n";
+    const ON_STOP: &'static str =
+        "-- @OnStop\nfunction ScaleDelegate:stop()\n  self.factor = 0\nend\n";
+    const ON_EVENT: &'static str = "---@param reset LevelReset\n-- @OnEvent\nfunction ScaleDelegate:reset(reset)\n  self.factor = reset.level\nend\n";
+    const HOOKS: [&'static str; 3] = [Self::ON_START, Self::ON_STOP, Self::ON_EVENT];
+    const SERVICE: &'static str = "-- @Service\n---@class LevelService\nLevelService = {\n  -- @Needs\n  ---@type ScaleDelegate\n  scale = nil,\n}\n\n---@param level integer\n---@return integer\nfunction LevelService:raised(level)\n  return self.scale:times(level)\nend\n";
+    const MESSAGE: &'static str = "The Lua Delegate ScaleDelegate has an OnStart, OnStop or OnEvent method. A Lua Tac Delegate is built with the service that needs it, so the page never runs those hooks.";
+}
+
+fn a_lua_delegate_with_a_lifecycle_hook_is_refused(hook: &str) {
+    let root = tempfile::tempdir().expect("project");
+    Page::write(
+        root.path(),
+        "client/models/LevelReset.lua",
+        "---@class LevelReset\n---@field level integer\nLevelReset = {}\n",
+    );
+    let delegate = format!(
+        "-- @Delegate\n---@class ScaleDelegate\nScaleDelegate = {{\n  ---@type integer\n  factor = 10,\n}}\n\n---@param level integer\n---@return integer\nfunction ScaleDelegate:times(level)\n  return level * self.factor\nend\n\n{hook}"
+    );
+    Page::write(root.path(), "client/delegates/ScaleDelegate.lua", &delegate);
+    let service = Page::write(
+        root.path(),
+        "client/services/LevelService.lua",
+        DelegateHooks::SERVICE,
+    );
+    let failure = LuaWebServices::program(
+        root.path(),
+        &[(String::from("level"), String::from("LevelService"), service)],
+    )
+    .expect_err("the page never runs a Lua Delegate hook");
+    let diagnostic = &failure.diagnostics()[0];
+    assert_eq!(diagnostic.code.number(), 1605, "{failure}");
+    assert_eq!(diagnostic.message, DelegateHooks::MESSAGE, "{failure}");
+    let span = &diagnostic.spans[0];
+    assert_eq!(span.file, "client/delegates/ScaleDelegate.lua", "{failure}");
+    let start = usize::try_from(span.start).expect("start");
+    assert!(delegate[start..].starts_with("-- @On"), "{failure}");
+}
+
+one_test_per_case!(
+    a_lua_delegate_with_a_lifecycle_hook_is_refused_with_ty1605,
+    a_lua_delegate_with_a_lifecycle_hook_is_refused,
+    all DelegateHooks::HOOKS,
+    [
+        on_start => DelegateHooks::ON_START,
+        on_stop => DelegateHooks::ON_STOP,
+        on_event => DelegateHooks::ON_EVENT,
+    ]
+);

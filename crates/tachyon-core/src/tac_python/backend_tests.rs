@@ -676,3 +676,45 @@ fn python_saved_fields_reach_the_page_service_entry() {
         .collect::<Vec<_>>();
     assert_eq!(stored, [("darkMode", "local"), ("draft", "session")]);
 }
+
+#[test]
+fn a_python_needs_all_file_picker_field_is_refused_with_ty1407() {
+    let failure = crate::file_picker_page_tests::FilePickerPage::refusal((
+        "client/services/PickerService.py",
+        "@service\n@needs_all\nclass PickerService:\n    file_picker: FilePicker\n    title: str = \"Files\"\n",
+    ));
+    let diagnostic = &failure.diagnostics()[0];
+    assert_eq!(diagnostic.code.number(), 1407, "{failure}");
+    assert!(
+        diagnostic
+            .message
+            .starts_with("PickerService needs `filePicker`; pass :filePicker="),
+        "{failure}"
+    );
+    assert_eq!(
+        diagnostic.spans[0].file, "client/pages/tac.html",
+        "{failure}"
+    );
+    assert_eq!(diagnostic.spans[0].start, 0, "{failure}");
+}
+
+#[test]
+fn python_window_controls_field_is_refused_with_ty1605() {
+    let source = "@service\n@needs_all\nclass CounterService:\n    controls: WindowControls\n";
+    let failure =
+        PythonProviderSource::read(Path::new("client/services/CounterService.py"), source)
+            .err()
+            .unwrap_or_else(|| panic!("WindowControls belongs to the page"));
+    let diagnostic = &failure.diagnostics()[0];
+    assert_eq!(diagnostic.code.number(), 1605, "{failure}");
+    assert_eq!(
+        diagnostic.message,
+        "Python Tac services cannot use `WindowControls`: it belongs to the page.",
+        "{failure}"
+    );
+    let span = &diagnostic.spans[0];
+    assert_eq!(span.file, "client/services/CounterService.py", "{failure}");
+    let start = usize::try_from(span.start).unwrap_or_else(|error| panic!("start: {error}"));
+    let end = usize::try_from(span.end).unwrap_or_else(|error| panic!("end: {error}"));
+    assert_eq!(&source[start..end], "WindowControls", "{failure}");
+}

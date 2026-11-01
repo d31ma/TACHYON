@@ -1,4 +1,5 @@
 use super::{Page, write};
+use crate::one_test_per_case_tests::one_test_per_case;
 use crate::tac_ruby::{NeededServices, RubyWebServices};
 use crate::tac_web::{BuildJobs, WebLanguage};
 use std::path::Path;
@@ -179,3 +180,80 @@ async fn a_ruby_needs_field_without_a_type_stops_the_build_at_the_field() {
         "  attr_reader :counter_store"
     );
 }
+
+#[test]
+fn a_ruby_needs_all_file_picker_field_is_refused_with_ty1407() {
+    let failure = crate::file_picker_page_tests::FilePickerPage::refusal((
+        "client/services/PickerService.rb",
+        "#[Service]\n#[NeedsAll]\nclass PickerService\n  # @return [FilePicker]\n  attr_reader :file_picker\n\n  # @return [String]\n  attr_reader :title\nend\n",
+    ));
+    let diagnostic = &failure.diagnostics()[0];
+    assert_eq!(diagnostic.code.number(), 1407, "{failure}");
+    assert!(
+        diagnostic
+            .message
+            .starts_with("PickerService needs `filePicker`; pass :filePicker="),
+        "{failure}"
+    );
+    assert_eq!(
+        diagnostic.spans[0].file, "client/pages/tac.html",
+        "{failure}"
+    );
+    assert_eq!(diagnostic.spans[0].start, 0, "{failure}");
+}
+
+struct DelegateHooks;
+
+impl DelegateHooks {
+    const ON_START: &'static str = "  #[OnStart]\n  def start\n    @level = 1\n  end\n";
+    const ON_STOP: &'static str = "  #[OnStop]\n  def stop\n    @level = 0\n  end\n";
+    const ON_EVENT: &'static str = "  # @param reset [LevelReset]\n  #[OnEvent]\n  def reset(reset)\n    @level = reset.level\n  end\n";
+    const HOOKS: [&'static str; 3] = [Self::ON_START, Self::ON_STOP, Self::ON_EVENT];
+    const SERVICE: &'static str = "#[Service]\nclass LevelService\n  #[Needs]\n  # @return [LevelDelegate]\n  attr_reader :levels\n\n  # @return [Integer]\n  def level\n    levels.level\n  end\nend\n";
+    const MESSAGE: &'static str = "The Ruby Delegate LevelDelegate has an OnStart, OnStop or OnEvent method. A Ruby Tac Delegate is made when its service first uses it, so the page never runs those hooks.";
+}
+
+fn a_ruby_delegate_with_a_lifecycle_hook_is_refused(hook: &str) {
+    let root = tempfile::tempdir().expect("project");
+    write(
+        root.path(),
+        "client/models/LevelReset.rb",
+        "# @!attribute [r] level\n#   @return [Integer]\nLevelReset = Data.define(:level)\n",
+    );
+    write(
+        root.path(),
+        "client/delegates/LevelDelegate.rb",
+        &format!("#[Delegate]\nclass LevelDelegate\n{hook}\n  def level\n    @level\n  end\nend\n"),
+    );
+    let service = write(
+        root.path(),
+        "client/services/LevelService.rb",
+        DelegateHooks::SERVICE,
+    );
+    let failure = RubyWebServices::program(
+        root.path(),
+        &[(String::from("level"), String::from("LevelService"), service)],
+    )
+    .expect_err("the page never runs a Ruby Delegate hook");
+    let diagnostic = &failure.diagnostics()[0];
+    assert_eq!(diagnostic.code.number(), 1605, "{failure}");
+    assert_eq!(diagnostic.message, DelegateHooks::MESSAGE, "{failure}");
+    assert!(
+        diagnostic
+            .help
+            .as_deref()
+            .is_some_and(|help| help.contains("client/delegates/LevelDelegate.rb")),
+        "{failure}"
+    );
+}
+
+one_test_per_case!(
+    a_ruby_delegate_with_a_lifecycle_hook_is_refused_with_ty1605,
+    a_ruby_delegate_with_a_lifecycle_hook_is_refused,
+    all DelegateHooks::HOOKS,
+    [
+        on_start => DelegateHooks::ON_START,
+        on_stop => DelegateHooks::ON_STOP,
+        on_event => DelegateHooks::ON_EVENT,
+    ]
+);
