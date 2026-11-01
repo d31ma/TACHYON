@@ -11,16 +11,19 @@ pub(super) struct InteropRules {
 
 impl InteropRules {
     const CLIENT: &'static str = "client";
+    const DOTNET_WORDS: &'static [&'static str] = &[
+        "InteropServices.JavaScript",
+        "JSImport",
+        "JSExport",
+        "JSHost",
+    ];
 
     const ALL: [Self; 10] = [
-        Self {
-            extension: "rs",
-            language: "Rust",
-            words: &["wasm_bindgen", "web_sys", "js_sys", "wasm_import_module"],
-            imports: &[],
-            directives: &[],
-            network: &[],
-        },
+        Self::words(
+            "rs",
+            "Rust",
+            &["wasm_bindgen", "web_sys", "js_sys", "wasm_import_module"],
+        ),
         Self {
             extension: "go",
             language: "Go",
@@ -29,32 +32,8 @@ impl InteropRules {
             directives: &["//go:wasmimport"],
             network: &["net/http", "net/http/", "//go:wasmimport"],
         },
-        Self {
-            extension: "cs",
-            language: "C#",
-            words: &[
-                "InteropServices.JavaScript",
-                "JSImport",
-                "JSExport",
-                "JSHost",
-            ],
-            imports: &[],
-            directives: &[],
-            network: &[],
-        },
-        Self {
-            extension: "fs",
-            language: "F#",
-            words: &[
-                "InteropServices.JavaScript",
-                "JSImport",
-                "JSExport",
-                "JSHost",
-            ],
-            imports: &[],
-            directives: &[],
-            network: &[],
-        },
+        Self::words("cs", "C#", Self::DOTNET_WORDS),
+        Self::words("fs", "F#", Self::DOTNET_WORDS),
         Self {
             extension: "dart",
             language: "Dart",
@@ -71,10 +50,10 @@ impl InteropRules {
             directives: &[],
             network: &[],
         },
-        Self {
-            extension: "kt",
-            language: "Kotlin",
-            words: &[
+        Self::words(
+            "kt",
+            "Kotlin",
+            &[
                 "external",
                 "JsFun",
                 "JsExport",
@@ -85,14 +64,11 @@ impl InteropRules {
                 "org.w3c",
                 "kotlin.js",
             ],
-            imports: &[],
-            directives: &[],
-            network: &[],
-        },
-        Self {
-            extension: "swift",
-            language: "Swift",
-            words: &[
+        ),
+        Self::words(
+            "swift",
+            "Swift",
+            &[
                 "JavaScriptKit",
                 "JavaScriptEventLoop",
                 "JSObject",
@@ -102,14 +78,11 @@ impl InteropRules {
                 "_extern",
                 "_expose",
             ],
-            imports: &[],
-            directives: &[],
-            network: &[],
-        },
-        Self {
-            extension: "java",
-            language: "Java",
-            words: &[
+        ),
+        Self::words(
+            "java",
+            "Java",
+            &[
                 "org.teavm",
                 "JSBody",
                 "JSObject",
@@ -123,14 +96,11 @@ impl InteropRules {
                 "JSByRef",
                 "native",
             ],
-            imports: &[],
-            directives: &[],
-            network: &[],
-        },
-        Self {
-            extension: "hpp",
-            language: "C++",
-            words: &[
+        ),
+        Self::words(
+            "hpp",
+            "C++",
+            &[
                 "emscripten",
                 "EM_JS",
                 "EM_ASM",
@@ -140,19 +110,24 @@ impl InteropRules {
                 "import_name",
                 "export_name",
             ],
-            imports: &[],
-            directives: &[],
-            network: &[],
-        },
-        Self {
-            extension: "rb",
-            language: "Ruby",
-            words: &["TachyonWeb", "JS.", "JS::"],
-            imports: &[],
-            directives: &[],
-            network: &[],
-        },
+        ),
+        Self::words("rb", "Ruby", &["TachyonWeb", "JS.", "JS::"]),
     ];
+
+    const fn words(
+        extension: &'static str,
+        language: &'static str,
+        words: &'static [&'static str],
+    ) -> Self {
+        Self {
+            extension,
+            language,
+            words,
+            imports: &[],
+            directives: &[],
+            network: &[],
+        }
+    }
 
     pub(super) fn for_path(path: &Path) -> Option<&'static Self> {
         let extension = path

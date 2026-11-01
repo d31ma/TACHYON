@@ -28,14 +28,22 @@ impl<'s> InteropFinder<'s> {
     }
 
     pub(super) fn all_words(&self, words: &[&str]) -> Vec<Range<usize>> {
-        words.iter().flat_map(|word| self.word_uses(word)).collect()
+        self.all_matches(words, Self::is_code_word)
     }
 
-    fn word_uses(&self, word: &str) -> Vec<Range<usize>> {
-        self.source
-            .match_indices(word)
-            .map(|(start, _)| start..start + word.len())
-            .filter(|range| self.is_code_word(range, word))
+    fn all_matches(
+        &self,
+        needles: &[&str],
+        keep: fn(&Self, &Range<usize>, &str) -> bool,
+    ) -> Vec<Range<usize>> {
+        needles
+            .iter()
+            .flat_map(|needle| {
+                self.source
+                    .match_indices(needle)
+                    .map(|(start, _)| start..start + needle.len())
+                    .filter(move |range| keep(self, range, needle))
+            })
             .collect()
     }
 
@@ -60,18 +68,7 @@ impl<'s> InteropFinder<'s> {
     }
 
     fn all_directives(&self, directives: &[&str]) -> Vec<Range<usize>> {
-        directives
-            .iter()
-            .flat_map(|directive| self.directive_uses(directive))
-            .collect()
-    }
-
-    fn directive_uses(&self, directive: &str) -> Vec<Range<usize>> {
-        self.source
-            .match_indices(directive)
-            .map(|(start, _)| start..start + directive.len())
-            .filter(|range| self.is_directive(range, directive))
-            .collect()
+        self.all_matches(directives, Self::is_directive)
     }
 
     fn is_directive(&self, range: &Range<usize>, directive: &str) -> bool {
