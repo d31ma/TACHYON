@@ -604,10 +604,10 @@ mod tests {
             .expect("hot update script");
         let source = std::str::from_utf8(&body).expect("JavaScript source");
         assert_eq!(source, HotUpdateHub::LIVE_RELOAD_CLIENT);
-        assert_eq!(body.len(), 5628);
+        assert_eq!(body.len(), 6821);
         assert_eq!(
             hex_digest(Sha256::digest(&body)),
-            "5833d294b96e59814990dcf49c7672f95770af281c97e25adb120dbdf7e389ec"
+            "34e8cfaff35d657e684686421cddf4a69c2b231fd7b9fd6e0de7bb1e847d3f80"
         );
     }
 
