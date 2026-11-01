@@ -155,14 +155,24 @@ async function sweepWidth(browser, theme, width, summary) {
   })
   await context.addInitScript((/** @type {string} */ value) => localStorage.setItem('w-theme', value), theme)
   const page = await context.newPage()
+  // A page that throws or loads a missing file is broken whatever its layout, so both fail the route.
+  /** @type {string[]} */
+  const errors = []
+  page.on('pageerror', (error) => errors.push(`page error: ${error.message.split('\n')[0].slice(0, 120)}`))
+  page.on('response', (response) => {
+    if (response.status() >= 400 && response.url().startsWith(Sweep.origin)) {
+      errors.push(`HTTP ${response.status()} ${response.url().slice(Sweep.origin.length)}`)
+    }
+  })
 
   for (const path of Sweep.selectedPaths()) {
+    errors.length = 0
     await Sweep.open(page, `${Sweep.origin}${path}`)
     await page.waitForTimeout(400)
     const report = await page.evaluate(probe)
     summary.checks += 1
 
-    const problems = problemsIn(report, coarse)
+    const problems = [...problemsIn(report, coarse), ...new Set(errors)]
     if (problems.length) {
       summary.failures.push(`${theme} ${String(width).padStart(4)} ${path}`)
       console.log(`FAIL ${theme.padEnd(5)} ${String(width).padStart(4)} ${path.padEnd(20)} ${problems.join('; ')}`)

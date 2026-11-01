@@ -1428,6 +1428,10 @@ async function verifyTacConfiguration(label, files) {
     await inStagingDirectory(stepLabel, async root => {
       for (const file of filesForTacLanguage(files, extension)) writeSnippetFile(root, file.name, file.code)
       if (!await hasWebTarget(extension)) {
+        if (!Languages.nativeTargets[extension]) {
+          reportMissingWebToolchain(stepLabel, extension)
+          return
+        }
         await verifyNativeConfiguration(stepLabel, root, files, extension)
         return
       }
@@ -1438,6 +1442,17 @@ async function verifyTacConfiguration(label, files) {
       if (extension === '.fs') await testConfigurationBinding(stepLabel, root, files, extension)
     })
   }
+}
+
+/**
+ * Java and F# have no native target to stage instead, so without their web toolchain the step can't run.
+ * @param {string} label
+ * @param {string} extension
+ */
+function reportMissingWebToolchain(label, extension) {
+  const reason = `the ${extension.slice(1)} web toolchain is missing and ${extension.slice(1)} has no native target to stage instead; ty doctor shows what to install`
+  if (Settings.requireToolchains) fail(label, new Error(reason))
+  else skip(label, reason)
 }
 
 /** @param {string} extension */

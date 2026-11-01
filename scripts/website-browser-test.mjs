@@ -128,6 +128,47 @@ async function checkDocsHome(page, width, errors) {
 }
 
 /**
+ * The feature catalogue filters through two Swift services compiled to WebAssembly (FeatureFilterService and
+ * GroupFilterService), so typing and picking a group prove those services run in the page, not just load.
+ * @param {import('playwright').Page} page
+ * @param {number} width
+ */
+async function checkFeatureFilters(page, width) {
+  const cards = page.locator('.catalogue__card');
+  await cards.first().waitFor();
+  const everything = await cards.count();
+  assert.ok(everything > 10, `${width}px /docs/features/: the catalogue lists the features`);
+  const filter = page.getByRole('searchbox', { name: 'Filter the features', exact: true });
+  await filter.fill('sockets');
+  await page.waitForFunction(total => document.querySelectorAll('.catalogue__card').length < total, everything);
+  const matching = await cards.allInnerTexts();
+  assert.ok(matching.length > 0, `${width}px /docs/features/: the Swift feature filter keeps the features that match`);
+  assert.ok(matching.every(text => /socket/i.test(text)), `${width}px /docs/features/: every kept feature matches: ${matching.join(' | ')}`);
+  await filter.fill('');
+  await page.waitForFunction(total => document.querySelectorAll('.catalogue__card').length === total, everything);
+  const groups = page.getByRole('group', { name: 'Feature group', exact: true }).locator('w-btn');
+  const second = groups.nth(1);
+  const name = (await second.innerText()).trim();
+  await second.click();
+  await page.waitForFunction(() => document.querySelectorAll('.catalogue-group').length === 1);
+  assert.equal(await page.locator('.catalogue-group h2').innerText(), name, `${width}px /docs/features/: the Swift group filter shows only ${name}`);
+  assert.equal(await second.getAttribute('aria-pressed'), 'true', `${width}px /docs/features/: the picked group is pressed`);
+  await groups.first().click();
+  await page.waitForFunction(() => document.querySelectorAll('.catalogue-group').length > 1);
+}
+
+/**
+ * A guide's reading time comes from ReadingTimeService, which is Lua.
+ * @param {import('playwright').Page} page
+ * @param {number} width
+ */
+async function checkReadingTime(page, width) {
+  const label = page.locator('#guide-reading-time');
+  await label.waitFor();
+  assert.match(await label.innerText(), /^About (1 minute|\d+ minutes) to read/, `${width}px /docs/install/: the Lua reading time renders`);
+}
+
+/**
  * @param {import('playwright').Browser} activeBrowser
  * @param {string} origin
  * @param {number} width
@@ -136,12 +177,14 @@ async function checkViewport(activeBrowser, origin, width) {
   const page = await activeBrowser.newPage({ viewport: { width, height: 900 }, hasTouch: width < 500 });
   const errors = collectPageErrors(page);
   page.setDefaultTimeout(10000);
-  for (const route of ['/', '/docs/', '/docs/features/companion-publish/']) {
+  for (const route of ['/', '/docs/', '/docs/features/', '/docs/install/', '/docs/features/companion-publish/']) {
     const response = await page.goto(`${origin}${route}`);
     assert.ok(response, `${width}px ${route}: navigation response`);
     assert.equal(response.status(), 200, `${width}px ${route}: page is served`);
     if (route === '/') await WebsiteTest.checkShowcase(page);
     if (route === '/docs/') await checkDocsHome(page, width, errors);
+    if (route === '/docs/features/') await checkFeatureFilters(page, width);
+    if (route === '/docs/install/') await checkReadingTime(page, width);
     await openSearch(page, width, route, errors);
     await checkSearchTyping(page, width, route);
   }
@@ -166,7 +209,7 @@ async function main() {
       const origin = new URL((await request('/')).url).origin;
       for (const width of [1440, 390]) await checkViewport(activeBrowser, origin, width);
     });
-    console.log('Website browser input gate passed: desktop/mobile, home/docs (guides and features render)/features, continuous typing, custom slots, middle caret, spaces, rapid input, Escape.');
+    console.log('Website browser input gate passed: desktop/mobile, home/docs (guides and features render)/feature filters (Swift)/reading time (Lua)/features, continuous typing, custom slots, middle caret, spaces, rapid input, Escape.');
   } finally {
     if (browser) await browser.close();
     if (!retained) rmSync(output, { recursive: true, force: true });

@@ -27,11 +27,13 @@ class BehaviorGate {
     { source: 'stores/ProductQueriesStore.js', target: 'stores/ProductQueriesStore.js' },
   ];
   static clientPrefix = 'client/';
-  static otherServiceLanguages = new Set(['ts', 'dart', 'rs', 'go', 'rb', 'swift', 'kt', 'java', 'cs', 'fs', 'lua', 'py', 'php', 'groovy']);
+  // The published example has a file per Tac language; the JavaScript project keeps only these kinds, so a newly
+  // published language (hpp was one) can't slip into it.
+  static javaScriptProjectExtensions = new Set(['js', 'html', 'css', 'json']);
 
   static isJavaScriptProjectFile(name) {
     const extension = path.extname(name).slice(1);
-    return name.startsWith(BehaviorGate.clientPrefix) && !BehaviorGate.otherServiceLanguages.has(extension);
+    return name.startsWith(BehaviorGate.clientPrefix) && BehaviorGate.javaScriptProjectExtensions.has(extension);
   }
 }
 
