@@ -158,13 +158,13 @@ class IosLifetimeGate {
     IosLifetimeGate.run(IosLifetimeGate.tapper, [IosLifetimeGate.deviceSet, device, ...args]);
   }
 
-  static read(device, name) {
+  static read(device, name, words = false) {
     const { simctl, run, reader } = IosLifetimeGate;
     const file = path.join(IosLifetimeGate.project, name + '.png');
     simctl('io', device, 'screenshot', file);
     mkdirSync(IosLifetimeGate.evidence, { recursive: true });
     copyFileSync(file, path.join(IosLifetimeGate.evidence, name + '.png'));
-    return JSON.parse(run(reader, [file]));
+    return JSON.parse(run(reader, words ? ['--words', file] : [file]));
   }
 
   static letters(text) {
@@ -175,7 +175,9 @@ class IosLifetimeGate {
     const { read, letters, gesture, pause } = IosLifetimeGate;
     let lines = [];
     for (let attempt = 0; attempt < 8; attempt++) {
-      lines = read(device, name + '-' + letters(label));
+      // Vision reads the iPad menu bar as one line ("LifetimeGate File Edit Format View Window Help"), so look at
+      // its single words too.
+      lines = read(device, name + '-' + letters(label), true);
       const target = lines.find(line => letters(line.text) === letters(label) && within(line));
       if (target) {
         gesture(device, String(target.x), String(target.y));
@@ -207,10 +209,14 @@ class IosLifetimeGate {
     IosLifetimeGate.notes.push(name + ': a touch swipe from the top edge opened the menu bar, and touches on View (' + view.x.toFixed(2) + ', ' + view.y.toFixed(2) + ') and What\'s Running (' + item.x.toFixed(2) + ', ' + item.y.toFixed(2) + ') called LifetimeService ' + instance);
   }
 
-  static findCard(lines, name) {
+  static findCard(lines, name, instance) {
     const { letters } = IosLifetimeGate;
     const label = lines.find(line => letters(line.text) === letters(ApplicationLifetimeFixture.name));
-    const heading = lines.find(line => letters(line.text) === 'status');
+    // The iPad switcher shrinks the card so far that Vision can miss the small Status heading and misread digits
+    // (it read 1793... as 1293...); the Status page's instance line, shaped <pid>-<nanoseconds>,
+    // marks the same page.
+    const shaped = new RegExp('^\\d{2,}-\\d{' + (instance.length - instance.indexOf('-') - 4) + ',}$');
+    const heading = lines.find(line => letters(line.text) === 'status') ?? lines.find(line => shaped.test(line.text.trim()));
     assert.ok(label && heading, name + ': the app switcher shows the ' + ApplicationLifetimeFixture.name + ' card with its Status page: ' + lines.map(line => line.text).join(' | '));
     return { x: label.x, y: heading.y + 0.1 };
   }
@@ -219,7 +225,7 @@ class IosLifetimeGate {
     const { waitFor, launch, journal, gesture, pause, read } = IosLifetimeGate;
     gesture(device, 'home', '2');
     await pause(1200);
-    const card = IosLifetimeGate.findCard(read(device, name.replace(/\W+/g, '-') + '-app-switcher'), name);
+    const card = IosLifetimeGate.findCard(read(device, name.replace(/\W+/g, '-') + '-app-switcher'), name, instance);
     gesture(device, 'drag', card.x.toFixed(3), card.y.toFixed(3), card.x.toFixed(3), '0.02', '6');
     const stopped = await waitFor(device, current => current.lines.includes('stopped ' + instance), name + ': ending the app from the app switcher runs applicationWillTerminate and the application OnStop', 80);
     assert.equal(stopped.lines.filter(line => line.startsWith('stopped ')).length, 1, name + ': the service stops once');
