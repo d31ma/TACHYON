@@ -255,7 +255,7 @@ impl CppLowering {
             .any(|removed| squeezed.contains(removed))
     }
 
-    fn is_tachyon(marker: &CppAttribute) -> bool {
+    pub(crate) fn is_tachyon(marker: &CppAttribute) -> bool {
         let standard = CppMarkerCheck::is_standard(&marker.name);
         let known = crate::annotation_rules::AnnotationRules::find(&marker.name).is_some();
         [standard, known] == [false, true]

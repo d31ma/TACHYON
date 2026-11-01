@@ -9,6 +9,7 @@ impl CppFolder {
     const MAX_BYTES: u64 = 1_048_576;
     const TOO_MANY: &'static str = "A C++ folder holds at most 512 files";
     const TOO_LARGE: &'static str = "A C++ file is at most 1 MiB";
+    const LINKED_FOLDER: &'static str = "Tachyon does not follow a symlinked folder in a C++ role folder. Move its files into the project";
 
     pub(crate) fn files(root: &Path, folder: &str) -> Result<Vec<PathBuf>, Failure> {
         let found = Self::walk(root.join(folder));
@@ -19,6 +20,9 @@ impl CppFolder {
 
     pub(crate) fn read(root: &Path, path: &Path) -> Result<(PathBuf, String), Failure> {
         let relative = path.strip_prefix(root).unwrap_or(path).to_path_buf();
+        (!path.is_dir())
+            .then_some(())
+            .ok_or_else(|| CppFailure::unreadable(&relative, 0, Self::LINKED_FOLDER))?;
         let size = std::fs::metadata(path).map_or(0, |metadata| metadata.len());
         (size <= Self::MAX_BYTES)
             .then_some(())
@@ -42,14 +46,23 @@ impl CppFolder {
     fn visit(directory: &Path, pending: &mut Vec<PathBuf>, found: &mut Vec<PathBuf>) {
         let entries = std::fs::read_dir(directory).into_iter().flatten().flatten();
         for entry in entries {
-            Self::sort(entry.path(), pending, found);
+            let linked = entry.file_type().is_ok_and(|kind| kind.is_symlink());
+            Self::sort(entry.path(), linked, pending, found);
         }
     }
 
-    fn sort(path: PathBuf, pending: &mut Vec<PathBuf>, found: &mut Vec<PathBuf>) {
-        if path.is_dir() {
+    fn sort(path: PathBuf, linked: bool, pending: &mut Vec<PathBuf>, found: &mut Vec<PathBuf>) {
+        if linked {
+            Self::keep_link(path, found);
+        } else if path.is_dir() {
             pending.push(path);
         } else if CppSource::is_cpp(&path) {
+            found.push(path);
+        }
+    }
+
+    fn keep_link(path: PathBuf, found: &mut Vec<PathBuf>) {
+        if path.is_dir() || CppSource::is_cpp(&path) {
             found.push(path);
         }
     }

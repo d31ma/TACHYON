@@ -1,5 +1,6 @@
 #![allow(clippy::expect_used)]
 
+use crate::one_test_per_case::one_test_per_case;
 use std::fs;
 use std::path::Path;
 use std::process::{Command, Output};
@@ -506,6 +507,56 @@ fn bundle_service(language: &str, source: &str, target: &[&str]) -> (tempfile::T
     let output = run(ty().arg("bundle").arg(project.path()).args(target));
     (project, output)
 }
+
+fn emscripten_ready() -> bool {
+    let mut probe = if cfg!(windows) {
+        let mut shell = Command::new("cmd");
+        shell.args(["/D", "/C", "em++"]);
+        shell
+    } else {
+        Command::new("em++")
+    };
+    let found = probe
+        .arg("--version")
+        .output()
+        .is_ok_and(|output| output.status.success());
+    assert!(
+        found || std::env::var_os("CI").is_none(),
+        "em++ is installed in CI, so this test must run there instead of skipping"
+    );
+    found
+}
+
+fn cpp_service_ships_its_wasm_in_the_native_bundle(target: &str) {
+    if skip_without(emscripten_ready(), "em++ (Emscripten)") {
+        return;
+    }
+    let source = "#pragma once\n\nclass [[Service]] PhaseFourService {\npublic:\n    long long count = 6;\n};\n";
+    let (project, output) = bundle_service("hpp", source, &["--native", "--target", target]);
+    assert!(output.status.success(), "{target}: {}", stderr(&output));
+    let staged = project.path().join("dist").join(target);
+    let services = staged.join("web/.tachyon/services");
+    let wasm = fs::read(services.join("cpp/services.wasm")).expect("the C++ WebAssembly module");
+    assert_eq!(wasm.get(..4), Some(&b"\0asm"[..]), "{target}");
+    assert!(services.join("tachyon-cpp.js").is_file(), "{target}");
+    assert!(services.join("PhaseFourService.js").is_file(), "{target}");
+    let host = fs::read_to_string(staged.join("tachyon.host.json")).expect("host descriptor");
+    let host: serde_json::Value = serde_json::from_str(&host).expect("host json");
+    assert_eq!(host["companions"], serde_json::json!([]), "{target}");
+}
+
+one_test_per_case!(
+    a_cpp_service_ships_its_wasm_in_every_native_bundle,
+    cpp_service_ships_its_wasm_in_the_native_bundle,
+    all ["macos", "ios", "android", "windows", "linux"],
+    [
+        macos => "macos",
+        ios => "ios",
+        android => "android",
+        windows => "windows",
+        linux => "linux",
+    ]
+);
 
 #[test]
 fn swift_and_kotlin_services_accept_the_service_role_markers() {

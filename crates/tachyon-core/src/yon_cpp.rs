@@ -24,6 +24,7 @@ mod cpp_yon_remote;
 mod cpp_yon_route;
 mod cpp_yon_runtime;
 mod cpp_yon_scope;
+mod cpp_yon_shared;
 mod cpp_yon_socket;
 mod cpp_yon_socket_calls;
 mod cpp_yon_status;
@@ -44,6 +45,9 @@ mod policy_tests;
 #[cfg(test)]
 #[allow(clippy::expect_used)]
 mod role_tests;
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod shared_tests;
 #[cfg(test)]
 #[allow(clippy::expect_used)]
 mod stream_socket_tests;
@@ -80,6 +84,7 @@ use cpp_yon_remote::CppYonRemote;
 use cpp_yon_route::CppYonRoute;
 use cpp_yon_runtime::CppYonRuntime;
 use cpp_yon_scope::CppYonScope;
+pub(crate) use cpp_yon_shared::CppYonShared;
 use cpp_yon_socket::CppYonSocket;
 use cpp_yon_socket_calls::CppYonSocketCalls;
 use cpp_yon_status::CppYonStatus;

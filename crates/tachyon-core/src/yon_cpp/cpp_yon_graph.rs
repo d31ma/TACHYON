@@ -1,5 +1,6 @@
 use super::{
-    CppYonController, CppYonErrors, CppYonGateway, CppYonProvider, CppYonRemote, CppYonStores,
+    CppYonController, CppYonErrors, CppYonGateway, CppYonProvider, CppYonRemote, CppYonShared,
+    CppYonStores,
 };
 use crate::Failure;
 use crate::behavior::GatewayDeclaration;
@@ -12,6 +13,7 @@ use std::path::Path;
 pub(crate) struct CppYonGraph {
     pub(crate) providers: Vec<CppYonProvider>,
     pub(crate) gateways: Vec<GatewayDeclaration>,
+    shared: Vec<CppYonShared>,
 }
 
 impl CppYonGraph {
@@ -49,8 +51,10 @@ impl CppYonGraph {
         let graph = Self {
             providers,
             gateways,
+            shared: CppYonShared::read_all(root)?,
         };
         graph.check_entities()?;
+        CppYonShared::check_providers(&graph.shared, &graph.providers)?;
         graph.check_captures()?;
         graph.check_transient()?;
         Ok(graph)
@@ -74,18 +78,22 @@ impl CppYonGraph {
         let graph = Self {
             providers,
             gateways,
+            shared: CppYonShared::read_all(root)?,
         };
         graph.check_entities()?;
+        CppYonShared::check_providers(&graph.shared, &graph.providers)?;
         graph.check_captures()?;
         graph.check_transient()?;
         Ok(graph)
     }
 
     pub(crate) fn located(&self) -> String {
-        self.providers
+        let providers: String = self
+            .providers
             .iter()
             .map(|provider| provider.lowered.as_str())
-            .collect()
+            .collect();
+        format!("{}{providers}", CppYonShared::located(&self.shared))
     }
 
     fn add_handler_needs(
@@ -142,8 +150,10 @@ impl CppYonGraph {
         let graph = Self {
             providers,
             gateways,
+            shared: CppYonShared::read_all(root)?,
         };
         graph.check_entities()?;
+        CppYonShared::check_providers(&graph.shared, &graph.providers)?;
         Ok(graph)
     }
 

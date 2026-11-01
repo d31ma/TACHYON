@@ -121,3 +121,7 @@ impl CppWasmProgram {
         crate::compiler::hex_digest(Sha256::digest(material))
     }
 }
+
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod tests;

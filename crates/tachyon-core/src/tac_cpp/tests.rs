@@ -1089,3 +1089,27 @@ fn an_http_client_method_carries_only_the_cache_markers() {
     );
     assert!(options.contains("an object of strings"), "{options}");
 }
+
+#[cfg(unix)]
+#[test]
+fn a_symlinked_folder_in_a_cpp_role_folder_is_listed_but_not_followed() {
+    let root = tempfile::tempdir().expect("project");
+    let services = root.path().join("client/services");
+    std::fs::create_dir_all(&services).expect("services");
+    std::fs::write(
+        services.join("TallyService.hpp"),
+        "class [[Service]] TallyService {};\n",
+    )
+    .expect("service");
+    std::os::unix::fs::symlink(&services, services.join("again")).expect("loop link");
+    let files = super::CppFolder::files(root.path(), "client/services").expect("listed");
+    assert_eq!(
+        files,
+        vec![services.join("TallyService.hpp"), services.join("again")]
+    );
+    let failure = super::CppFolder::read(root.path(), &services.join("again"))
+        .expect_err("the folder link is not followed")
+        .to_string();
+    assert!(failure.contains("TY1371"), "{failure}");
+    assert!(failure.contains("symlinked folder"), "{failure}");
+}

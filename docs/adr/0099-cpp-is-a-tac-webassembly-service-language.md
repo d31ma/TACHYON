@@ -1233,3 +1233,58 @@ this decision.
   `yon_cpp.rs a_cpp_stream_route_sends_each_item_and_then_the_end_event` and
   `sockets.rs a_cpp_socket_route_keeps_one_object_for_each_connection`.
 - What C++ still refuses is in "Pending": Lifetime `"application"`.
+
+## Amendment (2026-10-31): C++ classes in `server/shared` and the C++ Yon scaffold
+
+C++ Yon code now reads plain helper classes from `server/shared/`, as the
+other Yon languages do except JavaScript, TypeScript and Go, and `ty init`
+and `ty add` can start a C++ Yon controller. Before this amendment a C++ file
+in `server/shared/` failed with `TY1310` from the shared layout check, and a
+controller could not see its class.
+
+### Shared classes
+
+- A file in `server/shared/` (nested folders too) is one plain class and its
+  `#include` lines, read with the C++ reader (`CppYonShared`). The file may
+  have any name without quotes or control characters. A Tachyon marker on the
+  class, a member or a parameter fails with `TY1310`; a second class fails
+  with `TY1371`, as in the other C++ files. Standard attributes such as
+  `[[nodiscard]]` stay.
+- The shared classes go into the programs that `CppYonGraph` composes: a
+  controller (Tachyon reads workers and middleware as controllers), a test
+  unit and a gateway unit. They come after the server models, the error
+  types, the Setups, the topics and the forward declarations of the
+  providers, and before the providers themselves, so a service, a delegate or
+  a controller may use them, and they may use a model or an error type. The
+  other direction does not work: a model or an error type that uses a shared
+  class fails in the compiler (`TY2004`, naming the authored file), because
+  the shared class comes later.
+- `#pragma once` and project `#include "..."` lines are removed, as in the
+  other C++ files, so `#include "../shared/OrderNames.hpp"` only helps the
+  editor. Shared classes are ordered so that each one comes after the shared
+  classes whose names its code uses (comments and strings do not count); two
+  that use each other fail with `TY1310`, and the message names a class in
+  the circle.
+- A shared class is not a provider: a `[[Needs]]` field cannot name it, so
+  `CppYonGraph::FOLDERS` does not list `server/shared`. A controller calls its
+  static methods or makes its own object. Each of these fails with `TY1310`:
+  two shared classes with one name, a shared class with the name of a
+  provider, and a shared class whose code names a provider.
+- A symlink in `server/shared/`, for a file or a folder, fails with `TY1310`,
+  as the shared folder of the other languages does. Tachyon no longer follows
+  a symlinked folder in any C++ role folder, Tac or Yon, so a link that points
+  back up cannot make the folder walk loop. The folder's files are not read,
+  and reading the link as a class fails with `TY1371`.
+- `src/yon_cpp/shared_tests.rs` and `tests/it/yon_cpp.rs
+  a_cpp_controller_calls_a_server_shared_helper` prove this.
+
+### Scaffold
+
+- `YonLanguage::Cpp` (flag `cpp`, label C++) writes
+  `server/controllers/CppGreetingController.hpp`, its test unit and TestSetup
+  in `server/tests/`, and `server/.clangd`, which turns off the
+  unknown-attribute warning for the Tachyon markers, as `client/.clangd` does
+  for Tac. The controller and its test build with `clang++`.
+- `scaffold/tests.rs a_cpp_yon_scaffold_writes_a_controller_and_its_test`
+  and the `server-cpp` case of the CLI's init wizard tests (`ty test
+  --coverage` and `ty build` on the generated project) prove it.

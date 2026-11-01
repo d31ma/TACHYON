@@ -8,6 +8,9 @@ impl ServerFiles {
 # YON_DATASOURCE_PASSWORD=replace-me\n";
     const SERVER_HOST: &'static str = "  \"server\": {\n    \"host\": \"127.0.0.1\",\n";
     const SERVER_PORT: &'static str = "    \"port\": 8080\n  }";
+    const CLANGD_PATH: &'static str = "server/.clangd";
+    const CLANGD: &'static str =
+        "CompileFlags:\n  Add: [-xc++, -std=c++20, -Wno-unknown-attributes]\n";
     const DATASOURCE: &'static str = ",\n  \"datasource\": {\n    \"driver\": \"sqlite\",\n    \"url\": \"sqlite::memory:\"\n  }";
 
     pub(crate) fn for_choices(choices: &ProjectChoices) -> Vec<(String, String)> {
@@ -28,6 +31,7 @@ impl ServerFiles {
     pub(crate) fn language_files(language: YonLanguage) -> Vec<(String, String)> {
         let mut files = language.files();
         files.extend(Self::javascript_files(language));
+        files.extend(Self::cpp_files(language));
         files
     }
 
@@ -87,6 +91,13 @@ impl ServerFiles {
             return Vec::new();
         }
         Self::home_files()
+    }
+
+    fn cpp_files(language: YonLanguage) -> Vec<(String, String)> {
+        if language != YonLanguage::Cpp {
+            return Vec::new();
+        }
+        vec![(String::from(Self::CLANGD_PATH), String::from(Self::CLANGD))]
     }
 
     fn home_files() -> Vec<(String, String)> {

@@ -514,6 +514,42 @@ fn a_cpp_scaffold_quiets_the_editor_about_tachyon_attributes() {
 }
 
 #[test]
+fn a_cpp_yon_scaffold_writes_a_controller_and_its_test() {
+    let server =
+        ProjectChoices::from_answers(&answers(Some("server"), None, Some("cpp"))).expect("server");
+    assert_eq!(server.yon, vec![YonLanguage::Cpp]);
+    let (_root, app) = generated(&server);
+    assert!(
+        app.join("server/controllers/CppGreetingController.hpp")
+            .is_file()
+    );
+    assert!(app.join("server/tests/CppGreetingTestSetup.hpp").is_file());
+    let clangd = fs::read_to_string(app.join("server/.clangd")).expect("clangd");
+    assert!(clangd.contains("-Wno-unknown-attributes"), "{clangd}");
+    let unit = Path::new("server/tests/CppGreetingControllerTest.hpp");
+    let source = fs::read_to_string(app.join(unit)).expect("test unit");
+    let lowered =
+        crate::yon_cpp::CppYon::lower(unit, &source, &app).expect("the generated test composes");
+    assert!(
+        lowered.source.contains("CppGreetingController {"),
+        "{}",
+        lowered.source
+    );
+}
+
+#[test]
+fn adding_cpp_to_a_server_writes_its_controller_and_editor_settings() {
+    let (_root, app) = generated(&ProjectChoices::defaults());
+    let added = ProjectAddition::language(&app, RealmChoice::Server, "cpp").expect("C++");
+    assert!(added.choices.yon.contains(&YonLanguage::Cpp));
+    assert!(
+        app.join("server/controllers/CppGreetingController.hpp")
+            .is_file()
+    );
+    assert!(app.join("server/.clangd").is_file());
+}
+
+#[test]
 fn swift_scaffold_keeps_foundation_and_component_styles_separate() {
     ClientStyleFixture::language(TacLanguage::Swift);
 }

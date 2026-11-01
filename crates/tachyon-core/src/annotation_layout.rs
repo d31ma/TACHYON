@@ -482,7 +482,11 @@ impl<'a> Input<'a> {
         ImportBoundary::check(path, source)?;
         UtilityLayout::check(path, source)?;
         if path.starts_with("server/shared") {
-            single_class::SharedClass::validate(path, source)?;
+            crate::yon_cpp::CppYonShared::either(
+                path,
+                source,
+                single_class::SharedClass::validate,
+            )?;
         }
         typed_members::TypedMembers::check(path, source)?;
         check_topics(path, source)?;

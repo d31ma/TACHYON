@@ -1,0 +1,10 @@
+#pragma once
+#include <string>
+
+class [[RequestRoute("/api/cpp")]] [[Public]] CppGreetingController {
+public:
+    [[GetRoute]]
+    std::string getGreeting() {
+        return "Hello from C++";
+    }
+};

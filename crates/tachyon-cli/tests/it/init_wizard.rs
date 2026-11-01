@@ -10,6 +10,8 @@ struct WizardCase {
     flags: &'static [&'static str],
     programs: &'static [&'static str],
     typescript_client: bool,
+    proof: Option<&'static str>,
+    required_in_ci: bool,
 }
 
 impl WizardCase {
@@ -20,12 +22,14 @@ impl WizardCase {
             .unwrap_or_else(|| panic!("no wizard case is named {name}"))
     }
 
-    const MATRIX: [Self; 7] = [
+    const MATRIX: [Self; 8] = [
         Self {
             name: "defaults",
             flags: &[],
             programs: &["bun"],
             typescript_client: false,
+            proof: None,
+            required_in_ci: false,
         },
         Self {
             name: "client-typescript-dart-rust",
@@ -39,18 +43,32 @@ impl WizardCase {
             ],
             programs: &["bun", "dart", "rustc"],
             typescript_client: true,
+            proof: None,
+            required_in_ci: false,
         },
         Self {
             name: "server-python-go-java-kotlin",
             flags: &["--realm", "server", "--yon", "py,go,java,kt"],
             programs: &["python3", "go", "javac", "kotlinc"],
             typescript_client: false,
+            proof: None,
+            required_in_ci: false,
+        },
+        Self {
+            name: "server-cpp",
+            flags: &["--realm", "server", "--yon", "cpp"],
+            programs: &["clang++"],
+            typescript_client: false,
+            proof: Some("  ok  CppGreetingControllerTest.testGetGreetingSaysHello"),
+            required_in_ci: true,
         },
         Self {
             name: "both-csharp-go-ruby-php-rust-dart",
             flags: &["--tac", "cs,go,rb", "--yon", "cs,php,rb,rs,dart"],
             programs: &["dotnet", "go", "ruby", "emcc", "php-cgi", "cargo", "dart"],
             typescript_client: false,
+            proof: None,
+            required_in_ci: false,
         },
         Self {
             name: "native-swift-kotlin",
@@ -64,6 +82,8 @@ impl WizardCase {
             ],
             programs: &["bun", "swiftc", "kotlinc"],
             typescript_client: false,
+            proof: None,
+            required_in_ci: false,
         },
         Self {
             name: "javascript-features",
@@ -73,6 +93,8 @@ impl WizardCase {
             ],
             programs: &["bun"],
             typescript_client: false,
+            proof: None,
+            required_in_ci: false,
         },
         Self {
             name: "typescript-features",
@@ -86,6 +108,8 @@ impl WizardCase {
             ],
             programs: &["bun"],
             typescript_client: true,
+            proof: None,
+            required_in_ci: false,
         },
     ];
 
@@ -160,6 +184,11 @@ fn generated_combination_passes_its_tests_with_coverage_and_builds(name: &str) {
     let workspace = tempfile::tempdir().expect("workspace");
     let case = WizardCase::named(name);
     if let Some(program) = case.missing_program() {
+        assert!(
+            !case.required_in_ci || std::env::var_os("CI").is_none(),
+            "{}: {program} is installed in CI, so this case must run there instead of skipping",
+            case.name
+        );
         eprintln!("skipping {}: {program} is unavailable", case.name);
         return;
     }
@@ -179,6 +208,11 @@ fn generated_combination_passes_its_tests_with_coverage_and_builds(name: &str) {
     let report = text(&tested);
     assert!(tested.status.success(), "{}: {report}", case.name);
     assert!(report.contains(" 0 failed."), "{}: {report}", case.name);
+    assert!(
+        case.proof.is_none_or(|line| report.contains(line)),
+        "{}: {report}",
+        case.name
+    );
     let built = run(ty().arg("build").arg(&project));
     assert!(built.status.success(), "{}: {}", case.name, text(&built));
 }
@@ -191,6 +225,7 @@ one_test_per_case!(
         defaults => "defaults",
         client_typescript_dart_rust => "client-typescript-dart-rust",
         server_python_go_java_kotlin => "server-python-go-java-kotlin",
+        server_cpp => "server-cpp",
         both_csharp_go_ruby_php_rust_dart => "both-csharp-go-ruby-php-rust-dart",
         native_swift_kotlin => "native-swift-kotlin",
         javascript_features => "javascript-features",
@@ -325,6 +360,8 @@ fn a_java_page_service_passes_its_tests_with_coverage_and_builds_with_teavm() {
         flags: &["--realm", "client", "--tac", "java"],
         programs: &["javac"],
         typescript_client: false,
+        proof: None,
+        required_in_ci: false,
     };
     let project = initialized(workspace.path(), &case);
     assert!(

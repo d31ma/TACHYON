@@ -187,6 +187,68 @@ async fn a_cpp_controller_answers_typed_routes_through_clang() {
     running.await.expect("server task").expect("server");
 }
 
+#[tokio::test]
+async fn a_cpp_controller_calls_a_server_shared_helper() {
+    let found =
+        crate::support::toolchain::Toolchain::checked("clang++", CppProject::compiler_available());
+    if !found {
+        eprintln!("skipping: clang++ is not installed");
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    CppProject::write(
+        root.path(),
+        "server/shared/OrderNames.hpp",
+        "#pragma once\n#include <string>\n\nclass OrderNames {\npublic:\n    static std::string label(const std::string& item) { return \"order:\" + item; }\n};\n",
+    );
+    CppProject::write(
+        root.path(),
+        "server/controllers/LabelController.hpp",
+        "#pragma once\n#include <string>\n#include \"../shared/OrderNames.hpp\"\n\nclass [[RequestRoute(\"/labels\")]] [[Public]] LabelController {\npublic:\n    [[GetRoute(\"/{item}\")]]\n    std::string getLabel([[FromPath]] std::string item) { return OrderNames::label(item); }\n};\n",
+    );
+    let project = ProjectDiscovery::discover(root.path()).expect("discovery");
+    let server = DevServer::bind_project(
+        &project,
+        &DevServerOptions {
+            port: 0,
+            watch: false,
+            ..DevServerOptions::default()
+        },
+    )
+    .await
+    .expect("bind");
+    let port = server.address().port();
+    let (stop, stopped) = tokio::sync::oneshot::channel::<()>();
+    let running = tokio::spawn(server.run_until(async {
+        let _ = stopped.await;
+    }));
+
+    let labelled = Exchange::without_body(port, "GET", "/labels/tea").await;
+    assert!(labelled.starts_with("HTTP/1.1 200"), "{labelled}");
+    assert_eq!(Exchange::body(&labelled), serde_json::json!("order:tea"));
+
+    let _ = stop.send(());
+    running.await.expect("server task").expect("server");
+}
+
+#[test]
+fn a_marked_cpp_class_in_server_shared_is_refused_with_ty1310() {
+    let root = CppProject::with_controller(CppProject::CONTROLLER);
+    CppProject::write(
+        root.path(),
+        "server/shared/OrderNames.hpp",
+        "#pragma once\n\nclass [[Service]] OrderNames {};\n",
+    );
+    let failure = ProjectDiscovery::discover(root.path())
+        .expect_err("a marked shared class is refused")
+        .to_string();
+    assert!(failure.contains("TY1310"), "{failure}");
+    assert!(
+        failure.contains("server/shared/OrderNames.hpp"),
+        "{failure}"
+    );
+}
+
 #[test]
 fn a_browser_only_cpp_marker_is_refused_by_name() {
     let controller = CppProject::CONTROLLER.replace(

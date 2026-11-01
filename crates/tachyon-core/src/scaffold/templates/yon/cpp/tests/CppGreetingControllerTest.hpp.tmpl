@@ -1,0 +1,10 @@
+#pragma once
+#include <string>
+#include "../controllers/CppGreetingController.hpp"
+
+class [[Test(CppGreetingTestSetup, {"partition":"tests"})]] CppGreetingControllerTest {
+public:
+    void testGetGreetingSaysHello() {
+        Assert::equals(std::string("Hello from C++"), CppGreetingController().getGreeting());
+    }
+};
