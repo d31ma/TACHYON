@@ -230,9 +230,11 @@ public static class TachyonProbeNative
         GetWindowRect(window, out outer);
         GetClientRect(window, out client);
         uint dpi = GetDpiForWindow(window);
+        // A page sizes its window in device-independent pixels (the high-dpi gate proves resize() is DIP), so the
+        // client it asks for is width x height scaled to the window's DPI.
         Rect expected = new Rect();
-        expected.Right = width;
-        expected.Bottom = height;
+        expected.Right = (int)Math.Round(width * dpi / 96.0);
+        expected.Bottom = (int)Math.Round(height * dpi / 96.0);
         AdjustWindowRectExForDpi(ref expected, (uint)GetWindowLong(window, -16), false, 0, dpi);
         return new int[] {
             outer.Right - outer.Left, outer.Bottom - outer.Top,
@@ -925,12 +927,12 @@ function Wait-Size($size) {
         Assert-AppRunning
         $measured = [TachyonProbeNative]::Size($script:handle, $width, $height)
         if ([Math]::Abs($measured[0] - $measured[4]) -le 2 -and [Math]::Abs($measured[1] - $measured[5]) -le 2) {
-            Write-Line "OK: window ${width}x${height} (frame $($measured[0])x$($measured[1]), client $($measured[2])x$($measured[3]) under the menu bar, $($measured[6]) dpi)"
+            Write-Line "OK: window ${width}x${height} DIP (frame $($measured[0])x$($measured[1]), client $($measured[2])x$($measured[3]) under the menu bar, $($measured[6]) dpi)"
             return
         }
         Wait-Briefly 200
     } while ([DateTime]::UtcNow -lt $deadline)
-    throw "The window frame is $($measured[0])x$($measured[1]) (client $($measured[2])x$($measured[3])), not $($measured[4])x$($measured[5]), the frame around a ${width}x${height} client at $($measured[6]) dpi"
+    throw "The window frame is $($measured[0])x$($measured[1]) (client $($measured[2])x$($measured[3])), not $($measured[4])x$($measured[5]), the frame around a ${width}x${height} DIP client at $($measured[6]) dpi"
 }
 
 function Show-OtherWindow([string] $title) {
