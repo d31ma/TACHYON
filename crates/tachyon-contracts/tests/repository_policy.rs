@@ -361,6 +361,60 @@ fn the_only_token_minting_job_refuses_pull_requests_from_forks()
     Ok(())
 }
 
+/// The TypeScript facade tests in `tachyon-core` fail instead of skipping when `CI` is set and tsc is
+/// missing. Every job that runs those tests must install the pinned compiler first.
+#[test]
+fn every_job_testing_tachyon_core_installs_typescript_first()
+-> Result<(), Box<dyn std::error::Error>> {
+    let workflow = parsed_workflow("rust-ci.yml")?;
+    let jobs = workflow["jobs"].as_hash().ok_or("rust-ci.yml has jobs")?;
+    let mut checked = 0;
+    for (name, job) in jobs {
+        let runs = step_commands(job);
+        let Some(first_test) = runs.iter().position(|run| tests_tachyon_core(run)) else {
+            continue;
+        };
+        checked += 1;
+        assert!(
+            runs[..first_test]
+                .iter()
+                .any(|run| installs_typescript(run)),
+            "job {name:?} tests tachyon-core before it installs the pinned TypeScript compiler"
+        );
+    }
+    assert!(
+        checked >= 4,
+        "the native, macos-native, sanitizers and coverage jobs test tachyon-core"
+    );
+    Ok(())
+}
+
+fn step_commands(job: &Yaml) -> Vec<&str> {
+    job["steps"]
+        .as_vec()
+        .map(|steps| {
+            steps
+                .iter()
+                .filter_map(|step| step["run"].as_str())
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn tests_tachyon_core(run: &str) -> bool {
+    // `cargo +nightly-... test` puts the toolchain between `cargo` and `test`.
+    let tests = [" test ", "nextest", "llvm-cov"]
+        .iter()
+        .any(|command| run.contains(command));
+    let covers_core = run.contains("-p tachyon-core") || run.contains("--workspace");
+    run.contains("cargo") && tests && covers_core
+}
+
+fn installs_typescript(run: &str) -> bool {
+    run.contains("npm install --no-save typescript@")
+        || run.contains("bun install --frozen-lockfile")
+}
+
 fn parsed_workflow(name: &str) -> Result<Yaml, Box<dyn std::error::Error>> {
     let contents = fs::read_to_string(repository_root().join(".github/workflows").join(name))?;
     let mut documents = YamlLoader::load_from_str(&contents)

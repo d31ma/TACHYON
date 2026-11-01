@@ -1264,6 +1264,13 @@ jobs:
         with:
           bun-version: 1.4.3
 
+      # The library suite includes the TypeScript facade tests, which fail instead of skipping under CI.
+      - name: Install the pinned TypeScript compiler for tac.ts emission
+        shell: bash
+        run: |
+          npm install --no-save typescript@7.0.2 && npx tsc --version
+          echo "${GITHUB_WORKSPACE}/node_modules/.bin" >> "${GITHUB_PATH}"
+
       - name: Install Ruby for Ruby Yon handlers and client test units
         uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1.327.0
         with:
