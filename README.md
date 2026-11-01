@@ -634,16 +634,27 @@ subscription and retry with bounded backoff.
 
 When a handler or middleware invocation fails, the response has a bounded
 public message and an `x-tachyon-request-id` header. The server writes a
-redacted, structured failure event with the same request ID. The ID sorts by
-time. Operators can use it to match a failure that the client sees, without
+redacted, structured failure event with the same request ID. The event also
+names the `route` and the `handler` file. The ID sorts by time. Operators can use it to match a failure that the client sees, without
 exposing child stderr or internal diagnostics over HTTP. A `TY2112` event adds
 only the logical `runtime_family` and `failure_kind: "not_found"`. It does not
 include the executable path, the operating-system error, environment values,
 source, request body, or child output.
 
-<!-- TODO(FU-05): add the route and handler fields, the 504/503 status codes, the
-stderr truncation, the access log and the WebSocket write timeout from the merged
-code once fix/fu05-server-lifecycle merges. -->
+A handler that runs past its deadline (`TY2110`) answers
+`504 Gateway Timeout`. A handler that is cancelled because the server is
+stopping (`TY2111`) answers `503 Service Unavailable` with `Retry-After: 1`.
+Other failures answer `500`.
+
+A handler may write any amount of standard error. Past 64 KiB in one call,
+Tachyon keeps the first 48 KiB and the last 16 KiB and drops the middle; the
+call still succeeds. `TAC_HANDLER_STDERR=1` writes that output to `ty`'s
+standard error, and `TAC_ACCESS_LOG=1` writes one line per request (see
+[Environment settings](#environment-settings)).
+
+A socket closes with code 1013 when the browser does not read a message
+within 10 seconds, or when the socket handler does not take one within 10
+seconds.
 
 OpenAPI generation and built-in telemetry from the legacy implementation are
 deliberately out of scope.
@@ -794,12 +805,23 @@ the application is ready. Before you send traffic, wait for the command's
 readiness line on standard output. For a deployed service, also wait for a
 successful health probe.
 
-<!-- TODO(FU-05): describe the drain (stop accepting, the grace period, 503 with
-Retry-After, then the 3 s stop) from the merged code once fix/fu05-server-lifecycle
-merges. -->
 The first supported signal emits `runtime.shutdown_requested` and requests a
-graceful shutdown. The development server puts limits on the internal tasks it
-owns. However, preview may wait for connections to drain cooperatively, and
+graceful shutdown.
+
+`serve`, `start` and the development server of `preview` drain:
+
+- They stop accepting connections at once. They close hot-update, topic and
+  handler streams and WebSockets (close code 1001).
+- Requests that are already running get 10 seconds to finish
+  (`TAC_SHUTDOWN_GRACE_SECONDS`, 0 to 300). A worker run or a topic delivery
+  already in progress also gets that time; no new ones start.
+- Requests still running after that are cancelled, and answer `503` with
+  `Retry-After: 1`.
+- Workers, the watcher and handler processes then get at most 3 more seconds.
+
+Give the process at least the grace period plus 4 seconds before you force
+it to stop, for example with Kubernetes' `terminationGracePeriodSeconds`.
+`preview --static` may wait for connections to drain cooperatively, and
 `bundle --watch` may finish its synchronous fingerprint pass or its current
 bounded build. Supervisors should enforce their own grace period. A second
 signal during graceful shutdown emits `runtime.shutdown_forced` and exits
@@ -851,6 +873,9 @@ These variables change how `ty` builds and runs a project.
 | --- | --- |
 | `TAC_HANDLER_COMPILE_SECONDS` | How long one Yon handler compile may run. Default 60, at most 900. `0` or a value that is not a whole number keeps the default. |
 | `TAC_BUILD_JOBS` | How many WebAssembly toolchains run at once. Default a third of the CPU cores, from 1 to 4. |
+| `TAC_SHUTDOWN_GRACE_SECONDS` | How long `serve`, `start` and `preview` let running requests finish after a shutdown signal. Default 10, at most 300. `0` cancels them at once, and a value that is not a whole number keeps the default. |
+| `TAC_ACCESS_LOG` | `1` or `true` writes one `{"event":"http.access","method","path","status","duration_ms","request_id"}` JSON line to standard error per request. The path has no query string. Off by default. |
+| `TAC_HANDLER_STDERR` | `1` or `true` writes each handler call's standard error to `ty`'s standard error as `{"event":"handler.stderr","request_id","stderr","truncated"}`. It covers request, middleware, identity and worker calls, including calls that fail; streaming and socket handlers are not covered yet. The event holds the handler's own output, so turn it on only where that output may be logged. Off by default. |
 | `TAC_ALLOW_UNTESTED` | `1` lets `ty preview` start while a public method has no test. |
 | `TAC_CACHE_DIR` | The installation and runtime cache that `ty cache` manages. |
 | `TAC_DIST_PATH` | The output root instead of `dist/`. |
@@ -863,9 +888,6 @@ These variables change how `ty` builds and runs a project.
 | `YON_EGRESS_ENFORCEMENT` | `os` (the default): the operating system confines handler network access, and `ty start` refuses with `TY2113` where it cannot. `proxy`: only the outgoing request guard, for a platform that limits egress itself. Set it in the environment of `ty`; no project file can set it, and handlers never receive it. Any other value fails with `TY2113`. See [Security boundary](#security-boundary). |
 
 `ty doctor` names the tools that a project still needs.
-
-<!-- TODO(FU-05): add the rows for TAC_SHUTDOWN_GRACE_SECONDS, TAC_ACCESS_LOG and
-TAC_HANDLER_STDERR from the merged code once fix/fu05-server-lifecycle merges. -->
 
 When the manifest sets `tac.origin`, the build writes `sitemap.xml` and
 `robots.txt` itself. The sitemap lists every page route without a path
