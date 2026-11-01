@@ -194,3 +194,24 @@ async fn an_fsharp_service_shares_the_fsharp_service_it_needs_with_the_page() {
     FsharpNeedsFixtures::publish(root.path()).await;
     FsharpNeedsFixtures::assert_shared(root.path());
 }
+
+#[test]
+fn a_fsharp_needs_all_file_picker_field_is_refused_with_ty1407() {
+    let failure = crate::file_picker_page_tests::FilePickerPage::refusal((
+        "client/services/PickerService.fs",
+        "[<Service>]\n[<NeedsAll>]\ntype PickerService(filePicker: FilePicker) =\n    member this.Title : string = \"Files\"\n",
+    ));
+    let diagnostic = &failure.diagnostics()[0];
+    assert_eq!(diagnostic.code.number(), 1407, "{failure}");
+    assert!(
+        diagnostic
+            .message
+            .starts_with("PickerService needs `filePicker`; pass :filePicker="),
+        "{failure}"
+    );
+    assert_eq!(
+        diagnostic.spans[0].file, "client/pages/tac.html",
+        "{failure}"
+    );
+    assert_eq!(diagnostic.spans[0].start, 0, "{failure}");
+}

@@ -460,3 +460,24 @@ async fn a_dart_web_service_runs_its_ordered_listeners_in_order() {
     );
     assert_eq!(report["failures"], 0, "{report}");
 }
+
+#[test]
+fn a_dart_needs_all_file_picker_field_is_refused_with_ty1407() {
+    let failure = crate::file_picker_page_tests::FilePickerPage::refusal((
+        "client/services/PickerService.dart",
+        "@Service()\n@NeedsAll()\nclass PickerService {\n  final FilePicker filePicker;\n  String title = 'Files';\n}\n",
+    ));
+    let diagnostic = &failure.diagnostics()[0];
+    assert_eq!(diagnostic.code.number(), 1407, "{failure}");
+    assert!(
+        diagnostic
+            .message
+            .starts_with("PickerService needs `filePicker`; pass :filePicker="),
+        "{failure}"
+    );
+    assert_eq!(
+        diagnostic.spans[0].file, "client/pages/tac.html",
+        "{failure}"
+    );
+    assert_eq!(diagnostic.spans[0].start, 0, "{failure}");
+}

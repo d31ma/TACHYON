@@ -17,6 +17,8 @@ pub mod doctor;
 mod events;
 mod external_command;
 mod failure;
+#[cfg(test)]
+mod file_picker_page_tests;
 mod fsharp_source;
 #[cfg(feature = "fuzzing")]
 pub mod fuzzing;
