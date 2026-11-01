@@ -451,6 +451,16 @@ automatically. So the `setCount(7)` example needs a native member table that
 you write explicitly and that accepts that argument. Until typed parameter
 discovery exists, use a field assignment or an explicit table.
 
+## Pages compose components
+
+A page's `tac.html` holds component tags only, and a page has no companion
+files: markup, a `tac.css` or a `tac.js` beside a page fails with `TY1309`.
+`ty migrate fix --write` moves a 26.36.01 page's markup into
+`client/components/page/<name>/`, its global style rules into
+`client/shared/styles/<name>-page.css`, and, in an app with one page, its
+script into `client/shared/scripts/<name>-page.js`. See
+[Upgrading a 26.36.01 app](../README.md#upgrading-a-263601-app).
+
 ## Acceptance against the installed or published binary
 
 ```sh

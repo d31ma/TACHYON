@@ -351,6 +351,12 @@ levels and 64 KiB.
 ### Which secrets are allowed
 
 - `.env` accepts only YON_ secret names. Tachyon rejects TAC_ secrets.
+- `ty start` stops with `TY2010` on a name in `.env` that is not a `YON_`
+  name, or on a `YON_` name that sets the framework's transport, profile,
+  endpoint, runtime or isolation, such as `YON_PORT`, `YON_HOST` or
+  `YON_SKIP_BUNDLE`. `ty migrate check` lists each one
+  (`environment.env_name`) with the name or setting to use instead, and
+  `ty migrate fix --write` renames them in `.env.example` only.
 - Treat everything that goes to a browser or a native client as public.
 - Application JSON rejects recognized credential keys and URLs that contain
   credentials. The recognized keys are: password, passwd, secret/secrets,

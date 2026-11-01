@@ -121,8 +121,10 @@ together with the older `ty`. See
 [Architecture and contribution](#architecture-and-contribution) for the
 rest of a coordinated restore.
 
-<!-- TODO(FU-09): align with the rollback drill in docs/RELEASE_ENGINEERING.md
-once fix/fu09-rollback-drill merges (the drill's steps and its last result). -->
+Before each release, the
+[lifecycle drill](docs/RELEASE_ENGINEERING.md#lifecycle-drill) installs the
+previous release, upgrades and migrates a sample app, and rolls back to the
+previous release this way.
 
 ### Build from source
 
@@ -1048,6 +1050,40 @@ every value moved and the file did not change after planning. From
 and never deletes it: computed values, `postBundle` and the file itself are
 manual steps with the exact place each value goes. A value that differs from
 one the manifest already has is a manual step, never an overwrite.
+
+### Upgrading a 26.36.01 app
+
+`ty migrate fix --write` upgrades the app that 26.36.01's `ty init` made, with
+no manual edits:
+
+- A route file whose one class is marked `@Controller`, with static `GET`,
+  `POST`, `PUT`, `PATCH` or `DELETE` methods, becomes a controller in
+  `server/controllers/`. For example, `server/routes/yon.js` becomes
+  `HomeController.js` for `/`. The controller is marked `@RequestRoute` and
+  `@Public`, and the verbs become `@GetRoute` and similar instance methods.
+- Plain markup in a page moves to `client/components/page/<name>/tac.html`,
+  and the page places `<page-<name> />`. The root page uses `page/home`.
+- A page's `tac.css` is split. The rules that the global foundation
+  stylesheet accepts, such as `body` colours, fonts and resets, go to
+  `client/shared/styles/<name>-page.css`, which is listed in `tac.styles`. The
+  other rules become the component's `tac.css`.
+- A page's `tac.js` moves to `client/shared/scripts/<name>-page.js`, which is
+  listed in `tac.scripts`. This happens only when the app has one page,
+  because `tac.scripts` runs on every page.
+- If `client/manifest.json` does not exist, the fix creates it. If it exists,
+  the fix leaves it alone and adds a manual step that names the entries to
+  add.
+- In `.env.example`, a name that `.env` cannot set (`YON_PORT`, `YON_HOST`,
+  `YON_HOSTNAME`, `YON_SKIP_BUNDLE` and others) is commented out, with a note
+  that says where the setting goes now. Another refused name gets a `YON_`
+  name, for example `DATABASE_URL` becomes `YON_DATABASE_URL`. Values never
+  change.
+- `.env` is never written. `ty migrate check` lists each name in it that
+  `ty start` refuses (`environment.env_name`, `TY2010`), with its replacement.
+  Rename those yourself and keep the values.
+
+`ty migrate check` also reports page markup that `ty bundle` refuses
+(`view.page_markup`, `TY1309`).
 
 ## Verification
 
