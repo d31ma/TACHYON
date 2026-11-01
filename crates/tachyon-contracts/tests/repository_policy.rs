@@ -637,6 +637,21 @@ fn release_signatures_and_downloads_use_the_current_repository_name()
     Ok(())
 }
 
+/// The published snippets include the Redis configuration example, and the storage drivers sit behind
+/// features. The macOS job that executes the snippets must build `ty` with every driver, as the release does.
+#[test]
+fn the_snippet_job_builds_ty_with_every_storage_driver() -> Result<(), Box<dyn std::error::Error>> {
+    let root = repository_root();
+    let workflow = fs::read_to_string(root.join(".github/workflows/rust-ci.yml"))?;
+    let release_build = fs::read_to_string(root.join("scripts/release/build-artifact.sh"))?;
+
+    assert!(workflow.contains("run: cargo build --locked --bin ty --features storage-all"));
+    assert!(workflow.contains("run: node website/scripts/verify-snippets.mjs"));
+    assert!(workflow.contains("TAC_BIN: ${{ github.workspace }}/target/debug/ty"));
+    assert!(release_build.contains("--bin ty --features storage-all"));
+    Ok(())
+}
+
 #[test]
 fn foundation_document_links_resolve_locally() -> Result<(), Box<dyn std::error::Error>> {
     let root = repository_root();

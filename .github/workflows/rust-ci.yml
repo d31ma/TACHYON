@@ -850,8 +850,10 @@ jobs:
           JARS
           echo "TAC_TEAVM_HOME=${teavm}" >> "${GITHUB_ENV}"
 
-      - name: Build the Phase 4 CLI
-        run: cargo build --locked --bin ty
+      # The published snippets include the Redis configuration example, so this job's `ty` needs the storage
+      # drivers that the released binary has (scripts/release/build-artifact.sh).
+      - name: Build the Phase 4 CLI with every storage driver
+        run: cargo build --locked --bin ty --features storage-all
 
       - name: Verify every website compiler is ready
         run: ./target/debug/ty doctor website
