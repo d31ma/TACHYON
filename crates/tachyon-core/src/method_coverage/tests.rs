@@ -354,6 +354,19 @@ fn a_test_build_records_each_public_method_as_it_starts() {
 }
 
 #[test]
+fn a_typed_typescript_method_on_one_line_records_its_call() {
+    let output = hooked(
+        "server/services/CounterService.ts",
+        "@Service\nclass CounterService {\n  total(): number { return 2; }\n}\n",
+    );
+    assert!(
+        output
+            .contains("total(): number { Behaviors.called(\"CounterService.total\"); return 2; }"),
+        "{output}"
+    );
+}
+
+#[test]
 fn a_utility_records_its_static_methods() {
     let output = hooked(
         "client/shared/utils/PriceUtils.js",

@@ -554,7 +554,7 @@ impl NamedMethod {
             setup: "@TestSetup\nclass CounterTestSetup {\n    static Behaviors.Configuration configure(Behaviors.Execution execution) {\n        return new Behaviors.Configuration(java.util.Map.of(), java.util.Map.of(), java.util.Map.of(), null);\n    }\n}\n",
             unit: "@Test(CounterTestSetup.class, {\"partition\":\"tests\"})\nclass CounterServiceTest {\n    void testCounts() {\n        Assert.isTrue(CHECK, \"counted\");\n    }\n}\n",
             named: "!\"CounterService.total\".isEmpty()",
-            called: "construct(CounterService.class).total() == 2",
+            called: "new CounterService().total() == 2",
         },
         NamedMethod {
             realm: "client",

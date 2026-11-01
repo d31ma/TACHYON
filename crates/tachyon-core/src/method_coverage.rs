@@ -215,7 +215,7 @@ fn braced_method_name(language: &str, line: &str) -> Option<String> {
     let rest = line[close + 1..].trim_start();
     let rest = without_async_modifier(rest).trim_start();
     let has_typescript_return_type =
-        language == "ts" && rest.starts_with(':') && line.trim_end().ends_with('{');
+        language == "ts" && rest.starts_with(':') && rest.contains('{');
     let is_arrow = PublicMethods::ARROW_LANGUAGES.contains(&language) && rest.starts_with("=>");
     let opens_body = rest.starts_with('{') || has_typescript_return_type || is_arrow;
     if !opens_body {
