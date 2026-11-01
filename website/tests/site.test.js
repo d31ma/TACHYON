@@ -718,6 +718,23 @@ describe('house style', () => {
     expect(css).toContain(':root[w-theme="dark"],\n:root[w-theme="light"],\n:root[w-theme="auto"] {\n--page-background: var(--w-surface);')
   })
 
+  test('a guide page starts loading the guide text before its services start', async () => {
+    const source = await read('client/shared/scripts/DocsDataPreload.js')
+    const preload = new Function('location', `${source}\nreturn DocsDataPreload`)({ pathname: '/' })
+    expect(source).toContain("import(DocsDataPreload._DATA, { with: { type: 'json' } })")
+    expect(preload._DATA).toBe('/shared/data/docs.json')
+    expect(await read('client/services/TopicService.ts')).toContain("import documents from '/shared/data/docs.json' with { type: 'json' }")
+    expect(preload.onGuidePage('/docs/pages')).toBe(true)
+    expect(preload.onGuidePage('/docs/install/')).toBe(true)
+    expect(preload.onGuidePage('/')).toBe(false)
+    expect(preload.onGuidePage('/docs')).toBe(false)
+    expect(preload.onGuidePage('/docs/features')).toBe(false)
+    expect(preload.onGuidePage('/docs/features/iteration')).toBe(false)
+
+    const manifest = await readJson('client/manifest.json')
+    expect(manifest.tac.scripts).toContain('/shared/scripts/DocsDataPreload.js')
+  })
+
   test('the auto theme follows the system with the full brand palette', async () => {
     const css = await read('client/shared/styles/site.css')
     const block = (/** @type {string} */ selector) => css.split(`${selector} {\n`)[1].split('\n}')[0]

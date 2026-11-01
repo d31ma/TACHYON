@@ -52,7 +52,8 @@
     ],
     "scripts": [
       "/shared/assets/duvay/duvay-wc-site.min.js",
-      "/shared/assets/duvay/duvay.min.js"
+      "/shared/assets/duvay/duvay.min.js",
+      "/shared/scripts/DocsDataPreload.js"
     ],
     "styles": [
       "/shared/styles/site.css"
