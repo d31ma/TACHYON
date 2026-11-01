@@ -550,7 +550,7 @@ Path and name rules:
 These nine alternatives use the same `server/application.json`. Each source
 file owns one class and its imports. The empty `yon.<ext>` file marks the
 route; its controller owns `GET`. The compiler composes the same-language
-behavior-annotated files in `server/delegates/` without making them injectable.
+behavior-annotated files in `server/models/` without making them injectable.
 
 Each endpoint returns only selected non-secret values, never the private
 snapshot. `Setting` returns validated data; assigning that data to an instance
@@ -574,7 +574,7 @@ is an explicit step.
 
 ### JavaScript
 
-#### `server/delegates/CatalogSettings.js`
+#### `server/models/CatalogSettings.js`
 
 ```js
 @Settings({"prefix":"YON_CATALOG_"})
@@ -585,7 +585,7 @@ class CatalogSettings {
 }
 ```
 
-#### `server/delegates/Endpoint.js`
+#### `server/models/Endpoint.js`
 
 ```js
 class Endpoint {
@@ -614,7 +614,7 @@ class ConfigurationController {
 
 ### TypeScript
 
-#### `server/delegates/CatalogSettings.ts`
+#### `server/models/CatalogSettings.ts`
 
 ```ts
 @Settings({"prefix":"YON_CATALOG_"})
@@ -625,7 +625,7 @@ class CatalogSettings {
 }
 ```
 
-#### `server/delegates/Endpoint.ts`
+#### `server/models/Endpoint.ts`
 
 ```ts
 class Endpoint {
@@ -654,7 +654,7 @@ class ConfigurationController {
 
 ### Python
 
-#### `server/delegates/CatalogSettings.py`
+#### `server/models/CatalogSettings.py`
 
 ```py
 from typing import Annotated
@@ -666,7 +666,7 @@ class CatalogSettings:
     pageSize: Annotated[int, min(1), max(100)] = 20
 ```
 
-#### `server/delegates/Endpoint.py`
+#### `server/models/Endpoint.py`
 
 ```py
 from typing import Annotated
@@ -697,7 +697,7 @@ class ConfigurationController:
 
 ### PHP
 
-#### `server/delegates/CatalogSettings.php`
+#### `server/models/CatalogSettings.php`
 
 ```php
 <?php
@@ -710,7 +710,7 @@ class CatalogSettings {
 }
 ```
 
-#### `server/delegates/Endpoint.php`
+#### `server/models/Endpoint.php`
 
 ```php
 <?php
@@ -744,7 +744,7 @@ class ConfigurationController {
 
 ### Java
 
-#### `server/delegates/CatalogSettings.java`
+#### `server/models/CatalogSettings.java`
 
 ```java
 @Settings({"prefix":"YON_CATALOG_"})
@@ -755,7 +755,7 @@ class CatalogSettings {
 }
 ```
 
-#### `server/delegates/Endpoint.java`
+#### `server/models/Endpoint.java`
 
 ```java
 class Endpoint {
@@ -785,7 +785,7 @@ class ConfigurationController {
 
 ### Kotlin
 
-#### `server/delegates/CatalogSettings.kt`
+#### `server/models/CatalogSettings.kt`
 
 ```kt
 @Settings({"prefix":"YON_CATALOG_"})
@@ -796,7 +796,7 @@ class CatalogSettings {
 }
 ```
 
-#### `server/delegates/Endpoint.kt`
+#### `server/models/Endpoint.kt`
 
 ```kt
 class Endpoint {
@@ -827,7 +827,7 @@ class ConfigurationController {
 
 ### C#
 
-#### `server/delegates/CatalogSettings.cs`
+#### `server/models/CatalogSettings.cs`
 
 ```cs
 [Settings({"prefix":"YON_CATALOG_"})]
@@ -838,7 +838,7 @@ public sealed class CatalogSettings {
 }
 ```
 
-#### `server/delegates/Endpoint.cs`
+#### `server/models/Endpoint.cs`
 
 ```cs
 public sealed class Endpoint {
@@ -870,7 +870,7 @@ class ConfigurationController {
 
 ### Rust
 
-#### `server/delegates/CatalogSettings.rs`
+#### `server/models/CatalogSettings.rs`
 
 ```rs
 #[Settings({"prefix":"YON_CATALOG_","defaults":{"pageSize":20}})]
@@ -881,7 +881,7 @@ struct CatalogSettings {
 }
 ```
 
-#### `server/delegates/Endpoint.rs`
+#### `server/models/Endpoint.rs`
 
 ```rs
 #[allow(dead_code)]
@@ -917,7 +917,7 @@ impl ConfigurationController {
 
 ### Dart
 
-#### `server/delegates/CatalogSettings.dart`
+#### `server/models/CatalogSettings.dart`
 
 ```dart
 import 'dart:convert';
@@ -931,7 +931,7 @@ class CatalogSettings {
 }
 ```
 
-#### `server/delegates/Endpoint.dart`
+#### `server/models/Endpoint.dart`
 
 ```dart
 import 'dart:convert';
@@ -968,7 +968,7 @@ class ConfigurationController {
 
 ### Go
 
-#### `server/delegates/CatalogSettings.go`
+#### `server/models/CatalogSettings.go`
 
 ```go
 // @Settings({"prefix":"YON_CATALOG_","defaults":{"pageSize":20}})
@@ -979,7 +979,7 @@ type CatalogSettings struct {
 }
 ```
 
-#### `server/delegates/Endpoint.go`
+#### `server/models/Endpoint.go`
 
 ```go
 type Endpoint struct {
