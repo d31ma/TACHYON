@@ -122,8 +122,7 @@ impl CppYonShared {
             .map_err(|message| CppFailure::unreadable(path, 0, message))?
             .tokens
             .into_iter()
-            .filter(|token| token.is_word())
-            .map(|token| token.text)
+            .filter_map(|token| token.is_word().then_some(token.text))
             .collect();
         Ok(Self {
             name: file.class.name.clone(),
