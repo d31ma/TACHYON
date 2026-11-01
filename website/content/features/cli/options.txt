@@ -10,7 +10,7 @@ ty init [directory]                 asks questions in a terminal; each one is al
   --tac <l>[,<l>]                  js, ts, dart, rs, cs, fs, go, rb, lua, cpp, swift, kt, java,
                                    py (js)
   --yon <l>[,<l>]                  js, ts, py, go, java, groovy, kt, cs, fs, php, rb, lua,
-                                   rs, dart (js)
+                                   rs, dart, cpp (js)
   --target <t>[,<t>]               web, macos, windows, linux, ios, android (web)
                                    (alias --targets)
   --features <f>[,<f>]             storage, sockets, topics, streams, http-client,
@@ -95,17 +95,22 @@ ty handler invoke <source>          run one controller or worker file, no server
   --target </path?query>           concrete request target; binds @From... arguments
                                    like the server, without route access rules
   --timeout-ms <ms>                complete invocation deadline (30000)
-  --allow-env <NAME>               one inherited environment variable
+  --allow-env <NAME>               one inherited environment variable; TAC_*,
+                                   TACHYON_*, YON_* and the proxy variables
+                                   stay with ty (TY2006)
   --javascript-runtime (node), --python-runtime, --ruby-runtime
 
-ty --help lists the everyday commands. doctor, migrate and handler are
-left out of that list, but ty doctor --help and the others still work.
+ty --help lists the commands, doctor and migrate among them. handler is
+left out of that list, but ty handler --help still works.
 
 Environment variables
   TAC_BUNDLE_TARGET, TAC_PREVIEW_TARGET  the target when there is no --target;
                                    TAC_TARGET is the fallback for both
   TAC_DIST_PATH                    the output directory when there is no --out-dir
   YON_SKIP_BUNDLE=1 (or true)      ty serve serves without building
+  YON_EGRESS_ENFORCEMENT=proxy     ty start without the operating-system egress
+                                   confinement, where the platform limits egress
+                                   (default os; TY2113 when os cannot apply)
   NODE_ENV=production              ty serve neither builds nor watches
   TAC_BUILD_JOBS                   how many service languages build at the same time
                                    (default: CPU cores / 3, from 1 to 4)

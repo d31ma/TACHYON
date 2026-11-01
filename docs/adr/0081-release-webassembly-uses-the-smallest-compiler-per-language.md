@@ -174,3 +174,15 @@ the same as on the iOS simulator, against 2.98 MB (cloud) and 1.46 MB (WSL)
 for the interpreter build. The Linux cell of `tac.dotnet` is `honored`. The
 Linux build does not print the release note that names the compiler choice;
 only the runtime size shows it.
+
+## Amendment (2026-10-31): Ruby, Lua and C++ rows
+
+This amendment replaces the Ruby row of the table in the Decision and adds
+Lua and C++ rows. A release build of Ruby or Lua services now names its
+runtime in the build output, like the other languages.
+
+| Language | Release compiler and settings | Development build |
+| --- | --- | --- |
+| Ruby | the pinned mruby runtime, built once with Emscripten `-Oz` into Tachyon's cache; the services ship as Ruby source that the runtime reads (ADR 0049, ADR 0054) | the same |
+| Lua | the pinned Lua 5.4 runtime, built once with Emscripten `-Oz` into Tachyon's cache; the services ship as Lua source that the runtime reads (ADR 0085) | the same |
+| C++ | Emscripten `em++ -Oz`, which runs Binaryen itself (ADR 0099) | `em++ -O1` |

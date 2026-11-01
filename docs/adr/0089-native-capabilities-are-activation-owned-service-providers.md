@@ -510,3 +510,10 @@ dialog after the click, so `scripts/linux/page-steps-probe.py` activates it
 before it presses keys (`docs/SUPPORT_TIERS.md`, "Linux in a live desktop
 session"). Still not run: a physical Linux desktop, and the portal's chooser
 under Wayland.
+
+## Amendment (2026-10-31): Dart page services have no FilePicker provider either
+
+This amendment replaces "Go, Java, Ruby, Python and F# page services still
+have no FilePicker provider" with Dart, Go, Java, Ruby, Python and F#. In each
+of them a `NeedsAll` `FilePicker` field stays a page property, and the build
+stops with `TY1407` when the page does not pass it.

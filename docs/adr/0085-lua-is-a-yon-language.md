@@ -631,3 +631,13 @@ Yon Lua schema models in `server/models/` are accepted. `Settings`,
 `Description` work on a Lua model in both realms. A `@Check` rejection in a
 Yon Lua handler answers `422` problem details. See the 2026-10-19 amendment
 of ADR 0092. This replaces the `TY1310` sentence in the amendment above.
+
+## Amendment (2026-10-31): a Lua test unit fills Delegate fields
+
+This amendment replaces "A Tac Lua test unit does not fill Helper fields yet:
+`self:construct(Role)` leaves them `nil`." A Lua test unit reads
+`client/delegates` the way the page does, so `self:construct(Role)` fills the
+Delegate fields of the service it constructs
+(`tac_lua::helper_tests::a_lua_test_unit_fills_the_delegate_fields_of_its_service`).
+A Delegate with `-- @OnStart`, `-- @OnStop` or `-- @OnEvent` that a test unit
+reaches now fails with `TY1605`, as the page build already did.

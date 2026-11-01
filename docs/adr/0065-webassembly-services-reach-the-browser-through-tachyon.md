@@ -573,3 +573,14 @@ refused runs of `linux_browser_apis_follow_the_manifest_grants_in_the_real_web_v
 passed in the headless mutter 46.2 session of
 `scripts/linux/compositor-test.sh` in an x86_64 Ubuntu 24.04 cloud container and on WSL Ubuntu 24.04.5 (aarch64). The X11 run still passes. A
 Wayland desktop session with a person's clicks is not run.
+
+## Amendment (2026-10-31): Go network imports are refused too
+
+The Refused list in the Decision now reads, for Go: imports of `syscall/js`,
+`net/http` and any `net/http/...` package, and `//go:wasmimport` directives
+(`TY1317`; the network ones point to an HTTPClient). A Go service that sent
+its own requests would bypass the page's HTTPClient and its cache rules.
+Imports in backquotes are found too, and directives only where a line comment
+starts (`annotation_layout/browser_interop.rs`). The Context's "Go
+`syscall/js`" and ADR 0045's Web Service Notes still describe the state before
+this change.

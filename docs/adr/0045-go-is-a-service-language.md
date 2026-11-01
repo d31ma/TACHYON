@@ -447,3 +447,9 @@ in their old form.
   `@StreamRoute` streams: it returns `iter.Seq[Model]`, or
   `iter.Seq2[Model, error]` when the stream can fail
   (`yon/go_stream_result.rs`).
+
+## Amendment (2026-10-31): Go Tac services refuse net/http and wasmimport
+
+A Go Tac service may not import `net/http` or any `net/http/...` package, or
+declare a `//go:wasmimport` function: the build stops with `TY1317`, as for
+`syscall/js`, and points to an HTTPClient method (ADR 0065).
