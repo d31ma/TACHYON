@@ -345,3 +345,20 @@ fn the_handler_check_reads_a_test_unit_instead_of_a_controller() {
     let refusal = check("class [[RequestRoute(\"/x\")]] PriceServiceTest {};\n").expect("refused");
     assert!(refusal.contains("[[Test(<Name>TestSetup)]]"), "{refusal}");
 }
+
+#[test]
+fn a_cpp_yon_fresh_start_is_accepted_and_changes_nothing() {
+    let marked = Units::UNIT.replace(
+        "TestSettings({\"yon.price.scale\":3})]]",
+        "TestSettings({\"yon.price.scale\":3}), FreshStart]]",
+    );
+    let plain = Units::lower(Units::project(&[]).path()).expect("plain unit");
+    let fresh = Units::lower(Units::project(&[(Units::UNIT_PATH, &marked)]).path())
+        .expect("a FreshStart unit is accepted");
+    assert_ne!(marked, Units::UNIT);
+    assert_eq!(
+        fresh.source.split_whitespace().collect::<Vec<_>>(),
+        plain.source.split_whitespace().collect::<Vec<_>>()
+    );
+    assert_eq!(fresh.routes, plain.routes);
+}
