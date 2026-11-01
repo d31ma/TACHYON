@@ -17,8 +17,10 @@ pub(in crate::server) struct ServerResponse;
 impl ServerResponse {
     const FRAMING_HEADERS: [&'static str; 3] =
         ["content-length", "transfer-encoding", "connection"];
-    const TIMED_OUT: u16 = 2110;
-    const CANCELLED: u16 = 2111;
+    const STATUS_BY_CODE: [(u16, StatusCode); 2] = [
+        (2111, StatusCode::SERVICE_UNAVAILABLE),
+        (2110, StatusCode::GATEWAY_TIMEOUT),
+    ];
     const RETRY_AFTER_SECONDS: &'static str = "1";
 
     pub(in crate::server) fn text(status: StatusCode, message: &str) -> Response<Body> {
@@ -50,19 +52,16 @@ impl ServerResponse {
         response
     }
 
-    pub(in crate::server) fn failure_status(failure: &Failure) -> StatusCode {
+    fn failure_status(failure: &Failure) -> StatusCode {
         let codes: Vec<u16> = failure
             .diagnostics()
             .iter()
             .map(|diagnostic| diagnostic.code.number())
             .collect();
-        if codes.contains(&Self::CANCELLED) {
-            StatusCode::SERVICE_UNAVAILABLE
-        } else if codes.contains(&Self::TIMED_OUT) {
-            StatusCode::GATEWAY_TIMEOUT
-        } else {
-            StatusCode::INTERNAL_SERVER_ERROR
-        }
+        Self::STATUS_BY_CODE
+            .iter()
+            .find(|(code, _)| codes.contains(code))
+            .map_or(StatusCode::INTERNAL_SERVER_ERROR, |(_, status)| *status)
     }
 
     fn insert_retry_after(response: &mut Response<Body>, status: StatusCode) {

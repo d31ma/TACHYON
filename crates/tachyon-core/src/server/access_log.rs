@@ -15,7 +15,7 @@ impl AccessLog {
         Self::wrap_when(router, enabled)
     }
 
-    pub(in crate::server) fn wrap_when(router: Router, enabled: bool) -> Router {
+    fn wrap_when(router: Router, enabled: bool) -> Router {
         if !enabled {
             return router;
         }
@@ -36,6 +36,11 @@ impl AccessLog {
             "status": response.status().as_u16(),
             "duration_ms": duration_ms,
         });
+        Self::add_request_id(&mut event, response);
+        event.to_string()
+    }
+
+    fn add_request_id(event: &mut serde_json::Value, response: &Response<Body>) {
         if let Some(request_id) = response
             .headers()
             .get(HeaderNames::REQUEST_ID)
@@ -43,7 +48,6 @@ impl AccessLog {
         {
             event["request_id"] = serde_json::json!(request_id);
         }
-        event.to_string()
     }
 
     async fn record(request: Request<Body>, next: Next) -> Response<Body> {

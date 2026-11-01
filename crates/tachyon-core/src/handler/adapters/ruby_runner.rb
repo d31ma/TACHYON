@@ -450,8 +450,8 @@ class YonRelayChild
     @stdout.kept
   end
 
-  def overflowed?
-    @stdout.overflowed? || @stderr.overflowed?
+  def stdout_overflowed?
+    @stdout.overflowed?
   end
 
   def finish(deadline)
@@ -572,7 +572,7 @@ class YonRelayProgram
 
   def response(child, status)
     return failed("timeout") if status.nil?
-    return failed("overflow") if child.overflowed?
+    return failed("overflow") if child.stdout_overflowed?
     return failed("exit") unless status.is_a?(Process::Status) && status.success?
 
     envelope = decode(child.stdout)

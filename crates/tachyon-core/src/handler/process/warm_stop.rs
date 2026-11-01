@@ -50,7 +50,7 @@ impl WarmStop {
         context: &WarmContext,
     ) -> Result<(), Failure> {
         match self {
-            Self::Ended => WarmExit::stream_result(process, context.deadline).await,
+            Self::Ended => WarmExit::stream_result(process, context).await,
             stop => Err(stop.into_failure(process, context).await),
         }
     }

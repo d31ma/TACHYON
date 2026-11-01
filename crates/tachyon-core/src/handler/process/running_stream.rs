@@ -79,6 +79,9 @@ impl RunningStream {
         let status = Self::exit_after_frames(&mut child, deadline, frames).await;
         ProcessReaper::terminate(&mut child, request_id).await;
         let stderr = Drained::settle(stderr_task, deadline).await;
+        stderr
+            .iter()
+            .for_each(|stderr| stderr.report_stderr(request_id));
         Self::checked_frames(status, stderr)
     }
 
@@ -98,6 +101,9 @@ impl RunningStream {
         ProcessReaper::terminate(&mut child, request_id).await;
         let finished = Self::frames_after_exit(status, &mut events_task, deadline).await;
         let stderr = Drained::settle(stderr_task, deadline).await;
+        stderr
+            .iter()
+            .for_each(|stderr| stderr.report_stderr(request_id));
         Self::checked_exit(finished, stderr)
     }
 

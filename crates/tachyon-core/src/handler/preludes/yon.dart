@@ -401,8 +401,8 @@ yon_async.Future<bool> _yonFinishesInTime(yon_async.Future<Object?> work) async 
   }
 }
 
-__YonAnswer _yonRelayResult(int code, _YonRelayOutput stdout, _YonRelayOutput stderr) {
-  if (stdout.overflow || stderr.overflow) return _yonRelayFailure('overflow');
+__YonAnswer _yonRelayResult(int code, _YonRelayOutput stdout) {
+  if (stdout.overflow) return _yonRelayFailure('overflow');
   if (code != 0) return _yonRelayFailure('exit');
   final Object? envelope;
   try {
@@ -447,7 +447,7 @@ yon_async.Future<__YonAnswer> _yonRelayAnswer(List<String> command, yon_shelf.Re
     stderr.abandon();
     return _yonRelayFailure('timeout');
   }
-  return _yonRelayResult(await child.exitCode, stdout, stderr);
+  return _yonRelayResult(await child.exitCode, stdout);
 }
 
 String? _yonMiddlewarePhase(__YonFrame request) {

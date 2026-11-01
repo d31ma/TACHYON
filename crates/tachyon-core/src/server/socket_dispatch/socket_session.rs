@@ -40,6 +40,10 @@ impl SocketSession {
     const LIFETIME: Duration = Duration::from_hours(1);
     const CLOSE_GRACE: Duration = Duration::from_secs(5);
     const WRITE: Duration = Duration::from_secs(10);
+    const BROWSER_GONE: (u16, &'static str) = (1001, "The browser went away.");
+    const BROWSER_SLOW: (u16, &'static str) = (1013, "The browser stopped reading.");
+    const HANDLER_GONE: (u16, &'static str) = (1011, "The socket handler stopped.");
+    const HANDLER_SLOW: (u16, &'static str) = (1013, "The socket handler fell behind.");
     const QUEUE: usize = 16;
     const MAX_REASON_BYTES: usize = 120;
 
@@ -324,29 +328,14 @@ impl SocketSession {
         text: String,
     ) -> Option<CloseFrame> {
         let sent = input.send(SocketInput::Message(text));
-        Self::queued_within(sent, &self.cancellation, Self::WRITE).await
-    }
-
-    async fn queued_within<Q, E>(
-        queued: Q,
-        cancellation: &CancellationToken,
-        limit: Duration,
-    ) -> Option<CloseFrame>
-    where
-        Q: Future<Output = Result<(), E>>,
-    {
-        tokio::select! {
-            () = cancellation.cancelled() => Some(Self::close(1001, "The server is stopping.")),
-            queued = timeout(limit, queued) => Self::queue_outcome(&queued),
-        }
-    }
-
-    fn queue_outcome<E>(queued: &Result<Result<(), E>, Elapsed>) -> Option<CloseFrame> {
-        match queued {
-            Ok(Ok(())) => None,
-            Ok(Err(_)) => Some(Self::close(1011, "The socket handler stopped.")),
-            Err(_) => Some(Self::close(1013, "The socket handler fell behind.")),
-        }
+        Self::done_within(
+            sent,
+            &self.cancellation,
+            Self::WRITE,
+            Self::HANDLER_GONE,
+            Self::HANDLER_SLOW,
+        )
+        .await
     }
 
     async fn forward_peer(
@@ -362,28 +351,33 @@ impl SocketSession {
 
     async fn send_text(&self, socket: &mut WebSocket, data: String) -> Option<CloseFrame> {
         let sent = socket.send(Message::Text(data.into()));
-        Self::written_within(sent, &self.cancellation, Self::WRITE).await
+        Self::done_within(
+            sent,
+            &self.cancellation,
+            Self::WRITE,
+            Self::BROWSER_GONE,
+            Self::BROWSER_SLOW,
+        )
+        .await
     }
 
-    async fn written_within<W, E>(
-        write: W,
+    async fn done_within<W, E>(
+        work: W,
         cancellation: &CancellationToken,
         limit: Duration,
+        failed: (u16, &str),
+        slow: (u16, &str),
     ) -> Option<CloseFrame>
     where
         W: Future<Output = Result<(), E>>,
     {
         tokio::select! {
             () = cancellation.cancelled() => Some(Self::close(1001, "The server is stopping.")),
-            written = timeout(limit, write) => Self::write_outcome(&written),
-        }
-    }
-
-    fn write_outcome<E>(written: &Result<Result<(), E>, Elapsed>) -> Option<CloseFrame> {
-        match written {
-            Ok(Ok(())) => None,
-            Ok(Err(_)) => Some(Self::close(1001, "The browser went away.")),
-            Err(_) => Some(Self::close(1013, "The browser stopped reading.")),
+            done = timeout(limit, work) => match done {
+                Ok(Ok(())) => None,
+                Ok(Err(_)) => Some(Self::close(failed.0, failed.1)),
+                Err(_) => Some(Self::close(slow.0, slow.1)),
+            },
         }
     }
 
@@ -462,7 +456,14 @@ impl SocketSession {
     async fn send_sessions(&self, input: &mpsc::Sender<SocketInput>) -> Option<CloseFrame> {
         let ids = self.seat.hub.ids(&self.seat.route);
         let asked = input.send(SocketInput::Sessions(ids));
-        Self::queued_within(asked, &self.cancellation, Self::WRITE).await
+        Self::done_within(
+            asked,
+            &self.cancellation,
+            Self::WRITE,
+            Self::HANDLER_GONE,
+            Self::HANDLER_SLOW,
+        )
+        .await
     }
 
     fn close(code: u16, reason: &str) -> CloseFrame {
@@ -522,70 +523,44 @@ mod tests {
         }
     }
 
-    #[tokio::test]
-    async fn a_write_the_browser_never_reads_closes_the_socket_within_the_limit() {
-        let stalled = std::future::pending::<Result<(), ()>>();
-        let close = tokio::time::timeout(
-            Duration::from_secs(5),
-            SocketSession::written_within(
-                stalled,
-                &CancellationToken::new(),
-                Duration::from_millis(50),
-            ),
-        )
-        .await
-        .expect("bounded write")
-        .expect("close frame");
-        assert_eq!(close.code, 1013);
-    }
-
-    #[tokio::test]
-    async fn a_stalled_write_still_sees_the_server_stop() {
+    async fn closed_with(
+        work: impl std::future::Future<Output = Result<(), ()>>,
+        stopping: bool,
+        limit: Duration,
+    ) -> Option<u16> {
         let cancellation = CancellationToken::new();
-        cancellation.cancel();
-        let stalled = std::future::pending::<Result<(), ()>>();
-        let close = SocketSession::written_within(stalled, &cancellation, Duration::from_mins(1))
+        if stopping {
+            cancellation.cancel();
+        }
+        let close = SocketSession::done_within(
+            work,
+            &cancellation,
+            limit,
+            SocketSession::HANDLER_GONE,
+            SocketSession::BROWSER_SLOW,
+        );
+        tokio::time::timeout(Duration::from_secs(5), close)
             .await
-            .expect("close frame");
-        assert_eq!(close.code, 1001);
-        assert_eq!(close.reason.as_str(), "The server is stopping.");
+            .expect("bounded socket step")
+            .map(|close| close.code)
     }
 
     #[tokio::test]
-    async fn a_finished_write_keeps_the_socket_open() {
-        let written = std::future::ready(Ok::<(), ()>(()));
-        let close = SocketSession::written_within(
-            written,
-            &CancellationToken::new(),
-            Duration::from_secs(1),
-        )
-        .await;
-        assert!(close.is_none());
-    }
-
-    #[tokio::test]
-    async fn a_full_handler_queue_closes_the_socket_within_the_limit() {
-        let stalled = std::future::pending::<Result<(), ()>>();
-        let close = tokio::time::timeout(
-            Duration::from_secs(5),
-            SocketSession::queued_within(
-                stalled,
-                &CancellationToken::new(),
-                Duration::from_millis(50),
-            ),
-        )
-        .await
-        .expect("bounded queue wait")
-        .expect("close frame");
-        assert_eq!(close.code, 1013);
-        let stopped = std::future::ready(Err::<(), ()>(()));
-        let close = SocketSession::queued_within(
-            stopped,
-            &CancellationToken::new(),
-            Duration::from_secs(1),
-        )
-        .await
-        .expect("close frame");
-        assert_eq!(close.code, 1011);
+    async fn a_socket_step_ends_on_time_on_failure_and_when_the_server_stops() {
+        let short = Duration::from_millis(50);
+        let pending = || std::future::pending::<Result<(), ()>>();
+        assert_eq!(closed_with(pending(), false, short).await, Some(1013));
+        assert_eq!(
+            closed_with(pending(), true, Duration::from_mins(1)).await,
+            Some(1001)
+        );
+        assert_eq!(
+            closed_with(std::future::ready(Err(())), false, short).await,
+            Some(1011)
+        );
+        assert_eq!(
+            closed_with(std::future::ready(Ok(())), false, short).await,
+            None
+        );
     }
 }

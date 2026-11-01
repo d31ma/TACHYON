@@ -131,9 +131,16 @@ impl Drained {
         self.exceptions(request_id)
             .iter()
             .for_each(|line| eprintln!("{line}"));
-        if crate::setting_switch::SettingSwitch::is_set(Self::STDERR_SETTING)
-            && let Some(event) = self.stderr_event(request_id)
-        {
+        self.report_stderr(request_id);
+    }
+
+    pub(super) fn report_stderr(&self, request_id: &str) {
+        let reported = crate::setting_switch::SettingSwitch::is_set(Self::STDERR_SETTING);
+        self.print_stderr_event(reported, request_id);
+    }
+
+    fn print_stderr_event(&self, reported: bool, request_id: &str) {
+        if reported && let Some(event) = self.stderr_event(request_id) {
             eprintln!("{event}");
         }
     }
@@ -201,8 +208,11 @@ impl Drained {
 
     pub(super) fn keep(&mut self, data: &[u8], limit: usize) {
         let tail = Self::MAX_TAIL_BYTES.min(limit / 4);
-        let head = limit - tail;
-        if self.overflow || self.bytes.len() + data.len() > limit {
+        self.keep_within(data, limit - tail, tail);
+    }
+
+    fn keep_within(&mut self, data: &[u8], head: usize, tail: usize) {
+        if self.overflow || self.bytes.len() + data.len() > head + tail {
             self.keep_head_and_tail(data, head, tail);
         } else {
             self.bytes.extend_from_slice(data);

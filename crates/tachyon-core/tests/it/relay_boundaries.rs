@@ -61,6 +61,10 @@ elif mode == "inherit":
     write_pid(request, child.pid)
 elif mode == "print":
     print(sys.argv[2])
+elif mode == "flood-stderr":
+    sys.stderr.write("x" * (100 * 1024))
+    sys.stderr.flush()
+    reply({"flooded": True})
 elif mode == "forge":
     forged = json.dumps({"status": 203, "headers": {}, "body": "forged"}).encode()
     for descriptor in range(3, 64):
@@ -503,6 +507,44 @@ async fn interpreted_handlers_keep_their_capabilities_but_relay_programs_do_not(
         assert_eq!(body(&own)["application"], true, "{extension}");
         assert_eq!(body(&own)["token"], true, "{extension}");
         relay_environment(extension, handler, (name, &value)).await;
+    }
+}
+
+async fn relay_answers_after_a_stderr_flood(extension: &str, handler: &str) {
+    let (root, source) = project(extension, handler);
+    let options = HandlerSupervisorOptions {
+        default_timeout: Duration::from_mins(1),
+        ..HandlerSupervisorOptions::default()
+    };
+    let supervisor = supervisor_for(root.path(), options);
+    let response = supervisor
+        .invoke(
+            &source,
+            &request("relay_stderr_flood", HttpMethod::Post, "flood-stderr"),
+            &HandlerCancellation::default(),
+        )
+        .await
+        .expect("relay response");
+    assert_eq!(response.status, 200, "{extension}: {response:?}");
+    assert_eq!(body(&response)["flooded"], true, "{extension}");
+}
+
+#[tokio::test]
+async fn a_relay_program_that_floods_stderr_still_answers() {
+    for (extension, handler) in [
+        ("js", Handlers::JAVASCRIPT),
+        ("py", Handlers::PYTHON),
+        ("rb", Handlers::RUBY),
+    ] {
+        if runnable(extension) {
+            relay_answers_after_a_stderr_flood(extension, handler).await;
+        }
+    }
+    for extension in ["php", "java", "kt", "cs", "rs", "dart", "go", "hpp"] {
+        if runnable(extension) {
+            let handler = Handlers::compiled(extension, "flood-stderr", "").expect("handler");
+            relay_answers_after_a_stderr_flood(extension, &handler).await;
+        }
     }
 }
 

@@ -1313,13 +1313,13 @@ fn yon_relay_exchange(
         yon_relay_stop(&mut child);
         return yon_relay_failure("timeout");
     };
-    let (Ok((stdout, stdout_overflow)), Ok((_, stderr_overflow))) = (
+    let (Ok((stdout, stdout_overflow)), Ok(_)) = (
         stdout.recv_timeout(invocation.time_left()),
         stderr.recv_timeout(invocation.time_left()),
     ) else {
         return yon_relay_failure("timeout");
     };
-    if stdout_overflow || stderr_overflow {
+    if stdout_overflow {
         return yon_relay_failure("overflow");
     }
     if !status.success() {

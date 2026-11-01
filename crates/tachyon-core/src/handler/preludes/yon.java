@@ -1090,8 +1090,8 @@ final class Yon {
         try {
             if (!child.waitFor(timeLeftNanos(), nanoseconds)) return stopChild(child);
             RelayOutput stdout = stdoutTask.get(timeLeftNanos(), nanoseconds);
-            RelayOutput stderr = stderrTask.get(timeLeftNanos(), nanoseconds);
-            return relayResult(child.exitValue(), stdout, stderr);
+            stderrTask.get(timeLeftNanos(), nanoseconds);
+            return relayResult(child.exitValue(), stdout);
         } catch (java.util.concurrent.TimeoutException unsettled) {
             return stopChild(child);
         } catch (InterruptedException interrupted) {
@@ -1116,8 +1116,8 @@ final class Yon {
         }
     }
 
-    private static __YonAnswer relayResult(int exitCode, RelayOutput stdout, RelayOutput stderr) {
-        if (stdout.overflow || stderr.overflow) return relayFailed("overflow");
+    private static __YonAnswer relayResult(int exitCode, RelayOutput stdout) {
+        if (stdout.overflow) return relayFailed("overflow");
         if (exitCode != 0) return relayFailed("exit");
         String output = new String(stdout.bytes, java.nio.charset.StandardCharsets.UTF_8);
         Object parsed;

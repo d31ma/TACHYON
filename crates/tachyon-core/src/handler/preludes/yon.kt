@@ -698,8 +698,8 @@ object Yon {
         try {
             if (!child.waitFor(timeLeftNanos(), nanoseconds)) return stopChild(child)
             val stdout = stdoutTask.get(timeLeftNanos(), nanoseconds)
-            val stderr = stderrTask.get(timeLeftNanos(), nanoseconds)
-            return relayResult(child.exitValue(), stdout, stderr)
+            stderrTask.get(timeLeftNanos(), nanoseconds)
+            return relayResult(child.exitValue(), stdout)
         } catch (_: java.util.concurrent.TimeoutException) {
             return stopChild(child)
         } catch (_: InterruptedException) {
@@ -724,8 +724,8 @@ object Yon {
         }
     }
 
-    private fun relayResult(exitCode: Int, stdout: RelayOutput, stderr: RelayOutput): __YonAnswer {
-        if (stdout.overflow || stderr.overflow) return relayFailed("overflow")
+    private fun relayResult(exitCode: Int, stdout: RelayOutput): __YonAnswer {
+        if (stdout.overflow) return relayFailed("overflow")
         if (exitCode != 0) return relayFailed("exit")
         val parsed = try {
             Json.parse(stdout.bytes.decodeToString())

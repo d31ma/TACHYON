@@ -673,15 +673,12 @@ final class YonRelayContext
 final class YonRelayExchange
 {
     private const MAX_STDOUT_BYTES = 16 * 1024 * 1024;
-    private const MAX_STDERR_BYTES = 64 * 1024;
     private const LONGEST_WAIT_MICROSECONDS = 100000;
     private const EXIT_POLL_MICROSECONDS = 1000;
     private const CHUNK_BYTES = 8192;
     public string $stdout = '';
     public bool $stdoutOverflow = false;
-    public bool $stderrOverflow = false;
     private int $written = 0;
-    private int $stderrBytes = 0;
 
     public function __construct(private array $pipes, private string $payload)
     {
@@ -779,8 +776,6 @@ final class YonRelayExchange
             }
             if ($pipe === $this->pipes[1]) {
                 $this->keepStdout($chunk);
-            } else {
-                $this->countStderr($chunk);
             }
         }
     }
@@ -793,14 +788,6 @@ final class YonRelayExchange
         }
         if ($remaining > 0) {
             $this->stdout .= substr($chunk, 0, $remaining);
-        }
-    }
-
-    private function countStderr(string $chunk): void
-    {
-        $this->stderrBytes += strlen($chunk);
-        if ($this->stderrBytes > self::MAX_STDERR_BYTES) {
-            $this->stderrOverflow = true;
         }
     }
 }
@@ -838,7 +825,7 @@ final class Yon
         if (!$finished) {
             return self::relayFailed('timeout');
         }
-        if ($exchange->stdoutOverflow || $exchange->stderrOverflow) {
+        if ($exchange->stdoutOverflow) {
             return self::relayFailed('overflow');
         }
         if ($status !== 0) {

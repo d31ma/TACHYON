@@ -106,6 +106,9 @@ impl SocketProcess {
         writer.abort();
         let _writer = (&mut writer).await;
         let stderr = Drained::settle(stderr_task, Instant::now() + Self::SOCKET_GRACE).await;
+        stderr
+            .iter()
+            .for_each(|stderr| stderr.report_stderr(&request_id));
         Self::socket_outcome(result, stderr)
     }
 

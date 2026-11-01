@@ -472,14 +472,13 @@ class RelayProgram:
             child.kill()
             return self.failed("timeout")
         child.wait()
-        return self.response(child, timed_out, stdout_result, stderr_result)
+        return self.response(child, timed_out, stdout_result)
 
-    def response(self, child, timed_out, stdout_result, stderr_result):
+    def response(self, child, timed_out, stdout_result):
         stdout, stdout_oversized = stdout_result
-        _, stderr_oversized = stderr_result
         if timed_out:
             return self.failed("timeout")
-        if stdout_oversized or stderr_oversized:
+        if stdout_oversized:
             return self.failed("overflow")
         if child.returncode != 0:
             return self.failed("exit")

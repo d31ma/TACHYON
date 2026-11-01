@@ -890,7 +890,7 @@ static class Yon
         _ = Task.Run(() => SendRequest(child.StandardInput, payload));
         if (!FinishesInTime(child.WaitForExitAsync())) return StopChild(child);
         if (!FinishesInTime(Task.WhenAll(stdoutTask, stderrTask))) return StopChild(child);
-        return RelayResult(child.ExitCode, stdoutTask.Result, stderrTask.Result);
+        return RelayResult(child.ExitCode, stdoutTask.Result);
     }
 
     static void SendRequest(StreamWriter stdin, string payload)
@@ -923,9 +923,9 @@ static class Yon
         return RelayFailed("timeout");
     }
 
-    static __YonAnswer RelayResult(int exitCode, RelayOutput stdout, RelayOutput stderr)
+    static __YonAnswer RelayResult(int exitCode, RelayOutput stdout)
     {
-        if (stdout.Overflow || stderr.Overflow) return RelayFailed("overflow");
+        if (stdout.Overflow) return RelayFailed("overflow");
         if (exitCode != 0) return RelayFailed("exit");
         try
         {

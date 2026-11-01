@@ -689,13 +689,14 @@ async fn a_second_program_answers_under_its_own_method_name() {
 }
 
 #[tokio::test]
-async fn failing_programs_reach_the_caller_only_as_a_fixed_adapter_error() {
+async fn failing_programs_reach_the_caller_only_as_a_fixed_adapter_error_and_stderr_is_not_a_failure()
+ {
     if !usable("python3") {
         return;
     }
     for (extension, project, options) in callers() {
         let supervisor = supervisor(&project, options);
-        for mode in ["fail", "garbage", "large", "noisy"] {
+        for mode in ["fail", "garbage", "large"] {
             let answer = call(&project, &supervisor, &serde_json::json!([mode, null])).await;
             assert_eq!(answer["code"], "adapter", "{extension} {mode}: {answer}");
             if extension != "ts" {
@@ -705,6 +706,8 @@ async fn failing_programs_reach_the_caller_only_as_a_fixed_adapter_error() {
                 );
             }
         }
+        let noisy = call(&project, &supervisor, &serde_json::json!(["noisy", null])).await;
+        assert_eq!(noisy["accepted"], true, "{extension}: {noisy}");
     }
 }
 

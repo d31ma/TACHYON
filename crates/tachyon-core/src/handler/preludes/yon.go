@@ -678,12 +678,12 @@ func Relay(command []string, request *http.Request) *http.Response {
 		child.Process.Kill()
 		return yonRelayFailure("timeout")
 	case err := <-finished:
-		return yonRelayResult(err, stdout, stderr)
+		return yonRelayResult(err, stdout)
 	}
 }
 
-func yonRelayResult(err error, stdout *yonRelayOutput, stderr *yonRelayOutput) *http.Response {
-	if stdout.overflowed || stderr.overflowed {
+func yonRelayResult(err error, stdout *yonRelayOutput) *http.Response {
+	if stdout.overflowed {
 		return yonRelayFailure("overflow")
 	}
 	if err != nil {

@@ -158,8 +158,8 @@ private:
         return text;
     }
 
-    static http::HttpResponseMessage answered(bool exitedCleanly, const Output& stdoutText, const Output& stderrText) {
-        if (stdoutText.overflowed || stderrText.overflowed) {
+    static http::HttpResponseMessage answered(bool exitedCleanly, const Output& stdoutText) {
+        if (stdoutText.overflowed) {
             return failure("overflow");
         }
         if (!exitedCleanly) {
@@ -366,7 +366,7 @@ private:
         if (!finished) {
             return failure("timeout");
         }
-        return answered(exitedCleanly, stdoutText, stderrText);
+        return answered(exitedCleanly, stdoutText);
     }
 #else
     static std::vector<std::string> environment() {
@@ -561,7 +561,7 @@ private:
             stop(child);
             return failure("timeout");
         }
-        return answered(WIFEXITED(*status) && WEXITSTATUS(*status) == 0, stdoutText, stderrText);
+        return answered(WIFEXITED(*status) && WEXITSTATUS(*status) == 0, stdoutText);
     }
 #endif
 };

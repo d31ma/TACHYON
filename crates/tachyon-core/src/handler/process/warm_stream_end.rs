@@ -5,6 +5,7 @@ pub(super) struct WarmStreamEnd;
 impl WarmStreamEnd {
     pub(super) async fn complete(process: WarmProcess, context: &WarmContext) -> WarmAnswer<()> {
         let stderr = process.take_stderr();
+        stderr.report_stderr(&context.request_id);
         let checked = stderr.check_diagnostics();
         let relay_failed = stderr.reports_relay_failure(&context.request_id);
         WarmAnswer::after(checked, process, relay_failed).await

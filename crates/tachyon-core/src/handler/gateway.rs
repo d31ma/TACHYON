@@ -507,7 +507,7 @@ impl GatewayCalls {
         let Ok((stdout, stderr)) = settled else {
             return Err(GatewayFailure::Timeout);
         };
-        if !status.success() || stderr.overflow || stderr.read_error {
+        if !status.success() || stderr.read_error {
             return Err(GatewayFailure::Adapter);
         }
         command_result(&stdout)

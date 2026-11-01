@@ -596,9 +596,9 @@ async function relayToComponent(command, request) {
     stopRelay(child)
     return relayFailed('timeout')
   }
-  const [exit, stdoutResult, stderrResult] = outcome
+  const [exit, stdoutResult] = outcome
   if (!exit.started) return relayFailed('start')
-  if (stdoutResult.oversized || stderrResult.oversized) return relayFailed('overflow')
+  if (stdoutResult.oversized) return relayFailed('overflow')
   if (exit.code !== 0) return relayFailed('exit')
   let envelope
   try {
