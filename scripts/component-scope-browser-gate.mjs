@@ -161,7 +161,10 @@ class ComponentScopeBrowserGate {
     const plain = await ComponentScopeBrowserGate.#style(page, `${parent} [data-probe="plain"]`)
     const slot = await ComponentScopeBrowserGate.#style(page, `${parent} [data-probe="slot"]`)
     assert.equal(owned.background, ComponentScopeBrowserGate.#parentBackground)
-    assert.equal(owned.outline, '3px')
+    // Chromium snaps a border or outline width to whole device pixels, so on a phone (devicePixelRatio 2.625) 3px computes as 7/2.625 = 2.66667px.
+    const ratio = await page.evaluate(() => devicePixelRatio)
+    const outlines = [3, Math.floor(3 * ratio) / ratio]
+    assert.ok(outlines.some((width) => Math.abs(Number.parseFloat(owned.outline) - width) < 0.001), `the parent's 3px outline at devicePixelRatio ${ratio} computes as ${owned.outline}`)
     assert.equal(owned.outlineStyle, 'solid')
     assert.equal(owned.scopeToken, 'parent-panel')
     assert.equal(styled.background, ComponentScopeBrowserGate.#childBackground)
