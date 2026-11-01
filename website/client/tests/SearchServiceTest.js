@@ -42,7 +42,7 @@ export default class SearchServiceTest {
 
   /**
    * @param {SearchService} search
-   * @returns {{ input: object, close: object, link: object, outside: object, dialog: object, focused: () => object | null, modal: () => boolean }}
+   * @returns {{ input: { isConnected: boolean, focus(): void }, close: { isConnected: boolean, focus(): void }, link: { isConnected: boolean, focus(): void }, outside: { isConnected: boolean, focus(): void }, dialog: { isConnected: boolean, focus(): void }, focused: () => object | null, modal: () => boolean }}
    */
   dialogWithFocusStops(search) {
     /** @type {object | null} */
@@ -53,7 +53,7 @@ export default class SearchServiceTest {
     const dialog = {
       ...stop(),
       querySelectorAll: () => [input, close, link],
-      contains: (/** @type {unknown} */ element) => [dialog, input, close, link].includes(element),
+      contains: (/** @type {{ isConnected: boolean, focus(): void }} */ element) => [dialog, input, close, link].includes(element),
       showModal: () => { modal = true },
     }
     search._dialog = () => /** @type {HTMLDialogElement} */ (/** @type {unknown} */ (dialog))
@@ -169,9 +169,9 @@ export default class SearchServiceTest {
     this.mounted(search)
     const page = this.dialogWithFocusStops(search)
     search.open()
-    search.closeFromBackdrop(new Event('click'), /** @type {EventTarget} */ (page.link))
+    search.closeFromBackdrop(new Event('click'), /** @type {EventTarget} */ (/** @type {unknown} */ (page.link)))
     Assert.isTrue(Boolean(search.showing), 'a click inside the panel keeps it open')
-    search.closeFromBackdrop(new Event('click'), /** @type {EventTarget} */ (page.dialog))
+    search.closeFromBackdrop(new Event('click'), /** @type {EventTarget} */ (/** @type {unknown} */ (page.dialog)))
     Assert.isTrue(!search.showing, 'a click on the backdrop closes')
     search.open()
     const cancel = new Event('cancel', { cancelable: true })
