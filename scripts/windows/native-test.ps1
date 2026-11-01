@@ -289,6 +289,7 @@ function Assert-DevTools([bool] $enabled) {
         if ($foreground -ne $handle) {
             throw "the native window is not the foreground window for the DevTools check (foreground is $foreground, the app is $handle)"
         }
+        Write-Host "OK: the app window is the foreground window, so F12 reaches it (attempt $attempt)"
         try { (Find-Control 'Verify native Root').SetFocus() }
         catch { Write-Host "NOTE: could not focus the page control: $($_.Exception.Message)" }
         [System.Windows.Forms.SendKeys]::SendWait('{F12}')
