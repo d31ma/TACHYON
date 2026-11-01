@@ -4,6 +4,8 @@
 - Date: 2026-09-15
 - Amended: 2026-10-04 (documents, collections, scroll and queue for HEIMDALL)
 - Amended: 2026-10-31 (raw SQL parameter contract)
+- Amendment proposed: 2026-11-01 (FYLO in-process; a cancelled call is
+  abandoned, not killed). Draft, not yet accepted.
 - Extends: managed storage, see [MANAGED_STORAGE](../MANAGED_STORAGE.md)
 
 ## Context
@@ -155,3 +157,92 @@ round trip took 23 seconds.
 When FYLO adds bound parameters to `executeSQL`, the server passes the values
 through as data and the literal rendering goes away. That needs a FYLO
 protocol change.
+
+## Amendment (proposed 2026-11-01): FYLO in-process
+
+Status: **Proposed** (draft). It follows FYLO ADR 0019 (proposed), "FYLO
+through Turso's engine", which makes the `fylo` Rust crate FYLO's native API
+and retires `fylo exec --loop` and machine protocol version 1 as public
+contracts.
+
+Context: FYLO's next release has no listener, synchronous writes and no
+backward compatibility. Its native API becomes a Rust crate that opens a root
+in the host's own process. Yon is Rust, so it can call FYLO directly instead
+of through a subprocess and NDJSON.
+
+Decisions:
+
+- **The FYLO driver runs FYLO in Yon's process.** `FyloStore` opens the root
+  with `fylo::Root::open` at startup, within the startup deadline, and holds
+  the root's exclusive lease until the server closes. That is one owner per
+  root, as the single subprocess was. The URL, the canonical-root and
+  symlink rules, the collection-name check, the resource-channel commands and
+  every language's DataSource API stay as they are.
+- **Engine calls are blocking, so they run on Tokio's blocking pool**
+  (`spawn_blocking`). Calls run one at a time, in arrival order, as they did
+  through the subprocess; a patch and the `getDoc` that reads its result still
+  run back to back under one hold of the store.
+- **A cancelled call is abandoned, not killed.** An in-process call cannot be
+  stopped once it runs:
+  - When a deadline drops the request, the caller gets the deadline failure at
+    once. The engine call keeps running to its end on the blocking pool, and
+    its result is dropped there; it is never delivered to another request,
+    because each call returns through its own task handle and nothing else
+    reads it.
+  - The call keeps its managed-storage admission permit until it finishes, so
+    abandoned calls still count against the 16 admitted operations, and a
+    stuck engine fills admission instead of piling up blocking threads.
+  - The next call starts only after the abandoned one finishes, because calls
+    run one at a time.
+  - As before, a cancellation does not prove that a mutation did not commit
+    ("writes may have committed").
+  - A panic in the engine is no longer contained in a child. TACHYON's
+    release profile sets `panic = "abort"`, so it ends Yon's process. In a
+    build that unwinds, the blocking task reports it and the request fails
+    with the subprocess-failure message.
+- **Closing the server releases the lease** when no abandoned call is still
+  running, and otherwise when the last one finishes: whichever holds the root
+  last closes it, with FYLO's checked release. A closed datasource takes no
+  new calls.
+- **The `fylo` binary is no longer needed at run time.** A build with the
+  in-process driver makes `ty doctor` drop the "fylo datasource" toolchain
+  requirement. The Linux and Windows CI lanes compile the crate instead of
+  installing a pinned binary for the storage tests.
+- **Raw SQL moves to FYLO's Turso SQL layer** (FYLO ADR 0019 section 3) in a
+  later phase, with bound parameters, which retires the 2026-10-31 literal
+  rendering. Until that layer exists, raw SQL on the in-process driver fails
+  with `TY2160` ("FYLO SQL is not available in the in-process datasource
+  yet").
+- **Transactions** stay refused until FYLO's single-collection transactions
+  (`EFYLO_TXN_SCOPE` rules) land.
+
+Consequences:
+
+- Yon loses process isolation for FYLO: a fault in the engine is a fault in
+  Yon's process, and memory the engine uses is Yon's memory.
+- FYLO's crates join TACHYON's `Cargo.lock` and `cargo deny` review behind
+  the `storage-fylo-in-process` feature, and `turso_core` joins them in the SQL
+  phase. FYLO's crates enable `serde_json`'s `preserve_order` feature, which
+  then applies to the whole TACHYON build that enables the driver. TACHYON's
+  emitters rely on `serde_json` maps keeping keys in sorted order, so in the
+  phase 1 spike 27 compiler, polyglot and migrate tests failed with the
+  feature on only because keys came out in insertion order. The driver can
+  become the default only when FYLO's crates stop enabling `preserve_order`,
+  or TACHYON stops depending on the map order.
+- The phase 1 spike (2026-11-01) keeps the subprocess as the default and adds
+  the in-process driver behind the `storage-fylo-in-process` feature. The
+  feature becomes the default, and the subprocess is removed, only when the
+  FYLO release that ships the crate does.
+- The spike takes the `fylo` crate as a git dependency on FYLO's phase 1
+  commit (`c08f834`), and `deny.toml` allows the `d31ma/FYLO` git source.
+  Cargo resolves optional dependencies too, so every TACHYON build, with or
+  without the feature, fetches that commit. A FYLO release tag or a registry
+  version replaces the commit before this merges into `develop`.
+- In the phase 1 benchmark, with the same FYLO engine on both sides and
+  optimized dependencies, in-process calls took 0 to 25 percent less time at
+  the median than the subprocess. TACHYON's own share was about 20 to 50
+  microseconds per call; the rest was the engine.
+- The canonical gate builds with `--all-features`, so it runs the full suite
+  with the in-process driver and with `preserve_order`. A build without the
+  feature checks the subprocess driver.
+

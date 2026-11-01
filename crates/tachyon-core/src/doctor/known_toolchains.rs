@@ -256,7 +256,8 @@ impl KnownToolchains {
     }
 
     fn uses_fylo(root: &Path) -> bool {
-        Self::datasource_driver(root).is_some_and(|driver| driver == "fylo")
+        let runs_in_process = cfg!(feature = "storage-fylo-in-process");
+        !runs_in_process && Self::datasource_driver(root).is_some_and(|driver| driver == "fylo")
     }
 
     fn datasource_driver(root: &Path) -> Option<serde_json::Value> {
