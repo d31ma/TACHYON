@@ -3363,6 +3363,258 @@
       ]
     },
     {
+      "id": "topics",
+      "title": "Topics",
+      "group": "Yon server",
+      "summary": "A topic is a model marked `Topic` that carries events between Yon processes, languages and open pages (ADR 0061). When a Yon class publishes a Topic model, Tachyon adds it as one line to the log `data/topics/<name>.jsonl` and calls the `OnEvent` listeners of that model in the other Yon files and languages once. In a page, an `OnEvent` listener for the model opens the stream `/.tachyon/topics/<name>` by itself, in every Tac language; no `HTTPClient` is needed. The stream replays the kept records, and after a lost connection it resumes after the last record it received, through `Last-Event-ID`. A client may also ask for `?position=<n>`; a position the server no longer keeps ends the stream with `TY_TOPIC_CURSOR_STALE`. A server Topic model says who may read its stream, with the same access markers as a controller: `Public`, `SignedIn` or `Allow(Role)`, in the spelling of its language, next to `Topic`. A server Topic without one stops the build with `TY1322`, `SignedIn` or `Allow` without an identity provider stops it with `TY1323`, and every language that declares the same topic writes the same rule. A client topic model takes no access marker (`TY1308`): a page cannot grant itself access. The server answers 404 for a topic that no server model declares, and checks the rule before it opens the stream: 401 when nobody is signed in, and 403 when the user has none of the roles. A page opens its stream with its cookies, so an identity provider that reads a session cookie guards it. A record holds at most 64 KiB, a log at most 16 MiB, and one client address keeps at most 16 topic streams open. The examples are those of the Topics guide, where `InventoryRecord` is `Public`.",
+      "files": [
+        {
+          "name": "access",
+          "code": "Who may read a server topic: one access marker next to Topic\n\n  Java        @Public   @SignedIn   @Allow(Admin.class)\n  Kotlin      @Public   @SignedIn   @Allow(Admin::class)\n  Groovy      @Public   @SignedIn   @Allow(Admin)\n  Dart        @Public   @SignedIn   @Allow(Admin)\n  Python      @public   @signed_in  @allow(Admin)\n  JavaScript   * @Public  * @SignedIn  * @Allow(Admin)   (in the @typedef block)\n  TypeScript  /** @Public */  /** @SignedIn */  /** @Allow(Admin) */\n  Go          // @Public  // @SignedIn  // @Allow(Admin)\n  Lua         -- @Public  -- @SignedIn  -- @Allow(Admin)\n  Rust, Ruby  #[Public]  #[SignedIn]  #[Allow(Admin)]\n  PHP         #[Public]  #[SignedIn]  #[Allow(Admin::class)]\n  C#          [Public]   [SignedIn]   [Allow(typeof(Admin))]\n  F#          [<Public>] [<SignedIn>] [<Allow(typeof<Admin>)>]\n  C++         struct [[Topic]] [[SignedIn]] OrderPlaced   ([[Allow(Admin)]])\n\nWhat the server answers\n\n  404   no server model declares the topic\n  401   SignedIn or Allow, and nobody is signed in\n  403   the user has none of the allowed roles\n  503   a client address already holds 16 topic streams\n\nBuild errors\n\n  TY1322   a server Topic without an access marker, an unknown role, or\n           two languages that write different rules for one topic\n  TY1323   SignedIn or Allow without an identity provider\n  TY1308   an access marker on a client topic model\n"
+        },
+        {
+          "name": "server/models/InventoryRecord.js",
+          "code": "/**\n * @Topic\n * @Public\n * @typedef {Object} InventoryRecord\n * @property {string} sku\n * @property {integer} level\n */\nexport {}\n"
+        },
+        {
+          "name": "server/controllers/InventoryController.js",
+          "code": "/** @import { InventoryRecord } from '/models/InventoryRecord.js' */\n@RequestRoute(\"/inventory\")\n@Public\nclass InventoryController {\n  /** @type {ApplicationEventPublisher} */\n  @Needs\n  applicationEventPublisher;\n\n  /**\n   * @param {InventoryRecord} record\n   * @returns {InventoryRecord}\n   */\n  @PostRoute\n  postRecord(@FromBody record) {\n    this.applicationEventPublisher.publishEvent(record)\n    return record\n  }\n}\n"
+        },
+        {
+          "name": "server/models/InventoryRecord.ts",
+          "code": "/** @Topic */\n/** @Public */\nexport interface InventoryRecord {\n  sku: string\n  level: number\n}\n"
+        },
+        {
+          "name": "server/controllers/InventoryController.ts",
+          "code": "import type { InventoryRecord } from '/models/InventoryRecord.ts'\n\n@RequestRoute(\"/inventory\")\n@Public\nclass InventoryController {\n  @Needs\n  readonly applicationEventPublisher!: ApplicationEventPublisher\n\n  @PostRoute\n  postRecord(@FromBody record: InventoryRecord): InventoryRecord {\n    this.applicationEventPublisher.publishEvent(record)\n    return record\n  }\n}\n"
+        },
+        {
+          "name": "server/models/InventoryRecord.py",
+          "code": "from dataclasses import dataclass\n\n\n@topic\n@public\n@dataclass\nclass InventoryRecord:\n    sku: str\n    level: int\n"
+        },
+        {
+          "name": "server/controllers/InventoryController.py",
+          "code": "from typing import Annotated\nfrom models import InventoryRecord\n\n\n@request_route(\"/inventory\")\n@public\n@needs_all()\nclass InventoryController:\n    application_event_publisher: ApplicationEventPublisher\n\n    @post_route\n    def post_record(self, record: Annotated[InventoryRecord, from_body]) -> InventoryRecord:\n        self.application_event_publisher.publish_event(record)\n        return record\n"
+        },
+        {
+          "name": "server/models/InventoryRecord.php",
+          "code": "<?php\n#[Topic]\n#[Public]\nclass InventoryRecord {\n    public function __construct(public string $sku, public int $level) {}\n}\n"
+        },
+        {
+          "name": "server/controllers/InventoryController.php",
+          "code": "<?php\nuse Models\\InventoryRecord;\n\n#[RequestRoute(\"/inventory\")]\n#[Public]\nclass InventoryController {\n    #[Needs]\n    private ApplicationEventPublisher $applicationEventPublisher;\n\n    #[PostRoute]\n    public function postRecord(#[FromBody] InventoryRecord $record): InventoryRecord {\n        $this->applicationEventPublisher->publishEvent($record);\n        return $record;\n    }\n}\n"
+        },
+        {
+          "name": "server/models/InventoryRecord.java",
+          "code": "@Topic\n@Public\nrecord InventoryRecord(String sku, long level) {}\n"
+        },
+        {
+          "name": "server/controllers/InventoryController.java",
+          "code": "import models.InventoryRecord;\n\n@RequestRoute(\"/inventory\")\n@Public\nclass InventoryController {\n    @Needs\n    ApplicationEventPublisher applicationEventPublisher;\n\n    @PostRoute\n    InventoryRecord postRecord(@FromBody InventoryRecord record) {\n        applicationEventPublisher.publishEvent(record);\n        return record;\n    }\n}\n"
+        },
+        {
+          "name": "server/models/InventoryRecord.groovy",
+          "code": "@Topic\n@Public\nrecord InventoryRecord(String sku, long level) {}\n"
+        },
+        {
+          "name": "server/controllers/InventoryController.groovy",
+          "code": "import models.InventoryRecord\n\n@RequestRoute(\"/inventory\")\n@Public\nclass InventoryController {\n    @Needs\n    ApplicationEventPublisher applicationEventPublisher\n\n    @PostRoute\n    InventoryRecord postRecord(@FromBody InventoryRecord record) {\n        applicationEventPublisher.publishEvent(record)\n        return record\n    }\n}\n"
+        },
+        {
+          "name": "server/models/InventoryRecord.kt",
+          "code": "@Topic\n@Public\ndata class InventoryRecord(val sku: String, val level: Long)\n"
+        },
+        {
+          "name": "server/controllers/InventoryController.kt",
+          "code": "import models.InventoryRecord\n\n@RequestRoute(\"/inventory\")\n@Public\nclass InventoryController {\n    @Needs\n    lateinit var applicationEventPublisher: ApplicationEventPublisher\n\n    @PostRoute\n    fun postRecord(@FromBody record: InventoryRecord): InventoryRecord {\n        applicationEventPublisher.publishEvent(record)\n        return record\n    }\n}\n"
+        },
+        {
+          "name": "server/models/InventoryRecord.cs",
+          "code": "[Topic]\n[Public]\npublic record InventoryRecord(string Sku, long Level);\n"
+        },
+        {
+          "name": "server/controllers/InventoryController.cs",
+          "code": "using Models;\n\n[RequestRoute(\"/inventory\")]\n[Public]\nclass InventoryController {\n    [Needs]\n    readonly ApplicationEventPublisher _applicationEventPublisher;\n\n    [PostRoute]\n    public InventoryRecord PostRecord([FromBody] InventoryRecord record) {\n        _applicationEventPublisher.PublishEvent(record);\n        return record;\n    }\n}\n"
+        },
+        {
+          "name": "server/models/InventoryRecord.rs",
+          "code": "#[Topic]\n#[Public]\n#[derive(Clone)]\npub struct InventoryRecord {\n    pub sku: String,\n    pub level: i64,\n}\n"
+        },
+        {
+          "name": "server/controllers/InventoryController.rs",
+          "code": "use crate::models::InventoryRecord;\n\n#[RequestRoute(\"/inventory\")]\n#[Public]\nstruct InventoryController {\n    #[Needs]\n    application_event_publisher: std::sync::Arc<ApplicationEventPublisher>,\n}\nimpl InventoryController {\n    #[PostRoute]\n    fn post_record(&self, #[FromBody] record: InventoryRecord) -> InventoryRecord {\n        self.application_event_publisher.publish_event(record.clone(), false);\n        record\n    }\n}\n"
+        },
+        {
+          "name": "server/models/InventoryRecord.go",
+          "code": "// @Topic\n// @Public\ntype InventoryRecord struct {\n\tSku   string `json:\"sku\"`\n\tLevel int64  `json:\"level\"`\n}\n"
+        },
+        {
+          "name": "server/controllers/InventoryController.go",
+          "code": "// @RequestRoute(\"/inventory\")\n// @Public\ntype InventoryController struct {\n\t// @Needs\n\tapplicationEventPublisher *ApplicationEventPublisher\n}\n\n// @PostRoute\nfunc (controller *InventoryController) PostRecord(\n\t// @FromBody\n\trecord InventoryRecord,\n) InventoryRecord {\n\tcontroller.applicationEventPublisher.PublishEvent(record, false)\n\treturn record\n}\n"
+        },
+        {
+          "name": "server/models/InventoryRecord.dart",
+          "code": "@Topic\n@Public\nclass InventoryRecord {\n  final String sku;\n  final int level;\n\n  const InventoryRecord(this.sku, this.level);\n}\n"
+        },
+        {
+          "name": "server/controllers/InventoryController.dart",
+          "code": "import 'models/InventoryRecord.dart';\n\n@RequestRoute(\"/inventory\")\n@Public\nclass InventoryController {\n  @Needs\n  final ApplicationEventPublisher applicationEventPublisher;\n\n  @PostRoute\n  InventoryRecord postRecord(@FromBody InventoryRecord record) {\n    applicationEventPublisher.publishEvent(record);\n    return record;\n  }\n}\n"
+        },
+        {
+          "name": "server/models/InventoryRecord.rb",
+          "code": "# @!attribute [r] sku\n#   @return [String]\n# @!attribute [r] level\n#   @return [Integer]\n#[Topic]\n#[Public]\nInventoryRecord = Data.define(:sku, :level)\n"
+        },
+        {
+          "name": "server/controllers/InventoryController.rb",
+          "code": "#[RequestRoute(\"/inventory\")]\n#[Public]\nclass InventoryController\n  # @param record [InventoryRecord]\n  # @return [InventoryRecord]\n  #[PostRoute]\n  def post_record(\n    #[FromBody]\n    record\n  )\n    ApplicationEventPublisher.new.publish_event(record)\n    record\n  end\nend\n"
+        },
+        {
+          "name": "server/models/InventoryRecord.fs",
+          "code": "[<Topic>]\n[<Public>]\ntype InventoryRecord = { Sku: string; Level: int64 }\n"
+        },
+        {
+          "name": "server/controllers/InventoryController.fs",
+          "code": "open Models\n\n[<RequestRoute(\"/inventory\")>]\n[<Public>]\ntype InventoryController(applicationEventPublisher: ApplicationEventPublisher) =\n    [<PostRoute>]\n    member this.PostRecord([<FromBody>] record: InventoryRecord) : InventoryRecord =\n        applicationEventPublisher.PublishEvent(record) |> ignore\n        record\n"
+        },
+        {
+          "name": "server/models/InventoryRecord.lua",
+          "code": "-- @Topic\n-- @Public\n---@class InventoryRecord\n---@field sku string\n---@field level integer\nInventoryRecord = {}\n"
+        },
+        {
+          "name": "server/controllers/InventoryController.lua",
+          "code": "-- @RequestRoute(\"/inventory\")\n-- @Public\n---@class InventoryController\nInventoryController = {\n  ---@type ApplicationEventPublisher\n  application_event_publisher = nil,\n}\n\n---@param record InventoryRecord\n---@return InventoryRecord\n-- @PostRoute\nfunction InventoryController:post_record(\n  -- @FromBody\n  record\n)\n  self.application_event_publisher:publish_event(record)\n  return record\nend\n"
+        },
+        {
+          "name": "server/models/InventoryRecord.hpp",
+          "code": "#pragma once\n#include <cstdint>\n#include <string>\n\nstruct [[Topic]] [[Public]] InventoryRecord {\n    std::string sku;\n    std::int64_t level = 0;\n};\n"
+        },
+        {
+          "name": "server/controllers/InventoryController.hpp",
+          "code": "#pragma once\n#include \"../models/InventoryRecord.hpp\"\n\nclass [[RequestRoute(\"/inventory\")]] [[Public]] InventoryController {\n    ApplicationEventPublisher applicationEventPublisher;\n\npublic:\n    [[PostRoute]]\n    InventoryRecord postRecord([[FromBody]] InventoryRecord record) {\n        applicationEventPublisher.publishEvent(record);\n        return record;\n    }\n};\n"
+        },
+        {
+          "name": "client/pages/inventory/tac.html",
+          "code": "<inventory-feed hydrate=\"load\" />\n"
+        },
+        {
+          "name": "client/components/inventory/feed/tac.html",
+          "code": "<ul aria-live=\"polite\">\n  <loop :for=\"record of inventory.records\">\n    <li>{record.sku} · {record.level}</li>\n  </loop>\n</ul>\n"
+        },
+        {
+          "name": "client/models/InventoryRecord.js",
+          "code": "/**\n * @Topic\n * @typedef {Object} InventoryRecord\n * @property {string} sku\n * @property {integer} level\n */\nexport {}\n"
+        },
+        {
+          "name": "client/services/InventoryService.js",
+          "code": "@Service\nexport default class InventoryService {\n  /** @type {InventoryRecord[]} */\n  records = []\n\n  /** @param {InventoryRecord} record */\n  @OnEvent\n  addRecord(record) {\n    this.records = [...this.records.slice(-63), record]\n  }\n}\n"
+        },
+        {
+          "name": "client/models/InventoryRecord.ts",
+          "code": "/** @Topic */\nexport interface InventoryRecord {\n  sku: string\n  level: number\n}\n"
+        },
+        {
+          "name": "client/services/InventoryService.ts",
+          "code": "import type { InventoryRecord } from '/models/InventoryRecord.ts'\n\n@Service\nexport default class InventoryService {\n  records: InventoryRecord[] = []\n\n  @OnEvent\n  addRecord(record: InventoryRecord): void {\n    this.records = [...this.records.slice(-63), record]\n  }\n}\n"
+        },
+        {
+          "name": "client/models/InventoryRecord.dart",
+          "code": "@Topic\nclass InventoryRecord {\n  final String sku;\n  final int level;\n\n  const InventoryRecord(this.sku, this.level);\n}\n"
+        },
+        {
+          "name": "client/services/InventoryService.dart",
+          "code": "import 'dart:math';\n\nimport 'models/InventoryRecord.dart';\n\n@Service\nclass InventoryService {\n  List<InventoryRecord> records = [];\n\n  @OnEvent\n  void addRecord(InventoryRecord record) {\n    records = [...records.skip(max(0, records.length - 63)), record];\n  }\n}\n"
+        },
+        {
+          "name": "client/models/InventoryRecord.rs",
+          "code": "#[Topic]\n#[derive(Clone)]\npub struct InventoryRecord {\n    pub sku: String,\n    pub level: i64,\n}\n"
+        },
+        {
+          "name": "client/services/InventoryService.rs",
+          "code": "use crate::models::InventoryRecord;\n\n#[Service]\n#[derive(Default)]\npub struct InventoryService {\n    pub records: Vec<InventoryRecord>,\n}\n\nimpl InventoryService {\n    #[OnEvent]\n    pub fn add_record(&mut self, record: InventoryRecord) {\n        let older = self.records.len().saturating_sub(63);\n        self.records.drain(..older);\n        self.records.push(record);\n    }\n}\n"
+        },
+        {
+          "name": "client/models/InventoryRecord.go",
+          "code": "// @Topic\ntype InventoryRecord struct {\n\tSku   string `json:\"sku\"`\n\tLevel int64  `json:\"level\"`\n}\n"
+        },
+        {
+          "name": "client/services/InventoryService.go",
+          "code": "// @Service\ntype InventoryService struct {\n\tRecords []InventoryRecord\n}\n\n// @OnEvent\nfunc (inventory *InventoryService) AddRecord(record InventoryRecord) {\n\tolder := max(0, len(inventory.Records)-63)\n\tinventory.Records = append(inventory.Records[older:], record)\n}\n"
+        },
+        {
+          "name": "client/models/InventoryRecord.rb",
+          "code": "#[Topic]\n# @!attribute [r] sku\n#   @return [String]\n# @!attribute [r] level\n#   @return [Integer]\nInventoryRecord = Data.define(:sku, :level)\n"
+        },
+        {
+          "name": "client/services/InventoryService.rb",
+          "code": "#[Service]\nclass InventoryService\n  # @return [Array<InventoryRecord>]\n  attr_reader :records\n\n  def initialize\n    @records = []\n  end\n\n  # @param record [InventoryRecord]\n  # @return [void]\n  #[OnEvent]\n  def add_record(record)\n    @records = [*@records.last(63), record]\n  end\nend\n"
+        },
+        {
+          "name": "client/models/InventoryRecord.lua",
+          "code": "-- @Topic\n---@class InventoryRecord\n---@field sku string\n---@field level integer\nInventoryRecord = {}\n"
+        },
+        {
+          "name": "client/services/InventoryService.lua",
+          "code": "-- @Service\n---@class InventoryService\nInventoryService = {\n  ---@type InventoryRecord[]\n  records = {},\n}\n\n---@param record InventoryRecord\n---@return nil\n-- @OnEvent\nfunction InventoryService:add_record(record)\n  self.records[#self.records + 1] = record\n  if #self.records > 64 then\n    table.remove(self.records, 1)\n  end\nend\n"
+        },
+        {
+          "name": "client/models/InventoryRecord.py",
+          "code": "from dataclasses import dataclass\n\n\n@topic\n@dataclass\nclass InventoryRecord:\n    sku: str\n    level: int\n"
+        },
+        {
+          "name": "client/services/InventoryService.py",
+          "code": "from models import InventoryRecord\n\n\n@service\nclass InventoryService:\n    records: list[InventoryRecord] = []\n\n    @on_event\n    def add_record(self, record: InventoryRecord) -> None:\n        self.records = [*self.records[-63:], record]\n"
+        },
+        {
+          "name": "client/models/InventoryRecord.swift",
+          "code": "@Topic\nstruct InventoryRecord: Codable, Equatable {\n  let sku: String\n  let level: Int\n}\n"
+        },
+        {
+          "name": "client/services/InventoryService.swift",
+          "code": "@Service\nfinal class InventoryService {\n  var records: [InventoryRecord] = []\n\n  @OnEvent\n  func addRecord(_ record: InventoryRecord) {\n    records = Array(records.suffix(63)) + [record]\n  }\n}\n"
+        },
+        {
+          "name": "client/models/InventoryRecord.kt",
+          "code": "@Topic\ndata class InventoryRecord(val sku: String, val level: Long)\n"
+        },
+        {
+          "name": "client/services/InventoryService.kt",
+          "code": "import models.InventoryRecord\n\n@Service\nclass InventoryService {\n  var records: List<InventoryRecord> = listOf()\n\n  @OnEvent\n  fun addRecord(record: InventoryRecord) {\n    records = records.takeLast(63) + record\n  }\n}\n"
+        },
+        {
+          "name": "client/models/InventoryRecord.java",
+          "code": "@Topic\nrecord InventoryRecord(String sku, long level) {}\n"
+        },
+        {
+          "name": "client/services/InventoryService.java",
+          "code": "import java.util.ArrayList;\nimport java.util.List;\nimport models.InventoryRecord;\n\n@Service\nclass InventoryService {\n    List<InventoryRecord> records = new ArrayList<>();\n\n    @OnEvent\n    void addRecord(InventoryRecord record) {\n        int older = Math.max(0, records.size() - 63);\n        List<InventoryRecord> kept = new ArrayList<>(records.subList(older, records.size()));\n        kept.add(record);\n        records = kept;\n    }\n}\n"
+        },
+        {
+          "name": "client/models/InventoryRecord.cs",
+          "code": "[Topic]\npublic record InventoryRecord(string Sku, long Level);\n"
+        },
+        {
+          "name": "client/services/InventoryService.cs",
+          "code": "using System;\nusing System.Collections.Generic;\nusing System.Linq;\nusing Models;\n\n[Service]\npublic class InventoryService\n{\n    public List<InventoryRecord> Records = new List<InventoryRecord>();\n\n    [OnEvent]\n    public void AddRecord(InventoryRecord record)\n    {\n        var older = Math.Max(0, Records.Count - 63);\n        Records = Records.Skip(older).Append(record).ToList();\n    }\n}\n"
+        },
+        {
+          "name": "client/models/InventoryRecord.fs",
+          "code": "[<Topic>]\ntype InventoryRecord = { Sku: string; Level: int64 }\n"
+        },
+        {
+          "name": "client/services/InventoryService.fs",
+          "code": "open Models\n\n[<Service>]\ntype InventoryService() =\n    member val Records : InventoryRecord list = [] with get, set\n\n    [<OnEvent>]\n    member this.AddRecord(record: InventoryRecord) : unit =\n        let kept = this.Records @ [ record ]\n        this.Records <- List.skip (max 0 (kept.Length - 64)) kept\n"
+        },
+        {
+          "name": "client/models/InventoryRecord.hpp",
+          "code": "#pragma once\n#include <cstdint>\n#include <string>\n\nstruct [[Topic]] InventoryRecord {\n    std::string sku;\n    std::int64_t level = 0;\n};\n"
+        },
+        {
+          "name": "client/services/InventoryService.hpp",
+          "code": "#pragma once\n#include <vector>\n#include \"../models/InventoryRecord.hpp\"\n\nclass [[Service]] InventoryService {\npublic:\n    std::vector<InventoryRecord> records;\n\n    [[OnEvent]] void addRecord(const InventoryRecord& record) {\n        if (records.size() >= 64) {\n            records.erase(records.begin(), records.end() - 63);\n        }\n        records.push_back(record);\n    }\n};\n"
+        }
+      ]
+    },
+    {
       "id": "sockets",
       "title": "Socket controllers",
       "summary": "SocketRoute marks a controller class that keeps a WebSocket open, as Jakarta's @ServerEndpoint does. Tachyon makes one object of the class for each connection, so its fields hold that connection's state. OnOpen, OnMessage, OnClose and OnError mark the methods that run when a browser connects, sends a message, leaves, or when a method fails. Each message is JSON text, and Tachyon checks it against the model type of the OnMessage parameter first. The session sends messages back, and openSessions() (open_sessions() in Python, Ruby, Lua and Rust, OpenSessions() in Go, C# and F#, getOpenSessions() in Java) returns every open connection of the same path, so one message can go to every tab. In Go, session.Request() returns the request that opened the socket as an *http.Request, with the query string and the headers. A C++ socket class takes `SocketSession& session` in its methods, its OnMessage method is `void onMessage(SocketSession& session, ChatMessage message)`, `peer.send(message)` writes to another connection, and a thrown exception counts as the failure. When OnOpen or OnMessage fails, OnError runs and the socket stays open, as in Jakarta. In the browser, SocketRequest on an HTTPClient method receives the messages and publishes each one as its model's event, and the client's send(message) writes to the socket. The SocketRequest client is JavaScript, TypeScript, Go, Ruby, Rust, Dart, Swift, Kotlin, Java, C#, Lua, Python, F# or C++ (a Dart client is a method of an abstract interface class such as `void receive(ChatMessage message);`, held by the page for the Dart service that keeps it in a `@Needs` field, and gets `Future<void> send(Object? message)`, which fails with a code such as `HTTP_NETWORK`; a Rust client is a trait method such as `fn receive(&self, message: ChatMessage)`, held by the page for the Rust service that keeps it in a `#[Needs]` field, and gets `send(message).await`). A Go client is an interface method such as `Receive(message ChatMessage)`; the page holds the socket for the Go service that keeps the client in a `// @Needs` field, the service receives each message with `// @OnEvent`, and the generated `Send(message any) error` writes to the socket and returns an error code such as `HTTP_NETWORK` instead of a rejected promise. A Swift client is a protocol method held the same way, and its generated `send(_ message:) async throws` throws those codes. A Ruby client is an empty method of an `#[HTTPClient]` class such as `def receive(message)` in a Ruby service that keeps it in a `#[Needs]` field; the service receives each message with `#[OnEvent]`, and the generated `send_message(message)` (Ruby's own `send` calls a method by name) raises a `BehaviorError` with a code such as `HTTP_NETWORK`. A Kotlin client is an interface method such as `fun receive(message: ChatMessage)`; the page holds the socket for the Kotlin web service that keeps the client in a `@Needs` field, and the generated `suspend fun send(message: Any)` waits for the page and throws an error whose message starts with the code, such as `HTTP_NETWORK`. A C# client is an interface method such as `void Receive(Models.ChatMessage message);` in a browser C# service that keeps it in a `[Needs]` field; the service receives each message with `[OnEvent]`, and the generated `Task Send(object message)` throws a `BehaviorError` with a code such as `HTTP_NETWORK`. A Lua client is an empty method such as `function ChatClient:receive(message)` in a Lua service that keeps it in a typed `-- @Needs` field; the service receives each message with `-- @OnEvent`, and the generated `client:send(message)` raises a `BehaviorError` with a code such as `HTTP_NETWORK`. A Python client is a `Protocol` method such as `def receive(self, message: ChatMessage) -> None: ...`, held the same way for the Python service that keeps it in a `Needs` field, and the generated `async def send(self, message)` raises a `BehaviorError` with a code such as `HTTP_NETWORK`. A Java client is an interface method such as `void receive(ChatMessage message);`, held the same way for the Java service that keeps it in a `@Needs` field; the generated `void send(Object message)` throws a runtime exception whose message starts with a code such as `HTTP_NETWORK`, and a method that calls it is a page task. An F# client is an abstract member such as `abstract Receive: ChatMessage -> unit` in a browser F# service that keeps it in a `[<Needs>]` property; the service receives each message with `[<OnEvent>]`, and the generated `Send(message: obj) : Task` raises a `BehaviorError` with the same codes. A C++ client is a method of an `[[HTTPClient]]` class such as `[[SocketRequest]] void receive(const ChatMessage& message);`, held the same way for the C++ service that keeps it in a `[[Needs]]` field, and the generated `Task<void> send(message)` throws a `tachyon::http::HttpRequestException` with a code such as `HTTP_NETWORK`. Services in every Tac language receive the messages with OnEvent. Sockets are written in any Yon language. Tachyon guards every socket (ADR 0060): a message is JSON text of at most 64 KiB; a message that is not JSON or does not fit the model closes the socket with code 1007, a binary message with 1003, and a larger message with 1009. Five minutes without a message closes it with 1001, a socket lasts at most one hour, and a page from another origin gets 403 unless `server.origins` in `server/application.json` lists that origin. A server keeps at most 32 sockets open at once, and one more gets 503 until a socket closes. `Public`, `SignedIn` or `Allow(Role)` on the class says who may connect; Tachyon answers 401 or 403 before it opens the socket.",
