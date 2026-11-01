@@ -14,6 +14,7 @@
         class="search-input"
         type="search"
         :value="search.term"
+        on:focus="search.prepare(data.docs, data.features)"
         on:input="search.find($event.target.value)"
         placeholder="Search the documentation"
         aria-label="Search documentation"

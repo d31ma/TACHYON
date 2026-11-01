@@ -1,5 +1,7 @@
 import { DocumentationUtils } from '/shared/utils/DocumentationUtils.js'
 
+/** @import { DocumentationCatalogue } from '/models/DocumentationCatalogue.ts' */
+/** @import { FeatureCatalogue } from '/models/FeatureCatalogue.ts' */
 /** @import { SearchResult } from '/models/SearchResult.ts' */
 /** @import { TaskScheduler } from '/models/TaskScheduler.ts' */
 @Service
@@ -20,6 +22,8 @@ export default class SearchService {
   _timer = undefined
   /** @type {HTMLElement | null} */
   _opener = null
+  /** @type {{ documents: DocumentationCatalogue, features: FeatureCatalogue } | undefined} */
+  _catalogues = undefined
 
   open() {
     this._opener = this._openerOf(this._focused())
@@ -79,6 +83,16 @@ export default class SearchService {
     this._searching = this.term.length >= DocumentationUtils.shortestTerm()
     const query = this.term
     this._timer = setTimeout(() => this._showResults(query), 120)
+  }
+
+  /**
+   * @param {Event} event
+   * @param {DocumentationCatalogue} documents
+   * @param {FeatureCatalogue} features
+   */
+  prepare(event, documents, features) {
+    this._catalogues = { documents, features }
+    this._searchAgainWhen(event, this._searching)
   }
 
   @OnStart
@@ -243,10 +257,19 @@ export default class SearchService {
     return String(value ?? '')
   }
 
+  /**
+   * @param {Event} event
+   * @param {boolean} waiting
+   */
+  _searchAgainWhen(event, waiting) {
+    if (!waiting) return
+    this.find(event, this.term)
+  }
+
   /** @param {string} query */
   async _showResults(query) {
-    if (this.lifecycle.aborted) return
-    this.results = DocumentationUtils.search(query)
+    if (this.lifecycle.aborted || !this._catalogues) return
+    this.results = DocumentationUtils.search(query, this._catalogues.documents, this._catalogues.features)
     this._searching = false
     await this.taskScheduler.render()
   }

@@ -1,4 +1,6 @@
+import documents from '/shared/data/docs.json' with { type: 'json' }
 import { DocumentationUtils } from '/shared/utils/DocumentationUtils.js'
+import type { DocumentationCatalogue } from '/models/DocumentationCatalogue.ts'
 import type { Guide } from '/models/Guide.ts'
 import type { Section } from '/models/Section.ts'
 import type { SectionBlock } from '/models/SectionBlock.ts'
@@ -13,6 +15,14 @@ export default class TopicService {
     title: 'Topic not found',
     summary: 'That guide does not exist. Pick one from the list.',
     sections: [],
+  }
+
+  private static catalogue(): DocumentationCatalogue {
+    return documents as DocumentationCatalogue
+  }
+
+  private static guideOf(slug: string): Guide | undefined {
+    return DocumentationUtils.guide(TopicService.catalogue(), slug)
   }
 
   private static anchorFor(heading: string): string {
@@ -32,11 +42,11 @@ export default class TopicService {
   }
 
   get source(): string {
-    return this.sourceOf(DocumentationUtils.guide(this.slug))
+    return this.sourceOf(TopicService.guideOf(this.slug))
   }
 
   entry(): Guide {
-    return this.orNotFound(DocumentationUtils.guide(this.slug))
+    return this.orNotFound(TopicService.guideOf(this.slug))
   }
 
   sections(): ShownSection[] {
@@ -115,7 +125,7 @@ export default class TopicService {
   }
 
   private static knownGuides(slugs: string[]): string[] {
-    return slugs.filter(DocumentationUtils.guide)
+    return slugs.filter(TopicService.guideOf)
   }
 
   private static linksTo(slugs: string[]): BeforeLink[] {
@@ -161,8 +171,8 @@ export default class TopicService {
   }
 
   private redirectTarget(): string | undefined {
-    if (DocumentationUtils.guide(this.slug)) return undefined
-    return DocumentationUtils.redirect(this.slug, location.hash)
+    if (TopicService.guideOf(this.slug)) return undefined
+    return DocumentationUtils.redirect(TopicService.catalogue(), this.slug, location.hash)
   }
 
   private followRedirect(target: string | undefined): void {
@@ -178,6 +188,6 @@ export default class TopicService {
   }
 
   private static titleOf(slug: string): string {
-    return DocumentationUtils.guide(slug)?.title ?? slug
+    return TopicService.guideOf(slug)?.title ?? slug
   }
 }

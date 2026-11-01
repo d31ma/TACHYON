@@ -1,18 +1,14 @@
 import { describe, expect, test } from 'bun:test'
 import { readFile } from 'node:fs/promises'
-import { plugin } from 'bun'
-import { fileURLToPath } from 'node:url'
+import { DocumentationUtils } from '../client/shared/utils/DocumentationUtils.js'
 import { PlatformUtils } from '../client/shared/utils/PlatformUtils.js'
 
-plugin({
-  name: 'tachyon-website-shared-json',
-  setup(build) {
-    build.onResolve({ filter: /^\/shared\/data\/(?:docs|features)\.json$/ }, ({ path, importer }) => {
-      if (!importer.endsWith('/DocumentationUtils.js')) return
-      return { path: fileURLToPath(new URL(`../client${path}`, import.meta.url)) }
-    })
-  },
-})
+class PublishedData {
+  /** @param {string} name @returns {Promise<any>} */
+  static async read(name) {
+    return JSON.parse(await readFile(new URL(`../client/shared/data/${name}.json`, import.meta.url), 'utf8'))
+  }
+}
 
 describe('stateless platform utilities', () => {
   test('platform choices and reach cannot retain caller mutations', () => {
@@ -41,33 +37,34 @@ describe('stateless platform utilities', () => {
   })
 })
 
-describe('actual documentation source with local JSON imports', () => {
+describe('actual documentation source with the published catalogues', () => {
   test('guide links, slugs and redirects still resolve the published data', async () => {
-    const { DocumentationUtils } = await import('../client/shared/utils/DocumentationUtils.js')
-    const documents = JSON.parse(await readFile(new URL('../client/shared/data/docs.json', import.meta.url), 'utf8'))
+    const documents = await PublishedData.read('docs')
+    const features = await PublishedData.read('features')
     expect(DocumentationUtils.slugOf(' On Start! ')).toBe('on-start')
     const first = documents.order[0]
-    expect(DocumentationUtils.search(documents.topics[first].title, 100).map(entry => entry.path)).toContain(`/docs/${first}`)
-    expect(DocumentationUtils.guide(documents.order[0])?.title).toBe(documents.topics[documents.order[0]].title)
-    expect(DocumentationUtils.guide('missing')).toBeUndefined()
-    expect(DocumentationUtils.redirect('missing')).toBeUndefined()
+    expect(DocumentationUtils.search(documents.topics[first].title, documents, features, 100).map(entry => entry.path)).toContain(`/docs/${first}`)
+    expect(DocumentationUtils.guide(documents, documents.order[0])?.title).toBe(documents.topics[documents.order[0]].title)
+    expect(DocumentationUtils.guide(documents, 'missing')).toBeUndefined()
+    expect(DocumentationUtils.redirect(documents, 'missing')).toBeUndefined()
     const [slug, target] = Object.entries(documents.redirects)[0]
-    expect(DocumentationUtils.redirect(slug)).toBe(`/docs/${target}`)
+    expect(DocumentationUtils.redirect(documents, slug)).toBe(`/docs/${target}`)
   })
 
   test('search covers guide sections and feature pages with the same limit', async () => {
-    const { DocumentationUtils } = await import('../client/shared/utils/DocumentationUtils.js')
-    expect(DocumentationUtils.search('r')).toEqual([])
-    expect(DocumentationUtils.search('routing', 2)).toHaveLength(2)
-    expect(DocumentationUtils.search('compiler').some(entry => entry.kind === 'feature')).toBe(true)
-    expect(DocumentationUtils.search('browser', 100).some(entry => entry.kind === 'section')).toBe(true)
-    const features = DocumentationUtils.search('compiler', 100).filter(entry => entry.kind === 'feature')
-    expect(features.every(entry => entry.path.startsWith('/docs/features/'))).toBe(true)
+    const documents = await PublishedData.read('docs')
+    const features = await PublishedData.read('features')
+    expect(DocumentationUtils.search('r', documents, features)).toEqual([])
+    expect(DocumentationUtils.search('routing', documents, features, 2)).toHaveLength(2)
+    expect(DocumentationUtils.search('routing', documents, features)).toHaveLength(12)
+    expect(DocumentationUtils.search('compiler', documents, features).some(entry => entry.kind === 'feature')).toBe(true)
+    expect(DocumentationUtils.search('browser', documents, features, 100).some(entry => entry.kind === 'section')).toBe(true)
+    const featureHits = DocumentationUtils.search('compiler', documents, features, 100).filter(entry => entry.kind === 'feature')
+    expect(featureHits.every(entry => entry.path.startsWith('/docs/features/'))).toBe(true)
   })
 
   test('search reads a section summary', async () => {
-    const { DocumentationUtils } = await import('../client/shared/utils/DocumentationUtils.js')
-    const hits = DocumentationUtils.search('Tachyon passes one when it creates the service', 100)
+    const hits = DocumentationUtils.search('Tachyon passes one when it creates the service', await PublishedData.read('docs'), await PublishedData.read('features'), 100)
     expect(hits.map(entry => entry.path)).toContain('/docs/annotations#lifecycle-and-events-tac')
   })
 })

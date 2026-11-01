@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { readFileSync, readdirSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
 import { SiteContent } from '../scripts/site-content.mjs'
 
@@ -42,7 +42,17 @@ class PageData {
     const entries = readdirSync(PageData.client, { recursive: true, withFileTypes: true })
     const templates = entries.filter(entry => entry.isFile() && entry.name.endsWith('.html'))
     const texts = templates.map(entry => readFileSync(path.join(entry.parentPath, entry.name), 'utf8'))
-    return [...new Set(texts.flatMap(text => [...text.matchAll(/\bdata\.(\w+)/g)].map(match => match[1])))]
+    const passed = texts.map(text => text.replace(/(\w+)\.\w+\([^)]*\)/g, (call, owner) => PageData.isScriptService(owner) ? '' : call))
+    return [...new Set(passed.flatMap(text => [...text.matchAll(/\bdata\.(\w+)/g)].map(match => match[1])))]
+  }
+
+  /**
+   * @param {string} instance
+   * @returns {boolean}
+   */
+  static isScriptService(instance) {
+    const name = `${instance[0].toUpperCase()}${instance.slice(1)}Service`
+    return ['js', 'ts'].some(extension => existsSync(path.join(PageData.client, 'services', `${name}.${extension}`)))
   }
 
   /**
@@ -107,7 +117,7 @@ class RetiredName {
 }
 
 describe('the data a page passes to a service fits in one WebAssembly init request', () => {
-  test('every data file that a template names is at most 1 MiB', () => {
+  test('every data file that a template passes to a WebAssembly service is at most 1 MiB', () => {
     const oversized = PageData.namesInTemplates().filter(name => PageData.bytes(name) > PageData.serviceInitLimit)
     expect(oversized).toEqual([])
   })

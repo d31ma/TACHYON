@@ -1,3 +1,5 @@
+/** @import { DocumentationCatalogue } from '/models/DocumentationCatalogue.ts' */
+/** @import { FeatureCatalogue } from '/models/FeatureCatalogue.ts' */
 @Test(SiteTestSetup, {"partition":"tests"})
 export default class SearchServiceTest {
   /**
@@ -15,6 +17,27 @@ export default class SearchServiceTest {
   /** @returns {Promise<void>} */
   async pause() {
     await new Promise((resolve) => setTimeout(resolve, 0))
+  }
+
+  /** @returns {Promise<void>} */
+  async searchPause() {
+    await new Promise((resolve) => setTimeout(resolve, 200))
+  }
+
+  /** @returns {DocumentationCatalogue} */
+  documents() {
+    return {
+      order: ['routing'],
+      topics: { routing: { title: 'Routing', summary: 'Each folder under pages is a route.', sections: [] } },
+    }
+  }
+
+  /** @returns {FeatureCatalogue} */
+  features() {
+    return {
+      groups: ['Pages'],
+      features: [{ id: 'file-routing', title: 'File-based routing', summary: 'Folders become paths.', group: 'Pages' }],
+    }
   }
 
   /**
@@ -81,12 +104,36 @@ export default class SearchServiceTest {
   async testFindSearchesTheDocsAfterAPause() {
     const search = new SearchService()
     const { renders } = this.mounted(search)
+    search.prepare(new Event('focus'), this.documents(), this.features())
     search.find(new Event('input'), 'routing')
     Assert.equals('Searching…', search.status(), 'a two-letter term starts a search')
-    await new Promise((resolve) => setTimeout(resolve, 200))
+    await this.searchPause()
     search.dispose()
-    Assert.isTrue(search.status() !== 'Searching…' && search.results.length > 0, 'routing is in the docs')
+    Assert.equals('2 results', search.status(), 'routing is in the guides and the features')
     Assert.equals(1, renders(), 'one render for one search')
+  }
+
+  async testASearchTypedBeforeTheCataloguesArriveWaitsForThem() {
+    const search = new SearchService()
+    const { renders } = this.mounted(search)
+    search.find(new Event('input'), 'routing')
+    await this.searchPause()
+    Assert.isTrue(search.results.length === 0 && renders() === 0, 'nothing is searched without the catalogues')
+    Assert.equals('Searching…', search.status(), 'the search waits for the catalogues')
+    search.prepare(new Event('focus'), this.documents(), this.features())
+    await this.searchPause()
+    search.dispose()
+    Assert.equals('/docs/routing', search.results[0]?.path, 'the waiting search runs once the catalogues arrive')
+    Assert.equals(1, renders(), 'one render once the results are ready')
+  }
+
+  async testPreparingWithoutATermSearchesNothing() {
+    const search = new SearchService()
+    const { renders } = this.mounted(search)
+    search.prepare(new Event('focus'), this.documents(), this.features())
+    await this.searchPause()
+    search.dispose()
+    Assert.isTrue(search.results.length === 0 && renders() === 0, 'the catalogues alone start no search')
   }
 
   async testTabStaysInsideTheDialog() {
