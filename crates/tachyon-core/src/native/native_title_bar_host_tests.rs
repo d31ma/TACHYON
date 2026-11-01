@@ -24,13 +24,15 @@ main { padding: 24px; }
 <header data-tac-drag-region><strong>Title Bar Check</strong><button id="action">Refresh</button></header>
 <main id="main"><h1>__TITLE__</h1><p>The page continues under the window buttons.</p></main>
 <button id="below">Below</button>
-<script>
-globalThis.__downs = []
+<script src="/title-bar-check.js"></script>
+</body></html>"#;
+    // The host's Content-Security-Policy (script-src 'self') blocks inline scripts, so the page loads its probe from
+    // the bundle.
+    const SCRIPT: &str = r"globalThis.__downs = []
 globalThis.__clicks = 0
 addEventListener('mousedown', (event) => globalThis.__downs.push(event.target.closest('[id]')?.id ?? 'none'))
 document.getElementById('action').addEventListener('click', () => { globalThis.__clicks += 1 })
-</script>
-</body></html>"#;
+";
 
     fn variants() -> [TitleBarVariant; 2] {
         [
@@ -122,6 +124,11 @@ document.getElementById('action').addEventListener('click', () => { globalThis._
                 &Self::PAGE.replace("__TITLE__", title),
             );
         }
+        Self::write(
+            root,
+            &format!("{resources}/title-bar-check.js"),
+            Self::SCRIPT,
+        );
         Self::write(
             root,
             &format!("{}/Info.plist", Self::BUNDLE),
