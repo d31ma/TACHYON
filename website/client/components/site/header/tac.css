@@ -51,6 +51,7 @@ display: inline-flex;
 
 .site-bar {
   flex-wrap: nowrap;
+  gap: var(--w-space-2);
 }
 
 .site-bar__nav {
@@ -58,10 +59,13 @@ display: inline-flex;
   overflow-x: auto;
   scrollbar-width: none;
   flex-wrap: nowrap;
+  gap: 0;
 }
 
 .site-bar__nav .w-btn {
   font-size: var(--step-nav);
+  min-width: 44px;
+  padding-inline: var(--w-space-1);
 }
 
 .site-bar__nav::-webkit-scrollbar {
@@ -73,7 +77,30 @@ display: inline-flex;
   flex-shrink: 0;
 }
 
+.site-bar__actions {
+  gap: 0;
+}
+
 .site-bar__wordmark {
+  display: none;
+}
+
+.site-bar__github-icon {
+  display: block;
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.site-bar__github-name {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.site-bar__start {
   display: none;
 }
 
@@ -90,9 +117,52 @@ display: inline-flex;
   content: var(--theme-name);
 }
 
+@media (pointer: coarse) {
+  .site-bar__brand {
+    min-width: 44px;
+    min-height: 44px;
+    justify-content: center;
+    margin-inline-start: -9px;
+  }
+}
+
+@media (min-width: 22.5rem) {
+  .site-bar__start {
+    display: revert-layer;
+  }
+}
+
 @media (min-width: 30rem) {
   .site-bar__wordmark {
     display: inline;
+  }
+
+  .site-bar__brand {
+    margin-inline-start: 0;
+  }
+}
+
+@media (min-width: 33rem) {
+  .site-bar,
+  .site-bar__nav,
+  .site-bar__actions {
+    gap: revert-layer;
+  }
+
+  .site-bar__nav .w-btn {
+    padding-inline: revert-layer;
+  }
+
+  .site-bar__github-icon {
+    display: none;
+  }
+
+  .site-bar__github-name {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip-path: none;
   }
 }
 
