@@ -8,6811 +8,850 @@ machine contracts have their own, independent major versions.
 
 ## [Unreleased]
 
-### Added
-
-- App icons are checked against the manifest (IC1, 2026-10-28):
-  `scripts/native/icon-test.mjs` (`bun run test:native-icons`) builds an app
-  whose manifest icons are solid colors and checks, per target, that the
-  built app, its packages and, with `--screen`, the Dock, menu bar, taskbar,
-  window, simulator home screen and Android app drawer show the manifest's
-  icon. `--targets=` picks macos, ios, android, windows or linux; `--release`
-  adds the .deb, AppImage and MSIX icons. The `linux-native` CI job is set
-  to run it for Linux; it has not run in GitHub CI yet, and CI3 ran it
-  locally in a linux/arm64 container (2026-10-29). Each desktop host
-  records `icon.loaded` or `icon.missing`, and
-  each tray host `tray.icon.loaded` or `tray.icon.missing`.
-  On Windows, `--release` with no `TAC_WINDOWS_CERTIFICATE` makes a
-  throwaway code-signing certificate with `certreq.exe`, signs the MSIX with
-  it and removes it after the build (IC2, 2026-10-29); with `--screen` the
-  gate also installs the package, reads the icon the shell shows for it and
-  removes the package. The Wine tray test builds for ARM64 Windows on arm64
-  Linux (`aarch64-w64-mingw32-gcc`), so it runs under an arm64 Wine; since
-  WN1 (2026-10-29) all twelve Wine tests do.
-- `scripts/linux/wine.Dockerfile` and `scripts/linux/wine-tests.sh` run the
-  `#[ignore]` Wine tests on arm64 Linux (WN1, 2026-10-29). The image builds
-  Wine 11.0 for aarch64 with llvm-mingw 20261020, and the tests build ARM64
-  Windows programs with `WindowsHostTests::MINGW_FOR_WINE` (and Rust for
-  `aarch64-pc-windows-gnullvm`); `--with-compile-checks` adds the eight
-  x86_64 MinGW compile checks. All 20 passed in a linux/arm64 container
-  (`docs/SUPPORT_TIERS.md`, "The Wine tests on arm64").
-- `scripts/android/chain-state.mjs` records the Android emulator after each
-  gate of `scripts/android/native-test.sh` and settles it before the next
-  (AN1, 2026-10-29): focus, lock screen, keyboard, rotation, adb routes,
-  gate processes, error dialogs, notifications, load and a screenshot go to
-  `target/android-chain-state/`; `TAC_ANDROID_CHAIN_SETTLE=0` only records.
-  The chained gate passed 3 times in a row on an arm64 emulator.
-- `scripts/ci/install-toolchains.mjs` installs Dart 3.13.1 and
-  cargo-nextest 0.9.146 on `linux-arm64` and `win32-arm64` too (CI4,
-  2026-10-29), and `linux-display-session.mjs describe` reads the logind
-  session of a GNOME session that systemd starts.
-- `scripts/linux/gnome-shell-session.sh` runs a Linux gate inside a headless
-  GNOME Shell Wayland session (LD2, 2026-10-28), for example
-  `scripts/linux/gnome-shell-session.sh scripts/linux/compositor-test.sh
-  --desktop`. It starts `gnome-shell --headless --wayland` (in `ubuntu` mode
-  when installed) on a private session bus, runtime folder and settings
-  folder, with hot corners off, and runs the gate with
-  `TAC_LINUX_DISPLAY=desktop` pointed at the shell, so the gate uses GNOME
-  Shell's compositor, notification server, tray extension, portal and Mutter
-  RemoteDesktop. It needs no login, display manager or remote desktop
-  viewer. `compositor-test.sh --desktop` and `desktop-services-test.sh`
-  passed through it on WSL aarch64 (`docs/SUPPORT_TIERS.md`).
-- The Linux gates run in a signed-in desktop session (LD1, 2026-10-28):
-  `TAC_LINUX_DISPLAY=desktop`, or `scripts/linux/compositor-test.sh
-  --desktop`, makes `native-test.sh`, `compositor-test.sh`,
-  `desktop-services-test.sh`, `desktop-links-test.sh`, `deb-install-test.sh`
-  and `page-services-native-test.mjs` use the live X11 or Wayland session
-  instead of starting Xvfb or mutter. `scripts/linux/linux-display-session.mjs`
-  finds the session from the user's own processes (display, runtime folder,
-  session bus), reports its tray host, notification server, portal, Mutter
-  RemoteDesktop and accessibility bus, prints the shell environment
-  (`desktop-env`) and takes screenshots into `TAC_LINUX_SCREENSHOTS`.
-  `TAC_LINUX_DESKTOP_SESSION`, `TAC_LINUX_DESKTOP_PID` and
-  `TAC_LINUX_DESKTOP_USER` pick the session and its user;
-  `deb-install-test.sh` runs apt as root and the app as that user, and also
-  starts it by its desktop file id. In the desktop,
-  `desktop-services-test.sh` checks the page's notification on the
-  desktop's own notification server and a tray app in the desktop's own
-  StatusNotifierItem host (`scripts/linux/desktop-tray-probe.py`, new), and
-  `desktop-links-test.sh` sends links through the desktop's OpenURI portal.
-  In an Ubuntu GNOME X11 session (xrdp) on WSL aarch64, four gates passed as
-  written, the `.deb` install passed after the fix below, and the page
-  services gate passed with its file dialog focused by a wrapper (its
-  picker steps then passed on the fix), so the Linux target is `native-tested (candidate)` (`docs/SUPPORT_TIERS.md`;
-  ADR 0089, 0104, 0106 and 0107 amendments).
-- `scripts/test-managed-storage.mjs --serve` keeps the chosen Docker
-  fixtures running on `TAC_STORAGE_PUBLISH_ADDRESS` (which the fixture
-  certificate names) and writes `tachyon-storage-fixtures.json` and the
-  fixture CA, and `--remote=<that file>` runs the driver contracts from
-  another machine without Docker (MA10, 2026-10-27). SQL Server now runs as
-  `linux/amd64`, so it starts under Rosetta on Apple silicon.
-  `TAC_WASM_PROBE_DIAGNOSE=1` makes the in-app WebAssembly probe report what
-  the page reached and record through the host bridge when Tac never started
-  the linked recorder; `TAC_WASM_RECORDER_FIRST=1` puts the recorder first.
-- The in-app WebAssembly service features gate has a Windows driver (SW4,
-  2026-10-27): `scripts/native/wasm-features-app-test.mjs --target=windows`
-  builds each check for `--target windows`, reads the probe through UI
-  Automation, and clicks the browser API buttons with the mouse, because a
-  UI Automation Invoke may give the page no user action.
-  `scripts/windows/page-steps-probe.ps1` gains `pointer`, `verdict` and
-  `key` steps. `scripts/native/async-listener-app-test.mjs --target=windows`
-  runs the listener and shared-Setup checks with linked Rust services in the
-  WebView2 app. All 18 WebAssembly cells and both linked Rust checks passed
-  in the Windows app on the Surface. `scripts/windows/desktop-run.ps1` now
-  runs in the user's active Remote Desktop session when nobody is signed in
-  at the console. Open finding from these runs: the Windows build embeds no
-  application manifest in the `.exe`, so an app whose name contains `Setup`,
-  `Install`, `Update` or `Patch` asks for administrator rights; the
-  shared-Setup fixture app is named `SharedConfig` for this reason
-  (`docs/SUPPORT_TIERS.md`). WM1 fixed it, below.
-- `scripts/windows/self-restart.py` (new) checks that `ty preview` restarts
-  itself on Windows as a child process and exits with that child's code; a
-  Windows-only test in `crates/tachyon-cli/tests/signal_lifecycle.rs` runs it
-  (SW4, 2026-10-27).
-
-- Own run tests for 37 Tac marker cells that rested on shared or website
-  proof (MK3, 2026-10-27). `compiler::script_marker_proof_tests` builds one
-  TypeScript and one JavaScript project from the website caching, retries,
-  validation and configuration sections plus
-  `tests/fixtures/tac-script-markers`, runs the emitted services in Node
-  through the page's application-events bus, and checks UpdateCache,
-  ClearCache, Retry, MaxAtOnce, AllOrNothing, Entity, Table, Id, Store,
-  Query, PageDefaults, Settings, Setting, NotEmpty, Length, Min, Max,
-  OnEvent, Order, InBackground, OnStart and OnStop by their effect, down to
-  the exact entity and transaction commands the store adapter receives.
-  `compiler::script_reach_marker_tests` does the same for TypeScript
-  RequestParam, StreamRequest, SocketRequest and Topic, and
-  `a_csharp_needs_all_service_keeps_the_props_of_each_owner` runs a C#
-  `[NeedsAll]` WebAssembly service with two owners. With a marker removed,
-  each check fails or the build refuses the source.
-- Windows tool probes for marker tests (MK3, 2026-10-27): the Tac C++ and
-  Kotlin web tests and the model source tests now find `em++` and
-  `kotlinc-js` through `ProgramProbe`, which asks through the Kotlin
-  launcher Tachyon builds with and, on Windows, through `cmd`, so a `.bat`
-  launcher no longer makes them skip quietly. `Toolchain::checked` now fails
-  a test that skips a CI-installed tool under `CI` on Windows too, and the
-  integration tests that probed `groovyc`, `kotlinc`, `php`, `dart` or `lua`
-  by bare name now probe through `ProgramProbe`. (Corrected: MK3 left
-  `groovyc` and `kotlinc` bare-name probes in `test_units`,
-  `yon_json_returns` and `test_assertions`, and `lua`, `php-cgi` and `dart`
-  ones in a few other `tests/it` files. MK4, 2026-10-27, moved those and the
-  rest, 15 files in all, to `ProgramProbe`. On the Surface (Windows 11
-  ARM64) with `CI=1`, `tests/it` then passed 694 of 694 and the MK3 library
-  tests 83 of 83.)
-
-- The in-app WebAssembly service features gate has an Android driver
-  (MA9, 2026-10-27): `scripts/native/wasm-features-app-test.mjs
-  --target=android` installs each APK on an emulator, reads the probe
-  through the WebView's DevTools socket, clicks the gesture buttons, answers
-  the notification question, closes the share sheet, and checks that every
-  WebAssembly file came from `https://appassets.tachyon.local`. Its 16
-  cells passed on Android 15 and its Java cell on Android 17 (WebView 145).
-  The web-apis fixture now gives `tac.application.permissions` reasons,
-  which Android, macOS and iOS builds need for a granted location.
-
-- In-app WebAssembly service features gate (LX3, 2026-10-27):
-  `bun run test:wasm-features-app` (`scripts/native/wasm-features-app-test.mjs`
-  and `scripts/native/wasm-features-fixture.mjs`, new) stages the held-clients,
-  Yon HTTP, web-apis, DocumentTitle, cached-client, async-listener and
-  page-program fixtures into a packaged app, for each language that runs as
-  WebAssembly on the target, and reads one probe on the page:
-  `Probe passed` or `Probe failed`, with one `ok -` or `not ok -` line per
-  step. A host without a readable page can record the proof through a
-  `wasmRecorder` service instead. Only the Linux driver exists so far; it
-  clicks the browser API buttons with a real X pointer, because an AT-SPI
-  action is not a user gesture. (Superseded: the macOS, Android, iOS and
-  Windows drivers followed in MA7, MA9, MA8 and SW4, in the entries above.)
-- `scripts/native/async-listener-app-test.mjs --check=shared-setup
-  --target=linux` runs two linked Rust services that share one Setup in the
-  Linux app (LX3, 2026-10-27).
-- macOS driver for the in-app WebAssembly features gate (MA7, 2026-10-27):
-  `scripts/native/wasm-features-app-test.mjs --target=macos` builds the app,
-  presses the gesture buttons through the Accessibility API (or with a real
-  pointer under `TAC_MACOS_GESTURE=click`), answers the notification alert,
-  closes the share picker with Escape, and reads the probe from the
-  WKWebView. All 18 Kotlin, C#, F#, Java, Dart and C++ cells passed on
-  macOS 27.2. `scripts/native/page-checks-macos-probe.swift` gains `within`,
-  `click`, `escape` and `verdict`, and presses a Notification Center alert's
-  named Allow action.
-- `scripts/native/page-services-macos-test.mjs` now runs Ruby, Lua, C++ and
-  F# page services, linked Swift and Rust WindowControls callers, a linked
-  Swift FilePicker field and a component style check by default (MA7,
-  2026-10-27). Dart and Java apps built at the 15.4 floor ran there, and two
-  linked Rust services shared one Setup in the macOS app.
-- `scripts/test-managed-storage.mjs --drivers=sqlserver` runs one driver's
-  real contract alone (MA7, 2026-10-27).
-- iOS driver for the in-app WebAssembly features gate (MA8, 2026-10-27):
-  `scripts/native/wasm-features-app-test.mjs --target=ios`
-  (`scripts/native/wasm-features-ios.mjs`) builds the app, runs it on one
-  simulator (`TAC_IOS_DEVICE` and `TAC_IOS_RUNTIME` pick it), taps the
-  gesture buttons and the system prompts from screen text, and takes the
-  verdict from a linked Swift recorder or, with
-  `TAC_IOS_WASM_VERDICT=screen`, from the screen. All 18 Kotlin, C#, F#,
-  Java, Dart and C++ cells passed on the iOS 26.5 simulator; the C#
-  cached-client cell passed only with the screen verdict, because a linked
-  Swift service on that page never started. (Superseded: MA10, below, found
-  this was the probe's race, not the app.) Hosts may now give the gate a
-  `close()` step and recorder files. The yon-http probe waits for its button
-  before it presses it.
-- `scripts/linux/dev-loop-native-test.mjs` takes `TAC_LINUX_DISPLAY=wayland`
-  and then runs `ty preview --target linux` in a headless mutter session. It
-  shares that session with `scripts/linux/yon-origin-native-test.mjs`
-  through `scripts/linux/linux-display-session.mjs` (new) (LX3, 2026-10-27).
-
-- Offline runs for every Tac service language (2026-10-25):
-  `bun run test:wasm-offline-browser` (`scripts/wasm-offline-browser-gate.mjs`,
-  new) bundles the page-program fixture of each language, serves it with
-  `ty preview --static` on a trusted HTTPS test host, reloads it offline and
-  checks that the services still answer, that a record saved online is read
-  back offline, and that every file came from the service worker. It is a
-  new entry in the `browser-languages` job and a `wasm-offline` entry in the
-  branded runs. The shared test host is `scripts/secure-test-origin.mjs`,
-  which the installable web app gate now uses too.
-
-- Installable web app gate (2026-10-25): `bun run test:pwa-install-browser`
-  (`scripts/pwa-install-browser-gate.mjs`, new) builds a page with a full web
-  app manifest and PNG icons, serves it with `ty preview --static` on a
-  trusted HTTPS test host, and checks in Chromium that the page links the
-  published manifest with the right media type, icons and theme color, that
-  the service worker controls it, that the DevTools Protocol reports no
-  installability errors and the manifest's app id, that the start URL opens
-  offline, and that a manifest without icons or an app `display` is refused.
-  It runs in the `browser` job of `rust-ci.yml` and as `pwa-install` in the
-  branded Chrome and Edge runs.
-
-- Page and shell runs in WebView2 (SW2, 2026-10-25): on a signed-in
-  Windows 11 ARM64 desktop with WebView2 155, `ty preview --target windows`
-  passed the dev loop (`scripts/windows/dev-loop-test.mjs`, new; it stops
-  `ty preview` with `CTRL_BREAK` through `scripts/windows/process-group.py`),
-  and `scripts/windows/window-shell-test.ps1` gained a page that checks the
-  `background_color` backdrop, a component-scoped style, and a title the
-  host refuses after the call started, heard as `BrowserCallFailed`. The
-  Windows page services gate now also reads a linked Rust `@LocalState`
-  field after a reload. The Windows development preview and
-  `background_color` cells are honored. (`background_color` on Windows is
-  `adapted` since DOC5, below, like the other native targets.)
-
-- Branded-browser runs (BR2, 2026-10-25): `scripts/branded-browser-gate.mjs
-  --browser=safari|ios-safari|chrome|msedge|android-chrome` runs the web
-  gates unchanged in Safari (over `safaridriver`), Safari on the iOS
-  simulator, Google Chrome, Microsoft Edge, or Chrome on an Android device
-  (over adb and the DevTools protocol), and reports a gate that needs a call
-  the browser's driver cannot make as unsupported rather than passed
-  (ADR 0005 amendment). In a cloud container 12 of 13 gates passed in Google
-  Chrome 156; `scaffold` failed because Chrome logs the 404 for the
-  `/favicon.ico` a fresh app does not serve.
-
-- macOS release gate (MA6, ADR 0104 amendment, 2026-10-25):
-  `scripts/native/macos-release-test.mjs` (`npm run test:macos-release`)
-  builds a C# page service with `tac.dotnet.aot` through
-  `ty bundle --target macos --arch universal --release`, checks both slices,
-  the Developer ID signature, the stapled ticket and Gatekeeper on the
-  `.dmg` and on the mounted app, and clicks the page in the arm64 slice and
-  in the x86_64 slice under Rosetta. It passed on macOS 26.6.2, so the macOS
-  `tac.dotnet` cell is `honored`.
-
-- Android emulator runs for services (MA2, 2026-10-25):
-  `scripts/native/yon-reach-test.mjs --target=android` with
-  `TAC_YON_SERVICES=kotlin` links the `realtime` and `sockets` services as
-  Kotlin; `scripts/native/async-listener-app-test.mjs` takes
-  `TAC_ANDROID_LISTENER_LANGUAGE=rs` and runs `--check=shared-setup` on
-  Android; `scripts/android/rust-crate-test.mjs` runs a Rust service with
-  vendored crates; `scripts/android/page-services-test.mjs` runs Go and
-  ahead-of-time C# page services and Swift and C# WindowControls callers.
-  All passed on the Android 15 emulator; the Android `tac.application.rust`,
-  `tac.dotnet` and `tac.go` cells are `honored`.
-
-- Linux runs under Wayland and on WSL (LX2, 2026-10-25): the Linux browser
-  API and file dialog tests click and press keys through Mutter's
-  RemoteDesktop session when GDK runs on Wayland
-  (`crates/tachyon-core/src/native/linux_wayland_input.c`), so
-  `scripts/linux/compositor-test.sh` runs them in its headless mutter
-  session. `scripts/linux/page-services-native-test.mjs` adds a
-  `tac.dotnet.aot` C# service (`TAC_LINUX_AOT_LANGUAGES`) and a linked Rust
-  service whose `@LocalState` field is read after a page reload
-  (`TAC_LINUX_STORED_FIELD`). All passed in an x86_64 cloud container and on
-  WSL aarch64; the Linux `tac.dotnet` cell is `honored`.
-
-- Linked services in WebView2 (SW1, 2026-10-25): the Windows gates now run
-  linked Rust `WindowControls` and FilePicker callers
-  (`scripts/windows/page-services-native-test.mjs`), a linked C#
-  `ApplicationStateChanged` listener
-  (`scripts/windows/application-state-test.mjs`), linked Rust stream, socket
-  and topic services in `scripts/windows/yon-reach.ps1` (fixture
-  `scripts/native/yon-reach-fixture.py`), and a linked Rust async `@OnEvent`
-  listener (`scripts/windows/async-listener-native-test.mjs`). All four
-  passed inside WebView2 on the signed-in Windows 11 ARM64 desktop, and the
-  Windows window controls, file picker, background and foreground, and
-  reaching Yon cells are `honored` again. (Reaching Yon on Windows is
-  `adapted` since DOC5, below, like the other native targets.)
-
-- Swift on the Windows desktop (SW3, 2026-10-25): the Surface (Windows 11
-  ARM64) has Swift 6.3.3 for Windows ARM64 and its Swift SDK for
-  WebAssembly, and `scripts/windows/page-services-native-test.mjs` passed
-  there inside WebView2 with a Swift page service, a Swift `WindowControls`
-  caller that renamed and resized the window, and a Swift FilePicker field
-  that chose, read and cancelled through `IFileOpenDialog`. The Windows
-  window controls and file picker cells now owe only their linked Rust
-  callers (SW1). (Superseded: SW1 ran those callers, and both cells are
-  `honored`; see the SW1 entry above.)
-
-- Page checks on macOS, iOS and Android (MA3, 2026-10-25): the page-check
-  gates now keep a `@SessionState` field across a navigation (the shared
-  step in `scripts/native/page-checks-fixture.mjs`). The macOS gate also
-  opens the `_param` route `/items/7/` with per-route Swift state and reads
-  a Swift-set `@LocalState` field after a reload. The Android gate checks
-  the `connect-src` refusal of an undeclared host and a component style that
-  stays inside its component. The new
-  `scripts/native/geolocation-macos-test.mjs` allows the CoreLocation prompt
-  and checks that a position reaches the page. All passed on macOS 26.6.2,
-  the iOS 26.5 simulator and the Android 15 emulator (System WebView 124),
-  so macOS geolocation is `honored` again.
-
-- Apple app runs for linked services (MA1, 2026-10-25):
-  `scripts/native/yon-reach-test.mjs` with `TAC_YON_SERVICES=swift` now
-  links the `realtime` and `sockets` services as Swift and checks they are
-  linked. `scripts/native/async-listener-app-test.mjs` takes
-  `TAC_LISTENER_LANGUAGE=rs` for a linked Rust listener on macOS and iOS,
-  and `--check=shared-setup` for two linked services reading one Setup.
-  `scripts/native/page-services-macos-test.mjs` adds a Go service,
-  WindowControls callers (`TAC_MACOS_WINDOW_CALLERS`) and FilePicker
-  callers (`TAC_MACOS_PICKER_CALLERS`, answered through `NSOpenPanel`). On
-  macOS 26.6.2 and the iOS 26.5 simulator: linked Swift stream and socket
-  clients reached Yon over `http` and `https`, two linked Swift services saw
-  one Setup, and a linked Rust async listener finished before the next one.
-  On macOS a Go service, C# and Kotlin window callers and a linked Rust file
-  picker ran, so those macOS cells are `honored` again.
-
-- Android web view check at startup (GP2, ADR 0108 amendment, 2026-10-25):
-  the Android app checks that Android System WebView has the web message
-  listener (`WEB_MESSAGE_LISTENER`) before it creates the web view. Without
-  it, or with no System WebView at all, the app shows a refusal page that
-  names the installed web view and asks for an update from Google Play, and
-  it loads no page. Before, the pages loaded with no host bridge and every
-  native call failed silently. There is still no `addJavascriptInterface`
-  fallback. `scripts/android/web-view-refusal-test.mjs` saw the refusal on an
-  API 26 emulator with WebView 58 and a normal start on an API 35 emulator
-  with WebView 124.
-
-- Verified link runs (LINKS, ADR 0106 amendment, 2026-10-24):
-  `https://d31ma.github.io` serves the link verification files, and
-  `scripts/native/verified-links-files.mjs` writes and checks them.
-  `scripts/ios/universal-links-test.mjs` opens universal links from that host
-  in a simulator app; it passed on iOS 26.5.
-  `scripts/android/verified-links-test.mjs` checks Android app links against
-  it and passed on an API 35 emulator. The Windows browser gate's `-LinkHost`
-  and `-RequireHostLink` check Windows app URI handlers against it; an
-  installed signed package opened the host's link on Windows 11 ARM64.
-
-- Native preview against the development server (NET5, ADR 0110):
-  `ty preview --target <native>` now builds the real app into
-  `dist/preview/<target>` and opens it: the macOS, Linux or Windows app as a
-  child process, the iOS app in the booted simulator, and the Android app on
-  the emulator through `adb`. The app keeps its own origin, and its scheme
-  handler loads each page from the development server, so edits arrive as
-  hot updates. `tac.yon.origin` points at the development server in that
-  build only, and a release build with a development origin stops with
-  TY1601. A manifest or linked companion source edit rebuilds and reopens
-  the app. `--static` keeps the old static preview. Dev loop gates passed
-  for Linux under Xvfb and on WSL (`scripts/linux/dev-loop-native-test.mjs`),
-  macOS (`scripts/native/dev-loop-macos-test.mjs`), the iOS simulator
-  (`scripts/ios/dev-loop-test.mjs`) and the Android emulator
-  (`scripts/android/dev-loop-test.mjs`), and on a signed-in Windows desktop
-  (`scripts/windows/dev-loop-test.mjs`, SW2).
-
-- System Back on native hosts (SB1, 2026-10-24, ADR 0109): Android Back and
-  the back gesture go back one route and leave the app from the first route;
-  iOS turns on the web view's edge swipes; the macOS View menu has Back
-  (Command-[) and Forward (Command-]) and the trackpad swipes are on; the
-  Linux window goes back and forward on Alt+Left, Alt+Right, the Back and
-  Forward keys and mouse buttons 8 and 9, which WebKitGTK ignores by itself.
-  Windows keeps WebView2's own Alt+Left and mouse buttons. The Linux run
-  passed under Xvfb. The macOS run passed on macOS 26.6.2 with Xcode 27.1
-  (`macos_view_menu_goes_back_and_forward_through_the_web_view_history`),
-  the iOS run on the iOS 18.0 simulator
-  (`TAC_IOS_RUNTIME=.iOS-18-0 scripts/ios/system-back-test.mjs`), the
-  Android run on the Android 15 (API 35) emulator
-  (`scripts/android/system-back-test.mjs`), and the Windows run on
-  Windows 11 25H2 arm64 with WebView2 155.0.4283.62
-  (`scripts/windows/system-back-test.mjs`). On the iOS 26.5 simulator the
-  XCUITest edge drag takes neither the app nor Safari back.
-
-- Mobile accessibility gates (AX1, 2026-10-24):
-  `scripts/ios/accessibility-audit-test.mjs` runs an XCUITest bundle with
-  `performAccessibilityAudit` against a Tachyon page on the iOS simulator.
-  `scripts/android/accessibility-test.mjs` reads the page through a
-  UiAutomation probe on the emulator and applies ATF-style checks. Both read
-  roles and names through the platform accessibility API, then type, press
-  and open a link through it. Both passed on the Mac (iOS 26.5, Android 15),
-  and the support table marks page accessibility `honored` on iOS and
-  Android (ADR 0102 amendment). The iOS audit does not look inside web view
-  content (`docs/SUPPORT_TIERS.md`).
-
-- Desktop window colors and display (WIN7, ADR 0052 amendment): the macOS
-  app colors its title bar with `theme_color` and picks dark or light title
-  text by contrast, colors the window and the page backdrop with
-  `background_color`, and starts full screen with `display: "fullscreen"`.
-  The Windows and Linux apps color the window and the web view with
-  `background_color`, so a dark page no longer flashes white while it loads.
-  Other color forms keep the system colors and the build prints a note. The
-  macOS host test passed on macOS 26.6.2, the Linux run under Xvfb, and the
-  Windows window paint check with MSVC on Windows 11 ARM64 and under Wine;
-  the WebView2 backdrop on a signed-in desktop is still owed. (Superseded:
-  SW2 sampled the WebView2 page backdrop on the signed-in Surface; see the
-  SW2 entry above.)
-
-- Linked Rust on macOS and iOS (LR1, 2026-10-24): the Apple hosts now run
-  linked Rust tasks. A wake resumes them on the main queue, and a linked
-  Rust `HTTPClient` sends its requests to `tac.yon.origin` through
-  `URLSession`, with no cookies or redirects and with the request's deadline
-  and response limit. Async Rust methods and listeners, and a linked Rust
-  service's page-held stream and socket clients, no longer answer
-  `HTTP_MISSING` there. `scripts/native/yon-reach-test.mjs` runs with linked
-  Rust services when `TAC_YON_SERVICES=rust`; it passed on macOS 26.6.2 and
-  on the iOS 26.5 simulator over `http` and `https`. The support table marks
-  `tac.yon` `honored` on both (ADR 0103 amendment).
-
-- Application lifetime and menu actions on iOS and Android (LT1, MN1b,
-  ADR 0097 amendment). A client Rust Service marked
-  `#[Lifetime({"value":"application"})]` no longer stops an iOS or Android
-  build with `TY1406`, and a menu item with an `action` no longer stops it
-  with `TY1601`. iOS starts the application services at launch and stops them
-  when the app terminates; Android starts them with the first activity, keeps
-  them across a rotation, and stops them when the activity finishes. Every
-  Rust call of an Android app now runs on one thread for the process. Action
-  items are enabled only while the page listens for their event, as on the
-  desktop. A host may now start a cleanly stopped application again, with new
-  instances. New gates: `scripts/ios/application-lifetime-test.mjs` and
-  `scripts/android/application-lifetime-test.mjs`.
-
-- The iOS and Android apps open the system document picker for
-  `FilePicker` (FP4, FP2; ADR 0089 amendment). iOS presents
-  `UIDocumentPickerViewController` for page, linked Swift and Rust
-  services, and for C# and Kotlin services running as WebAssembly; Android
-  starts `ACTION_OPEN_DOCUMENT` for page, linked Kotlin and Rust services,
-  and for Swift and C# services running as WebAssembly. Both keep the
-  desktop limits. Before, every call answered `unsupported`. The page
-  runtime also sends each synchronous picker request in a header, because
-  Android's request hook cannot read a body. The simulator and emulator
-  gates are `scripts/ios/file-picker-test.mjs` and
-  `scripts/android/file-picker-test.mjs`; on 2026-10-24 every caller chose,
-  read and cancelled on the iOS 26.5 simulator and the API 35 Android
-  emulator.
-
-- macOS runs on a Mac (RM1, 2026-10-24): three new scripts check the
-  packaged macOS app. `scripts/application-state-macos-test.mjs` checks that
-  a page service and linked Rust and Swift services hear `background` and
-  `foreground`. `scripts/native/page-checks-macos-test.mjs` checks the
-  `connect-src` refusal, Yon reads kept offline under network-first and
-  cache-first rules, and a preference string across a relaunch.
-  `scripts/native/page-services-macos-test.mjs` checks Python, Dart, Kotlin
-  and Java page services. With those runs, the window-grant, pasteboard,
-  share, location-prompt, link, reproducible-build and universal-build runs,
-  the support table marks 16 macOS cells `honored`
-  (`docs/SUPPORT_TIERS.md`, macOS runs owed, RM1). A retry, with the prompt
-  allowed by hand, showed a notification from a page, so macOS notifications
-  are `honored` too. An ahead-of-time C# service stays `runOwed`.
-  (Superseded: MA6 ran an ahead-of-time C# service in a notarized universal
-  `--release` app, and macOS `tac.dotnet` is `honored`; see the MA6 entry
-  above.)
-- Android emulator runs of the owed rows (RM3). `window-controls-test.mjs`
-  now also builds an app that grants all six controls and checks maximize and
-  fullscreen from a Kotlin service, fullscreen and close from the page, and a
-  control refused after close started. New `page-checks-test.mjs` checks
-  `ApplicationStateChanged` on `onStop` and `onStart` in a page service and a
-  linked Kotlin service, `http`, `https` and `mailto` links and the
-  no-user-name rule, `tac.cache` Yon reads in airplane mode, and
-  `preferenceStrings` after a relaunch. New `python-service-test.mjs` runs a
-  Python service on Pyodide in the web view and reports its load time,
-  memory and bundle origin. `browser-apis-test.mjs` passes again: geolocation
-  is fed by `fused`, `network` and `gps` test providers, and the gate checks
-  the reason shown before a second location question.
-  `rust-services-test.mjs` builds, installs and runs the signed release with
-  both Rust libraries. On a Google Play production image the Yon reach, Rust
-  and release checks passed, and `native-test.mjs` asserted that a release
-  keeps WebView debugging off. The support table marks these Android rows,
-  and byte-identical Android rebuilds, `honored`.
-- iOS simulator checks for RM2. `scripts/ios/page-checks-test.mjs` checks
-  `connect-src`, offline Yon reads with Yon stopped, `preferenceStrings` and
-  Cache Storage across a relaunch, `ApplicationStateChanged` to the page and
-  a linked Swift service, and external links.
-  `scripts/ios/page-services-test.mjs` runs one WebAssembly page service per
-  language (Python, C# ahead of time, Kotlin, Dart, Java, Go, Ruby, Lua, C++,
-  F#) and a linked Rust service, with a dynamic route and a scoped style.
-  `scripts/ios/rust-crate-test.mjs` links a vendored crate, and
-  `scripts/ios/browser-prompts-test.mjs` taps real buttons and reads the
-  location, notification and share prompts from screenshots. All passed on
-  the iOS 26.5 simulator, and the support table marks those iOS cells
-  honored. iOS keeps Cache API entries across a relaunch, so `tac.cache` and
-  stored data on iOS are no longer adapted, and `scripts/ios/native-test.mjs`
-  now requires `cache=kept` (ADR 0059 and 0087 amendments).
-- `scripts/native/async-listener-app-test.mjs` builds an app whose linked
-  service has an async `@OnEvent` listener and a plain one, clicks twice and
-  checks that the page shows the async listener's change first, that each
-  click waited for it and that it ran in the app's process: Swift on macOS
-  and the iOS simulator, Kotlin on the Android emulator (LS3 host runs).
-  `scripts/windows/async-listener-native-test.mjs` does the same with a C#
-  listener in the Windows app, on the signed-in desktop.
-- `@OnEvent` listeners may be async in Kotlin (`suspend`), C# (`Task` or
-  `ValueTask`) and F# (`Task<unit>`, `ValueTask` or `Async<unit>`), in the
-  browser and in native apps, and Swift and Rust listeners may now be async
-  in native apps too (LS3, ADR 0105 amendment). Before, these builds stopped
-  with `TY1405`. The listeners of one service run one after another in a
-  native app as in the browser. A linked Rust service that a task holds now
-  answers calls and field reads with `BUSY`, which the native page bridge
-  retries, instead of panicking. A C# `async void` listener and an async
-  lifecycle method are still refused. The C# and F# cookbook lists reload
-  every saved user through their client, and the async listener browser
-  gate passes for all five languages in Chromium, Firefox and WebKit.
-- The Swift, Kotlin and C# services a native app links in now build into
-  one program (LS2). Before, each linked service carried its own copy of
-  the behavior runtime and of every Setup, client and model it used, so two
-  services needing one Setup saw two configurations. Now they share one
-  Setup registry, as browser services do, and the generated companion of a
-  two-service fixture roughly halves (Swift 136 to 69 KB, Kotlin 105 to
-  54 KB, C# 170 to 87 KB). The Kotlin required-props constructor is now
-  `internal` (ADR 0022 amendment).
-- Swift, C# and Kotlin `FilePicker` fields now open the desktop app's
-  picker where the service runs as WebAssembly (FP5): C# and Kotlin on
-  macOS, Swift and Kotlin on Windows, and all three on Linux. Before, they
-  answered `unsupported`. The page sends each call to the host as a
-  synchronous request on the app's own origin, and the host answers once
-  the dialog closes. Linux runs in the cloud chose, read and cancelled for
-  all three languages, C# and Kotlin did the same in the macOS panel on a
-  Mac, and a page, a Kotlin and a linked C# service did the same from a
-  WebView2 page on a signed-in Windows desktop (ADR 0089 amendment). The
-  Windows gate `scripts/windows/page-services-native-test.mjs` runs these
-  FilePicker callers (`TAC_WINDOWS_PICKER_CALLERS`). The Windows
-  host reads the request body through the stream's own `Read`, because
-  MSVC's `shlwapi.h` turns `IStream_Read` into a three-argument function
-  and the host stopped compiling there.
-- Natively linked Swift, Kotlin and C# services hold `@StreamRequest` and
-  `@SocketRequest` clients (LS1). The page holds the connection on
-  `tac.yon.origin`, delivers each message to the service's `@OnEvent`
-  listener with the companion op `event`, and sends what the service's
-  socket client sends; before, these builds stopped with `TY1405`. Linked
-  Swift and Kotlin companions now describe every listener to the page, so
-  page events and topic streams reach them as they reach C# and Rust
-  services. Companion runs in the cloud cover all three languages; the app
-  runs on macOS, iOS, Android and Windows are owed (ADR 0058 and 0060
-  amendments). (Superseded: the Windows app held a linked C# service's
-  stream and socket from the page on the signed-in desktop in SD1; the Swift
-  runs in the macOS and iOS apps and the Kotlin run in the Android app are
-  still owed. Later superseded again: `TAC_YON_SERVICES=swift
-  yon-reach-test.mjs` ran in the macOS app and the iOS simulator in MA1, and
-  `TAC_YON_SERVICES=kotlin` in the Android app on the emulator in MA2, so
-  every app has run its linked companion's clients.)
-- Linux desktop stand-in runs (LX1). `scripts/linux/desktop-services-test.sh`
-  runs the browser API host test against GeoClue (a GPS fix from an NMEA
-  socket, on a private system bus) and the dunst notification server, so the
-  Linux `geolocation` cell is now honored. `TAC_LINUX_DISPLAY=wayland` runs
-  the Linux Yon reach test in a headless mutter Wayland session, and
-  `scripts/linux/deb-install-test.sh` installs the release `.deb` as root,
-  starts it and purges it (ADR 0065, 0103 and 0104 amendments).
-- Run tests for the last 24 Yon marker cells that only built or only had a
-  website example (MP2). `Converter` and `Convert` run the website mapping
-  sections in Java, Groovy, Kotlin and Ruby and check the dropped field, the
-  null for a missing source and the constant. `Topic` crosses processes from
-  and to TypeScript, F#, Groovy and Ruby. `InBackground` runs after the other
-  listeners and never republishes in JavaScript, TypeScript and Python.
-  `CacheKey` hits and misses by key in JavaScript, TypeScript and Python.
-  TypeScript `FromQuery` reads the named query value through the dev server.
-  `Schedule` workers in Groovy, F# and Lua tick on their declared cadence and
-  refuse a zero delay. `Gateway` reaches a command from Groovy and F#, a
-  Groovy test unit clears its `Fake` fields before each case, a Lua
-  `NeedsAll` class gets its empty fields filled, and JavaScript and TypeScript
-  `Description` services run and refuse a malformed text. `Lifetime` is now
-  asserted in Dart, Go and F#: a transient service gives each Needs field its
-  own object, and the same project without the marker shares one.
-- Android `--release` builds are shrunk by R8, with resource shrinking and
-  keep rules for the host, bridge, Rust callback and service classes (PKG7,
-  ADR 0104 amendment). `--arch arm64`, `x64` or `universal` now choose the
-  Android ABIs: the Rust library and Gradle's `abiFilters` follow the choice,
-  and the artifact manifest names it. Gradle runs with `--offline` once its
-  cache holds the pinned Android Gradle plugin and libraries, and runs again
-  online if an offline run misses a module; until then a note names what it
-  downloads. `ty doctor` reports the Android NDK for an Android app with Rust
-  services, and, away from Windows, `TAC_MAKEMSIX` and `osslsigncode` as
-  information (ADR 0066 amendment).
-- iOS and Android apps now read the window members of `client/manifest.json`
-  (WIN5). A hex `theme_color` fills the area behind the iOS status bar and
-  the Android status and navigation bars, with readable bar text. A hex
-  `background_color` colors the launch screen (an asset catalog color on
-  iOS, the window and Android 12 splash screen on Android) and the web view.
-  `display: "fullscreen"` hides the status bar. `orientation` sets the iOS
-  supported interface orientations and the Android `screenOrientation`; the
-  iOS app is no longer locked to portrait, and a value outside the eight web
-  manifest values now stops the build (`TY1601`). `titleBar: "integrated"`
-  lets the page draw edge to edge under the status bar, with the three
-  `--tac-titlebar-*` properties taken from the safe-area insets (ADR 0098
-  amendment). A linked Swift service on iOS now reaches `WindowControls`, so
-  `setTitle` sets the scene title. `scripts/ios/window-settings-test.mjs`
-  (iPhone 17 Pro and iPad Pro simulators) and
-  `scripts/android/window-settings-test.mjs` (API 35 emulator) check them
-  with page reads, native reads and screenshots.
-- CI installs the language toolchains its tests need (CI1). A new
-  `scripts/ci/install-toolchains.mjs` downloads checksum-pinned Groovy 5.1.3,
-  Kotlin 2.1.10, Dart 3.13.1, Lua from `runtimes/lua-web/sources.txt`, the
-  Pyodide 314.0.7 core (into the Tachyon cache) and cargo-nextest 0.9.146, and
-  the Native Rust gate on Linux, macOS and Windows, the coverage job and the
-  sanitizer job use it next to PHP 8.4 from setup-php. The gate and the
-  coverage job run their tests through `cargo nextest`, so the `serial` and
-  `heavy` groups in `.config/nextest.toml` apply in CI. Tests that skipped
-  quietly when php, php-cgi, groovyc, kotlinc, dart or lua was missing now
-  fail on a Unix CI runner, and the Python Tac tests fail in CI without the
-  pinned Pyodide. The storage harness qualifies SQL Server 2022 with forced
-  TLS next to PostgreSQL, MySQL, MariaDB and Redis, and its new
-  `--without-docker` mode runs FYLO on macOS and Windows and Redis on macOS.
-  The installer also places TeaVM 0.15.0 and the Kotlin/Wasm stdlib for the
-  Tac Java and Kotlin tests, and the jobs put the pinned `tsc` on `PATH`.
-  A `jobs` input on `workflow_dispatch` runs only the named jobs, and a
-  manual run on a branch now takes the self-hosted runners when
-  `TACHYON_SELF_HOSTED` is `true`, as a branch push does. A FYLO
-  datasource on Windows now accepts a drive root such as
-  `fylo:///C:/data/catalog`.
-
-- Menus on iOS and Android (MN1a, ADR 0097 amendment). Route items of
-  `tac.application.menus` no longer stop an iOS or Android build. On iPad
-  they join the File, View and Help menus of the menu bar; on iPhone the
-  items with a shortcut work from a hardware keyboard. On Android an app bar
-  lists them in its overflow menu, and their shortcuts use Ctrl, with the
-  Linux and Windows collision rules. Action items still stop a mobile build
-  with `TY1601` until those apps have the application lifetime. New checks:
-  `scripts/ios/menus-test.mjs` (iPhone and iPad simulators) and
-  `scripts/android/menus-test.mjs` (emulator).
-
-- Request-source and caching markers now have run proof in every language
-  that accepts them (PR4). `tests/it/request_sources.rs` gives all 15 Yon
-  languages one controller with a `PutRoute` and a `PatchRoute` and checks
-  through the dev server that `FromPath`, `FromHeader` and `FromCookie`
-  arrive. `client_tests/request_parts_tests.rs` sends a Tac `GetRequest`
-  from Dart, Rust, C#, Kotlin, Swift, Go, Ruby and C++ test units through an
-  echo adapter and checks the `PathVariable` path and `RequestParam` query.
-  The behavior fixtures of PHP, Java, Groovy, Kotlin, C#, F#, Rust, Dart, Go,
-  Ruby and Lua call a `Cached` method whose `CacheKey` parameter decides the
-  hit. `scripts/storage-browser-test.mjs` now checks `SessionState` in
-  TypeScript, Rust, C#, Kotlin, Swift, Go, Ruby, Lua and C++. A language
-  whose toolchain is missing is skipped with a message.
-
-- The Windows app answers browser APIs (ADR 0065 amendment). `clipboard`
-  reads and writes the Windows clipboard, `share` opens the Windows share
-  sheet for the app window, and `notifications` are Windows toasts, which
-  Windows shows only for the installed MSIX package: an unpackaged build
-  answers `denied` to `requestPermission`. The host decides WebView2's
-  permission requests itself: it allows geolocation and clipboard reads only
-  for the app's own pages and only when `tac.browserApis` grants them, and
-  denies every other web view permission. Tested under Wine; the WebView2
-  desktop run is owed. (Superseded: `scripts/windows/browser-apis-test.ps1`
-  ran inside WebView2 on the signed-in desktop in SD1.)
-- A Windows app with `"titleBar": "integrated"` now lets the page reach the
-  top edge of the window (ADR 0098 amendment). Before, Windows kept the
-  standard title bar and printed a note. The host extends the DWM frame
-  into the client area and keeps the system minimize, maximize and close
-  buttons, which it never covers. The page gets the same
-  `--tac-titlebar-height`, `--tac-titlebar-leading-inset` (`0px`) and
-  `--tac-titlebar-trailing-inset` properties as on macOS and Linux, and
-  `data-tac-drag-region` becomes CSS `app-region: drag`, which WebView2
-  uses to move, maximize and restore the window. The menu bar moves into
-  the window menu (Alt+Space). `titleBarButtonInset` is ignored on Windows,
-  with a note. The generated host compiles with MinGW-w64 against the
-  WebView2 headers, its frame code runs on a Win32 window under Wine and,
-  built with MSVC, on Windows 11 ARM64, where `ty build` builds integrated
-  and standard apps; the look and a drag in WebView2 wait for a signed-in
-  desktop run.
-
-- Tac outbound HTTP markers now have run proof in the 12 Tac languages that
-  lacked it (PR1). One table-driven test, `tests/it/tac_http_verbs.rs`, runs
-  a test unit in JavaScript, TypeScript, Dart, Rust, C#, Kotlin, Swift, Go,
-  Ruby, Python, Lua and C++ whose service calls an `HTTPClient("/api")`
-  with `PutRequest`, `PatchRequest` and `DeleteRequest` methods. A TestSetup
-  adapter echoes each request, and the cases check the method, the
-  `PathVariable` path, the `RequestHeader` and the `RequestBody`. A language
-  whose toolchain is missing is skipped with a message.
-
-- Links to the hosts in `tac.application.links` can open macOS and Windows
-  apps (LK3, ADR 0106 amendment). A Windows `--release` MSIX package declares
-  them as app URI handlers, and the web build writes
-  `/.well-known/windows-app-web-link` for the package family name when
-  `TAC_WINDOWS_CERTIFICATE_PUBLISHER` is set. A signed macOS `--release` build
-  with `TAC_MACOS_PROVISIONING_PROFILE` embeds that Developer ID profile and
-  signs the app with an `applinks:` associated domain per host, and the macOS
-  app opens universal links at their route. Before, both targets left links to
-  the hosts in the browser.
-- A tray icon is declared in the manifest (ADR 0107). `tac.application.tray`
-  names a PNG icon in the client bundle, a tooltip, and tray menu items that
-  open a page or call an application service, like the File, View and Help
-  items of ADR 0097. The host adds "Open" and "Quit" items. With
-  `closeHidesWindow` closing the window hides it and the app keeps running;
-  `dock: false` runs a macOS app from the menu bar only. macOS uses an
-  `NSStatusItem`, Windows uses `Shell_NotifyIconW`, and Linux exports a
-  StatusNotifierItem over D-Bus, which shows only on a desktop with a
-  StatusNotifierWatcher. iOS and Android refuse the member with `TY1601`.
-  The page verbs `tray.set`, `window.show`, `window.hide` and `app.quit`
-  stay removed. The Linux host was run against a test watcher and the
-  Windows host under Wine, and the macOS host on a signed-in Mac desktop;
-  the Windows desktop run is owed. (Superseded: the Windows tray ran on the
-  signed-in desktop in SD1, ADR 0107.)
-
-- Python Tac services can ask for a converter (ADR 0093 amendment). A
-  `@converter` `Protocol` class in `client/converters/` is now a provider
-  that a typed `Needs` field reaches, and its `Convert` methods map JSON
-  values with a field plan or copy one `client/models` dataclass into
-  another, nested models and lists included. Before, such a `Needs` field
-  failed with `TY1605`. The website mapping sections have Python tabs.
-
-- Yon Lua models in `server/models/` may carry `Settings`, `Setting`,
-  `Checked`, `Required`, `NotEmpty`, `Length`, `Min`, `Max` and
-  `Description` (ADR 0092 amendment). Before, the build refused them with
-  `TY1310`. `Behaviors.properties` and `Behaviors.values` bind them, and a
-  `@Check` rejection in a Lua handler answers `422` problem details like the
-  other Yon languages (ADR 0101). Lua `Length` now counts UTF-8 bytes, as
-  documented, in both realms.
-
-- The Windows app opens the file dialog for `FilePicker` (ADR 0089
-  amendment). With `tac.nativeCapabilities: ["filePicker"]`, JavaScript,
-  TypeScript and linked Rust and C# services choose one file in
-  `IFileOpenDialog` and read it with `readText`, with the same limits as on
-  macOS: 64 KiB of UTF-8 text, 8 handles per service and 128 per app, 300
-  seconds per handle, one dialog at a time that cancels after 30 seconds.
-  Before, every call answered `unsupported` on Windows. The Windows host now
-  answers page calls from its window procedure instead of inside the
-  WebView2 event, and the page waits up to 40 seconds for `filePicker.open`
-  and `companion.invoke`.
-
-- Linux apps open the file picker (ADR 0089 amendment, FP3). A JavaScript,
-  TypeScript or linked Rust service with a `FilePicker` and the
-  `filePicker` grant now gets `GtkFileDialog`, or the desktop portal's
-  chooser where one runs, instead of `unsupported`. The Linux host keeps the
-  macOS rules: the grant, one dialog at a time that closes after 30
-  seconds, 128 handles and 8 per owner, a 300-second lifetime, 64 KiB
-  UTF-8 `readText`, and release with the owner, a new page and shutdown.
-  Swift, C# and Kotlin services run as WebAssembly on Linux and reach the
-  same dialog through the page (FP5).
-- The per-target support table has two more states (ADR 0102 amendment).
-  `run owed` means a target supports a member in code, but the run that
-  proves it there has not happened; the table names that run, and a build
-  that declares the member prints it in one note. `not applied` means the
-  target does not use the member yet. Owed runs that the table called
-  `adapted` or `honored` now say `run owed`: Windows `tac.yon`, reaching Yon,
-  window controls, menus and stored data; the browser APIs on macOS, iOS
-  and Android; `preferenceStrings` and `tac.python` on every native target;
-  `tac.cache` on the desktops; release packages on macOS, iOS and Linux; and
-  byte-identical rebuilds. `theme_color`, `background_color`, `display`,
-  `orientation`, the integrated title bar, drag regions and the file picker
-  say `not applied` where a target ignores them. The table also says that
-  native apps register no service worker and that the macOS and Windows apps
-  need a signed-in desktop session, that a linked Rust `HTTPClient` on macOS
-  and iOS answers `HTTP_MISSING`, and that C# and Kotlin FilePicker fields
-  answer unsupported on macOS. The docs, ADRs, support tiers and website
-  pages that disagreed with the code or with the run records now match them.
-- The per-target support table no longer says `honored` where no run on
-  that target is on record (ADR 0102 amendment, DOC3). External links,
-  `Content-Security-Policy` and `tac.outgoing` on macOS, Windows and iOS
-  (links on Android too), `tac.application.permissions` on macOS, iOS and
-  Android, vendored Rust crates on macOS, iOS and Android, `tac.dotnet` on
-  macOS, Linux, iOS and Android, the macOS and iOS WasmGC floors of
-  `tac.application.minimumSystem`, and the macOS minimum window size now say
-  `run owed` and name the run, so a build that declares one of these members
-  prints that note. Linux "reaching Yon" is `adapted`, like the other native
-  hosts. Notes that lagged the run records now match them: Android window
-  controls (granted minimize, resize and title ran on the emulator), the
-  owed Linux `.deb` install (on WSL and a desktop; `apt-get install` ran in
-  the cloud), the iOS App Store upload (outside `ty`), Windows menus and page
-  accessibility, Swift and Kotlin FilePicker fields on Windows, and native
-  `tac.cache` without `tac.yon.origin`. SUPPORT_TIERS, ADRs 0005, 0093, 0097,
-  0099, 0103 and 0106, and the website pages on byte-identical rebuilds,
-  Python services and Lua models catch up with CI1, CI2, NET8, RL1 and RW1.
-
-- Yon outbound HTTP markers now have run proof in every Yon language but
-  C++ (which has its own test). One table-driven test,
-  `tests/it/yon_outbound_verbs.rs`, gives JavaScript, TypeScript, Python, PHP,
-  Java, Groovy, Kotlin, C#, F#, Rust, Dart, Go, Ruby and Lua the same
-  `HTTPClient("/api")` with `GetRequest`, `PostRequest`, `PutRequest`,
-  `PatchRequest` and `DeleteRequest` methods. A controller calls each one
-  through a Setup adapter that echoes the request, and the test checks the
-  method, the path with its `PathVariable`, the `RequestParam` query, the
-  `RequestHeader` and the `RequestBody` that each language sends. A language
-  whose toolchain is missing is skipped with a message.
-- `ty doctor` reports the tools that build and sign a release of each
-  declared native target, as `<target> releases` rows: `xcrun notarytool`
-  and a Developer ID Application certificate for macOS; the iPhoneOS SDK and
-  an Apple Distribution certificate for iOS; `apksigner` and `zipalign` from
-  the SDK's build-tools for Android; `makeappx.exe` and `signtool.exe` for
-  Windows; `dpkg-deb` and `mksquashfs` for Linux. Certificates are only
-  counted, never named. The rows are `info`; `ty doctor --release` makes them
-  and the `<target> apps` rows needed for the targets this machine can build,
-  so a missing tool exits with 1 (ADR 0066 amendment).
-- Web builds write `artifact-manifest.json` next to `route-manifest.json`,
-  the same Artifact Manifest v1 that native builds write, with `web` as its
-  target. Two builds of the same sources give the same bytes, so byte-identical
-  checks cover the web too (ADR 0005 amendment).
-- A Windows build without `--release` prints a note that its `.exe` is not
-  code signed and that `--release` builds a signed MSIX package. The support
-  table gains a "development code signing" entry for every target
-  (ADR 0104 amendment).
-- Browser gates now run in Chromium, Firefox and WebKit for every
-  service language (BR1). The page-program gate passed for all ten
-  fixtures in the three engines; the browser-API gate gained C# and Kotlin
-  services, runs every language in Firefox and WebKit, and checks a
-  `tac.dotnet.aot` release build; and the storage gate passed in the three
-  engines with every service, Ruby in WebKit included. A new gate,
-  `scripts/held-clients-browser-gate.mjs` (`bun run
-  test:held-clients-browser`), runs the socket and stream clients of Rust,
-  Go, Dart, Swift, Kotlin, Java, C#, F# and C++ services against `ty serve`
-  in the three engines.
-- Run tests now prove the socket, access, transaction, Named and stop
-  markers in every Yon language (PR5). Each chat controller's `OnClose`
-  writes the connection's own count after the socket closes, in all 15
-  languages, and JavaScript and Groovy run the whole chat. The published
-  access, transaction and Named sections are served in every language and
-  must answer 200, 401 and 403 for the documented tokens, show the store
-  commands inside the `AllOrNothing` transaction, and answer through the
-  named provider; a `Named` that names no provider fails the build. Each
-  `OnStop` method writes a marker after its request in ten languages.
-  On the Tac side, `Named` runs in Kotlin, C#, Go, Rust, Ruby, Lua,
-  TypeScript, Dart and Python, `OnStop` runs in Dart, Ruby and C++, and a
-  C++ `Description` reaches the service registration of the page program.
-  This fixed `Named` in Tac Kotlin, C#, Go, Rust and Ruby services (the
-  line was read as the field, or ignored and the field left empty), in
-  Tac Lua fields and in the Dart bridge, which built the declared type.
-- Run tests for markers that only had website examples (plan item PR6).
-  Tac Dart and Kotlin run validation, Settings, `UpdateCache`,
-  `PageDefaults`, `MaxAtOnce`, `Query`, `Topic` and `RequestBody` in a real
-  WebAssembly page program; Tac Go and Ruby run the same markers in native
-  `ty test` units, and a Go page proves `Topic`; Tac Python validation runs
-  on the Pyodide page. Yon F# runs `Retry`, `MaxAtOnce`, Settings,
-  `PatchRoute`, `DeleteRoute`, error handlers and `ResponseStatus` on a
-  running server, Yon Lua runs its 17 example-only markers, and
-  `Description` runs in Yon Java, Groovy, Kotlin, F#, Dart and Lua. Each
-  test asserts what the marker does, not only that it builds.
-- Run tests for the last 38 Tac marker cells below a plain run (plan item
-  MP1). Dart, Lua, C++, TypeScript, Python, Kotlin, Java, F#, Swift, C#
-  and Ruby services now run `Converter`, `Convert`, `NeedsAll`,
-  `LocalState`, `SessionState`, `Retry`, `InBackground`, `Order`, `Topic`,
-  `Lifetime`, `Setting`, `OnStop`, `Named` and `PostRequest` in page
-  programs or `ty test` units in the Native Rust gate, and the TypeScript
-  `LocalState` and `Lifetime` checks join `scripts/storage-browser-test.mjs`
-  and `scripts/tac-client-test.mjs`. The macOS job now also runs the Swift
-  `Helper` and `Named` tests, which need the Swift WebAssembly SDK. A Tac
-  `Description` is checked to reach the service registration in JavaScript,
-  TypeScript, Dart, Rust, C#, Kotlin, Swift, Go, Ruby and Python; in Rust,
-  Kotlin and Go it stays in the compiler's registration and is not written
-  into the program. (Corrected: MP1 added tests for 36 of the 38 cells. The
-  C++ `Required` and `Length` cells rest on a test that was already there.)
-
-- Rust services are linked into Android apps (D1, ADR 0019 amendment). The
-  build compiles them with the Android NDK for `arm64-v8a` and `x86_64` and
-  packages `libtachyoncompanion.so` for each, and the Java host calls them
-  through JNI. Before, Rust services ran as WebAssembly in the page on
-  Android. Calls, events, awaited methods, window controls, `HTTPClient`
-  calls to `tac.yon.origin` and `tac_set_local` work, also next to Kotlin
-  services in the same app; `scripts/android/rust-services-test.mjs` runs
-  them on the Android 15 emulator. Building such an app needs the Android
-  NDK and `rustup target add aarch64-linux-android x86_64-linux-android`.
-  An app with Rust services now installs only on 64-bit Arm and x86_64
-  devices.
-
-- Rust services link into the iOS app (ADR 0019 and ADR 0035 amendments,
-  decision D1). A Rust-only service now runs natively in the iOS app as a
-  static library with the macOS C ABI, instead of as WebAssembly in the
-  web view; a service with a Swift variant still links Swift. The build
-  needs the `aarch64-apple-ios-sim` (simulator) or `aarch64-apple-ios`
-  (`--device`, `--release`) Rust standard library and names the
-  `rustup target add` command when it is missing (`TY1605`).
-  `tac.application.rust` crates now reach the iOS app, and
-  `platformDependencies` accepts an `ios` table. The iOS simulator gate
-  (`scripts/ios/native-test.mjs`) now also runs a linked Rust service
-  beside its Swift services.
-- The Linux app reaches Yon on `tac.yon.origin` (ADR 0103 amendment). A
-  linked Rust service's `HTTPClient` now sends its calls through the GTK
-  host with libsoup instead of answering `HTTP_MISSING`. The page also opens
-  a linked service's `#[StreamRequest]` and `#[SocketRequest]` clients and
-  its topic listeners, so a linked Rust service receives stream, socket and
-  topic messages and can send on a socket. This has run on Linux only; the
-  macOS and Windows apps have not been run yet. The Linux gate
-  runs `scripts/linux/yon-origin-native-test.mjs`, which reaches a local Yon
-  from the packaged app with JavaScript and with linked Rust services.
-  (Superseded: linked Rust services held their stream and socket in the
-  macOS app and the iOS simulator in LR1; the Windows app is still owed.
-  Later superseded again: `scripts/windows/yon-reach.ps1` held a linked Rust
-  service's stream and socket inside WebView2 on the signed-in desktop in
-  SW1, so every native app has run them.)
-- `ty bundle --target linux --release` builds an AppImage and a `.deb` in
-  `dist/linux/` (ADR 0104 amendment). Both install the app in
-  `/usr/lib/<package>/`, the command `/usr/bin/<package>`, a desktop file and
-  AppStream metainfo named by the GTK application id, and each manifest icon
-  in the hicolor theme. The `.deb` version is
-  `tac.application.version`-`tac.application.build` and it depends on GTK 4
-  and on WebKitGTK 6 at the app's `minimumSystem.linux`; the manifest's
-  `description` becomes the summary. The AppImage joins the pinned AppImage
-  type 2 runtime (downloaded once and checked by SHA-256, or named by
-  `TAC_APPIMAGE_RUNTIME`) to a zstd squashfs image. Both use the system's
-  GTK 4 and WebKitGTK 6, and two release builds give the same bytes. The
-  AppStream release date is the UTC day of `SOURCE_DATE_EPOCH` (1970-01-01
-  when unset), which `appstreamcli validate` accepts. A
-  version that does not start with a digit stops a Linux release with
-  `TY1601`. `TAC_LINUX_MAINTAINER` fills the `.deb` `Maintainer` field
-  (the app's name when not set).
-- `ty bundle --target macos --release` builds `dist/macos/<Name>.dmg` for
-  distribution outside the Mac App Store (ADR 0104 amendment). The app and
-  each Rust helper are signed with the team's Developer ID Application
-  certificate, with the hardened runtime and a secure timestamp, and with
-  entitlements from the manifest grants (the location entitlement when
-  `tac.browserApis` grants `geolocation`). The `.dmg` holds the app and an
-  `Applications` shortcut; it is signed, notarized with `notarytool`,
-  stapled and checked by Gatekeeper. The team and notary profile come only
-  from the environment (`TAC_APPLE_TEAM_ID`, `TAC_APPLE_NOTARY_PROFILE`) and
-  the certificate from the keychain, or `TAC_MACOS_SIGNING_IDENTITY`; a
-  missing variable stops the build with `TY1605` before anything is built.
-  `TAC_MACOS_SIGNING_IDENTITY=-` signs ad hoc and skips notarization, for a
-  test on the build Mac. `--arch universal` works with `--release`. A
-  Developer ID release was notarized, stapled and accepted by Gatekeeper on
-  a Mac.
-- `ty bundle --target windows --release` builds an MSIX package,
-  `dist/windows/<Name>/<Name>.msix`, with `makeappx` and signs it with
-  `signtool` (ADR 0104). The certificate comes only from the environment:
-  `TAC_WINDOWS_CERTIFICATE` (a `.pfx` file, with
-  `TAC_WINDOWS_CERTIFICATE_PASSWORD`) or `TAC_WINDOWS_CERTIFICATE_THUMBPRINT`
-  (a certificate in the store), `TAC_WINDOWS_CERTIFICATE_PUBLISHER` (the
-  certificate's subject) and the optional
-  `TAC_WINDOWS_CERTIFICATE_TIMESTAMP_URL`. The package name, version and
-  tiles come from the manifest. A missing or conflicting variable stops the
-  build with `TY1605` before the host is compiled. Inside a package, the
-  Windows host keeps WebView2's data in the package's `LocalState` folder,
-  because the install folder is read-only.
-- Linked native services can wait. A call to a linked Rust or C# async
-  method answers the page with a task number. The page gets the result
-  later, through the signal path that `publish` uses. Disposing the owner
-  cancels its tasks. The Windows host resumes Rust tasks on its window thread
-  (ADR 0103 amendment).
-- Linked Rust and C# `HTTPClient` calls in the Windows app go to
-  `tac.yon.origin`, with the page transport's rules and error codes. Rust
-  uses WinHTTP and C# uses `HttpClient`. Without the origin, they answer
-  `HTTP_MISSING` as before. Native C# `Task`, `Task<BehaviorJSON>` and
-  `Task<Model>` methods are now task members. Before, they ran to the end on
-  the UI thread.
-- `scripts/native/yon-reach-fixture.py` writes one project for the desktop
-  hosts, with linked Rust and C# services that call Yon. Its Yon has an HTTP route, a stream, a socket, a topic, a `@Check` 422 and
-  a `SignedIn` route, and its page exercises each one.
-  `scripts/yon-reach-fixture-test.mjs` runs it in Chromium, and
-  `scripts/windows/yon-reach.ps1` runs it in the packaged Windows app.
-- Native apps open from links. `tac.application.links` in
-  `client/manifest.json` lists URL `schemes`, such as `["myapp"]`, and
-  `hosts` for verified web links (ADR 0106). A link opens the app at the
-  route of its path, with its query, or at `start_url` when the route is
-  unknown. macOS (`kAEGetURL`), iOS, Android (intent filters, `autoVerify`
-  for the hosts, `singleTask`), Linux (`.desktop` scheme handlers and
-  `GApplication` forwarding) and Windows (per-user registration at startup
-  and `WM_COPYDATA` forwarding to the running app; the MSIX package
-  declares them) claim the schemes. With `hosts`, the web build writes
-  `/.well-known/apple-app-site-association` when `TAC_APPLE_TEAM_ID` is set
-  and `/.well-known/assetlinks.json` when `tac.origin` and
-  `TAC_ANDROID_CERT_SHA256` are set, and an iOS build signs the app with its
-  associated domains. Android's `route.open` now navigates.
-- `ty bundle --target ios --device` builds the iOS app for a registered iPhone
-  or iPad, and `ty bundle --target ios --release` builds an `.ipa` for App
-  Store Connect and TestFlight, both arm64 `iphoneos` builds in `dist/ios/`
-  (ADR 0104 amendment). The team, the provisioning profile and an optional
-  certificate come only from `TAC_APPLE_TEAM_ID`,
-  `TAC_IOS_PROVISIONING_PROFILE` and `TAC_IOS_SIGNING_IDENTITY`; otherwise the
-  certificate is the keychain identity the profile names. A missing variable,
-  a profile for another team or app ID, or the wrong kind of profile stops the
-  build with `TY1605`. The app gets an asset-catalog icon, a privacy manifest,
-  the Xcode build keys App Store Connect checks, the embedded profile and
-  entitlements. `--release` needs an opaque icon (`TY1601`). `--device`
-  without an iOS target or with `--native` stops with `TY1001`.
-
-- `ty bundle --target android --release` builds a signed release APK and an
-  Android App Bundle (`.aab`) for Google Play, both in
-  `dist/android/<Name>/` (ADR 0104). The upload key comes only from the
-  environment: `TAC_ANDROID_KEYSTORE`, `TAC_ANDROID_KEYSTORE_PASSWORD`,
-  `TAC_ANDROID_KEYSTORE_ALIAS` and, when the key has its own password,
-  `TAC_ANDROID_KEYSTORE_KEY_PASSWORD`. A missing variable or keystore file
-  stops the build with `TY1605` before Gradle runs, and the staged Gradle
-  project reads the same variables. Builds without `--release` are
-  unchanged. Other targets, `--native` and web-only builds refuse
-  `--release` (`TY1601`, `TY1001`).
-- The Android app reaches the Yon at `tac.yon.origin` (ADR 0103 amendment,
-  NET2). Its request interception passes the declared origin to the network.
-  A local `http` origin, such as `http://localhost:8080` behind
-  `adb reverse`, gets a network security file that allows cleartext to that
-  one host only. A Kotlin `HTTPClient` in a natively linked Kotlin service
-  now sends its requests from the app with the same rules as the page's
-  HTTP bridge, instead of failing with `HTTP_MISSING`, and a linked Kotlin
-  `suspend fun` runs until it finishes. `scripts/android/yon-origin-test.mjs`
-  checks an HTTP route, a stream, a socket, a topic, a `@Check` 422, a
-  `SignedIn` route and a linked Kotlin client on the emulator, and
-  `scripts/yon-origin-browser-test.mjs` checks the same Yon paths across
-  ports in Chromium. Both passed on 2026-10-19, the emulator run on
-  Android 15, so the Android `tac.yon` row is now honored.
-- A web build now applies its `tac.cache` rules to Yon reads on another
-  origin. With `tac.yon.origin` and `tac.cache` set, the web page loads
-  `/.tachyon/tac-yon-reads.js` too, because the service worker never sees a
-  request to another origin. A public Yon read then still answers when the
-  browser is offline. `scripts/yon-reads-web-browser-test.mjs` checks it in
-  Chromium, Firefox and WebKit (ADR 0087 amendment).
-- A native app now applies its `tac.cache` rules to Yon reads. A native
-  build that declares `tac.yon.origin` and `tac.cache` ships
-  `/.tachyon/tac-yon-reads.js`, which keeps public Yon reads in the page's
-  Cache Storage with the service worker's rules, so a `network-first` or
-  `cache-first` read still answers when the app is offline. Yon answers
-  `no-store` unless the handler sets its own `Cache-Control`. On Linux the
-  kept reads last only while the app runs (ADR 0087 amendment). (Corrected:
-  since ST1 the Linux app keeps its web storage on disk, so on Linux the
-  kept reads also last across a relaunch.)
-- A Linux app with `"titleBar": "integrated"` in `tac.application.window`
-  now lets the page reach the top edge of the window, as on macOS. GTK's own
-  window buttons sit over the page, the page gets `--tac-titlebar-height`,
-  `--tac-titlebar-leading-inset` and `--tac-titlebar-trailing-inset`, and
-  elements marked `data-tac-drag-region` move the window (a double-click
-  follows the desktop's title bar setting). The menu bar moves into a main
-  menu button beside the window buttons. `titleBarButtonInset` places the
-  buttons. A test drives the generated GTK host under Xvfb with real pointer
-  events (ADR 0098 amendment).
-- An `@OnEvent` method of a Swift or Rust service in the browser may be
-  `async` (ADR 0105). The page runs it as a task of the service: the listener
-  tasks of one service run one after another in the order their events
-  arrive, and removing the service cancels them. Such a listener reads
-  through its clients and stores, and publishes with
-  `applicationEventPublisher` instead of returning an event. The Swift and
-  Rust cookbook lists in Signal-driven UI now reload every saved user through
-  their own `UsersClient`, as the Dart list does, and
-  `scripts/async-listener-browser-gate.mjs` checks both in a browser. Native
-  app listeners, and Kotlin, C# and F# browser listeners, stay synchronous.
-- The Linux app opens its window from `client/manifest.json`, as the macOS
-  and Windows apps do. The page inside the window starts at
-  `tac.application.window` `width` by `height` (the host adds what the title
-  bar or header bar takes), and `minWidth` and `minHeight` keep the page from
-  getting smaller. A `theme_color` written as `#rgb` or `#rrggbb` colors a
-  GTK header bar, with black or white title text by contrast, and
-  `"display": "fullscreen"` starts the window full screen. A test runs the
-  generated GTK host under Xvfb and checks the real page size, the minimum,
-  the header bar's rendered color and the fullscreen start (ADR 0052
-  amendment).
-- A linked Swift service in a macOS or iOS app reaches Yon. When
-  `client/manifest.json` declares `tac.yon.origin`, a Swift `@HTTPClient`
-  sends its requests to that origin through `URLSession`, with the page's
-  rules: no cookies, redirects refused, a JSON body, the method deadline and
-  the response limit. Before, every such request failed with
-  `HTTP_MISSING`. A Swift service in a native app still cannot hold a
-  `@StreamRequest` or `@SocketRequest` client (`TY1405`); the message now
-  says to hold the client in a JavaScript or TypeScript page service,
-  which reaches Yon on the declared origin (ADR 0103 amendment).
-- `scripts/native/yon-reach-test.mjs` builds one app that calls Yon on
-  another origin over HTTP, a CORS preflight, a stream, a socket, a topic,
-  a `@Check` 422 problem and a `SignedIn` route, and a linked Swift client.
-  `--target=web` runs it in Chromium (`bun run test:yon-reach-browser`);
-  on a Mac it runs the macOS app, the iOS simulator over `http` and the
-  iOS simulator over `https` through a local TLS proxy.
-
-- The Android native test checks that a `@LocalState` field set by a Kotlin
-  method on the first page (`/index.html`) keeps its value after a
-  navigation to `/` and after a reload. The test clears the app's data
-  after each install, so values from earlier runs cannot hide a lost one.
-- The Android app answers clipboard, share and notification calls itself.
-  `writeText` and `readText` use the Android clipboard, `share.open` opens
-  the system share sheet, and `notifications` asks for `POST_NOTIFICATIONS`
-  on Android 13 and later and posts on a channel named from
-  `tac.application.permissions.notifications`. Geolocation now works in the
-  Android app: the host asks for the location permission when the page asks
-  for a position, instead of turning geolocation off. When the user said no
-  once, Android shows the reason from `tac.application.permissions` before
-  it asks again. The app's manifest lists only the permissions of the
-  granted APIs. `scripts/android/native-test.sh` runs the four APIs on the
-  emulator (ADR 0065 amendment).
-- The Windows app opens its window from `client/manifest.json`, as the macOS
-  app does. Its client area starts at `tac.application.window` `width` by
-  `height` device-independent pixels, so it keeps its size on a high-DPI
-  screen, and `minWidth` and `minHeight` stop the user from making it
-  smaller. On Windows 11 a `theme_color` written as `#rgb` or `#rrggbb`
-  colors the title bar, with black or white title text by contrast, and
-  `"display": "fullscreen"` starts the app borderless and full screen. A
-  `display` value outside the web manifest list (`fullscreen`, `standalone`,
-  `minimal-ui`, `browser`) now stops the build with `TY1601` (ADR 0052
-  amendment).
-- `ty bundle --target macos --arch universal` builds a universal macOS app:
-  the app and each Rust helper executable hold an `arm64` and an `x86_64`
-  part, joined with `lipo`. `--arch x64` and `--arch arm64` now also choose
-  the macOS architecture. A target that does not take `--arch` (web, Linux
-  and iOS for another architecture, Android) prints one `Note:` line; when no
-  target being built takes the choice, the build stops with `TY1001`
-  (ADR 0097 amendment).
-- Every app hears when it goes to the background and comes back. A new
-  built-in event model, `ApplicationStateChanged { state }`, carries
-  `background` or `foreground` to `@OnEvent` listeners in every service
-  language, also in services linked into a native app (Rust, Swift, C# and
-  Kotlin). Page scripts can listen to the `tac.application.state` event on
-  `window`. macOS sends it when the app stops or starts being the active app,
-  is hidden or its window is minimized; Windows on `WM_ACTIVATEAPP` and
-  minimize; Linux when no app window is active or the window is suspended;
-  iOS on entering the background and the foreground; Android on `onStop` and
-  `onStart`. A browser tab sends it when the tab is hidden or shown. The page
-  keeps the current state, so a `replay` listener hears it first (ADR 0028
-  amendment). The new guide section "Background and foreground" shows a
-  listener in every language, Python included.
-  `scripts/linux/application-state-test.sh` checks the Linux host end to end
-  under Xvfb.
-- `scripts/android/native-test.sh` also runs the Kotlin window-controls
-  example on the Android emulator. Granted `minimize`, `resize` and `title`
-  act on the app window, and `maximize`, `fullscreen` and `close`, which the
-  example does not grant, are refused from the page and from a Kotlin
-  service.
-- `scripts/linux/native-test.sh` now also checks the Linux app through
-  AT-SPI (the Linux accessibility bus) by role and name: the window name,
-  the File, Edit and Window menu items, the items of the File menu opened
-  with F10, and the page's landmark, heading, button and links. The
-  per-target support table has a row for page accessibility on each target.
-- Linux and Windows apps always have a menu bar, also without declared
-  menu items. Next to File it has an Edit menu (Undo, Redo, Cut, Copy,
-  Paste and Select All, sent to the focused field of the page) and a Window
-  menu (Minimize and Maximize), as macOS apps have. A menu shortcut that uses
-  `control` now gets the Ctrl key on Linux and Windows instead of no key;
-  shortcuts that then collide with each other or with a standard command
-  stop the Linux or Windows build with `TY1601` (ADR 0097 amendment).
-- Every `client/manifest.json` member now states its reach on each of the
-  six targets in one table (ADR 0102): honored, adapted with a note, refused
-  with a TY code, or not applicable with a note. A build prints one `Note:`
-  line for each declared member that its target adapts or does not use, and
-  stays silent about members the manifest does not declare. For example,
-  `theme_color`, `display`, `tac.cache` and `tac.budgets` in a native build,
-  window sizes on Windows and Linux, and `tac.application` in a web build now
-  print a note instead of being ignored silently. `ty bundle
-  --explain-targets` prints the whole table (or the targets that `--target`
-  names) and marks the declared members, and the Settings and configuration
-  page shows it in one tab per target.
-- `tac.application.build` in `client/manifest.json` is the build number of a
-  native app, a whole number from 1 (1 when absent). macOS and iOS write it as
-  `CFBundleVersion` and Android as `versionCode`; both were always 1 before.
-  Windows executables get a version resource: the file version is the
-  version's numbers then the build (`1.4` with build 12 is `1.4.0.12`), and
-  the product version is `tac.application.version` as written. The Windows
-  manifest's `assemblyIdentity` carries the same file version instead of
-  `1.0.0.0`. The Linux desktop entry adds `X-Tachyon-Build`. A version that a
-  target cannot carry stops the build for that target only (`TY1601`): macOS,
-  iOS and Windows need one to three numbers, such as `1.4.0`; Windows numbers
-  and builds are at most 65535, and an Android build at most 2100000000
-  (ADR 0052 amendment).
-- `ty doctor` reports the host toolchain of each native target that the
-  project declares (a `bundle:<target>` script in `package.json`), as `info`
-  rows that never change the exit status: `xcrun` for macOS; `xcodebuild`
-  and the iOS simulator SDK for iOS; `ANDROID_HOME`, Gradle and `javac` for
-  Android; `cl`, `rc.exe` and `TAC_WEBVIEW2_SDK` for Windows; `cc`, GTK 4 and
-  WebKitGTK 6.0 for Linux. `ty init`, `ty add target` and
-  `ty doctor --install` use the same rows and recipes (ADR 0066 amendment).
-- The release workflow has a job that builds and checks
-  `ty-windows-arm64.exe` on a Windows ARM64 runner, and `install.ps1` picks
-  it on ARM64 Windows. No tagged release has built it yet: the first asset
-  comes with the next tagged release.
-- Native apps can answer browser APIs themselves. The page runtime sends
-  `clipboard`, `share`, `notifications` and `geolocation` calls to the host
-  as `browserApi.<api>.<call>` operations when the host lists the API in
-  `__tachyonBrowserApiBridge`, with the same events, permission words and
-  refusals as the web; an API the host does not list keeps using the web
-  view's own browser API. No host lists an API yet. (Superseded: later
-  entries in this section, above and below, list the hosts that bridge
-  these APIs: macOS and iOS, Android, and Linux.) The new
-  `tac.application.permissions` member gives the reason the app shows when
-  it asks: iOS and macOS write it into `Info.plist`, Android into its string
-  resources, and an iOS, macOS or Android build that grants `geolocation`
-  (or an Android build that grants `notifications`) without a reason stops
-  with `TY1601` (ADR 0065 amendment).
-- Native apps can reach Yon through a declared origin (ADR 0103). The new
-  manifest member `tac.yon.origin`, such as
-  `{"tac": {"yon": {"origin": "https://api.example.com"}}}`, must be exactly
-  an `https` origin with no path or trailing slash; `http` is allowed only
-  for `localhost`, names under `.localhost` and loopback IP addresses.
-  Anything else stops the build with `TY1601`. The build writes
-  `<meta name="tachyon-yon-origin">` into every page, and Tac Client
-  exchanges, `TacBrowserHttp` and the event bus send route paths such as
-  `/api/notes`, streams and sockets (`wss://`) to that origin over CORS,
-  still without cookies. The transports accept only the page's own origin
-  and the declared one. The `connect-src` that `ty serve`, `ty start` and
-  `ty preview` send also lists the origin and its `wss://` form, and so does
-  the `connect-src` of every native host. The Android app lets requests to
-  an `https` Yon origin through and asks for the `INTERNET` permission when
-  an origin is declared. On the Yon
-  side, `server.origins` in `server/application.json` lists the app origins,
-  such as `tachyon-app://bundle` and `https://appassets.tachyon.local`
-  (`TY2010` for `*`, `null`, a path or an uppercase host). A listed origin
-  gets a `204` preflight before any route and `Access-Control-Allow-Origin`
-  on every response, never `Access-Control-Allow-Credentials`; every
-  response carries `Vary: Origin` when the list is set, and a listed origin
-  may open a socket. `ty init` and `ty add target` write the native app
-  origins. A native `ty bundle` without `tac.yon.origin` now stops with
-  `TY1601` when the project has `client/remotes`, and prints an
-  offline-only note when it only has Yon routes. Whether each host's web
-  view lets the requests through is still to be proven per host.
-- `tac.application.minimumSystem` in `client/manifest.json` names the
-  oldest system each native app runs on: `ios` and `macos` versions, an
-  `android` API level, the WebView2 Runtime version for `windows` and the
-  WebKitGTK version for `linux`. An app that bundles a Dart, Kotlin or Java
-  web service, which needs WebAssembly garbage collection, now gets iOS 18.2,
-  macOS 15.2, WebView2 119.0 or WebKitGTK 2.46 instead of the old fixed iOS
-  17.0 and macOS 13.0, with one build note. A declared value below the floor
-  stops the build (`TY1601`) and names the languages. The macOS app's
-  `swiftc` target now follows its `LSMinimumSystemVersion`. The Windows and
-  Linux apps check the installed web view at startup and show a readable
-  message instead of a blank window (ADR 0033 amendment). (Superseded for
-  Java and Dart: a Java web service now needs iOS 18.4, macOS 15.4, the
-  WebView2 Runtime 137.0 or WebKitGTK 2.48 (JF1), and a Dart web service iOS
-  18.4, macOS 15.4, WebView2 119.0 or WebKitGTK 2.48 (MA5); Kotlin keeps
-  these floors. See the JF1 and MA5 entries.)
-- The Linux app answers browser APIs. It allows clipboard reads of text
-  copied in other apps, geolocation through GeoClue and notifications only
-  for its own pages and only when `tac.browserApis` grants them, and denies
-  every other web view permission. Notifications are desktop notifications
-  (`GNotification`); `requestPermission` answers `granted` without a prompt,
-  as Linux desktops do. Linux has no share sheet, so `share` copies the url,
-  or else the text or title, to the clipboard (ADR 0065 amendment).
-- The macOS and iOS apps answer `clipboard`, `share`, `notifications` and
-  `geolocation` through the host bridge, with shared Swift code in
-  `native/browser_apis/`: `NSPasteboard` and `UIPasteboard`,
-  `NSSharingServicePicker` and `UIActivityViewController`,
-  `UNUserNotificationCenter` (also shown while the app is in front), and
-  CoreLocation with the reason from `tac.application.permissions`. A
-  cancelled share answers `BrowserCallFailed`, geolocation keeps the page's
-  ten-second limit, and each new page gets the current notification
-  permission. The host also refuses a call whose API is not in
-  `tac.browserApis`. The support table says `honored` for these APIs on
-  `macos` and `ios`; the Mac compile, the iOS simulator gate and a manual
-  check of the system prompts are still owed (ADR 0065 amendment of
-  2026-10-19). (Superseded: the macOS host test and prompts ran in RM1, the
-  iOS simulator gate in RM2, and a geolocation position reached a macOS page
-  after Allow in MA3.)
-- Native live stylesheet updates on macOS accept `@import`, `url()`,
-  `var()`, `@property`, `@font-face` and escaped selectors such as
-  `.md\:flex` and `.w-1\/2`. Each `url()` and `@import` must be a plain
-  relative path that resolves, from its own stylesheet, to an asset in the
-  same captured generation, so a candidate's resources load only from the
-  candidate. An `@import` must be a top-level rule that names a captured
-  stylesheet. Remote, root-relative, `data:`, query, percent-encoded and
-  escaped URLs stay refused, as do `env()`, `attr()`, `image-set()`,
-  `local()`, import cycles and import chains longer than 16. A WebKit test
-  commits and rolls back a candidate whose imported tokens, registered
-  property, image and escaped class names all resolve inside the candidate
-  generation.
-- A Linux test runs the generated GTK host's window controls. A Rust page
-  service calls `set_title`, `resize` and `minimize` through the real WebKit
-  bridge under Xvfb with a window manager, and the test checks the GTK
-  window's title, real size and minimized state. A `close` without its
-  grant is refused and the window stays open (ADR 0089 amendment).
-- C# and F# Tac services and Helpers need Helpers. A C# class names a
-  Helper from `client/helpers` in a field such as
-  `[Needs] private readonly TaxHelper _tax;`, and the build writes it as
-  `private readonly TaxHelper _tax = new TaxHelper();`. An F# class names one
-  in a primary constructor parameter, `type QuoteService(tax: TaxHelper) =`,
-  which becomes `let tax = new TaxHelper()`, or in a `[<Needs>]` property,
-  which becomes a private property set to `new TaxHelper()`. So each class
-  that needs a Helper gets its own new one, in the browser and in a test
-  unit, and a Helper may need other Helpers the same way. A C# or F# Helper
-  still takes no NeedsAll, Lifetime, OnStart, OnStop or OnEvent (TY1308), and
-  a caller may still build one with `new` (ADR 0091 amendment).
-- A C++ class can be the target of another language's `[[Gateway]]`.
-  Tachyon writes the `server/gateways/<id>/yon.hpp` unit, builds it with
-  `clang++` and makes the class with its own `[[Needs]]` graph; the target
-  method is public and takes and returns `tachyon::json::JsonNode`. Such a
-  target used to fail with "No Yon gateway unit exists for .hpp yet"
-  (ADR 0099 amendment).
-- C++ Tac services get Tachyon's browser APIs. A `[[Needs]]` field may name
-  `Clock`, `SecureRandom`, `Connectivity`, `PageVisibility`, `Preferences`,
-  `Clipboard`, `Share`, `Notifications`, `Geolocation` or `WindowControls`,
-  the same list as Rust and Go. Each call answers at once and throws
-  `std::runtime_error` when the page refuses it. The built-in event models,
-  such as `ConnectivityChanged`, are C++ structs, so an `[[OnEvent]]`
-  listener hears them. A C++ test unit answers the calls with
-  `BrowserFakes::answer("clock", "now", 1000)` (ADR 0099).
-- The Python Tac browser test runs in Chromium, Firefox and WebKit, and
-  checks a `SessionState` field. `TAC_PYTHON_BROWSERS` picks engines. The
-  test host now reaches the local origin through a Playwright proxy instead
-  of a Chromium-only flag, and each engine writes its own receipt. The
-  fixture's `SessionState` field is saved in `sessionStorage`, comes back
-  after the offline reload, and starts at its default in a new tab (ADR 0093
-  amendment).
-- `ty migrate fix --write` rewrites legacy C++ Yon handlers. A
-  `server/routes/**/yon.cpp` file with a `Handler` class moves to
-  `server/controllers/<Route>Controller.hpp` with `#pragma once`,
-  `[[RequestRoute]]`, `[[Public]]` and a route marker on each verb method,
-  which is named after the verb and the route (`putLanguage`). An unused
-  `YonJson` request parameter is removed; a file that still uses `YonJson`
-  moves with a manual step that names the new forms (ADR 0099 amendment).
-- CI checks component style ownership in Chromium, Firefox and WebKit.
-  `bun run test:component-scope-browser` bundles the
-  `tac-component-scope` fixture and checks that a parent's `tac.css` styles
-  its own elements but not a nested or slotted child component, that
-  inherited color, font and custom properties still reach the child, and
-  that the styles survive a hide and show. The gate no longer needs a
-  retained fixture folder; `TAC_COMPONENT_SCOPE_BROWSERS` picks engines.
-
-- Browser C# results match F#. A C# browser HTTPClient member and a public
-  member of a browser `[Service]` may return `Task` or `ValueTask` of a
-  record from `client/models`, a `List` or an array of records or of plain
-  values, or one plain value (`string`, `int`, `long`, `double`, `float`,
-  `decimal` or `bool`). A record may also hold one nested record of plain
-  fields. An answer of another shape fails with `HTTP_RESPONSE`; transport
-  codes such as `HTTP_STATUS` pass through. The page gets a promise of the
-  plain value. Before, only `Task` of one record was accepted, and the rest
-  failed with TY1405. Maps, nested lists, nullable results, deeper or
-  recursive nesting and a nested record with a list are still refused with
-  TY1405, and native C# targets are unchanged (ADR 0090 amendment).
-- Python and Lua Tac pages call the server like the other Tac languages. The
-  docs have a "Python waits for a real Yon endpoint" and a "Lua waits for a
-  real Yon endpoint" section, the first-app tutorial has Python and Lua tabs
-  for step 4 (call the server) and step 5 (test it with a Fake client), and
-  "Client classes that call the server" has a Lua tab.
-  `scripts/browser-http-browser-test.mjs` checks both languages in Chromium,
-  Firefox and WebKit (`TAC_BROWSER_HTTP_BROWSERS` picks the engines).
-- A Python Tac HTTP client reads its answer into the dataclass named by its
-  return annotation; an answer of another shape fails with `HTTP_RESPONSE`
-  (ADR 0093 amendment).
-- Python and Lua `Cached` HTTP reads are public reads, and the first read
-  after `ClearCache` or `UpdateCache` revalidates with the server
-  (ADR 0093, ADR 0085 amendments).
-- A Lua Tac test unit's `self:construct(Service)` gives the service its HTTP
-  clients, stores and converters, bound to the test's behavior context
-  (ADR 0085 amendment).
-
-- Yon C++ has root middleware and relays. `middleware.hpp` at the project
-  root holds one `class Middleware` with `before(request)` and
-  `after(request)` methods that take
-  `const tachyon::http::HttpRequestMessage&` (or nothing) and return
-  `std::optional<tachyon::http::HttpResponseMessage>`, an
-  `HttpResponseMessage` or `void`; a missing phase lets the request pass.
-  It used to compile as a handler and fail with a `clang++` link error
-  (`TY2004`). A route method that takes the request can return
-  `relay({"perl", "server/relays/report.pl"}, request)`, with the same
-  deadline, environment, output limits, closed descriptors and fixed 502
-  as in the other compiled languages, on macOS and Linux; on Windows a C++
-  relay answers that fixed 502 (ADR 0099 amendment).
-
-- Tac C++ clients and Stores take their adapters from a page Setup. A
-  `[[HTTPClient]]` opens its context from `client/setups/<Name>Setup.hpp`,
-  or the Setup that its `{"setup":"..."}` option names, and an
-  `adapters.http` entry under the client's adapter name answers instead of
-  the network; a client without that Setup still sends through the page. A
-  Store whose Entity names an adapter other than `"indexeddb"` gets it from
-  `adapters.entities` of its Setup, checked by `adapters.authorizeEntity`,
-  and AllOrNothing opens its transaction there. A missing Setup that a client
-  names, or that such a Store needs, fails with `TY1371`. The behavior
-  markers now go on `Task` service methods too (AllOrNothing stays on
-  synchronous methods), and a client method takes `[[Cached]]`,
-  `[[UpdateCache]]`, `[[ClearCache]]` and `[[CacheKey]]`; a cached read is a
-  public read, and the read after a clear revalidates (ADR 0099 amendment).
-- A page-program browser gate (`bun run test:page-program-browser`) puts two
-  services of one language on one page, both needing the same Setup, HTTP
-  client and Store, and checks in Chromium, Firefox and WebKit whether they
-  share one Setup configuration. JavaScript and Go do; Swift, Kotlin, Java,
-  C#, F#, Rust and Dart still lower each service on its own, and their
-  fixtures say so until each language builds one program per page. The
-  browser lowering of Swift, Kotlin, .NET and Rust services now goes through
-  one file per language (`native/page_program/`), and ADR 0022 lists the
-  remaining limit and today's route size for each language.
-- Swift browser services on one page share one program. Two Swift services
-  that need the same Setup, HTTP client or Store now get one Setup
-  configuration and one behavior runtime, so an increment through one
-  service's client is seen by the other's. The page lowers every Swift
-  service together and keeps each shared Setup, client, store and entity
-  once (35 KB of script and 1513 KB of WebAssembly for the page-program
-  fixture, from 1519 KB; ADR 0022).
-- Kotlin browser services on one page share one program. Two Kotlin
-  services that need the same Setup, HTTP client or Store now get one Setup
-  configuration and one `Behaviors` runtime, so an increment through one
-  service's client is seen by the other's. The page keeps each shared
-  Setup, client, store and entity once, with the same code as Swift (36 KB
-  of script and 190 KB of WebAssembly without Binaryen for the page-program
-  fixture, from 195 KB; ADR 0022). In the signal-driven UI recipe, the Kotlin
-  list reloads the saved users through its own UsersClient from the Setup's
-  in-page adapter.
-- C# and F# browser services on one page share one program. The C#
-  services of a page build into one `TachyonServiceCsharp` namespace and
-  the F# services into one `TachyonServiceFsharp` namespace, with each
-  Setup, HTTP client, Store, entity, model and Helper they need once and
-  behavior lowering run once, so two services of one language get one Setup
-  configuration and one behavior runtime: an increment through one
-  service's client is seen by the other's. Each service keeps only its
-  member table in `TachyonService<N>`. The page-program fixtures for C# and
-  F# are now `"shared"` (C# 1129 KB of WebAssembly, from 1136 KB; F# 1269
-  KB, from 1278 KB; 116 KB of script each; ADR 0022).
-- A C# or F# Helper in `client/helpers` that a service build does not name
-  no longer stops that build with `TY1308`, so one service can need a
-  Helper that another service on the page does not (ADR 0091 amendment).
-- An F# Store whose type only inherits `Repository<Entity, Id>`, with no
-  members of its own, now builds; it was refused before.
-- C++ Yon code has test units. A unit is `server/tests/<Name>Test.hpp` with
-  one class marked `[[Test(<Name>TestSetup)]]` and a
-  `class [[TestSetup]] <Name>TestSetup` beside it. `ty test` builds it with
-  `clang++` (no Emscripten), with the models, every server Setup, service,
-  helper, converter, store, HTTP client, controller and error handler and a
-  test host whose clock stands at 0, and runs it once. Cases,
-  `[[ValueSource]]`, `Assert` and `BehaviorContext behaviors;` work as in Tac
-  C++. `[[Fake]] RateHelper rates;` holds the stand-in object, and
-  `construct<T>()` gives it to every `[[Needs]]` field of that type. The
-  TestSetup's `adapters.http` answers the requests of HTTP clients. Each
-  case is one invocation with new objects, its own OnStart, events and
-  OnStop, and its own context with the test's `[[UseProfiles]]` and
-  `[[TestSettings]]` (`yon.` keys). `[[FreshStart]]` is accepted and changes
-  nothing. Executed-method coverage now reads server C++ services, helpers
-  and controllers (ADR 0099 amendment).
-- Yon C++ has error handlers, an identity provider, `[[ResponseStatus]]`
-  and the native request and response types. An error type in
-  `server/errors` derives from `std::exception`, a standard error or another
-  error type. An `[[ErrorHandler]]` class in `server/controllers` turns it
-  into an answer with `[[HandlesError]]` methods such as
-  `Problem missing(const OrderNotFound& error)`, and the nearest type wins.
-  `[[ResponseStatus(201)]]` sets the status of a route's normal answer, and
-  `[[ResponseStatus(404)]]` the status of a handler's answer. An
-  `[[IdentityProvider]]` class says who is signed in for `[[SignedIn]]` and
-  `[[Allow]]` routes. One unmarked route parameter,
-  `const tachyon::http::HttpRequestMessage& request`, receives the whole
-  request, and a route may return `tachyon::http::HttpResponseMessage` to
-  set its own status, headers and body (ADR 0099 amendment).
-- C++ Yon code has `[[HTTPClient]]` with `[[GetRequest]]`, `[[PostRequest]]`,
-  `[[PutRequest]]`, `[[PatchRequest]]`, `[[DeleteRequest]]`,
-  `[[PathVariable]]`, `[[RequestParam]]`, `[[RequestBody]]` and
-  `[[RequestHeader]]`, and `[[Gateway]]` and `[[Topic]]`. A client is a
-  bodiless class in `server/remotes/<Name>.hpp` whose methods return their
-  answer and send through `adapters.http["<stem>"]` of the client's Setup; a
-  `[[Gateway]]` method takes and returns `tachyon::json::JsonNode` and
-  throws `tachyon::TacCodedError` with `Gateway call failed.`; a
-  `struct [[Topic]]` model in `server/models` reaches `[[OnEvent]]` listeners
-  in other files and languages, and C++ listeners receive topics from them.
-  `[[PathVariable("id")]]` now names the path variable in C++ Tac clients too
-  (ADR 0099 amendment).
-- A Tac C++ `[[HTTPClient]]` method may carry `[[StreamRequest]]` or
-  `[[SocketRequest]]`, declared without a body as
-  `void receive(const Tick& tick);`. The page's event bus holds the stream or
-  socket for the C++ service that keeps the client in a `[[Needs]]` field,
-  with the same origin, JSON, size and reconnect rules as JavaScript, and the
-  service receives each message with `[[OnEvent]]`. A socket client gets
-  `tachyon::Task<void> send(Message message) const`, which throws
-  `tachyon::http::HttpRequestException` (`HTTP_NETWORK`, `HTTP_MISSING`,
-  `HTTP_REQUEST`, `HTTP_BODY` or `CANCELLED`). A stream-only client needs no
-  Setup (ADR 0058, ADR 0060, ADR 0090 and ADR 0099 amendments).
-- C++ Yon code has `[[Setup]]`, `[[Settings]]`, `[[Setting]]`,
-  `[[WhenProfile]]` and `[[WhenSetting]]`. A Setup is a class in
-  `server/setups/<Name>.hpp` with a static `configure(execution)` that
-  returns its adapters, and Settings and Setting go on models in
-  `server/models`. A route reads the private snapshot with
-  `tachyon::yon::YonApplication::snapshot()`, binds it with
-  `Behaviors::properties<T>` and `Behaviors::values<T>`, and opens a context
-  with `Behaviors::create<Setup>(options)`; the binders want `YON_` names and
-  `yon.` paths. A C++ Settings prefix or Setting path from the other realm
-  now fails at build time, for Tac too (ADR 0099 amendment).
-- C++ Yon code accepts `[[Checked]]`, `[[Check]]`, `[[Required]]`,
-  `[[NotEmpty]]`, `[[Length]]`, `[[Min]]`, `[[Max]]`, `[[Converter]]` and
-  `[[Convert]]`. A Checked model is a struct in `server/models`, and
-  `[[Check]]` on a service method or route parameter of that type checks it
-  before the method runs; the program reports every broken field and rule,
-  and the server answers 422 with problem details (ADR 0101). A Converter is
-  a class of bodiless methods in `server/converters` that a `[[Needs]]` field
-  reaches; Tachyon writes each mapping (ADR 0099 amendment).
-- C++ Tac checks now collect every broken rule before they throw; the
-  `TacValidationError` message still names the first one.
-- Tests now prove the F# Tac outbound HTTP markers: `PostRequest`,
-  `PutRequest`, `PatchRequest`, `DeleteRequest`, `PathVariable`,
-  `RequestParam`, `RequestHeader` and `RequestBody` send the right method,
-  path, query, headers and body, in tupled (`a * b`) and curried (`a -> b`)
-  abstract signatures (ADR 0073 amendment).
-- C++ Yon code accepts `[[CacheSettings]]`, `[[Cached]]`, `[[CacheKey]]`,
-  `[[UpdateCache]]`, `[[ClearCache]]`, `[[Retry]]`, `[[MaxAtOnce]]`,
-  `[[AllOrNothing]]`, `[[PageDefaults]]`, `[[Entity]]`, `[[Table]]`, `[[Id]]`,
-  `[[Store]]` and `[[Query]]`. A class whose methods cache or run in a
-  transaction keeps a `BehaviorContext behaviors;` field and opens it from a
-  Setup; Retry, MaxAtOnce and PageDefaults need no context. A Setup's
-  `BehaviorAdapters` now also has `caches`, `entities`, `authorize` and
-  `authorizeEntity`, and `BehaviorMemory::cache()` and
-  `BehaviorMemory::entities()` are in-memory adapters for one request. A Store
-  in `server/stores` is a class of bodiless query methods; Tachyon opens its
-  context from its Setup, and `[[Needs]] ProductStore& products;` reaches it.
-  A Yon C++ Entity may name any entity adapter; Tac C++ keeps `"indexeddb"`
-  (ADR 0099 amendment).
-- An F# Tac service can need another F# Tac service of the same page, with
-  `[<Needs>] member val Counter : CounterService = Unchecked.defaultof<CounterService> with get, set`
-  or a primary constructor parameter typed with that service, and
-  `[<Named("LoudGreeterService")>]` chooses the F# service for a property
-  typed with a base service that it inherits. Tachyon orders the services' namespaces in
-  `Services.fs` and writes a type abbreviation, so the code names the other
-  service directly. The page and the needing service share one instance,
-  which starts first and, in the browser, stops after every service that
-  needs it when the last .NET activation of the page is disposed. TY1406
-  refuses a needed service with one instance per component and a circle of
-  needs; a C# service, a browser API or any other type stays TY1405
-  (ADR 0073 amendment).
-- A Tac Lua `-- @HTTPClient` method may carry `-- @StreamRequest` or
-  `-- @SocketRequest`, written as an empty
-  `function TicksClient:receive(tick)` with `---@param tick Tick`. The page's
-  event bus holds the stream or socket for the Lua service that keeps the
-  client in a typed `-- @Needs` field, with the same origin, JSON, size and
-  reconnect rules as JavaScript, and the service receives each message with
-  `-- @OnEvent`. A socket client gets `client:send(message)`, which waits for
-  the page in the call's coroutine and raises a `BehaviorError`
-  (`HTTP_NETWORK`, `HTTP_MISSING`, `HTTP_REQUEST`, `HTTP_BODY` or
-  `CANCELLED`). A stream-only client needs no Setup (ADR 0058, ADR 0060,
-  ADR 0085 and ADR 0090 amendments).
-- A Python Tac `@http_client` method may carry `@stream_request` or
-  `@socket_request`, written in the `Protocol` client as
-  `def receive(self, tick: Tick) -> None: ...`. The page's event bus holds
-  the stream or socket for the Python service that keeps the client in a
-  `Needs` field, with the same origin, JSON, size and reconnect rules as
-  JavaScript, and the service receives each message with `@on_event`. A
-  socket client gets `async def send(self, message) -> None`, which raises a
-  `BehaviorError` (`HTTP_NETWORK`, `HTTP_MISSING`, `HTTP_REQUEST`,
-  `HTTP_BODY` or `CANCELLED`). A stream-only client needs no Setup
-  (ADR 0058, ADR 0060, ADR 0090 and ADR 0093 amendments).
-- A Tac Java `@HTTPClient` interface method may carry `@StreamRequest` or
-  `@SocketRequest`, written as a bodiless `void receive(Tick tick);` that
-  takes one model. The page's event bus holds the stream or socket for the
-  Java service that keeps the client in a `@Needs` field, with the same
-  origin, JSON, size and reconnect rules as JavaScript, and the service
-  receives each message with `@OnEvent`. A socket client gets
-  `void send(Object message)`, which parks the service method's TeaVM fiber
-  until the page answers, so that method answers the page as a task. It
-  throws a runtime exception whose message starts with the code
-  (`HTTP_NETWORK`, `HTTP_MISSING`, `HTTP_REQUEST`, `HTTP_BODY` or
-  `CANCELLED`). A stream-only client needs no Setup (ADR 0058, ADR 0060,
-  ADR 0083 and ADR 0090 amendments).
-- A Java Tac service can need another Java service of the page with
-  `@Needs private final CounterService counter;`; the field and the page
-  share one instance, which starts first and stops after its last holder.
-  A field gets the service of its exact class; `@Named("LoudGreeterService")`
-  on its own line picks another service class, such as a subclass. A Java
-  service file may also name another Java service class of the page, for
-  example in `extends`. A prototype or `@NeedsAll` service, an unclear
-  provider, a circle and an unknown `@Named` fail with `TY1406` at the field
-  (ADR 0083 amendment).
-- A Java Tac service or Helper may name a Helper from `client/helpers` in a
-  `@Needs` field, such as `@Needs private final TaxHelper helper;`. The build
-  writes the field as `private final TaxHelper helper = new TaxHelper();`, so
-  each needing class gets its own new Helper; a Helper is not shared like a
-  Java service. A Java Helper may need other Helpers. It takes no
-  `@NeedsAll`, `@Lifetime`, `@OnStart`, `@OnStop` or `@OnEvent`, and the
-  build says so at the Helper file. Every Tac language now accepts Helper
-  (ADR 0083 and ADR 0091 amendments).
-- C++ Tac code accepts `[[Setup]]`, `[[WhenProfile]]`, `[[WhenSetting]]`,
-  `[[UseProfiles]]` and `[[TestSettings]]`. A Setup is a class in
-  `client/setups/<Name>.hpp` with
-  `static BehaviorAdapters configure(const BehaviorExecution& execution)`; a
-  service opens a context with `Behaviors::create<Setup>(options)`, and one
-  configuration serves every context with the same selection until the last
-  one is disposed. Each C++ test case now opens and disposes its own context
-  from its TestSetup, with the test's profiles and settings
-  (ADR 0099 amendment).
-- Yon C++ has services, helpers and scheduled workers. A C++ controller
-  reaches a `[[Service]]` in `server/services` or a `[[Helper]]` in
-  `server/helpers` with a `[[Needs]] T& name;` field, and `[[Named]]`,
-  `[[NeedsAll]]` and `[[Lifetime("singleton" | "request" | "transient")]]`
-  work as in the other Yon languages. `[[OnStart]]` runs in creation order,
-  `[[OnEvent]]` listeners with `[[Order]]`, conditions, replay and
-  `[[InBackground]]` hear `publishEvent` before and after the route, and
-  `[[OnStop]]` runs in reverse order when the request ends. A worker in
-  `server/workers` is a `class Handler` with `POST()` and may declare its
-  `[[Schedule]]`. Each controller still compiles into one `clang++` program;
-  a missing class, a singleton that keeps a request-scoped object, a
-  transient class beside lifecycle hooks and a `Task` hook fail with
-  `TY2015` (ADR 0099 amendment).
-- Tac F# browser services hold `[<StreamRequest>]` and `[<SocketRequest>]`
-  clients, as C# does. An abstract member such as
-  `abstract Receive: Tick -> unit` on an F# HTTPClient type opens a stream or
-  a socket for the browser F# service that keeps the client in a `[<Needs>]`
-  property; the service receives each message with `[<OnEvent>]`, and a
-  socket client gets `Send(message: obj) : Task`, which raises a
-  `BehaviorError` with `HTTP_NETWORK`, `HTTP_MISSING`, `HTTP_BODY` or
-  `CANCELLED`. A stream or socket client needs no Setup, and a natively
-  linked F# service refuses one with TY1405 (ADR 0090, "F# streams and
-  sockets"; ADR 0058 and ADR 0060 amendments).
-- Yon Rust controllers stream. A `#[StreamRoute]` method returns
-  `impl Iterator<Item = Model>`, or `impl Iterator<Item = Result<Model, E>>`
-  when the stream can fail; the prelude sends each item as one server-sent
-  event and `event: end` when the iterator ends. An `Err` item or a panic
-  sends the fixed TY2204 error frame without the error text. Any other
-  result is refused with TY2015, and every Yon language now accepts
-  `@StreamRoute` (ADR 0058 amendment).
-- Yon Rust listeners accept `#[InBackground]`. The listener stays
-  synchronous and runs after the other listeners of the event, as in
-  JavaScript and Python, and its return value is never published again
-  (ADR 0031 amendment).
-- A Dart Tac `@HTTPClient` method may carry `@StreamRequest` or
-  `@SocketRequest`, written in the `abstract interface class` client as
-  `void receive(Tick tick);`. The page's event bus holds the stream or
-  socket for the Dart service that keeps the client in a `@Needs` field,
-  with the same origin, JSON, size and reconnect rules as JavaScript, and
-  closes it when the service's owner goes away. The service receives each
-  message with `@OnEvent`. A socket client gets
-  `Future<void> send(Object? message)`, which fails with `TacSocketError`
-  (`HTTP_NETWORK`, `HTTP_MISSING` or `HTTP_BODY`); the page sees that code
-  on the rejected call. A stream-only client needs no Setup (ADR 0058,
-  ADR 0060 and ADR 0090 amendments).
-- Yon Kotlin now accepts `@InBackground` on an `@OnEvent` method. The
-  listener runs after the other listeners of the event, as in Yon JS, TS and
-  Python, and its return value is never published again. Kotlin event methods
-  stay synchronous.
-- Yon Dart now accepts `@InBackground` on an `@OnEvent` listener. The
-  listener runs after the other listeners of the event and never republishes
-  its return value, as in Yon JS/TS and Python. Yon Dart hooks and listeners
-  may also be asynchronous: an `@OnStart`, `@OnStop` or listener that returns
-  a `Future` is awaited before the invocation goes on.
-- Yon C# now accepts `[InBackground]` on an `[OnEvent]` listener. The
-  listener runs after the other listeners of the same event, as in Yon
-  JavaScript and Python. It may be a `void` method or return `Task` or
-  `Task<T>`; Yon waits for the task before the next event, and the task may
-  publish events after an `await`. An `async void` listener stops the build.
-- Yon F# now accepts `[<InBackground>]` on an `[<OnEvent>]` listener. F#
-  shares the C# event runtime, so the listener runs after the other
-  listeners of the same event and its returned model is never published.
-- A Ruby Tac `@HTTPClient` method may carry `#[StreamRequest]` or
-  `#[SocketRequest]`. The page's event bus holds the stream or socket for the
-  Ruby service that keeps the client in a `#[Needs]` field, and the service
-  receives each message with `#[OnEvent]`. A client that only holds streams
-  needs no Setup. A socket client gets `send_message(message)`, which waits
-  for the page like an HTTP call and raises a `BehaviorError` (`HTTP_NETWORK`,
-  `HTTP_MISSING`, `HTTP_REQUEST`, `HTTP_BODY` or `CANCELLED`) when the
-  message is not sent (ADR 0054, ADR 0058 and ADR 0060 amendments).
-- A Ruby Tac service or Helper can need a Helper from `client/helpers/`
-  with `#[Needs]`. The Helper is made the first time its owner uses it, one
-  for each owner. A Ruby Helper with `#[OnStart]`, `#[OnStop]` or
-  `#[OnEvent]` is refused with `TY1605`, because the page never runs those
-  hooks (ADR 0054 amendment).
-- A Rust Tac `#[HTTPClient]` trait method may carry `#[StreamRequest]` or
-  `#[SocketRequest]`. The page's event bus holds the stream or socket for
-  the Rust service that keeps the client in a `#[Needs]` field, with the
-  same origin, JSON, size and reconnect rules as JavaScript, and closes it
-  when the service's owner goes away. The service receives each message
-  with `#[OnEvent]` on a method whose parameter is the message model. A
-  socket client gets `send(message).await`, which waits for the page like
-  an HTTP call and returns a `BehaviorError` code instead of a rejected
-  promise (ADR 0058, ADR 0060 and ADR 0090 amendments).
-- A Swift Tac service can now use a Helper. A `@Needs` field such as
-  `private let cartHelper: CartHelper` builds the Helper in
-  `client/helpers/`, and a Helper can need other Helpers the same way. Each
-  class owns its own Helper, so a Swift Helper has an `init()` without
-  arguments (ADR 0091).
-- A Swift Tac HTTPClient protocol method can now carry `@StreamRequest` or
-  `@SocketRequest`. The page holds the stream or socket for the Swift web
-  service that keeps the client in a `@Needs` field, the service receives each
-  message with `@OnEvent`, and a socket client gets
-  `send(_ message:) async throws` (ADR 0058, ADR 0060 and ADR 0090).
-- A Kotlin Tac `@HTTPClient` interface method may carry `@StreamRequest` or
-  `@SocketRequest`. The page's event bus holds the stream or socket for the
-  Kotlin web service that keeps the client in a `@Needs` field, with the same
-  origin, JSON, size and reconnect rules as JavaScript, and closes it when the
-  service's owner goes away. The service receives each message with
-  `@OnEvent`. A socket client gets `suspend fun send(message: Any)`, which
-  waits for the page like an HTTP call and throws an error whose message
-  starts with its code. A native Kotlin build refuses these clients, because
-  no page holds the connection there; a Kotlin test unit builds them, and
-  `send` fails with `HTTP_MISSING` (ADR 0058, ADR 0060 and ADR 0090
-  amendments).
-- A Kotlin Tac service or Helper may name a Helper from `client/helpers` in a
-  `@Needs` field; each needing class gets its own new Helper, in the browser,
-  in a native build and in a test unit. A Kotlin Helper takes no
-  `@NeedsAll`, `@Lifetime`, `@OnStart`, `@OnStop` or `@OnEvent`, and the
-  build says so at the Helper file (ADR 0091 amendment).
-- A C# Tac `@HTTPClient` interface method may carry `[StreamRequest]` or
-  `[SocketRequest]`. The page's event bus holds the stream or socket for the
-  browser C# service that keeps the client in a `[Needs]` field, with the
-  same rules as JavaScript and Go, and the service receives each message
-  with `[OnEvent]` on a method whose parameter is the message model. A socket
-  client gets `Task Send(object message)`, which throws a `BehaviorError`
-  with a code such as `HTTP_NETWORK`. A natively linked C# service refuses
-  these clients (ADR 0058, ADR 0060 and ADR 0090 amendments).
-- `TAC_HANDLER_COMPILE_SECONDS` raises the time one handler compile (Kotlin, C#, F#, Rust,
-  Dart, Go, Groovy) may take before Yon stops it with TY2004, for slow or busy machines.
-  The default stays 60 seconds and the limit is at most 900; a value that is not a positive
-  whole number keeps the default. The deadline message now names the setting.
-
-- C++ Tac test units can now replace and answer what a service needs. A
-  `[[Fake]] GreetingClient greetingClient;` field reaches the `[[Needs]]`
-  fields of the service that `construct<CounterService>()` makes. A static
-  `configure()` method of the TestSetup returns `BehaviorAdapters`, and
-  `adapters.http["greeting"]` answers every request of `GreetingClient`
-  with a `JsonNode`; a request without an answer fails its case with
-  `HTTP_ADAPTER`, and no request leaves the test. A case may return
-  `Task<void>` and `co_await` a service. `[[ValueSource([1, 2, 3])]]` runs a
-  case once for each input. `ty test --coverage` and the `ty preview` gate
-  now count the public methods of C++ services by the calls that each case
-  makes. The first-app step 5 C++ test checks `askServer` too (ADR 0099).
-- A Python Tac service method may be `async def`. The page gets a promise
-  that settles when the asyncio task ends; other calls run while it waits,
-  and disposing the service cancels the task and rejects the promise with
-  `CANCELLED`. Before, `async def` stopped the build with TY1605.
-  Asynchronous `on_start`, `on_stop` and `on_event` methods still do
-  (ADR 0093 amendment).
-- A Python Tac service field may be marked `LocalState` or `SessionState`
-  inside its type, such as `theme: Annotated[str, local_state] = 'light'`.
-  The page saves and restores it like the fields of the other web service
-  languages. Before, the build refused both with TY1308 (ADR 0093
-  amendment).
-- Browser F# services can take an HTTPClient through `Needs`, as C# services
-  do: `[<Needs>] member val GreetingClient : GreetingClient = ... with get, set`.
-  An F# HTTPClient member may answer `Task` or `ValueTask` of a record from
-  `client/models`, a list or array of records, a plain value, `BehaviorJSON`
-  or nothing; an answer of another shape fails with `HTTP_RESPONSE`. Service
-  members may return the same `Task` and `ValueTask` results. `Cached` and
-  `ClearCache` work as in the other languages. F# Tac test units get
-  `this.construct<T>()` and typed `[<Fake>]` properties; an empty Fake client
-  is bound to the test's BehaviorContext. The F# first-app Steps 4 and 5 now
-  call the greeting endpoint and test the service (ADR 0073 and ADR 0090
-  amendments).
-
-- C++ is a Yon language for route controllers. A header-only class in
-  `server/controllers/<Name>.hpp`, such as
-  `class [[RequestRoute("/orders")]] [[Public]] OrderController`, declares
-  routes with `[[GetRoute]]`, `[[PostRoute]]`, `[[PutRoute]]`,
-  `[[PatchRoute]]` and `[[DeleteRoute]]`, reads its arguments with
-  `[[FromPath]]`, `[[FromQuery]]`, `[[FromBody]]`, `[[FromHeader]]` and
-  `[[FromCookie]]`, and returns a typed value or a model from
-  `server/models/<Name>.hpp`, which Tachyon writes as JSON. Tachyon compiles
-  each controller with `clang++ -std=c++20 -O2`, caches the program and runs
-  it under the handler supervisor. `ty doctor` checks for `clang++`, compiler
-  errors name the authored line, a wrong argument type answers 400 and an
-  exception answers 500 without its text. Other Yon markers in C++ (services,
-  `Needs`, error handlers, sockets, streams, test units, ...) stop the build
-  and say that C++ gets them in a later step (ADR 0099 amendment).
-  (Superseded: every one of them reached C++ in the 2026-10-18 amendments,
-  and the "later step" text is gone; see the ADR 0099 amendment of
-  2026-10-19.)
-- The standard `theme_color` member of `client/manifest.json` now becomes
-  `<meta name="theme-color" content="...">` in every web and native page
-  head, HTML-escaped, when it is text that is not blank. A missing or
-  non-text value writes no tag (ADR 0052 amendment).
-- A view that reads a Go service member in a case the service does not
-  expose, such as `settings.oauthNotice` for the Go field `OAuthNotice`
-  (which reaches views as `oAuthNotice`), now stops the build with TY1311:
-  `oauthNotice is not a member of SettingsService; did you mean
-  oAuthNotice?`. Before, the view built and rendered nothing (ADR 0036
-  amendment).
-- `:safe-html` on a template element renders HTML that comes as data, such as
-  an email body or pasted rich text, through a fixed allowlist: formatting
-  elements, safe links and images, and a small set of style properties.
-  Scripts, styles, frames, forms, SVG, event attributes, `id`, `name`,
-  `class` and unsafe URLs are dropped. `:safe-html` on an element whose
-  content is text, such as `<style>`, `<textarea>` or `<title>`, stops
-  rendering with an error. A browser test checks a list of known
-  script-injection attacks.
-
-- A Go Tac service can need another Go service: `// @Needs` above a field
-  such as `counter *CounterService` gives it the instance that the page uses.
-  The needed service starts first and stops last, events it publishes during
-  the call reach every listener on the page, and the field stays off the
-  page. The build refuses, with TY1406, a field that holds the service by
-  value, a needed service with one instance for each component, a circle
-  and an unclear instance name. Standard Go and TinyGo builds both work
-  (ADR 0045 amendment).
-- A Go Tac `@HTTPClient` interface method may carry `// @StreamRequest` or
-  `// @SocketRequest`. The page's event bus holds the stream or socket for
-  the Go service that keeps the client in a `// @Needs` field, with the same
-  origin, JSON, size and reconnect rules as JavaScript, and closes it when
-  the service's owner goes away. The service receives each message with
-  `// @OnEvent` on a method whose parameter is the message model. A socket
-  client gets `Send(message any) error`, which waits for the page like an
-  HTTP call and returns an error code instead of a rejected promise
-  (ADR 0058, ADR 0060 and ADR 0090 amendments).
-- A Go socket session has `Request()`, which returns the request that opened
-  the socket as a `*http.Request`, with its query string and headers. The
-  supervisor now passes the opening request's target to every socket handler.
-- A Go handler answer may carry binary bytes. The prelude sends a body that
-  is not UTF-8 as base64, and the server writes the bytes unchanged, so
-  images, attachments and file downloads keep every byte.
-
-- `tac.blockingScripts` in `client/manifest.json` lists up to 8 local
-  scripts that run before the first paint. The build links each one as a
-  classic `<script src>` before the Tac runtime, which `script-src 'self'`
-  allows. `tac.scripts` entries stay deferred modules after the runtime. The
-  website uses it for `ThemeDefault.js`, so a saved light theme is light from
-  the first paint (ADR 0052 amendment).
-- Windows apps can be built for ARM64: `ty bundle --target windows` now
-  builds for the build machine's architecture, and `--arch x64` or
-  `--arch arm64` chooses one. The choice sets the Rust companion target,
-  the WebView2 loader folder, the C# runtime identifier and the linker
-  machine together, and the artifact manifest records it. A developer
-  prompt for the other architecture stops the build with the
-  `vcvarsall.bat` argument to use (ADR 0097 amendment).
-- A desktop app's Rust companion can use crates and ship helper programs:
-  `tac.application.rust` in `client/manifest.json` declares exact-version
-  `dependencies`, `platformDependencies` for `linux`, `macos` and `windows`,
-  and `executables` (a client Rust class with `pub fn run() -> i32`).
-  Tachyon builds them with Cargo, offline, only from `vendor/rust/` (made
-  once with `cargo vendor`), and places each helper beside the host
-  executable: `<App>/bin/` on Linux and Windows, `Contents/MacOS/` on macOS,
-  signed (ADR 0019 amendment).
-- macOS apps can have an integrated title bar: `"titleBar": "integrated"` in
-  `tac.application.window` lets the page reach the top edge of the window
-  under the real close, minimize and full screen buttons, as one continuous
-  surface in light and dark mode. The optional `titleBarButtonInset`
-  (`leading`, `top`, 0 to 200 points) moves the buttons. The host sets
-  `--tac-titlebar-height`, `--tac-titlebar-leading-inset` and
-  `--tac-titlebar-trailing-inset` on the page and keeps them current on
-  resize, full screen (where they are `0px`) and appearance changes. Elements
-  marked `data-tac-drag-region` move the window (interactive controls inside
-  keep their clicks), and a double-click there follows the system title bar
-  setting. The window keeps its accessible title; an empty title from the page
-  keeps the app name. Windows, Linux, iOS and Android keep the standard title
-  bar and the build prints a note (ADR 0098).
-- C++ is a Tac WebAssembly service language (ADR 0099). A service, a model
-  or a test unit is a header-only `.hpp` file with one class, named after the
-  file: `class [[Service]] OrderService { ... };`. Markers are bare PascalCase
-  standard attributes checked by the shared rule table (`[[Needs]]`,
-  `[[OnEvent]]`, `[[OnStart]]`, `[[OnStop]]`, `[[Order]]`, `[[InBackground]]`,
-  `[[Test]]`, `[[TestSetup]]`, `[[HTTPClient]]` and the request markers);
-  lowercase, namespaced and unknown spellings fail with `TY1371`, a
-  `[[Needs]]` type that is no C++ service or client fails with `TY1372`, and
-  Emscripten interop fails with `TY1317`. Tachyon ships header-only
-  `tachyon::json` (shaped like System.Text.Json.Nodes), `tachyon::http`
-  (shaped like System.Net.Http) and a C++20 coroutine `Task<T>`, generates a
-  JSON codec for every model in `client/models`, and builds one em++ module
-  per page program on the linear-memory bridge of Rust and Swift. Page
-  methods that return `Task<T>` are asynchronous, `[[HTTPClient]]` classes in
-  `client/remotes` get their methods written, C++ test units run with
-  clang++, `ty doctor` lists em++ and clang++, and `ty init --tac cpp` writes
-  a C++ greeting service, its test and `client/.clangd`.
-- `ty init --tac py` and `ty add language client py` scaffold a Python Tac
-  greeting service with its test, and write the pinned `tac.python` runtime
-  setting into `client/manifest.json` (ADR 0093). `ty doctor` still names the
-  folder for the Pyodide files.
-- Yon JavaScript and TypeScript handlers run with Bun when `node` is not on
-  `PATH` and `bun` is, so a machine where `ty` installed Bun runs them
-  without `YON_JAVASCRIPT_RUNTIME`. Node.js stays the first choice.
-- `ty cache status` lists the per-language build caches (`dotnet-web`,
-  `go-wasm`, `swift-wasm`, `kotlin-wasm`, `java-wasm`, `rust-wasm`,
-  `dart-wasm`, `ruby-web`, `lua-web`, `cpp-wasm`, `typescript`), and `ty cache clean`
-  removes them with the runtime cache. Installed tools in the cache (the
-  Pyodide files and TeaVM) stay.
-
-- `server.environment` in `server/application.json` passes chosen variables
-  of `ty`'s environment to handler processes in every Yon language, such as
-  `["HOME", "AWS_*", "HD_*"]`: exact names and prefix patterns ending in `*`.
-  It is empty by default, so handlers still get only the baseline (`PATH`,
-  `LANG`, `LC_ALL`, `TMPDIR`). `*` alone and entries that name or cover
-  `ty`'s own variables (`TAC_*`, `TACHYON_*`, `YON_*` and the proxy variables
-  of the outgoing request guard) fail validation with `TY2010`, which names
-  the entry and never a value (ADR 0026 amendment).
-- Go controllers stream: a `// @StreamRoute` method returns `iter.Seq[Model]`
-  (or `iter.Seq2[Model, error]` when it can fail), and each item becomes one
-  server-sent event, then `event: end`. An error or panic ends the stream with
-  `event: error`; a client that goes away stops the process; a slow reader
-  blocks `yield`. A Go `*http.Request` context now ends at the request
-  deadline, so a log follow can finish cleanly. Go no longer refuses
-  `@StreamRoute` with TY2015 (ADR 0058 amendment).
-- macOS menu items can run an action instead of opening a page. In
-  `tac.application.menus`, an item with `"action": {"service", "method",
-  "event"}` calls a method that takes only `&self` on a client Rust service with
-  `#[Lifetime({"value":"application"})]`, so it works with no page open and the
-  page keeps its state. The service forwards to the page with the injected
-  `CurrentPageEvents` (`publish_event(model)`); live Rust page listeners receive
-  the model once (a shared singleton once, each prototype once). An item with
-  an `event` is enabled only while the shown page has a live listener for it;
-  otherwise it is disabled and a shortcut is refused. A wrong service, method
-  or event model stops the build with `TY1370` (ADR 0097).
-- The macOS File menu has Close Window (Command-W, now reserved). Closing the
-  last window disposes the page services but keeps the app and its application
-  services running; clicking the Dock icon opens a fresh window with new page
-  services and menu items, and Quit cleans up once (ADR 0097).
-- Linux and Windows apps get declared menus and application services.
-  `tac.application.menus` adds a menu bar (GTK 4 menu bar on Linux, Win32 menu
-  bar on Windows) with the declared File, View and Help items, Close Window
-  (Ctrl+W) and Quit (Ctrl+Q); route items, actions, enablement and shortcuts
-  follow the macOS rules, with `command` as Ctrl and `option` as Alt (a
-  shortcut with `control` gets no accelerator). A client Rust service with
-  `#[Lifetime({"value":"application"})]` starts once at launch, survives page
-  navigation and stops once at quit; closing the last window quits, as these
-  platforms expect. Inside the app process only: no OS service or autostart.
-  iOS and Android still refuse both. Windows is generated and compile-checked
-  but not yet run on Windows (ADR 0097 amendment).
-
-- The FYLO datasource is complete enough for a real document application: every
-  Yon language with a DataSource gets `findById`, `insert`, an atomic `patch`
-  (Spring Data `Update.set`: named top-level fields only, concurrent patches
-  never lose fields), `deleteById`, `scroll` (a cursor over any number of
-  documents in id order, with a snapshot at the first page and no 10,000
-  limit), `createCollection`, `dropCollection`, `collectionExists`, and FYLO's
-  durable queue through `publish`, `claim`, `ack` and `nack`. Collection names
-  follow FYLO's grammar, so `hd-events` works; `..`, `_`, upper case and
-  reserved words are refused with `TY2160`, also for Store tables. Go decodes
-  documents and deliveries into typed models. The SQL drivers refuse these
-  methods (ADR 0032 amendment).
-
-- Rust Tac services call the server from the browser: an `async fn` in an
-  `HTTPClient` trait returns `BehaviorResult<Model>`, a service gets the client
-  with `#[Needs] name: std::sync::Arc<Client>` and awaits it in an `async fn`
-  method. Without a Setup adapter the request goes to the same origin through
-  the browser host (omitted credentials, `Cached` public reads, revalidation
-  after `ClearCache`); the answer is read into the typed model, and errors keep
-  their code (`HTTP_STATUS`, `HTTP_RESPONSE`, `CANCELLED`). Rust test units get
-  `self.construct()` with a `Fake` client and `async fn` cases; `ty migrate
-  check` reports a service that builds its client itself (ADR 0090).
-- Go Tac services call the server from the browser too: an HTTPClient method
-  returns `(Model, error)`, a service gets the client with `// @Needs` and calls
-  it like any Go function. Each service call runs in its own goroutine; a call
-  that waits for the network returns a promise to the page, and removing the
-  component cancels it (`CANCELLED`). Go test units get `test.construct(service)`
-  with `// @Fake` clients (ADR 0090).
-- Kotlin Tac services call the server from the browser too: an `HTTPClient`
-  interface method is a `suspend fun` that returns a model from `client/models`,
-  a service gets the client with `@Needs private val name: Client` and calls it
-  from a `suspend fun`. Without a Setup adapter the request goes to the same
-  origin through the browser host (omitted credentials, `Cached` public reads,
-  revalidation after `ClearCache`); a waiting method returns a promise to the
-  page, a wrong answer shape fails with `HTTP_RESPONSE`, errors are
-  `Behaviors.Failure` with their code, and removing the component cancels the
-  request (`CANCELLED`). Kotlin test units get `construct(Service::class)` with
-  a `Fake` client and `suspend fun` cases (ADR 0090).
-- Swift Tac services call the server from the browser too: an `HTTPClient`
-  protocol method is `async throws` and returns a `Codable` model from
-  `client/models` (or nothing), a service gets the client with
-  `@Needs private let name: Client` and awaits it in an `async throws` method.
-  Without a Setup adapter the request goes to the same origin through the
-  browser host (omitted credentials, `Cached` public reads, revalidation after
-  `ClearCache` or `UpdateCache`); a waiting method returns a promise to the
-  page, a wrong answer shape fails with `HTTP_RESPONSE`, errors are
-  `BehaviorError` values with their code, and removing the component cancels
-  the task and its request (`CANCELLED`). Swift test units get
-  `try construct()` with a `Fake` client. Native macOS and iOS companions keep
-  running an `async` method to the end and answer `HTTP_MISSING` without an
-  adapter (ADR 0090).
-- Java Tac services call the server from the browser too. An `HTTPClient`
-  interface method returns a model from `client/models`, a `List` of models,
-  a plain value, `Object` or `void`. A service gets the client from a
-  `private final Client name;` field with `@Needs` on the line above.
-  Without a Setup adapter, the request goes to the same origin through the
-  browser host. Credentials are omitted, `Cached` reads are public, and the
-  next read revalidates after `ClearCache`. Each page call runs in a TeaVM
-  fiber. A call that waits returns a promise to the page, and other calls
-  run meanwhile. A wrong answer shape fails with `HTTP_RESPONSE`, and errors
-  reach the page with their code. Removing the component cancels the request
-  (`CANCELLED`). Java test units get `construct(Service.class)` with a
-  `Fake` client and keep `http-adapter` without an adapter (ADR 0090).
-- Ruby Tac services call the server from the browser too. The YARD
-  `@return` of an `HTTPClient` method names its answer: a model from
-  `client/models`, an `Array` of models or a plain value; `Hash` and
-  `Object` keep the answer as it is. A service gets the client with
-  `#[Needs]` above `attr_reader :name` and a `# @return [Client]` comment.
-  Without a Setup adapter, the request goes to the same origin through the
-  browser host. Credentials are omitted, `Cached` reads are public, and the
-  next read revalidates after `ClearCache`. Each page call runs in a Ruby
-  fiber on the existing mruby runtime. A call that waits returns a promise to
-  the page, and other calls run meanwhile. A wrong answer shape fails with
-  `HTTP_RESPONSE`, and errors reach the page with their code. Removing the
-  component cancels the request (`CANCELLED`). Ruby test units get
-  `construct(Service)` with a `Fake` client and keep `Required behavior
-  adapter is missing.` without an adapter. Method coverage no longer asks a
-  test case to call a Ruby method whose body is empty, such as a request
-  method of an `HTTPClient` (ADR 0090).
-- Method coverage no longer asks a test case to call a Setup's methods or the
-  methods of a generated HTTPClient: Tachyon calls a Setup itself and writes
-  the client's methods.
-
-- Add opt-in TY1362 suggestions for unnecessary member receivers in Java, Kotlin, C#, Groovy, Swift and Dart, preserving shadowing and required receivers. Include Groovy Yon services in executed-method coverage.
-
-### Security
-
-- Removed the external schema validator from CI and the docs (CX1,
-  2026-10-31). The server has checked requests in process since the
-  annotation routes of ADR 0048: path, query, header and cookie values and
-  the JSON body must fit the model types of the controller method, records
-  refuse undeclared fields at every depth, and values nested more than 32
-  levels deep are refused. The validator's installer script and its CI steps
-  are gone, and `docs/THREAT_MODEL.md` describes the in-process check.
-  New contract tests prove that a 400 refusal never repeats a request value,
-  an undeclared field name, a cookie or an authorization header.
-
-- `webpki-roots` moves from 1.0.9 to 1.0.11 in `Cargo.lock` and
-  `fuzz/Cargo.lock` (DN1, 2026-10-28). 1.0.10 removed the
-  `emSign ECC Root CA - G3` root, through which distrusted emSign
-  intermediates could be trusted (RUSTSEC-2026-0381, CVE-2026-111943). The
-  Redis and SQL drivers' rustls connections use these roots, and
-  `cargo deny` refused 1.0.9. The license is unchanged, so only the version
-  in `NOTICE` changes. The same locks move `rustls-webpki` 0.103.15 to
-  0.103.16 (RUSTSEC-2026-0382, the same distrusted emSign intermediates),
-  `ctutils` 0.4.2 to 0.4.6 (RUSTSEC-2026-0385, mask generation and `u128`
-  comparisons that were not constant-time) and `tokio` to 1.53.3
-  (RUSTSEC-2026-0386, `AsyncFd` constructors that broke I/O safety).
-- Every native host now sends a Content-Security-Policy, and its
-  `connect-src` allows only the app's own bundle and the hosts in
-  `tac.outgoing.hosts`. Before, the macOS, iOS and Android hosts sent no
-  policy, and the Windows and Linux hosts allowed every `https:` host. The
-  Android host allows its own bridge script by hash, lets the network serve
-  the listed hosts instead of answering them with an empty body, and asks for
-  the `INTERNET` permission only when the manifest lists a host. A native
-  build refuses a `tac.outgoing.hosts` entry that is not a host name
-  (`TY1601`). Native pages may frame their own bundle documents
-  (`frame-src 'self'`), as web pages may; frames from other hosts stay
-  refused. See the ADR 0068 amendments.
-
-- Build settings in the `tac` member of `client/manifest.json` (`outgoing`,
-  `budgets`, `visibility`, `types`, `tests`, `accessibility`, `simplify`,
-  `go` and `dotnet`) no longer reach the public settings that services bind,
-  like the other Tachyon members before them. A Tac service cannot read the
-  outgoing host list or the build switches with `Settings` or `Setting`.
-
-- `ty` no longer passes `Forwarded`, `X-Forwarded-For`, `X-Forwarded-Host`,
-  `X-Forwarded-Proto`, `X-Forwarded-Port`, `X-Forwarded-Prefix` or
-  `X-Real-IP` from the browser to Yon handlers. From a peer that is not in
-  the new `server.proxies` list (empty by default, loopback included) it
-  removes them and writes the real client address; from a listed proxy it
-  appends its own hop and sets `X-Real-IP` to the nearest address that is not
-  a listed proxy. Handlers in every Yon language read the client from
-  `X-Real-IP`, and Go `RemoteAddr`, Java and Kotlin
-  `HttpExchange.getRemoteAddress()` and PHP `REMOTE_ADDR` now hold it instead
-  of nothing or `127.0.0.1` (ADR 0096).
-
-- Every loopback server (`ty serve`, `ty start`, `ty preview` and the error
-  page) answers only requests whose `Host` is a localhost name, an IP address,
-  the `tac.origin` host or a name in the new `server.hosts`; other names get
-  `403` with `TY1366`. This closes DNS rebinding against local servers. With
-  `--allow-non-loopback` the check runs when `server.hosts` is set (ADR 0094).
-- Handler processes no longer get `NO_PROXY=127.0.0.1` while the outgoing
-  guard runs, so proxy-honouring clients cannot reach other loopback ports
-  without the `outgoing.hosts` check, and Go's default client now uses the
-  guard (ADR 0094).
-- The outgoing guard resolves an allowed name once and refuses loopback,
-  private, link-local and shared addresses unless the entry is an IP address
-  or a localhost name (ADR 0094).
-
-### Changed
-
-- The full nextest run is faster on an idle M4 (TS1, 2026-10-31): 377 s
-  instead of 493 s, with no test dropped and every assertion kept. On the
-  test VM, with 6 threads per lane, Windows is unchanged (832 s against
-  841 s). Linux in WSL1 does the same total work (about 86 minutes of test
-  time), but took 1,077 s against 917 s: four development-server tests
-  stalled at the 300 s limit there and then passed on retry, a WSL1 stall
-  that develop shows too and that is not yet diagnosed. Ten threads per VM
-  lane were slower still, so the lanes keep 6.
-  - The slowest proofs that ran every language in turn are now one test per
-    language, unit or section (`one_test_per_case!`), so they spread across
-    the test threads. Each split module has a test that fails when its list
-    of cases gains one without a test of its own.
-  - The serial relay-boundary tests and the longest tests start first
-    (nextest `priority`), instead of running alone at the end.
-  - Test toolchain probes such as `kotlinc -version`, which start a JVM, are
-    remembered for the rest of a nextest run once they succeed. A probe that
-    fails is run again.
-  - `.config/nextest.toml` retries a failed test once by default; the
-    relay-boundary and other timing tests keep two retries.
-- Yon readiness runs a server's toolchain probes at the same time instead of
-  one after another (TS1, 2026-10-31). A Kotlin server no longer waits for
-  `java` and then `kotlinc` in turn. The results and the first failure
-  reported are unchanged.
-- SQL Server support is the optional `storage-sqlserver` cargo feature (RD1,
-  2026-10-30). Release builds keep it (`scripts/release/build-artifact.sh`
-  builds `tachyon-cli` with `--features storage-all`). A default build
-  leaves out tiberius and the native TLS stack (native-tls, and OpenSSL on
-  Linux), so `ty` links 17 fewer packages on Linux x86_64 (229 to 212) and
-  11 fewer on macOS arm64 (223 to 212), and the Linux gate image no longer
-  installs `libssl-dev`. Such a build refuses a `sqlserver` datasource with
-  `TY2160` and names the feature. CI also runs Clippy and the storage tests
-  without the optional drivers.
-- PostgreSQL, MySQL/MariaDB and Redis are optional cargo features too
-  (`storage-postgres`, `storage-mysql`, `storage-redis`; RD2, 2026-10-30), and
-  `storage-all` turns on all four network drivers. SQLite and FYLO stay built
-  in. A default build now links 172 packages on Linux x86_64 (from 212) and
-  169 on macOS arm64 (from 212); it leaves out rustls, ring, the sqlx network
-  drivers and the Redis client. Release builds are unchanged.
-- Redis uses Tachyon's own client instead of the `redis` crate (RD3,
-  2026-10-30). It sends the same commands with the same TLS, `AUTH`/`SELECT`,
-  timeouts and reconnect backoff, and never retries a command. A release
-  build links 10 fewer packages on Linux, macOS and Windows, among them
-  `redis`, `combine` and `rustls-native-certs`.
-  `ty` now connects to Redis when managed storage starts, as
-  `docs/MANAGED_STORAGE.md` describes, so a Redis it cannot reach stops startup
-  instead of failing the first Redis command.
-- `url`'s IDNA back end is pinned to unicode-rs (`idna_adapter` 1.1; RD4,
-  2026-10-30) instead of ICU4X. Host names map the same way: 36 test hosts
-  (Unicode, bidi, joiners, punycode, deviation characters) gave identical
-  results with both back ends. Builds link 19 fewer packages with
-  `storage-all` and 16 fewer without, on Linux, macOS and Windows.
-- `ty` builds clap without its `color` feature (RD5, 2026-10-30), so help,
-  usage and argument errors are plain text on a terminal too; their wording
-  is unchanged. This drops anstream and its terminal-detection crates: 6
-  fewer packages on Linux and macOS, 8 on Windows.
-- `Toolchain::checked` also requires `dotnet` and `javac` under `CI` (RT1,
-  2026-10-28), since the native jobs of `rust-ci.yml` install .NET SDK
-  10.0.302 and select JDK 21, so a
-  `tests/it` test that asks it for either tool fails a `CI=1` run instead of
-  skipping when the tool is missing.
-- The warm handler tests no longer skip quietly in CI (WW1, 2026-10-28).
-  `warm_dart`, `warm_go`, `warm_lua`, `warm_php`, `warm_ruby`, `warm_rust`
-  and `warm_cpp` ask `Toolchain::checked`, and `go`, `ruby`, `bun`, `cargo`
-  and `clang++` join the tools it requires under `CI`, so a missing tool
-  fails a `CI=1` run on every OS instead of skipping. This holds for every
-  `tests/it` test that asks `Toolchain::checked` for those tools.
-  `warm_handlers.rs` runs its counter and crash cases for TypeScript under
-  bun, and `warm_cpp.rs` runs on Windows too. The two every-language
-  settings-profiles marker proofs join nextest's heavy group with a
-  15-minute limit (WW2), because they took over 300 s on a loaded machine.
-
-- `scripts/windows/high-dpi-test.ps1` also builds an integrated title bar
-  app, "Dpi Bar" (WM2, 2026-10-27). At the scaled DPI, and again after a
-  monitor move or a scale change (`WM_DPICHANGED`), it checks that the
-  `--tac-titlebar-*` insets match the caption buttons in CSS pixels, that a
-  drag from 4px above the bottom of the drag region moves the window, that a
-  drag from 12px under it does not, and that a button inside the region
-  still gets its click. With `-ScaleChangeSeconds`, each app page shows
-  when to change the scale. The scaled run is left to the developer
-  (iteration 7, D21): it needs a Windows desktop signed in at a scaled
-  screen, and Remote Desktop always gives 100%.
-
-- Windows `background_color` and reaching Yon are `adapted`, like the other
-  native targets (DOC5, ADR 0102 amendment, 2026-10-27). Windows takes the
-  same `#rgb` and `#rrggbb` forms, and its pages reach Yon across origins
-  from `https://tachyon.local`, as the macOS, iOS, Android and Linux pages do
-  from their own origins. A Windows build that declares `background_color`
-  now prints its note. No run changed.
-
-- Stale docs fixed after iteration 5 (DOC6, 2026-10-27). ADR 0052 gets an
-  amendment for the Windows manifest that SW4 found had no effect until
-  WM1, and the `[26.31.06]` entry that said it was published beside the
-  executable and `docs/PHASE_5_EVIDENCE.md` point at it. ADR 0089's status
-  line leaves out the macOS JavaScript FilePicker field, which has not run
-  in the app.
-  `docs/SUPPORT_TIERS.md` names the Java runs in the Windows (SW4) and
-  Android (MA9) apps in the JF1 table, and the iOS 18.4 floor run is left to
-  the developer (D20). Text that still called the Windows reaching-Yon and
-  `background_color` cells `honored` points at DOC5. The support table names
-  the macOS and Linux `connect-src` runs (RM1, RL1) and says linked Rust
-  services reach the iOS scene title too. The MK3 probe entry and
-  `docs/SUPPORT_TIERS.md` record the MK4 Windows run, and the Windows
-  manifest texts point at the WM1 fix and its unrun scaled checks.
-- Stale docs fixed after iteration 4 (DOC5, 2026-10-27). ADR 0108 gets an
-  amendment with the Java (JF1) and Dart (MA5) floors and the iOS 17.4 style
-  run; ADRs 0033 and 0083 and older CHANGELOG entries point at the Dart
-  `WebAssembly.JSTag` floor, and the website's WebAssembly services and
-  service-language pages name it. Text that still called runs owed after
-  they ran gets superseding notes or amendments: the WebView2 backdrop and
-  `setTitle` refusal (SW2), the ahead-of-time C# macOS release (MA6), held
-  clients of linked Swift, Kotlin and Rust services in the apps (MA1, MA2,
-  SW1; ADR 0103), the WebView2 browser APIs, tray and menus (SD1), the
-  Apple browser APIs (RM1, RM2, MA3; ADR 0065), the FilePicker status (MA1,
-  SW1, SW3; ADR 0089), the window controls in WebView2 (ADR 0087), the
-  stored-field check on macOS and Windows (ADR 0059) and `tac.dotnet` on
-  macOS (ADR 0102). `docs/SUPPORT_TIERS.md` names the macOS geolocation
-  position (MA3), the macOS linked Rust picker field (MA1), Safari (BR2) and
-  the Android Yon runs, and calls the iOS application lifetime adapted, as
-  the support table does. The website's standard-menus page records the
-  WebView2 menu runs, and `TY1372` no longer says Yon does not run C++.
-
-- Dart web services need the JavaScript exception tag (MA5, ADR 0033
-  amendment, 2026-10-25). The loader that `dart compile wasm` writes always
-  imports `WebAssembly.JSTag`, so a Dart page service needs Chrome or Edge
-  119, Firefox 131 or Safari 18.4, not Firefox 120 and Safari 18.2. On the
-  iOS 18.2 simulator a Dart app installed and showed a blank page. The
-  `tachyon-dart` module now checks for `JSTag` before it loads the program
-  and names those versions. A native app with a Dart web service now needs
-  iOS 18.4, macOS 15.4 or WebKitGTK 2.48 (`TY1601` below that); WebView2
-  119.0 and the Android note's WebView 119 stay. Chrome 119/120/136/137,
-  Firefox 120/128/130/131 and WebKitGTK 2.46/2.48 were run against a Dart
-  module (`docs/SUPPORT_TIERS.md`). The iOS 17.4 and 18.2 floor runtimes ran
-  the main gate and page services; the iOS gates can reuse a booted
-  simulator (`TAC_IOS_DEVICE`) and expect a below-floor app to be refused at
-  install.
-
-- The service worker keeps files the build writes under `.tachyon/services/`
-  up to 16 MiB (other files keep 4 MiB; the pinned Python runtime keeps its
-  own rule). Go's page-program `services.wasm` is 4,968 KiB, so a Go page did
-  not open offline before (ADR 0045 amendment). A build now prints an
-  `Offline:` note for any file the worker cannot keep, instead of leaving it
-  out silently.
-
-- The service worker no longer drops a cache write for a file in its asset
-  table when 16 writes are already running; the write waits for a free slot.
-  .NET loads dozens of `_framework` assemblies at once, so C# and F# pages
-  were not all kept on the first visit. The offline gate then passed all ten
-  page-program languages in Chromium, Firefox and WebKit on the Mac
-  (2026-10-25).
-
-- Java web services need WebAssembly exception references (JF1, ADR 0083
-  amendment, 2026-10-25). TeaVM writes a Java `catch` as `try_table`, and
-  TeaVM 0.15.0 has no legacy exception mode, so a Java page service needs
-  Chrome or Edge 137, Firefox 131 or Safari 18.4, not the WasmGC floor of
-  119, 120 and 18.2 (BR2 saw Chrome 124 refuse it with
-  `Invalid opcode 0x1f`). `tachyon-java.js` checks for `try_table` before it
-  loads the program and names those versions. A native app with a Java web
-  service now needs iOS 18.4, macOS 15.4, the WebView2 Runtime 137.0 or
-  WebKitGTK 2.48 (`TY1601` below that), and the Android note names System
-  WebView 137. Dart and Kotlin keep their WasmGC floors here; the MA5 entry
-  above then raised Dart's for `WebAssembly.JSTag`. Chrome 136/137, Firefox
-  130/131 and WebKitGTK 2.46/2.48 were run against a TeaVM module
-  (`docs/SUPPORT_TIERS.md`).
-
-- Stale "not run" text fixed (DOC4, 2026-10-25). `docs/SUPPORT_TIERS.md`
-  now records the runs that happened since its sentences were written: the
-  Windows Edit menu, Minimize and Maximize, background and foreground, the
-  Yon reach probe, the held C# clients and the offline Yon read inside
-  WebView2 (SD1), the WebView2 page picker (FP5), the Windows host link
-  (LINKS) and Android background and foreground (RM3). It also names the
-  40-second wait for native calls in apps that grant `filePicker`. ADRs
-  0005, 0028, 0033, 0058, 0059, 0068, 0087, 0089, 0097, 0099 and 0106 get
-  dated amendments for the same runs, and the website's build-and-deploy,
-  WebAssembly services and window controls pages match them.
-
-- Support table narrowed to its runs (JS1, ADR 0102 amendment, 2026-10-25):
-  cells whose text named callers that never ran on that target are now
-  `runOwed`: window controls on macOS and Windows, the file picker on macOS
-  and Windows, `tac.go` on macOS and Android, macOS geolocation, Windows
-  background and foreground, and Windows reaching Yon. Each names its owed
-  run. The iOS release packaging run names an iOS 17.4 device, the Windows
-  integrated title bar note names its SD1 desktop run, and macOS System Back
-  no longer claims the trackpad swipes.
-
-- A Linux build of an app with component stylesheets now prints a note that
-  component styles need WebKitGTK 2.44 or newer, the first release that runs
-  CSS `@scope` (GP1, ADR 0108 amendment). WebKitGTK 2.40.0, 2.42.1, 2.42.4
-  and 2.42.5 dropped the `@scope` block; 2.44.0 and 2.52.6 kept a component
-  rule inside its component. The Linux floor stays WebKitGTK 2.40, and the
-  Linux app now starts there: it no longer links the 2.42 clipboard
-  permission symbol.
-
-- The iOS app now starts at iOS 17.4 and the Windows app at the WebView2
-  Runtime 118.0, the first versions that run CSS `@scope`, which component
-  styles compile to. On the iOS 17.0.1 simulator no component style applied.
-  A lower `tac.application.minimumSystem` stops the build (`TY1601`). macOS
-  and Android builds of an app with component stylesheets print a note that
-  they need Safari 17.4 or Android System WebView 118 (ADR 0108).
-
-- FYLO patches that wait for the same document are combined into one FYLO
-  write, applied in arrival order, and every caller gets the document after
-  that write. Each FYLO write is a crash-safe transaction that costs about
-  0.5 s on a hosted Windows runner and about 1.3 s on an arm64 Surface, so
-  12 concurrent patches to one document used to pass the 5 s storage
-  deadline there; they now take about two writes (3.6 to 3.9 s for the whole
-  test on the Surface).
-
-- `TY1405` for a natively linked C# or F# service that holds a
-  `@StreamRequest` or `@SocketRequest` client now says to hold the client in
-  a service the page runs. The page reaches the Yon that `tac.yon.origin`
-  names.
-
-- Dart browser services share one Setup, client and store. Every Dart
-  browser service of the site is built into one Dart library with one
-  behavior runtime and one copy of each Setup, client, store and helper type
-  the services assemble, so two Dart services on one page get one Setup
-  configuration and share its adapters; before, each service was its own
-  library with its own copy and its own configuration. A top-level name that
-  two Dart services declare with different text now stops the build and
-  names both files. The page-program fixture's WebAssembly went from 46 KB
-  to 44 KB, and its Dart entry in the page-program gate is now `"shared"`.
-  In the signal-driven UI recipe, the Dart list reloads the saved users
-  through its own UsersClient from the Setup's in-page adapter (ADR 0022).
-- Breaking: `tac.application.rust.executables` now stops an iOS or Android
-  build with `TY1601`, because a mobile app may not start other programs. It
-  was ignored silently before (ADR 0102).
-- The integrated title bar note on Windows, Linux, iOS and Android now comes
-  from the per-target table and names the plan item that builds it there.
-
-- Rust browser services of one page build into one program. Each service
-  file, and each Setup, HTTP client, Store, entity and helper they need,
-  comes in once, and behavior lowering runs once, so two Rust services on a
-  page share one behavior runtime and one Setup configuration: an
-  increment through one service's client is seen through the other's. The
-  page-program fixture for Rust is now `"shared"`; its route is 125 KB of
-  script (127 KB before) and its generated source 246 KB (372 KB before).
-  A synchronous Rust service method that returns `BehaviorResult<()>` or
-  `BehaviorResult` of a model is no longer left off the service: the page
-  calls it as a task, and an error rejects the call (ADR 0022 amendment).
-
-- The Java browser services of a page share one Setup. Two Java services
-  that need the same HTTP client or Store now see one Setup configuration
-  and one set of adapters, as in JavaScript, Go and C++: an increment one
-  service sends through its client is seen by the other. The page's Java
-  program holds one copy of the behavior runtime and of each Setup, client,
-  store and entity, in `tachyon/TacPage.java`, and each service holder
-  extends it; the runtime's tables join every service's entries. When two
-  copies of such a type differ, or two services give one table entry
-  different text, each service keeps its own copies as before. The
-  page-program fixture loads 82 KB of WebAssembly instead of 86 KB, and its
-  Java entry is now `"shared"`. In the Signal-driven UI cookbook, the Java
-  list service needs `UsersClient` too and loads the saved names in
-  `OnStart` (ADR 0022, ADR 0083 amendment).
-- The Streaming controllers and Socket controllers pages show a Ruby and a
-  Swift browser client: the model, the `HTTPClient` with `StreamRequest` or
-  `SocketRequest`, and the service that keeps it in a `Needs` field and
-  receives each message with `OnEvent`. A Ruby socket client sends with
-  `send_message(message)`.
-
-- The old static HTML frontend (`HtmlFrontend`, `HtmlDocument`) and its
-  `html_frontend` fuzz target are removed. Nothing but that fuzz target called
-  it; the template frontend is the only HTML frontend, and its codes TY1101 to
-  TY1107 are retired (ADR 0002 amendment). The website tests and client test
-  files no longer turn type checking off with `// @ts-nocheck`.
-
-- The cutover gate records release provenance as met. `docs/CUTOVER.md` names
-  the tag runs that published v26.35.07 and v26.36.01 and what they checked,
-  and the published assets of both releases passed `sha256sum` and
-  `gh attestation verify` again outside the workflow on 2026-10-18.
-  `docs/PROJECT_PLAN.md` no longer says the gate is not met; a new version
-  still needs the reconciliation gate on its own assets.
-
-- The docs table "What each service language can use in the browser" now
-  says that F# services get an `HTTPClient` with `Needs`, and that Lua,
-  Python and C++ services have `Store`, caches, `LocalState` and
-  `SessionState`. C++ still has no page Setup `http` adapter, and its cache
-  markers go only on a synchronous method.
-
-- F# Tac caching, policies, stores and page state now have runtime proof:
-  an F# test unit runs `Cached`, `CacheKey`, `UpdateCache`, `ClearCache`,
-  `Retry`, `MaxAtOnce`, `AllOrNothing`, `PageDefaults` and a `[<Query>]`
-  Store on host .NET, and the browser storage gate checks an F#
-  `[<SessionState>]` field (ADR 0073 amendment).
-
-- The Linux browser CI job installs the checksum-pinned TeaVM jars and JDK 21,
-  so the Java part of the real-browser storage gate runs there instead of
-  being skipped. That part now also checks a Java `@SessionState` field: it
-  survives a reload in its tab, is kept out of `localStorage`, and a new tab
-  starts without it, while the `@LocalState` field is shared. New TeaVM
-  tests prove Java Tac `@CacheKey`, `@UpdateCache`, `@Store`, `@Query`,
-  `@PageDefaults`, `@Converter` and `@Convert` (map and record forms) on the
-  page.
-
-- The annotation rule table checks Java and F# Tac code. Every marker that
-  the Java and F# page builds support is accepted by name. F# Tac code
-  accepts StreamRequest and SocketRequest, which F# services now hold. Two
-  fixes
-  come with it: an F# Tac service with
-  `[<Lifetime({"value":"prototype"})>]` gets one instance for each
-  component (the attribute was ignored), and `@TestSettings` in a Java Tac
-  test unit no longer fails with `configuration` (ADR 0073 and ADR 0083
-  amendments).
-
-- JavaScript and TypeScript services share one Setup class. Before, each
-  service module carried its own copy of every Setup class; now, when two or
-  more modules hold the same Setup, the build moves its class into the shared
-  `.tachyon/behavior-runtime.js` module and each service imports it. Two
-  services on one page therefore see one Setup definition, one configuration
-  and one set of static fields. A Setup whose copies differ, that has an
-  annotated method, or whose class uses another name of its module, `import`
-  or `eval`, stays in each module as before. A route with four services and a
-  1.25 KB Setup sends 999 fewer bytes of script (brotli); a route with one
-  service sends about 20 bytes more or less (ADR 0022 amendment).
-
-- Tac routes load less script. A JavaScript or TypeScript service that hands
-  `this` to its own method (`this.save.bind(this)`,
-  `this.pick(id).call(this)`) no longer makes every route that uses it list,
-  load and count every service of the project; handing `this` to code from
-  another file, or writing to `this` with a computed name, still does. Each
-  JavaScript or TypeScript service module also carries only the client
-  models that it names, and the models that those name, instead of every
-  models file. In a simulation over the CADUCEUS probe's release output, a
-  route went from 200.4 KB of script as sent, at its budget, to 115-136 KB
-  (ADR 0043 and ADR 0074 amendments).
-
-- A Swift service linked into a macOS or iOS app is now a page singleton, as
-  CONTEXT.md describes and as a native Rust service already is. Every
-  component on a page that names it shares one instance, its OnStart runs
-  once, disposing a component leaves it running, and it stops once when the
-  page goes away, newest service first. Its FilePicker belongs to the
-  service, so it keeps working after the first component goes. A service
-  with `@Lifetime({"value":"prototype"})` or `@NeedsAll` keeps one instance
-  for each component and stops with it, now before its FilePicker is
-  released. An OnStart that throws stops the new service and leaves it off
-  the page. Swift services that run as WebAssembly are unchanged.
-
-- A C# service linked into a Windows app is now a page singleton too, in the
-  same way: one shared instance per page, one OnStart, OnStop once when the
-  page goes away (newest service first), and FilePicker and WindowControls
-  that belong to the service rather than to its first component. A service
-  with `[Lifetime({"value":"prototype"})]`, or `[NeedsAll]` without a
-  singleton Lifetime, keeps one instance for each component and stops with
-  it, now before its providers are released. An OnStart that throws stops
-  the new service and leaves it off the page; a service that already ran
-  keeps running. C# services that run as WebAssembly, and F# services, keep
-  one instance for each activation.
-
-- A Kotlin service linked into the Android app is now one instance per page,
-  as CONTEXT.md and the Rust companion already describe. Components on the
-  same route share it, its `@OnStart` runs once, and its `@OnStop` runs when
-  the user leaves the page, not when the first component goes away. A
-  service with `@Lifetime({"value":"prototype"})`, or with `@NeedsAll` and no
-  Lifetime, still gets its own instance for each component and stops with
-  it. `@OnStop` now runs before the service's FilePicker is released. A
-  Kotlin service that kept state for each component without either marker
-  needs `@Lifetime({"value":"prototype"})`. Kotlin services that run as
-  WebAssembly keep one instance for each component.
-
-- A behaviour module may declare up to 512 types instead of 128, so a Go or
-  Ruby app with many clients no longer has to share one Setup between them.
-
-- `server.maxbody` in `server/application.json` raises the request body
-  limit of every Yon route from 1 MiB up to 12 MiB. A body over the limit
-  still gets 413, now after Tachyon has read up to 16 MiB of it, so a sender
-  that is still uploading sees the 413 instead of a broken connection.
-
-- `TY1364` lets an authored client script set or remove a CSS variable:
-  `style.setProperty('--accent', color)` passes when the name is literal text
-  that starts with `--`, so a script can apply a theme or font choice. Other
-  style writes are still refused.
-
-- An entry may compose up to 512 annotated role files instead of 128, and a
-  realm may hold up to 1024 model files per language instead of 256, also
-  when its event listeners read the models. That error now names the models
-  folder instead of the first service that listens. Large
-  apps with one type per file reached the old counts; the 1 MiB source
-  limits stay.
-
-- When a page and a controller share a path, a browser navigation (a GET or
-  HEAD with `Sec-Fetch-Mode: navigate`, or with an `Accept` of `text/html`
-  and no `Sec-Fetch-Mode`) gets the page instead of the controller's answer,
-  such as a 401 from a `SignedIn` route. Fetches from the page still reach
-  the controller. Both answers carry `Vary: Sec-Fetch-Mode, Accept`.
-
-- The browser HTTP transport of compiled Tac clients accepts requests of up
-  to 1 MiB instead of 64 KiB, in every language, so a page can upload a file
-  such as an EML message (ADR 0090 amendment).
-- An `HTTP_STATUS` failure of the browser transport carries the status
-  number. In Go, `BehaviorErrorStatus(err)` reads it. The answer's body still
-  stays out.
-
-- A Go web build gives `go build` and TinyGo up to 15 minutes, like Cargo,
-  instead of the 2 minutes of other native tools. TinyGo can take about 5
-  minutes on a 4-core machine; before, the release build timed out and fell
-  back to the standard Go compiler, whose module can pass the 16 MiB limit.
-- A route that loads more than one web runtime gets a measured script
-  allowance for each runtime after the largest one, instead of the flat
-  200 KB budget: .NET 96 KB, Rust 92, Ruby 20, Lua 12, Java 12, Go 8, Dart 8,
-  Kotlin 8, C++ 4 and Swift 4. C# and F# share the .NET runtime; JavaScript
-  and TypeScript are not runtimes. A route with no runtime or one runtime
-  keeps 200 KB and the same `TY1337` message, and `tac.budgets.script` still
-  sets every route's budget when it is set. The `TY1337` error of a route
-  with an allowance names the computed budget and the runtimes it counted
-  (ADR 0100).
-- A route with Rust services loads a smaller WebAssembly module: the Rust
-  behavior runtime builds its JSON maps with plain inserts instead of
-  collecting and sorting, which drops several copies of the standard sort
-  from the module, and release builds run Binaryen with `--converge` and
-  `--low-memory-unused`. The cached module now depends on the rustc and
-  Binaryen flags, so a flag change rebuilds it instead of reusing an old one.
-- A route with web services loads less script: the build writes the shared
-  script of each service language (`tachyon-rust.js`, `tachyon-go.js`,
-  `tachyon-csharp.js`, `tachyon-ruby-services.js` and the others) and Go's
-  `wasm_exec.js` without comment lines, indentation or blank lines, keeping
-  the generated-file notice and Go's license notice. A route with Rust, Go
-  and C# services loads about 1.8 KB less with Brotli. A `wasm_exec.js` with
-  a template literal or string that runs across lines, or a `/*!` or
-  `@license` comment, ships unchanged, because removing its indentation or
-  comments could change the program.
-- The website's style generator reads `TAC_WEBSITE_DEPENDENCIES` instead of
-  `TACHYON_WEBSITE_DEPENDENCIES` to find the website's `node_modules` folder
-  when dependencies live outside the source folder. Rename the variable where
-  you set it.
-- A route loads less script: the build writes the Tac client runtime and the
-  behavior runtime without comment lines, indentation or blank lines (about
-  1.2 KB less with Brotli on every Tac route), and `tachyon-rust.js` embeds the Rust
-  module as hexadecimal text instead of base64, which Brotli and gzip compress
-  about a sixth better (ADR 0035). The event-mesh browser fixture fits the
-  default 200 KB script budget again, and its budget check is back on.
-- The website release build fits its unchanged 320 KiB script budget on every
-  route again. It loads only the six DuVay components its views use, rebuilt
-  from the pinned DuVay source (`bun run duvay`), instead of the full component
-  bundle (134 KiB as sent). The home page no longer runs Python: its showcase
-  and language catalogue services are TypeScript, so the page no longer
-  downloads Pyodide. Python examples stay in the documentation. The website
-  service test checks that every service is real and used by a view; it no
-  longer requires one service per language.
-- The website paints dark on a first visit: the stylesheet is dark until a
-  theme is set, and a small first-party script saves the dark default before
-  DuVay's behaviour script, which otherwise falls back to light. The theme
-  helper and the test-only `main[data-theme]` attribute are gone, and the
-  header is sticky again (its component root is sticky, because the compiler
-  scopes each component stylesheet).
-- Yon keeps a copy of each compiled Kotlin, Rust, Dart, Go and Groovy handler
-  in `TAC_CACHE_DIR/runtime/handlers-v1`, named by the same content digest, so
-  another project or a fresh checkout restores it instead of compiling again.
-  Only regular, non-empty files are restored, the folder keeps the newest 512
-  entries, and `ty cache clean` removes it (ADR 0037 amendment). A compiler's
-  version is asked once per process. A warm core test run on the development
-  Mac drops from 527 s to about 300 s.
-
-- Development builds optimize brotli, flate2, miniz_oxide, sha2 and their
-  helpers, so debug test binaries and the debug `ty` compress about twice as
-  fast (gzip five times).
-
-- `scripts/browser-gate.mjs` fails when an `--only` name has no script or no
-  script ran, and it runs the HTTP cache test (`cached-client`) by default.
-  `scripts/ignored-browser-gates.mjs` is the one list of `#[ignore]` browser
-  fixture tests (C#, F#, Kotlin DocumentTitle, Java PreferenceStrings); it
-  gives each fixture an isolated root and cache.
-
-- CI checks generated website styles, sweeps the responsive layout against a
-  static preview, runs the HTTP cache browser test, the Kotlin/Wasm web tests
-  (`TAC_KOTLIN_WEB_REQUIRE_TOOLCHAINS=1` turns a missing toolchain into a
-  failure), and the ignored browser fixture gates on macOS (on Linux under
-  WSL the C# and F# pages time out at their first click). A nextest
-  `dotnet-web` group runs at most two .NET browser builds at once.
-
-- Tac utilities have a canonical recursive `client/shared/utils` location
-  and keep the existing stateless class contract. Client pages reject all
-  authored CSS filenames recursively. Component scopes stop at nested
-  ownership boundaries, including unstyled and slotted components. Global
-  stylesheets hold foundation CSS only (see the `tac.styles` entry below);
-  the website's `site.css` is one.
-
-- The first-app C# steps now call the existing Yon greeting endpoint through
-  an injected private client returning `Task<Models.Greeting>`. Their tests
-  use a typed Fake and caller-owned context, including disposed-owner refusal.
-  Other unsupported compiled-language tutorial tabs remain pending.
-
-- Browser F# services can return `Task` or `Task<BehaviorJSON>` through the
-  existing .NET asynchronous host. Default same-origin HTTP, custom adapters
-  and captured-owner cancellation are supported in this bounded slice;
-  F# DTO/container results and native asynchronous results remain unsupported.
-
-- Compiled browser Dart HTTPClients use an asynchronous same-origin transport
-  when Setup has no matching custom HTTP adapter. Injected clients return typed
-  model answers, omit credentials, preserve cache revalidation and cancel
-  requests when their owner is disposed. Other compiled language continuations
-  remain pending (ADR 0090).
-
-- New outbound role folders are `client/remotes/` and `server/remotes/`.
-  `clients/` remains a compatibility alias. Scaffolds and examples use the new
-  folder, while the existing opt-in migration preserves class/annotation names,
-  rewrites paths for moved files and refuses destination collisions.
-
-
-### Fixed
-
-- The last Windows test failures are gone (WA1, 2026-10-31). Node 24.18.0
-  aborted with `Assertion failed: !(handle->flags & UV_HANDLE_CLOSING)` as a
-  test's Node driver called `process.exit()` after loading a WebAssembly
-  service (the Rust `web_api_tests`, the Ruby web model test and the Ruby
-  `needs` test). Node's delayed task scheduler still woke its own libuv
-  handle after exit had begun to close it (nodejs/node#56645). Node 24.20.0
-  fixed this (nodejs/node#61999), so CI now uses Node 24.22.2. In
-  `windows-vm`, 24.18.0 and 24.19.0 failed 3 to 4 of the 5 tests in every
-  round, and 24.20.0 and 24.22.2 passed every round.
-- Yon readiness no longer reports a working `kotlinc` as "not usable" on a
-  slow or busy machine (GF1, 2026-10-30). Each toolchain probe now has
-  30 seconds instead of 10: `kotlinc -version` starts a JVM and took 8.6 to
-  14.3 s on the loaded Ubuntu ARM64 test VM. The Firecracker readiness test
-  now makes its own private driver, so it passes under a umask of 002.
-- The `fylo_datasource` CLI tests (Go and Python) failed with `TY2110` on
-  Windows ARM64 (FY1, 2026-10-29). The pinned FYLO v26.33.02 starts
-  `powershell.exe` on every write on Windows (about 0.8 s each), so the
-  tests' 123 writes need about 97 s; x64 emulation is not the cause. The
-  tests now seed 12 documents (3 scroll pages of up to 5) and allow 240 s
-  on Windows. FYLO writes on Windows stay slow until the FYLO pin moves past
-  FYLO commit `d75e4ba`.
-- The Linux host tests pass on a 1024x768 GNOME Shell screen (CI4,
-  2026-10-29): their windows are 800x560 (640x480 for window controls and
-  grants), so GNOME Shell does not maximize them; `gnome-shell-session.sh`
-  closes the startup overview; the browser API fixture sets the clipboard
-  only once its window is active; and the X11 title bar and file dialog
-  fixtures build with GTK 4.18. The Wine test C fixtures build with
-  llvm-mingw's clang under `-Werror` (WN1).
-- The Android accessibility gate keeps one UiAutomation connection for the
-  whole gate and clears its node cache before each read (AN1, 2026-10-29).
-  A connection per read switched accessibility on and off and once left a
-  heading empty in the tree; a long-lived connection without the cache
-  clear read a stale tree after Back. A failed wait saves the screen and
-  the full tree. The accessibility, window controls and menus gates clear
-  their app data after they install.
-- Tests and CI scripts that failed when every CI job ran locally (CI3,
-  2026-10-29, no GitHub Actions run): the website tests expect the C++, Lua
-  and Python examples the guides now publish; the `CacheKey` fixture names
-  its repeated values (`TY1330`); the standalone Rust check expects the
-  scaffold's icons; the Linux icon gate reads `_NET_WM_ICON` from a file,
-  keeps the accessibility bus out, stops the app's processes leaf first and
-  runs under `docker run --init`; the Android window settings gate ends in
-  portrait; the snippet check sends the sign-in header to the C++ identity
-  examples; the native events harness matches the Rust and Kotlin fixtures;
-  and the iOS window settings gate retakes its screenshot while a system
-  banner covers the status bar and waits up to 10 s for the simulator
-  pasteboard (`docs/SUPPORT_TIERS.md`, "Every CI job run locally").
-- The failures of the first CI run on develop since 2026-10-25 (CI2,
-  2026-10-28, run 40705121906): `server/dispatch.rs` pins the middleware
-  tail (`Box::pin`), so clippy's `large_futures` passes on Windows; the
-  browser and Android jobs install Node 24.18.0 for JavaScript Yon handlers
-  (`TY2101` on Node 22); the macOS parity job installs the pinned Groovy;
-  the sanitizers job installs .NET 10.0.302 and `wasm-tools`; the Linux gate
-  image installs `squashfs-tools` (`mksquashfs`, `TY1605`); the
-  compatibility differential declares the scaffold's `.gitkeep`, `icon.svg`
-  and PNG icons; the Swift style fixture avoids a Swift 6.3.3 compiler crash
-  on `macos-latest`; and the coverage job may run 90 minutes
-  (`docs/SUPPORT_TIERS.md`, "First CI run on develop since warm mode").
-- A new app from `ty init` had no icon on macOS, Windows, Linux, iOS or
-  Android, because its manifest named only an SVG icon and native targets
-  use raster icons. `ty init` now also writes `icon-192.png` and
-  `icon-512.png` and names them. A native build prints a note when the
-  manifest names no raster icon (none of at most 256 pixels for the Windows
-  `.exe`) or a named icon file is missing, instead of leaving the icon out
-  silently. The Windows window now shows the `.exe` icon in its title bar,
-  in Alt-Tab and on its taskbar button, and the Linux app names its icon as
-  the GTK window icon instead of a relative `Icon=share/icon.png` path. It
-  installs that icon in its own hicolor theme folder, because GTK sets the
-  X11 window icon (`_NET_WM_ICON`) only from icon theme folders.
-- A Windows app with a tray whose `closeHidesWindow` is false no longer
-  fails to build with MSVC (C4127, a constant condition under `/W4 /WX`).
-  The Windows and Linux close handlers now pick their branch with the
-  preprocessor.
-- Linux desktop gate scripts under GNOME Shell (LD2, 2026-10-28): the
-  integrated title bar fixture (`linux_title_bar_fixture.c`) no longer
-  assumes that a maximized Wayland window starts at the monitor's top left
-  corner; it reads the window's origin from one pointer move, so its clicks
-  land below GNOME Shell's top bar and beside the Ubuntu Dock.
-  `desktop-services-test.sh` no longer claims that closing hid the window
-  when the tray probe skipped that step on Wayland, and
-  `compositor-test.sh --desktop` prints the output of the `native::linux_`
-  host tests.
-- A warm handler's first request no longer gets a deadline that ends after
-  the supervisor's (SV1, 2026-10-28). The supervisor wrote `deadline_ms`
-  before it started the warm process, and the Python, Ruby, JavaScript, PHP,
-  Rust and C++ runners measured it from when they read the request, so the
-  start-up was granted twice and a slow start ended in a supervisor timeout
-  instead of the handler's own answer. A new warm runner now writes one
-  `{"protocol_version":1,"kind":"ready"}` frame before it reads; the
-  supervisor waits for it and then writes the request, and every runner
-  measures every request from when it reads it (ADR 0111 amendment).
-  `relay_boundaries::a_slow_warm_runtime_start_counts_against_the_relay_deadline`
-  starts the Python and Ruby runtimes 3 s late.
-- A warm Ruby handler on Windows relays on every request, not only the first
-  (WR1, 2026-10-28). `Process.spawn` there puts the relay pipes over the
-  runner's standard input while it starts the child, and Ruby's `IO.select`
-  kept polling the old handle, so the next request was never read and the
-  supervisor timed out with `TY2110`. The Ruby runner now reads its frames
-  from a private copy of standard input and points `STDIN` at the null
-  device. The RT1 relay test runs its Ruby warm-up on Windows again, and
-  `warm_ruby::a_warm_ruby_handler_relays_on_every_request` relays three
-  times in one process. `go_streams::a_go_log_follow_ends_cleanly_at_the_request_time_limit`
-  no longer fails under load: it gives the handler a 3 s cancellation grace
-  and a 4 s deadline, because the follow starts a new Go process inside that
-  margin.
-- `relay_boundaries::the_supervisor_default_timeout_limits_relays_without_a_request_deadline`
-  is no longer flaky on slow machines (RT1, 2026-10-28). Its 8 s default
-  deadline also paid for the warm handler's start, and on WSL a Ruby or Java
-  start could use it up. The test now starts the handler with a quick
-  request (up to three tries) and then times the relay that the default
-  deadline must stop; the probe takes its sleep from an `x-sleep-seconds`
-  header. It passed 10 of 10 runs on WSL. On Windows a warm Ruby handler's
-  second relay still hangs in `Process.spawn` (open, `docs/SUPPORT_TIERS.md`),
-  so there the Ruby case keeps its timed relay first (ADR 0111 amendment).
-  WR1 fixed the hang, above, and removed that skip.
-- Two Linux gate scripts in a live desktop (LD1, 2026-10-28):
-  `scripts/linux/page-steps-probe.py` gives the desktop portal's file dialog
-  the focus before it presses keys, because GNOME's window manager does not
-  focus it after the click, and `scripts/linux/deb-install-test.sh` stops
-  the installed app as `nativegate` as well as `NativeGate` and waits for it,
-  so the next start is not handed to the copy still running.
-- SQL Server connections from macOS no longer fail during the TLS
-  handshake with `TY2160` (MA10, 2026-10-27). Apple's TLS library flushes
-  after every TLS record, and the TDS driver (tiberius 0.12.3) sent each
-  flush as its own PRELOGIN message, so SQL Server 2022 dropped a client
-  handshake flight that arrived as three messages. A `PreloginStream` under
-  the driver now holds the handshake's PRELOGIN packets until the client
-  reads and sends them as one message. OpenSSL and SChannel already sent a
-  whole flight at once. The SQL Server contract then passed from macOS, and
-  from Windows on ARM64 over SChannel against the Mac's container.
-- Tachyon finds Homebrew Groovy 6.0.0 through `groovyc` on `PATH` without
-  `GROOVY_HOME` (GH1, 2026-10-27). Homebrew's `bin/groovyc` is a wrapper
-  script and the library is under `libexec/lib`, so the launcher's home had
-  no `lib` folder and Groovy services and tests failed with `TY2112`. The
-  `PATH` route now also looks in `<home>/libexec`; `GROOVY_HOME` still comes
-  first, and other layouts are found as before.
-- The in-app WebAssembly features probe waits for the linked recorder
-  whenever the page's plan declares it (MA10, 2026-10-27). MA8's open
-  finding on iOS (a linked Swift service that "never started" next to a C#
-  client) was this probe race, not the app: a C# probe finished before the
-  recorder's first native call answered, while Tac had not yet shown the
-  body, so the probe skipped the recorder.
-- A Windows app now embeds its application manifest (WM1, 2026-10-27). The
-  build wrote `application.manifest` next to the app, where Windows never
-  reads it, so the manifest's Common Controls 6 and per-monitor DPI settings
-  had no effect, and Windows asked for administrator rights to start an app
-  whose file name contains `Setup`, `Install`, `Update` or `Patch` (error
-  740 when refused). `rc.exe` now compiles the manifest into the `.exe` as
-  its `RT_MANIFEST` resource, the manifest asks for
-  `requestedExecutionLevel level="asInvoker"`, the linker writes no manifest
-  of its own (`/MANIFEST:NO`), and no loose file is written. Apps are now
-  PerMonitorV2 DPI aware (D18): the window opens and keeps its minimum size
-  in device-independent pixels scaled by the window's DPI, as before, but
-  Windows no longer stretches the whole window as a bitmap on a scaled
-  display. On `WM_DPICHANGED` the window takes the size Windows suggests for
-  the new monitor, and `windowControls.resize(width, height)` now sizes the
-  client area in device-independent pixels (it used physical pixels and
-  did not count the menu bar). `scripts/windows/high-dpi-test.ps1` (new) checks
-  this on a scaled desktop.
-- `YON_ISOLATION=firecracker` is refused on Windows with `TY2010` at startup
-  (SW4, 2026-10-27). Before, the mode started with no driver permission
-  checks, because those exist only on Unix, and Firecracker needs a Linux
-  host with KVM.
-- Five Swift host link tests now skip on hosts that are not Unix (SW4,
-  2026-10-27). They link a Swift host against Foundation and pthread, and
-  failed on Windows once Swift was installed there.
-
-- Two builds of the same C# or F# WebAssembly services at the same moment no
-  longer fail with TY1605 (`Directory not empty`) (MA9, 2026-10-27). Both
-  staged the shared .NET web cache entry in one `.partial` folder; each build
-  now stages in its own folder, and the second to finish keeps the entry the
-  first one published.
-
-- A C# Tac service whose HTTPClient returns a client model
-  (`Task<Models.UserSaved>`) now builds for every native target (LX3,
-  2026-10-27). ADR 0103 supports these task members, but the native build's
-  service check lowered C# without the model table and refused the client
-  with TY1308 (`C# declared WebCall methods require async
-  Task<BehaviorJSON>`). The check now uses the same model-aware lowering as
-  the web build, and an unknown model is still refused.
-
-- Release builds on Windows now find Binaryen's `wasm-opt` beside
-  Emscripten (BR2, 2026-10-25). emsdk's launcher there is `emcc.exe` (or
-  `emcc.bat`), and `ty` looked only for `emcc`, so Swift, Kotlin, Java,
-  Rust and Go WebAssembly shipped unoptimized and `ty doctor` said
-  `wasm-opt` was missing. With every language, the window-controls route
-  was 4070 KB against the 3584 KB WebAssembly budget (TY1337).
-- `ty init` gives the web app an icon (BR2, 2026-10-25):
-  `client/shared/assets/icon.svg`, named in `client/manifest.json`, so each
-  page links it. Branded Chrome and Edge no longer ask for `/favicon.ico`
-  and log its 404 as a console error on a new app.
-- Branded browser runs close the system share sheet for the person (BR2,
-  2026-10-25, `scripts/branded/share-sheet.mjs`). `navigator.share()`
-  settles only when a person answers the sheet: Chrome on Android now
-  presses Back on the real sheet, and headless Chrome and Edge, which show
-  no sheet, answer with the same `AbortError` after 2 seconds.
-
-- A linked Kotlin service on Android read event and client models with
-  their values swapped when the model's fields were not in alphabetical
-  order (MA2, 2026-10-25). The companion filled the constructor in the
-  order `getDeclaredFields` lists the fields, which on ART is alphabetical.
-  The Android companion now carries each model's constructor order
-  (`tacModelOrder`).
-
-- A Rust, Kotlin or Swift browser service with a field whose type is another
-  Tac service now stops with `TY1406` at the field (ADR 0065 amendment,
-  2026-10-25). Before, the Rust web build accepted `#[Needs]` of another
-  service and gave the field its own copy instead of the page's instance,
-  and Kotlin and Swift failed inside their compilers with `TY1605`. C# is
-  still refused with `TY1308`, and tests now assert all four.
-
-- A C++ page or Yon program that opened a `Behaviors::create` context or a
-  Store no longer crashes at exit on Windows (WG2). The setup and store
-  registries were function-local statics, destroyed before the services
-  that release into them; the MSVC library then read freed memory. The
-  registries now live until the process ends.
-
-- Windows test fixes (WG2): the scheduled-worker tests wrote the temp path
-  with backslashes into Groovy, Lua and F# strings; the Yon Topic tests and
-  the test unit marker proofs looked for runtimes by bare name and skipped
-  `.exe` and `.bat` runtimes; the offline Gradle release test, which needs a
-  Unix fake Gradle, is now Unix only.
-
-- An iOS simulator build with `tac.application.links` hosts and
-  `TAC_APPLE_TEAM_ID` no longer fails to launch: the simulator refused its ad
-  hoc signature with restricted entitlements. The simulator link now puts the
-  entitlements in the executable, as Xcode does (LINKS, ADR 0106 amendment).
-
-- An Android app whose only native services are Rust services now loads the
-  Rust library. The host put `installRustCompanion();` on the same line as
-  the "No companion" comment, so the call was commented out and every Rust
-  service call failed (LT1 emulator run).
-- A linked service that opens the FilePicker now gets its answer to the
-  page. When the app grants `filePicker`, the page runtime waits 40 seconds
-  instead of 10 for native member calls, and the Android bridge waits 60
-  seconds for `companion.invoke`, because the picker stays open for up to 30
-  seconds (FPM; ADR 0089).
-- The Rust `PickerService` of the native-capabilities feature starts with
-  the status `Ready`, like the other languages.
-- A linked Rust service now tells the page to read its fields again when an
-  async `@OnEvent` listener task finishes, as a linked C# service does (LS3
-  host runs). `scripts/linux/async-listener-native-test.mjs` runs such a
-  listener in the Linux app.
-- A linked C# service in the Windows app now tells the page to read its
-  fields again when an async `@OnEvent` listener, or a listener queued
-  behind one, finishes (LS3 host runs). Before, the call that published the
-  event answered first, the listeners finished on the thread pool, and the
-  page kept showing the old values until something else rendered it.
-- A linked Kotlin `suspend` method or `@OnEvent` listener on Android that
-  really suspends, for example one resumed from another thread, now holds
-  the call until it resumes, as Swift does (LS3 host runs). Before, the call
-  answered `HTTP_MISSING` at once, a listener counted as a failed event
-  delivery, and its work finished later with no render, so the page showed
-  the next listener's change first.
-- `scripts/supervised-command.mjs` asks `ps` again, up to three times, when
-  it answers with an empty process table and exit 0, which happened on a
-  busy Mac and stopped the Android Yon reach gate with "Process identity
-  inspection returned an unsupported record" (RM3). A failing `ps` still
-  leaves cleanup unconfirmed.
-- A Lua Yon `NeedsAll` class no longer asks the container for a field that has
-  a starting value, such as `extra = 2,`. Before, the build stopped with
-  `TY2015 Unresolved dependency Integer`. Only fields written `name = nil,`
-  are filled, as in every other Yon language.
-
-- An unanswered Windows file dialog now closes as `cancelled` when its
-  patience runs out while the dialog is still starting (SD1). The host
-  called `IFileDialog::Close` once, and a dialog that had not finished
-  opening ignored it, so the page never got its answer. The host now keeps
-  closing the dialog, and also sends it Cancel, until it returns.
-- A native menu or tray action that forwards an event with
-  `CurrentPageEvents` now shows on the page (SD1). The Rust page service
-  received the event, but nothing told the page that the service had
-  changed, so the page kept showing its old fields until the next page call.
-  The Rust companion now sends a `changed` signal to every page owner that
-  listens for the event, and the page reads the fields again and renders.
-  The Windows desktop gate found it (View > Show Running and Ctrl+2 left
-  "Section" unchanged); macOS, Linux and Windows hosts share the fix.
-
-- A native rebuild that reused a route dropped the native services that the
-  route's page uses, so the second `ty bundle` of a native target packaged
-  no Kotlin, Swift, C# or Rust companion. Each route's build state now keeps
-  its services (build state version 5; older state rebuilds every route
-  once).
-- Gradle ran under the 2-minute native tool limit, so a first Android build
-  that downloads the Android Gradle plugin, or an R8 release, could stop
-  with `TY1605`. It now has the 15-minute limit of other long tools.
-- `ty doctor .` stopped with `TY2101` in a project with services; the
-  project folder is now read by its canonical path.
-
-- A C# `FilePicker.Open` with type filters no longer fails with "Native
-  companion operation failed". Adding a string to a `JsonArray` needed
-  reflection that trimmed .NET removes; it now adds a `JsonValue` (FP5).
-
-- Windows (WG1):
-  - A Lua handler no longer breaks on a frame whose length holds a 0x0A, 0x0D or
-    0x1A byte. Windows text mode rewrote those bytes in the binary length, so
-    Lua frames now carry an eight-hex-digit length on every platform (ADR 0003
-    amendment).
-  - A C++ relay now starts its program on Windows instead of answering 502
-    `start`. It runs in a kill-on-timeout job object and passes on only its
-    three standard pipes (ADR 0099 amendment).
-  - C++ handlers use binary standard streams.
-  - `ty test` compiles Kotlin units through the Kotlin launcher on Windows.
-  - A Groovy found through a launcher script resolves its home without a
-    `\\?\` path prefix.
-  - The FYLO route phase of `scripts/test-managed-storage.mjs` now runs on
-    Windows. The shared supervised runner reads Windows processes through CIM
-    (process ID, parent and creation time).
-  - A Ruby relay no longer hangs until the handler deadline. The runner's
-    frame reader left a read pending on stdin, which blocks `Process.spawn`
-    with redirected pipes on Windows. It now waits with `IO.select` first.
-  - The Redis contract runs against Garnet where Redis has no build.
-    CI installs Garnet 2.2.4 on the Windows storage job.
-  - On ARM64 Windows, `scripts/ci/install-fylo.mjs` installs the x64 FYLO,
-    which runs under emulation.
-- A Rust Yon handler that fails to compile names the model file at fault
-  again when the environment sets `CARGO_TERM_COLOR=always` (as CI does).
-  Tachyon now builds handlers with plain cargo output.
-
-- A Groovy Yon class with `Convert` mappings compiles again. The generated
-  mapping table used Java nested array braces, which Groovy 4 refuses.
-- `TestSettings` no longer stops a test unit before its first case in
-  JavaScript, TypeScript, Python, PHP, Dart, Go, Rust, Ruby and Swift
-  (ADR 0080 amendment). Those drivers passed each path as written and some
-  passed each value as JSON text, which the context refused or which never
-  matched a `WhenSetting`. Every driver now passes the environment name
-  (`yon.catalog.size` is `YON_CATALOG_SIZE`) and the value as text, as Java,
-  Kotlin, C# and F# already did.
-- New run tests prove `TestSettings`, `UseProfiles`, `FreshStart` and
-  `ValueSource` in every Yon and Tac test language, and `CacheKey` and
-  `Description` in Tac services (`tests/it/test_marker_proofs.rs`).
-- A C# test case declared `async Task` is now awaited. Before, its Task was
-  dropped, so a failing assertion after the first `await` still reported
-  the case as passed.
-- In C# and Dart test units, `construct` now gives an empty `@Fake`
-  `HTTPClient` field a client built on the unit's test context, as Kotlin,
-  Swift, Java and Rust already did, so the TestSetup's adapter answers it.
-  Before, `construct` refused the empty Fake.
-
-- The release workflow's staged-release check on Linux installs what the
-  storage browser gate builds: the Rust WebAssembly target, .NET 10 with the
-  wasm workloads, Ruby and the pinned Emscripten. Before, the gate failed
-  there under `CI` because the C# service had no wasm-tools, and the Ruby
-  service had no Emscripten to build its runtime.
-- CI runs every Tac service-language browser gate in Chromium, Firefox and
-  WebKit (CI2). A new `browser-languages` job in `rust-ci.yml` runs one entry
-  each for the page-program, browser-API, held stream and socket client,
-  storage, cached client, async listener and window-controls gates on Ubuntu,
-  with every language toolchain installed: Go, .NET with the wasm workloads,
-  Emscripten and Ruby, Kotlin 2.1.10 with its Kotlin/Wasm standard library,
-  Dart 3.13.1, the checksum-pinned Swift 6.3.3 Ubuntu 24.04 toolchain with its
-  Swift SDK for WebAssembly, and TeaVM 0.15. Before, the browser-API, held
-  client, async listener and window-controls gates never ran in CI, the
-  storage gate skipped Kotlin, Swift and Java, and the page-program and
-  cached client steps in `macos-native` installed only Chromium, so they
-  could not pass. With `TAC_BROWSER_REQUIRE_TOOLCHAINS` set, those gates fail
-  instead of leaving out a language whose toolchain is missing, and the
-  repository policy fails when a `test:*-browser` script has no CI step.
-
-- A JavaScript or TypeScript service's `HTTPClient` read now goes through the
-  page's Yon read cache. The page transport in `tac-client.js` called `fetch`
-  directly, so in a native app these reads were never kept for offline use.
-- Refusal text and docs no longer promise markers "in a later step" that
-  already work. The rule table drops its "Lua gets it in a later step (ADR
-  0085)" and "C++ gets it in a later step (ADR 0099)" endings, which no
-  marker reached any more. A Java web service now says "@SafeVarargs does
-  not work in a Java web service." without "yet", and the `TY2015` help for
-  a Ruby or Lua service that needs another service names Java among the
-  languages that can. ADRs 0017, 0054, 0083, 0085, 0093 and 0099 get dated
-  amendments that mark their old refusals superseded. The website now shows
-  Java and Groovy tabs in "Streaming: Yon" and a Lua tab in "Outgoing HTTP:
-  Yon", and the snippet check treats a `StreamRoute` method without `yield`
-  (Java, Groovy, Rust) as a stream.
-- The Linux window keeps the declared page size under Wayland (ADR 0052
-  amendment). The compositor's first configure undid the host's growth for
-  the header bar, so a 900x640 page opened at 900x566; the host now asks
-  again until the page has its size.
-- `scripts/supervised-command.mjs` identifies a process on Linux by its
-  start time in clock ticks from `/proc/<pid>/stat`, not by the `ps` start
-  date. On WSL the guest clock drifts against the time since boot, so the
-  date `ps` prints for the same process moved by up to two seconds, and
-  supervised probes there refused to clean up and failed. `scripts/linux/native-test.sh` also unmounts the
-  document portal from its private runtime folder before removing it.
-
-- The published Dart and C# services of the sockets and realtime features
-  build again. They held their message and tick limits in a public method
-  (`TY1314`) and, in Dart, in unnamed numbers (`TY1330`); the limits are now
-  a named constant and a private method. The new held-clients browser gate
-  found it.
-- Java, Kotlin and Groovy Yon handlers now send their outgoing HTTP requests
-  through the outgoing guard (ADR 0094 amendment). The JDK ignores
-  `HTTP_PROXY`, so these handlers skipped the guard, reached unlisted loopback
-  ports, and could not reach a listed `api.localhost` on Windows or on Linux
-  without systemd-resolved. Dart handlers already used the guard.
-- C++ and Rust Yon handlers are compiled to a `.exe` on Windows, so the
-  compiled handler can be found and run there.
-- A Windows app with a linked Rust service no longer ships
-  `TachyonRustCompanion.dll.lib` and `TachyonRustCompanion.dll.exp` in
-  `bin`; they were link leftovers that nothing loads. The Yon reach fixture
-  (`scripts/native/yon-reach-fixture.py`) no longer writes linked-service
-  twins that the build refuses with TY1314 on Windows and Linux. Both were
-  found by the first MSVC and NativeAOT build of that fixture on Windows 11
-  ARM64, which also ran the Windows byte-identical rebuild, the real Win32
-  window and window-control tests, and a new test of the WebView2 startup
-  check against an old and a missing runtime (ADR 0103 amendment).
-- A Python Tac service can `Check` its argument against a `@checked` model
-  in `client/models`. Before, the build stopped with TY1308 because the
-  provider reader did not see the client models, and the page then turned
-  the argument into a model instance before the check ran. The method now
-  receives the checked value as a dict, like Lua and Ruby. The website
-  validation section gains a Python tab, and a page run test replaces the
-  test that pinned the TY1308 refusal.
-- Ruby and Go `ty test` units read the client models, so `Check(Model)`
-  works in a unit. A Ruby method whose parameter list spans several lines
-  (for example with `Check`, `PageDefaults` or `RequestBody` on a
-  parameter) no longer breaks the unit's coverage hook, and a Go store's
-  generated empty methods no longer get one.
-- A Dart Tac service that `Check`s a `client/models` model builds again.
-  The new `Named` lookup read the service without its models and stopped
-  the build with TY1308.
-
-- A Windows build with a C# companion no longer fails with TY1605 when it
-  runs from a Visual Studio developer prompt. Those prompts set `Platform`,
-  which moved the `dotnet publish` output to another folder, so `ty` could
-  not copy `TachyonCompanion.dll`. `ty` now gives `dotnet publish` its
-  output folder and `Platform=AnyCPU`.
-- The Linux app window now shows its menu bar. GTK 4 hides the menu bar of
-  an application window by default, so the File, Edit, Window, View and Help
-  menus existed but were not drawn, could not be opened with F10 and were
-  not visible to screen readers. The items inside each menu now also have
-  their visible text as their accessible name; before, AT-SPI reported them
-  with an empty name (ADR 0097 amendment).
-- A Kotlin Store written without braces
-  (`interface NoteStore : Repository<NoteEntity, String>`) now builds like
-  one with an empty body. Before, it lowered to Kotlin that did not compile.
-  A Store with an empty `{}` body also declares its `behaviors` field before
-  the `init` block that sets it. A blocking Kotlin HTTP client method that
-  returns a model now names the method in its TY1308 refusal and says to
-  mark it `suspend`.
-- Window controls tell the truth. A window control that the native host
-  refuses after the call started now reaches the calling service as a
-  `BrowserCallFailed` event (`api` `windowControls`, the call's name and the
-  host's answer) instead of being dropped. On Linux, JavaScript, TypeScript
-  and WebAssembly page callers now reach the GTK window controls; before,
-  the page bridge answered only `companion.invoke` and the call did nothing.
-  The Linux Xvfb test now also drives the controls from a JavaScript caller.
-  On iOS only `title` is granted to the page, and it sets the scene title;
-  `granted` answers `false` for the other controls. The per-target support
-  table now says so for iOS and marks Linux honored (ADR 0087 amendment).
-
-- An Android build no longer fails in Gradle with `resource mipmap/ic_launcher
-  not found` when `client/manifest.json` names an icon file that does not
-  exist. The app then uses the default Android icon, like the other hosts.
-- External links open outside the app on Windows and Linux. A link,
-  `location` change or `window.open` to an `http`, `https` or `mailto`
-  address now opens in the default browser or mail app, as it already did on
-  macOS, iOS and Android; before, the Windows and Linux hosts cancelled it and
-  nothing opened. Windows calls `ShellExecuteW` from the WebView2 navigation
-  and new-window handlers, and Linux uses `GtkUriLauncher` from WebKitGTK's
-  `decide-policy` and `create` signals. Every host now uses one rule: `mailto`
-  joins `http` and `https` on macOS, iOS and Android, and an `http` or `https`
-  link must name a host and carry no user name or password. Other schemes,
-  and addresses on the app's own origin, still open nothing. Tests run the
-  shared C check against hostile links, the Windows opener under Wine, and
-  the generated GTK host under Xvfb with a fake launcher (ADR 0018
-  amendment).
-- The Linux tool setup installs and checks GTK 4 and WebKitGTK 6.0, which
-  the Linux host links. It used to install GTK 3 and WebKitGTK 4.1. The
-  Windows tool setup checks the Microsoft C++ build tools (`cl`, `rc.exe`)
-  and the WebView2 SDK instead of .NET, which only C# services need.
-- `ty cache status` and `ty cache clean` include the `rust-companion` cache
-  that desktop Rust crates build in.
-- Staging a macOS or iOS app off a Mac with a raster icon no longer fails on
-  `sips`. The app is staged without its icon, and the build prints a note.
-- Native builds reuse the web stage of the previous build of the same
-  target, as web builds do. The build reads the routes from the app's
-  published `web/` folder, checks each one's digest, and compiles again only
-  the routes that changed; it prints `compiled=` and `reused=` like a web
-  build. `--no-incremental` turns the reuse off, so the note that the flag
-  changes nothing for a native build is gone.
-- Native builds are made to be reproducible: two builds of the same sources
-  should give the same `artifact-manifest.json` digests. So far only Linux
-  has a repeat-build run. Every native tool gets
-  `SOURCE_DATE_EPOCH` (and `ZERO_AR_DATE=1` for Apple's linker and archiver).
-  `cc` and `rustc` remap the staging folder out of the binaries, `swiftc` runs
-  in the source folder with relative paths and without incremental LLVM
-  code generation, MSVC compiles and links with `/Brepro`, the C# companion
-  project is deterministic, and Gradle archives drop file times and keep a
-  fixed order. Build intermediates no longer reach the output: the Windows
-  host's `.obj` file, the C# companion's `bin` and `obj` folders, and
-  Gradle's `build`, `.gradle` and `.kotlin` folders. A packaged Linux app
-  built twice was byte-identical in the cloud; the macOS, iOS, Windows and
-  Android repeat-build runs are still owed (ADR 0005 amendment).
-  (Superseded: the packaged Windows repeat build passed on Windows 11 ARM64
-  in RW1; macOS, iOS and Android are still owed, ADR 0005 amendment of
-  2026-10-19. Later superseded again: the Android, macOS and iOS repeat
-  builds passed in RM3, RM1 and RM2 on 2026-10-24, so every native target
-  has run one, ADR 0005 amendments of 2026-10-24 and 2026-10-25.)
-
-- A native build with `--no-incremental` prints a note that the flag changes
-  nothing there, because native builds always rebuild the web stage.
-  (Superseded: native builds now reuse unchanged routes, and
-  `--no-incremental` turns that reuse off without a note; see the entry on
-  native route reuse above.)
-- Linux applications keep their web storage after they quit. The GTK host
-  used an ephemeral WebKit session, so Store rows, `@Cached` values,
-  `@LocalState` fields and `preferenceStrings` were lost on every quit. It
-  now keeps them in `$XDG_DATA_HOME/<application id>/webkit` and its HTTP
-  cache in `$XDG_CACHE_HOME/<application id>/webkit` (ADR 0059 amendment).
-  On quit, the host hides the window and gives WebKit 750 ms to save a
-  localStorage change made just before.
-- `@Cached` values are kept in the Cache API on macOS, iOS and Linux. Those
-  hosts serve the page from a private scheme, which the Cache API refuses as
-  a request URL, so every write failed without a notice and the value lived
-  in memory only. Pages that are not on `http:` or `https:` now key their
-  entries with `https://cache.tachyon.invalid`.
-- The Linux, macOS, iOS and Android host gates quit the application, start it
-  again and check that an IndexedDB row, a localStorage value and a Cache API
-  entry were kept. On iOS, WebKit does not keep Cache API entries for the
-  application's page, so an iOS `@Cached` method runs again after a relaunch;
-  on Android a Cache API entry written shortly before the system stops the
-  app is not always kept. Both gates record these limits (ADR 0059
-  amendment).
-- A C++ page program no longer traps with `RuntimeError: unreachable` when
-  its code reads a `std::chrono` clock or `std::random_device`. The page's
-  WASI shim now answers `clock_time_get` and `random_get`; before, the call
-  failed and its exception escaped, for example from a Setup's
-  `configure`. The C++ fixture of the page-program gate runs again (ADR 0099).
-
-- A `@LocalState` or `@SessionState` field of a native companion service
-  (iOS, Android, macOS) now survives a reload after a native method changes
-  it. Before, the page refreshed its copy of the field after the method but
-  never saved it, so the next load restored the old value. The native hosts
-  open their first page as `/index.html`, and saved fields now use the same
-  key there as on `/`, so a route keeps its fields when the app returns to it
-  by navigation. `scripts/runtime-browser-test.mjs` and the iOS simulator gate
-  (`scripts/ios/native-test.mjs`, which builds again under today's project
-  rules) check both (ADR 0059 amendment).
-- A test holds the macOS file picker limits: the handle after 128 is refused,
-  a ninth handle for one owner is refused, and a handle answers `invalid` and
-  is removed at 300 seconds (fake clock; ADR 0089 amendment).
-
-- A Yon Lua `-- @HTTPClient` method with `-- @Gateway` now keeps the target
-  method public. Before, the visibility check did not read Lua files, so a
-  Python service that only a Lua gateway called failed with `TY1333`. The
-  Lua gateway examples in the Yon guide, the gateways feature and Gateways:
-  Yon now run, and the Python Tac tabs of Configuration binding: Tac and
-  Public Tac output and private Yon lifetime are new.
-- A Tac Ruby `#[Needs]` field whose type is a browser API, such as
-  `# @return [Clipboard]` on `attr_reader :clipboard`, is now filled with
-  that API, as in Go, Dart and the other Tac languages: a private reader
-  makes it with `.new` the first time the service uses it. Before, the page
-  left the field nil and the first call through it failed. A Tac Ruby
-  `#[Needs]` field without a `# @return [Type]` comment now stops the build
-  with TY2015 at the field, because the page cannot tell what to fill it
-  with. A Store, Converter, Helper or browser API field is also filled when
-  its `@return` comment comes before the marker (ADR 0054 amendment).
-- A JS or TS Tac service that opens its own behavior context in `@OnStart`
-  (`this.behaviors = await Behaviors.create(...)`) can be reached through
-  `__tachyonTac.service` or a template before its component activates. A
-  `@Cached`, `@Retry` or other annotated call made then now waits for that
-  context and runs under its partition. Before, in a project with an HTTP
-  client or a Helper the call ran at once under the generated `tac-client`
-  context, so a `@Cached` value was written under the wrong partition and
-  the service's own reads missed it; without one it failed with "Annotated
-  method requires its source-local behavior context". If the component is
-  removed first the call now fails with `aborted`, and if no context
-  arrives within 10 seconds it fails with `timeout`; both messages name the
-  method and say to call it after the component activates.
-
-- A Yon C++ answer with text that is not valid UTF-8 no longer fails as an
-  opaque 500: a returned value's broken bytes become U+FFFD, as in Go, and a
-  `tachyon::http::HttpResponseMessage` body that is not text is sent as it
-  is. A request body nested more than 64 levels now answers 400 instead of
-  500, and the `handler.cpp_exception` line of a route that throws now
-  reaches the server log (ADR 0099 amendment).
-
-- An F# Tac service property set from a primary-constructor parameter
-  without a written type, such as `member val Title = label with get, set`
-  in `ShelfService(label: string)`, now takes that parameter's type. Before,
-  the page bridge saw it as `object` and the .NET build stopped with
-  `CS0266: Cannot implicitly convert type 'object' to 'string'` (ADR 0073
-  amendment).
-
-- A C# or F# test unit with `@TestSettings` (`[<TestSettings>]` in F#) now
-  runs. The C# driver passed each path as a dotted key with a JSON-quoted
-  value, such as `tac.catalog.mode` = `"\"fast\""`, and `Behaviors.create`
-  refused it with `configuration`, so the unit failed before any case ran.
-  Now each path becomes its environment name (`TAC_CATALOG_MODE`, the rule
-  that `Behaviors.properties` uses for application JSON) and each value its
-  text (`fast`, `5`, `true`), so the `WhenSetting` and `Settings` of a
-  TestSetup see them (ADR 0073 amendment of 2026-10-18).
-
-- A Tac F# test unit now includes the `client/models` metadata, as the F#
-  page build does. So `Behaviors.values(typeof<SomeModel>, ...)` binds a
-  `client/models` type with `[<Setting>]` fields in a test unit; before, it
-  failed with `configuration-properties`. New tests in
-  `crates/tachyon-core/tests/it/tac_fsharp_context.rs` prove the context of
-  a Tac F# unit: profiles, TestSettings, FreshStart and ValueSource; a
-  client Setup that is picked only for the right profile and setting; a
-  model with Setting fields; and a Fake HTTPClient. A unit without the
-  profile, or with the wrong setting value, is refused with
-  `inactive-configuration`.
-
-- New tests prove Checked, Check, Required, NotEmpty, Length, Min and Max
-  for F# Tac. A Tac F# unit
-  (`crates/tachyon-core/tests/it/tac_fsharp_checks.rs`) checks a
-  `client/services` parameter with `[<Check(typeof<OrderInput>)>]` against a
-  `[<Checked>]` model in `client/models`: good inputs pass and each rule
-  refuses a bad one with its own `validation` path. The client schema test
-  now covers an F# service as well.
-- A page now reloads offline when `ty start` or `ty preview --static`
-  serves it. Both servers sent `Cache-Control: no-store` on every answer,
-  and their precompressed files also carried `Vary: Accept-Encoding`, so the
-  service worker kept nothing. Now a build file that the worker's own asset
-  table lists gets `Cache-Control: no-cache` when it is asked for without
-  `Authorization`, without a cookie and without a query. The worker can keep
-  it and checks it against the table's digest, and the browser checks it
-  again with its ETag on each load, so a new build shows at once. The worker
-  and the Tac precache now accept `Vary: Accept-Encoding` when it is the only
-  Vary value. Everything else keeps `no-store`: controller, Yon, event-stream
-  and error answers, files outside the table, pages on a path that a
-  controller shares, and every answer of the watching development server
-  (`ty preview` and `ty serve` without `--static` or production). The new
-  `bun run test:preview-offline-browser` gate reloads a page offline under
-  `ty preview --static` in Chromium, Firefox and WebKit (ADR 0087 and ADR
-  0093 amendments).
-
-- An F# abstract member with curried parameters (`abstract Replace: id: int
-  -> product: BehaviorJSON -> Task<BehaviorJSON>`) in a client, store or
-  converter is now built as a curried member. Before, Tachyon built it with
-  one tupled parameter list, so calling it as declared failed to compile.
-
-- A Kotlin test unit with `@TestSettings`, in Tac or Yon, now opens its
-  context. The test runner passed each setting with its dotted path and its
-  JSON spelling (`"tac.catalog.size"` with `"5"` in quotes), which the
-  Kotlin behavior runtime refused, so every case failed with
-  `configuration`. It now passes `TAC_CATALOG_SIZE` with the plain value
-  `5`, the form that `@Settings` and `@WhenSetting` read. Java test units
-  with `@ValueSource`, `@UseProfiles`, `@TestSettings`, `@FreshStart`,
-  `@Fake` and `@TestSetup` now have JVM tests that run in CI.
-- A C# web service now builds in a terminal that loaded `emsdk_env.sh` or
-  `emsdk_env.bat` for Tac Ruby or Tac Lua. Tachyon runs `dotnet publish`
-  for C# web services without `EM_CONFIG`, `EMSDK` and the other `EMSDK_*`
-  variables, so the Emscripten that the .NET wasm-tools workload bundles
-  reads its own configuration. Before, it read the emsdk configuration,
-  could not find its compiler (`"$CFGDIR/upstream/bin/clang"`,
-  `FileNotFoundError`) and the build stopped with TY1605. The emsdk
-  setting stays in the terminal for Tachyon's own `emcc` builds. The C#
-  web publish, which relinks the .NET runtime with Emscripten, now has the
-  15-minute deadline of the other long native tools instead of 2 minutes.
-
-- On Windows, Tachyon now runs `emcc` from Emscripten 6.0.10 and newer,
-  which ships `emcc.exe` instead of `emcc.bat`. Before, `ty doctor` reported
-  Emscripten as missing for C++, Ruby and Lua web services, and the Tac Ruby
-  and Tac Lua runtime builds could not start `emcc`.
-
-- On Windows, C++ web services now build with the `em++.exe` that Emscripten
-  6.0.10 and newer ships. Tachyon still looked for `em++.bat`, so the build
-  stopped with TY1605 even when `ty doctor` found Emscripten.
-
-- On Windows, the Tac Ruby runtime build now passes mruby its build folder
-  with forward slashes. mruby names its build tasks by joining that folder
-  with `/`, so a backslash path left it unable to build its own `mrbc`, and
-  Ruby web services stopped with TY1605.
-
-- A Windows app that links both a Rust and a C# service now sends each
-  native call to the companion that owns the call's service. Before, the
-  host asked the C# companion first and moved on to Rust only when the C#
-  answer was "unknown service", which `init` gives but `get`, `set`, `call`
-  and `dispose` do not. So a page with a Rust service failed its first
-  field read and rendered nothing. The build now writes a table of linked
-  services and their companions into the Windows host.
-
-- The shared annotation rule table now lists F# (`.fs`) as a Yon language,
-  with the same reach as C# (ADR 0073). The checks that ask the table about
-  a language directly, such as the role-folder message and the `@Topic`
-  model check, now cover F# Yon files as they cover C# files; before, they
-  skipped them. `[<NeedsAll>]` on an F# member is now refused with TY1308
-  ("is on a method, but it belongs on a class"); before, the C# view of the
-  file dropped it and the build ignored it. Valid F# code, including every
-  F# example on the website, is accepted as before.
-
-- A Tac Ruby or Lua service whose `Needs` field has the type of another
-  service, such as a TallyService with a needed CounterService field, now
-  stops the build with TY2015 at the field. Before, the build accepted it,
-  the page never filled the field, and the first call through it failed in
-  the browser with `handler_failed`. Needs in these languages takes a Store,
-  a Converter or an HTTPClient in Ruby, and a Converter in Lua. The Ruby and
-  Lua web builds also read their services before they build the runtime, so
-  the refusal appears on a machine without Emscripten (ADR 0054 and ADR 0085
-  amendments).
-
-- A Java or Groovy test unit now clears every `@Fake` field before each
-  case, as the documentation says. Before, a test double that one case
-  assigned was still there in the next case. A reference field becomes
-  `null`, a `boolean` becomes `false` and a number or `char` becomes zero.
-  `construct(Class)` works as before.
-
-- A Python test unit now sets every `@Fake` field to `None` before each
-  case. Before, it set them once before the first case, so a test double
-  that one case assigned was still there in the next case.
-
-- A JavaScript or TypeScript test unit now sets every `@Fake` field to
-  `undefined` before each case. Before, a test double that one case
-  assigned was still there in the next case, and `construct(Role)` passed
-  it on.
-
-- A Go test unit now sets every `// @Fake` field to its zero value before
-  each case: `nil` for a pointer, slice, map, function or interface, zero
-  for a number, `false` for a `bool` and `""` for a `string`. Before, a test
-  double that one case assigned was still there in the next case, and a Tac
-  unit's `construct` passed it on.
-
-- A Rust test unit now resets every `#[Fake]` field that is a `RefCell` or
-  a `Cell` to its `Default` value before each case, so a
-  `RefCell<Option<T>>` becomes `None` and a `Cell<i64>` becomes zero.
-  Before, a test double that one case assigned was still there in the next
-  case, and a Tac unit's `construct()` passed it on. A case reads the unit
-  through `&self`, so a Fake in a plain field cannot change between cases.
-
-- A Kotlin test unit now clears every `@Fake` field before each case: a
-  nullable field becomes `null`, a `Boolean` becomes `false` and a number or
-  `Char` becomes zero. Before, a test double that one case assigned was still
-  there in the next case, and `construct(Role::class)` passed it on. A Fake
-  with another non-nullable type, such as a `lateinit var`, has no empty
-  value, so the build now refuses it and asks for a nullable type.
-
-- A C# test unit now sets every `[Fake]` field to `default` before each
-  case: `null` for a reference, zero for a number and `false` for a `bool`.
-  Before, a test double that one case assigned was still there in the next
-  case, and `construct<Role>()` passed it on.
-
-- A Dart test unit now clears every `@Fake` field before each case: a
-  nullable or `dynamic` field becomes `null`, a `bool` becomes `false` and
-  an `int`, `double` or `num` becomes zero. Before, a test double that one
-  case assigned was still there in the next case, and
-  `construct<Role>(Role)` passed it on. A Fake with another non-nullable
-  type, such as a `late` field, has no empty value, so the build now refuses
-  it and asks for a nullable declaration.
-
-- The `lua/THIRD_PARTY_NOTICES.txt` that a build writes beside the Lua web
-  runtime now also holds the Emscripten, musl and compiler-rt licenses, as
-  the Ruby notices do. The runtime is linked with Emscripten, which adds its
-  C library and compiler builtins, but the file listed only Lua. Because the
-  notices are part of the runtime source, the next build links the Lua
-  runtime again once.
-
-- A build with a Go Tac service now writes `.tachyon/services/go/LICENSE`
-  beside `go/wasm_exec.js`, whose header says its license "can be found in
-  the LICENSE file". The file comes from the root of the Go or TinyGo
-  installation that built the module, or is Go 1.27.0's `LICENSE` when the
-  installation has none. Route budgets do not count it. Cached Go modules
-  are built again once, so the cache holds the license too.
-- A same-origin answer from the page's browser HTTP host is no longer
-  reported by Chromium as an aborted request after the page has read it.
-  An answer with a declared, uncompressed length is read whole, so the load
-  completes before the call answers; the .NET browser gate failed about half
-  of its runs on this (ADR 0090 amendment). The first-app .NET gate reads the
-  greeting from the page instead of DevTools, which sometimes no longer held
-  the body.
-
-- A Go `@HTTPClient` request body model now follows its `json` tags as
-  `encoding/json` does: `omitempty` leaves out an empty string, a nil pointer
-  and the other empty values instead of sending `""` and `null`, `omitzero`
-  leaves out zero values (asking an `IsZero` method when there is one),
-  `string` writes a scalar as JSON text in a string, and `json:"-,"` uses the
-  key `-`. The same codec writes query values, cache keys and stored entities
-  (ADR 0045 amendment).
-
-- Leaving a page while a Go Tac service waits for an HTTP answer no longer
-  freezes the page. The page stops its services when it is hidden; stopping a
-  service woke the waiting call inside that same synchronous stop, and the
-  woken call spun until the stop finished. When the stop ran an `OnStop`
-  hook that printed, or the woken call printed or published, the standard Go
-  runtime waited for the spinning call and the page hung until the browser
-  gave up on the navigation. A woken call now waits on a channel for its
-  turn, stopping a service aborts its fetches and lets the aborted answer
-  wake the call afterwards, and a call whose service is gone gets
-  `CANCELLED` without starting a new request. `OnStop` hooks still run when
-  the page is left. Standard Go and TinyGo builds both work (ADR 0090
-  amendment).
-
-- A Tac update keeps the elements of a loop item whose values did not
-  change, also when the list holds new objects on every render, such as a
-  getter that maps a list or values read from a native service. A click,
-  the focus, the caret and an open native `<select>` inside the item now
-  survive the update. A loop item whose values changed still gets a new
-  element. A custom element that rewrites its own children, such as a
-  DuVay `<w-select>`, is still created again on each update.
-
-- A `<select>` whose `<option>`s come from a `<loop>` shows the bound value.
-  `:value` on the select now applies after its options exist, and an update
-  that replaces the options keeps the option that `:value` or `:selected`
-  chooses, or the user's choice when neither is bound. Before, the select
-  showed the last option.
-
-- `scripts/native/apple-protocol-test.mjs` compiles again, so the macOS
-  release checks (`test:phase4-macos` and the iOS native test) run again.
-  The macOS host now refuses a call whose message did not come from its own
-  web view, but the probe's stand-in message and bridge had no web view. They
-  have one now, and the probe checks that the macOS host refuses a call from
-  another web view or from none.
-
-- Method coverage again lists a Ruby method whose body only returns a
-  string literal, such as `def message` returning `"Hello"`. Masking blanks
-  string literals, so the check for an empty Ruby body counted it as a
-  declaration that needs no test. That check now reads the real source.
-
-- `ty test` no longer stops at a server test unit whose process crashes
-  (TY2104) or times out (TY2110). That unit is reported as `FAIL` with the
-  diagnostic, the remaining units still run, and the run prints its
-  `N passed, M failed.` summary and ends with TY2020.
-
-- TinyGo builds give each goroutine a 512 KB stack instead of TinyGo's
-  64 KB. Every Go Tac call runs on its own goroutine, and deep work such as
-  compiling a regexp with `{1,200}` overflowed the small stack and crashed
-  the page's Go program.
-
-- A browser HTTP call from a Tac service (C#, F#, Kotlin, Dart, Swift, C++
-  and the other WebAssembly languages) no longer shows up as a failed request
-  after it succeeds. The page's HTTP transport cancelled the response reader
-  even after reading the whole body, and Chromium then reported the finished
-  request as `net::ERR_ABORTED`. The transport now cancels the reader only
-  when it stops early (size limit, bad UTF-8, cancellation or deadline).
-
-- Linux and Windows apps answer a native reply larger than 64 KiB with an
-  error that says to send smaller pages, instead of "Invalid native
-  response.", and Windows answers a page request that grows past 64 KiB as
-  UTF-8 instead of dropping it until the 10 second timeout.
-- A Windows app whose window grants no window controls builds again with
-  MSVC. The generated host left its `payload` parameter unused, and the
-  host's `/W4 /WX` flags turned that warning (C4100) into an error, so
-  `ty bundle --target windows` stopped before linking. Found by building and
-  running the host on Windows 11 with Visual Studio Build Tools 2022.
-- The Tac runtime's idle precache reads the whole body of every service
-  module it fetches, also when it does not store the answer (`no-store`,
-  `private` or `Vary`). Before, the unread body was cancelled by the
-  five-second precache deadline and the browser reported a failed
-  `net::ERR_ABORTED` request.
-- A `NeedsAll` service with a `FilePicker` field builds wherever it runs. In
-  Kotlin, `ty bundle --target android --native` no longer stops with `TY1405`
-  ("needs a public explicitly typed field"). A Swift, C# or Kotlin service
-  that runs as WebAssembly (the web, and targets that do not link the
-  language) no longer stops with `TY1407` asking the page to pass
-  `:filePicker`: the build gives the field the typed provider, which answers
-  `unsupported`, as ADR 0089 describes. A Lua service with a
-  `---@type WindowControls` or `---@type FilePicker` annotation now fails the
-  build with `TY2015` instead of getting nil at run time.
-- The JavaScript `NoteServiceTest` that `ty init --features storage` writes
-  type-checks again: its fake `DataSource` is cast through `unknown`, as the
-  TypeScript one already was, now that `DataSource` declares the FYLO methods.
-- The authored DOM guard (`TY1364`) no longer misses easy cases. It now
-  refuses `innerHTML`, `outerHTML` and `cssText` writes with `||=`, `??=`,
-  `&&=` and `**=`; a write to `element.style` itself; `setHTML` and
-  `setHTMLUnsafe`; and sink methods called through `call` or `apply`, such as
-  `document.write.call(document, html)`. It follows a node kept in an object,
-  such as `const refs = { list: document.querySelector('#l') }` or
-  `refs['list'] = node`, also when another function writes or reads the field,
-  and a node behind `'' || document.body`. A member write such as
-  `config.view.el = 'x'` no longer marks a later parameter `el` as data.
-  An object that holds only literal values is still data, so
-  `theme.style = 'light'` passes. The guard stays a build-time convention
-  check, not a sandbox: computed names such as `element[name]`,
-  `Reflect.set` and `Object.assign` are not followed.
-
-- A Rust file may put `#[cfg(...)]` and `#[cfg_attr(...)]` lines above its
-  `use` items, such as `#[cfg(unix)] use std::os::unix::net::UnixStream;`, so a
-  native service can gate platform imports. Before, the one-class check read the
-  attribute as a top-level item and refused the file with `TY1310`. A `cfg`
-  line above any other top-level item still fails.
-- Yon Lua stores are providers now. A `-- @Store(ProductEntity, {...})` class
-  table with empty query methods used to stop every class that asked for it
-  with `TY2015` "Unresolved dependency". Tachyon now gives it the provider
-  role and an `-- @OnStart` method that opens its behavior context from its
-  Setup, so `-- @Needs` fields receive it, derived queries and `-- @Query`
-  methods run on the Setup's entity adapter, and a call inside
-  `-- @AllOrNothing` joins the open transaction (ADR 0085 amendment).
-- A Lua worker's `-- @Schedule({"fixedDelaySeconds":...})` marker sets its
-  cadence. The marker was read through the Lua lexer, which hides comments,
-  so it was ignored and the worker never ran (ADR 0085 amendment).
-- A Lua Converter writes `null` for a target field whose source is missing,
-  like every other language, instead of leaving the field out.
-- An unresolved `@Needs` dependency (`TY2015`) points at the field that needs
-  it instead of the class. In Lua the span covers the field's line instead of
-  an empty span at the class table.
-- A Python service field whose default value contains a call, such as
-  `label: str = str(5)` or `product: Product = Product(name="A")`, is no
-  longer dropped from the page bridge. The field keeps its declared type with
-  any default, including nested brackets, strings with brackets or `#`, and
-  defaults that span several lines. A field that shares its line with another
-  statement after `;` now stops the build with an error that names the field.
-- `ty test` loads `server/application.json`, so Yon test units get the
-  variables that `server.environment` passes, as handlers do under
-  `ty serve`.
-- Yon dependency inference skips constants: a PHP `private const LIMIT = 10;`,
-  a Dart `static const limit = 10;` or a Java
-  `private static final Map<String, Object> DEFAULTS = ...` next to a `Needs`
-  field no longer stops the service with "Cannot infer dependencies from this
-  member".
-- The annotation rule table lists F# for `StreamRoute` in Yon, as the parser
-  message and the guides already did.
-- A Python Tac service that uses a browser API, such as `Clock()`, fails at
-  build time with `TY1605` instead of at run time.
-- Python Tac services refuse `LocalState`, `SessionState`, the caching
-  annotations, `PageDefaults`, `Retry`, `MaxAtOnce` and `AllOrNothing`
-  once, with `TY1308` "... is not available in Python Tac code". Before, a
-  saved field built but was never saved, and the behavior annotations failed
-  with two different messages. `OnEvent`, `Order`, `InBackground`, the
-  `ApplicationEventPublisher` and topics keep working in Python Tac.
-- `ty add language` and `ty init` help list every language they accept:
-  client `py`, and server `fs` and `groovy`.
-- The English word list of the design checks is stored compressed with
-  Brotli in `ty`: 1,100,634 bytes become 259,421.
-
-- Method coverage records a JavaScript or TypeScript utility in
-  `client/shared/utils` that a file imports by its path (`/shared/utils/...`
-  or a relative path) or that uses `import.meta`. Each JavaScript or TypeScript
-  test unit now runs with recorded copies of these utilities under Node, Bun
-  and Deno, so the coverage report lists them again and fails on a method that
-  no case called (ADR 0070). A service that imports a utility by a relative
-  path also runs as a unit now; before, its unit stopped with
-  `ERR_MODULE_NOT_FOUND`.
-
-- The design checks for plain-English names (`TY1328`), named values
-  (`TY1330`) and unused public members (`TY1333`) now read Tac utilities in
-  `client/shared/utils/` and its nested folders. Before, they skipped that
-  folder, so a utility that breaks these rules can now stop the build.
-
-- A FYLO call that a deadline cancels now restarts the `fylo` subprocess, so
-  its late answer can no longer be read as the answer to the next call.
-
-- One structure check runs before the build writes output or starts a
-  toolchain, and it reports every file's problem in one run (ADR 0091).
-  `TY1363` now points at the class declaration instead of the start of the
-  file and spells the Lua marker `-- @Service`; the role layout help of
-  `TY1310` names the authored `.lua` or `.fs` file instead of the internal
-  Ruby or C# view.
-- Go route types no longer stop with `TY2015` for types from other Go
-  packages: `json.RawMessage`, `http.Header`, `time.Time` and types from the
-  native packages in `server/packages/` (such as `spec.Document`) are open
-  JSON values in model fields, route parameters and route results. A
-  `*http.Request`, `context.Context` or multipart file in a model still fails
-  with `TY2015`, now with the reason: it is not JSON data, so read it from the
-  route method's `*http.Request` or tag the field `json:"-"`.
-
-- Settings and checked models in `models/` now work in every compiled
-  language (ADR 0092 amendment). Tac services in C#, F#, Rust, Swift,
-  Kotlin, Go, Dart and Ruby read `Settings`, `Setting` and `Checked` models
-  from `client/models/`. Before, these models failed with `TY1310`. Yon Dart
-  no longer fails with `TY2004` for a model that has no constructor; its
-  reader assigns the fields. Lua schema models are still refused. The
-  configuration binding, validation and settings examples on the website
-  keep these models in `models/` in every language.
-
-- A Rust Yon model that writes `use crate::Json;` itself now compiles when the
-  handler has routes; the generated codec imports no longer collide with it
-  (`E0252`).
-- A Rust struct field whose type has a generic list, such as
-  `Mutex<BTreeMap<String, Entry>>`, is one field again; the commas no longer
-  fail the build with `TY2015`.
-- A C#, F# or Kotlin Tac service method whose parameter has an attribute or
-  annotation with a JSON argument, such as `PageDefaults({...})`, keeps one
-  parameter with its real type; the generated bridge compiles again.
-- `TY1363` names the Lua marker as `-- @Service` instead of the Ruby spelling,
-  and no longer tells Java and F# Tac authors that `Service` is unavailable.
-- A Yon Lua route that published a Lua model marked `-- @Topic` failed on
-  every request with `TY2104`, and a Tac Lua listener never received the
-  events, because the topic check did not read Lua's `--` comments. Lua
-  topics now work in both realms (see Added).
-- A Yon Lua class whose only event code is its
-  `application_event_publisher = nil` field, with no `-- @OnEvent`,
-  `-- @OnStart` or `-- @OnStop` method, crashed on `publish_event` because
-  the field stayed `nil`. The publisher is now bound there too.
-
-- A Kotlin or Java Tac model marked Topic builds again. The model file check
-  read the Topic marker as behavior and stopped the build with `TY1310`.
-- The website shows a docs section's `summary`. It was in 27 `section.json`
-  files, such as the annotation sections, but the docs page showed only the
-  `body`. The summary is now a lede paragraph under the section heading.
-  Search, the reading time and the language coverage audit read it too, so a
-  refusal stated only in a summary counts.
-
-- The docs no longer teach the removed `cacheManager` resource or the
-  removed `cache` option of `@HTTPClient`. The README, the application events
-  and client runtime migration guides, the parity ledger, ADR 0059 and ADR
-  0087 and the website now say `Cached`, `ClearCache` and `UpdateCache`
-  instead. A website test fails when a sentence names `cacheManager` without
-  saying that it was removed.
-
-- `scripts/native/apple-protocol-test.mjs` compiles again. The probe built
-  its Swift companion prelude from a fixed file list that missed
-  `TacAwaited.swift`, `TacOwnerThread.swift` and the native capability files.
-  It now reads the list from the macOS host, so the two cannot drift apart.
-- Lua JSON keeps `null` inside lists (as `YonNull`) and empty objects, so
-  `[1,null,2]` keeps three items and a Tac Lua call with `[null, 5]` puts 5
-  in the second parameter. It refuses hexadecimal, overflowing and zero-led
-  numbers, raw control characters and broken surrogates. A Yon Lua socket
-  message nested too deeply goes to OnError instead of ending the process.
-  Yon Lua behavior waits sleep without using the processor, and timeouts
-  follow the wall clock (at most about two seconds late, never early) while
-  an adapter blocks; Tac Lua reads the page clock (ADR 0085).
-
-- Tac updates keep authored elements. An element at the same template place
-  with the same loop item keeps its DOM node, focus, caret and scroll position;
-  only changed attributes, text and children are written. A graph view no longer
-  replaces its cards or resets its pan offset when a card is selected. Custom
-  elements stay when their children and light-DOM slots are unchanged.
-
-- C# coverage includes public methods with next-line body braces or expression
-  bodies and records the method actually called. Static Setup callbacks and
-  generated bodyless client methods remain outside instance-method coverage.
-
-- A genuine C# helper constructed only by a selected same-language TestSetup
-  is validated before ordinary production composition omits it. Production
-  and transitively used helpers remain included; orphan, misplaced and
-  unsupported managed helpers retain their existing diagnostics.
-
-- Yon controllers and services can call plain classes in `server/shared/` in
-  every Yon language. Shared source uses the captured project snapshot, and
-  the application-modules verifier builds and calls each language example.
-
-- After a Cached HTTPClient read is cleared or updated, its next uncached
-  JavaScript or TypeScript GET revalidates the browser HTTP cache. A public
-  response with a long `max-age` no longer hides a successful ClearCache.
-  Cache-first service-worker rules also revalidate that read (ADR 0087).
-
-- In a NeedsAll Tac service, only a field marked Needs, Named, Setting,
-  LocalState, SessionState or Fake is filled by Tachyon. Any other field
-  annotation, such as `@JsonProperty` in Java or `@Published` in Swift, no
-  longer turns a required prop into an injected field that stayed empty.
-
-- Tac services share one set of browser resources (Clock, PreferenceStrings,
-  DocumentTitle and the other web API types) in every language except
-  JavaScript and TypeScript, which still mark these fields with Needs. A
-  Kotlin `val clock: Clock` is injected instead of being required as a
-  component prop that the browser then refused.
-
-- A JavaScript or TypeScript client GET that sends an Authorization header
-  is never kept in the browser HTTP cache, even as a public read, matching
-  the WebAssembly HTTP host.
-
-- A precompression cache folder that cannot be written no longer fails
-  `ty build`: the compressed copies are still written. The cache keeps one
-  entry per content hash instead of 32 shared slots per encoding, and after
-  a build it trims itself to 256 MiB, removing the least recently used
-  entries first.
-
-- F# Tac Helper checks report the right place in files with Windows (CRLF)
-  line endings.
-
-- A Convert method whose parameter or result is a map, a tuple or two
-  models, such as `Map<String, Product>`, fails the build instead of being
-  converted as one model.
-
-- A macOS app name that looks like a host template placeholder, such as
-  `__ROUTE_DOCUMENTS__`, stays plain text in the generated Swift host.
-
-- Fast navigation between Tac pages no longer logs
-  `AbortError: Transition was skipped`. Every page now carries a one-line
-  inline guard that handles a skipped page-change animation quietly, on the
-  page that leaves (`pageswap`) and on the page that arrives (`pagereveal`).
-  The content security policy of the server and of the Windows and Linux
-  hosts allows the guard by the SHA-256 hash of its text.
-
-- The duplicated code check (`TY1315`) skips JavaScript and TypeScript
-  private constants with one literal value, such as `static _GAP = 24` or
-  `private static readonly _GAP: number = 24`. Before, it skipped only names
-  that start with an uppercase letter, so two services with many `_UPPER`
-  constants were refused as duplicated code.
-
-- A Rust Tac model field with a raw identifier, such as `pub r#type: String`
-  or `pub r#match: Option<String>`, reaches the page again. The model reader
-  dropped the field, so the generated `TacModel` code failed to compile with
-  `error[E0063]: missing field`. The field keeps its `r#` name in Rust and
-  uses the plain name, `type`, as its JSON key.
-
-- The iOS, Android, Linux and Windows hosts keep authored values that look
-  like host template placeholders as plain text too. An app name, bundle ID,
-  entry route or route document such as `__NATIVE_SHIM__` was replaced by the
-  framework text with that name. Each host now fills the authored values last,
-  in one pass that never rescans inserted text, like the macOS host.
-
-- A C# companion field of type `decimal` compiles: its setter converts the
-  value with `Convert.ToDecimal`.
-
-- Convert options that are not one strict JSON object fail the build, and a
-  comment after the closing bracket no longer hides the options from the
-  model metadata.
-
-- A Lua behavior method ends at the `end` that closes its own function, so
-  a column-0 `end` of an inner block or a line that starts with `endpoint`
-  no longer moves the generated wrapper.
-
-- `ty migrate check` reports a source file that is not UTF-8 text as an
-  unsupported finding and checks the rest of the project instead of stopping.
+### Highlights
+
+- **One annotation model in every language.** Classes take their role from an
+  annotation and a folder: `Service`, `Store`, `HTTPClient`, `Converter`,
+  `Setup`, `Entity` and `Delegate`, with `Needs` for injection and shared
+  behavior annotations such as `Cached`, `Retry` and `AllOrNothing`. Each
+  language writes them in its own syntax, and the build checks every one
+  (ADRs 0021, 0022, 0047). See `docs/annotations`.
+- **Yon routes come from controllers.** A `RequestRoute` class in
+  `server/controllers/` answers `GetRoute`, `PostRoute` and the other verbs,
+  takes and returns models, and can stream (`StreamRoute`) or keep a socket
+  open (`SocketRoute`) (ADR 0048). See `docs/controllers`.
+- **`client/manifest.json` is the whole Tac configuration.** It is a standard
+  web app manifest with a `tac` member for scripts, styles, caching, the
+  native window, menus, links and the Yon origin. The build says what each
+  member does on each target (ADR 0052). See `docs/application-configuration`.
+- **Many more languages.** Tac services can be written in JavaScript,
+  TypeScript, Rust, Go, C#, F#, Swift, Kotlin, Java, Dart, Ruby, Lua, Python
+  and C++; the compiled ones run in the page as WebAssembly. Yon runs
+  controllers in JavaScript, TypeScript, Python, Java, Groovy, Kotlin, C#,
+  F#, PHP, Rust, Dart, Go, Ruby, Lua and C++. See `docs/service-languages`
+  and `docs/yon-languages`.
+- **Native apps on macOS, iOS, Android, Linux and Windows.** The web-view
+  hosts now take their window, menus, tray icon, links and browser API
+  grants from the manifest, open system file pickers, reach Yon through a
+  declared origin, and `ty bundle --release` builds signed store and
+  installer packages. See `docs/native-hosts`.
+- **Safety rules are build errors.** The build refuses secrets in the source,
+  code built from text, query text built from pieces, requests to hosts that
+  the configuration does not list, and routes that do not say who may call
+  them (ADR 0068). `ty start` also confines each handler's network access
+  at the operating-system level (ADR 0113). See `docs/route-access` and
+  `docs/operations`.
+- **Warm Yon handlers.** One handler process now serves many requests, so a
+  request after the first one no longer pays the runtime start
+  (`YON_ISOLATION=warm`, the default; ADR 0111). See
+  `docs/isolation-and-security`.
+- **Topics.** A model marked `Topic` carries its events across processes,
+  Yon languages and open pages, and Tachyon keeps each topic's values in a
+  log under `data/topics/` (ADR 0061). Each topic declares who may read its
+  stream. See `docs/topics`.
 
 ### Breaking
 
-- `@Helper` is now `@Delegate` (ADR 0112 steps 1 to 4b3, ADR 0047 amendment,
-  2026-10-28): `@Delegate`, `[Delegate]`, `#[Delegate]`, `// @Delegate` in
-  Go, `-- @Delegate` in Lua and `@delegate` in Python. The role folder is
-  `delegates/` again in both realms, and a class name ends in `Delegate`
-  (`TaxDelegate`). The build refuses `@Helper` with `TY1308` and names
-  `Delegate`, and it no longer refuses `delegates/`. `helpers/` stays as a
-  folder that is not a role: it keeps the programs that a `Gateway` command
-  runs (`server/helpers/`) and behavior-only holders such as a `Checked`
-  DTO. `ty migrate fix --write` moves each `<Name>Helper` class from
-  `helpers/` to `delegates/<Name>Delegate`, renames its `Needs` fields and
-  types and the marker, and leaves the other files in `helpers/` where they
-  are; it also renames an old `@Component` class in `delegates/`. The rename
-  changes no behavior: a Delegate without a service acts as a Helper did.
-  The ADR 0069 layer rules that named helpers now apply to Delegates, and
-  the marker matrix's 29 Helper cells are Delegate cells with the same
-  tests; the matrix survey of develop `48c2c09d` (step 4c) adds its
-  `Delegate override` and `Delegate overload` rows (58 cells) in both
-  realms. A Delegate that needs one service of its
-  realm and language takes
-  on that service's public methods in every language: the build writes a
-  forward for each method the Delegate does not write itself (JavaScript,
-  TypeScript, Python, PHP, Ruby and Lua pass every argument on; the typed
-  languages copy each base signature, one forward per overload where the
-  language has overloads). A Delegate that needs two services fails with
-  `TY1373`. In the typed languages a Delegate method with the same parameter
-  types as a base method overrides it, and one with other parameters is an
-  overload next to it in Java, Groovy, Kotlin, C#, F#, C++ and Swift; Go,
-  Rust and Dart refuse an overload with `TY1374`. An override that returns
-  another type, or a Delegate field named like a base method, fails with
-  `TY1375`. In JavaScript, TypeScript, Python, PHP, Ruby and Lua the same
-  range of argument counts is an override; ranges that never meet make an
-  overload, and the build writes a method that calls the Delegate's version
-  or the base by the number of arguments; ranges that meet but differ fail
-  with `TY1374`. A Rust Yon Delegate also takes on base methods without
-  `pub`; a Rust Tac Delegate takes on only `pub` ones. The website section
-  "Take on a service: override and overload" shows a base, an override and
-  an overload (a renamed method in Go, Rust and Dart) in the 15 Yon
-  languages, the published-section tests serve and call each one and check
-  the `TY1374` refusal, and the error codes page lists `TY1373` to `TY1375`.
-  A Kotlin, Swift, C#, Ruby or Lua Tac Delegate, or a Rust Delegate in a
-  browser build, that takes on a service fails with `TY1406`, because browser services there cannot need another
-  service. A JavaScript, TypeScript, Go, Java, Dart or F# Tac Delegate's base is
-  the page's shared service, as it already was in Python and C++: a JavaScript
-  or TypeScript base field is named after the page's instance (`tax`), a Go
-  Delegate may keep one `// @Needs` base field, a Java base field starts with
-  the page's instance, a Dart base field becomes `late` and is set by the
-  page, and an F# `[<Needs>]` base property starts with the page's instance.
-  A prototype base, a circle, or a Go Delegate `Needs` field or F# Delegate
-  `[<Needs>]` property that names no page service fails with `TY1406`.
-  `TY1333` now counts a call through a Delegate's forward as a use of the
-  base (ADR 0071): `this.taxDelegate.total(3)` keeps `TaxService.total`
-  public, and the visibility check stays on beside a Delegate base. Tac
-  tests compile and call an override in
-  Dart, Python, C++ and native Rust and an overload in JavaScript,
-  TypeScript, Python, Java, C++ and F#. A Tac C++ Delegate no longer gets a
-  page binding, so its overloads build (the page calls only services), and
-  the Tac Python build no longer reads a Delegate's generated
-  `*args, **kwargs` dispatcher as a page method.
-- Yon keeps handler processes warm by default (ADR 0111, 2026-10-27).
-  `YON_ISOLATION` now takes `warm` (the default), `process` or
-  `firecracker`. Before, every request started its own handler process and
-  stopped it after the response; `YON_ISOLATION=process` keeps that. A warm
-  process serves many requests of one handler, one at a time. Yon starts it
-  on the handler's first request, starts more when requests for the same
-  handler arrive together (within the concurrency limit), and replaces it
-  after a crash, a protocol error, stray stdout, a timeout, a cancellation,
-  a failed relay or `YON_WARM_MAX_REQUESTS` requests (default 1000, 1 to
-  1,000,000). An idle process stops after `YON_WARM_IDLE_SECONDS` (default
-  60, 1 to 3,600). Setting either variable with `process` or `firecracker`
-  fails with `TY2010`. Module-level state can now survive between requests
-  of one process, so a handler that counted on a fresh process for each
-  request (a static counter, a module-level map) must reset that state
-  itself or run with `process`. Socket connections keep their own process,
-  and `firecracker` mode is unchanged. The first request still pays the
-  runtime start; after it, a warm request took about 0.1 ms in the Mac
-  benchmark, where process mode paid about 50 ms for Python, Ruby, PHP and
-  .NET, 100 ms for JavaScript and 440 ms for Java every time
-  (`tests/it/warm_benchmark.rs`, `#[ignore]`; results in
-  `docs/SUPPORT_TIERS.md`, "Warm Yon handlers"). Java handlers still start
-  from source on their first request.
-- A Rust Tac service now shows the page only its `pub` methods. Before, every
-  method that took `&self` or `&mut self` reached the page, so a helper
-  method was public too. Write `pub fn` on each method a view calls. A view
-  that reads a private Rust method, such as `drawer.closeDrawer()` for
-  `fn close_drawer(&mut self)`, now stops the build with TY1311 and says to
-  write `pub`. The website examples mark these methods `pub`. A `pub`
-  method that the JavaScript or TypeScript page service beside it calls,
-  such as `this.pageHeard()`, counts as used, so TY1333 no longer refuses it.
-- An input that breaks a `@Checked` rule on a `@Check` parameter now answers
-  `422 Unprocessable Content` with an RFC 9457 `application/problem+json`
-  body, in JavaScript, TypeScript, Python, Ruby, PHP, Java, Groovy, Kotlin,
-  C#, F#, Dart, Go, Rust and C++. Before, it answered `500` (`text/plain`
-  `Handler execution failed. Reference: <id>.`, or an empty body in
-  JavaScript, TypeScript, Python and Ruby). The body is
-  `{"type":"about:blank","title":"Invalid input","status":422,"errors":[{"field":"name","rule":"NotEmpty"}],"truncated":false,"reference":"<id>"}`:
-  one entry for each broken rule, named after its annotation (`Required`,
-  `NotEmpty`, `Length`, `Min`, `Max`), or one `{"field":"","rule":"Checked"}`
-  entry for a value that is not a JSON object or is over 1 MiB. Entries are
-  sorted by field path and rule, repeats are removed, and at most 32 are
-  sent (`truncated` is `true` when more rules were broken). Submitted values
-  are never sent back. `reference` is the `x-tachyon-request-id` value from
-  the header and the server log. Runners report the rules with the new
-  handler protocol code `TY2205` and an optional `violations` member of the
-  v1 error object (additive). An application `@ErrorHandler` that handles the
-  validation error still answers first, and an explicit
-  `Behaviors.validate(...)` call keeps its first-violation `validation` error.
-  A Go or Rust controller returns the Check error unchanged so that it
-  reaches the server; the website examples no longer map it to `400`. C++
-  bodies are typed, so a value of the wrong type or an undeclared field is
-  still refused with the 400 body error before Check runs. Ruby's `Length`
-  now counts UTF-8 bytes, as documented; it counted characters. Rust
-  `BehaviorError` gains a public `violations` field, so code that builds it
-  with a struct literal or destructures it without `..` no longer compiles;
-  use the new `BehaviorError::new(code, message)` (ADR 0101).
-- A C# HTTPClient, Store or Converter interface without `public` stops the
-  build with `TY1308`. C# makes such an interface internal, so a public
-  controller or service that needs it failed later in `dotnet build` with
-  CS0051. Declare it as `public interface`; `ty migrate fix --write` now
-  writes `public interface` when it turns a class client into a contract.
-- A JavaScript, TypeScript or Dart file that imports a file of the other realm
-  with a relative path, such as a client service that imports
-  `../../server/controllers/HomeController.js`, stops the build with
-  `TY1369` at the import path. Before, `ty bundle` built it into a client
-  module that pointed at server code, and for Dart it started `dart compile
-  wasm` before failing. Reach the server through an HTTPClient in
-  `client/remotes`; `ty migrate check` lists each such import as
-  `role.realm_import` (ADR 0091).
-- A utility class in `client/shared/utils` or `server/utils` that names a role
-  class (a service, store, client, helper, converter, setup or controller)
-  stops the build with `TY1327` under the dependency rule: every class of the
-  realm may call a utility, so a utility depends on no role class (ADR 0064,
-  ADR 0091). `tac.dependencies.check` and `dependencies.check` turn it off
-  while you move code.
-- Tac utility classes live only in `client/shared/utils/` (ADR 0064).
-  Nested topic folders such as `client/shared/utils/text/` are allowed. A file
-  in `client/utils/` stops the build with `TY1310`, which names its new path
-  under `client/shared/utils/`; the folder is no longer discovered, composed
-  or counted for coverage. `ty migrate fix --write` moves every file there, in
-  every language, and changes the quoted import paths that point at it
-  (relative paths, `/utils/` web paths and `client/utils/` paths). Native Rust
-  `crate::utils::<Utility>` paths keep working unchanged. Yon keeps
-  `server/utils/`. The website, its examples and the duplicate-code help use
-  the new folder. Like `client/utils/` before, a utility in
-  `client/shared/utils/` is published only when a script imports it (no raw
-  copy of its source) and counts for `ty test --coverage`, also when a
-  JavaScript or TypeScript file imports it by its path (see Fixed).
+Each item is a change against 26.36.01. Run `ty migrate check` first: it
+lists every place below that it can find. `ty migrate fix` prints a plan, and
+`ty migrate fix --write` applies it. Items without a fix are manual steps.
 
-- Every concrete class in a role folder needs its role marker (ADR 0091).
-  A class in `services/`, `stores/`, `remotes/` (or `clients/`), `setups/`,
-  `entities/`, `helpers/` or `converters/` without `@Service`, `@Store`,
-  `@HTTPClient`, `@Setup`, `@Entity`, `@Helper` or `@Converter` stops the
-  build with `TY1363`. A class in `server/controllers/` needs `@RequestRoute`,
-  `@SocketRoute`, `@ErrorHandler` or `@IdentityProvider`. Before, a Tac
-  service with only behavior annotations could leave out `@Service`
-  (ADR 0044); it now fails too. Abstract classes, interfaces, protocols and
-  traits are not affected. `ty migrate check` lists each missing marker but
-  does not add it. Move a plain collaborator to `models/`, `shared/` or
-  `shared/utils/` instead of giving it a role it does not have.
+#### Configuration and project layout
 
-- Client JavaScript and TypeScript cannot build component markup or write
-  component styles (`TY1364`). The build refuses `innerHTML`-style writes,
-  `document.write`, `insertAdjacentHTML`, `document.createElement`, inserting
-  nodes (`append`, `appendChild`, `insertBefore`, ...), `element.style`
-  writes and style sheet edits. This covers services, component scripts and
-  every script in `client/shared/`. Put markup in the component's
-  `tac.html` and styles in its `tac.css`; scripts change text, classes and
-  service state.
-
-- A third-party script that needs to build markup must be declared as a
-  vendor: list it in `tac.scripts` and in `tac.scriptSources` with its
-  package, exact version, license and SHA-256, and keep it in `client/shared/`
-  outside the utility folders. A wrong declaration stops the build with
-  `TY1365`, and a file whose bytes do not match the pinned SHA-256 with
-  `TY1403`. Tachyon publishes a declared vendor file unchanged.
-
-- Global stylesheets listed in `tac.styles` must hold foundation CSS only:
-  colors, fonts, custom properties and resets. Layout and animation belong in
-  the component's `tac.css`. A third-party stylesheet is declared in
-  `tac.styleSources` with its package, exact version, license and SHA-256.
-  Other global CSS stops the build with `TY1403`.
-
-- A Rust utility method cannot declare a `static` value. A utility class
-  holds no state, and a function-level `static` was a way around that rule.
-
-- A Tac view writes a conditional only with `<logic :if>`, `<logic :else-if>`
-  and `<logic else>`, and a loop only with `<loop :for="item of items">`. The
-  `<if :when>`, `<else>` and `<for :each>` elements were removed (ADR 0015
-  amendment); the build refuses them with `TY1367`, which names the canonical
-  form. `ty migrate check` reports them, and `ty migrate fix --write` rewrites
-  them (`<for :each="item in items">` becomes `<loop :for="item of items">`).
-  `<switch>` and `<case>` are unchanged.
-
-- Plain `server/shared/` files hold one class and its imports. Move file-level
-  variables into class members and helper functions into methods; Tachyon
-  refuses annotations and extra declarations in shared files.
-
-- A JavaScript or TypeScript Tac service that reads `globalThis` fails with
-  `TY1360`, and one that calls `fetch` itself fails with `TY1361` (ADR 0087).
-  The window controls come from the injected `WindowControls` browser API, and
-  the network from an `HTTPClient` (mark a public read `Cached`). The native
-  host no longer defines `globalThis.tachyonWindow`, and `tachyon-env.d.ts` no
-  longer declares it. Setups and shared scripts may still call `fetch`.
-
-- A Setup is a singleton, like a Spring `@Configuration` (ADR 0022
-  amendment): every behavior runtime (JavaScript, TypeScript, Go, Java,
-  Groovy, Kotlin, Swift, C#, F#, Dart, Ruby, Rust, PHP and Python) runs
-  `configure` once for each Setup, profile set and property set, and every
-  context built from it shares the same adapters until the last of those
-  contexts is disposed. Tac configures a Setup once per page and Yon once per
-  server process; each case of a test unit still starts with a fresh Setup.
-  Before, every client, store or service context ran `configure` again, so
-  two services that used the same client got separate adapters (the list in
-  the signal-driven UI cookbook never saw the form's save). JavaScript and
-  TypeScript services share a Setup that the compiler inlines into each
-  service module, and Ruby browser services share it too. The Go services
-  of a page compile into one Go package, so they share one Setup as well
-  (ADR 0045 amendment). Browser services in Swift, Kotlin, Java, C#, F#,
-  Rust and Dart still get a separate copy of a Setup for each service until
-  the page is lowered as one program (planned); the clients inside one such
-  service already share it. The signal-driven UI cookbook now has
-  JavaScript, TypeScript, Dart, Rust, Go, C#, F#, Kotlin, Swift, Java, Ruby
-  and C++ tabs; in each tab only the form uses the client, and the list
-  hears the save as an event.
-
-- A Store can extend `Repository<Entity, Id>`, like Spring Data's
-  `CrudRepository` (ADR 0022 amendment), and then gets `findById`,
-  `findAll(page)`, `save` and `deleteById` without declaring them, in every
-  Store language; TypeScript and JavaScript type-check them against the
-  `Repository` class in `types/tachyon-behaviors.d.ts`. Derived `deleteBy…`
-  methods remove every matching record and answer the count, through a new
-  `delete` query kind that entity adapters must answer with a number; the
-  managed SQL datasource, FYLO and IndexedDB answer it. The derived name
-  `findById` is now a `findOne` query: it answers one record or null instead
-  of a list. `TY1308` refuses a Repository base on a type that is not a Store
-  and a Repository that names another Entity.
-
-- A Tac service asks for an entity store with `@Needs`, like a Yon service
-  (ADR 0022 amendment), in JavaScript, TypeScript, Dart, Kotlin, Swift, Java,
-  C#, Rust, Go and Ruby; the store still opens the behavior context of its Setup.
-  A JavaScript or TypeScript store is a provider in the service's owner
-  graph: the owner creates its context before the service starts, so the
-  store has no `@Needs behaviors` field and
-  `Behaviors.construct(ProductStore, { behaviors: context })` no longer
-  works. Kotlin, Swift, Java and C# fields get a new store, a Rust service
-  fills its `Arc<Store>` field with `Default`, and a Go service gets its store
-  before it starts. A Ruby `attr_reader` documented with
-  `# @return [ProductStore]` builds the store the first time it runs. F# Tac
-  services cannot ask for a store yet.
-- An F# `TestSetup` declares
-  `static member configure(execution: BehaviorExecution) : BehaviorAdapters`,
-  as a C# one does (ADR 0073); `type CatalogTestSetup() = class end` no
-  longer compiles, because every F# test case now opens a behavior context
-  from its setup. The website, `ty init` and the examples declare it.
-  `# @return [ProductStore]` builds the store the first time it runs. An F#
-  service takes the store as a primary constructor parameter, and Tachyon
-  turns that parameter into a `let` binding that builds the store.
-
-- `@Converter` is a contract with no implementation, like a MapStruct
-  `@Mapper` interface (`TY1308`, ADR 0022 amendment): the same bodiless form
-  as `@Store` and `@HTTPClient` (an `abstract interface class` in Dart). A
-  method body, a field, a constructor, a method without `@Convert` and a class
-  converter in a language with a contract form are refused: "A Converter has
-  no implementation: Tachyon generates each mapping." A JavaScript or
-  TypeScript converter no longer declares `@Needs behaviors`: Tachyon adds it,
-  and the caller still passes its context with `Behaviors.construct`.
-  `ty migrate fix --write` rewrites a class converter.
-- `@AllOrNothing` follows the call, like Spring's propagation REQUIRED
-  (ADR 0022 amendment): a store that a service injects, with its own behavior
-  context, joins the service's open transaction when its entity uses the same
-  entity adapter, so a failed second query rolls back the first. This works in
-  every Yon runtime (JavaScript, TypeScript, Python, Ruby, PHP, Java, Groovy,
-  Kotlin, C#, F#, Dart, Swift, Rust and Go). An `@AllOrNothing` method on a
-  Store is now refused with `TY1308`: put it on the service method that calls
-  the store. A Store or Query command carries `transaction` only when its
-  entity's adapter has the open transaction; before, a command for another
-  adapter of the same context carried it too.
-- The test rule `TY1339` (ADR 0080) is on by default: `ty build` and
-  `ty preview` refuse a test case with no assertion (`Assert`, or an
-  always-on assert of the language) or with a branch or loop (`if`, `for`,
-  `while`, `switch`, `? :` and the like). Existing units that check with
-  `if (...) throw`, `raise ... unless` or a Go `if ... { return errors.New(...) }`
-  now fail; `ty migrate check` lists the cases to rewrite with `Assert` or
-  `ValueSource`. A Go case that returns `error` still runs; only its `if` is
-  refused. `"tests": {"check": false}` in `server/application.json` or
-  `"tac": {"tests": {"check": false}}` in `client/manifest.json` turns the
-  rule off for one realm.
-- `@Store` is a contract with no implementation, like a Spring Data
-  repository interface (`TY1308`, ADR 0022 amendment). It names its Entity and
-  uses the same bodiless form as `@HTTPClient`; each method is a derived query
-  or a `@Query`. A Store without an Entity (the old bare Store), a class store
-  in a language with a contract form, any method body, a field, a constructor
-  and a method that is not a query are refused: move that logic into a
-  service, and SQL through `DataSource` into a service that asks for the
-  `DataSource`. Tachyon builds the store and its behavior context from
-  `{"setup":"…"}` in the Store options (default `<Name>Setup`), and in Yon
-  `@Needs` injects it instead of `new ProductStore(context)`.
-  `ty migrate fix --write` rewrites class stores whose
-  methods are only queries. `Behaviors.construct` in TypeScript accepts the
-  `behaviors` context for a Tac store.
-- `@HTTPClient` is a contract with no implementation, like a Spring
-  `@HttpExchange` interface (`TY1308`, ADR 0048 amendment). Declare it as an
-  `interface` (Java, Groovy, Kotlin, C#, PHP), a Go `interface`, an
-  `abstract interface class` (Dart), a `trait` (Rust), a `protocol` (Swift),
-  a type with only `abstract` members (F#) or a `Protocol` class with `...`
-  bodies (Python); JavaScript, TypeScript and Ruby write a class whose
-  methods have empty bodies. A class client in
-  a language with a contract form, any method body (including the old
-  `{query, headers, body}` descriptor methods), a field, a constructor, a
-  method without a request annotation, and a service that is also an
-  `HTTPClient` are refused. Tachyon builds the client and its behavior
-  context from `{"setup":"…"}` (default `<Name>Setup`); Tac services in Rust,
-  Go, C#, F#, Kotlin, Swift and Dart build their client instead of being one.
-  `ty migrate fix --write` rewrites class clients whose methods only send
-  requests.
-- Every field, method parameter and return value of a class states its type
-  (`TY1356`, ADR 0079), the sixth design rule of ADR 0069, in public and
-  private members of every role folder. Where the syntax has no types, a type
-  comment carries the type: JSDoc `@param {T} name`, `@returns {T}` and
-  `/** @type {T} */` in JavaScript, YARD `# @param name [T]` and
-  `# @return [T]` (also above `attr_reader`) in Ruby. Python, PHP and
-  TypeScript write their native types (TypeScript: no implicit `any`). A
-  JavaScript method without a returned value, a constructor, and a
-  JavaScript or Python field that starts with one literal need no type. The
-  build checks that every name in a Ruby YARD type is a Ruby, project or
-  Tachyon class. A class file may not switch the checker off: `@ts-nocheck`,
-  `@ts-ignore`, `@ts-expect-error`, `# type: ignore`, `# mypy: ignore-errors`
-  and `# pyright: ignore` are refused with the same code (test files may
-  still use `@ts-expect-error`). `ty migrate fix --write` adds the known
-  types (injected fields, `-> None`, `: void`) and lists the rest. The switch
-  is `tac.types.check` / `types.check`; the rule is off by default until the
-  website, fixtures, corpus and `ty init` templates pass it. The website's
-  own services no longer start with `// @ts-nocheck`.
-- The type rule (`TY1356`) also refuses a JavaScript class field that has no
-  starting value, that the constructor or an `@OnStart` method does not set,
-  and that Tachyon does not fill (`@Needs`, `@Setting`, `@Fake`, a class
-  marked `@NeedsAll`, an `@Entity`, or `applicationEventPublisher`). The help
-  shows the fixes. It replaces `tsc`'s `strictPropertyInitialization` check, which the
-  `jsconfig.json` of `ty init` now turns off for realms with JavaScript code,
-  because JavaScript cannot mark an injected field with `!`. A realm that uses
-  only TypeScript keeps the full `strict` check (ADR 0079 amendment).
-
-- Tac views must be accessible (`TY1336`, ADR 0074). The build refuses a
-  picture without `alt` (an empty `alt` needs `role="presentation"` or
-  `aria-hidden="true"`), a button or link without a name, a field without a
-  label, a skipped heading level, a `tabindex` above 0, an unknown or
-  misused `aria-*` attribute, and an `<iframe>` without a title. `ty migrate
-  check` lists every finding; `tac.accessibility.check: false` in
-  `client/manifest.json` turns the rule off while a project migrates.
-- A release build refuses a route that loads more script or WebAssembly than
-  its budget (`TY1337`, ADR 0074): `tac.budgets.script` (default 200 KB) and
-  `tac.budgets.webassembly` (default 3584 KB), counted as the Brotli bytes
-  that Tachyon sends. The error names the five biggest files.
-  `tac.budgets.check: false` turns the check off.
-- A build refuses an API that breaks `server/api-baseline.json` without a new
-  major version of `tac.application.version` (`TY1338`, ADR 0074): a removed
-  route, method, model or field, a narrowed type, a new required value or a
-  changed status. The new `ty api freeze` writes the baseline after a
-  release; a project without one is not checked.
-- A public method or field that nothing outside its class uses is a build
-  error (`TY1333`, ADR 0071), the fifth design rule of ADR 0069. It covers the
-  classes in `services`, `helpers`, `controllers` and `utils` of both realms.
-  A member stays public when a Tac view uses it (`cart.total()`), when another
-  class of the realm calls it, or when Tachyon calls it: an annotation on the
-  member or on one of its parameters, a field without a starting value, a
-  class that a setup hands to Tachyon, `IdentityProvider.identify`, and names
-  such as `hotState` or `toString`. A call from a test does not count. The
-  help shows the private form of the language (`private`, `_name` in
-  JavaScript, Dart and Python, a lowercase Go name, no `pub` in Rust,
-  `private def` in Ruby). `ty migrate fix --write` makes the simple cases
-  private. The rule is on by default; `tac.visibility.check` /
-  `visibility.check` set to `false` turns it off for one realm while it
-  migrates. The website,
-  its examples and the `ty init` templates pass it: examples that had no
-  caller gained a small view or controller, and website tests now check
-  public members only. The `NeedsAll` field reader skips JavaScript `#name`
-  fields.
-
-- Dart browser services now compile to WebAssembly with garbage collection
-  (WasmGC, `dart compile wasm -O2`) instead of JavaScript (ADR 0033
-  amendment). The build publishes `tachyon-dart.wasm` and the SDK's
-  `tachyon-dart-loader.js` beside `tachyon-dart.js`, which every service
-  module still imports. A Dart service needs Chrome or Edge 119, Firefox 120
-  or Safari 18.2 and newer; an older browser gets one clear error, and there
-  is no JavaScript fallback. (Superseded: since MA5 a Dart service also needs
-  `WebAssembly.JSTag`, so Firefox 131 or Safari 18.4.) The Dart SDK must be 3.13 or newer. The bridge
-  keeps the old behavior: whole numbers from JavaScript arrive as `int`, and
-  a Dart exception reaches JavaScript as an `Error` with the Dart message.
-  On the website the program is 77 KB instead of 101 KB (28.8 KB instead of
-  31.0 KB gzip) and starts in 7.7 ms instead of 6.3 ms in Chromium.
-- A field that holds an injected class, a `Needs` field or a `NeedsAll`
-  dependency, must use the language's variable case (ADR 0057 amendment).
-  The build refuses `LedgerStore LedgerStore;`, a Python or Rust
-  `ledgerStore` and a private C# `store` with `TY1332` and names the
-  spelling to write: `ledgerStore` (JavaScript, TypeScript, Java, Kotlin,
-  Swift, Dart, Go), `$ledgerStore` (PHP), `ledger_store` (Python, Ruby,
-  Rust), `_ledgerStore` (a private or internal C# field) or `LedgerStore` (a
-  C# property or public field). Only the case is checked, not the words.
-  `ty migrate fix --write` renames the field, its uses in the class and Tac
-  view bindings. The website's C# examples now write `_service`-style
-  fields, and its Python and Rust `CheckoutService` examples write
-  `application_event_publisher`.
-- A field that Tachyon fills, a `Needs` field or a `NeedsAll` field without
-  an initial value, may no longer be declared nullable (ADR 0057
-  amendment). It is never null when a method runs, so the build refuses
-  `label?: string`, `title: string | null`, `final String? path;`,
-  `val path: String?`, `var label: String?`, `required string? Title`,
-  `?Store $store`, `store: Store | None` and `Option<T>` with `TY1331`, in
-  both realms, and names the non-null form to write (`label!: string`,
-  `late final String path;`, `lateinit var store: Store`, ...). A TypeScript
-  `label?:` field in a `NeedsAll` class is no longer optional state: give a
-  field that may stay empty a starting value. `ty migrate fix --write`
-  rewrites one-line declarations. The website's Dart `PagerService` and
-  `SidebarService` now declare `late final` fields.
-- `@Component` is now `@Helper`, because `client/components/` holds views
-  (ADR 0047 amendment). The role folder `delegates/` is now `helpers/` in
-  both realms, a helper class name ends in `Helper`, and `Gateway` command
-  programs live under `server/helpers/`. The build refuses `Component` with
-  its new name (`TY1308`) and a file under `delegates/` with the `helpers`
-  folder (`TY1310`). `ty migrate fix --write` moves the files, renames the
-  classes, their `Needs` fields and types and the old annotation, and
-  rewrites paths such as `server/delegates/report.rb`. A new guide, "Helpers,
-  utilities and private methods", gives the one question that decides between
-  a helper, a utility, a private method and a service. The website's
-  `NavigationComponent` holds only static methods, so it is now the utility
-  `client/utils/NavigationUtils.dart`.
-- Four design rules are build errors in user projects, in every Tac and Yon
-  language (ADR 0069). Dependencies point down (`TY1327`): a loop of classes
-  that need each other, a class that needs a class of a higher layer
-  (controllers, then services, then helpers, then stores, repositories and
-  clients), or any class that needs a controller stops the build, and the message
-  names the whole loop. Names are plain English (`TY1328`): every word of a
-  class, method, field or parameter name is in the English word list that
-  `ty` ships, a short technical word such as `id` or `json`, or a word of
-  `tac.names.words` / `names.words`; clipped words such as `usr`, `cfg`,
-  `msg` or `err` are refused with the whole word. Signatures are small
-  (`TY1329`): at most 4 parameters per method (request values marked
-  `FromPath`, `FromQuery`, `FromBody`, `FromHeader` or `FromCookie` do not
-  count) and at most 5 needed classes per class. Values have names
-  (`TY1330`): a text or number other than 0, 1 and -1 written twice in a
-  class, or a number in a condition, becomes a class constant. While a
-  project migrates, `tac.<rule>.check` in `client/manifest.json` and
-  `<rule>.check` in `server/application.json` (`dependencies`, `names`,
-  `signatures`, `constants`) set to `false` turn one rule off for one realm;
-  `ty migrate check` lists every place either way.
-- A service that is linked into a native app (Rust, C#, Swift or Kotlin)
-  can no longer name Tachyon's browser APIs or their built-in event models:
-  the build stops with `TY1317`, because such a service has no page. Before,
-  `Clock`, `SecureRandom` and the other APIs failed only when called.
-- No secrets in the source (ADR 0068). A password, token or key in the code,
-  a template or public settings stops the build with `TY1324`: the usual AWS,
-  Google, Azure, GitHub, Stripe and Slack shapes, private keys, JSON Web
-  Tokens, and long random values given to names such as `password`, `secret`,
-  `token` or `apiKey`. Put the value in `.env`. Only a file with the comment
-  `tachyon: example secrets` may keep values that say they are examples.
-- No text runs as code, and queries take parameters (ADR 0068). `eval`,
-  `new Function`, Python `exec`, Ruby `instance_eval` with a text, PHP `eval`,
-  Java/Kotlin script engines and C# scripting stop the build with `TY1325`, as
-  does query text built from pieces (`+`, `${...}`, `f"..."`, `$"..."`,
-  `fmt.Sprintf`, ...) in a `query`, `execute`, `exec` or `prepare` call on a
-  data source. Write the query as one literal or an UPPER_CASE constant and pass
-  the values as parameters.
-- Outgoing requests go only to declared hosts (ADR 0068). List them in
-  `tac.outgoing.hosts` (`client/manifest.json`) and `outgoing.hosts`
-  (`server/application.json`). A request call whose URL names another host, or
-  a host built at run time, stops the build with `TY1326`. At run time the page's
-  `connect-src` allows only the listed hosts, and Yon handler processes send
-  their requests through a local guard that answers 403 to other hosts.
-- Every route says who may call it (ADR 0068). Write `@Public` (anyone),
-  `@SignedIn` (any signed-in user) or `@Allow(Role, ...)` (only these roles)
-  on the controller class or on a route method; the method wins. A route
-  without a rule stops the build with `TY1322`, and nothing turns the check
-  off. Roles are types: an empty class in `server/roles/<Role>.<ext>`. One
-  `@IdentityProvider` class in `server/controllers/` says who is signed in:
-  its method `identify` reads the native request and returns the user and
-  their roles, or no value. The server calls it before every `@SignedIn` or
-  `@Allow` route in any of the eleven Yon languages, answers 401 without an
-  identity and 403 without a role, and never runs the method then. A guarded
-  route without an identity provider, or a second identity provider, stops
-  the build with `TY1323`. `ty migrate fix` writes `@Public` only on the
-  controllers it makes from old file routes, which were open before; it never
-  adds a rule to an existing controller.
-  Every example, fixture, corpus project and `ty init` template now says
-  `@Public`. The guide "Who may call a route" shows it in every Yon language.
-- Every class file in `client/` or `server/` is named after its class, as in
-  Java (ADR 0067). The file name without the extension is the class name with
-  the same spelling and case, in every language: models, test units, test
-  setups, utilities, delegates and error types, as role files already were.
-  `server/models/Order.ts` that declares `Invoice` now fails with `TY1318`.
-  Views and component files, `shared/` code, workers and the root
-  `middleware.<ext>` keep their names. `ty migrate fix --write` renames the
-  file after its class, or renames the class when other files use the file
-  name. The relays example now calls `server/delegates/ReportDelegate.rb`.
-  `tools/cohesion-scan` also counts Rust files that are not named after their
-  type in snake_case; `tools/cohesion-scan/FILE_NAME_BASELINE` (162) keeps
-  the count from growing.
-- A models file in `client/models/` or `server/models/` holds one model, and
-  the file is named after it (ADR 0067). `server/models/Order.ts` with
-  `Order` and `Status`, or `Order.py` with two dataclasses, now fails with
-  `TY1318`, and the message names each model. `ty migrate fix --write` splits
-  such a file into one file per model next to it: each new file keeps the
-  imports and the comments, attributes, decorators or YARD types of its
-  model, gets an import of the other models that it uses in TypeScript, Rust
-  and Dart, and the TypeScript, JavaScript and Dart files that import a moved
-  model import it from its new file. The model readers now name every
-  declaration form: TypeScript generic type aliases and `export default
-  interface`, C# `record class`, Go generic structs with their fields, Rust
-  `type`, Kotlin and Swift `typealias` and Dart `typedef` aliases, and JSDoc
-  `@typedef Name` without a type.
-
-- Tac code in Rust, Go, C#, Dart or Ruby may not call the browser directly
-  (ADR 0065). `ty build`, `ty preview`, `ty serve` and `ty bundle` stop with
-  `TY1317` on Go `syscall/js`; Dart `dart:js_interop`, `dart:js`,
-  `dart:js_util`, `dart:html`, `package:web` and `package:js`; C#
-  `System.Runtime.InteropServices.JavaScript`, `JSImport`, `JSExport` and
-  `JSHost`; Rust `wasm_bindgen`, `web_sys`, `js_sys` and
-  `wasm_import_module`; and Ruby `TachyonWeb` and `JS`. Comments and strings
-  do not count, and Tachyon's own page code is not checked. Put the browser
-  work in a JavaScript or TypeScript service and send the result with an
-  event. The guide "What each service language can use in the browser"
-  lists what each language can use in the page, with the tests that check
-  it (`tac_web::reach_tests`).
-- Duplicated code is refused (ADR 0064). Tachyon runs its own copy-paste
-  detection with SonarQube's rules and sends nothing out: a block of at least
-  100 tokens over at least 10 lines that repeats in the same language and
-  realm, even with other names or values, fails `ty build`, `ty preview`,
-  `ty serve`, `ty bundle` and `ty test` with `TY1315`. Imports, annotation
-  lines, tests, models, entities, generated files and lists of values do not
-  count. The message names both places and tells you to create
-  `client/utils/<Name>Utils.<ext>` or `server/utils/<Name>Utils.<ext>` with a
-  static method. `ty migrate check` lists every duplicate
-  (`duplication.block`). While you migrate, set `tac.duplication.check` in
-  `client/manifest.json` or `duplication.check` in `server/application.json`
-  to `false`.
-- New utility classes in `client/utils/` and `server/utils/`: one
-  `<Topic>Utils` class per file, no annotation, only static methods and no
-  state (`TY1310` for the layout, `TY1316` for a field, a stored value or an
-  instance method). Every program of the realm gets them with no import,
-  `composed.d.ts` declares them, test units can test them, `ty test
-  --coverage` counts their public methods, and their methods follow the
-  cohesion rule (`TY1314`).
-- The repository test now also keeps the number of duplicated blocks in
-  Tachyon's own Rust source at or below
-  `tools/cohesion-scan/DUPLICATION_BASELINE`; `cargo run -p cohesion-scan`
-  lists them next to the cohesion and structure findings.
-- Services and controllers must be cohesive (ADR 0063). In every Tac service
-  (`client/services`), Yon service (`server/services`) and Yon controller
-  (`server/controllers`), a public method only coordinates: it calls injected
-  services and private methods, stores or returns their results, and builds
-  values. It may not hold a branch (`if`, `unless`, `guard`, `switch`,
-  `match`, `when`, `case`, `select`, a ternary), a loop (including an iterator
-  call such as `filter` or `each` whose lambda holds a decision, and a
-  comprehension), a short-circuit operator (`&&`, `||`, `??`, `and`, `or`,
-  Kotlin's and PHP's `?:`) or `try`/`catch`/`except`/`rescue`, also inside a
-  lambda that it writes. A private method holds at most one decision or loop
-  (an `else if` chain and the `&&`/`||` of its condition are one decision), and
-  a private method that decides may not call another private method that
-  decides. The build refuses a break with `TY1314`; the message names the
-  method and the construct and shows the private spelling of the language.
-  `ty migrate check` lists every place (`cohesion.method`). While you
-  migrate, `"tac": {"cohesion": {"check": false}}` in `client/manifest.json`
-  or `"cohesion": {"check": false}` in `server/application.json` turns the
-  check off for one realm.
-
-- A Tac view now refuses braces in a plain attribute, such as
-  `title="{name}"`, `class="card {kind}"` or `hidden="{open ? '' : 'hidden'}"`,
-  with `TY1313` and a span on the attribute. Braces work only in text; before,
-  the build wrote the braces out as literal text with no warning. The error
-  names the fix: `:title="name"`, `:class="'card ' + kind"`, or for a
-  true-or-false attribute `:hidden="condition"` (a false value leaves the
-  attribute out). Literal braces are still allowed: a regular-expression count
-  such as `pattern="[0-9]{3}"`, JSON data, `\{`, and text inside `<style>`.
-  `ty migrate fix --write` turns a whole-value case such as `title="{name}"`
-  into `:title="name"`.
-
-- `YonRequest` and `YonResponse` are removed (ADR 0062). Every Yon language
-  now uses its own request and response types: a Fetch `Request` and
-  `Response` in JavaScript and TypeScript, `urllib.request.Request` and an
-  `(HTTPStatus, headers, body)` tuple in Python, a `Net::HTTP` request and a
-  `[status, headers, body]` array in Ruby, the superglobals with
-  `http_response_code()`, `header()` and `echo` in PHP, `HttpExchange` in Java
-  and Kotlin, `HttpRequestMessage` and `HttpResponseMessage` in C#,
-  `http::Request<Vec<u8>>` and `http::Response<Vec<u8>>` in Rust, shelf
-  `Request` and `Response` in Dart, and `*http.Request` and `*http.Response`
-  in Go. Middleware, `relay(command, request)`, plain handlers, error
-  handlers and the unmarked route parameter all receive the native request;
-  answering nothing from middleware lets the request pass. The build refuses
-  `YonRequest`, `YonResponse`, `YonJSON` and `YonEmpty` with TY2015 and names
-  the native type. `ty migrate fix --write` removes an unused `YonRequest`
-  parameter and lists the other uses. JavaScript `{ status, headers, body }`
-  objects and Python and Ruby dictionaries with those keys are models now.
-  Rust handlers build with Cargo and the `http` crate (readiness probes
-  `cargo`); Dart handlers fetch `shelf`. A PHP method takes no request
-  parameter. Relay programs no longer receive path parameters, and the
-  handler protocol frame carries the new optional `target` and the header
-  `x-tachyon-request-id`.
-- PHP Yon code now runs with `php-cgi` instead of `php`, so `header()`,
-  `header_remove()` and `headers_list()` are PHP's own functions (ADR 0062).
-  Routes, middleware, relays, error handlers, sockets, topic events and test
-  units all start `php-cgi`. Install it before you upgrade: Homebrew's `php`
-  includes it, Debian and Ubuntu have the `php-cgi` package, and the Windows
-  PHP zip file has `php-cgi.exe`. Readiness and `ty doctor` look for
-  `php-cgi` and explain how to install it.
-
-- Tac service fields keep their values through `@SessionState`
-  (sessionStorage, the old `$name`) and `@LocalState` (localStorage, the old
-  `$$name`) instead of name prefixes (ADR 0059). A `$` or `$$` field in a
-  JavaScript, TypeScript or Dart Tac service is refused with the marker to
-  write; `ty migrate fix --write` converts the fields, their uses in the
-  class and the view expressions. A value saved under the old key moves to
-  the new key once.
-- `@StreamRoute(path?)` replaces `@GetRoute` with `@Stream` on Yon controller
-  methods (ADR 0058): one marker means a GET route that answers with
-  server-sent events, and the method name starts with `stream`
-  (`streamTicks`, `StreamTicks`, `stream_ticks`). `@Stream` is retired, and a
-  generator under `@GetRoute` or another verb route is refused with a hint.
-  `ty migrate fix --write` converts `@GetRoute` with `@Stream` and renames a
-  `get` method when that is safe. A finished stream now ends with
-  `event: end`, and `/api.json` marks the route with
-  `"produces": "text/event-stream"`.
-
-- A Tac `@NeedsAll` service now requires every field without an initial value
-  (Lombok `@RequiredArgsConstructor` rules, ADR 0057); fields with an initial
-  value are plain state. Collaborators are injected; every other required
-  field must come from the component's props. The build refuses a component
-  usage that does not pass one (`TY1407`: "DrawerService needs `open`; pass
-  :open="..." to <docs-sidebar> (from <docs-layout>)"), including a forwarded
-  `:open="open"` that the layout never receives, and the browser runtime
-  refuses a missing or `null` value before it creates the service. In Rust a
-  struct with `Default` has no required fields, in Go only a field marked
-  `// @Required` is required; in Ruby
-  every `attr_*` of a NeedsAll class is required. A JavaScript or TypeScript
-  service that uses managed clients now reads a field that names no client from
-  the props instead of refusing it.
-- Yon `@NeedsAll` follows the same rule (ADR 0057). Only fields without an
-  initial value are injected; a required field with no provider stops the
-  build with the class, the field and the type. Ruby Yon classes can use
-  `#[NeedsAll]` with `attr_reader` fields. Compiled Tac services (Dart, Rust,
-  C#, Go, Swift, Kotlin, Ruby) receive only their required props, so a prop no
-  longer fills an initialized field. A Rust NeedsAll struct without `Default`
-  needs no constructor, a C# `required` member is a prop field, C# prop
-  names are lowerCamel (`Docs` is `docs`), and a Go field is a prop field
-  only when it is marked `// @Required`.
-- Every Python marker on a field or a parameter now goes inside the type with
-  `typing.Annotated` (ADR 0056), so the file stays valid Python:
-  `repo: Annotated[OrderStore, needs]`, `count: Annotated[int, min(1), max(100)] = 1`,
-  `port: Annotated[int, setting("${yon.server.port:8080}")] = 0`,
-  `query: Annotated[OrderQuery, check]`, `key: Annotated[str, cache_key]`.
-  The first argument is the declared type. The old `@not_empty` line above a
-  field and the `@check input` parameter form are refused with a message that
-  shows the new form; `ty migrate fix --write` converts them and adds
-  `from typing import Annotated`. Class and method markers stay decorators.
-  Website snippet verification now runs `python3 -m py_compile` over every
-  Python file in `website/content`.
-- `NeedsAll` takes no arguments (ADR 0056): every declared field can be
-  filled, like Lombok's `@RequiredArgsConstructor`. `@NeedsAll("a", "b")` and
-  every other field list is refused; `ty migrate fix --write` removes the list.
-  A class with `NeedsAll` may not declare a constructor (`constructor`,
-  `__init__`, `__construct`, `initialize`, `init`, `fn new`, or a Java,
-  Kotlin, C# or Dart constructor): NeedsAll builds the class. Ruby services set
-  their starting values in an `#[OnStart]` method instead of `initialize`.
-- Python route and client parameter markers go inside the parameter's type, so
-  a controller or client file is valid Python (ADR 0048, amended):
-  `order: Annotated[Order, from_body]`, `id: Annotated[int, from_path]`,
-  `trace: Annotated[str, from_header("X-Trace")]`, and on a client
-  `id: Annotated[str, path_variable]`. Add `from typing import Annotated`
-  (now an allowed import). The first `Annotated` argument is the type that
-  validation uses. The old form `@from_body order: Order` is refused with a
-  message that shows the new form; `ty migrate fix --write` converts it.
-- Every annotation checks the class, method, field or parameter it is written
-  on (ADR 0056). One rule table in `annotation_rules.rs` is used by every
-  language in Tac and Yon, and each message names the annotation, where it
-  belongs, what it means, and its file and line. These mistakes were accepted
-  before and are now refused:
-  - an annotation on the wrong kind of member, for example `@Cached` or
-    `@OnEvent` on a field, `@Service` on a method, `@Required` on a method, or
-    `@FromBody` on a class;
-  - a marker that takes no arguments written with arguments, or a marker that
-    needs arguments written without them (`@Lifetime`, `@Order`, `@Table`);
-  - a route, listener or cache method that is `static` (`@GetRoute`,
-    `@OnEvent`, `@Cached`, `@Retry`, and the others that need an instance);
-  - the same annotation twice on one member, two HTTP methods on one method
-    (`@GetRoute` with `@PostRoute`, or a route with a request), two
-    parameter sources on one parameter, `@FromBody` or `@RequestBody` on two
-    parameters of one method, `@OnStart` with `@OnStop`, and `@Cached` with
-    `@ClearCache` or `@UpdateCache`;
-  - `@Order` or `@InBackground` without `@OnEvent`, `@Named` without
-    `@Needs`, `@ResponseStatus` without a route or `@HandlesError`, and
-    `@Stream` without a route;
-  - `@Fake`, `@UseProfiles`, `@TestSettings` or `@FreshStart` outside a
-    `@Test` or `@TestSetup` class, `@Convert` outside a `@Converter`,
-    `@Query` outside a `@Store`, `@Table` or `@Id` outside an `@Entity`,
-    route markers outside a `@RequestRoute` controller, and request markers
-    outside an `@HTTPClient`;
-  - a Yon-only annotation (routes, `@Stream`, `@Gateway`, `@Schedule`, error
-    handlers) in Tac code, and an annotation in a language it does not reach
-    (for example `@InBackground` in Yon outside JavaScript, TypeScript and
-    Python).
-  In TypeScript and JavaScript, `tsc` now also refuses an annotation on the
-  wrong member, `@Convert` and `@Query` on a method that does not return a
-  Promise, `@WhenProfile()` without a profile, and `@NeedsAll({value})`.
-
-- Annotation arguments use types (ADR 0055). `@Test(CatalogTestSetup)` and
-  `@Store(Product, {...})` take the class itself (`X.class` in Java,
-  `X::class` in Kotlin and PHP, `typeof(X)` in C#). `Entity` takes only the
-  adapter; the field marked `@Id` is the identifier. `Settings` takes only the
-  prefix: the class's fields are the settings, with their declared types,
-  initial values as defaults, and `@Min`/`@Max` on the field (Rust and Go put
-  defaults in `"defaults"`). `@Check`, `@PageDefaults` and the new `@CacheKey`
-  sit on the parameter; `@Cached` takes no arguments; `@ClearCache` and
-  `@UpdateCache` match parameters by name; a Store query's page parameter is
-  marked with `@PageDefaults`; Convert reads its one parameter. The old
-  string, index and descriptor forms are refused with the new form in the
-  message, and `ty migrate fix --write` converts them where it safely can.
-- Application events are models (ADR 0055, "Typed events"). `@OnEvent` listens
-  for the model type of its one parameter (a JSDoc `@param` type in
-  JavaScript) and takes only `condition`, `id` and `replay`; the `event` and
-  `events` keys are refused. `publishEvent(model)` and
-  `publishEvent(model, retain)` publish a model value, and the name of its
-  type is the event name, so same-named models interoperate across
-  languages. JavaScript and TypeScript get the name at compile time from the
-  declared type of the value, so minified browser code is safe. Every runtime
-  checks the payload against the listener's model with the request-body
-  rules before delivery. A listener whose return type is a model publishes
-  the value it returns; `{event, value}` records are no longer read. The
-  browser event runtime grew to 11,104 bytes. `ty migrate fix --write`
-  converts listeners and JavaScript/TypeScript calls whose event name matches
-  a model and lists the rest as manual steps. Ruby listeners name their
-  model in a YARD tag (`# @param order [OrderPlaced]`) and Ruby services
-  publish `publish_event(model)`, in Yon and in Tac; the fix converts a Ruby
-  listener that already has that tag.
-
-- Go annotations use standalone comments such as `// @Service` and
-  `// @GetRoute("/items")` (ADR 0050). The comments are valid Go syntax and
-  keep their spelling under `gofmt`; published examples leave out the
-  `package` line, so add one before running `gofmt` on a copied example. The
-  former `#[Name]` spelling is refused with a migration hint.
-  `ty migrate fix --write` converts Go markers, including comma-grouped and
-  multi-line ones, without changing PHP or Rust attributes. A comment marker
-  close to a Tachyon name (`// @GetRote`) is refused with a suggestion; other
-  `// @Word` comments, such as swaggo/swag's `// @Summary`, stay ordinary
-  comments. `//@Name` spacing, text after a marker and arguments that span
-  lines are refused on their own line.
 - `client/manifest.json` is the whole Tac configuration (ADR 0052).
-  `tac.config.js`/`.mjs`/`.ts` and `tachyon.json` are removed and stop the
-  build with a message that says where each value moved. The native
-  application name, entry route and icons come from the manifest's `name`,
-  `start_url` and `icons`; the bundle id, version and window move to
-  `tac.application` (the manifest member `tachyon` is refused). Scripts,
-  styles and service-worker cache rules move to `tac.scripts`, `tac.styles`
-  and `tac.cache`; page metadata moves to `tac.metadata` (`defaults` and
-  `routes`). The `postBundle` hook is removed: with `tac.origin` set, the
-  build writes `sitemap.xml` and `robots.txt` itself, and `tac.sitemap` lists
-  the values of dynamic page routes from a data file. `ty init` writes no
-  `tac.config.js`. Everything in the manifest is public; never put a secret
-  there.
-- Topic logs are saved data and moved out of the generated `.tachyon`
-  folder (ADR 0061 amendment). They live in `data/topics/<name>.jsonl`, or
-  in the folder that `topics.directory` in `server/application.json` names:
-  a plain path inside the project or an absolute path with no symbolic link.
-  A path with `..`, a path inside `.tachyon`, or a folder that a symbolic
-  link leads out of the project stops the server with `TY1303`. On start,
-  the server moves old logs from `.tachyon/topics` once, when the new folder
-  has none, and prints a notice; `ty migrate check` reports old logs that
-  are still there. Code that wrote `.tachyon/topics` by hand writes to the
-  new folder. The stream URL `/.tachyon/topics/<name>` does not change.
-  `.tachyon` and `dist/.tachyon` now hold only generated files and are safe
-  to delete; the guides list what is in them.
+  `tac.config.js`, `tac.config.mjs`, `tac.config.ts` and `tachyon.json` stop
+  the build, and the message says where each value moved. The application
+  name, entry route and icons come from the manifest's `name`, `start_url`
+  and `icons`. The bundle id, version and window go to `tac.application`.
+  Scripts, styles and cache rules go to `tac.scripts`, `tac.styles` and
+  `tac.cache`, and page metadata to `tac.metadata`. The `postBundle` hook is
+  removed: with `tac.origin` set, the build writes `sitemap.xml` and
+  `robots.txt`, and `tac.sitemap` lists dynamic route values. Everything in
+  the manifest ships to the client, so keep secrets out of it. Affects every
+  Tac project. Migrate: `ty migrate fix --write` moves the plain values, then
+  follow its manual steps (hooks and computed values) and delete the old
+  files.
+- Topic logs moved from `.tachyon/topics` to `data/topics/<name>.jsonl`, or
+  to the folder that `topics.directory` in `server/application.json` names
+  (ADR 0061 amendment). On start, the server moves old logs once, when the
+  new folder is empty, and prints a notice. A path with `..`, a path inside
+  `.tachyon`, or a symbolic link out of the project stops the server with
+  `TY1303`. The stream URL `/.tachyon/topics/<name>` does not change.
+  Affects projects that publish topic events, and scripts that read or wrote
+  `.tachyon/topics` by hand. Migrate: nothing to do for the move itself;
+  update such scripts. `ty migrate check` reports logs left in the old
+  folder.
+- The project-root `.env` holds only uppercase `YON_` secret names. It can
+  no longer set framework transport, profile, endpoint, runtime or
+  isolation names, such as the `YON_PORT`, `YON_HOST`, `YON_HOSTNAME` and
+  `YON_SKIP_BUNDLE` in the 26.36.01 scaffold's `.env.example`; other names,
+  such as `DATABASE_URL`, are refused too. `ty start` stops with `TY2010`.
+  Affects projects that copied `.env.example` or keep other names in
+  `.env`. Migrate: `ty migrate check` reports each refused name with its
+  replacement (`environment.env_name`). `ty migrate fix --write` comments
+  out the reserved names in `.env.example` and renames the others to `YON_`
+  names; it never edits `.env`, so rename those names by hand and keep the
+  values. Set the host and port in `server/application.json`
+  (`server.host`, `server.port`) or on the command line.
+
+#### Yon routes and server code
+
+- `server/routes/` is no longer read (ADR 0048). A route is a controller in
+  `server/controllers/<Name>Controller.<ext>`, marked `@RequestRoute(path)`,
+  with an instance method per verb marked `@GetRoute`, `@PostRoute`,
+  `@PutRoute`, `@PatchRoute` or `@DeleteRoute`. `@Controller` is refused
+  with `TY1308` and names `@RequestRoute`. The server answers `HEAD` with
+  the `GET` route and `OPTIONS` with the route schema. Affects every Yon
+  project. Migrate: `ty migrate fix --write` turns each route file into a
+  controller (and writes `@Public` on it, see the build rules below); it
+  lists files it cannot convert, such as a file with no verb method or
+  static methods that use `this`. It converts a `@Controller` class with
+  static verb methods, such as the route that the 26.36.01 `ty init` wrote.
+- `OPTIONS.schema.json` is no longer read. Request validation and the
+  published API schema (`/api.json`, `/api-docs`) come from the controller's
+  parameter markers (`@FromBody`, `@FromPath`, `@FromQuery`, ...) and model
+  types. A broken `@Checked` rule answers `422` with an
+  `application/problem+json` body (ADR 0101). Affects routes with a schema
+  file. Migrate: manual. `ty migrate fix` lists each schema file; write the
+  same rules on the model types, then delete the file.
+- `YonRequest` and `YonResponse` are removed (ADR 0062). Each language uses
+  its own types: Fetch `Request`/`Response` in JavaScript and TypeScript,
+  `urllib.request.Request` and an `(HTTPStatus, headers, body)` tuple in
+  Python, the superglobals with `http_response_code()`, `header()` and
+  `echo` in PHP, `HttpExchange` in Java and Kotlin, `HttpRequestMessage` and
+  `HttpResponseMessage` in C#, and `http::Request<Vec<u8>>` and
+  `http::Response<Vec<u8>>` in Rust. Middleware, `relay(command, request)`,
+  handlers and error handlers all receive the native request. A PHP method
+  takes no request parameter, and relay programs no longer receive path
+  parameters. The build refuses the old types with `TY2015`. Affects
+  handlers that named these types. Migrate: `ty migrate fix --write` removes
+  an unused `YonRequest` parameter and lists every other use.
+- PHP Yon code runs with `php-cgi` instead of `php` (ADR 0062), so
+  `header()`, `header_remove()` and `headers_list()` are PHP's own
+  functions. Affects every project with PHP routes, middleware or workers.
+  Migrate: install `php-cgi` before you upgrade (Homebrew `php` includes it;
+  Debian and Ubuntu: the `php-cgi` package; Windows: `php-cgi.exe` in the PHP
+  zip). `ty doctor` checks for it.
+- Yon keeps handler processes warm by default (ADR 0111). `YON_ISOLATION`
+  takes `warm` (new default), `process` (the 26.36.01 behavior: one process
+  per request) or `firecracker`. A warm process serves many requests of one
+  handler, one at a time, so module-level state (a static counter, a
+  module-level map) now survives between requests. `YON_WARM_MAX_REQUESTS`
+  and `YON_WARM_IDLE_SECONDS` tune it; setting them with `process` or
+  `firecracker` fails with `TY2010`. Affects handlers that relied on a fresh
+  process per request. Migrate: no fix. Reset that state in the handler, or
+  set `YON_ISOLATION=process`.
+- `@Repository` is now `@Store`, and `@Client` is now `@HTTPClient`
+  (ADR 0047). The folders follow: `server/repositories/` is
+  `server/stores/`, and `server/remotes/` is the outbound folder
+  (`server/clients/` is still accepted). The old names fail with `TY1308`
+  and the old folder with `TY1310`. Migrate: `ty migrate fix --write`
+  renames the markers, moves the files and renames the moved types.
+- `@Store` and `@HTTPClient` are contracts with no implementation (ADR 0022
+  and ADR 0048 amendments). A Store names its Entity and declares only
+  derived queries or `@Query` methods. An HTTPClient is an interface (or the
+  language's contract form) whose methods carry request markers. A method
+  body, a field or a constructor is refused with `TY1308`. Affects every
+  26.36.01 repository or client class with code in it. Migrate: move the
+  logic into a service, and SQL into a service that asks for `DataSource`.
+  `ty migrate fix --write` rewrites only stores whose methods are all
+  queries and clients whose methods only send requests; it lists the rest.
+- `@Relay` and `@Stream` are removed. Call `relay(command, request)` in a
+  method instead of marking it `@Relay`; the build refuses the marker. A
+  streaming route is one method marked `@StreamRoute(path?)` whose name
+  starts with `stream` (`streamTicks`, `stream_ticks`); a generator under
+  another route marker is refused. A finished stream now ends with
+  `event: end`. Affects relay delegates and streaming routes. Migrate:
+  `@Relay` is manual. `ty migrate fix --write` converts `@GetRoute` with
+  `@Stream` to `@StreamRoute` and renames the method when that is safe; run
+  it again after the route conversion above.
+- Root middleware is a class named `Middleware` with `before(request)` and
+  `after(request)` (ADR 0044). A missing method lets that phase pass. Any
+  other declaration in the file fails with `TY1310`. Affects every project
+  with a `middleware.<ext>`. Migrate: `ty migrate fix --write` converts a
+  `Handler` class whose HTTP method functions hold the same code; other
+  shapes are listed as manual steps.
+- An annotated file, plain handler, worker or middleware holds one class and
+  its imports (ADR 0044, `TY1310`), and every class file is named after its
+  class with the same case (ADR 0067, `TY1318`). Helper functions or extra
+  types in these files stop the build. Migrate: `ty migrate fix --write`
+  renames a file after its class (or the class after its file); it lists
+  each file that needs a split.
+- A `relay(command, request)` program now gets only the baseline
+  environment, the explicit allowlist, `YON_HANDLER_PROTOCOL` and its
+  handler's `NO_PROXY` values. It no longer receives
+  `YON_APPLICATION_JSON` or any `YON_RESOURCE_*` value, even when
+  allowlisted. Affects relay programs that read them. Migrate: manual;
+  read configuration from the program's own files or an explicitly
+  allowlisted variable.
+- The operating system now confines handler network access (ADR 0113).
+  While the outgoing guard runs (`ty serve`, `ty start`, `ty preview`),
+  every handler process, relay and Gateway command can connect only to
+  its server's outgoing guard and resource door on loopback. macOS uses a
+  Seatbelt profile (`sandbox-exec`); Linux 6.7 or newer uses Landlock and
+  seccomp. Raw sockets, UDP, DNS, ICMP, non-HTTP clients, Unix sockets to
+  local daemons and hosts not in `outgoing.hosts` are refused. `ty start`
+  stops with `TY2113` where this can't apply (Windows, Linux older than
+  6.7 or without Landlock, gVisor, no working `sandbox-exec`); `ty serve`
+  and `ty preview` start with a `handler.egress_unenforced` warning.
+  Affects every handler that makes network calls. Migrate: manual. List
+  every host the handlers call in `outgoing.hosts`, and use managed storage
+  instead of direct database drivers. Where the platform already
+  enforces egress, or on Windows and older Linux kernels, set
+  `YON_EGRESS_ENFORCEMENT=proxy` (the default is `os`).
+- A server `@Topic` model must say who may read its stream: `@Public`,
+  `@SignedIn` or `@Allow(Role)`, in its language's spelling (ADR 0061
+  amendment). A model without one stops the build with `TY1322`, a marker
+  on a `client/` topic model is `TY1308`, and languages that declare the
+  same topic must write the same rule. Affects projects with topic models.
+  Migrate: manual; `ty serve` or `ty bundle` lists each model with its file
+  and line. Add `@Public` to keep the 26.36.01 behaviour (anyone may read
+  the stream), or `@SignedIn` or `@Allow(Role)` to guard it. See
+  `docs/topics` for each language's spelling. The default 26.36.01 scaffold
+  has no topics.
+- A handler or middleware call that runs past its deadline (`TY2110`)
+  answers `504 Gateway Timeout`, and one cancelled because the server is
+  stopping (`TY2111`) answers `503 Service Unavailable` with
+  `Retry-After: 1`. Both answered `500` in 26.36.01; other failures still
+  answer `500`. Affects clients and monitors that expect `500`. Migrate:
+  manual; treat `504` and `503` as retryable.
+
+#### Tac pages, components and services
+
+- A page directory holds only `tac.html`, and that file holds only component
+  tags, whitespace and comments (ADR 0029). Markup, page state, companions
+  and stylesheets next to a page fail with `TY1309`, which names the
+  component to move them into. Affects every page with its own markup.
+  Migrate: `ty migrate check` reports page companions and page markup
+  (`view.page_markup`). `ty migrate fix --write` moves the markup to
+  `client/components/page/<name>/` and places `<page-<name> />` in the
+  page. In a one-page app it also moves the page's `tac.css` foundation
+  rules to `client/shared/styles/` and its `tac.js` to
+  `client/shared/scripts/`, listed in `tac.styles` and `tac.scripts`. Other
+  cases are manual: move the view to a component and place it in the page.
+- Page and component companions (`tac.js`, `tac.ts`, `tac.swift`, `tac.kt`,
+  `tac.cs`, `tac.rs`) are no longer discovered (ADR 0030). A component holds
+  `tac.html` and optionally `tac.css`; a companion next to it fails with
+  `TY1310`. Behavior is a `@Service` class in
+  `client/services/<Name>Service.<ext>`, and a view reaches it by its
+  instance name (`{basket.count}`, `on:click="basket.add()"`). A Rust service
+  shows the page only its `pub` methods (`TY1311`). Migrate: manual.
+  `ty migrate check` lists `companion.component`, `companion.controller` and
+  `companion.polyglot` with the target file.
+- The `this.tac` object and the `@onMount`, `@publish` and `@subscribe`
+  decorators are removed. The build refuses the decorators. Use `@OnStart`
+  for start-up work, an `@HTTPClient` for requests (mark a public read
+  `@Cached`), and application events (`publishEvent(model)` and `@OnEvent`)
+  instead of `this.tac.publish` and `this.tac.subscribe`. Migrate: manual,
+  together with the companion move.
+- `$name` and `$$name` fields are now `@SessionState` and `@LocalState`
+  fields (ADR 0059). A `$` or `$$` field is refused with the marker to write.
+  A value saved under the old key moves to the new key once. Migrate:
+  `ty migrate fix --write` converts the fields, their uses and the view
+  expressions.
+- Native hosts no longer define `globalThis.tachyonWindow`, and
+  `tachyon-env.d.ts` no longer declares it (ADR 0087). Window controls come
+  from the injected `WindowControls` browser API. A JavaScript or TypeScript
+  service that reads `globalThis` fails with `TY1360`, and one that calls
+  `fetch` fails with `TY1361`; use an `@HTTPClient`. Setups and shared
+  scripts may still call `fetch`. Migrate: manual.
+- `<if :when>`, `<else>` and `<for :each>` are removed (ADR 0015 amendment).
+  Write `<logic :if>`, `<logic :else-if>`, `<logic else>` and
+  `<loop :for="item of items">`. The build refuses the old tags with
+  `TY1367`. `<switch>` and `<case>` do not change. Migrate:
+  `ty migrate fix --write` rewrites them (`item in items` becomes
+  `item of items`).
+- Braces in a plain attribute, such as `class="status-{state}"`, stop the
+  build with `TY1313`; before, the braces were written out as text. Braces
+  work only in text. Write a bound attribute: `:title="name"`,
+  `:class="'status-' + state"`, or `:hidden="condition"`. Regular-expression
+  counts, JSON data, `\{` and `<style>` text are still allowed. Migrate:
+  `ty migrate fix --write` converts whole-value cases such as
+  `title="{name}"`; the rest are manual.
+- Client scripts cannot build markup or write styles (`TY1364`): no
+  `innerHTML`-style writes, `document.write`, `insertAdjacentHTML`,
+  `document.createElement`, node insertion, `element.style` writes or style
+  sheet edits, in services, component scripts and `client/shared/`.
+  Global stylesheets in `tac.styles` hold foundation CSS only (colors,
+  fonts, custom properties, resets; `TY1403`). A third-party script or
+  stylesheet that needs an exception is declared in `tac.scriptSources` or
+  `tac.styleSources` with package, exact version, license and SHA-256
+  (`TY1365`, and `TY1403` on a hash mismatch). Migrate: manual. Move markup
+  to `tac.html` and layout to the component's `tac.css`.
+- A Tac view that contains a doctype, `<html>`, `<head>` or `<body>` fails
+  the build with `TY1307`; 26.36.01 accepted it. Tachyon writes the
+  document around every view. Migrate: manual; remove these tags and put
+  page metadata in `client/manifest.json` under `tac.metadata`. The same
+  tags written as text in `<pre>` or `<code>` still work.
+
+#### Native apps
+
+- Windows release builds no longer open WebView2 DevTools (F12, Inspect).
+  Use a debug build to inspect the page.
+- A native page can no longer post a form to, or load, a remote page in its
+  main frame. Android refuses such loads. Migrate: open remote pages
+  externally (links already open in the system browser).
+
+#### New build-refusing rules
+
+- Code that built with 26.36.01 can now fail these checks. `ty migrate check`
+  lists every finding. Most rules have a switch, `tac.<rule>.check: false`
+  in `client/manifest.json` or `<rule>.check: false` in
+  `server/application.json`, for use only while you migrate. There is no
+  automatic fix unless noted.
+  - Cohesion (ADR 0063, `TY1314`, switch `cohesion`): a public service or
+    controller method only coordinates (no branch, loop, `&&`/`||`/`??` or
+    `try`); a private method holds at most one decision.
+  - Duplication (ADR 0064, `TY1315`, switch `duplication`): a block of 100
+    tokens over 10 lines repeated in one language and realm.
+  - Safety (ADR 0068): secrets in source (`TY1324`; move them to `.env`),
+    `eval`-style code and query text built from pieces (`TY1325`), requests
+    to hosts not listed in `tac.outgoing.hosts` or `outgoing.hosts`
+    (`TY1326`), a route without `@Public`, `@SignedIn` or `@Allow(...)`
+    (`TY1322`, no switch), and a guarded route without exactly one
+    `@IdentityProvider` (`TY1323`). `ty migrate fix --write` writes
+    `@Public` on the controllers it makes from old route files, which were
+    open before; it never adds a rule to another controller.
+  - Design (ADR 0069): dependencies point down with no loops (`TY1327`,
+    `dependencies`), plain English names (`TY1328`, `names`; add domain words
+    to `names.words`), at most 4 parameters and 5 needed classes (`TY1329`,
+    `signatures`), and named constants for repeated values (`TY1330`,
+    `constants`).
+  - Visibility (ADR 0071, `TY1333`, switch `visibility`): a public member
+    that nothing outside its class uses. `ty migrate fix --write` makes the
+    simple cases private.
+  - Front end (ADR 0074): accessible views (`TY1336`, switch
+    `accessibility`), and in release builds a per-route budget of 200 KB of
+    script and 3584 KB of WebAssembly, Brotli-compressed (`TY1337`,
+    `tac.budgets.*`, switch `tac.budgets.check`).
+  - Role folders (ADR 0091): every concrete class in a role folder carries
+    its role marker (`TY1363`; move plain collaborators to `models/` or
+    `shared/`), and a JavaScript, TypeScript or Dart file may not import a
+    file of the other realm (`TY1369`; call the server through an
+    `@HTTPClient`).
 
 ### Added
 
-- Topics in Lua and in Python Tac (ADR 0085, ADR 0093). A Yon Lua route
-  publishes a model marked `-- @Topic` with
-  `self.application_event_publisher:publish_event(record)`, and a Yon Lua
-  `-- @OnEvent` method hears the topic from every other Yon language. Lua has
-  no sockets, so the handler hands its publications to the server in its
-  answer; the server writes them to the topic log before the response goes
-  out, and logs a refused one as `handler.topic_failed`. A Tac Lua or Tac
-  Python listener for a Topic model opens `/.tachyon/topics/<name>` by
-  itself. The `TY1308` refusal of these topics is gone.
-- Python Tac services take synchronous `@on_event` listeners (with `id`,
-  `condition`, `replay`, `@order` and `@InBackground`) and an
-  `application_event_publisher: ApplicationEventPublisher` field, so they
-  share the page event bus with the other Tac languages. `async def`
-  methods, streams and browser API resources still stop the build with
-  `TY1605`.
-- Go Yon apps keep their own native Go packages in `server/packages/`, one Go
-  module named by `server/packages/go.mod`. Controllers and services import
-  those packages by module path; Tachyon stages the module next to every Go
-  handler build (offline, with a `replace`) and does not treat its code as
-  roles, so no role marker, class-file, cohesion, duplicate or design rule
-  applies there. A missing or wrong `go.mod`, a `require`, a second `go.mod`,
-  an annotation or another language's source file fails with `TY1310`. The
-  `TY1363` help for Go and the Go model package help point to the folder
-  (ADR 0095).
+**Tac**
 
-- The native Go module in `server/packages/` may require third-party modules,
-  vendored only: commit `go.sum` and the `vendor/` folder that `go mod vendor`
-  writes. Tachyon builds the handler program inside that module (in the
-  reserved `yonhandler/` folder) with `GOFLAGS=-mod=vendor` and
-  `GOPROXY=off`, so it never downloads a module. A missing `go.sum` or
-  `vendor/modules.txt`, a stale vendor folder or an import that `vendor/`
-  does not hold fails with the new `TY1368`, which tells the author to run
-  `go mod vendor`. The project rules and the secret and code safety checks
-  skip `vendor/`; every vendored file, `go.sum` and `vendor/modules.txt` is
-  part of the handler build key. Native files are staged as bytes, so they no
-  longer need to be UTF-8 (ADR 0095 amendment).
-
-- `--host`, `--hostname` and `server.host` accept `localhost` names such as
-  `shop.localhost`. Tachyon binds `127.0.0.1` without asking the resolver and
-  prints `http://shop.localhost:PORT/`. The outgoing guard connects a listed
-  localhost name to `[::1]` and then `127.0.0.1`, on every operating system.
-  A Chromium, Firefox and WebKit gate checks the secure context, per-name
-  cookies and the `403` answer (ADR 0094).
-- Python is a Tac service language (ADR 0093). A `client/services/*.py`
-  class marked `@service` runs in the browser on a pinned Pyodide runtime.
-  The project selects it with `"python": {"runtime": "pyodide-314.0.7",
-  "profile": "offline"}` under `tac` in `client/manifest.json`. You supply the
-  five pinned runtime files in the Tachyon cache; `ty` checks their sizes and
-  SHA-256, never downloads them, and `ty doctor` shows whether they are ready.
-  Services are synchronous: fields, methods, typed models, `Needs`,
-  `NeedsAll`, `Named`, Python Helpers, `@on_start` and `@on_stop` work. `async def` methods, events, resources and streams stop the build
-  with `TY1605`. Python Tac test units run with `ty test`.
-
-- macOS native apps have the standard menus: the app menu (About, Hide,
-  Hide Others, Show All, Quit), Edit, View and Window, with the usual
-  shortcuts. `tac.application.menus` in `client/manifest.json` adds items to
-  the File, View and Help menus. Each item has an `id`, a `label`, a `route`
-  that must be a static page of the app, and an optional `shortcut`; there
-  are at most 64 items. Other native targets refuse declared menus.
-
-- Native services can pick a file with the injected `FilePicker`
-  (ADR 0089). Grant it with `"nativeCapabilities": ["filePicker"]` under `tac`
-  in `client/manifest.json`. `open` lets the user pick one file,
-  `readText` reads up to 64 KiB of UTF-8 text, and `release` ends access.
-  A missing grant answers `denied` before any panel opens. The picker works
-  on macOS for JavaScript, TypeScript, Swift and Rust services. A browser tab
-  and the other native targets answer `unsupported`; C# and Kotlin services
-  get the same typed `unsupported` answer.
-
-- A Rust service in a native macOS build can have
-  `#[Lifetime({"value":"application"})]`. One instance lives as long as
-  the app and survives page navigation; page services get it through
-  `Arc<...>` injection. Such a service cannot take page properties or
-  page-owned providers (`ApplicationEventPublisher`, `FilePicker`,
-  `WindowControls`). Other languages and targets refuse this lifetime.
-
-- Linux native apps run `WindowControls` on the GTK window for the controls
-  that `tac.application.window.controls` grants.
-
-- Rust role files, utilities, models, error types and test units may use
-  snake_case file names, as Rust code usually does (ADR 0067 amendment):
-  `http_reader_service.rs` holds `HTTPReaderService`. The type name inside
-  the file still decides the class name; PascalCase file names keep working.
-
-- Role folders may hold nested folders, such as
-  `client/services/billing/InvoiceService.ts` (ADR 0091). Nested classes
-  find their collaborators across the whole realm; a folder does not create
-  a new injection namespace.
-
-- Two new injected browser APIs: `PreferenceStrings` reads and writes plain
-  string preferences (Java browser services, JavaScript and TypeScript), and
-  `DocumentTitle` sets the page title (Kotlin browser services, JavaScript
-  and TypeScript). Other languages and linked native services are refused.
-
-- Browser C# services can `await` HTTP work. A method can return `Task` or
-  `Task<BehaviorJSON>`, and an injected HTTPClient in `client/remotes/` can
-  return `Task<Model>` with a model from `client/models`. Requests use the
-  same-origin browser transport unless the Setup has a matching HTTP adapter,
-  and they are cancelled when their owner is disposed.
-
-- C# and F# Tac Helpers work when the caller creates them with `new`. The
-  caller owns the Helper and its context. Injected Helpers, Helper lifetimes
-  and Helper lifecycle hooks are refused in these two languages.
-
-- Optional `TY1362` suggestions point out unnecessary member receivers, such
-  as `this.total` where `total` is enough, in Java, Kotlin, C#, Groovy, Swift
-  and Dart. Turn them on with `tac.implicitmembers.suggest` or
-  `implicitmembers.suggest`. A receiver that a local name or a nested scope
-  needs is kept.
-
-- `ty test --coverage` includes Groovy Yon services.
-- C# and F# Tac test units can call Tachyon's browser APIs and answer them
-  with `BrowserFakes.Answer("clock", "now", 1000)`, like Go, Ruby, Lua and
-  Swift units. The unit sees the same `Clock`, `Connectivity`,
-  `WindowControls` and other API classes as the page, and the built-in event
-  models (`new ConnectivityChanged(true)` in C#, `{ Online = true }` in F#).
-  A call without an answer fails with a message that names
-  `BrowserFakes.Answer`.
-
-- Converter signatures between declared models infer same-named fields,
-  recursively project nested models and lists, and allow explicit field
-  overrides. Model methods may omit Convert; JSON methods still need a plan.
-  Server execution is tested in thirteen languages, including JavaScript
-  JSDoc models and F#. Ruby Tac typed models fail closed until its native
-  reader exists; Lua behavior annotations and native Tac qualification
-  remain separate compatibility gates.
-
-- A Tac service reaches the native window through the injected `WindowControls`
-  browser API (ADR 0087): `@Needs windowControls` in JavaScript and TypeScript,
-  and a `WindowControls` field in every language that runs in the page, with
-  `granted`, `minimize`, `maximize`, `fullscreen`, `close`, `resize` and
-  `setTitle`. `tac.application.window.controls` still grants each control; a
-  control that is not granted, or any call in a browser tab, fails at once and
-  names the grant. Test units fake it like the other browser APIs. A service
-  that the native app links in (Rust and C# on the desktop, Swift on Apple,
-  Kotlin on Android) cannot use it yet (`TY1317`).
-- `Cached`, `CacheKey`, `ClearCache` and `UpdateCache` work on `HTTPClient`
-  methods in every Tac language, like Spring's `@Cacheable` on any bean (ADR
-  0087): `CacheSettings` on the client names the cache. In JavaScript and
-  TypeScript a `Cached` GET is also a public read, so the service worker may
-  answer it by the manifest's `tac.cache` rules; other reads stay `no-store`.
-  New browser gates `scripts/cached-client-browser-test.mjs` and
-  `scripts/window-controls-browser-test.mjs` run in Chromium, Firefox and
-  WebKit, and `scripts/window-grant-macos-test.mjs` checks that a granted
-  resize reaches a real macOS window and an ungranted one does not.
-- F# Tac services use Tachyon's browser APIs (ADR 0073 amendment): `Clock`,
+- Pages compose components, and components use services (ADRs 0029, 0030):
+  a page's `tac.html` holds only component tags, a component holds
+  `tac.html` and an optional `tac.css`, and behavior lives in one `@Service`
+  class in `client/services/`. See `docs/pages`.
+- Views read `client/shared/data/<name>.json` as `data.<name>` (ADR 0036),
+  write conditionals with `<logic :if>` and loops with `<loop :for>`, and
+  render HTML data through an allowlist with `:safe-html`. See
+  `docs/templates`.
+- `tac.elements` exports a component as a standard custom element for other
+  apps (ADR 0086). See `docs/web-components`.
+- Services run in the page in every service language: Rust, Go, C#, F#,
+  Swift, Kotlin, Java, Dart and C++ as WebAssembly, Ruby on mruby, Lua on
+  Lua 5.4 and Python on Pyodide. Release builds use the compiler that gives
+  the smallest download (ADR 0081). See `docs/service-languages`.
+- Services call Yon through `HTTPClient` contracts in `client/remotes/`
+  with `GetRequest` and the other request annotations (ADR 0088).
+  `StreamRequest` and `SocketRequest` deliver messages to `@OnEvent`. See
+  `docs/calling-the-server`.
+- Services reach the browser through injected APIs (ADR 0065): `Clock`,
   `SecureRandom`, `Connectivity`, `PageVisibility`, `Preferences`,
-  `Clipboard`, `Share`, `Notifications`, `Geolocation` and `WindowControls`,
-  under the same names as in C# (`let clock = Clock()`, then
-  `clock.NowMs()`), and they hear the built-in browser events as F# records,
-  such as
-  `type ConnectivityChanged = { Online: bool }`. On a page with F# services,
-  the C# browser API classes live in the C# library below the F# library, so
-  both languages share one page bridge. The web API browser test has an F#
-  row, and it checks F# in Firefox and WebKit as well as Chromium; the window
-  controls browser test has an F# row too.
-- A component's properties fill `@NeedsAll` fields in Java Tac services, and
-  an F# Tac service with `[<NeedsAll>]` takes them as primary constructor
-  parameters (ADR 0039 and 0073 amendments); TY1405 now refuses only a
-  collaborator parameter, or a parameter without `[<NeedsAll>]`. The
-  "One per page, or one per component" guide shows Java and F#.
-- `verify:snippets` remembers each build, test-unit and type-check step that
-  passed and skips it the next time all of its inputs are the same: the
-  example's files, the `ty` binary, the lock files, the verifier scripts, the
-  `TAC_*` settings and the version of every toolchain. HTTP and browser checks
-  always run, and a failed step is never remembered. `--no-cache` runs every
-  step. The cache lives in `.step-cache` in the staging folder, never in the
-  repository. A full run on the Mac went from 698 s to 209 s with the same
-  result.
+  `PreferenceStrings`, `DocumentTitle`, `Clipboard`, `Share`,
+  `Notifications`, `Geolocation` and `WindowControls`, granted in
+  `tac.browserApis`. See `docs/platform-apis`.
+- Built-in event models such as `ApplicationStateChanged` reach every
+  service language; listeners may be async in Swift, Rust, Kotlin, C#, F#
+  and Python (ADR 0105).
+- `tac.blockingScripts` runs up to 8 local scripts before the first paint.
+- Both realms share one annotation model: `Service`, `Store`, `HTTPClient`,
+  `Converter`, `Setup`, `Entity` and `Delegate`, one class per file, in role
+  folders that may nest (ADRs 0044, 0055, 0067, 0091). Each language uses
+  its own syntax, such as `[Service]` in C#, `// @Service` in Go or
+  `[[Service]]` in C++. See `docs/annotations`.
+- Injection with `Needs`, `NeedsAll`, `Named` and `Lifetime`; a filled
+  field is never null (ADR 0057). See `docs/dependency-injection`.
+- A `@Delegate` takes on the public methods of the service it needs, and can
+  override or overload them (ADR 0112). See `docs/delegates`.
+- Behavior annotations: `Cached`, `CacheKey`, `CacheSettings`,
+  `UpdateCache`, `ClearCache`, `Retry`, `MaxAtOnce`, `AllOrNothing`,
+  `PageDefaults` and `Description` (ADR 0022). See
+  `docs/behavior-annotations`.
+- `Setup`, `Settings`, `Setting`, `WhenProfile` and `WhenSetting` bind
+  configuration (ADR 0092). See `docs/application-configuration`.
+- `Checked`, `Check`, `Required`, `NotEmpty`, `Length`, `Min` and `Max`
+  check values; Yon answers `422` problem details (ADR 0101). See
+  `docs/checking-values`.
+- `Converter` contracts copy one model into another, nested models and
+  lists included. See `docs/models`.
+- Events are models (ADR 0055): `publishEvent(model)` reaches `@OnEvent`
+  listeners, with `condition`, `replay`, `Order` and `InBackground`, and
+  `OnStart` and `OnStop` hooks. See `docs/application-events`.
+- Utility classes in `client/shared/utils/` and `server/utils/`. See
+  `docs/utilities`.
 
-- `verify:snippets` compiles Tac Rust, Swift, Kotlin and C# examples for the
-  web when the web toolchain is installed (and always with
-  `TAC_SNIPPETS_REQUIRE_TOOLCHAINS=1`), instead of only staging native source.
-  It keeps each example's `dist` folder between runs, so ty reuses the Brotli
-  and gzip files of an unchanged runtime (a Swift web bundle: 41 s to 0.3 s).
-  CI's macOS job installs the checksum-pinned Kotlin/Wasm standard library.
+**Yon**
 
-- `scripts/browser-gate.mjs` runs the browser test scripts up to four at a
-  time while enough memory is free, with one log per script (on WSL: 456 s in
-  sequence, 155 s three at a time).
+- `TAC_ACCESS_LOG=1` writes one `http.access` JSON line per request to
+  standard error, and `TAC_HANDLER_STDERR=1` writes each handler call's
+  standard error as a `handler.stderr` event.
+- WebSocket sends time out after 10 seconds (close `1013`) and stop at once
+  when the server stops.
+- Seven more Yon languages: Groovy, F#, Dart, Go, Ruby, Lua and C++. See
+  `docs/yon-languages`.
+- Yon code in every language, C++ included, can call plain helper classes
+  in `server/shared/`, and `ty init` and `ty add` accept `cpp` for the
+  server.
+- Controllers (ADR 0048): a `RequestRoute` class in `server/controllers/`
+  with `GetRoute`, `PostRoute`, `PutRoute`, `PatchRoute` and `DeleteRoute`;
+  `FromBody`, `FromPath`, `FromQuery`, `FromHeader` and `FromCookie` fill
+  parameters, and models come back as JSON. See `docs/controllers`.
+- `@Public`, `@SignedIn` and `@Allow(Role)` say who may call a route, and an
+  `@IdentityProvider` says who is signed in (ADR 0068). See
+  `docs/route-access`.
+- `StreamRoute` methods send server-sent events (ADR 0058), and
+  `SocketRoute` classes keep a WebSocket open with `OnOpen`, `OnMessage`,
+  `OnClose` and `OnError` (ADR 0060). See `docs/streams` and `docs/sockets`.
+- `ErrorHandler` classes answer typed errors (ADR 0051). See
+  `docs/error-handlers`.
+- A bodiless `@Gateway` method is answered by another Yon language
+  (ADR 0042). See `docs/relays-and-gateways`.
+- `@Schedule` runs a worker on a fixed delay, and `HTTPClient` and
+  `restClient` call other servers.
+- Warm handlers: `YON_ISOLATION` takes `warm` (the default), `process` or
+  `firecracker`, limited by `YON_WARM_MAX_REQUESTS` and
+  `YON_WARM_IDLE_SECONDS` (ADR 0111). See `docs/isolation-and-security`.
+- `server.environment` passes chosen environment variables to handlers,
+  `server.proxies` lists trusted proxies, and `localhost` names such as
+  `shop.localhost` work (ADRs 0094, 0096).
+- Go apps keep their own Go packages in `server/packages/` (ADR 0095).
 
-- `.config/nextest.toml` sets no retries by default. The four
-  load-sensitive runtime tests run one at a time in a `serial` group and may
-  retry twice. The slowest toolchain tests run in a `heavy` group, two at a
-  time, with a 15 minute limit, and two of them may retry once. Every other
-  test stops after 5 minutes.
+**Native**
 
-- F# takes a role through a Needs property as well as through its primary
-  constructor (ADR 0073): `[<Needs>]`, with an optional `[<Named("...")>]`, on
-  a settable `member val OrderStore : OrderStore =
-  Unchecked.defaultof<OrderStore> with get, set`. Tachyon sets the property
-  right after the constructor, in Yon controllers and services and in Tac F#
-  services (for the `ApplicationEventPublisher`), and an F# test unit fakes it
-  with a `[<Fake>]` property and `StockService(Names = this.Names)`. A type
-  that takes one role twice, or `[<Needs>]` on anything but a settable typed
-  property, stops the build with `TY2015`; only `NeedsAll` with a list of
-  fields is still refused in F#.
-- `ty init --tac java` and `ty add language client java` create a Java page
-  service, its test unit and its test setup (ADR 0083). `ty test` runs a Java
-  Tac test unit with `javac --release 21` and `java -ea`, and
-  `ty test --coverage` records the calls of Java page services.
-- `ty doctor --install` offers to install each missing tool that Tachyon can
-  install, as `ty init` does (`--yes` installs without asking). For Java web
-  services it downloads the five TeaVM 0.15.0 jars from Maven Central, checks
-  each one against the SHA-256 that Tachyon pins (the same list as the CI
-  job), and moves them into `<Tachyon cache>/teavm-0.15.0` only when all five
-  match (`TY1409` otherwise). The build finds TeaVM there when
-  `TAC_TEAVM_HOME` is not set. `ty doctor` now shows `javac` and `teavm` as
-  two rows for Java web services.
+- `ty bundle --release` builds signed packages from keys in the environment:
+  `.dmg`, `.ipa`, APK and App Bundle, MSIX, AppImage and `.deb` (ADR 0104).
+  `--arch` builds universal macOS and ARM64 Windows apps. See
+  `docs/build-and-deploy`.
+- `tac.application.window` sets the window's size, colors and display, and
+  `"titleBar": "integrated"` lets the page reach the top edge (ADR 0098).
+  See `docs/window-controls`.
+- Standard menus on every host; `tac.application.menus` adds items that open
+  a page or call an application service (ADR 0097), and
+  `tac.application.tray` adds a tray icon (ADR 0107). See
+  `docs/native-menus`.
+- `tac.application.links` opens the app from URL schemes and verified hosts
+  (ADR 0106), and System Back follows the page history (ADR 0109).
+- Hosts answer `clipboard`, `share`, `notifications` and `geolocation`, and
+  `FilePicker` opens the system picker (ADR 0089). See `docs/devices`.
+- `tac.yon.origin` lets native apps reach Yon, with `tac.cache` rules for
+  offline reads (ADR 0103).
+- Rust services link natively into iOS and Android too. Linked Rust, Swift,
+  Kotlin and C# services can wait, reach Yon and hold stream, socket and
+  topic clients. See `docs/native-services`.
+- Application services live as long as the app, and `tac.application.rust`
+  adds crates and helper programs. See `docs/companions`.
+- `ty preview --target <native>` runs the real app against the development
+  server (ADR 0110).
+- `tac.application.build` and `tac.application.minimumSystem`, and a build
+  note on what each manifest member does per target (ADR 0102).
 
-- F# controllers hold `SocketRoute` (with `OnOpen`, `OnMessage`, `OnClose`
-  and `OnError`) and `StreamRoute` (ADR 0073). Tachyon runs the C# socket and
-  stream lowering on the C# view of the F# file; a socket member takes the
-  `SocketSession`, and a stream member returns `seq<'T>` or
-  `IAsyncEnumerable<'T>`. The C# prelude streams an F# `seq { }` expression as
-  it streams a C# iterator. The sockets, realtime and streaming pages have F#
-  tabs.
+**Storage and topics**
 
-- F# classes count for executed coverage (ADR 0070): in a test build each
-  public member of an F# role file and each public static member of an F#
-  utility records its call, and `ty test --coverage` reports the F# members
-  that no case called. F# line directives keep the author's file and line
-  numbers in compiler messages, also for composed test units.
+- `Store` contracts declare derived queries or `@Query` methods and can
+  extend `Repository<Entity, Id>`. See `docs/storage`.
+- Tac stores use IndexedDB and caches use the Cache API with no adapter
+  code; `@LocalState` and `@SessionState` keep fields (ADR 0059). See
+  `docs/browser-storage`.
+- Yon owns its datasource and Redis connections (ADR 0027). FYLO is a
+  datasource with `patch`, `scroll` and a durable queue (ADR 0032). See
+  `docs/server-data`.
+- `@Topic` models carry events across processes, Yon languages and open
+  pages, with logs in `data/topics/` (ADR 0061). See `docs/topics`.
 
-- An F# test unit has a behavior context in each case, read as
-  `this.behaviors`, and `Test(typeof<Setup>, {"partition":"tests"})` takes the
-  same options as in C#. Tachyon composes the unit's sibling `TestSetup`
-  file (before, it did not read the F# `Test` attribute, so it left the setup
-  out). Role files composed into an F# unit keep their
-  behavior annotations, and F# units in `client/tests` compile the C#
-  behavior runtime into a `behaviors` library.
-- A Tac component can be used by other apps as a standard custom element
-  (ADR 0086). List it in `tac.elements` in `client/manifest.json`, and
-  `ty build` writes `.tachyon/elements/<tag>.js`, which imports the shared
-  runtime. Attributes (strings) and properties (any value) set the props, a
-  service's application event also reaches the page as a DOM `CustomEvent`
-  (`CountChanged` becomes `count-changed`, the model in `detail`), and the
-  element renders in a shadow root with a native `<slot>` and the component
-  styles. `TY1358` stops a name without a hyphen or a name that is not a
-  component. The runtime now also starts on a page without a Tac view.
-  Slice 1 covers JavaScript and TypeScript services.
-- Exported elements, slice 2 (ADR 0086). A project that only lists
-  components in `tac.elements` builds without a page or a controller;
-  `TY1002` asks for a page only when there is also no exported element.
-  `ty build` writes `.tachyon/elements/<tag>.d.ts` beside each element: the
-  tag in `HTMLElementTagNameMap`, a property per prop, and a typed
-  `addEventListener` whose `event.detail` has the event model's type.
-  Tac templates have named slots: `<slot name="title">` takes the children
-  with `slot="title"`, on a Tac page and as a native named slot in an
-  exported element. A child for a slot that the component does not declare
-  stops the build with `TY1404`. CI runs the web components browser test in
-  Chromium, Firefox and WebKit.
-- Exported elements, slice 3 (ADR 0086). Services in compiled languages
-  (WebAssembly) run inside exported elements, through the same loaders as
-  on a Tac page: each language runtime loads once per page, and elements
-  share a singleton service. The browser test runs Rust, Go and Ruby
-  services in a plain HTML host page in Chromium, Firefox and WebKit.
-- Lua is a Yon language (ADR 0085). Controllers, services and the other
-  roles, error handlers and error types, root middleware (`middleware.lua`),
-  models and test units run on Lua 5.4 or newer. Lua has no annotation
-  syntax, so an annotation is a comment on its own line, `-- @Service` or
-  `-- @GetRoute("/{id}")`, and the file runs unchanged. A class is one global
-  table in its own file, `OrderService = {}`, with methods
-  `function OrderService:list()`; its fields sit in the table, one on each
-  line, such as `order_service = nil,` under `-- @Needs`. Every field,
-  parameter and return value has a LuaCATS type comment (`---@param id
-  integer`, `---@return Order[]`, `---@class`/`---@field` for models).
-  Tachyon reads each Lua file through a line-for-line Ruby shadow, so the rule
-  table, the strict layout, the type rule and the design rules check Lua, and
-  every message points at the Lua line. `local Name = {}`, `return Name`,
-  `require`, a second table, a method of another table, a method on one line
-  or code outside a method stops the build (`TY1357`). A request is a table
-  (`method`, `path`, `headers`, `body`, `header(name)`, `query(name)`),
-  middleware answers `{ status, headers, body }`, and an error is a table
-  whose metatable is its error type. Test units use `Assert.equals`,
-  `Assert.is_true`, `Assert.throws`, `-- @ValueSource`, `-- @Fake` and
-  `self:construct(Role)`. `ty init --yon lua` writes a Lua controller and its
-  test unit; `ty doctor` and the readiness check ask for `lua` 5.4 or newer.
-  Annotations that Lua does not have yet are refused: the rule table says
-  that the annotation is not available in Lua (`TY1308`, ending "Lua gets
-  it in a later step (ADR 0085)"), and the lowering names ADR 0085
-  (`TY2015`). Resources
-  (`DataSource`, `RedisTemplate`, gateway clients, Tac stores and `relay`)
-  are not available in Lua. (Superseded: the rule table accepts every Lua
-  marker now and the "later step" text is gone; gateway clients and Tac
-  stores came later, and `DataSource`, `RedisTemplate` and `relay` still
-  fail with `TY2015`. See the ADR 0085 amendment of 2026-10-19.)
-- Lua is a Tac language (ADR 0085 amendment). A service
-  `client/services/<Name>Service.lua` is a Lua class table with `-- @Service`
-  and runs on Tachyon's own Lua 5.4 WebAssembly runtime. `runtimes/lua-web`
-  pins the lua.org 5.4.9 source by SHA-256; the first build of a project with
-  a Tac Lua service builds the runtime (about 170 KB) once with the
-  developer's `emcc` into `lua-web/<source hash>/` in the Tachyon cache, and
-  nothing is committed or written into the project. The page reads and
-  changes the public fields and calls the public methods; each object starts
-  with its own copy of the fields. `-- @OnStart`, `-- @OnStop`,
-  `-- @OnEvent`, `-- @Order`, `-- @InBackground`, `-- @NeedsAll` and
-  `-- @Lifetime` work, events are model tables from `client/models/*.lua`
-  published with the autowired `application_event_publisher` field, and a
-  listener that returns a model publishes it again. The browser APIs are
-  global tables called with `:` (`Clock:now_ms()`, `SecureRandom:uuid()`,
-  `Connectivity`, `PageVisibility`, `Preferences`, `Clipboard`, `Share`,
-  `Notifications`, `Geolocation`), and `BrowserFakes.answer` answers them in
-  a test unit. Tac test units in Lua run with the `lua` program. `ty init --tac lua` and `ty add language client lua`
-  write a Lua greeting service and its test unit, and `ty doctor` lists `emcc`
-  (or the cached runtime) and `lua` for "Lua services on the web". Behavior
-  annotations in a Tac Lua service stop the build (`TY2015`, ADR 0085). The
-  runtime-build steps (pinned download, SHA-256 check, cache) are shared with
-  the Ruby runtime.
-- Yon Lua roles hold local events and lifecycle hooks (ADR 0085 amendment):
-  `-- @OnStart`, `-- @OnStop`, `-- @OnEvent` (events, condition, id, replay)
-  and `-- @Order`. Each route runs in a Lua event container that registers
-  the listeners, runs OnStart in creation order, drains the events around the
-  route and runs OnStop at the end. Events are model tables published with
-  `ApplicationEventPublisher:publish_event(value)` or the
-  `application_event_publisher` field. `@InBackground` and topics stay
-  refused in Lua.
-- Behavior annotations work in Yon Lua (ADR 0085 amendment): caching,
-  UpdateCache and ClearCache, Retry, MaxAtOnce (reject), AllOrNothing,
-  Setup and settings, validation, converters, and stores and queries over
-  entity adapters, on a Lua port of the behavior runtime. A class opens its
-  context with `Behaviors.create(Setup, { partition = ..., signal =
-  BehaviorSignal.new() })`; a Lua test unit opens one for each case.
-  DataSource, RedisTemplate, `relay`, `@HTTPClient` and `@Gateway` stay
-  refused in Lua and name ADR 0085.
-- Yon Lua streams and sockets (ADR 0085 amendment): a `-- @StreamRoute`
-  method sends each value with `coroutine.yield(value)`, and a
-  `-- @SocketRoute` class keeps one object for each connection with
-  OnOpen, OnMessage, OnClose and OnError, `session:send`, `close` and
-  `open_sessions`.
-- `ty test` records the Lua methods that each case called, in both realms,
-  so `ty test --coverage` checks Lua classes like the others.
-- `bun run coverage:languages` in `website/` audits the code tabs of every docs
-  section and feature. For each realm it lists the languages with a tab and
-  sorts every missing language into a missing example, a language the build
-  refuses (read from the compiler's annotation rule table, with its `TY` code
-  and whether the section says so), or not applicable (views, configuration,
-  commands, or a section whose heading names other languages). `--json` prints
-  a report for tools, and `--strict` fails on a gap with no example and no
-  stated reason; the website test keeps that gate off until the examples exist.
-- The website features "Values in text", "Dynamic attributes", "Conditionals",
-  "Loops", "Matching a value" and "Handling events" show their service (and
-  its model) in every Tac language: TypeScript, Dart, Rust, Go, Ruby, Swift,
-  Kotlin, Java, C# and F# next to JavaScript.
-- The saved fields, development mode, path variables, service classes and
-  shared behavior annotation features show a tab for every Tac service
-  language, and the path variable controller has a Lua tab. Development mode
-  and path variables pass `page.development` and `page.path` to a service
-  method, so no service needs the DOM.
-- The first-app tutorial shows every step in every language: the counter
-  service in every Tac language, the greeting controller, its model and its
-  test in every Yon language, and a Tac test of the counter in every Tac
-  language. Calling the server from the page stays in JavaScript and
-  TypeScript until compiled Tac clients get a browser transport. Project
-  folders and roles shows its models, Yon and Tac examples in every language
-  (models in F#, Java and Lua, Yon in F# and Lua, Tac in Java, F# and Ruby).
-- The guide "Events between services" shows its signals and listener options
-  in every Tac service language, its compiled-services section also in Ruby
-  and F#, and its Yon section also in F# and Ruby. verify-snippets checks that
-  every Yon language answers with the ProbeReady it heard. The signal-driven
-  UI recipe saves with a button, so no service needs the submit event.
-- The docs sections "Streaming" and "Topics" and the streaming controllers
-  feature show every language that runs them: the stream controller in each
-  streaming Yon language (Lua too, with `coroutine.yield`), the Topic
-  publisher in the Yon languages and the Topic listener in the Tac languages.
-  The streaming and socket pages name the languages that refuse `StreamRoute`
-  (`TY2015`) and the browser's `StreamRequest` and `SocketRequest` (`TY1308`),
-  and the streaming and InBackground language lists match the compiler.
-  The coverage audit counts an annotation that only browser JavaScript holds
-  as refused in Java and F# too.
+**Testing**
 
-- Java web services now use Tachyon's browser APIs (`Clock`, `SecureRandom`,
-  `Connectivity`, `PageVisibility`, `Preferences`, `Clipboard`, `Share`,
-  `Notifications` and `Geolocation`) under the same names as Kotlin and Swift,
-  and take the built-in browser events (`ConnectivityChanged`,
-  `PositionFound`, `BrowserCallFailed` and the others) in `@OnEvent` methods
-  as Java records (ADR 0083 amendment). The build adds only the APIs and
-  events that a service names. The wait between two `@Retry` tries is now one
-  host call instead of a loop in Java. The browser copy of the Java behavior
-  runtime no longer uses regular expressions or `String.format`, which makes
-  a service with behavior annotations about 70 % smaller (a notes service:
-  375,346 to 108,381 bytes, 43,823 with Brotli); the JVM runtime is
-  unchanged. CI installs the checksum-pinned TeaVM jars and runs the Java web
-  service tests.
-- Java web services now exchange models and events with the page and use the
-  built-in browser storage (ADR 0083 amendment). `client/models` may hold Java
-  records, classes with fields and enums (they were server-only); a service
-  field, argument or result may be a model or a `List` or `Map` of models, and
-  Tachyon generates the readers and writers because TeaVM has no reflection.
-  An `ApplicationEventPublisher` field with no value is constructed for the
-  service, `publishEvent` hands events to the page event bus after each call,
-  `@OnEvent` methods (with `@Order` and `@InBackground`) take one model and
-  may return one to publish again, and a listener for a `@Topic` model reads
-  the topic stream. Setups and entities from `client/setups` and
-  `client/entities` now compose with a Java service, and `@Cached`,
-  `@UpdateCache`, `@ClearCache`, `Store` repositories and `@AllOrNothing` run
-  synchronously against the page cache and IndexedDB when the Setup leaves
-  the adapters out. Each Java service is compiled inside its own holder
-  class, so services never clash over the runtime classes. The Java behavior
-  runtime gained a built-in adapter lookup (no adapter on the JVM). The
-  storage gate has Java cache, Store and AllOrNothing rows.
-- Swift test units can use Tachyon's browser APIs: `BrowserFakes.answer("clock",
-  "now", 1000)` gives a call its answer, as in Go and Ruby, and a unit can
-  call a listener with a built-in event model such as
-  `ConnectivityChanged(online: false)`. A call without an answer throws an
-  error that names `BrowserFakes.answer` (ADR 0082).
-- The macOS CI job installs the swift.org 6.3.3 toolchain (signature checked)
-  and the checksum-pinned Swift SDK for WebAssembly, and runs the Swift web
-  service, Swift test unit and Apple companion tests.
+- `ty test` runs `<Name>Test` units in both realms and every language, with
+  `@Test(Setup)`, `TestSetup`, `Fake`, `FreshStart`, `UseProfiles` and
+  `TestSettings`; browser units run under Node, Bun or Deno. See
+  `docs/test-units`.
+- Every language has a JUnit 5-style `Assert`; a test case needs one and
+  holds no branch (`TY1339`, ADR 0080).
+- `ty test --coverage` counts a method only when a test called it (ADR 0070).
+- Kotlin test units can fake browser APIs, window controls included, with
+  `BrowserFakes.answer`.
 
-- `scripts/wasm-worker-measure.mjs` measures every Tac WebAssembly runtime
-  (Rust, Go, C#, F#, Dart, Ruby, Kotlin, Swift, and JavaScript as the
-  baseline) on the page thread and in a Web Worker prototype: long tasks
-  while a route starts, the time of one call (p50 and p95), the input delay
-  while a service computes for 200 ms, and memory, at 1x and 4x CPU. It
-  can also load the built website's routes. ADR 0084 holds the
-  results and recommends keeping services on the page thread, with .NET as
-  the first runtime to move to a worker once its loader starts in one. No
-  runtime behavior changes.
-- The website has two Tac services in each of Kotlin, Swift and F#, so every
-  service language of the site has two or three, each with a test unit in
-  its own language. `ReadingTimeService.kt` shows "About N minutes to read"
-  on every guide, from the word count of `TopicService.words()`, and
-  `GuidePositionService.kt` adds "Guide N of M" from the reading order.
-  `FeatureFilterService.swift` filters the feature list by words and
-  `GroupFilterService.swift` by group; the list hides a group that has no
-  match. `InstallService.fs` lets the home page show the macOS and Linux or
-  the Windows install command (the commands are data in
-  `shared/data/hero.json`), and `QuantityService.fs` writes "1 feature" or
-  "12 features" on the documentation index. A browser loads Swift (about 0.9 MB
-  with Brotli) only on the feature list and Kotlin (about 35 KB) only on a
-  guide; F# adds about 11 KB to the .NET files that the home page already
-  loads (an F# interpolated string, `$"..."`, would add about 100 KB of
-  FSharp.Core, so the services join strings with `+`). The route size
-  check, which counts every service on each route, now sees 263 KB of
-  script (budget 320 KB, was 254 KB) and about 2.4 MB of WebAssembly
-  (default budget 3.5 MB, was 1.4 MB).
-- Java is a Tac service language on the web (ADR 0083). A
-  `client/services/<Name>Service.java` file with no browser sibling compiles
-  with `javac` and TeaVM 0.15's WebAssembly garbage collection (WasmGC)
-  backend, and runs on the web and in the web view of every target (no host
-  links Java). The page reads and sets its fields, calls its methods with
-  arguments, runs `@OnStart` and `@OnStop`, and saves `@LocalState` and
-  `@SessionState` fields after every call. Fields, arguments and results may
-  be `int`, `long`, `double`, `float`, `boolean`, their boxed types, `String`,
-  `Object`, and `List` and `Map` (with `String` keys) of them. A member of
-  another type, several fields in one statement, or an annotation that Java
-  web services do not support yet stops the build with `TY1405` and names
-  what works. A release build runs Binaryen `wasm-opt -Oz` on the module.
-  `TAC_TEAVM_HOME` names the folder of the TeaVM jars; `ty doctor` checks it,
-  `javac` and Binaryen. The browser-interop guard `TY1317` now also refuses
-  TeaVM's JavaScript interop in Java services (`org.teavm`, `@JSBody`,
-  `JSObject`, `@JSExport`, `native` methods and the other `JS*` annotations).
-  Events, models, the built-in storage host, the browser APIs and the
-  behavior runtime come in the next step. Groovy stays a Yon-only language:
-  its runtime does not compile with TeaVM.
+**CLI and tooling**
 
-- `website/scripts/verify-snippets.mjs --suite=tsc` (also part of the default
-  run) type-checks every JavaScript and TypeScript example project on the
-  website, the way a `ty init` project checks itself: it stages each project
-  once per language with the `ty init` `jsconfig.json` files, runs
-  `ty types`, and runs `bun check -p` for each realm that holds the language.
-  `bun check` (Bun 1.4.3) reports the same diagnostics as `tsc` 7; the
-  repository's own `typecheck` scripts use it too.
-- `tachyon-env.d.ts` declares `process.env` and `relay(command, request)` for
-  Yon code and `tachyonWindow` for native window controls, and
-  `tachyon-behaviors.d.ts` declares `BehaviorTransactionCommand`, the
-  `begin`, `commit` and `rollback` commands that an `AllOrNothing` method
-  sends to its entity adapter. An `EntityAdapter.execute` written in
-  TypeScript checks `operation` before it reads `entity`, `table` or `query`.
-
-- Test units get a JUnit 5-style `Assert` class (ADR 0080) in JavaScript,
-  TypeScript, Python and Rust: `Assert.equals(expected, actual)`,
-  `Assert.isTrue(condition)` (Python and Rust: `is_true`) and
-  `Assert.throws(action)`, each with an optional last message (Rust:
-  `equals_with_message` and the other `_with_message` forms). A failed check
-  fails its case with `message ==> expected: <3> but was: <2>`. `ValueSource`
-  on a test case lists its inputs, like JUnit's `@ValueSource`: the driver runs
-  one case per input (`testName[1]`, `testName[2]`) and passes the input as
-  the one argument. A Rust case that panics (`assert!`, `assert_eq!`,
-  `Assert::`) now fails as one case instead of stopping the unit. The new
-  design rule `TY1339` refuses a test case with no assertion or with a branch
-  or loop; the Python `assert` and the Rust `assert!`, `assert_eq!` and
-  `assert_ne!` count as assertions.
-- Java, Kotlin and Groovy test units get the same `Assert` class (ADR 0080):
-  `Assert.equals`, `Assert.isTrue` and, because `throws` is a reserved word in
-  Java and Groovy, `Assert.throwsError(action)` there (Kotlin:
-  `Assert.throws { action }`). `ValueSource` runs one case per input in the
-  three languages (numbers, strings or booleans). Java test units run with
-  `java -ea`, so the Java `assert` statement counts, as the Groovy `assert`
-  and the Kotlin `check` and `require` do. The test rule `TY1339` now reads
-  Java, Kotlin and Groovy units too (`when` counts as a branch). A Java or
-  Groovy case that fails an `assert` now fails as one case instead of stopping
-  the unit.
-- C# and F# test units get the same `Assert` class (ADR 0080):
-  `Assert.equals`, `Assert.isTrue` and `Assert.throws(action)`, each with an
-  optional last message; `throws` also waits for an `async` lambda (C#) or an
-  action that returns a task (F#). `[ValueSource([1, 2, 3])]` (C#) and
-  `[<ValueSource([1, 2, 3])>]` (F#) run one case per input (numbers, strings
-  or booleans). The test rule `TY1339` now reads C# and F# units too
-  (`foreach`, `switch`, `when`, and the F# `match`, count as branches).
-- Go, Ruby, PHP, Dart and Swift test units get the same `Assert` class
-  (ADR 0080): Go `Assert.Equals`, `Assert.IsTrue` and `Assert.Throws(func()
-  error)`; Ruby `Assert.equals`, `Assert.is_true` and `Assert.throws { }`;
-  PHP `Assert::equals`, `Assert::isTrue` and `Assert::throws($action)`; Dart
-  `Assert.equals`, `Assert.isTrue` and `await Assert.throws(action)`; Swift
-  `try Assert.equals`, `try Assert.isTrue` and `try await Assert.throws { }`.
-  A failed Go check panics and fails its case; a Go case may now return
-  nothing instead of `error`. PHP test units run with `zend.assertions=1` and
-  Dart test units with `--enable-asserts`, so the PHP `assert` function and
-  the Dart `assert` statement count, as the Swift `precondition` does.
-  `ValueSource` runs one case per input in the five languages (numbers,
-  strings or booleans in Go, Dart and Swift; any JSON value in Ruby and PHP).
-  The test rule `TY1339` now reads the units of every test language
-  (`unless`, `until`, `case`, `guard`, `repeat` and `select` count as
-  branches); Go cases are the methods that begin with `Test`.
-- Release builds compile every WebAssembly service language with the
-  compiler and settings that make the smallest download, and `ty build`
-  prints one line per language that says which compiler it used and why
-  (ADR 0081, docs "WebAssembly compilers per language"). Rust uses
-  `opt-level=z`, LTO and one codegen unit, then Binaryen `wasm-opt -Oz`. Go
-  uses TinyGo (`-opt=z`) first and falls back to the standard Go compiler,
-  with a note, when TinyGo is missing or cannot compile the services;
-  `tac.go.compiler` (`"tinygo"` or `"go"`) in `client/manifest.json` forces
-  one. C# and F# use the trimmed .NET interpreter with Emscripten
-  `-Oz`; `tac.dotnet.aot: true` compiles them ahead of time instead. Dart
-  uses `dart compile wasm -O4`. Development builds keep the fast settings.
-  `ty doctor` lists TinyGo and `wasm-opt` as optional tools, and `ty init`
-  offers to install TinyGo 0.42.0 and Binaryen version_133.
-  For one small service the release download (Brotli) shrinks from 678.5 KiB
-  to 98.0 KiB in Go, 56.7 KiB to 48.6 KiB in Rust and 16.8 KiB to 16.5 KiB in
-  Dart; C# changes by under 1%.
-
-- Groovy is a Yon language (ADR 0072). Controllers, services and the other
-  roles, models, error handlers, workers, `middleware.groovy` and test units
-  are `.groovy` files with the Java annotations (`@Service`,
-  `@GetRoute('/{id}')`). Tachyon reads Groovy with the Java rules; every class
-  member has a declared type, and `def` on a field or method is refused
-  (TY1334). The request and response are `HttpExchange`, as in Java. Tachyon
-  compiles the Groovy together with its generated Java runtime (Groovy joint
-  compilation) into one cached jar with the Groovy core runtime and runs it on
-  the JDK. It finds Groovy 4 or newer through `GROOVY_HOME` or `groovyc` on
-  `PATH`; readiness and `ty doctor` check it, and `ty init` offers Groovy and
-  installs Groovy 5.1.3 with SDKMAN.
-
-- Simpler-form suggestions (`TY1340`–`TY1355`, ADR 0076). `ty build`,
-  `ty preview` and `ty test` print `suggestion[TY13xx]` with a `help:` line
-  that shows the rewritten code, for sixteen curated patterns such as an `if`
-  that only returns `true` or `false`, `filter(...).length > 0`,
-  `indexOf(x) !== -1`, an `else` after `return`, and an index loop that only
-  reads items. A suggestion never stops the build; `ty migrate fix --write`
-  applies it. JavaScript, TypeScript, Python and Ruby first, then Java,
-  Kotlin, C#, PHP, Go, Rust, Swift and Dart where the rewrite behaves the
-  same. `tac.simplify.suggest` and `simplify.suggest` hide them per realm.
-  Docs: Going further > Simpler forms.
-- Swift web services use Tachyon's browser APIs (ADR 0082 amendment of
-  browser APIs and waits): `Clock`, `SecureRandom`, `Connectivity`,
-  `PageVisibility`, `Preferences`, `Clipboard`, `Share`, `Notifications` and
-  `Geolocation`, created in a field such as `private let clock = Clock()`.
-  A call that the page refuses throws, so it is called with `try`. The
-  built-in event models such as `ConnectivityChanged` and `PositionFound`
-  reach Swift `@OnEvent` listeners. `@Retry` delays and a blocking
-  `@MaxAtOnce` now wait with one host call: the Swift WASI layer answers
-  `poll_oneoff` for a clock, where before the wait spun through hundreds of
-  failed calls. verify-snippets bundles the Swift configuration-binding
-  example for the web when `TAC_SWIFT_WASM_SDK` is set, and the web-apis
-  browser gate has a Swift row. A program holds only the browser APIs and
-  event models that its services name; a service that uses all nine is
-  about 33 KB larger (1 KB with Brotli).
-- Swift web services exchange models and events with the page and use the
-  built-in cache and Store (ADR 0082 amendment). A model in `client/models`
-  may be a field, an argument, a result or an event: it crosses through
-  `Codable` with Tachyon's own encoder and decoder, so the program still
-  needs no Foundation. Events go through the page's event bus like Kotlin's
-  and Rust's, so a Swift listener hears every service and component on the
-  page, and a listener of a `@Topic` model reads the topic stream (Rust and
-  Kotlin web services get topic streams the same way). `@Cached`,
-  `@ClearCache`, `@UpdateCache`, `@AllOrNothing` and a Store with the
-  `indexeddb` adapter use the page's storage host when the Setup names no
-  adapter; the build no longer refuses them for Swift on the web. An `async`
-  Swift method runs to the end inside the call, so the page calls it like
-  any method. The Swift behavior runtime keeps time as 64-bit milliseconds
-  (`Int` is 32 bits in WebAssembly), and a wrong argument now says "A
-  service argument or field value has the wrong type." A small Swift program
-  grows by about 80 KB with Brotli (about 1.0 MB in all); the cache and Store
-  add about 30 KB more.
-- Swift Tac services run on the web as WebAssembly (the Swift SDK for
-  WebAssembly, ADR 0082). A service with a `.swift` file and no browser
-  sibling now reaches every target: macOS and iOS still link it, and the web,
-  Windows, Linux and Android run it as WebAssembly. It keeps fields, methods
-  with arguments (labels kept), `@OnStart` hooks and `@LocalState` /
-  `@SessionState` fields, which the page saves after each method call. The
-  web program uses no Foundation, so it stays about 3.4 MB of WebAssembly
-  (0.9 MB with Brotli); `import Foundation` would make it more than ten times
-  larger. A release build runs Binaryen's `wasm-opt -Oz` and prints
-  `Swift: WebAssembly release build — optimized by Binaryen`. The build needs
-  Swift 6.3.3 and the matching SDK: `TAC_SWIFT_WASM_SDK` names the SDK's
-  `wasm32-unknown-wasip1` folder, and `TAC_SWIFT_WASM_COMPILER` the swift.org
-  `swiftc` when Xcode's comes first on `PATH`; `ty doctor` checks both.
-  When a service has several WebAssembly languages, the order is now Rust,
-  Go, C#, Swift, Kotlin, Ruby. `TY1317` now also refuses Swift browser
-  interop (`JavaScriptKit`, `JSObject`, `JSValue`, `@_extern`, `@_expose`).
-  Events, `Codable` models across the page boundary, the built-in storage
-  and the curated browser APIs come in the next step. Every service language
-  now reaches every target, so the `TY1010` refusal of a service with no
-  language for the target is gone.
-- Kotlin Tac services run on the web as WebAssembly (Kotlin/Wasm, WasmGC,
-  ADR 0078). A service with a `.kt` file and no browser sibling now reaches
-  every target: Android still links it natively, and every other target runs
-  it as WebAssembly, with no web copy needed. It keeps fields, methods with
-  arguments, `publishEvent`, `OnEvent` with its options, `NeedsAll`
-  properties, and the curated browser APIs (`Clock`, `SecureRandom`,
-  `Connectivity`, `PageVisibility`, `Preferences`, `Clipboard`, `Share`,
-  `Notifications`, `Geolocation`). When a service has several WebAssembly
-  languages, the order is Rust, Go, C#, Kotlin, Ruby. A release build runs
-  Kotlin's production step, Binaryen's `wasm-opt`, and prints
-  `Kotlin: Kotlin/Wasm production build — optimized by Binaryen`. For a
-  small service this is 81 KB of WebAssembly (30 KB with Brotli), against
-  275 KB in a development build. If `wasm-opt` is missing, the build says so
-  and `ty doctor` reports it. The build needs `kotlinc-js` 2.1.10 and
-  `TAC_KOTLIN_WASM_STDLIB`. It needs Chrome or Edge 119, Firefox 120 or
-  Safari 18.2; an older browser gets a clear error. `TY1317` now also
-  refuses Kotlin browser interop (`external`, `@JsFun`, `@JsExport`, `js(…)`,
-  `kotlinx.browser`, `org.w3c`, `kotlin.js`).
-- Kotlin WebAssembly services use the built-in browser cache and Store
-  (ADR 0078), as Go, Rust and C# do: a `Cached` method or an `"indexeddb"`
-  Entity needs no adapter in the Setup. Android Kotlin services still name
-  their own adapters, and the build still refuses them otherwise.
-- F# classes hold behavior annotations (ADR 0073): caching (CacheSettings,
-  Cached, UpdateCache, ClearCache), Retry, MaxAtOnce, AllOrNothing, Check and
-  Checked, PageDefaults, Entity, Table, Store and Query, Converter and Convert,
-  configuration binding, HTTPClient requests, Gateway and Schedule, in Yon and
-  in Tac. They run on the C# behavior runtime, so F# gets the same checks and
-  errors as C#. A member whose body Tachyon writes (a query, Convert, Gateway,
-  a request without a body) is an F# `abstract` member; the behavior context
-  is a `behaviors` member of the class. Sockets, streams, field `Needs` and
-  executed coverage are still refused by name.
-- F# classes hold events and lifecycle hooks (ADR 0073): `OnEvent` with
-  `Order`, conditions, ids, replay and a returned model that is published
-  again, `OnStart` and `OnStop`, in Yon and in Tac, with the same checks and
-  runtime as C#. A class takes its `ApplicationEventPublisher` as a primary
-  constructor parameter in both realms and publishes F# records; listeners
-  take and return F# records. `InBackground` is refused in Yon, as in C#, and
-  allowed in Tac. `[<NeedsAll>]` on an F# type states that its primary
-  constructor takes every dependency; a field list and field `Needs` stay
-  refused. The .NET realm reads both C# and F# models, so event conditions
-  and the Tac JSON model context see F# records. An F# service takes
-  `DataSource` or `RedisTemplate` as a constructor parameter. A Tac F#
-  service takes no other constructor parameter. The website shows F# in
-  Lifecycle and events (Yon and Tac) and in DataSource in a service.
-- F# is a Yon language and a Tac service language (ADR 0073). Annotations are
-  F# attributes, `[<Service>]` or `[<GetRoute("/{id}")>]`, on their own line;
-  several may share one pair of brackets. A type takes the roles it needs as
-  the parameters of its primary constructor (Spring's single-constructor
-  injection). Tachyon reads each F# file through a C# view of its types and
-  member signatures, so every C# rule and guard (the rule table, one class
-  per file, file names, cohesion, duplication, design and safety rules, route
-  and model types) runs on F# and reports the F# line. Yon compiles an F#
-  program as three .NET assemblies: the C# protocol runtime, the F# code and
-  models, and the generated C# container, so F# code uses `relay`,
-  `DataSource`, `HttpRequestMessage` and `HttpResponseMessage` as C# does.
-  Controllers, services, stores, helpers, error handlers, root middleware
-  (`middleware.fs`), plain handlers, records and enum unions as models, and
-  test units (`member this.testName() : unit`) work in F#. A Tac service in
-  `client/services/<Name>Service.fs` runs on the .NET browser runtime of
-  ADR 0037 on every target, sharing one download with C#. `ty doctor` checks
-  .NET for F#, and `ty init` offers F# in both realms. TY1335 refuses an F#
-  file with a `module` or `namespace` line, a file-level `let` or `do`, or an
-  attribute on the same line as its declaration. Sockets, streams and the
-  executed-coverage check are not available in F# yet and are refused by
-  name.
-- Compressed files (ADR 0075): a release build of the web target (`ty build`,
-  `ty bundle`) writes a Brotli `.br` and a gzip `.gz` copy next to each script,
-  style, page, JSON, SVG, source map and WebAssembly file of 1 KiB or more,
-  keeps a copy only when it is smaller, writes the same bytes every time and
-  reuses the copies of unchanged files. `ty start` and `ty preview --static`
-  pick Brotli, then gzip, then the plain file from `Accept-Encoding` (a `q=0`
-  value turns an encoding off) and send `Content-Encoding`,
-  `Vary: Accept-Encoding` and the length and ETag of the copy; range and HEAD
-  requests keep working. A watching `ty preview` sends plain files and writes
-  no copies. `ty build` prints the totals (`BuildResult::compression()`). The
-  Tachyon website goes from 11 MB to 2.7 MB (Go module 3.2 MB to 684 KiB).
-  New pure-Rust dependencies `brotli` 9.0.0 and `flate2` 1.1.10
-  (`miniz_oxide`); NOTICE holds the Brotli licence.
-- JavaScript models files (ADR 0067 amendment): `client/models/` and
-  `server/models/` hold JavaScript models, one JSDoc `@typedef` plus
-  `export {}` per file, named after the model. They are global types of their
-  realm in `composed.d.ts`. JavaScript routes, event listeners and `/api.json`
-  read the JavaScript and TypeScript models of the realm, so
-  `/** @import { PlatformChanged } from '/models/PlatformChanged.ts' */`
-  replaces a copied `@typedef` (TY1308 no longer refuses it).
-  `ty migrate fix --write` moves inline `@typedef` models into the models
-  folder, keeps one file for identical copies, imports an existing model the
-  copy matches, and reports a copy that differs. The build refuses an inline
-  `@typedef` in a `client/` or `server/` JavaScript file outside `models/`
-  (TY1310); the website examples follow the rule. The JavaScript `ty init`
-  feature templates now use models files.
-
-- `ty init` is a setup wizard (ADR 0066). In a terminal it asks which parts
-  the app has (client, server or both), its Tac and Yon languages, its
-  targets and optional examples (storage, sockets, topics, streams, an HTTP
-  client, error handlers). Every question is also an option: `--realm`,
-  `--tac`, `--yon`, `--target` and `--features`. Without a terminal and
-  without options it keeps the old defaults (both realms, JavaScript, the
-  web). Each chosen language gets an example class, a test unit that calls
-  each public method, and a test setup, so a new app passes
-  `ty test --coverage` and `ty build` with every guard on.
-- `ty init` then checks the tools that the app needs, with the `ty doctor`
-  checks plus the target tools. For each missing tool it shows the exact
-  commands and asks first; `--yes` accepts every tool and `--skip-tools`
-  skips the check. It installs with the vendor's official installer into
-  the home folder, at a pinned, tested version, and checks each download
-  against the vendor's published SHA-256 (the emsdk hash is pinned). It
-  never runs `sudo`: it prints such commands, and it shows a link and steps
-  for Xcode and the Android SDK. `TY1408` refuses an unknown or conflicting
-  answer; `TY1409` reports an install that failed or a download that does
-  not match its checksum.
-- `ty add language client|server <language>`, `ty add target <target>` and
-  `ty add feature <example>` add to an existing app with the same examples,
-  tests and tool check. They never overwrite a file (`TY1402`).
-
-- Tac services get two browser APIs, written once in the page (ADR 0065):
-  `Clock` (the time, a monotonic time and the time zone of the browser) and
-  `SecureRandom` (random bytes and version 4 UUIDs). JavaScript and
-  TypeScript services write `@Needs clock` and `@Needs secureRandom`; Rust,
-  Go, C#, Dart and Ruby services use the `Clock` and `SecureRandom` types of
-  their prelude. Rust services now have the time and random numbers in the
-  browser. The guide "Clock and secure random numbers" shows each
-  spelling.
-- Seven more browser APIs for Tac services in every language (ADR 0065):
-  `Connectivity` (online or offline), `PageVisibility` (shown or hidden) and
-  `Preferences` (color scheme, motion setting, language) give the current
-  value, and the page publishes each change as a built-in event model
-  (`ConnectivityChanged`, `VisibilityChanged`, `PreferencesChanged`) that a
-  listener with `replay` also hears at start. `Clipboard`, `Share`,
-  `Notifications` and `Geolocation` start the browser's work, and the answer
-  reaches the service that called as a built-in event model
-  (`ClipboardTextRead`, `ShareFinished`, `NotificationPermissionChanged`,
-  `PositionFound`, or `BrowserCallFailed`). Built-in event models need no
-  file in `client/models/`. The guides "Connectivity, page visibility and
-  preferences" and "Clipboard, share, notifications and geolocation" show
+- `ty init` is a setup wizard that writes examples and tests per language
+  and installs missing tools (ADR 0066); `ty add language|target|feature`
+  extends an app.
+- `ty doctor` lists target and release tools; `ty doctor --install` installs
   them.
-- `tac.browserApis` in `client/manifest.json` grants `clipboard`, `share`,
-  `notifications` and `geolocation`. Without the grant, a call fails at once
-  with a message that names it; an unknown or repeated name stops the build
-  (`TY1601`). The clipboard, sharing and the notification question work only
-  from a click or key handler, and a Rust, Go, C#, Dart or Ruby method that a
-  click runs still counts as the click.
-- Test units can fake Tachyon's browser APIs (ADR 0065). In JavaScript and
-  TypeScript, a `@Fake clock` field of the unit reaches the service's
-  `@Needs clock` field through `construct`, like any `@Fake`. Go and Ruby
-  units give each call an answer with `BrowserFakes`. Rust, C# and Dart
-  units cannot use these APIs yet.
-- A Yon test unit can reach the controllers in `server/controllers`, in every
-  Yon language, like a controller in a Spring test: `construct(GreetingController)`
-  in JavaScript, TypeScript and Ruby makes the controller with the `@Fake`
-  fields for its `@Needs` fields, and the other languages make it directly.
-  `construct` also makes a role that has no `@Needs` fields. Controller
-  methods therefore stay in the test check of `ty preview`. `ty init` now
-  writes `server/tests/HomeControllerTest.js`, which calls the home
-  controller's method, and the server realm's `composed.d.ts` declares the
-  route controllers, so the test type-checks. A Tac test unit can `@Fake` a field that names a
-  managed client. The "Your first app" tutorial gets a step 5 that tests the
-  service and the controller, and no longer needs `TAC_ALLOW_UNTESTED=1`.
+- `ty migrate fix --write` rewrites retired forms, and `ty types` writes
+  TypeScript globals (ADR 0053).
+- `ty api freeze` saves an API baseline that later builds must keep
+  (`TY1338`).
+- Design, safety and front-end rules are build errors. See **New
+  build-refusing rules** under Breaking.
+- Simpler-form suggestions (`TY1340`–`TY1355`, `TY1362`). See
+  `docs/simpler-forms`.
+- `ty preview` keeps the last good build and shows an error box (ADR 0077);
+  `ty serve` and `ty preview` restart when `ty` changes.
+- Release web builds write Brotli and gzip copies (ADR 0075).
+- `ty-windows-arm64.exe`, picked by `install.ps1` on ARM64 Windows.
 
-- `@Topic` on a model makes its events cross processes and languages, like a
-  Spring Cloud Bus remote event (ADR 0061). `publishEvent(model)` of a Topic
-  model still reaches the publishing request's own listeners first; the
-  runtime then sends it to the server, which appends it to
-  `.tachyon/topics/<kebab-name>.jsonl` and calls each `@OnEvent` listener of
-  that model in the other Yon files and languages once (at most once, at most
-  8 republications). All eleven Yon languages send and receive Topic
-  events. A Tac `@OnEvent` listener for a Topic model opens the
-  topic stream by itself, shares one stream per topic in the page, and resumes
-  after its last record; a page's own `publishEvent` stays in the page. The
-  server accepts only a Topic model of the publishing file's language, a JSON
-  object of at most 64 KiB, and refuses `@Topic` outside a models folder.
+**Website and docs**
 
-- A Yon worker or `Handler` method may take no parameter, like a Spring
-  `@Scheduled` method: `static void POST() {}` now runs in Java, Kotlin, C#,
-  Python, Ruby, Dart and Rust as it already did in JavaScript, TypeScript,
-  PHP and Go (before, it answered 405 or failed to compile).
-- A C# controller can take a `BehaviorJSON` body with `[FromBody]` and
-  return it, so a `Check` behavior gets the request body without reading
-  the request by hand.
-- Yon controllers take and return models, like Spring's `@RequestBody` and
-  message converters (ADR 0048). `FromBody` hands the method an instance of
-  the model, and a returned model, list of models or stream of models becomes
-  JSON with the model's field names. PHP gives an array its item type in a
-  doc comment: `/** @var list<Line> */` on a model property, and
-  `@param list<Line> $lines` or `@return list<Line>` on a controller method.
-  The website controller examples now return models instead of maps.
-- WebSockets (ADR 0060). `@SocketRoute("/chat")` on a JavaScript or
-  TypeScript class in `server/controllers/` keeps a WebSocket open, like
-  Jakarta's `@ServerEndpoint`: Tachyon starts one handler process for each
-  connection, and `@OnOpen`, `@OnMessage`, `@OnClose` and `@OnError` mark its
-  methods. When `@OnOpen` or `@OnMessage` fails, `@OnError` runs and the
-  socket stays open, as in Jakarta. Each message is JSON text that Tachyon
-  checks against the model type of the `@OnMessage` parameter. The session
-  has `send`, `close` and `openSessions()` (every open connection of the
-  path). Guards fail closed: 64 KiB messages, 32 open sockets, five idle
-  minutes, one hour per connection, the page's own origin only, and 426 for
-  a plain request. In the browser,
-  `@SocketRequest` on an `@HTTPClient` method receives the messages and
-  publishes each one as its model's typed event, and the client gets
-  `send(message)`; the event bus owns the `WebSocket` (open on first use,
-  close with its owner, reconnect after 1 to 16 seconds, five tries).
-  `/api.json` marks the path with `"socket": true`. TypeScript declares
-  `SocketSession`, `SocketPeer` and `SocketSend<Message>`, and a `declare`
-  field is no longer a required `@NeedsAll` field. The website has a
-  "Socket controllers" example and a glossary entry.
-- Sockets in every Yon language (ADR 0060): Python, Go, Java, Kotlin, C#,
-  PHP, Ruby, Rust and Dart hold a `@SocketRoute` class like JavaScript and
-  TypeScript do, with the same frames, limits and one object for each
-  connection. Each message is turned into the `@OnMessage` model first, and
-  the session uses each language's naming (`open_sessions()` in Python, Ruby
-  and Rust; `OpenSessions()` in Go and C#; `getOpenSessions()` in Java). The
-  compiled and prelude languages read a framed request when the supervisor
-  sets the private `YON_SOCKET_FRAMES` value. The website "Socket controllers"
-  example has a tab for each language.
-
-- Built-in Tac storage (ADR 0059): `@Entity({"adapter": "indexeddb"})`
-  keeps a JavaScript or TypeScript Store in IndexedDB with no adapter code
-  (one object store per Table, indexes for the fields its queries use, adding
-  schema upgrades, AllOrNothing as one IndexedDB transaction, a bounded scan
-  without an index). A `@CacheSettings` cache that the Setup does not
-  configure uses the browser Cache API, loaded into memory before the first
-  render, with TTL, maxEntries (least recently used first) and background
-  writes; on an insecure origin it lives in memory only. `@LocalState` and
-  `@SessionState` work in JavaScript, TypeScript, Dart, Swift, Kotlin, C#,
-  Rust, Go and Ruby Tac services. Go, Rust and C# WebAssembly services and
-  Dart and Ruby services use the same built-in cache and IndexedDB Store
-  through a synchronous storage host (Ruby reaches it through the existing
-  mruby runtime, with no rebuild): reads come from a copy in memory that Tachyon
-  loads before the services start, and writes go to IndexedDB in the
-  background. Native Swift, Kotlin, Rust and C# companions still name their
-  adapters.
-- `@StreamRequest(path?)` on an `@HTTPClient` method in JavaScript or
-  TypeScript keeps a server-sent event stream open (ADR 0058). Tac opens it
-  when the client is first used, reconnects with a growing wait and a limit,
-  and closes it with its component or service. Each message is checked
-  against the model type of the method's one parameter, passed to the method
-  and published as that model's typed event, so `@OnEvent` listeners in every
-  Tac language receive it. The realtime example no longer writes an
-  `EventSource` by hand.
-- `ty serve` and `ty preview` restart themselves when the `ty` file on disk
-  changes. Before, a long-running preview kept the old compiler and every
-  rebuild failed with errors from the old version. Open pages show
-  "Tachyon was updated on disk. Restarting the preview…" (`TY1320`) and reload
-  when the new server is ready. A new `ty` that does not start is reported
-  and the old server keeps running; it restarts at most once for each change.
-  `--no-self-restart` turns this off.
-- Ruby is a Yon language and a Tac service language (ADR 0054). Annotations
-  are comment lines, `#[Service]` or `#[GetRoute("/{id}")]`, alone on their
-  line, so annotated files stay ordinary Ruby. Route, error and model types
-  come from YARD tags (`# @param id [Integer]`, `# @return [Order]`,
-  `@!attribute`). Yon runs Ruby 3.3 or newer (`YON_RUBY_RUNTIME`,
-  `ty handler invoke --ruby-runtime`) for controllers, error handlers,
-  workers, root middleware (`middleware.rb`), relay, `DataSource`,
-  `RedisTemplate`, Gateway class targets, `server/models/*.rb` and test
-  units. A Tac service in
-  `client/services/<Name>Service.rb` runs in the browser on the pinned mruby
-  runtime (ADR 0049) with its `attr_reader` fields, public methods,
-  lifecycle hooks and event listeners, and reaches native targets through
-  the web view. Client test units run in CRuby. The website's Showcase and
-  Drawer services are now Ruby.
-- Ruby runs the shared behavior annotations (ADR 0054 "Behavior annotations"):
-  `Cached`, `UpdateCache`, `ClearCache`, `Retry`, `MaxAtOnce`,
-  `AllOrNothing`, `Check` and the field checks, `Settings`, `Setting`,
-  `Entity`/`Store`/`Query`, `Convert`, `HTTPClient` requests and `Gateway`
-  callers, in Yon (CRuby) and in Tac services (mruby), through the shared
-  rule table. The runtime is one Ruby file that passes the same boundary
-  contract in CRuby and in the browser build. Yon Ruby services also get
-  local events and `OnStart`/`OnStop`, and Ruby test units get `Fake`
-  fields and `construct(Role)`.
-
-- Generated TypeScript globals for composed classes (ADR 0053). `ty bundle`,
-  `serve`, `preview`, `test` and `init`, and the new `ty types`, write
-  `.tachyon/types/client/composed.d.ts` and
-  `.tachyon/types/server/composed.d.ts`. They declare each exported,
-  annotated JavaScript or TypeScript class that Tachyon composes by name in
-  that realm, with its real type, so tests and role files use it without an
-  import in editors and `tsc`. Deleted classes drop out on the next run, and
-  client and server names never mix. `ty init` now writes
-  `client/jsconfig.json` and `server/jsconfig.json` (one per realm) that
-  include these files, and adds `.tachyon/` to `.gitignore`. The website's
-  hand-written `composed-services.ts` is removed.
-
-- Yon error handlers (ADR 0051). An `@ErrorHandler` class in
-  `server/controllers/<Name>ErrorHandler.<ext>` answers typed errors that
-  controllers and their services throw, in all ten Yon languages. Each
-  `@HandlesError` method takes no argument: the declared type of its first
-  parameter is the error it handles. The nearest type wins. Go matches with
-  `errors.As`, so wrapped errors match. Rust matches the error type of the
-  controller's `Result`. `@ResponseStatus` sets a 400 to 599 status. The
-  answer is checked like a controller answer, and `/api.json` lists each
-  error type, status and shape. Unmatched errors and errors thrown by a
-  handler keep the fixed 500 answer. Error types live in
-  `server/errors/<Type>.<ext>`. Spring and NestJS names such as
-  `ControllerAdvice`, `ExceptionHandler` and `UseFilters` are refused with a
-  hint to use these markers.
-
-- A pinned mruby WebAssembly runtime for Ruby in Tac (ADR 0049), in
-  `runtimes/ruby-web`. It compiles Ruby with the embedded Prism compiler,
-  stays below 4 MiB, and has no filesystem, socket, process or environment
-  access; the page needs only CSP `wasm-unsafe-eval`. Its sources and the
-  Emscripten toolchain are pinned by commit and SHA-256, and a dedicated CI
-  workflow (`ruby-runtime.yml`) rebuilds it twice and compares both builds
-  with the committed hash. It is mruby, not CRuby: only `json`, `set` and
-  `time` can be required, and error text can differ. Framework integration
-  (annotations, providers, page events) is a separate phase.
-
-- Website routing examples now use `RequestRoute` controllers in all ten
-  Yon languages. HTTP examples use `HTTPClient` and request annotations.
-  A linked glossary explains incoming routes and outgoing requests in plain
-  English. TypeScript editor declarations no longer advertise retired markers.
-
-- `ty migrate fix` fixes Tachyon's own breaking changes. It deletes
-  `tachyon:behaviors` imports (ADR 0046) and turns an old root middleware
-  class `Handler`, whose HTTP method functions all hold the same code, into
-  class `Middleware` with `before(request)` and `after(request)` (ADR 0044).
-  It renames old annotations to their plain English names in every language
-  and moves files from the renamed role folders, renaming the moved role
-  types and test setups where they are named (ADR 0047); it only moves files
-  from an old role folder to its new one inside `client/` and `server/`,
-  never deletes or overwrites a file, and reports a taken name or a linked
-  folder as a manual step.
-  It lists everything it cannot change safely as a manual step with the exact
-  instructions: an import that renames the names, a re-export, other
-  middleware, and each file that breaks the one-class rule, with the split to
-  do. It prints every change and writes nothing without `--write`. It never
-  follows a symbolic link, keeps file permissions, and a second run changes
-  nothing.
-- Go routes, workers and root middleware (ADR 0045). A
-  `server/routes/**/yon.go` route and a `server/workers/*.go` worker declare
-  `type Handler struct{}` with exported HTTP-verb methods such as
-  `func (Handler) GET(request *YonRequest) *YonResponse`; a root
-  `middleware.go` declares `type Middleware struct{}` with `Before(request)`
-  and `After(request)`. A route method may leave out the request parameter,
-  and it may return nothing, a value that `encoding/json` can encode, an
-  `error`, a value and an `error`, or a `*YonResponse` (`YonJSON`,
-  `YonEmpty`, `.Status`, `.Header`). Plain Go files under `server/shared/`
-  compile as more files of the route's `package main`, so a route calls their
-  types and functions without an import; they carry no annotation and no
-  other package clause (`TY1310`), and a compile error names their path.
-  Tachyon builds each handler offline as a Go module with the standard
-  library only and caches the binary by source, shared code, models, runtime
-  and `go version`. The one-class rule (ADR 0044) and the empty route-marker
-  rule apply. `ty doctor` and the server preflight require Go 1.27 or newer
-  (`TY2112` when `go` is missing).
-- Go relay and managed resource clients (ADR 0045). A Go handler calls
-  `Relay([]string{"ruby", "server/delegates/report.rb"}, request)` with the
-  same rules as the other compiled Yon languages: a cleared environment
-  without `YON_APPLICATION_JSON` or `YON_RESOURCE_*`, the time left in the
-  request as its deadline, 16 MiB of stdout, 64 KiB of stderr, and HTTP 502
-  `{"error":"Component invocation failed."}` for every failure. The deadline
-  lives in a separate Go package, so handler code in `package main` cannot
-  change it. `DataSource{}.Query`, `Execute` and `Command`,
-  `RedisTemplate{}.Get`, `Set` and `Delete` return `(any, error)`; a handler
-  method may return that pair: a `YonResourceError` answers HTTP 500 and any
-  other error fails the handler. `YonGateway.Call(key, argumentsJSON)` is the
-  Gateway transport. All three connect straight to the loopback resource
-  endpoint and never use a proxy.
-- Go models (ADR 0045). `server/models/*.go` and `client/models/*.go` hold
-  Go data types: each file declares one struct, other defined type or type
-  alias, with struct tags and the imports it needs, under an optional
-  `package main` clause (ADR 0043, ADR 0044). Methods, functions, constants,
-  variables, interfaces, blank imports and another package clause fail with
-  `TY1310`. Tachyon compiles every Go models file of the realm as a file of
-  the program's `package main`, so a Go route, worker or root middleware uses
-  a model by its type name alone, and a compile error in a model names its
-  `server/models/` path. Go web services use the client Go models.
-- Go annotations and test units (ADR 0045). A Go role file, route, worker or
-  test unit uses the Rust spelling on the line before `type Name struct` or
-  `func (receiver) Name(...)`: roles and `#[yon::...]` names, `#[Inject]`,
-  `#[Scope]`, `#[RequiredArgsConstructor]`, `#[Autowired]`, every behavior
-  annotation with its JSON arguments, `#[EventListener]`, `#[PostConstruct]`,
-  `#[PreDestroy]`, `#[Order]`, `#[Scheduled]`, `#[TachyonTest]` with
-  `server/tests/*Test.go` and its sibling `TestConfiguration`, and the caller
-  side of `#[Gateway]`. Tachyon builds each managed type as `&T{}` and sets
-  its injected fields; behavior methods take `BehaviorValue` parameters and
-  return `(BehaviorValue, error)`. Role files and generated code compile as
-  separate files of `package main`, so they never change the imports of an
-  authored file.
-- Go Gateway targets (ADR 0045). A `#[Gateway]` or `@Gateway` caller in
-  another Yon language may name a Go role file, such as
-  `{"class":"server/services/ReportService.go","method":"summarize"}`.
-  Tachyon calls the exported method with an upper-case first letter
-  (`Summarize`), with a value or pointer receiver. The method takes
-  `BehaviorValue` parameters and returns `(BehaviorValue, error)` or
-  `BehaviorValue`. The generated unit resolves the type and its dependencies
-  through the Go container, and a missing or unexported method, a different
-  argument count or another type fails with `TY1312`. A returned error or a
-  panic reaches the caller as `adapter`.
-- Go web services as WebAssembly, and Go client test units (ADR 0045). A
-  `client/services/<Name>Service.go` file declares `type <Name>Service struct`
-  with `#[Service]`, `#[Scope]` and `#[RequiredArgsConstructor]` as in Rust;
-  every Go service of the application compiles with
-  `GOOS=js GOARCH=wasm go build` into `.tachyon/services/go/services.wasm`,
-  loaded through a same-origin copy of Go's `wasm_exec.js`. Views read and
-  set exported fields and call exported methods with lower-first names, so
-  `Results` is `{search.results}`. `ApplicationEventPublisher`,
-  `#[PostConstruct]`, `#[PreDestroy]`, `#[EventListener]` and the behavior
-  annotations work as in a Rust web service, and a service uses the Go client
-  models and its bare `#[Repository]`, `#[Configuration]` and `#[Entity]`
-  role files. As in Rust and C#, a Tac `#[Component]` delegate is a browser
-  role, so it fails with `TY1308`, and the message names the delegate file.
-  A service with several WebAssembly languages uses Rust, then Go, then C#.
-  Go's runtime gets its file-system stub only while the module starts, so a
-  page whose own scripts define a global `fs` keeps it. `ty doctor` checks
-  for Go 1.27 or newer when a project has a Go service. A
-  `client/tests/<Name>Test.go` unit runs natively with `go run`.
-- The website uses Go services (ADR 0045). Three of the site's own services,
-  `InlineCodeService`, `CatalogService` and `ShowcaseService`, are Go, with
-  Go client models and `client/tests/*Test.go` units. Every multi-language
-  example on the site and in the guides has a Go version, and
-  `bun run verify:snippets` builds, serves and tests the Go snippets with the
-  `go` toolchain; a Go fragment without markers is checked with `gofmt -e`.
-- `@Gateway` declares a Yon method that another language answers (ADR 0042).
-  The method has no body. Its configuration names a class in another Yon
-  language, `{"class":"server/services/ReportService.java","method":"summarize"}`,
-  or a program, `{"command":["ruby","server/delegates/report.rb"]}`. The
-  positional arguments travel as bounded JSON, and the other side's return
-  value becomes the result. A class target runs as a generated unit under
-  `server/gateways/` in the owned snapshot; a command reads
-  `{"method":...,"arguments":[...]}` on stdin and writes the bare JSON result
-  on stdout, with exit status 0 for success. Limits: 32 arguments, 1 MiB each
-  way, depth 32, 10,000 values, 64 calls and 4 concurrent calls per
-  invocation, and the time left in the request. A failure is a BehaviorError
-  with the code `invalid`, `timeout`, `capacity` or `adapter` and the fixed
-  message `Gateway call failed.`; the supervisor logs only
-  `handler.gateway_failed`. One hop only. The build fails with `TY1312` for a
-  bad target and `TY1308` for a misused annotation; `server/gateways/` is
-  reserved in any letter case (`TY1310`); a missing program fails the
-  preflight of the server and of `ty test` with `TY2112` (on Windows only a
-  program that Rust's spawn can run counts); Firecracker isolation refuses
-  gateways (`TY2010`). An overloaded target is chosen by argument count and
-  JSON types; ambiguous signatures, conflicting argument counts and
-  unsupported Rust receivers fail with `TY1312`, and a Python target is
-  checked against its last definition. A command gets only the baseline
-  environment and the explicit allowlist, which cannot restore reserved
-  names; an entry with a drive prefix such as `C:x` counts as a path, and
-  stderr overflow is an `adapter` failure. A unit is never started after its
-  deadline. Closing an invocation cancels its calls and waits until their
-  process groups are reaped. All ten Yon languages can call and be called.
-
-- A service written only in Rust now runs on the web as WebAssembly (ADR
-  0035). All such services compile with
-  `rustc --target wasm32-unknown-unknown` into one module. The module is built
-  for small size and embedded in `.tachyon/services/tachyon-rust.js`, so a
-  `file:` web view can load it too. Each `<Name>Service.js` exposes the Rust
-  service's fields and methods through the companion protocol that a desktop
-  host already uses. Events the service publishes arrive as the page's
-  application events. A native target that links the service natively never
-  loads the module. iOS and Android link no Rust, so they run the module. A
-  service's plan now marks it `native` only when this target links it. Rust
-  companion methods may take `&mut self`, and code may assign a `TacValue`
-  field. `ty doctor` checks for the `wasm32-unknown-unknown` target. A Rust
-  service declares `#[Service()]`, `#[Scope]` and `#[RequiredArgsConstructor]`
-  above its struct. Its methods take JSON arguments, and its Rust test units
-  can hold a `TacValue`.
-
-- A service written only in C# now runs on the web as WebAssembly (ADR 0037).
-  All such services publish into one assembly on the .NET browser runtime,
-  served under `.tachyon/services/dotnet`. A C# service uses the same protocol
-  and per-service module as a Rust one. C# declares `[Service()]`, `[Scope]`
-  and `[RequiredArgsConstructor]`. Its methods take JSON arguments, and an
-  `object` field accepts lists and objects. `init` may include up to 1 MiB of
-  properties. The Linux host allows WebAssembly, and `ty doctor` checks for
-  the `wasm-tools` workload.
-
-- Route metadata may set `noindex`. The website's head now comes from its
-  `metadata` export, instead of a rewrite after bundling.
-
-- Views read `client/shared/data/<name>.json` as `data.<name>`, and read the
-  page as `page.path` and `page.development`. No service is needed in between
-  (ADR 0036). A missing data file fails the build with TY1311. No service may
-  be named `data` or `page`. `ty preview` marks the documents it serves as
-  development documents.
-
-- The website's services are now split evenly: three each in JavaScript,
-  TypeScript, Dart, Rust and C#. Each has a unit in its own language. Its
-  data-only services (pillars, FAQ, footer, hero, quickstart) became shared
-  data, and its runtime note became a plain view. One clipboard service
-  replaced three copies of the copy-with-feedback logic. The drawer, showcase
-  and platform choice were split out of the services that contained them.
-
-- A Dart field whose initializer has a comma inside a string is now read as
-  one declaration.
-
-- A Tac service declares `@RequiredArgsConstructor('field', …)` instead of
-  writing a constructor. The runtime constructs it with the properties of the
-  same names that its tag passes. This works in JavaScript, TypeScript and
-  Dart. The website's services expose their data as fields that a view reads
-  directly (`{faq.entries}`), instead of methods that return the data.
-
-- Browser services may be written in Dart (ADR 0033).
-  `client/services/<Name>Service.dart` compiles with `dart compile js` into
-  the same `.tachyon/services/<Name>Service.js` that a JavaScript service
-  publishes. So views, the runtime and hot updates treat it like any other
-  service. Compiled Dart has no reflection. So the build reads the class's
-  public members and generates a bridge. Fields and getters are read
-  synchronously, assignments write through to Dart, and methods return their
-  value, or a Promise for a `Future`. Only JSON values cross the bridge. Other
-  members stay inside Dart. `@Autowired` collaborators are built once per
-  instance. An injected `ApplicationEventPublisher` publishes through the
-  runtime. `@PostConstruct`, `@PreDestroy` and `@EventListener` run from the
-  exported event plan. Dart Tac test units run on the Dart VM under `ty test`,
-  and the method-coverage guard counts them. Builds are cached by SDK and
-  program digest. `ty doctor` reports the SDK. The annotation guide's Tac
-  sections now have Dart tabs, and the snippet verifier bundles or runs each
-  tab. These sections cover roles, caching, resilience, validation, lifecycle
-  and events, test units and strict layout.
-
-- Dart is a Yon handler language, the tenth language Tachyon supports. A route
-  is `server/routes/<path>/yon.dart`, which declares `class Handler` with verb
-  methods, sync or `async`. `YonRequest`, `YonResponse`, `DataSource`, `Redis`
-  and `relay` are in scope, as in every other language.
-  `dart compile aot-snapshot` compiles the handler once and caches it, and
-  `dartaotruntime` runs the snapshot. So a request starts in milliseconds,
-  instead of waiting for just-in-time (JIT) compilation. The runtime is one
-  executable that macOS already trusts. So macOS does not check each newly
-  compiled handler on its first launch. Ahead-of-time Dart has no reflection,
-  so the dispatch names exactly the verbs the handler declares. Any other verb
-  returns 405. A role file may import `dart:` core libraries. The composed
-  unit moves these imports before the first declaration, as Dart requires.
-  `ty doctor` checks the SDK.
-
-- Dart has the full Yon annotation vocabulary:
-  controllers and roles with constructor injection (`final` fields become
-  initializing formals), the 23 behavior annotations, configuration binding,
-  validation, mapping, lifecycle hooks and local events, and `@TachyonTest`
-  units under `ty test`. Behavior methods that do I/O are `async` and return a
-  `Future`. The website's annotation guide has a Dart tab for every Yon
-  section.
-
-- Dart Yon verbs can stream. A handler or controller method written `async*`
-  returns a `Stream`. The prelude writes each value as one protocol frame, as
-  Kotlin's prelude does for a `Sequence`. A failure in the middle of a stream
-  ends it with one error event, and that event does not show the handler's
-  message.
-
-- Dart browser services now share one compiled program. Each service is its
-  own Dart library, and each module imports `tachyon-dart.js`, so the page
-  loads the Dart runtime only once. A Dart service uses another service
-  through a `late` field named after it, as JavaScript services do. Another
-  Dart service arrives as the page's own Dart instance. Any service can arrive
-  as a `TacService` proxy (`get`, `set`, `invoke`). `$`/`$$` fields persist
-  through the bridge. The bridge restores them before `@PostConstruct` and
-  stores them only when a call changes them. Bridged methods accept optional
-  positional and named parameters, and use the Dart defaults for omitted
-  ones. A Dart test unit replaces a JavaScript service with
-  `TacService(fields, methods)`. This was checked in the browser and in the
-  macOS host.
-
-- Browser test units run under Node, Bun or Deno, and see what a browser
-  service sees. `TAC_JAVASCRIPT_RUNTIME` picks the runtime, as it already did
-  for TypeScript services. Otherwise, the first of the three that is installed
-  runs the unit. The runner moves to the next runtime only when one is
-  missing. A runtime that ran and failed gives the result. Before, the runner
-  reported the last runtime's error instead of the first one's. TypeScript
-  runs under all three (Node strips the types). `/shared/...` resolves against
-  the project's `client/` tree under each runtime. A unit gets the project's
-  own DOM when it installs `@happy-dom/global-registrator`.
-
-- Role files may import by absolute specifier. Before, composition rejected
-  every ordinary import. This kept any service that imported a shared helper
-  out of test units completely. Composition only needs to reject imports whose
-  meaning changes when the file moves. `/shared/...` means the same thing
-  wherever the composed unit ends up. Imports of the same specifier merge into
-  one statement, including multi-line clauses and import attributes.
-  Composition rejects a name bound from two different specifiers.
-
-- The website is tested. Sixteen units cover all 73 public methods of its
-  annotated services, under Node, Bun and Deno. `ty preview` now starts
-  because the tests pass. Its scripts no longer use the `TAC_ALLOW_UNTESTED`
-  override.
-
-- Test units are compiled. `server/tests/<Name>Test.<ext>` is an entry that
-  composes the role files of its realm. So every service, repository, client,
-  component and mapper is available to it. `@TachyonTest` names the
-  Configuration that provides its behavior context. `@TestConfiguration`,
-  `@ActiveProfiles`, `@TestPropertySource`, `@MockBean`/`@MockitoBean` and
-  `@DirtiesContext` provide the rest. The compiler writes `startBehaviors()`,
-  `stopBehaviors()` and the driver. In JavaScript and TypeScript, it also
-  writes the mock-aware `construct(Type)`. A case is found by a naming
-  convention, in the same way as a controller method named after a verb. A case
-  is an instance method whose name begins with `test`. The compiler lists the
-  cases, because Rust has no reflection to find them at run time.
-
-- `ty test` runs test units in both realms. A Yon unit is compiled and invoked
-  like any other handler. So one path reports results for JavaScript,
-  TypeScript, Python, PHP, Java, Kotlin, C# and Rust. A Tac unit has its own
-  runner, because a browser unit cannot use the Yon route plan.
-  `client/tests/<Name>Test.<ext>` is composed from the client roles and lowered
-  for the client realm. It runs in the host that its language compiles to. The
-  host is Bun or Node for JavaScript and TypeScript. It is one binary, jar or
-  built assembly for Swift, Kotlin, C# and Rust. A Tac driver uses no Yon
-  transport type. Every behavior runtime already has a bounded JSON serializer,
-  so the driver returns its own encoded report. For this reason, support for all
-  six languages needed only a small change, not a change to the handler
-  contract. The command exits with a non-zero code when a case fails. It now
-  also checks first that the runtimes its units need are ready. So a TypeScript
-  unit under a JavaScript-only runtime gets the same readiness diagnostic as
-  every other command, not Node's own error message.
-
-- Test units of both realms are published and verified. The annotations topic
-  has two new sections: `Test units: Yon` (all eight languages) and
-  `Test units: Tac` (all six). The snippet verifier runs each language tab
-  through `ty test` instead of bundling or serving it.
-
-- You can declare a role abstractly, in the way Spring writes a repository or
-  an HTTP interface. Use an `interface` in Java, Kotlin, C# and PHP, a
-  `protocol` in Swift, a `trait` in Rust and a `Protocol` class in Python. The
-  compiler lowers it into the concrete type. It writes the behavior context, the
-  constructor and every method body, so the source contains only signatures.
-  The compiler rejects a member with a body, a constructor written by the
-  author, and an `@Autowired` field. JavaScript has no method without a body,
-  and TypeScript cannot decorate an abstract member. So both keep the empty
-  body that they already used.
-
-- Pages compose components (ADR 0029). A page
-  directory holds only `tac.html`. That file contains only component tags,
-  whitespace and comments. Markup, state, companions and stylesheets next to a
-  page fail with `TY1309`. The error names the component to move them into.
-  Components are the unit of view and style. Site-wide scripts and styles are
-  declared once in `tac.config.js`. `ty init` creates a page that composes
-  components. The migration report classifies page companions as
-  `companion.page`. The website, the gates and the published examples follow
-  the rule.
-
-- Components use services (ADR 0030). A component directory holds `tac.html`
-  and, optionally, `tac.css`. A `tac.js`, `tac.ts` or native `tac.*` next to a
-  component view fails with `TY1310`. The error names the service file to move
-  it into. Behaviour is one `@Service()` class in
-  `client/services/<Name>Service.<ext>` (`js`/`ts` for the browser,
-  `swift`/`kt`/`cs`/`rs` for native targets). A view uses a service by its
-  instance name (`{basket.count}`, `on:click="basket.add()"`,
-  `basket.query = $event.target.value`). Loop bindings and passed properties
-  do not use the instance name. A service is a page singleton. It is
-  initialised on first activation and disposed when the page is hidden.
-  `@Scope({"value":"prototype"})` creates one service per component instance.
-  Collaborators live in `client/clients`, `client/repositories`,
-  `client/configurations`, `client/entities` and `client/delegates`. An
-  undefined field named after another service receives that service. `Service`
-  and `Scope` are global Tac markers (ADR 0046). Browser modules are
-  written to `dist/.tachyon/services/<Class>.js` with the hot-update boundary
-  `service:<Class>`. A mount policy on a component that names no service gives
-  `TY1405`. Native requests include `service`. They return
-  `TY_NATIVE_SERVICE` for an unknown service. `ty init` creates
-  `client/services/ShellService.js`. `ty migrate` reports
-  `companion.component`, `service.tac`, `service.native` and
-  `companion.controller`.
-
-- FYLO is a datasource (ADR 0032). `yon.datasource.driver: "fylo"` with
-  `url: "fylo:///absolute/root"` serves repositories from a local document
-  store. One `fylo` subprocess, owned by the server, uses the bounded NDJSON
-  (newline-delimited JSON) machine protocol. `save` maps to
-  `putData`/`patchDoc`, and `delete` maps to `delDoc`. Finds and derived
-  queries map to `findDocs` with `$ops` predicates over at most 10,000 matching
-  documents. Raw `dataSource.query` goes through FYLO's SQL subset. FYLO
-  assigns identifiers. The root must already exist. FYLO accepts no credentials
-  or TLS. `ty doctor` reports the `fylo` binary when the driver is configured.
-
-- Add `RestClient`, Spring's imperative HTTP client, next to the declarative
-  `@HttpExchange`: `behaviors.restClient("catalog").get("/products").query(...)
-  .header(...).body(...).retrieve()` in all nine languages. Python names it
-  `rest_client`. It calls the same configured `http` adapter with the same
-  rules: a bounded path relative to the origin, no headers that the transport
-  owns, no body on GET or HEAD, `redirect: error`, `credentials: omit`, a
-  1 MiB response limit and the operation's own deadline. There is no second
-  transport.
-
-- Add `@Retryable` and `@ConcurrencyLimit`. They copy the resilience
-  annotations of Spring Framework 7, in both realms and in every supported
-  language. `@Retryable({"maxRetries":1-8})` takes the optional literals
-  `delayMs`, `multiplier`, `maxDelayMs` and `jitterMs`. Delays are in
-  milliseconds, not a `TimeUnit`. A framework rejection is a decision, so it is
-  never retried. Examples are an invalid policy, denied authorization, a
-  disposed context or an expired deadline. An adapter fault or an error that
-  the method raised is retried. `@ConcurrencyLimit({"limit":1-64})` takes
-  `policy` `block` or `reject`. A blocked caller waits only until its operation
-  deadline. A retrying call keeps its slot across every attempt. PHP runs one
-  synchronous call at a time, so it accepts only `reject`.
-
-- Add `@Transactional({"adapter":"<entities adapter>"})` on an async service
-  method in both realms. The framework calls `begin` before the body, `commit`
-  after it returns and `rollback` when it raises. Every repository and `@Query`
-  command issued between them includes the transaction. A nested Transactional
-  joins the open transaction. There are no savepoints. A retrying method opens
-  a new transaction for each attempt. The managed Yon datasource now answers
-  `{"operation":"transaction","action":"begin"|"commit"|"rollback"}`. At most
-  four transactions can be open at once. Each one holds one connection. The
-  datasource rolls it back after ten seconds without activity. So a handler
-  that dies during a transaction cannot keep a connection. Authored SQL still
-  cannot contain `BEGIN`, `COMMIT` or `ROLLBACK`. FYLO rejects a transaction
-  instead of pretending to support it. An entity adapter that ignores the
-  transaction key is not transactional.
-
-- Add `@Scheduled` on a worker under `server/workers`. It declares
-  `fixedDelaySeconds` (1–86,400) and an optional `initialDelaySeconds` in the
-  code, not in `.tachyonrc.workers`. The worker uses the same supervisor,
-  deadlines and bounds as a request-driven handler. Declaring a schedule in both
-  places is `TY1502`. The marker is removed before the worker compiles.
-
-- Add `@Description`: one bounded literal line that a registration includes
-  for tools. It goes on a class that already declares a behavior.
-
-- Add owned application events and lifecycle to Tac and Yon: EventListener,
-  PostConstruct and PreDestroy. Since ADR 0031, code publishes events through
-  an injected `ApplicationEventPublisher`. Add browser Resource injection.
-  Remove the public this.tac object, the TacRuntime type and the implicit mount
-  hook. Native activations use new owner IDs and reject out-of-date callbacks.
-  Yon events stay local to one invocation. Network topic and SSE (server-sent
-  events) delivery does not change. See ADR 0028 for language limits.
-
-- Add server-owned Yon datasource and Redis resources, with repository
-  injection through required fields, in all eight Yon languages. Provide
-  parameterized SQL dialects, verified TLS, bounded operations and SQLite
-  cancellation. Add Docker qualification with real drivers, and private
-  resource access for each invocation. SQL Server runtime qualification is
-  still not done (ADR 0027).
-
-- Add discovery and injection of browser JS/TS Client objects over
-  HttpExchange. They have owned cancellation and explicit cache policies for
-  anonymous JSON. Native HTTP adapters are still configured by hand.
-
-- Normalize ordinary JSON-compatible Yon return values in all eight languages.
-  Response helpers stay optional, for HTTP metadata and raw bodies. Add strict
-  parse and stringify equivalents where the runtime has no standard JSON API.
-
-- Add Application Configuration v2: tac and yon namespaces, binding from
-  underscores to paths, and private literal Yon secrets from .env. Publish only
-  the captured base tac projection at /.tachyon/application.json. Builds never
-  open secrets. Migrate old flat sections, JSON placeholders and parent
-  application overrides to the split model (ADR 0026).
-
-- Infer managed Yon constructor dependencies with RequiredArgsConstructor.
-  Direct, uninitialized, non-static fields select concrete providers in
-  declaration order. An optional quoted list of fields can select or reorder
-  them instead. You do not need to write an Inject list or a constructor. Rust
-  uses Arc<Provider>. JavaScript requires exact lowerCamel provider names.
-  Defaults and static state are kept. Ambiguity is an error (fails closed).
-  Explicit setup is still available as an option. ADR 0027 adds scoped
-  discovery, managed resources and browser Client creation. Update all eight
-  Yon website examples (ADR 0025).
-
-- Enforce role annotation naming and placement with `TY1310`. The rules are:
-  domain-prefixed type suffixes, file names that match exactly, plural parent
-  directories and one primary role per file. Captured role folders next to each
-  other form bounded source units in one language. ADR 0027 replaces the
-  original manifest design. Inline role declarations must migrate. Behavioral
-  modifiers and plain entrypoints do not change. Add website examples for all
-  eight Yon and six Tac companion languages (ADR 0024).
-
-- Add the shared `Value` annotation in every Yon language and every Tac
-  companion language. It binds one instance field from the resolved
-  application configuration through `Behaviors.values`. It supports the
-  placeholder form `"${path:default}"` and a typed object form, with canonical
-  nested application paths. Tac may bind only `tac.*`, and Yon only `yon.*`
-  (ADR 0026). The docs include a complete worked `application.json` example
-  for `ConfigurationProperties`, `Profile` and `ConditionalOnProperty`.
-
-- Extend shared annotations with CachePut/CacheEvict, ConfigurationProperties,
-  Profile/ConditionalOnProperty, Validated/Valid and field constraints, and
-  entity-bound Repository/Query with bounded query methods derived from AND
-  conditions. Typed configuration uses explicit TAC_/YON_ values. Validation
-  is pure. Query execution requires a separate entity authorization hook.
-  Document optional folders organized by feature, without adding implicit
-  scanning across files.
-
-- Add shared behavior annotations in every supported Tac and Yon language. They
-  work over explicit application cache, persistence and outbound HTTP adapters.
-  They include bounded pagination, explicit constructor generation,
-  configuration and lifecycle cancellation. The annotations and their types
-  are global in every language (ADR 0046). Native languages have owned
-  runtime adapters without embedded JavaScript. Required polyglot CI runs the
-  compiler and runtime fixtures. See ADR 0022 and the separate Spring review.
-
-- Add optional build-time Yon controller and provider annotations, named
-  instance HTTP methods, explicit source-local constructor injection and scoped
-  provider caching in all eight adapters. Before invocation, the framework
-  checks for missing tokens, cycles, scope capture and duplicate registration.
-  Plain Handler sources are still supported. See ADR 0021 for controllers and
-  DI (dependency injection), and ADR 0022 for shared behavior.
+- Every docs section and the first-app tutorial show each language that
+  runs them.
+- An annotations A–Z table, a glossary and an error codes page. See
+  `docs/annotations` and `docs/glossary`.
+- The README lists every `ty` command and the environment settings, has an
+  "Upgrading a 26.36.01 app" guide, and says how to install a specific
+  release or roll back with `TAC_BASE_URL`.
+- `docs/CUTOVER.md` lists this release candidate's gates: which passed and
+  which are not claimed. No target is promoted to `supported`.
+- Feature pages, including a new one for error handlers, checked against the
+  code. The language and target pages link `docs/SUPPORT_TIERS.md` for what
+  each tier means.
+- Website accessibility: the auto theme follows the system light or dark
+  setting with the full brand palette, and the theme toggle names its state.
+  Code-sample tabs work from the keyboard (arrow keys, Home and End), and copy
+  buttons stay visible and announce "Copied" to screen readers. Search has a
+  button on phones and tablets and opens as a modal dialog that keeps focus
+  and returns it on close; it loads its data only when opened, so the home
+  page loads about 376 KB less. The skip link shows clearly in both themes, and
+  the header no longer clips on phones. The
+  mobile docs drawer moves focus in, closes with Escape and returns focus to
+  its toggle. Docs pages
+  have one main landmark, the feature filter has a visible border and shows
+  and announces how many features match, controls have 44px touch targets, and text meets
+  4.5:1 contrast.
 
 ### Changed
 
-- Tac utilities live in `client/shared/utils/`, with nested folders allowed.
-  `client/utils/` keeps working, and a utility is still a stateless class.
-  Client pages may not hold CSS files in any folder. A component's styles
-  stop at nested components, including unstyled and slotted ones.
+**Tac**
 
-- The first-app C# steps call the Yon greeting endpoint through an injected
-  private client that returns `Task<Models.Greeting>`. Their tests use a
-  typed Fake and a context that the caller owns, and a disposed owner is
-  refused. The other compiled-language tabs of the tutorial are not done yet.
+- Routes load less script: the Tac client runtime and the behavior runtime
+  ship without comments, indentation or blank lines, about 1.2 KB less with
+  Brotli on every route.
+- The service worker no longer leaves a file out of the offline copy
+  silently: the build prints an `Offline:` note for each file it cannot
+  keep. A cache write that finds 16 writes running now waits for a free slot
+  instead of being dropped, so every file of a large page is kept on the
+  first visit.
 
-- Browser F# services can return `Task` or `Task<BehaviorJSON>`. They use
-  the same-origin browser transport by default, accept custom adapters, and
-  cancel requests when their owner is disposed. F# models and containers as
-  results, and asynchronous results in native apps, are not supported yet.
+**Yon**
 
-- Compiled browser Dart HTTPClients use an asynchronous same-origin transport
-  when the Setup has no matching custom HTTP adapter (ADR 0090). Injected
-  clients return typed models, omit credentials, keep cache revalidation and
-  cancel requests when their owner is disposed.
+- Yon runs JavaScript handlers with Node by default, and with Bun only when
+  Node is not installed. `YON_JAVASCRIPT_RUNTIME` still picks the runtime.
+- `server.maxbody` in `server/application.json` raises the request body
+  limit from 1 MiB up to 12 MiB. A larger body still gets `413`, now after
+  Yon has read up to 16 MiB of it, so a client that is still uploading sees
+  the `413` instead of a broken connection.
+- When a page and a controller share a path, a browser navigation gets the
+  page and a fetch from the page gets the controller. Before, the route
+  always answered. Both answers carry `Vary: Sec-Fetch-Mode, Accept`.
+- A relay's deadline is the time left in the request, shared by every relay
+  in that request, and `request.deadline_ms` shows the time left instead of
+  the original value. Handler code cannot change it.
+- Every relay failure reaches the handler as `502` with one message,
+  `Component invocation failed.`, in every Yon language. Relay output that
+  is JSON but not an object is a `protocol` failure everywhere.
+- Compiled Kotlin and Rust handlers are cached once per machine in
+  `TAC_CACHE_DIR/runtime/handlers-v1`, so another project or a fresh
+  checkout reuses them instead of compiling again. The cache keeps the
+  newest 512 entries, and `ty cache clean` empties it.
+- A server checks its language toolchains at the same time instead of one
+  after another, so a Kotlin server starts sooner. Results and the first
+  failure reported are unchanged.
 
-- New outbound role folders are `client/remotes/` and `server/remotes/`
-  (ADR 0088). `clients/` keeps working. Scaffolds and examples use the new
-  folder. The opt-in migration moves the files, keeps class and annotation
-  names, rewrites paths and refuses to overwrite a file that already exists.
+**Native**
 
-- Settings and validation data holders belong in `models/`, not
-  `helpers/` (ADR 0092). A model may carry `Settings`, field `Setting`,
-  `Checked` and the field constraints `Required`, `NotEmpty`, `Length`, `Min`
-  and `Max`, plus `Description`. Such a model gets no Helper or Service role.
-  In Tac, JavaScript, TypeScript, Java and Python read these schemas; other
-  Tac languages, and Lua in both realms, report `TY1310` instead of dropping
-  the checks.
+- The Windows and Linux apps check the web view version when they start and
+  explain a missing or older one instead of opening a blank window.
 
-- A Yon Helper that its caller creates with `new` stays owned by that
-  caller: Tachyon does not inject it or build it a second time. Lifecycle and
-  event hooks on such a Helper need a `Needs` or `NeedsAll` provider instead.
+**CLI and tooling**
 
-- The storage browser gate allows 330 KB of script on its route instead of
-  320 KB: the fixture already loads 326 KB after the browser-injection and
-  converter-injection changes, and the shared-Setup runtime adds about 2 KB
-  (roughly 280 bytes of Brotli for each JavaScript service module that
-  embeds the behavior runtime). One runtime per page will cut this.
-- Website: the browser API guides (clock and random numbers, connectivity and
-  preferences, clipboard and geolocation, and what each service language can
-  use) show every Tac service language, and so do the WebAssembly, native
-  services, compiled publishing, gateway and Tac mapping examples. The
-  WebAssembly feature is now "Services that run as WebAssembly" and adds Swift,
-  Kotlin, Java and Dart; it says why JavaScript and TypeScript have no tab, and
-  the native service guide says why only Swift, Kotlin, C# and Rust do. The
-  gateway feature says that Lua refuses `@Gateway` (`TY1308`). The language
-  coverage audit reads a section's or feature's `notApplicable` languages and
-  counts one only when the text names it. verify-snippets runs a feature's
-  server file with the controller in its language instead of parsing it alone.
+- `ty doctor` exits with 1 when a toolchain that the project needs to
+  build or serve is missing or too old (26.36.01 exited with 0). A
+  toolchain needed only to bundle a native target is shown as `info`
+  and does not change the exit status.
+- `ty doctor` and `ty migrate` are listed in `ty help`, and their help text
+  says what they do (`ty migrate fix --write` included).
+- The repository is now `d31ma/TACHYON`. The installers, package metadata,
+  website links and release signatures use the new name; old URLs
+  redirect.
+- `ty serve` and `ty preview` start faster. A restart serves the last build
+  at once, rebuilds in the background and then reloads open pages.
+  Toolchains build in parallel, and `TAC_BUILD_JOBS` limits how many run at
+  once. Each build prints its phase timings.
+- `ty` help, usage and argument errors are plain text, without colors. The
+  wording is unchanged.
 
-- A Converter needs no behavior context and is injected like any other role
-  (ADR 0022 amendment "a service asks for its converter"), like a MapStruct
-  mapper that Spring injects. A controller or service asks for it with
-  `@Needs ProductConverter converter` (a Needs field in every language, a
-  primary constructor parameter in F#, `#[Needs]` above
-  `attr_reader :product_converter` in Ruby) in Yon and in Tac. This replaces
-  building it by hand: `new ProductConverter(context)`,
-  `ProductConverter(context)`, `ProductConverter::new(context)`,
-  `&ProductConverter{behaviors: context}` and
-  `Behaviors.construct(ProductConverter, {behaviors: context})` no longer
-  compile, because the converter has no constructor argument. `ty migrate`
-  reports each place that still builds one (`converter.built_by_hand`). The
-  mapping pages drop their Setup: a mapping needs no context. The C#, Swift
-  and Dart `mapValue` of the behavior runtime is static.
+**Platform support**
 
-- ADR 0082 and the WebAssembly compiler page record the Swift size
-  measurements: linker flags, leaving out reflection metadata, leaving out
-  the `Codable` coder and Embedded Swift either save nothing or change how
-  services behave, so Swift web builds keep their flags.
-
-- Go web services built with TinyGo use its Boehm garbage collector
-  (`-gc=boehm`, ADR 0081). TinyGo starts a goroutine with a 64 KB stack for
-  every call from the page, and its default collector swept the whole heap
-  every few calls, so about one call in five paused for 3 to 5 ms. Measured
-  with `scripts/wasm-worker-measure.mjs --runtimes go` (3 runs, medians), the
-  p95 of a page call falls from 3.4 ms to 0.71 ms at 1x and from 12.8 ms to
-  1.9 ms at 4x CPU throttling; the module grows by about 47 KiB (14 KiB with
-  Brotli).
-- The website's type sizes follow the average of six other framework
-  websites (Svelte, Vue, React, Angular, Astro, Solid), set by one set of
-  CSS custom properties in `site.css`: docs text 16px with line height 1.7
-  and a 68ch measure, docs titles 40px, section headings 28px, sub-headings
-  24px, inline code 0.85em of its text, code blocks 14px, sidebar and header
-  links 15px, the home title 56px, its lead 20px, home section intros 17px
-  and home card text 16px. Small screens still scale the titles down.
-- The JavaScript, TypeScript, Python, Rust, Java, Kotlin, Groovy, C# and F#
-  test units that `ty init` and `ty add` write, and those in the website examples, check their results with
-  `Assert.equals`, `Assert.isTrue` or `Assert.throws` (ADR 0080) instead of an
-  `if` and a thrown error, so they pass the test rule `TY1339`.
-- `ty preview` and `ty serve` (while watching) never exit because of a
-  problem in the project (ADR 0077). A failed rebuild keeps serving the last
-  good build and prints the problems; open pages show them in an accessible
-  error box (code, message, `file:line`, help, a Dismiss button) that the next
-  good build removes, and pages opened later read them from
-  `/.tachyon/diagnostics`. A project that is broken at start gets an error
-  page (503) at the same address; the preview keeps watching and opens the
-  site once it builds. A coverage refusal (`TY2023`) or a failed test run
-  (`TY2020`) at start shows in the box instead of stopping the preview.
-  Before a self-restart (`TY1320`) the old server runs the new `ty` with
-  `--check-project`; when the new `ty` refuses the project, the old server
-  keeps running, shows the reason and checks again after the next save. Only
-  `TY1301` and `TY1302` stop the preview. `ty build`, `ty bundle`, `ty start`,
-  `ty serve --no-watch` and `ty test --coverage` still fail on every error.
-
-- Method coverage (`TY2022`, `TY2023`) now checks that a test case really
-  called each public method, not that it wrote the name (ADR 0070). In a test
-  build only, the compiler adds one line at the start of each public method of
-  an annotated class and of each public static method of a utility class, in
-  every language that has test units. The line records the call; a production
-  build has no such line. Each case reports the methods that it called, and
-  `ty test --coverage` lists every class with its called methods, the case that
-  first called each one, and the methods that no case called. A call on a Fake
-  does not count. `ty test` writes the calls to `.tachyon/coverage/calls.json`
-  (`TY2024` when it cannot). `ty preview` reads that record, runs the test
-  units once when the record is missing or older than a role file or a test,
-  and refuses to start with `no test case called X.y`. `TAC_ALLOW_UNTESTED=1`
-  and the list of exempt method names are unchanged. When the units of a
-  language cannot run on the machine, for example Swift units without swiftc,
-  that language falls back to the old name check, and the report labels it
-  `[name check]`.
-
-- The mruby WebAssembly runtime for Tac Ruby services (ADR 0049, amended) is
-  no longer in git or inside `ty`. `ty` carries only its source and builds it
-  on the developer's machine the first time a project with a Tac Ruby service
-  builds, into the per-user Tachyon cache under
-  `ruby-web/<SHA-256 of the runtime source>/`; later builds reuse it, and
-  nothing is written into the project. Rust drives the build on macOS, Linux
-  and Windows: it downloads each pinned tarball with `curl`, checks its
-  SHA-256 (a mismatch deletes the download and stops), unpacks it with `tar`,
-  and runs the developer's `ruby` (mruby's `minirake`) and `emcc`. Such a
-  project now needs Ruby, Emscripten 6.0.10 or newer (a minimum, no longer an
-  exact pin) and a C compiler; a project without Tac Ruby services needs none
-  of them. `ty doctor` and the build name any missing or old tool with install
-  steps (emsdk, Homebrew `emscripten`, Windows emsdk, RubyInstaller DevKit).
-  The first build takes several minutes. `ty` is about 1.1 MB smaller. CI
-  installs the pinned Emscripten where Ruby Tac tests run, and those tests
-  skip with a reason when the runtime is neither cached nor buildable.
-  `runtimes/ruby-web/check.sh` and the artifact SHA-256 pin are removed;
-  `scripts/ruby-runtime-test.mjs` now takes the built runtime's path.
-
-- `ty serve` and `ty preview` start faster. A restart serves the last build at
-  once and rebuilds in the background, then reloads open pages. Dart, the
-  WebAssembly languages (Rust, C#, Go, Ruby) and script services build in
-  parallel; `TAC_BUILD_JOBS` limits how many toolchains run at once. The
-  development server builds C# services without the native relink (release
-  settings stay for `ty bundle`, with a separate cache entry), and TypeScript
-  service output is cached. Each build prints its phase timings. On the
-  website (Mac, debug `ty`): cold start 15.2 s to 5.1 s, warm restart 2.3 s to
-  0.7 s.
-- Website code examples are real files under `website/content/`, with their
-  real extensions. `website/client/shared/data/docs.json`, `features.json` and
-  `languages.json` are generated from them by `bun run content`, and a test
-  fails when those files are stale or edited by hand. The docs "Edit this
-  page" links open the topic or feature JSON file in `website/content/`.
-- **Breaking:** annotations have plain English names (ADR 0047), so a
-  beginner who reads English as a second language can guess what each one
-  does. `Autowired` and `Inject` are `Needs` (on a field, or on a class with
-  its provider types), `RequiredArgsConstructor` is `NeedsAll`, `Qualifier`
-  is `Named`, `Scope` is `Lifetime`, `Repository` is `Store`, `Mapper` and
-  `Mapping` are `Converter` and `Convert`, `Configuration` is `Setup`,
-  `ConfigurationProperties` is `Settings`, `Value` is `Setting`, `Profile`
-  and `ConditionalOnProperty` are `WhenProfile` and `WhenSetting`,
-  `PostConstruct` and `PreDestroy` are `OnStart` and `OnStop`,
-  `EventListener` is `OnEvent`, `Async` is `InBackground`, `Scheduled` is
-  `Schedule`, `Cacheable`, `CachePut`, `CacheEvict` and `CacheConfig` are
-  `Cached`, `UpdateCache`, `ClearCache` and `CacheSettings`, `Retryable` is
-  `Retry`, `ConcurrencyLimit` is `MaxAtOnce`, `Transactional` is
-  `AllOrNothing`, `PageableDefault` is `PageDefaults`, `HttpExchange` is
-  `WebCall`, `Validated` and `Valid` are `Checked` and `Check`, `NotNull`,
-  `NotBlank` and `Size` are `Required`, `NotEmpty` and `Length`,
-  `TachyonTest` and `TestConfiguration` are `Test` and `TestSetup`,
-  `MockBean` and `MockitoBean` are `Fake`, and `ActiveProfiles`,
-  `TestPropertySource` and `DirtiesContext` are `UseProfiles`,
-  `TestSettings` and `FreshStart`. Every spelling follows, such as Python's
-  `@needs_all` and Rust's `#[yon::cache_settings]`. An old name fails with
-  `TY1308`, and the message names the new one. The role folders follow:
-  `client/` and `server/` hold `stores/`, `setups/` and `converters/`
-  instead of `repositories/`, `configurations/` and `mappers/`, a role type
-  ends with its new role name (`ProductStore`, `CatalogSetup`,
-  `ProductConverter`), and a test setup is `<Name>TestSetup.<ext>`. A file
-  in an old folder fails with `TY1310`. Runtime error messages that named an
-  old annotation name the new one. JSON argument keys, error codes and
-  framework types such as `BehaviorConfiguration` do not change. Rust's own
-  `#[test]` is never the `Test` marker. `ty migrate fix --write` renames the
-  markers in every language, moves the files out of the old role folders and
-  renames the moved role types and test setups everywhere they are named.
-- **Breaking:** Tachyon annotations, lifecycle names, `Behaviors` and the
-  framework types are global in every language (ADR 0046). JavaScript and
-  TypeScript no longer import them: any import from `tachyon:behaviors`,
-  value or type-only, fails with `TY1308`, and the message names the file and
-  line and asks you to delete the import. `tachyon-behaviors.d.ts` now
-  declares the markers and types with `declare global`, including
-  `NeedsAll`, `Schedule`, `Id`, `Controller`, `Component`, `Needs` and
-  `Stream` (the ADR 0047 names), and no longer declares the `tachyon:behaviors`
-  module. A module that uses only `Behaviors` is now lowered, so the binding
-  exists at run time. `ty init`, the templates, the website and the guides
-  drop the import. `ty migrate fix --write` deletes these imports.
-- **Breaking:** annotated files and plain Yon handlers, workers and middleware
-  hold one class and its imports (ADR 0044). Extra top-level declarations
-  fail with `TY1310`, so a project with helper code in these files stops
-  building until the code moves to its own file, `models/` or `shared/`.
-  An empty or comment-only route marker is allowed only when a controller
-  for that route exists; without one it fails with `TY2015`. Rust permits
-  impl blocks belonging to the file's one type; generated units and external
-  relay/command programs are not subject to the authored-file rule. A few
-  harmless forms stay accepted, such as a Python module docstring,
-  `"use strict";`, PHP `declare(strict_types=1);`, Rust `#![...]`, a Kotlin
-  `package` line, a C# `namespace` (file-scoped, or one block around the
-  class) and `#nullable` lines; a Java route marker may keep its `package`
-  and `import` lines. Code that runs when the file loads is rejected: a
-  JavaScript or TypeScript `static { ... }` block, a computed base class
-  such as `extends mixin(Base)`, and a JavaScript, TypeScript or Python
-  decorator argument that is not a literal or a class name. The ADR lists
-  every accepted and rejected form. `ty migrate fix` lists each file that
-  breaks the rule and the split to do.
-
-- **Breaking:** root middleware is a class named `Middleware` with
-  `before(request)` and `after(request)`. The runtime calls `before` before
-  the route and `after` after it, for every request, whatever its HTTP
-  method, in every Yon language. A missing `before` or `after` lets that
-  phase pass; a 204 answer still continues and any other status still
-  answers. Before this change, the runtime called middleware as
-  `Handler.<HTTP method>`, so PHP middleware without `OPTIONS` or `POST`
-  answered CORS preflights and form posts with 405. A `Handler` class in a
-  middleware file now fails with `TY1310`; rename it to `Middleware` and move
-  its code into `before` and `after`. `ty migrate fix --write` does this
-  when every HTTP method function holds the same code, and otherwise lists
-  the file as a manual step.
-
-- Annotation discovery now composes every same-language file in a role folder
-  that carries a framework annotation, including behavior-only classes such
-  as a `Validated` input in `delegates/`, not only files with a role
-  annotation. A plain helper is not composed because of an array index
-  (`row[id]`), a Python matrix product (`a @ b`) or a Kotlin label
-  (`this@Label`).
-
-- TestConfiguration classes live in same-language sibling files named after
-  the class, with the exact same case. TachyonTest selects one explicitly;
-  production bundles do not discover test configurations.
-
-- Breaking for relay programs: a `relay(command, request)` program now gets
-  only the baseline environment, the explicit allowlist, `YON_HANDLER_PROTOCOL`
-  and its handler's `NO_PROXY` values. It no longer
-  receives `YON_APPLICATION_JSON` or any `YON_RESOURCE_*` value, even when
-  allowlisted. A relay program that read `YON_APPLICATION_JSON` must read its
-  configuration from its own files or an explicitly allowlisted variable.
-
-- A relay's deadline is now the time left in the request, after queueing and
-  process start, and every relay in a request shares it. The supervisor
-  writes the time left (minus the cancellation grace) into
-  `request.deadline_ms` just before it writes the request, so handlers also
-  see the remaining time instead of the original value. PHP captures the relay
-  timing and environment before the application initializes, C# counts from
-  its process start, and handler code cannot change the budget. A
-  compiled-language relay now also reports `handler.relay_failed` categories.
-- Every relay failure reaches the handler as HTTP 502 with the one message
-  `Component invocation failed.` in all nine languages. PHP, Java, Kotlin, C#,
-  Rust and Dart used to answer some failures with `Component returned an
-  invalid response.` or `Component could not be started.` Relay output that is
-  JSON but not an object is now a `protocol` failure everywhere.
-
-- Models folders also hold data types in Rust, C#, Dart and Kotlin in both
-  realms, in Swift in `client/models/` only, and in Java, Python and PHP in
-  `server/models/` only (ADR 0043). A models file holds data, not behavior;
-  docs/BEHAVIOR_PROJECT_STRUCTURE.md lists what each language may declare.
-  A method, a function, a constant, a service marker, any other statement,
-  or a language in the wrong realm fails with TY1310, and the message says
-  where the code belongs. A service imports a model in its language's usual
-  way: `use crate::models::Name;`, `using Models;`,
-  `import 'models/Name.dart';`, the Swift type name, `import models.Name`,
-  `import models.Name;`, `from models import Name` or `use Models\Name;`.
-  The framework adds the realm's models files of that language to native
-  companions, WebAssembly and Dart browser services, Yon handlers and test
-  units, and never routes or ships a models file on its own. Composed Rust
-  and PHP role files now skip a repeated, identical `use` line, so several
-  role files can import the same model.
-  The project-root middleware file may import models, as a handler does.
-
-- Add `client/models/` and `server/models/` for type-only TypeScript files
-  (ADR 0041). A models file holds only `interface`, `type` and `import type`
-  statements. Other files use it with `import type { X } from '/models/X.ts'`,
-  which TypeScript removes, so the file is never bundled or run. A role
-  annotation, any other statement, or a file in another language in a models
-  folder fails with TY1310, and the message names the folder to move it to.
-  When role files are composed, `import type` statements now stay type-only.
-  The website's service interfaces moved to `website/client/models/`.
-
-- `tac.config.js` default-exports a class, and its values are static fields
-  of that class: `static application`, `static scripts`, `static styles`,
-  `static metadata`, `static cache` and the `static postBundle` hook
-  (ADR 0040). The build rejects the old file-level exports and a default
-  object with TY1601; the message names the static field to write instead.
-  The scaffold, the website and the documentation use the class.
-
-- Every Tachyon source file is simplified for a new-graduate reader. Code has
-  no explanatory comments and no file-level variables, the CLI help text lives
-  in clap attributes, and the documentation uses plain English. Behavior is
-  unchanged.
-
-- A `@RequiredArgsConstructor` with no arguments on a Tac service takes every
-  uninitialised field from the component's properties. This matches Lombok's
-  annotation, which takes no arguments (architecture decision record, ADR
-  0039). Declaring it makes one service per component. You need `@Scope` only
-  to override that, or for a per-component service without properties. A
-  service that used it to inject clients now autowires them.
-
-- The website documents this release's changes. Two new feature pages cover
-  shared data and the page in views, and Rust and C# on the web. The guides
-  and feature pages for where services run, page metadata (`noindex`),
-  `ty doctor`, loop scope and `RequiredArgsConstructor` are updated. Code
-  examples show each service language where it actually runs. Rust and C#
-  serve the web as WebAssembly, and Dart examples have their own tab. The
-  snippet verifier builds the web example to WebAssembly in both languages.
-
-- Tachyon autowires resources by their Spring names (ADR 0038). `@Resource` is
-  removed. An `@Autowired` field named after a resource receives it. The
-  browser's resources are `view` (was `element`), `lifecycle` (was `signal`),
-  `taskScheduler` (was `renderScheduler`), `cacheManager`, `resourceLoader`
-  and `applicationEventPublisher`. The server's resources are `dataSource`,
-  `redisTemplate` (was `redis`, now the `RedisTemplate` type) and
-  `applicationEventPublisher`. Tachyon rejects `@Resource` and each former
-  name, and says what to write instead.
-
-- A marker that takes no arguments is written without parentheses, as Spring
-  writes it: `@Service`, `#[Service]`, `[Service]`. In JavaScript and
-  TypeScript, a role marker without arguments now means the role of the realm
-  that holds the file. So `@Service` under `client/` is the Tac service. The
-  empty argument list still works, and the TypeScript declarations accept both
-  forms. The documentation, website, scaffold and fixtures now use the form
-  without parentheses.
-
-- A `<loop>` binding is a local variable inside its loop. So a binding with
-  the same name as a service no longer loads that service for the view. Only a
-  name the view reads outside a loop, or a handler it names, loads a service.
-
-- Declare an `@HttpExchange` the way Spring does, and the way a repository
-  query is already declared: the signature only, with an empty body. `query`,
-  `headers` and `body` map names to argument indices. The compiler writes the
-  request, and nothing ever calls the empty body. A method that writes a body
-  still returns its own request descriptor, and it may not also map arguments.
-  The published fixtures in all nine languages include a declared exchange.
-
-- Use Spring's name for every annotation that had a Tachyon-only name.
-  `@Cache` is now `@CacheConfig`, `@Pageable` is `@PageableDefault`,
-  `@HTTPExchange` is `@HttpExchange`, and the `Delegate` role is `@Component`.
-  Its folder stays `delegates/`, so a Tac project's `client/components/` still
-  holds only views. Tachyon rejects a removed name and names the replacement,
-  instead of reporting the name as unknown.
-
-- Inject fields the way Spring does. `@Autowired` on a direct, uninitialized
-  instance field adds it to the constructor that Tachyon generates.
-  `@Qualifier` names the provider when the field's own name or type does not.
-  Both realms and all nine languages accept them, and every published example
-  now uses them. Lombok's `@RequiredArgsConstructor` and JSR-330's
-  `@Inject(A, B)` still parse while third-party sources migrate.
-
-- Each realm's configuration now sits next to it (ADR 0034). The web app
-  manifest moved from the project root to `client/manifest.json`. Yon's
-  `application.json` and its profiles moved to `server/application.json` and
-  `server/application-<profile>.json`. `.env` stays at the root. A file at an
-  old root location stops the build, and the message says where the file
-  belongs. `ty migrate` also reports it.
-
-- `server/application.json` and its profiles are the `yon` namespace itself,
-  so they have no `yon` root key. `yon.*` paths, `YON_` names and the
-  `YON_APPLICATION_JSON` snapshot are unchanged. Tachyon rejects a leftover
-  wrapper, and `ty migrate` reports it.
-
-- Tac's public configuration moved from `application.json` to the `tac` member
-  of `client/manifest.json`, the web app manifest (ADR 0034). The build
-  validates it as before. The build publishes the manifest at
-  `/manifest.webmanifest` and links it from every page. The build no longer
-  writes `/.tachyon/application.json`. `TAC_` names and `tac.` paths are
-  unchanged. `application.json` now belongs only to Yon (Application
-  Configuration v3). A `tac` section left in it stops the build with a message
-  that names the manifest, and `ty migrate` reports it. Every behavior runtime
-  now binds a document that has other members next to its realm section. So a
-  service binds the manifest it loads without changes. `ty init` writes
-  `client/manifest.json` and `server/application.json`.
-
-- Every public method of an annotated class needs a test, and `ty preview`
-  enforces this. A class-level marker says that the framework owns some of the
-  type's behavior. So the type's public methods are the application's contract.
-  The development server does not start while any of those methods is not named
-  by a `test*` case. It lists the missing methods (`TY2023`). The rule does not
-  affect `ty start`. `TAC_ALLOW_UNTESTED=1` turns the rule off for one run.
-  `ty test` prints the same report, but fails on it only with `--coverage`.
-  "Covered" means that a case names the method. This is only a record, not
-  proof that the method ran. Methods that the compiler writes are exempt,
-  because a derived query, a declared `@HttpExchange` and a `@Mapping` contain
-  no code written by the author. `ty init` now creates a Configuration and a
-  test unit that covers the service it creates. So a new project starts with
-  all checks passing.
-
-- The published-example verifier now stages its work on the volume with the
-  most free space, and it keeps what it compiles. Each step's project directory
-  is now stable and reused between runs. Before, it was a new `mkdtemp`
-  directory that was deleted at the end. So `<project>/.tachyon/
-  handlers` — where `ty` caches compiled handlers — is kept. An unchanged Rust
-  example ran again in 1.4s, compared with 12.4s on a cold run.
-  `TAC_SNIPPETS_SCRATCH` sets the root directory. `TAC_CACHE_DIR` sets the
-  standalone runtime cache. Both default to the ANNEX volume, next to
-  `CARGO_TARGET_DIR`.
-
-- The verifier runs independent steps at the same time. It stops waiting for a
-  toolchain that does not get enough CPU time. Each step stages its own project
-  and binds port 0, so steps can safely run at the same time. The verifier
-  buffers the output of each step and writes it in the order the steps were
-  submitted. So the log is the same at any level of concurrency. The limit on
-  parallel steps comes from the *free* cores, not the total core count. A
-  `kotlinc` without enough CPU does not just make the suite slower. It makes
-  the suite fail when the 30-second server readiness deadline expires. After a
-  language misses that deadline twice, the verifier skips the remaining
-  examples for that language and names the cause once. It does not wait for the
-  deadline again. On a loaded machine, this turned 33 repeated timeouts into 33
-  skips. It cut an annotations run from about 25 minutes to 3 minutes. It cut
-  the full suite from 1935s with 36 failures to 847s with 7 failures on a cold
-  run, then 489s on a warm run. With `TAC_SNIPPETS_REQUIRE_TOOLCHAINS=1`, the
-  verifier never skips a language this way. CI (continuous integration) is not
-  the busy machine that this rule is for, and CI must check every example.
-  Every run now ends with a timing report that shows where the time was spent.
-
-- A marker that takes no arguments no longer needs an argument list.
-  `@Configuration`, `@Autowired`, `@Mapper`, `@TestConfiguration` and
-  `@DirtiesContext` can now be written without parentheses in JavaScript and
-  TypeScript too, as in every other language. Bare `@Service`, `@Component` and
-  `@Repository` are still Yon's role stereotypes. So their Tac forms still use
-  parentheses. The compiler still rejects a marker that gets an argument it
-  does not accept.
-
-- The compiler now rejects Spring's slicing and mocking annotations and names
-  the alternative. Before, it ignored them without a message. `@WebMvcTest`,
-  `@WebFluxTest`, `@DataJpaTest`, `@JsonTest`, `@RestClientTest`,
-  `@AutoConfigureMockMvc`, `@SpyBean` and `@MockitoSpyBean` each say what to
-  write instead. There is no global context to slice, so `@TachyonTest`
-  replaces the slicing annotations. There is no bean to wrap, so `@MockBean`
-  replaces the spies. `@SpringBootTest` is removed. Use `@TachyonTest` instead.
-  JUnit's generic names (`@Test`, `@BeforeEach`, `@Disabled`) still have no
-  effect. They belong to your test runner, and other tools can use the same
-  names.
-
-- A role file registers one type that has behavior. A second class-level
-  `@Controller`, `@Service`, `@Repository`, `@Client`, `@Component`, `@Mapper`,
-  `@Configuration`, `@CacheConfig` or `@Scope` in the same file fails with
-  `TY1310`. The error names the type to move. The reason is that the filename
-  states the one type that the file registers. Companions that describe a type
-  but do not register it stay next to it. Examples are a `@Validated` DTO (data
-  transfer object), a `@Value` or `@ConfigurationProperties` holder, and a
-  helper without annotations. They stay because `@Valid({"type":"OrderInput"})`
-  and `Behaviors.values(PublicSettings, …)` look up their type in the same
-  source file. A reserved `yon.*` or `tac.*` entry composes the role files that
-  it finds. So several behavior types can correctly share one entry.
-
-- `@Mapper` and `@Mapping` use MapStruct's names. `@Mapper` is the role, in
-  `mappers/<Name>Mapper`. `@Mapping` defines the whole method as a literal plan.
-  Each entry in the plan names a `target`. It takes either a dotted `source`
-  path or a literal `constant`. A `source` path has at most eight names, and a
-  path to a missing value maps to `null`. `argument` selects the parameter that
-  the entry reads. It defaults to the first parameter. A plan has at most 32
-  entries, and a target written twice fails the build. The mapper drops an
-  input field that no entry names. All nine languages support it, each in its
-  own runtime, in both realms. `client/mappers` and `server/mappers` are added
-  to the shared role folders.
-
-- Realms mirror each other (ADR 0031). Yon role folders are shared per realm:
-  `server/services`, `server/repositories`, `server/clients`,
-  `server/configurations`, `server/entities` and `server/delegates`. Every
-  route uses them, in the same way as `client/<role>`. A route directory holds
-  only its `yon.<ext>` entry and its `controllers/` folder. A role file next to
-  a route fails with `TY1310` "@X type 'Y' sits outside its realm's shared role
-  folder". `ty migrate` reports it as `role.route` with the shared destination.
-  `Controller` and `Stream` are the only markers that exist only in Yon. Tac
-  gained `@Component()`, bare `@Repository()` and `@Inject(A, B)`. Yon gained
-  `@Resource()` for `dataSource`, `redis`, `applicationEventPublisher` and, in
-  JS/TS, `signal`. Events follow Spring. `@EventPublisher` is removed. A class
-  declares an uninitialised `applicationEventPublisher` field and calls
-  `publishEvent(event, value[, retain])`. `@EventListener` takes `event` or
-  `events`, a compiled `condition` over `value` and `event`, `id` and `replay`.
-  `@Order(n)` orders listeners, lowest first. `@Async()` delays a listener
-  until after the current delivery pass. Yon php/java/kt/cs/rs rejects
-  `@Async()`. A listener can return an `{event, value}` record, or an array of
-  at most 32 records. That result is published again.
-
-- Replace authored Tac/Yon module manifests with annotation-driven entry
-  scopes. Old manifests fail with migration guidance. Replace public
-  `this.tac.fetch` with declarative Client methods. Opt-in offline cache
-  policies still work.
-
-- Check JavaScript behavior deadlines with a monotonic clock around execution.
-  This prevents late cache writes when application work delays timers.
-
-- Dispatch annotated Yon controllers by uppercase HTTP method names. The extra
-  `@GET`/`@POST`/other verb markers are no longer needed. Removed markers fail
-  with migration guidance. Constructor injection, response behavior and
-  streaming do not change.
-
-- Replace Tac lifecycle/signal decorators with a plain default-exported
-  presentation model. It has an optional `mount()` for lifecycle work and
-  explicit owner-scoped signals: `this.tac.publish(...)` /
-  `this.tac.subscribe(...)`.
-
-- Keep plain `Handler` as the minimal convention. Ordinary helpers without
-  annotations need no role naming. Optional role-annotated types follow the
-  strict suffix, file and folder rules added in ADR 0024.
-
-- Infer streaming from native generator/yield syntax. Make relay an explicit
-  `relay(command, request)` call. Keep the existing shell-free bounds,
-  deadlines, sanitization, cancellation and process-group cleanup (reaping).
-
-- Use Node as the default Yon JavaScript runtime. The framework still probes
-  configured JavaScript and TypeScript runtimes for capabilities before
-  startup.
-
-- docs/THREAT_MODEL.md now states what environment scrubbing does and does
-  not do. Removing `YON_APPLICATION_JSON` and `YON_RESOURCE_*` from a relay
-  program or a Gateway command prevents accidental inheritance. It is not a
-  sandbox: the program runs as the same operating-system user, so it can still
-  read its parent's environment and the project's files. The document also
-  lists the Windows baseline, which differs from the Unix one.
+- The iOS app needs iOS 17.4 (was 17.0), the first version that runs CSS
+  `@scope`, which component styles compile to. A lower
+  `tac.application.minimumSystem.ios` stops the build with `TY1601`.
+- The Windows app needs the WebView2 Runtime 118.0 or newer.
+- The Linux app keeps its WebKitGTK 2.40 floor, and its `.deb` package
+  now declares it. Component styles need WebKitGTK 2.44, and a Linux build
+  with component stylesheets prints a note saying so. macOS and Android
+  builds note that they need Safari 17.4 or Android System WebView 118.
+- macOS (13.0), Android (API 26, AndroidX WebKit 1.14.0) and the Rust
+  version (1.97.1) are unchanged.
+- Java browser services on Android need Android System WebView (Chrome) 137
+  or newer. This release candidate did not test them on Android, because
+  the test emulator has WebView 124.
+- macOS app bundles that `ty bundle --release` builds are not notarized in
+  this release candidate. The Developer ID and notarization gate is an
+  accepted exception (see `docs/CUTOVER.md`). The `ty` executable itself
+  ships with Sigstore attestations, as before.
 
 ### Removed
 
-- Remove runtime decorator shims, generated layer annotations, Rust
-  procedural-macro compilation, layer dependency graphs that the framework
-  enforced, and the old `@Stream`/`@Relay` rewriting path for mandatory layers.
-  The compile-time annotations of ADR 0021 replace that architecture. They do
-  not bring back its runtime shims.
+Each item existed in 26.36.01. The Breaking section gives the replacement
+and the migration step.
+
+- `tac.config.js`, `tac.config.mjs`, `tac.config.ts`, `tachyon.json` and the
+  `postBundle` hook. Use `client/manifest.json`.
+- File routes under `server/routes/`, `OPTIONS.schema.json` route schemas,
+  static verb-method handlers and the `@Controller` marker. Use
+  `@RequestRoute` controllers in `server/controllers/`.
+- The `@Relay` and `@Stream` markers. Use `relay(command, request)` and
+  `@StreamRoute`.
+- `YonRequest` and `YonResponse`. Each Yon language uses its native request
+  and response types.
+- The `@Repository` and `@Client` names and the `server/repositories/`
+  folder. Use `@Store` in `server/stores/` and `@HTTPClient` in
+  `server/remotes/` (`server/clients/` still works).
+- Repository and client classes with implementation code. `@Store` and
+  `@HTTPClient` are contracts.
+- Running PHP handlers with `php`. Yon now starts `php-cgi`.
+- The Tac `<if :when>`, `<else>` and `<for :each>` elements. Use `<logic>`
+  and `<loop>`.
+- Page and component companions (`tac.js`, `tac.ts` and the native
+  `tac.swift`, `tac.kt`, `tac.cs`, `tac.rs`), and markup or state in a page
+  directory. Use components and services in `client/services/`.
+- The `this.tac` object (`fetch`, response caching, `publish`, `subscribe`)
+  and the `@onMount`, `@publish` and `@subscribe` decorators.
+- `$name` and `$$name` stored fields. Use `@SessionState` and `@LocalState`.
+- `globalThis.tachyonWindow` in native hosts. Use the injected
+  `WindowControls` browser API.
+- `.tachyon/topics` as the topic log folder. Logs live in `data/topics/` and
+  move there once on start.
+- Runtime decorator shims, generated layer annotations and Rust
+  procedural-macro compilation. Compile-time annotations (ADR 0021) replace
+  them, without their runtime shims.
 
 ### Fixed
 
-- C# coverage counts public methods whose opening brace is on the next line
-  and expression-bodied methods, and records the method that was really
-  called. Static Setup callbacks and generated client methods without a body
-  are still outside instance-method coverage.
+**Tac**
 
-- A C# helper that only a TestSetup of the same language creates is now
-  checked before the production build leaves it out. Production helpers and
-  helpers that they use stay in the build, and orphan, misplaced and
-  unsupported helpers keep their error messages.
+- SVG renders correctly: elements are made in the SVG namespace, `viewBox`
+  keeps its case, and HTML inside `foreignObject` is HTML. An SVG icon no
+  longer shows as an empty box.
+- An update keeps the elements whose values did not change, so focus, the
+  caret, the scroll position and an open `<select>` survive it. A `<select>`
+  whose options come from a loop shows its bound value, not the last option.
+- A page served by `ty start` or `ty preview --static` reloads offline. The
+  servers sent `Cache-Control: no-store` on every build file, so the service
+  worker kept nothing.
+- After a deploy, a page that the previous build's service worker served
+  reloads once when the new worker takes control, so it no longer mixes old
+  and new scripts. It does not reload on a first visit, after the visitor
+  has typed into the page, while offline, or twice within 10 seconds.
+- The console stays clean: fast navigation no longer logs `AbortError:
+  Transition was skipped`, the idle precache no longer shows failed
+  `net::ERR_ABORTED` requests, and WebKit and the Linux and Windows hosts no
+  longer refuse the inline speculation rules (allowed by hash now).
 
-- Yon controllers and services can call plain classes in `server/shared/` in
-  every Yon language. Shared source comes from the captured project snapshot,
-  and the application-modules check builds and calls the example of each
-  language.
+**Yon**
 
-- After a Cached HTTPClient read is cleared or updated, its next uncached
-  JavaScript or TypeScript GET revalidates the browser HTTP cache. A public
-  response with a long `max-age` no longer hides a successful ClearCache.
-  Cache-first service-worker rules also revalidate that read (ADR 0087).
-
-- Tac renders SVG correctly. SVG elements and their children are created
-  in the SVG namespace, with the right case for names such as `viewBox`, and
-  `xlink:`, `xml:` and `xmlns` attributes keep their namespaces. HTML inside
-  `foreignObject` is HTML again. Before, an SVG icon could show as an empty
-  box.
-
-- A native build no longer writes its temporary `.tachyon-native-web-*`
-  folder or its type declarations into the project source. Both go to the
-  build output and the captured snapshot.
-
-- The application-lifetime check of a native Rust service now covers every
-  service that it builds, not only its direct dependencies.
-
-- A client utility that a service imports is published with the build.
-
-- Native Rust builds keep the imports and constants of utility classes.
-
-- The macOS host escapes capability grant names when it writes them into the
-  generated Swift source.
-
-- The duplicate-code check (`TY1315`) no longer counts named constant tables
-  and literal declarations, in Rust and in scripts, as copied code.
-
-- Kotlin Tac components keep the metadata of public `lateinit` members and
-  read required component models with the existing model readers.
-- The website, the browser gates and the Rust tests name `client/remotes`
-  and `server/remotes` for outbound clients (ADR 0088). `clients/` stays a
-  compatibility alias, and only the alias code, the migration and its tests
-  still name it; a repository policy test and a website test keep it that
-  way.
-
-- `TY1317` covers F# like C#. A Tac F# file that uses
-  `System.Runtime.InteropServices.JavaScript`, `JSImport`, `JSExport` or
-  `JSHost` is refused; before, F# files were not checked. The native build
-  also refuses Tachyon's browser APIs and built-in event models, such as
-  `Clipboard` or `ConnectivityChanged`, in an F# service that is linked into
-  the app, as it does for C#.
-
-- The website shows a docs section's `summary`. It was in 27 `section.json`
-  files, such as the annotation sections, but the docs page showed only the
-  `body`. The summary is now a lede paragraph under the section heading.
-  Search, the reading time and the language coverage audit read it too, so a
-  refusal stated only in a summary counts.
-
-- The docs no longer teach the removed `cacheManager` resource or the
-  removed `cache` option of `@HTTPClient`. The README, the application events
-  and client runtime migration guides, the parity ledger, ADR 0059 and ADR
-  0087 and the website now say `Cached`, `ClearCache` and `UpdateCache`
-  instead. A website test fails when a sentence names `cacheManager` without
-  saying that it was removed.
-
-- `scripts/native/apple-protocol-test.mjs` compiles again. The probe built
-  its Swift companion prelude from a fixed file list that missed
-  `TacAwaited.swift`, `TacOwnerThread.swift` and the native capability files.
-  It now reads the list from the macOS host, so the two cannot drift apart.
-
-- When a Rust model file does not compile, for example because it uses
-  another model without `use crate::models::Item;`, the error names that
-  model file. It named the controller file, because the build puts every
-  model into the controller's program.
-
-- `TY1333` treats a C# method or field without an access modifier as private,
-  as C# does. It reported `const string Currency = "EUR";` or `int Total()`
-  inside a class as public and unused. Only `public` and `internal` members
-  are public now.
-
-- A Ruby or Lua Needs field takes its provider from its type comment, like
-  every typed language: `# @return [CheckoutService]` above
-  `attr_reader :service`, or `---@type CheckoutService` above `service = nil`.
-  The field name chose the provider even with a type comment, so `service`
-  asked for a `Service` class and failed with TY2015. The field name still
-  chooses the provider when there is no type comment.
-
-- A Python route method can declare the `(HTTPStatus, headers, body)` answer
-  it returns, such as `-> tuple[HTTPStatus, dict[str, str], str]`. The route
-  type reader read every `tuple[...]` as a list and refused the three types
-  with TY2015. A tuple with fixed members is now a native answer, and
-  `tuple[Item, ...]` is a list of `Item`.
-- A Ruby Yon controller that publishes an event no listener takes answers
-  again. With no `OnEvent` listener in the module, the Ruby event container
-  wrote a lifecycle `case` with no `when`, a Ruby syntax error, so every route
-  answered 500 with an empty body.
-
-- A Ruby, Python or JavaScript parameter named `record` or `object` is no
-  longer read as a type declaration. A Ruby parameter named `record` followed by
-  `ApplicationEventPublisher.new` failed with `TY2015` ("cannot shadow
-  framework-owned ... ApplicationEventPublisher"). `record` is now a type
-  keyword only in Java, C# and Groovy, and `object` only in Kotlin.
-
-- An F# model takes `[<Topic>]` in Yon and Tac. The attribute stayed in the
-  compiled model and failed with FS0039 ("The type 'Topic' is not defined").
-
-- `@StreamRequest` and `@SocketRequest` refusals (`TY1308`) name the right
-  language and file. A Java Tac client was refused as "belongs on a method" at
-  the service file that used it; it is now refused at the client file with
-  "not available in Java Tac code". F# refusals said "C# Tac code" and `[Name]`;
-  they now say F# and `[<Name>]`.
-- An F# Tac method without a written return type (`member this.Forget() =`)
-  that returns `unit` now builds for the web; the generated C# member table
-  called it as if it returned a value (`CS0029`).
-- Typed models bind to views in every Tac language (ADR 0033, 0035, 0037,
-  0054 amendments). A Dart, Rust, C# or F# service field may hold a model
-  from `client/models`, a list of models or a model that holds other models;
-  the view reads it, a handler can assign one back, and a method can take
-  one as an argument. Before, Dart showed empty fields, Rust stopped with a
-  cast error or dropped a `Vec<Model>` (TY1406), and C# and F# stopped with
-  CS0029 or dropped a `List<Model>`. A Ruby method whose YARD `@param` names
-  a model now receives the model, with the models inside it, instead of a
-  Hash; a Ruby listener reads nested models the same way. A Rust model
-  derives `Clone`. The website's view feature tabs use typed models again.
-  Behavior runtime types (`BehaviorValue`, `BehaviorContext`,
-  `BehaviorSignal` and the rest) are never models: a Rust or C# method that
-  takes one stays inside the service, as before, and an F# `[<NeedsAll>]`
-  primary constructor parameter of such a type stops the build with TY1405.
-
-- Rust and C# Tac services that hold an HTTPClient build for the web. The
-  Rust page glue no longer reads a field whose type is a struct declared
-  beside the service (such as the client) or a method whose return type does
-  not cross to the page, and the C# glue reads only public and internal
-  members, as C# makes every other member private. The Outgoing HTTP: Tac
-  example now has Java and Ruby tabs, and its Rust and C# services load the
-  catalog through the client.
-
-- WebKit no longer warns on every Tachyon page about the content security
-  policy. The policy allowed the inline speculation rules with Chrome's
-  `'inline-speculation-rules'` keyword, which WebKit does not know, so WebKit
-  reported an invalid source and refused the block. The policy now allows the
-  block by the SHA-256 hash of its text, which Chromium, Firefox and WebKit
-  all understand.
-
-- The Linux and Windows desktop hosts now allow the speculation rules block
-  by its SHA-256 hash, as the server does. They sent their own content
-  security policy without the hash, so WebKitGTK logged the block and
-  refused it. The server policy and the host policy now come from one type,
-  `ContentSecurityPolicy`, so they always allow the same scripts; the host
-  policy still allows images, fonts and connections over `https:`.
-
-- An F# `member val` whose value continues on the lines below it, with
-  `with get, set` on the last line, now builds. The build read the accessor
-  words as part of the value, so the generated C# member table failed with
-  `CS1061` ("no definition for 'get'"); it now leaves them out, as it already
-  did for a `member val` on one line (ADR 0073).
-
-- The `TY1330` help for an F# file now shows an F# constant,
-  `static let cartChanged = "cart:changed"`, instead of a C# `private const`.
-  The check reads F# through its C# view, and the help used the view's
-  language; it now uses the language of the file you wrote.
-
-- An F# service field marked `[<SessionState>]` or `[<LocalState>]` is now
-  saved and restored, as in the other service languages. The build did not
-  read F# attributes on service fields, so it accepted the markers and saved
-  nothing; it now reads the fields through the F# service's C# view. The
-  storage browser test checks that an F# `LocalState` counter survives a
-  reload.
-
-- `verify-snippets --feature=<id>` now runs only the features suite, and
-  `--section="<heading>"` only the guides suite. Before, `--feature` alone also
-  built every docs section (about 15 minutes). `--suite=` still chooses the
-  suite when you write it.
-
-- Dart and Swift `HTTPClient` calls went around the behavior cache, so
-  `Cached`, `ClearCache` and `UpdateCache` did nothing on them; they now pass
-  through it like C#, Go, Kotlin, Java and F# (ADR 0087).
-
-- Java web services now start under Tachyon's content security policy
-  (`script-src 'self' 'wasm-unsafe-eval'`), which `ty start`, `ty preview`
-  and the native hosts send. TeaVM's `runtime.js` made functions from text
-  (`new Function`) while it loaded, so the browser stopped every Java service
-  on a page that Tachyon served. The build now replaces those parts of the
-  TeaVM 0.15.0 runtime with plain functions, refuses a runtime that it does
-  not recognize, and the Java tests check that the published `runtime.js`
-  makes no code from text (ADR 0083 amendment).
-
-- A Swift companion with an `async` method (for example a `@Cached` method)
-  now compiles and runs on macOS and iOS. The host waits for the method on
-  the main thread and keeps the run loop turning, so main-actor work
-  finishes.
-
-- A Swift service method without arguments can throw: the generated member
-  calls it with `try` (before, such a service did not compile). A Swift or
-  Kotlin field whose type is `BehaviorContext` or a browser API client is
-  no longer shown to the view; the website's Swift `OrdersService`
-  (`var behaviors: BehaviorContext!`) did not build for the web.
-- The browser storage check (`scripts/storage-browser-test.mjs`) now runs in
-  Chromium, Firefox and WebKit, not only Chromium. WebKit runs with a
-  persistent profile, because WebKit storage that is not kept on disk (such
-  as a Safari private window) drops Cache API entries when the page reloads.
-  The docs now say so. The Go check of a cached value after a reload now
-  fails when the entry is lost. The insecure-origin and service worker checks
-  stay in Chromium, which can map the test host name.
-
-- A socket that the browser closes now gets the server's close answer, so
-  the browser's `close` event reports a clean close with the browser's own
-  code. Before, the server never sent that answer, and a browser saw code
-  1006. The server also no longer panics in the socket handler task on
-  every normal close; the panic skipped the handler's cleanup.
-- `verify-snippets` reads the first socket message before it closes the
-  socket. Under Bun, which reports the close inside `close()`, every
-  `sockets` example failed with "The socket closed with 1000". A socket that
-  closes too early is now reported with its close code, its reason and
-  whether it had opened.
-- The runtime check before a server or `ty test` starts no longer reports a
-  working .NET SDK as not usable (TY2101) on a busy machine. Each check now
-  has its own time limit: 10 seconds, and 60 seconds for the C# check, which
-  builds a small project. Before, all checks shared 10 seconds, so a slow
-  Kotlin or Java check could use up the time of the C# check.
-- `verify-snippets --section=...` on a section with no JavaScript or
-  TypeScript example now reports 0 tsc projects instead of stopping at the tsc
-  step.
-- Rust, Kotlin and Swift web services now accept a start-up request of up to
-  1 MiB, like Go, C# and Ruby, so a view can pass them a bigger data file.
-  A method call keeps the 64 KiB limit and its error names the method, for
-  example "The request to add is 70121 bytes. The limit is 65536 bytes." Before,
-  they refused every request over 64 KiB, and Swift answered only "Malformed
-  companion request." (ADR 0037).
-- `ty types` declares the role types in `server/roles`, so `@Allow(Admin)`
-  type-checks. A `Gateway` method, like a request method, may declare its
-  answer as `Promise<Report | void>`, because Tachyon writes its empty body.
-  The website examples pass `tsc`: every class that another file uses is
-  `export default`, model imports end in `.ts`, empty bodies that Tachyon
-  writes answer `Promise<X | void>`, and JavaScript members carry JSDoc types.
-
-- A Tac service request that is too big now fails with an error that names
-  the size and the limit, for example "Web service documentation: The request
-  is 1072202 bytes. The limit is 1048576 bytes. Pass less data to the
-  service." Before, C# answered only "Native companion operation failed.",
-  and Go, Ruby, Rust and Kotlin answered "Invalid or oversized companion
-  request.". Go, C# and Ruby also name the method of a call that is too big,
-  and the page's native bridge names the start-up request. The limits are
-  unchanged (ADR 0037).
-- A Swift companion method that takes arguments compiles on macOS and iOS.
-  Before, the generated call passed no arguments. A field setter now also
-  converts the page's number to the field's type, so a `Double` field
-  accepts `2`.
-- The Kotlin web build cache works. Its key was every source written out in
-  hexadecimal, too long for a folder name, so every build compiled again.
-  The key is now a SHA-256 digest.
-- The website's Documentation page shows its guides again. Its C#
-  WebAssembly service received all of `docs.json`, with the text of every
-  guide. That file grew past the 1 MiB that `init` may carry (ADR 0037), so
-  the service refused the page's properties with "Native companion operation
-  failed.". The docs pages now pass `guides.json`: the reading order, the
-  groups and each guide's title and summary. A website test keeps every data
-  file that a template names at 1 MiB or less.
-- The test rule (`TY1339`) now reads only test units. Before, it scanned
-  every JavaScript, TypeScript, Python and Rust file, and a large minified
-  library made `ty build` of the website take more than ten minutes.
-- A JavaScript or TypeScript app made by `ty init --features ...` now passes
-  `tsc -p client/jsconfig.json` and `tsc -p server/jsconfig.json` (after
-  `ty types`), and its `ty test --coverage` passes on Node.js as well as Bun.
-  Node.js stopped every server test with "Invalid or unexpected token",
-  because the test module kept route parameter annotations such as
-  `@FromBody`; a test module now removes them, as a served controller does.
-  `ty types` now gives each `@Test` class `behaviors` and `construct(Type)`
-  (`BehaviorTestUnit`) and declares socket controllers too. Each realm's
-  `jsconfig.json` turns on `experimentalDecorators` and maps `/models/...`
-  imports. `@GetRequest` and the other request annotations accept
-  `Promise<Hello | void>`, so a request method keeps its empty body. The
-  example clients and errors are exported, and the JavaScript tests state
-  their types.
-
-- A page with both Kotlin and Go WebAssembly services now starts. Go's
-  `wasm_exec.js` puts a small `process` object on the page, and the Kotlin
-  loader read `process.release.name` from it and stopped; the published
-  Kotlin loader now reads `process.release?.name`.
-
-- The visibility rule (`TY1333`) now reads Groovy files when it looks for
-  uses of a member. Before, a Groovy controller that called a gateway did not
-  count, so the Python service method behind the gateway was refused as unused.
-- The visibility rule (`TY1333`) keeps the methods of a class public when a
-  `Gateway` names its file, such as
-  `{"class":"server/services/ReportService.java","method":"summarize"}`.
-  Before, a gateway that named another method, or a gateway in a language
-  whose client calls look different, left the method refused as unused.
-- The Outgoing HTTP: Tac example now calls `catalog.load()` from its view.
-- The website tests now build the site with the newest `ty` in the Cargo
-  target folder when `TAC_BIN` is not set. Before, an old `release/ty` won
-  over a newer `debug/ty`, so a change such as utility classes in Dart
-  services looked broken. New tests check that Dart, Rust, Go, C# and Ruby
-  web services call a `client/utils` class without an import.
-- A `@LocalState` or `@SessionState` field of a WebAssembly Tac service
-  (Rust, Go, C#, Kotlin, Ruby) that one of the service's own methods or
-  `OnEvent` listeners changed was not saved, so a reload brought back the
-  old value. The page now reads the saved fields after each call into the
-  service and stores the ones that changed.
-- `TY1341` (comparison with true or false) is no longer suggested in Go. A
-  Go value of type `any` can be compared with `true`, but it cannot be a
-  condition by itself, so `ty migrate fix` wrote Go that did not compile.
-- A Python `async def` method was read only up to its first line, so the
-  cohesion check (`TY1314`) never saw its branches and loops, and the
-  visibility check (`TY1333`) took its local values for public class
-  fields. The whole body is now read, as for a plain `def`.
-- A Kotlin Android service method that takes arguments now compiles; before,
-  the generated table always called it with none. A model-typed or `Float`
-  Kotlin field can be set from the page.
-- `TY1330` quoted a repeated text together with the method called on it,
-  as in `"received".to_owned`, and suggested a Rust constant that does not
-  compile. It now shows only the text (`"received"`) and suggests
-  `const RECEIVED: &str = "received";`. Only a number can have a fraction
-  part after its point.
-- A Tac view that passed a property, such as `:documentation`, to a
-  component whose `NeedsAll` service has a field named like another
-  service's instance (`documentation` next to `DocumentationService`) lost
-  the value without a word: the field got the service. The build now stops
-  with `TY1407` and says to rename the field or to stop passing the
-  property (ADR 0057).
-- A Ruby test unit that used `Clock` or `SecureRandom` stopped with an
-  undefined `host_emit` method, because the page check always found the
-  `TachyonWeb` module. The unit now gets the fake answers (ADR 0065).
-- A Yon test unit in `server/tests` now sees `SocketRoute` controllers,
-  error handlers and the classes in `server/errors`, as the test-units guide
-  says, so a socket controller or an error handler can be tested.
-- A Tac view (a `tac.html` under `client/pages` or `client/components`) that
-  contains a doctype, `<html>`, `<head>` or `<body>` now fails the build with
-  `TY1307`, as the docs say. The error points at each of these tags. Before,
-  the build accepted the view. Tachyon writes the document around every view,
-  so remove these tags and put page metadata in `client/manifest.json`, under
-  `tac.metadata`. The same tags written as text, such as `&lt;html&gt;` in
-  `<pre>` or `<code>`, still work. The Tac browser runtime no longer holds
-  code for a view that writes its own document.
+- `ty serve`, `ty dev` and `ty start` drain on `SIGTERM`, `SIGINT` or
+  Ctrl-C: they stop accepting connections, close streams and WebSockets
+  (`1001`), and let running requests finish within
+  `TAC_SHUTDOWN_GRACE_SECONDS` (default 10, at most 300) before cancelling
+  them. 26.36.01 cancelled running requests at once.
+- Handler standard error over 64 KiB per call is cut (the first 48 KiB and
+  the last 16 KiB are kept) instead of failing the call with `TY2107`. Relay
+  programs and Gateway commands no longer fail a call on long standard
+  error; their standard output limit still applies.
+- `handler.invocation_failed` events name the `route` and the `handler`.
 - A handler or middleware answer no longer sets `content-length`,
-  `transfer-encoding` or `connection` on the HTTP response. A Dart shelf 204
-  from `after` carried `content-length: 0` onto the route answer and stopped
-  the server connection.
-- A Dart handler cannot extend its relay deadline again: the deadline is set
-  once, and a socket call renews it through a separate start time.
-- Two TypeScript or JavaScript role files that import the same module as
-  `'/models/X'` and `'/models/X.ts'` (or `.js`) no longer stop the build with
-  TY2101. Tac and Yon now treat an import with and without the extension as
-  one module and keep the first spelling.
+  `transfer-encoding` or `connection` on the response, which could stop the
+  connection.
+- The start-up check no longer reports a working `kotlinc` or .NET SDK as not
+  usable (`TY2101`) on a busy machine. Each check has its own time limit.
+- A compiled handler whose `rustc`, `kotlinc` or `dotnet` is not on `PATH`
+  fails with `TY2112`, which names the missing program, instead of `TY2004`.
+- A C# handler build no longer hangs on an old .NET compiler server.
+- A PHP relay program no longer inherits the handler's open descriptors, so
+  it cannot write into the handler's response.
+- A JavaScript relay to a missing program fails at once with `start` instead
+  of waiting for the deadline.
+- `YON_ISOLATION=firecracker` is refused on Windows with `TY2010` at start-up
+  instead of running without its driver checks.
 
-- Yon models keep their parent fields: a Java model class that extends
-  another model now reads and writes the parent's fields, and a Dart model
-  that extends another model and uses `super.name` in its constructor now
-  compiles and keeps the parent's fields. A Dart controller no longer fails
-  with "Type not found" when the project has models that it does not import.
-  C# streams now send model fields in camelCase like other answers, and a
-  Dart stream of models no longer ends with TY2107 (ADR 0048).
-- A C# Tac service in the browser can now use its annotations (ADR 0059). An
-  `async` method that returns `Task` or `Task<BehaviorJSON>`, or a method
-  that returns `BehaviorJSON`, is a page method, and a `BehaviorJSON`
-  parameter takes any page value. Before, the page could not call these
-  methods, and `public async System.Threading.Tasks.Task<...>` became a field
-  named `System` that did not compile (the C# caching example had this
-  error). A `BehaviorContext` field is no longer a page field. Every C#
-  service with the behavior runtime now gets the page storage host (before,
-  the build failed with "The name 'BehaviorStorage' does not exist"). The
-  .NET runtime no longer keeps its own copy of its files in the Cache API
-  (`BlazorCacheBootResources` is off), so a page with denied storage still
-  renders when it has a C# service.
-- A Kotlin, Swift, native Rust or native C# Tac service that uses a cache
-  (`@Cached`, `@UpdateCache`, `@ClearCache`) or a Store whose adapter no Setup
-  names now stops the native build with a plain message, for example "Kotlin
-  services need a cache adapter in their Setup". Before, the service built and
-  failed at run time with `cache-adapter` or `entity-adapter`: the built-in
-  browser cache and Store reach only JavaScript, TypeScript, Dart and Go, Rust
-  and C# WebAssembly services (ADR 0059).
-- A Swift or Kotlin native Tac service with `@NeedsAll` can declare `let x: T`
-  or `val x: T` without a value (ADR 0057). Tachyon generates the constructor
-  (Swift `init?(tacProps:)`, a Kotlin secondary constructor) that fills these
-  fields from the component's props, because a NeedsAll class may not write
-  one. A missing value or a value of the wrong type stops the service with
-  `TY_NATIVE_REQUIRED` instead of creating it.
-- A Rust Tac service with behavior annotations builds again for the web and
-  native hosts: its `behaviors: BehaviorContext` field is no longer offered to
-  the page as a field.
-- A rebuilt `ty` no longer reuses routes from an earlier `ty` build of the same
-  version: the route reuse key includes the `ty` executable identity.
-- A Kotlin or C# native Tac service that throws now answers the page with
-  the fixed error "Native companion operation failed.", like Swift and Rust.
-  Before, the Android and Windows runtimes sent the exception message to the
-  page.
-- A Swift or Kotlin Tac service now accepts `@Service`, `@Lifetime` and
-  `@NeedsAll`, like the other service languages. Before, the iOS, macOS and
-  Android builds refused them with `TY1308` "This behavior annotation belongs
-  on a method". A `@Lifetime` prototype now also reaches the page.
-- A Tac service in Rust, C#, Go, Dart, Swift or Kotlin now refuses a bad
-  `Lifetime` argument, as JavaScript and TypeScript already did. The value must
-  be `{"value":"singleton"}` or `{"value":"prototype"}`. Before, any text was
-  accepted, and only the word `prototype` mattered. The error points at the
-  marker's line. Every service language now reads these markers with one
-  shared helper.
-- The home page Tac snippets now mark every service class, in each language's
-  own spelling.
-- A Rust or C# service now builds for native targets that do not link it,
-  as ADR 0035 and ADR 0037 say. The native web view runs its WebAssembly
-  module, as it already did for Go. Before, the native build refused with
-  `TY1010`: Rust on iOS and Android, and C# on macOS, iOS, Android and
-  Linux. A linked language still wins where the target links one.
-- The Windows host's Content Security Policy now allows
-  `'wasm-unsafe-eval'`, like the Linux host and the web server. Without it,
-  the WebView2 page could not compile a Go service's WebAssembly module.
-- A native build now refuses a web bundle file over 16 MiB with `TY1605`.
-  Native hosts serve files only up to that size, so such a file used to
-  fail silently at run time.
-- The `TY1010` help no longer suggests the retired `tac.js` and `tac.ts`
-  files. It names the service files that reach the target, such as
-  `client/services/BasketService.js`.
-- Rust, C# and Go WebAssembly services now receive other services' local
-  events in the browser. Their listeners join the page event bus with
-  condition filtering, Order, retained replay and owner-bound cleanup.
-  The page also orders the publisher's own listeners and defers Async
-  listeners to a microtask, regardless of the publishing language.
-  Returned events are forwarded once, and a service does not receive its
-  own publication twice through the page bridge.
-- The "Configuration binding: Tac" example ran in no language: its manifest
-  holds `tac.catalog.title`, which falls under the `TAC_CATALOG_` prefix, and
-  no configuration declared a `title` field. Every language now declares it,
-  and the snippet verifier runs the example in a real browser (or as a
-  native test unit) instead of only bundling it.
-- The C# behavior runtime wrote JSON through `JsonSerializer.Serialize`, which
-  fails in a trimmed WebAssembly build where reflection is off. It now writes
-  JSON with `Utf8JsonWriter` and `JsonEncodedText`.
+**Native**
 
-- A JavaScript or TypeScript `@TestConfiguration` was never registered as a
-  Configuration. So a unit that named one could not create its context. The
-  other seven languages already registered it. It is now registered, so
-  test-only configuration can stay in the unit. It no longer has to be included
-  in every service bundle. `ty init` creates it that way.
+- A Windows app embeds its application manifest. Windows no longer asks for
+  administrator rights for an app named with `Setup`, `Install`, `Update` or
+  `Patch`, and the app stays sharp on scaled displays.
+- `http`, `https` and `mailto` links open in the default browser or mail app
+  on Windows and Linux, as on the other hosts. Before, nothing opened.
+- Linux apps keep their web storage after they quit.
+- A native reply over 64 KiB on Linux and Windows fails with a clear error
+  instead of "Invalid native response.", and a large Windows page request no
+  longer hangs for 10 seconds.
+- An app name, bundle ID or route that looks like a host placeholder, such as
+  `__ROUTE_DOCUMENTS__`, stays plain text in every host.
+- A native build no longer writes temporary folders or type declarations into
+  the project source.
+- A web bundle file over 16 MiB stops the native build with `TY1605` instead
+  of failing silently at run time.
+- A Windows build with a C# companion works from a Visual Studio developer
+  prompt, and Windows apps no longer ship stray `.lib` and `.exp` files.
+- Staging a macOS or iOS app off a Mac no longer fails on `sips`; the app is
+  staged without its icon, with a note.
 
-- When a browser unit's driver threw an error before the first case, the unit
-  reported "0 passed, 0 failed" and exited without an error. It now fails and
-  gives the reason. A unit that declares no case fails and says that it has no
-  method with the `test` prefix.
+**CLI and tooling**
 
-- The lifecycle markers of a test unit (`@PostConstruct`, `@PreDestroy`,
-  `@EventListener`) reached the runtime without being lowered by the compiler.
-  The runner now runs the same event pass that a browser service goes through.
+- A new `ty init` app has an icon on every target and in the browser tab, and
+  the browser no longer logs a `/favicon.ico` 404. A native build notes a
+  missing or unusable icon instead of leaving it out silently.
+- A rebuilt `ty` of the same version no longer reuses the old one's routes.
+- `ty migrate check` reports a source file that is not UTF-8 text and checks
+  the rest of the project instead of stopping.
 
-- `ty test .` failed with "Captured project root is invalid." The command now
-  resolves a relative project path first. The library entry point now also
-  resolves symlinks, because Bun does not load a module through a symlinked
-  prefix such as macOS's `/var`.
+### Security
 
-- A browser unit could resolve `/shared/...` into a directory that no longer
-  existed. Bun caches transpiled modules by their content, and it stores a
-  plugin's resolved path in the cached output. A staged unit has the same bytes
-  on every run, but the project that it resolves into moves between runs. Unit
-  runs now skip that cache.
+- `ty handler invoke --allow-env` refuses Tachyon's own variables
+  (`TAC_*`, `TACHYON_*`, `YON_*` and the proxy variables) with `TY2006`,
+  as `server.environment` already does; 26.36.01 accepted them.
+- Every native host sends a Content-Security-Policy whose `connect-src`
+  allows only the bundle and `tac.outgoing.hosts`; before, Apple and Android
+  hosts sent none and Windows and Linux allowed any `https:` host.
+- Windows release builds turn WebView2 DevTools off, so F12 and Inspect no
+  longer open a console in the app; debug builds keep them.
+- Native pages post forms only to their own bundle (`form-action 'self'`).
+  Android also refuses main-frame loads outside the bundle, and sends
+  companion signals, application state and title-bar insets only to bundle
+  pages.
+- macOS, iOS and Android pass companion signals to the page as checked
+  JSON instead of splicing raw text into a script. Bundle assets carry
+  `X-Content-Type-Options: nosniff`, and the Apple file-picker route
+  answers only the `bundle` host.
+- Loopback servers answer only localhost names, IP addresses, the
+  `tac.origin` host and `server.hosts`; other `Host` values get `403`
+  (`TY1366`), which blocks DNS rebinding.
+- `ty start` enforces `outgoing.hosts` at the operating-system level;
+  `ty serve` and `ty preview` warn that they do not (ADR 0113). Gateway
+  commands go through the outgoing guard too.
+- The guard's address filter refuses NAT64, 6to4, Teredo,
+  IPv4-compatible and IPv4-translated IPv6 ranges, and the discard,
+  documentation, benchmarking, reserved and multicast ranges. The guard
+  serves at most 256 connections (`503` beyond), closes tunnels idle for 5
+  minutes, and keeps running after an accept error. PHP `file_get_contents`
+  and `fopen` HTTP streams go through it.
+- The outgoing guard refuses loopback and private addresses behind an
+  allowed name, and handlers no longer get `NO_PROXY=127.0.0.1`.
+- Browser-sent `Forwarded`, `X-Forwarded-*` and `X-Real-IP` no longer reach
+  handlers; only proxies in `server.proxies` may set them (ADR 0096).
+- Topic streams (`/.tachyon/topics/<name>`) follow the access rule that the
+  server's `@Topic` model declares, with the same guard as routes (`401`
+  without an identity, `403` for the wrong role). A topic that no server
+  model declares answers `404`, and each client address may hold at most 16
+  open topic streams.
+- `OPTIONS` on a route path answers after the access check, and lists only
+  the verbs and schema of the routes the caller may call.
+- A FYLO SQL value can no longer change its query: `$n` counts only outside
+  quotes, and each value is written as one literal. A quoted placeholder
+  (`'$1'`) and a negative or exponent number are refused with `TY2160`;
+  write `WHERE name = $1`.
+- A `400` refusal never repeats request values, cookies or authorization
+  headers, and values nested over 32 levels are refused.
+- Services cannot read the `tac` build settings, such as the outgoing host
+  list, through `Settings`.
+- `tokio` 1.53.3 (RUSTSEC-2026-0386), `ctutils` 0.4.6 (RUSTSEC-2026-0385),
+  and `webpki-roots` 1.0.11 with `rustls-webpki` 0.103.16, which drop the
+  distrusted emSign roots (RUSTSEC-2026-0381, RUSTSEC-2026-0382).
 
-- Method coverage matched method names across the whole project. So one case
-  that named `list` covered every `list` method. A unit now covers only the
-  types that it names.
+### Migration notes
 
-- Keep C# handler compilation independent of persistent .NET build servers.
-  This stops an old compiler server from blocking valid builds after the
-  toolchain volume reconnects. Compiler deadlines and the framework's
-  content-addressed artifact cache stay.
+Upgrade a 26.36.01 project in this order. Do it on a branch, so you can
+compare and roll back.
 
-- Make the JavaScript shared-deadline regression test deterministic under host
-  load. It covers expiration during authorization, cache lookup and result
-  storage. It does not depend on closely spaced wall-clock timers.
+1. Commit the project, and copy `.tachyon/topics` somewhere safe if the
+   project publishes topic events. The new server moves those logs to
+   `data/topics/` on its first start.
+2. Install the prerequisites. A project with PHP code needs `php-cgi`
+   (Homebrew `php`, the Debian or Ubuntu `php-cgi` package, or
+   `php-cgi.exe` from the Windows PHP zip).
+3. Install the new `ty` with `install.sh` or `install.ps1` from the latest
+   release, then run `ty doctor`.
+4. Run `ty migrate check`. Keep the report: it lists every place that the
+   Breaking section covers, with the rule name and the action.
+5. Run `ty migrate fix` and read the plan. Then run
+   `ty migrate fix --write`. It never deletes or overwrites a file. Run it
+   again until it reports no more edits, because some conversions (such as
+   `@Stream` to `@StreamRoute`) apply to the controllers that the first run
+   made.
+6. Do the manual steps the fix listed, in this order:
+   - configuration values it could not move out of `tac.config.*`, then
+     delete the old files;
+   - route files it could not convert, and each `OPTIONS.schema.json`
+     (write the rules on the model types, then delete the file);
+   - repository and client code: move it into services, so that `@Store`
+     and `@HTTPClient` stay contracts;
+   - `@Relay` methods: call `relay(command, request)` instead;
+   - other uses of `YonRequest` and `YonResponse`, and middleware that is
+     not yet a `Middleware` class with `before` and `after`;
+   - page markup that the fix did not move into a component, and
+     companions into `client/services/<Name>Service.<ext>`, replacing
+     `this.tac` and the `@onMount`, `@publish` and `@subscribe`
+     decorators.
+7. Give every controller an access rule (`@Public`, `@SignedIn` or
+   `@Allow(...)`). The fix writes `@Public` only on the controllers it made
+   from route files. Add one `@IdentityProvider` if any route is guarded.
+   Give every server `@Topic` model the same kind of rule; `@Public` keeps
+   the 26.36.01 behaviour.
+8. Move secrets from source and the manifest into `.env` under `YON_`
+   names. If you copied `.env.example` to `.env`, rename the names that
+   `ty migrate check` lists for `.env` yourself, using the replacement each
+   finding names, and keep the values; the fix never edits `.env`. List
+   the outgoing hosts in `tac.outgoing.hosts` and `outgoing.hosts`:
+   handlers can now reach only those hosts. Replace direct database
+   drivers with managed storage. On Windows, or Linux older than 6.7,
+   `ty start` needs `YON_EGRESS_ENFORCEMENT=proxy`.
+9. Run `ty serve`. Fix each build error, or, while you migrate, turn one
+   rule off for one realm with its `check: false` switch. `TY1322` (route
+   access) has no switch. Turn the switches back on before you release.
+10. Check handlers that keep module-level state. Handlers now stay warm
+    between requests; reset that state, or set `YON_ISOLATION=process`.
+11. Run a release build with `ty bundle`, which also checks the per-route
+    script and WebAssembly budgets (`TY1337`).
+12. Run `ty migrate check` again. Continue until it reports no `changed`
+    findings.
 
-- Keep HTTP-only verification independent of file-watcher registration.
-  Dedicated rebuild and watcher-lifecycle tests still turn on watching
-  explicitly.
+Rollback: to go back to 26.36.01 after `ty migrate fix --write`, revert the
+source changes too (for example, `git checkout` the commit from step 1).
+26.36.01 does not read the new layout, markers or `client/manifest.json`,
+and it refuses access markers on a `@Topic` model; if you keep any source
+edits, remove those markers before you build with 26.36.01 (the streams
+are then open to anyone again).
+Copy the saved logs back to `.tachyon/topics` if the new server moved them.
+Then install 26.36.01:
 
-- Reject malformed `Value` descriptors without compiler panics or silent type
-  defaults. Support TypeScript definite-assignment and optional fields. Align
-  native field-name and selected-string bounds across behavior runtimes.
-  Restore the template bindings of the standalone Java/Kotlin configuration
-  gate.
+```sh
+curl -fsSL https://github.com/d31ma/TACHYON/releases/download/v26.36.01/install.sh \
+  | TAC_BASE_URL=https://github.com/d31ma/TACHYON/releases/download/v26.36.01 sh
+```
 
-- A PHP relay program no longer inherits the descriptors its handler opened.
-  Every descriptor above 2 maps to `/dev/null`, so the program cannot write
-  into the handler's response stream, for example through `php://stdout`.
-  PHP warnings now go to stderr instead of corrupting the protocol output.
+```powershell
+$env:TAC_BASE_URL = "https://github.com/d31ma/TACHYON/releases/download/v26.36.01"
+irm https://github.com/d31ma/TACHYON/releases/download/v26.36.01/install.ps1 | iex
+```
 
-- The Bun and Dart managed-resource clients no longer send the invocation's
-  bearer token through `HTTP_PROXY`. Every runner connects directly to the
-  loopback endpoint, and the supervisor adds `127.0.0.1` to `NO_PROXY` and
-  `no_proxy` for a handler that has an endpoint.
-
-- A JavaScript relay to a missing program fails at once with the `start`
-  category. Under Bun it used to wait for the deadline, and under Node it
-  reported `exit`.
-
-- A handler whose deadline passes while it waits for a process slot fails with
-  `TY2110` and never starts. A passed deadline now wins over a free slot, and
-  the supervisor checks the time left again just before it spawns.
-
-- A `#[Component]` (or C# `[Component]`) delegate beside a Rust, C#, Swift
-  or Kotlin web service failed with `TY1308` at an offset in the service file.
-  The error now names the delegate file and the line of its marker, as it
-  already did for Go.
-
-- When `rustc`, `kotlinc`, `dart` or `dotnet` was not on the PATH, a compiled
-  handler failed with `TY2004` and help about the 1 MiB source limit. It now
-  fails with `TY2112`, names the missing program and says what to install,
-  like Go.
-
-- `ty doctor` exited with 0 even when the project could not build. It now
-  exits with 1 when a toolchain that the project needs to build or serve is
-  missing or too old. A toolchain that is needed only to bundle a native
-  target is shown as `info` and does not change the exit status.
+PHP projects can keep `php-cgi` installed; 26.36.01 starts `php`.
 
 ## [26.36.01] - 2026-08-31
 
@@ -8150,16 +2189,16 @@ that expected the old `dist/layouts/` output.
 
 See the Git history and GitHub release notes for changes before 2.0.
 
-[Unreleased]: https://github.com/d31ma/Tachyon/compare/v26.36.01...HEAD
-[26.36.01]: https://github.com/d31ma/Tachyon/compare/v26.35.07...v26.36.01
-[26.35.07]: https://github.com/d31ma/Tachyon/compare/v26.33.02...v26.35.07
-[26.33.02]: https://github.com/d31ma/Tachyon/compare/v26.33.01...v26.33.02
-[26.33.01]: https://github.com/d31ma/Tachyon/compare/v26.31.06...v26.33.01
-[26.32.07]: https://github.com/d31ma/Tachyon/compare/v26.31.06...v26.32.07
-[26.31.06]: https://github.com/d31ma/Tachyon/compare/v26.30.04...v26.31.06
-[26.30.04]: https://github.com/d31ma/Tachyon/compare/v26.30.03...v26.30.04
-[26.22.03]: https://github.com/d31ma/Tachyon/compare/v26.21.7...v26.22.03
-[26.21.7]: https://github.com/d31ma/Tachyon/compare/v26.21.05...v26.21.7
-[26.21.05]: https://github.com/d31ma/Tachyon/compare/v2.0.0...v26.21.05
-[2.0.0]: https://github.com/d31ma/Tachyon/compare/v1.11.1...v2.0.0
-[1.11.1]: https://github.com/d31ma/Tachyon/releases/tag/v1.11.1
+[Unreleased]: https://github.com/d31ma/TACHYON/compare/v26.36.01...HEAD
+[26.36.01]: https://github.com/d31ma/TACHYON/compare/v26.35.07...v26.36.01
+[26.35.07]: https://github.com/d31ma/TACHYON/compare/v26.33.02...v26.35.07
+[26.33.02]: https://github.com/d31ma/TACHYON/compare/v26.33.01...v26.33.02
+[26.33.01]: https://github.com/d31ma/TACHYON/compare/v26.31.06...v26.33.01
+[26.32.07]: https://github.com/d31ma/TACHYON/compare/v26.31.06...v26.32.07
+[26.31.06]: https://github.com/d31ma/TACHYON/compare/v26.30.04...v26.31.06
+[26.30.04]: https://github.com/d31ma/TACHYON/compare/v26.30.03...v26.30.04
+[26.22.03]: https://github.com/d31ma/TACHYON/compare/v26.21.7...v26.22.03
+[26.21.7]: https://github.com/d31ma/TACHYON/compare/v26.21.05...v26.21.7
+[26.21.05]: https://github.com/d31ma/TACHYON/compare/v2.0.0...v26.21.05
+[2.0.0]: https://github.com/d31ma/TACHYON/compare/v1.11.1...v2.0.0
+[1.11.1]: https://github.com/d31ma/TACHYON/releases/tag/v1.11.1

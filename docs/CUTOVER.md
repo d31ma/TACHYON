@@ -40,6 +40,7 @@ link, or the name of the local run) when the gate runs on the release commit.
 | Install, upgrade, rollback and uninstall | `scripts/release/lifecycle-drill.sh`, from v26.36.01 to the candidate and back to v26.36.01 | **pending** |
 | Full CI on the `develop` to `main` pull request | `.github/workflows/rust-ci.yml` | **pending** |
 | Signed, attested and verified assets | the sign, stage and verify jobs of `.github/workflows/publish.yml` | **pending** |
+| macOS release app (Developer ID signing and notarization) | the ignored test `a_developer_id_macos_release_is_notarized_and_stapled` in `crates/tachyon-cli/tests/it/macos_release_cli.rs` | **Accepted exception** (2026-10-31): this machine has no notarization profile. v26.36.01 shipped no notarized macOS app either, only the `ty` executable with Sigstore attestations |
 
 Passed before the release commit was chosen, on `develop` at `e5c2fc8d4`
 (2026-10-31):
@@ -61,6 +62,24 @@ Not passed, and not claimed by this release candidate:
   run.
 - No run used a physical iOS or Android device. iOS runs use the simulator
   without an Apple team ID.
+- macOS app bundles that `ty bundle --release` builds are not notarized in
+  this release candidate. The Developer ID and notarization gate is an
+  accepted exception (see the table above).
+- These browser and native UI gates are limited by the test devices, not
+  passed (decided 2026-11-01):
+  - Java web services on Android: the page-program, held-clients,
+    cached-client, window-controls and web-apis cells of
+    `branded-android-chrome`, and the Java cell of `wasm-features-app`.
+    They need Android System WebView (Chrome) 137, and the test emulator
+    (android-35 `google_apis`) has 124 and cannot update. Every other
+    language passes in the same gates (16 of 17 cells in
+    `wasm-features-app`).
+  - The `android-web-view-refusal` refusal page: it needs WebView 83 or
+    older to appear. The normal path passes.
+  - `ios-system-back` on the iOS 26.5 simulator: an injected edge swipe
+    starts WebKit's back gesture but does not complete it in three tries.
+    `history.back()` works, a manual check with the simulator's own edge
+    gesture went back, and the gate passed on iOS 18.0 (ADR 0109).
 - The Linux desktop evidence comes from WSL on ARM64 and from containers, not
   from a physical x86_64 desktop.
 - The Windows desktop gates other than `native-test.ps1` ran on ARM64 only.
