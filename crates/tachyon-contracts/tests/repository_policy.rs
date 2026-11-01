@@ -171,6 +171,29 @@ fn required_foundation_documents_are_present_and_substantive()
 }
 
 #[test]
+fn a_local_gate_builds_the_release_binary_with_the_shipped_features()
+-> Result<(), Box<dyn std::error::Error>> {
+    let root = repository_root();
+    let shipped = "build --release --locked -p tachyon-cli --bin ty --features storage-all";
+    let artifact = fs::read_to_string(root.join("scripts/release/build-artifact.sh"))?;
+    let package = fs::read_to_string(root.join("package.json"))?;
+    let workflow = fs::read_to_string(root.join(".github/workflows/rust-ci.yml"))?;
+    assert!(
+        artifact.contains(&format!("({shipped})")),
+        "build-artifact.sh changed what it ships"
+    );
+    assert!(
+        package.contains(&format!("\"test:release-build\": \"cargo {shipped}\"")),
+        "package.json has no test:release-build gate for the shipped build"
+    );
+    assert!(
+        workflow.contains(&format!("cargo auditable {shipped}")),
+        "rust-ci.yml builds something else than the shipped binary"
+    );
+    Ok(())
+}
+
+#[test]
 fn release_artifact_inputs_are_present_and_nonempty() -> Result<(), Box<dyn std::error::Error>> {
     let root = repository_root();
     for relative in ["LICENSE", "NOTICE", "VERSION", "docs/SUPPORT_TIERS.md"] {

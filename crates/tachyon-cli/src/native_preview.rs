@@ -30,7 +30,7 @@ impl NativePreview {
             development.clone(),
             stopped,
         ));
-        let served = self.serve(development).await;
+        let served = Box::pin(self.serve(development)).await;
         stop.send_replace(true);
         let _kept = app.await;
         served

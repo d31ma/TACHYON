@@ -12,6 +12,7 @@
   "scripts": {
     "typecheck": "bun check -p jsconfig.json && bun check -p jsconfig.release.json && bun run typecheck:types",
     "typecheck:types": "bun check -p types/tsconfig.json && bun check -p types/tsconfig.json --experimentalDecorators && bun check -p types/tsconfig.routes.json",
+    "test:release-build": "cargo build --release --locked -p tachyon-cli --bin ty --features storage-all",
     "test:website": "bun --cwd website test",
     "test:website-browser": "node scripts/website-browser-test.mjs",
     "test:phase3-browser": "node scripts/phase3-browser-test.mjs",
