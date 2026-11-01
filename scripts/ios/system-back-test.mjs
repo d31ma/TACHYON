@@ -7,15 +7,6 @@ import path from 'node:path'
 import { MobileAccessibilityFixture } from '../native/mobile-accessibility-fixture.mjs'
 import { IosAccessibilityAuditTest } from './accessibility-audit-test.mjs'
 
-/**
- * The iOS system back gate. The Tachyon app must go back on a swipe from the left edge and forward on a swipe from the
- * right edge (allowsBackForwardNavigationGestures). An injected edge drag starts WebKit's back swipe on the iOS 26.5
- * simulator but does not always complete it, so each direction gets three tries:
- * - the app goes back, then forward: PASS;
- * - no swipe completes: LIMITED (exit 77, never a pass). The page's history.back() button proves that back navigation
- *   itself works. A manual check with the simulator's own edge gesture took the same app back on iOS 26.5 (ui-gates,
- *   2026-11-01), and on the iOS 18.0 simulator the gate passed (ADR 0109).
- */
 class IosSystemBackTest extends IosAccessibilityAuditTest {
   static fixture = mkdtempSync(path.join(process.env.TAC_PROBE_DIR ?? tmpdir(), 'ios-system-back-'))
   static evidence = process.env.TAC_IOS_SYSTEM_BACK_EVIDENCE ?? path.join(IosAccessibilityAuditTest.repository, 'target/ios-system-back-evidence')
@@ -24,7 +15,6 @@ class IosSystemBackTest extends IosAccessibilityAuditTest {
   static BACK_BUTTON = 'Go back'
   static LIMITED = 77
 
-  /** The shared fixture, plus a button on the second route that calls history.back() through a service. */
   static build() {
     const project = path.join(this.fixture, 'app')
     MobileAccessibilityFixture.write(project, this.applicationId)
