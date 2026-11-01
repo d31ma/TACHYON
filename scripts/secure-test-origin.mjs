@@ -41,8 +41,7 @@ export class SecureTestOrigin {
     return output
   }
 
-  /** Serves a bundled project with ty preview --static at https://tachyon.test through a test proxy.
-   * @param {string} binary @param {string} project @returns {Promise<SecureTestOrigin>} */
+  /** @param {string} binary @param {string} project @returns {Promise<SecureTestOrigin>} */
   static async open(binary, project) {
     const origin = new SecureTestOrigin()
     try {
@@ -71,8 +70,7 @@ export class SecureTestOrigin {
     await this.#preview?.stop()
   }
 
-  /** Chromium trusts the test certificate by its public key, so the origin counts as secure; the other engines only skip the certificate check.
-   * @param {string} engine @returns {LaunchOptions} */
+  /** @param {string} engine @returns {LaunchOptions} */
   launchOptions(engine) {
     return {
       proxy: { server: `http://127.0.0.1:${this.tunnelPort}` },
@@ -154,8 +152,7 @@ export class SecureTestOrigin {
     })
   }
 
-  /** Browsers also open connections to their own services through the proxy; only tachyon.test is tunneled.
-   * @param {number} securePort @returns {import('node:http').Server} */
+  /** @param {number} securePort @returns {import('node:http').Server} */
   static tunnel(securePort) {
     const server = createServer((_incoming, outgoing) => outgoing.writeHead(405).end())
     server.on('connect', (incoming, socket, head) => {

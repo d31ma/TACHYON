@@ -250,7 +250,7 @@ class WebsiteMigrationAcceptance {
   /** @param {import('playwright').Page} page @param {string} origin @returns {Promise<Record<string, unknown>>} */
   static async #routes(page, origin) {
     const routes = ['/', '/docs/', '/docs/pages/', '/docs/features/', '/docs/features/companion-publish/']
-    /** @type {Record<string, boolean>} DocsDataPreload starts the docs.json import on /docs/<guide> pages only */
+    /** @type {Record<string, boolean>} */
     const docsData = { '/': false, '/docs/pages/': true, '/docs/features/': false, '/docs/features/companion-publish/': false }
     const activated = []
     for (const route of routes) {
@@ -266,7 +266,6 @@ class WebsiteMigrationAcceptance {
 
   /** @param {import('playwright').Page} page @returns {Promise<Record<string, unknown>>} */
   static async #toggle(page) {
-    // The toggle names its state through CSS content (Theme: light|dark|auto) and cycles light -> dark -> auto.
     await page.getByRole('button', { name: 'Theme: light', exact: true }).click()
     await page.waitForFunction(() => document.documentElement.getAttribute('w-theme') === 'dark' && localStorage.getItem('w-theme') === 'dark')
     await page.getByRole('button', { name: 'Theme: dark', exact: true }).waitFor()
@@ -330,7 +329,6 @@ class WebsiteMigrationAcceptance {
     assert.equal(report.stuck, 0, 'The header stays at the top of the viewport after scrolling')
     assert.equal(report.quickstart.display, 'grid')
     assert.equal(report.footer.display, 'grid')
-    // Since UX-3 (a615be7ce) the search trigger shows on every pointer: its rendered button is the owned inline-flex 44px target.
     assert.equal(report.search.display, 'inline-flex', `search trigger is shown with a ${coarse ? 'coarse' : 'fine'} pointer`)
     /** @type {['header' | 'quickstart' | 'footer' | 'search', string][]} */
     const owners = [['header', 'site-header'], ['quickstart', 'home-quickstart'], ['footer', 'site-footer'], ['search', 'site-search']]

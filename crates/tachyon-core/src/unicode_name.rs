@@ -1,7 +1,6 @@
 pub(crate) struct UnicodeName;
 
 impl UnicodeName {
-    /// Reads the Unicode letters, digits and underscores that start `text`.
     pub(crate) fn leading(text: &str) -> String {
         text.chars()
             .take_while(|character| Self::is_name_character(*character))

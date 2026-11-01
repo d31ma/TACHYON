@@ -155,7 +155,6 @@ async function sweepWidth(browser, theme, width, summary) {
   })
   await context.addInitScript((/** @type {string} */ value) => localStorage.setItem('w-theme', value), theme)
   const page = await context.newPage()
-  // A page that throws or loads a missing file is broken whatever its layout, so both fail the route.
   /** @type {string[]} */
   const errors = []
   page.on('pageerror', (error) => errors.push(`page error: ${error.message.split('\n')[0].slice(0, 120)}`))

@@ -16,11 +16,6 @@ impl ReleasePackaging {
         NativeTarget::Ios,
     ];
 
-    /// Checks that the target can build a signed release package.
-    ///
-    /// # Errors
-    ///
-    /// Returns TY1601 when a release is asked for a target that has no release packaging.
     pub fn check(target: NativeTarget, release: bool) -> Result<(), Failure> {
         let refused = [release, !Self::PACKAGED.contains(&target)] == [true, true];
         (!refused)
@@ -28,13 +23,6 @@ impl ReleasePackaging {
             .ok_or_else(|| Self::refusal(target))
     }
 
-    /// Checks the signing settings of a release before anything is built, and
-    /// returns the note a release with test signing, or an unsigned Windows
-    /// build, prints.
-    ///
-    /// # Errors
-    ///
-    /// Returns TY1605 when the environment lacks what the target's signing needs.
     pub fn signing_note(target: NativeTarget, release: bool) -> Result<Option<String>, Failure> {
         let signs_on_a_mac = [release, target == NativeTarget::Macos] == [true, true];
         let signing = super::mac_os_signing::MacOsSigning::for_release(signs_on_a_mac)?;

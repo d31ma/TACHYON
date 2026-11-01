@@ -6,11 +6,6 @@ import { setTimeout as sleep } from 'node:timers/promises'
 /** @typedef {{kind:'css',value:string}|{kind:'role',role:string,name?:string|RegExp,exact?:boolean}|{kind:'label',text:string|RegExp,exact?:boolean}|{kind:'text',text:string|RegExp,exact?:boolean}|{kind:'nth',index:number}} LocatorStep */
 /** @typedef {{driver:string,args:string[],capabilities:Record<string,unknown>,name:string,engine:string}} DriverPlan */
 
-/**
- * A Playwright-shaped browser over a W3C WebDriver server (safaridriver, or WebKitWebDriver as a
- * stand-in). It covers the calls the Tac web gates make; any other call throws BrandedUnsupported
- * so a gate never passes on a call that did not reach the branded browser.
- */
 export class BrandedUnsupported extends Error {
   static marker = 'branded browser cannot'
 
@@ -26,15 +21,10 @@ export class WebDriverSession {
   static startMilliseconds = 60_000
   static stopMilliseconds = 5_000
   static pollMilliseconds = 100
-  /** @type {Set<WebDriverSession>} sessions this process started and has not stopped */
+  /** @type {Set<WebDriverSession>} */
   static live = new Set()
   static teardownInstalled = false
 
-  /**
-   * Every session this process opened is ended when the process ends, also when a gate fails or is interrupted: its
-   * WebDriver session is deleted (which quits the automation Safari) and its driver is stopped by its own PID. Without
-   * this, a failing gate left safaridriver and an automation Safari behind.
-   */
   static installTeardown() {
     if (WebDriverSession.teardownInstalled) return
     WebDriverSession.teardownInstalled = true
@@ -53,8 +43,6 @@ export class WebDriverSession {
       console.error(error)
       stopAll().finally(() => process.exit(1))
     })
-    // Gates end with process.exit(), which skips beforeExit, and an 'exit' handler can't wait for fetch: delete each
-    // session synchronously so its automation Safari quits, then stop the driver.
     process.on('exit', () => {
       for (const session of WebDriverSession.live) {
         if (session.id) {
@@ -87,14 +75,11 @@ export class WebDriverSession {
       throw new Error(`${plan.driver} did not answer /status within ${WebDriverSession.startMilliseconds} ms: ${output.join('')}`)
     }
     const session = new WebDriverSession(base, child, plan)
-    // The driver and its pipes must not keep the gate's process alive: the session is stopped at beforeExit instead.
     child.unref()
     child.stdout.unref?.()
     child.stderr.unref?.()
     WebDriverSession.installTeardown()
     WebDriverSession.live.add(session)
-    // safaridriver boots a shut-down iOS simulator for the first session, and that boot can outlast its own wait for
-    // Safari ("timed out while connecting to a Safari instance"); by then the simulator is up, so ask once more.
     const attempts = plan.capabilities['safari:useSimulator'] ? 2 : 1
     for (let attempt = 1; ; attempt++) {
       try {
@@ -116,12 +101,7 @@ export class WebDriverSession {
     }
   }
 
-  /**
-   * The desktop Safari processes running now. Deleting a WebDriver session does not quit the automation Safari it
-   * launched, so a session remembers which Safari appeared with it and quits exactly those PIDs when it ends. Safari on
-   * the iOS simulator runs inside the simulator, which its gate shuts down.
-   * @param {DriverPlan} plan @returns {number[]}
-   */
+  /** @param {DriverPlan} plan @returns {number[]} */
   static browserPids(plan) {
     if (process.platform !== 'darwin' || !plan.driver.endsWith('safaridriver') || plan.capabilities['safari:useSimulator']) return []
     const listed = spawnSync('/usr/bin/pgrep', ['-x', 'Safari'], { encoding: 'utf8' })
@@ -158,7 +138,7 @@ export class WebDriverSession {
     /** @type {Record<string, any>} */
     this.capabilities = {}
     this.window = ''
-    /** @type {number[]} the desktop Safari PIDs that appeared with this session */
+    /** @type {number[]} */
     this.browsers = []
   }
 
@@ -582,11 +562,7 @@ export class BrandedLocator {
 }
 
 export class BrandedHandle {
-  /**
-   * An element handle keeps its element in a page-side slot, because WebDriver refuses a
-   * reference to an element once it has left the document, and gates check exactly that.
-   * @param {BrandedPage} page @param {unknown} value @param {number} [slot]
-   */
+  /** @param {BrandedPage} page @param {unknown} value @param {number} [slot] */
   constructor(page, value, slot) {
     this.page = page
     this.value = value
@@ -950,18 +926,14 @@ export class BrandedBrowser {
     this.spare = []
     /** @type {string[]} */
     this.used = []
-    /** @type {BrandedBrowser|undefined} the guarded browser a gate holds */
+    /** @type {BrandedBrowser|undefined} */
     this.guarded = undefined
   }
 
-  /** @type {Map<string, BrandedBrowser>} the live browser of each plan in this process */
+  /** @type {Map<string, BrandedBrowser>} */
   static shared = new Map()
 
-  /**
-   * A gate that launches the browser again gets the same live session back, so a gate costs one Safari launch rather
-   * than one per check. Each launch still starts with no open context, so a check sees a fresh page.
-   * @param {DriverPlan} plan
-   */
+  /** @param {DriverPlan} plan */
   static async launch(plan) {
     const live = BrandedBrowser.shared.get(plan.name)
     if (live && WebDriverSession.live.has(live.session)) {
@@ -1041,7 +1013,6 @@ export class BrandedBrowser {
     if (this.current === context) this.current = undefined
   }
 
-  /** Closes the gate's context; the session stays for the gate's next launch and ends when the process ends. */
   async close() {
     if (this.current) await this.current.close()
   }

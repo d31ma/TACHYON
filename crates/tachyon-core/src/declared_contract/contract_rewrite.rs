@@ -34,7 +34,6 @@ impl<'a> ContractRewrite<'a> {
     ];
     const DROPPED_MODIFIERS: [&'static str; 6] =
         ["final", "sealed", "abstract", "open", "data", "static"];
-    // A C# contract must be public (CS0051), so its written access word gives way to `public interface`.
     const CSHARP_DROPPED_MODIFIERS: [&'static str; 8] = [
         "final", "sealed", "abstract", "open", "data", "static", "public", "internal",
     ];

@@ -223,7 +223,6 @@ fn native_ui_generation_bounds_asset_bytes_and_directory_depth() {
 
 #[test]
 fn native_ui_generation_rejects_ambiguous_asset_names_and_empty_roots() {
-    // Windows refuses `?` in a file name and reads `\` as a separator.
     let names: &[&str] = if cfg!(windows) {
         &["percent%20.css", "fragment#.css"]
     } else {

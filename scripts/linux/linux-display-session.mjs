@@ -65,7 +65,6 @@ echo "$(mutter --version | head -n 1) is the Wayland compositor on $WAYLAND_DISP
   }
 
   /**
-   * The command, arguments and environment that run a bash script beside a display: Xvfb for x11, headless mutter for wayland, and the signed-in desktop session for desktop.
    * @param {string} display @param {string} script @param {string} size @param {string} folder
    */
   static of(display, script, size, folder) {
@@ -82,10 +81,7 @@ echo "$(mutter --version | head -n 1) is the Wayland compositor on $WAYLAND_DISP
     return Number(found.stdout.trim())
   }
 
-  /**
-   * The command and arguments that run a tool as the desktop's user, because a root shell cannot use that user's session bus.
-   * @param {string} command @param {string[]} args
-   */
+  /** @param {string} command @param {string[]} args */
   static asDesktopUser(command, args) {
     const name = process.env.TAC_LINUX_DESKTOP_USER
     if (!name || process.getuid?.() !== 0) return [command, args]
@@ -142,10 +138,6 @@ echo "$(mutter --version | head -n 1) is the Wayland compositor on $WAYLAND_DISP
     if (bus) assert.ok(existsSync(bus), `the desktop's session bus ${bus} is missing`)
   }
 
-  /**
-   * The environment of the signed-in x11 or wayland desktop session, read from its own processes.
-   * TAC_LINUX_DESKTOP_SESSION picks a logind session, TAC_LINUX_DESKTOP_PID a process, and TAC_LINUX_DESKTOP_USER the user whose session it is.
-   */
   static liveDesktop() {
     const environments = this.desktopProcesses()
     const sessions = [...new Set(environments.map(environment => environment.XDG_SESSION_ID).filter(Boolean))]
@@ -185,10 +177,7 @@ echo "$(mutter --version | head -n 1) is the Wayland compositor on $WAYLAND_DISP
     process.stdout.write(`${unset}${Object.entries(env).map(([key, value]) => `export ${key}=${this.shellQuoted(value)}`).join('\n')}\n`)
   }
 
-  /**
-   * The desktop's logind session: its XDG_SESSION_ID, or else the user's graphical session, because the processes of a GNOME session that systemd starts carry no XDG_SESSION_ID.
-   * @param {Record<string, string>} env
-   */
+  /** @param {Record<string, string>} env */
   static logindSession(env) {
     if (env.XDG_SESSION_ID) return env.XDG_SESSION_ID
     const shown = spawnSync('loginctl', ['show-user', String(this.desktopUser()), '-p', 'Display', '--value'], { encoding: 'utf8' })

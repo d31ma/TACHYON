@@ -10,7 +10,6 @@ import { CargoArtifacts } from '../cargo-artifacts.mjs'
 import { SupervisedCommand } from '../supervised-command.mjs'
 import { WasmFeaturesFixture } from './wasm-features-fixture.mjs'
 
-/** Runs one in-app WebAssembly feature check in the iOS simulator app: a linked Swift recorder writes the probe's verdict into the app's tmp folder (or, with TAC_IOS_WASM_VERDICT=screen, the verdict is read from the screen and nothing is linked), and screen text drives the click steps. */
 export class IosWasmApp {
   static repository = fileURLToPath(new URL('../..', import.meta.url))
   static proofFile = 'tachyon-wasm-probe.json'
@@ -78,7 +77,7 @@ final class WasmRecorderService {
     return !this.runtimeVersion || version === this.runtimeVersion || version.startsWith(`${this.runtimeVersion}.`)
   }
 
-  /** Compiles the tap and screen-text tools and boots one simulator for every check. @param {string} root */
+  /** @param {string} root */
   static prepare(root) {
     assert.ok(['recorder', 'screen'].includes(this.verdictFrom), `TAC_IOS_WASM_VERDICT is recorder or screen, not ${this.verdictFrom}`)
     this.root = root
@@ -127,7 +126,7 @@ final class WasmRecorderService {
     }
   }
 
-  /** A loaded simulator sometimes times out on a screenshot ("Timeout waiting for screen surfaces"), and a loaded Mac sometimes fails Vision's text model (e5rtError 13), so each read gets three tries. @param {string} name */
+  /** @param {string} name */
   static screen(name) {
     const file = path.join(this.root, `${name}.png`)
     for (let attempt = 1; ; attempt += 1) {
@@ -153,10 +152,7 @@ final class WasmRecorderService {
     return true
   }
 
-  /**
-   * The gesture the probe's phase line waits for. OCR reads that serif line loosely ("Ask to notify" as "Ask to notity"), so the closest label within two edits wins.
-   * @param {Array<{ text: string }>} lines @param {string[]} gestures
-   */
+  /** @param {Array<{ text: string }>} lines @param {string[]} gestures */
   static waitingFor(lines, gestures) {
     const asked = lines.map(({ text }) => text.match(/waiting for (.+)$/i)?.[1].trim()).find(Boolean)
     if (!asked) return undefined
@@ -164,7 +160,7 @@ final class WasmRecorderService {
     return scored[0]?.distance <= 2 ? scored[0].label : undefined
   }
 
-  /** Edit distance, for the OCR tolerance above. @param {string} a @param {string} b */
+  /** @param {string} a @param {string} b */
   static distance(a, b) {
     let row = Array.from({ length: b.length + 1 }, (_, index) => index)
     for (let i = 1; i <= a.length; i += 1) {
@@ -175,10 +171,7 @@ final class WasmRecorderService {
     return row[b.length]
   }
 
-  /**
-   * Answers what the screen asks for until the probe's verdict lands: taps the button the probe waits for, allows the notification prompt, pastes when iOS asks, and closes the share sheet.
-   * @param {string} application @param {string} proof @param {string[]} gestures
-   */
+  /** @param {string} application @param {string} proof @param {string[]} gestures */
   static async drive(application, proof, gestures) {
     const deadline = Date.now() + this.waitMilliseconds
     const taps = []
@@ -208,7 +201,7 @@ final class WasmRecorderService {
     return { taps, shown: shot.lines.map(({ text }) => text.trim()) }
   }
 
-  /** Only without a recorder: the probe's phase line on screen is the verdict. @param {Array<{ text: string }>} lines */
+  /** @param {Array<{ text: string }>} lines */
   static verdictShown(lines) {
     return this.recorder === undefined && lines.some(({ text }) => [WasmFeaturesFixture.passed, WasmFeaturesFixture.failed].includes(text.trim()))
   }

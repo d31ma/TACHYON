@@ -6,11 +6,6 @@ import { AndroidChrome } from './android-chrome.mjs'
 import { ShareSheet } from './share-sheet.mjs'
 import { BrandedBrowser, BrandedUnsupported } from './webdriver-browser.mjs'
 
-/**
- * Loaded with `node --import` by scripts/branded-browser-gate.mjs. It points the Playwright
- * launcher a gate asks for at the branded browser named by TAC_BRANDED_BROWSER, and makes the
- * launchers the run does not cover refuse, so a gate can only pass in the branded browser.
- */
 class BrandedLaunch {
   static repository = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
   static engines = ['chromium', 'firefox', 'webkit']

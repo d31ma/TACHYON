@@ -1937,7 +1937,6 @@ impl TestResults {
         }
     }
 
-    // A crash or timeout fails this unit only, so the other units still run and the summary prints.
     fn unit_did_not_answer(failure: &Failure) -> HandlerResponse {
         let diagnostic = &failure.diagnostics()[0];
         HandlerResponse::error(

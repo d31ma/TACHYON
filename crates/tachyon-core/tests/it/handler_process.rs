@@ -97,30 +97,17 @@ fn descendant_request(id: &str, mode: &str, pid_file: &std::path::Path) -> Handl
     request
 }
 
-/// Budgets for tests whose outcome must fire after the handler has spawned its
-/// descendant. A deadline shorter than the interpreter's cold start ends the
-/// invocation before any descendant exists, and then proves nothing about reaping.
 struct DescendantDeadline;
 
 impl DescendantDeadline {
-    /// Room for the interpreter to start, run the handler, and write the pid file.
-    /// Cold starts took up to 1.4 s on a loaded Windows host.
     const STARTUP: Duration = Duration::from_secs(5);
-    /// How long the supervisor may take to settle and reap after the outcome fires.
     const SETTLE: Duration = Duration::from_secs(2);
 }
 
-/// Budgets for streams whose deadline must fire while the generator is running and
-/// the subscriber queue is full. A deadline shorter than the interpreter's cold
-/// start ends the stream before the first event, and then proves nothing about
-/// backpressure.
 struct BackpressureDeadline;
 
 impl BackpressureDeadline {
-    /// The stream deadline: room for the interpreter to start and fill the queue.
     const DEADLINE: Duration = DescendantDeadline::STARTUP;
-    /// How long the supervisor may take to stop a backpressured stream after its
-    /// deadline fires.
     const TEARDOWN: Duration = Duration::from_millis(1750);
 
     async fn assert_bounded_with_a_full_queue(source: &HandlerSource, id: &str, expectation: &str) {
@@ -134,8 +121,6 @@ impl BackpressureDeadline {
             .invoke_streaming(source, &request(id, HttpMethod::Get, None), sender)
             .await
             .expect_err(expectation);
-        // The deadline fires no earlier than `started + DEADLINE`, so this
-        // overestimates the time spent after it.
         let teardown = started.elapsed().saturating_sub(Self::DEADLINE);
         assert!(failure.to_string().contains("TY2110"), "{failure}");
         let first = receiver

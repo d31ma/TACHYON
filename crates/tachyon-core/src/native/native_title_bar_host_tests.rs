@@ -26,8 +26,6 @@ main { padding: 24px; }
 <button id="below">Below</button>
 <script src="/title-bar-check.js"></script>
 </body></html>"#;
-    // The host's Content-Security-Policy (script-src 'self') blocks inline scripts, so the page loads its probe from
-    // the bundle.
     const SCRIPT: &str = r"globalThis.__downs = []
 globalThis.__clicks = 0
 addEventListener('mousedown', (event) => globalThis.__downs.push(event.target.closest('[id]')?.id ?? 'none'))

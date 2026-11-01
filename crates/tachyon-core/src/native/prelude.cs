@@ -478,8 +478,6 @@ public partial class Tac
             SendEvent(owner.Route, owner.Service, owner.Owner, next.Name, next.Json, next.Retain);
         }
     }
-    // A service has one instance per page (route) unless it is a prototype,
-    // which belongs to the one activation that created it (CONTEXT.md, ADR 0030).
     private sealed class ServiceNode(string route, string service, string owner, Dictionary<string, TacMember> members, string capabilities, System.Threading.CancellationTokenSource lifetime)
     {
         internal readonly string Route = route;
@@ -499,9 +497,6 @@ public partial class Tac
     }
     private static object CreatedInstance;
     private static string CreatingRoute = "";
-    // A service that another service needs keeps its instance in its page node, so the needing
-    // service and the page share it. The browser never sends host-dispose, so there the shared
-    // nodes stop when the last activation of the page is disposed (ADR 0073, 2026-10-18).
     internal static void Keep(object instance) => CreatedInstance = instance;
     internal static object Need(string service)
     {

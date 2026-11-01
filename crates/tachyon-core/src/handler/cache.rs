@@ -1115,10 +1115,6 @@ impl Drop for OwnedCacheEntry {
 impl CacheLock {
     const MAX_METADATA_BYTES: usize = 1024;
     const MAX_LEASE: Duration = Duration::from_mins(10);
-    /// How far a lock may look newer than the clock and still be current. The wall clock can
-    /// step back while a lock is held (virtual machines resynchronise with their host every few
-    /// seconds), and treating every newer lock as forged would hand a live lock to a second
-    /// holder.
     const CLOCK_STEP_TOLERANCE: Duration = Duration::from_mins(1);
 
     fn is_still_held(&self) -> bool {

@@ -46,7 +46,7 @@ impl JavaDelegateBases {
 
     fn base_fields(code: &JavaCode) -> Vec<(Range<usize>, String, String)> {
         let types = code.top_level_types();
-        let held = Self::held(code, &types);
+        let held = Self::delegates_held_by_fields(code, &types);
         types
             .iter()
             .filter(|declared| Self::is_delegate(code, declared.keyword_at))
@@ -57,10 +57,10 @@ impl JavaDelegateBases {
             .collect()
     }
 
-    // Every Delegate is assembled into each service, so only the ones that the service's fields hold,
-    // directly or through other Delegates, give it a base. Role lowering has already filled the service's
-    // own Needs fields, so a field's type is what counts.
-    fn held(code: &JavaCode, types: &[JavaTypeDeclaration]) -> BTreeSet<String> {
+    fn delegates_held_by_fields(
+        code: &JavaCode,
+        types: &[JavaTypeDeclaration],
+    ) -> BTreeSet<String> {
         let needs: BTreeMap<&str, BTreeSet<String>> = types
             .iter()
             .map(|declared| (declared.name.as_str(), Self::field_types(code, declared)))
@@ -153,7 +153,6 @@ mod tests {
         const TAX: &'static str = "@Service\nclass TaxService {\n    int asked = 0;\n}\n";
         const QUOTE: &'static str = "@Service\nclass QuoteService {\n    @Needs\n    private final TaxDelegate taxDelegate;\n}\n";
         const DELEGATE: &'static str = "\n@Delegate\nclass TaxDelegate {\n    @Needs\n    private final TaxService taxService;\n\n    int rate(String region) {\n        return taxService.rate(region) * 2;\n    }\n}\n";
-        // The service text as assembly hands it over: roles lowered, Needs fields filled, every Delegate after it.
         const QUOTE_ASSEMBLED: &'static str = "\nclass QuoteService {\n\n    private final TaxDelegate taxDelegate = new TaxDelegate();\n}\n";
         const TAX_ASSEMBLED: &'static str = "\nclass TaxService {\n    int asked = 0;\n}\n";
 

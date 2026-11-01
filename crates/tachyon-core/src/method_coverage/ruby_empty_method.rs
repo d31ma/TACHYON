@@ -8,8 +8,6 @@ impl RubyEmptyMethod {
     const PARAMETERS: char = '(';
     const SKIPPED: [char; 6] = [')', ' ', '\t', '\r', '\n', ';'];
 
-    // The body is read from the source: masking blanks string literals, so a method
-    // that only returns "text" would otherwise look empty.
     pub(super) fn is_empty(source: &str, masked: &str, line: usize) -> bool {
         let start: usize = masked.split_inclusive('\n').take(line).map(str::len).sum();
         let text = masked.get(start..).unwrap_or_default();

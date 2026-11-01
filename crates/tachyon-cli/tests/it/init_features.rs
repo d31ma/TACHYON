@@ -96,7 +96,6 @@ fn repository_modules() -> Option<PathBuf> {
 }
 
 fn repository_compiler(modules: &Path) -> PathBuf {
-    // npm's `.bin/tsc` is a POSIX shell script; on Windows the `tsc.cmd` beside it runs instead.
     let name = if cfg!(windows) { "tsc.cmd" } else { "tsc" };
     modules.join(".bin").join(name)
 }

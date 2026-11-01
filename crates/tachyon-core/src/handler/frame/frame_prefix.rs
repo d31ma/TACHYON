@@ -2,9 +2,6 @@ use super::FrameLimits;
 use crate::HandlerSource;
 use std::path::Path;
 
-/// How a handler's frames carry their length. Lua reads and writes its standard streams in text
-/// mode on Windows, where a binary length stops at a 0x1A byte and gains a 0x0D before each
-/// 0x0A, so a Lua handler's frames carry their length as eight hex digits on every platform.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub(in crate::handler) enum FramePrefix {
     #[default]
@@ -25,18 +22,15 @@ impl FramePrefix {
         [FrameLimits::PREFIX_BYTES, Self::HEX_WIDTH][self as usize]
     }
 
-    /// The length prefix of a frame carrying `length` bytes.
     pub(in crate::handler) fn encode(self, length: usize) -> Vec<u8> {
         let binary = u32::try_from(length).unwrap_or(u32::MAX).to_be_bytes();
         [binary.to_vec(), format!("{length:08x}").into_bytes()][self as usize].clone()
     }
 
-    /// The length a prefix of [`Self::width`] bytes declares, or `None` for a malformed prefix.
     pub(in crate::handler) fn decode(self, prefix: &[u8]) -> Option<usize> {
         [Self::binary_length(prefix), Self::hex_length(prefix)][self as usize]
     }
 
-    /// The same frame with its four-byte binary prefix written in this style.
     pub(in crate::handler) fn reframed(self, binary_frame: &[u8]) -> Vec<u8> {
         let payload = binary_frame
             .get(FrameLimits::PREFIX_BYTES..)

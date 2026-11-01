@@ -13,8 +13,6 @@ use super::super::{failure, text};
 use super::RedisChannel;
 use crate::Failure;
 
-/// Where and how to reach Redis: `redis://host[:port][/db]`, or `rediss://` for TLS checked
-/// against the bundled `WebPKI` roots, with the username and password from the settings.
 pub(super) struct RedisTarget {
     host: String,
     port: u16,
@@ -26,9 +24,7 @@ pub(super) struct RedisTarget {
 
 impl RedisTarget {
     const DEFAULT_PORT: u16 = 6379;
-    /// Covers the TCP connect, the TLS handshake, `AUTH` and `SELECT`.
     const CONNECT_TIMEOUT: Duration = Duration::from_secs(1);
-    /// After a failed attempt, wait this long (plus up to as long again at random) and retry.
     const BACKOFF_MILLISECONDS: [u64; 6] = [100, 200, 400, 800, 1600, 3200];
 
     pub(super) fn from_settings(settings: &Value) -> Result<Self, Failure> {
@@ -44,7 +40,6 @@ impl RedisTarget {
         })
     }
 
-    /// Opens a connection, retrying with exponential backoff and jitter.
     pub(super) async fn connect(&self) -> io::Result<RedisChannel> {
         self.retry().await
     }
@@ -88,7 +83,6 @@ impl RedisTarget {
         Ok(channel)
     }
 
-    /// `AUTH` only with a password, naming the user when there is one.
     fn authentication(&self) -> Vec<Vec<&[u8]>> {
         match (self.username.is_empty(), self.password.is_empty()) {
             (_, true) => Vec::new(),
@@ -133,7 +127,6 @@ impl RedisTarget {
         if tls { "rediss" } else { "redis" }
     }
 
-    /// An IPv6 host keeps no brackets, so it reads as an address for both TCP and TLS.
     fn host(url: &url::Url) -> String {
         url.host_str()
             .unwrap_or_default()
@@ -151,7 +144,6 @@ impl RedisTarget {
         }
     }
 
-    /// Empty when unset, as in a URL without that credential.
     fn credential(settings: &Value, key: &str) -> String {
         settings[key].as_str().unwrap_or_default().to_owned()
     }

@@ -208,7 +208,6 @@ impl FolderRoleCheck {
         [named, structure].iter().all(|valid| *valid)
     }
 
-    // Matches the marker spellings the annotation parser accepts; a namespaced `#[tac::Service]` is refused with TY1308.
     fn spelling(extension: &str, marker: &str) -> String {
         match extension {
             "rs" | "php" | "rb" => format!("#[{marker}]"),

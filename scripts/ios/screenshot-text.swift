@@ -2,10 +2,6 @@ import AppKit
 import Foundation
 import Vision
 
-/// Prints the text Vision reads in a screenshot as JSON: one entry per recognized line, with the
-/// line's middle as x and y (0..1, from the top left). With --words, a line of several words also
-/// gets one entry per word after it, because Vision can read a row of separate controls (the iPad
-/// menu bar's "File Edit Format View") as a single line.
 @main
 struct ScreenshotText {
     static func entry(_ text: String, _ box: CGRect) -> [String: Any] {

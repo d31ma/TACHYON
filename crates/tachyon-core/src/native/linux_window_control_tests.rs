@@ -125,7 +125,6 @@ return 'title=' + controls.granted('title') + ',close=' + controls.granted('clos
             .expect("native Rust source")
     }
 
-    // 640x480, so that GNOME Shell on a 1024x768 screen does not maximize the new window: it maximizes one that covers more than 80 % of the work area.
     fn window() -> WindowConfiguration {
         WindowConfiguration {
             width: 640,

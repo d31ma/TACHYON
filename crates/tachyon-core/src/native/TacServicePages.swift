@@ -44,7 +44,6 @@ private final class TacServicePage {
     }
 }
 
-// A page singleton is one node per route and service; a prototype is one node per owner.
 private enum TacServicePages {
     static let providerPrefix = "00000000-0000-4000-a000-"
     static let nodeLimit = 4096

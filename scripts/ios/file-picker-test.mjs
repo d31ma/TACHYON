@@ -121,21 +121,13 @@ class IosFilePickerTest {
     return this.tapLine(target)
   }
 
-  /**
-   * Vision reads a few letters of the picker as look-alikes: the Cyrillic Х for the close button's X, and
-   * "tachyon-tp4-" for the wrapped "tachyon-fp4-notes". Fold the Cyrillic look-alikes back to Latin.
-   * @param {string} text
-   */
+  /** @param {string} text */
   static latin(text) {
     const letters = { 'А': 'A', 'В': 'B', 'С': 'C', 'Е': 'E', 'Н': 'H', 'К': 'K', 'М': 'M', 'О': 'O', 'Р': 'P', 'Т': 'T', 'Х': 'X', 'а': 'a', 'с': 'c', 'е': 'e', 'о': 'o', 'р': 'p', 'х': 'x', 'у': 'y' }
     return text.trim().replace(/[А-яЁё]/g, (letter) => letters[letter] ?? letter)
   }
 
-  /**
-   * Whether an OCR line is the seeded file's name, or the first line of it when the picker wraps it, allowing one
-   * misread letter.
-   * @param {string} text
-   */
+  /** @param {string} text */
   static named(text) {
     const read = this.latin(text)
     if (read.length <= 8) return false
@@ -156,12 +148,7 @@ class IosFilePickerTest {
     return this.tapLine(target)
   }
 
-  /**
-   * The iOS 26 picker closes with an X icon in its title bar, which Vision often does not read at all. It sits on the
-   * title's line at closeButtonX, left of the "..." button; the caller's check that the page then shows its cancelled
-   * status proves the tap closed the picker.
-   * @param {Array<{ text: string, x: number, y: number }>} lines
-   */
+  /** @param {Array<{ text: string, x: number, y: number }>} lines */
   static closeButton(lines) {
     const title = lines.find(({ text, x, y }) => ['Recents', 'Shared', 'Browse', 'On My iPhone'].includes(text.trim()) && Math.abs(x - 0.5) < 0.1 && y < 0.2)
     return title && { text: `the X on the ${title.text.trim()} title bar`, x: this.closeButtonX, y: title.y }
@@ -177,8 +164,6 @@ class IosFilePickerTest {
       const find = (check) => shot.lines.find(({ text }) => check(text.trim()))
       const fresh = (label) => !taps.includes(label) && find((text) => text === label)
       const seen = find((text) => this.named(text))
-      // Tap the file only once two reads in a row show it in the same place, so a tap never lands while the picker
-      // is still sliding to the folder that holds it.
       const file = seen && settled && Math.abs(seen.x - settled.x) < 0.01 && Math.abs(seen.y - settled.y) < 0.01 ? seen : undefined
       settled = seen
       const next = file ? { ...file, y: file.y - this.thumbnailAbove } : seen ? undefined : fresh('On My iPhone') || fresh('Browse')

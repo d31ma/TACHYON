@@ -1,4 +1,3 @@
-// Every annotation refuses a target that it does not belong on (ADR 0056), also in JavaScript checked with JSDoc.
 class ServiceOnMethod {
   // @ts-expect-error Service belongs on a class, not on a method.
   @Service

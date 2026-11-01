@@ -1385,8 +1385,6 @@ mod tests {
         assert!(format!("{error:?}").contains("32-topic/128-listener"));
     }
 
-    /// Each fixture carries the companion prelude exactly as native staging appends it
-    /// after the authored unit, so `scripts/native/events-test.mjs` compiles what ships.
     fn owner_fixtures() -> [(&'static str, NativeCompanion, &'static str, String); 4] {
         [
             (

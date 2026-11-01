@@ -2,11 +2,6 @@ use sha2::{Digest, Sha256};
 use std::io::{Read as _, Write as _};
 use std::path::{Path, PathBuf};
 
-/// One built services module in `rust-wasm/v<VERSION>/<key>.wasm`.
-///
-/// Every `ty` that shares the cache folder reads only the entries of its own
-/// format version. Builds of `ty` before the framed format read raw modules
-/// straight from `rust-wasm/<key>.wasm`, so framed entries never go there.
 pub(crate) struct RustWasmCache {
     unversioned: PathBuf,
     folder: PathBuf,
@@ -14,19 +9,15 @@ pub(crate) struct RustWasmCache {
 }
 
 impl RustWasmCache {
-    /// Bump this whenever the entry layout or its meaning changes, so older
-    /// and newer `ty` builds keep their entries in separate folders.
-    const VERSION: u32 = 2;
+    const ENTRY_FORMAT_VERSION: u32 = 2;
     const FOLDER: &str = "rust-wasm";
     const DIGEST_BYTES: usize = 32;
-    /// The frame that builds before version 2 wrote into the unversioned
-    /// folder, where older `ty` builds read it as a raw module and fail.
-    const UNVERSIONED_FRAME: &[u8] = b"tachyon-rust-wasm-1\0";
+    const PRE_VERSIONED_FRAME: &[u8] = b"tachyon-rust-wasm-1\0";
 
     pub(crate) fn folder(cache_root: &Path) -> PathBuf {
         cache_root
             .join(Self::FOLDER)
-            .join(format!("v{}", Self::VERSION))
+            .join(format!("v{}", Self::ENTRY_FORMAT_VERSION))
     }
 
     pub(super) fn new(cache_root: &Path, key: &str) -> Self {
@@ -39,7 +30,7 @@ impl RustWasmCache {
     }
 
     fn format() -> Vec<u8> {
-        format!("tachyon-rust-wasm-{}\0", Self::VERSION).into_bytes()
+        format!("tachyon-rust-wasm-{}\0", Self::ENTRY_FORMAT_VERSION).into_bytes()
     }
 
     pub(super) fn read(&self) -> Option<Vec<u8>> {
@@ -66,8 +57,6 @@ impl RustWasmCache {
         Ok(())
     }
 
-    /// Removes framed entries from the unversioned folder, which older `ty`
-    /// builds would serve as broken modules. Their raw entries stay.
     fn remove_unversioned_frames(&self) {
         let entries = std::fs::read_dir(&self.unversioned).into_iter().flatten();
         for entry in entries.flatten() {
@@ -82,10 +71,10 @@ impl RustWasmCache {
     }
 
     fn starts_with_unversioned_frame(path: &Path) -> bool {
-        let mut start = [0; Self::UNVERSIONED_FRAME.len()];
+        let mut start = [0; Self::PRE_VERSIONED_FRAME.len()];
         std::fs::File::open(path)
             .and_then(|mut file| file.read_exact(&mut start))
-            .is_ok_and(|()| start == Self::UNVERSIONED_FRAME)
+            .is_ok_and(|()| start == Self::PRE_VERSIONED_FRAME)
     }
 }
 
@@ -141,12 +130,12 @@ mod tests {
             cache.entry,
             root.path()
                 .join("rust-wasm")
-                .join(format!("v{}", RustWasmCache::VERSION))
+                .join(format!("v{}", RustWasmCache::ENTRY_FORMAT_VERSION))
                 .join("key.wasm")
         );
         assert_eq!(
             names(&root.path().join("rust-wasm")),
-            [format!("v{}", RustWasmCache::VERSION)]
+            [format!("v{}", RustWasmCache::ENTRY_FORMAT_VERSION)]
         );
     }
 
@@ -169,7 +158,7 @@ mod tests {
     fn a_store_removes_unversioned_frames_an_older_ty_would_serve() {
         let root = tempfile::tempdir().expect("root");
         let framed = unversioned_entry(root.path(), "other.wasm");
-        let mut frame = RustWasmCache::UNVERSIONED_FRAME.to_vec();
+        let mut frame = RustWasmCache::PRE_VERSIONED_FRAME.to_vec();
         frame.extend_from_slice(&Sha256::digest(RustWasmCache::MODULE));
         frame.extend_from_slice(RustWasmCache::MODULE);
         std::fs::write(&framed, frame).expect("framed entry");
@@ -192,12 +181,12 @@ mod tests {
                 hex
             });
         assert_eq!(
-            (RustWasmCache::VERSION, digest.as_str()),
+            (RustWasmCache::ENTRY_FORMAT_VERSION, digest.as_str()),
             (
                 2,
                 "09867a43dea942cb670d816e2a465d2e9182f44ead3b4bab864e4841143e4831"
             ),
-            "the entry layout changed: bump RustWasmCache::VERSION so older and \
+            "the entry layout changed: bump RustWasmCache::ENTRY_FORMAT_VERSION so older and \
              newer ty builds never read each other's entries, then update this pin"
         );
     }

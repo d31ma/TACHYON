@@ -454,7 +454,6 @@ final class JavaWindowService {
     globalThis.__tachyonWindowControls = Object.freeze(grants)
   }
 
-  // A component resolves its services one after another, so a service can register after the network is idle.
   static registered(page) {
     const names = WindowControlsGate.languages.map((language) => `${language}Window`)
     return page.waitForFunction((wanted) => wanted.every((name) => globalThis.__tachyonTac?.service(name)), names, { timeout: WindowControlsGate.browserTimeout })

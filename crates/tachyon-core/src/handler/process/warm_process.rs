@@ -86,7 +86,6 @@ impl WarmProcess {
         self.idle_since = Instant::now();
     }
 
-    /// Waits for a new process's ready frame; a process that already said it is ready goes on.
     pub(super) async fn until_ready(&mut self) -> Result<(), WarmStop> {
         let waiting = !self.announced;
         let first = OptionFuture::from(waiting.then(|| self.output.recv())).await;

@@ -384,8 +384,6 @@ fn the_only_token_minting_job_refuses_pull_requests_from_forks()
     Ok(())
 }
 
-/// The TypeScript facade tests in `tachyon-core` fail instead of skipping when `CI` is set and tsc is
-/// missing. Every job that runs those tests must install the pinned compiler first.
 #[test]
 fn every_job_testing_tachyon_core_installs_typescript_first()
 -> Result<(), Box<dyn std::error::Error>> {
@@ -425,7 +423,6 @@ fn step_commands(job: &Yaml) -> Vec<&str> {
 }
 
 fn tests_tachyon_core(run: &str) -> bool {
-    // `cargo +nightly-... test` puts the toolchain between `cargo` and `test`.
     let tests = [" test ", "nextest", "llvm-cov"]
         .iter()
         .any(|command| run.contains(command));
@@ -693,9 +690,6 @@ fn stable_release_is_tag_gated_and_fail_closed() -> Result<(), Box<dyn std::erro
     Ok(())
 }
 
-/// GitHub renamed the repository from `d31ma/Tachyon` to `d31ma/TACHYON`.
-/// Sigstore compares the signing workflow's identity case-sensitively, so a
-/// release signed under the new name fails verification against the old one.
 #[test]
 fn release_signatures_and_downloads_use_the_current_repository_name()
 -> Result<(), Box<dyn std::error::Error>> {
@@ -715,8 +709,6 @@ fn release_signatures_and_downloads_use_the_current_repository_name()
     Ok(())
 }
 
-/// The published snippets include the Redis configuration example, and the storage drivers sit behind
-/// features. The macOS job that executes the snippets must build `ty` with every driver, as the release does.
 #[test]
 fn the_snippet_job_builds_ty_with_every_storage_driver() -> Result<(), Box<dyn std::error::Error>> {
     let root = repository_root();

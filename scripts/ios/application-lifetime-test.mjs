@@ -175,8 +175,6 @@ class IosLifetimeGate {
     const { read, letters, gesture, pause } = IosLifetimeGate;
     let lines = [];
     for (let attempt = 0; attempt < 8; attempt++) {
-      // Vision reads the iPad menu bar as one line ("LifetimeGate File Edit Format View Window Help"), so look at
-      // its single words too.
       lines = read(device, name + '-' + letters(label), true);
       const target = lines.find(line => letters(line.text) === letters(label) && within(line));
       if (target) {
@@ -212,9 +210,6 @@ class IosLifetimeGate {
   static findCard(lines, name, instance) {
     const { letters } = IosLifetimeGate;
     const label = lines.find(line => letters(line.text) === letters(ApplicationLifetimeFixture.name));
-    // The iPad switcher shrinks the card so far that Vision can miss the small Status heading and misread digits
-    // (it read 1793... as 1293...); the Status page's instance line, shaped <pid>-<nanoseconds>,
-    // marks the same page.
     const shaped = new RegExp('^\\d{2,}-\\d{' + (instance.length - instance.indexOf('-') - 4) + ',}$');
     const heading = lines.find(line => letters(line.text) === 'status') ?? lines.find(line => shaped.test(line.text.trim()));
     assert.ok(label && heading, name + ': the app switcher shows the ' + ApplicationLifetimeFixture.name + ' card with its Status page: ' + lines.map(line => line.text).join(' | '));

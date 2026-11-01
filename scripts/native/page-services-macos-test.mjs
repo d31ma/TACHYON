@@ -119,7 +119,7 @@ class MacOsPageServicesTest {
     return app
   }
 
-  /** The Swift and Rust callers must be linked into the app, not shipped as WebAssembly. @param {string} project @param {string} language @param {string} service */
+  /** @param {string} project @param {string} language @param {string} service */
   static assertLinked(project, language, service) {
     const name = this.linkedLanguages[language]
     if (!name) return ''

@@ -4,9 +4,6 @@ use tokio::io::{AsyncBufRead, AsyncBufReadExt, AsyncReadExt};
 
 use super::ManagedStorage;
 
-/// A RESP2 reply to one of the commands Tachyon sends: a status, an error, an integer or a
-/// (possibly nil) bulk string. Anything else (an array, a RESP3 type, a line or bulk string over
-/// the limits) is a protocol error that closes the connection.
 #[derive(Default)]
 pub(super) struct RedisReply {
     error: bool,
@@ -16,7 +13,6 @@ pub(super) struct RedisReply {
 
 impl RedisReply {
     const MAX_LINE: u64 = 64 * 1024;
-    /// `GETRANGE key 0 MAX_BYTES` returns at most `MAX_BYTES + 1` bytes.
     const MAX_BULK: usize = ManagedStorage::MAX_BYTES + 1;
 
     pub(super) async fn read<R>(reader: &mut R) -> io::Result<Self>
@@ -32,12 +28,10 @@ impl RedisReply {
         io::Error::new(io::ErrorKind::InvalidData, "unexpected Redis reply")
     }
 
-    /// `None` for an error reply: the command failed, but the connection is still in step.
     pub(super) fn accepted(self) -> Option<Self> {
         (!self.error).then_some(self)
     }
 
-    /// The bulk string, empty for nil.
     pub(super) fn into_bytes(self) -> Option<Vec<u8>> {
         self.bytes
     }
@@ -99,7 +93,6 @@ impl RedisReply {
             .ok_or_else(Self::out_of_step)
     }
 
-    /// One line without its `\r\n`, refused past `MAX_LINE` bytes.
     async fn line<R>(reader: &mut R) -> io::Result<Vec<u8>>
     where
         R: AsyncBufRead + Unpin,

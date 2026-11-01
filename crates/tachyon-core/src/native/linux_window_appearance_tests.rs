@@ -21,7 +21,6 @@ impl AppearanceService {
 }
 ";
 
-    // 800x560, so that GNOME Shell on a 1024x768 screen does not maximize the new window: it maximizes one that covers more than 80 % of the work area.
     fn themed_window() -> WindowConfiguration {
         WindowConfiguration {
             width: 800,

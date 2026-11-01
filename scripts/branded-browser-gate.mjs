@@ -11,14 +11,6 @@ import { BrandedUnsupported } from './branded/webdriver-browser.mjs'
 /** @typedef {{name:string,file:string,engines:string[],webdriverNeeds?:string,androidNeeds?:string}} BrandedGate */
 /** @typedef {{gate:string,outcome:'pass'|'fail'|'unsupported',seconds:number,log:string,browsers:string[],note?:string}} BrandedResult */
 
-/**
- * Runs the Tac web gates in a branded browser on its own system (row 65 of the iteration-4 runs
- * owed): Safari on macOS and on the iOS simulator, Chrome and Edge on Windows, Chrome on Android.
- * Each gate runs unchanged; scripts/branded/preload.mjs points its Playwright launcher at the
- * branded browser and refuses the engines the run does not cover.
- *
- *   node scripts/branded-browser-gate.mjs --browser=safari [--only=page-program,held-clients] [--logs=dir]
- */
 class BrandedBrowserGate {
   static repository = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
   static preload = path.join(BrandedBrowserGate.repository, 'scripts/branded/preload.mjs')

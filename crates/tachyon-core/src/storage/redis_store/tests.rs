@@ -11,9 +11,6 @@ use tokio::net::{TcpListener, TcpStream};
 
 use super::RedisStore;
 
-/// An in-process RESP2 server with a few scripted keys: `wrongtype` answers an error, `array`
-/// answers a reply type Tachyon never expects, `slow` answers after the response timeout, and
-/// deleting `drop` closes the connection without an answer.
 #[derive(Clone, Default)]
 struct FakeRedis {
     log: Arc<Mutex<Vec<String>>>,
@@ -130,7 +127,6 @@ async fn run(store: &RedisStore, command: &str, key: &str) -> Result<Value, Stri
         .map_err(|error| message(&error))
 }
 
-/// The diagnostic's message, without its severity and code.
 fn message(error: &crate::Failure) -> String {
     let text = error.to_string();
     let (_, message) = text.split_once("]: ").expect("diagnostic");

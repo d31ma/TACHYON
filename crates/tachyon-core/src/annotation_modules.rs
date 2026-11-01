@@ -1218,7 +1218,6 @@ fn open_root(root: &Path, path: &Path) -> Result<Dir, Failure> {
     let name = root
         .file_name()
         .ok_or_else(|| invalid(path, "Captured project root is invalid."))?;
-    // A one-segment relative root such as `website` has an empty parent; joining it to `.` opens the working directory.
     let directory =
         Dir::open_ambient_dir(Path::new(".").join(parent), cap_std::ambient_authority())
             .map_err(|_| invalid(path, "Cannot open the captured project root."))?;

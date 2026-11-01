@@ -4,11 +4,6 @@ import { setTimeout as sleep } from 'node:timers/promises'
 import { BrandedUnsupported } from './webdriver-browser.mjs'
 import { ShareSheet } from './share-sheet.mjs'
 
-/**
- * Chrome on an Android emulator or device, reached over adb and the Chrome DevTools protocol
- * (`chrome_devtools_remote`), shaped like a Playwright browser. Loopback pages the gates serve on
- * the host reach the device through `adb reverse` on the same port.
- */
 export class AndroidChrome {
   static package = process.env.TAC_BRANDED_ANDROID_PACKAGE ?? 'com.android.chrome'
   static activity = 'com.google.android.apps.chrome.Main'
@@ -97,11 +92,7 @@ export class AndroidChrome {
     return this.loopback.has(parsed.hostname) && Number(parsed.port) > 0 && !this.reversed.has(Number(parsed.port))
   }
 
-  /**
-   * Chrome on Android gives no new browser context over CDP, so the options a gate passes to
-   * newContext are applied to each page of the shared context instead; any other option refuses.
-   * @param {Record<string, any>} options
-   */
+  /** @param {Record<string, any>} options */
   static checkOptions(options) {
     const known = [...AndroidChrome.pageOptions, ...AndroidChrome.contextOptions]
     const asDevice = (name) => Object.hasOwn(AndroidChrome.deviceOptions, name) && options[name] === AndroidChrome.deviceOptions[name]
@@ -123,11 +114,6 @@ export class AndroidChrome {
     if (options.userAgent || options.locale) await session.send('Emulation.setUserAgentOverride', { userAgent, acceptLanguage: options.locale })
   }
 
-  /**
-   * The system share sheet waits for a person; pressing Back closes it, as a person would, and
-   * Chrome then rejects navigator.share() with an AbortError. Back is pressed only while the sheet
-   * has the focus, so it never moves the page back.
-   */
   static async closeShareSheet() {
     const deadline = Date.now() + AndroidChrome.shareSheetMilliseconds
     let focused = await AndroidChrome.focusedWindow()
@@ -161,11 +147,7 @@ export class AndroidChrome {
     return page
   }
 
-  /**
-   * A page may reach a loopback port the gate never navigated to (a Yon origin beside the page),
-   * so a request to a port without an adb reverse route opens one before it continues.
-   * @param {import('playwright').BrowserContext} context
-   */
+  /** @param {import('playwright').BrowserContext} context */
   async route(context) {
     if (this.routed.has(context)) return
     this.routed.add(context)
@@ -184,8 +166,6 @@ export class AndroidChrome {
   }
 
   /**
-   * Chrome on Android gives no new browser context over CDP, so each context a gate asks for is a
-   * view of the one shared context: its own pages and options, the shared storage and permissions.
    * @param {import('playwright').BrowserContext} context @param {Record<string, any>} options
    */
   async shared(context, options) {
@@ -226,9 +206,6 @@ export class AndroidChrome {
   }
 
   /**
-   * A new Playwright context starts with empty storage. Here every context shares Chrome's one
-   * context, so when the last of them closes, the storage and cookies of the origins they visited
-   * are cleared.
    * @param {import('playwright').BrowserContext} context @param {import('playwright').Page|undefined} open
    */
   async forget(context, open) {

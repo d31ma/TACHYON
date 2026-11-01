@@ -77,7 +77,6 @@ export default class PlaceCheckService {
     return result.stdout.trim()
   }
 
-  /** CoreLocation finds a Mac by scanning Wi-Fi, so a Mac on Ethernet with the Wi-Fi radio off never gets a position. */
   static wifiPowered() {
     const ports = this.run('/usr/sbin/networksetup', ['-listallhardwareports'], 60_000)
     const devices = [...ports.matchAll(/Hardware Port: Wi-Fi\s*\nDevice: (\S+)/g)].map((found) => found[1])

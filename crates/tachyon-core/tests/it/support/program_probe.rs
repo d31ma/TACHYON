@@ -7,9 +7,6 @@ impl ProgramProbe {
     const WINDOWS_SHELL: &str = "cmd";
     const WINDOWS_SHELL_RUN: [&str; 2] = ["/D", "/C"];
 
-    /// Kotlin and Groovy ship only `.bat` launchers on Windows, which a spawn by name cannot
-    /// find, so there a program the spawn misses is asked for through the shell, which searches
-    /// `PATHEXT`.
     pub fn answers(program: &str, flag: &str) -> bool {
         let memory = ProbeMemory::for_this_run();
         Self::run_unless_remembered(&memory, program, flag)

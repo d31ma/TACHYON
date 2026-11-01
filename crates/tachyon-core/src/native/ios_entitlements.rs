@@ -37,13 +37,6 @@ impl IosEntitlements {
         run_tool(Self::CODESIGN, &arguments).await.map(|_| ())
     }
 
-    /// Returns the linker arguments that put a simulator app's entitlements
-    /// in its executable, as Xcode does: the simulator refuses an ad hoc
-    /// signature that carries restricted entitlements.
-    ///
-    /// # Errors
-    ///
-    /// Returns a failure when `derq` cannot encode the entitlements.
     pub(super) async fn simulator_sections(
         entitlements: Option<&Path>,
     ) -> Result<Vec<String>, Failure> {

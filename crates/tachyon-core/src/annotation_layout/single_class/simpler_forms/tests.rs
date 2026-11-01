@@ -619,7 +619,6 @@ fn large_and_odd_sources_are_scanned_quickly() {
     ] {
         let _ = FormScan::forms(Path::new(path), source);
     }
-    // The sanitizer CI job runs this suite several times slower, so it raises the budget scale.
     let budget_scale = std::env::var("TAC_TEST_TIME_SCALE")
         .ok()
         .and_then(|value| value.parse::<u32>().ok())

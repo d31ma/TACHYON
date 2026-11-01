@@ -683,7 +683,6 @@ mod tests {
             command: &mut std::process::Command,
         ) -> Result<crate::external_command::ToolOutput, crate::external_command::ToolError>
         {
-            // The bound only stops a hung tool. `go vet` compiles the module, which takes well over 30 s on a loaded machine.
             crate::external_command::run_sync(command, std::time::Duration::from_mins(3), 64 * 1024)
         }
     }

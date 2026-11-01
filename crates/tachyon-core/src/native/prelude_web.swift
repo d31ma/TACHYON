@@ -46,7 +46,6 @@ func tacFailureAnswer(_ error: Error) -> String {
 enum TacPlatform {
     static let pageListeners = true
     static let taskHost = true
-    // The browser binds one activation per page singleton and never sends host-dispose here.
     static let pageServices = false
 }
 

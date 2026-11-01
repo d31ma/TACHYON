@@ -25,9 +25,6 @@ impl PreparedProbe {
             ("DOTNET_CLI_TELEMETRY_OPTOUT", OsString::from("1")),
             ("DOTNET_NOLOGO", OsString::from("1")),
             ("DOTNET_SKIP_FIRST_TIME_EXPERIENCE", OsString::from("1")),
-            // A fresh DOTNET_CLI_HOME is a first run: without these, the SDK
-            // appends its tools folder to the user's persistent Windows PATH
-            // and installs a development certificate, once per probe.
             ("DOTNET_ADD_GLOBAL_TOOLS_TO_PATH", OsString::from("false")),
             (
                 "DOTNET_GENERATE_ASPNET_CERTIFICATE",
@@ -46,11 +43,6 @@ impl PreparedProbe {
         variables
     }
 
-    /// `NuGet`'s .NET build reads the Windows special folders from these
-    /// variables, not from the shell, so a cleared environment makes restore
-    /// fail with a null path. The user folders stay inside the probe workspace,
-    /// like `DOTNET_CLI_HOME`, so the probe never reads the user's `NuGet`
-    /// configuration or credentials; the machine folders are fixed system paths.
     fn windows_folder_variables(
         workspace: &Path,
         host: impl Fn(&str) -> Option<OsString>,

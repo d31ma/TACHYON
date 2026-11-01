@@ -55,8 +55,6 @@ impl FieldNeeds {
         Self::marked_owners(contents, marker, |_| true)
     }
 
-    /// The marked owners that property setters alone can make: types without a primary
-    /// constructor parameter, which `Test.construct` cannot supply.
     pub(crate) fn settable_owners(
         contents: &str,
         marker: &'static str,

@@ -128,8 +128,6 @@ async function checkDocsHome(page, width, errors) {
 }
 
 /**
- * The feature catalogue filters through two Swift services compiled to WebAssembly (FeatureFilterService and
- * GroupFilterService), so typing and picking a group prove those services run in the page, not just load.
  * @param {import('playwright').Page} page
  * @param {number} width
  */
@@ -158,7 +156,6 @@ async function checkFeatureFilters(page, width) {
 }
 
 /**
- * A guide's reading time comes from ReadingTimeService, which is Lua.
  * @param {import('playwright').Page} page
  * @param {number} width
  */

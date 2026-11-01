@@ -63,8 +63,6 @@ class StorageGate {
     await StorageGate.activated(page);
   }
 
-  // A shared service is reachable as soon as the page renders, but its @OnStart (which opens the
-  // service's own behavior context and cache partition) runs when its component activates.
   static async activated(page) {
     try {
       await page.waitForFunction(() => document.documentElement.dataset.tachyonRendered === 'client'

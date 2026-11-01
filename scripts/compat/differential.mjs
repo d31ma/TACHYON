@@ -216,10 +216,6 @@ function withoutRemovedLegacyScaffold(tree) {
   return normalized;
 }
 
-// Scaffold files that deliberately differ from the v26.30.04 oracle. Each entry names the
-// decision that changed it; PARITY_LEDGER.md's `ty init scaffold` row lists the same set.
-// A difference that is not declared here fails the gate, and so does a declared entry that
-// no longer differs.
 class ScaffoldMigrations {
   static declared = new Map([
     ['.gitignore', 'ignores .tachyon/, where composed TypeScript globals are generated (ADR 0053)'],

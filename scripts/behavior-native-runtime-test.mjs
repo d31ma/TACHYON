@@ -7,7 +7,6 @@ import { spawnSync } from 'node:child_process';
 
 class NativeBehaviorTest {
   static root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-  // The split runtime files each emitter appends to its *_runtime template (csharp.rs, swift_platform.rs).
   static runtimeParts = {
     cs: ['csharp_browser_http', ['BehaviorBrowserHttp', 'BehaviorBrowserHttpAdapter', 'BehaviorHttpRevalidation']],
     swift: ['swift_foundation', ['BehaviorLock', 'BehaviorPlatform']],

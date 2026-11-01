@@ -150,11 +150,7 @@ tachyon-component, tachyon-island { display: block; }\n";
     const SERVICE_WORKER: &str = r"const VERSION = '__VERSION__'
 const CACHE = 'tachyon-static-' + VERSION
 const PREFIX = 'tachyon-static-'
-// Policies the project declared by path in client/manifest.json, compiled to anchored
-// expressions at build time so the worker needs no glob parser.
 const RULES = (__CACHE_RULES__).map((rule) => ({ ...rule, match: new RegExp(rule.pattern) }))
-// Only byte-verified build outputs may bootstrap anonymously from a browser's
-// ordinary document/module requests. An extension is not a privacy boundary.
 const ASSETS = __PUBLIC_ASSETS__
 const MAX_ENTRIES = 256
 const MAX_BYTES = 32 * 1024 * 1024
@@ -209,7 +205,6 @@ self.addEventListener('install', (event) => { event.waitUntil(self.skipWaiting()
 
 self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
-    // Assets a previous build referenced expire with their cache.
     for (const name of await caches.keys())
       if (name.startsWith(PREFIX) && name !== CACHE) await caches.delete(name)
     await self.clients.claim()
@@ -219,7 +214,6 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const request = event.request
   const url = new URL(request.url)
-  // Cross-origin requests and the live-reload channel are left alone.
   if (url.origin !== self.location.origin) return
   if (url.pathname.startsWith('/.tachyon/live-reload') || url.pathname === '/.tachyon/hot') return
 
@@ -232,7 +226,6 @@ self.addEventListener('fetch', (event) => {
 
   const rule = RULES.find((candidate) => candidate.match.test(url.pathname))
   const asset = !url.search && Object.hasOwn(ASSETS, url.pathname) ? ASSETS[url.pathname] : null
-  // This decision precedes lookup as CacheStorage does not key by credentials.
   if (request.cache === 'no-store' || request.headers.has('authorization')
       || request.headers.has('range') || rule?.policy === 'no-store'
       || (!asset && (!rule || request.credentials !== 'omit'))) {
@@ -273,8 +266,6 @@ async function cacheRead(request, asset) {
   } catch { return null }
 }
 
-// A listed build file waits for a free write instead of being dropped, so a
-// runtime that loads many files at once is still kept on the first visit.
 async function writeSlot(asset) {
   while (pendingWrites >= 16) {
     if (!asset || waitingWrites.length >= 4096) return false
@@ -304,7 +295,6 @@ async function cacheWrite(request, response, asset) {
       for (const entry of entries) {
         const existing = await bounded(cache.match(entry))
         const known = ASSETS[new URL(entry.url).pathname]
-        // Runtime-prewarmed build assets have a known size even without metadata.
         size += Number(existing?.headers.get('x-tachyon-cache-bytes')) || known?.bytes || MAX_BYTES
       }
       if (entries.length >= MAX_ENTRIES || size > MAX_BYTES)
@@ -330,16 +320,12 @@ async function fromNetwork(request, asset) {
     if (cached) return cached
     throw error
   }
-  // Optional storage must never hold a successful network response indefinitely.
   await bounded(cacheWrite(request, response, asset)).catch(() => {})
   return response
 }
 ";
 
-    const SERVICE_WORKER_REGISTRATION: &str = r"// A loopback host is the development server, where a stale cached asset
-// would fight live reload, so the offline cache is left unregistered there
-// and any worker a previous run installed is removed.
-const host = location.hostname.toLowerCase().replace(/^\[|\]$/g, '')
+    const SERVICE_WORKER_REGISTRATION: &str = r"const host = location.hostname.toLowerCase().replace(/^\[|\]$/g, '')
 const loopback = host === 'localhost'
   || host.endsWith('.localhost')
   || host === '::1'

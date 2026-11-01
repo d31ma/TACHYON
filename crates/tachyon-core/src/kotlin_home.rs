@@ -2,8 +2,6 @@ use std::ffi::{OsStr, OsString};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-/// The Kotlin compilers ship for Windows only as `.bat` launchers, which a spawn cannot run, so
-/// on Windows Tachyon starts the JVM those launchers start instead.
 pub(crate) struct KotlinHome {
     library: PathBuf,
 }
@@ -12,14 +10,12 @@ impl KotlinHome {
     const PATH_VARIABLE: &'static str = "PATH";
     const JAVA_HOME_VARIABLE: &'static str = "JAVA_HOME";
     const JAVA: &'static str = "java";
-    /// The options `kotlinc.bat` gives a Java 9 or newer runtime.
     const JVM_OPTIONS: [&'static str; 4] = [
         "-Xmx512M",
         "-Xms128M",
         "--add-opens",
         "java.base/java.util=ALL-UNNAMED",
     ];
-    /// The launcher a spawn can run comes before the one it cannot, so a real executable wins.
     const LAUNCHER_EXTENSIONS: [&'static str; 2] = [".exe", ".bat"];
     const LIBRARY_FOLDER: &'static str = "lib";
     const PRELOADER_JAR: &'static str = "kotlin-preloader.jar";
@@ -30,8 +26,6 @@ impl KotlinHome {
         ("kotlinc-js", "org.jetbrains.kotlin.cli.js.K2JSCompiler"),
     ];
 
-    /// A command for `program`; a Kotlin compiler reached only through its Windows launcher runs
-    /// on the JVM directly, and every other program is spawned as named.
     pub(crate) fn command(program: impl AsRef<OsStr>) -> Command {
         let program = program.as_ref();
         let search_path = std::env::var_os(Self::PATH_VARIABLE).unwrap_or_default();

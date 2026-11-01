@@ -12,10 +12,6 @@ use super::RedisReply;
 type Request = (Vec<u8>, oneshot::Sender<RedisReply>);
 type Waiting = Arc<Mutex<VecDeque<oneshot::Sender<RedisReply>>>>;
 
-/// One open Redis connection. A task owns the socket: it writes commands in the order they arrive
-/// and hands each reply to the command that is first in line, so concurrent commands share the
-/// connection. When the socket fails, or every handle is dropped, the task ends and
-/// [`RedisChannel::is_closed`] turns true.
 #[derive(Clone)]
 pub(super) struct RedisChannel {
     requests: mpsc::Sender<Request>,
@@ -38,8 +34,6 @@ impl RedisChannel {
         self.requests.is_closed()
     }
 
-    /// Sends one command and waits up to 500 ms for its reply. `None` when the connection is
-    /// gone, the reply is late, or Redis answered with an error.
     pub(super) async fn call(&self, arguments: &[&[u8]]) -> Option<RedisReply> {
         tokio::time::timeout(
             Self::RESPONSE_TIMEOUT,
@@ -78,8 +72,6 @@ impl RedisChannel {
         future::select(outgoing, incoming).await;
     }
 
-    /// Queues each command's reply slot before writing it, so replies, which Redis sends in
-    /// command order, always find their command.
     async fn write<W>(
         mut writer: W,
         mut queue: mpsc::Receiver<Request>,
@@ -96,7 +88,6 @@ impl RedisChannel {
         Ok(())
     }
 
-    /// A reply that no command waits for means the connection is out of step, so it is closed.
     async fn read<R>(mut reader: R, waiting: Waiting) -> io::Result<()>
     where
         R: AsyncBufRead + Unpin,
@@ -108,7 +99,6 @@ impl RedisChannel {
                 .await
                 .pop_front()
                 .ok_or_else(RedisReply::out_of_step)?;
-            // A command that timed out no longer listens; its reply is dropped.
             command.send(reply).ok();
         }
     }

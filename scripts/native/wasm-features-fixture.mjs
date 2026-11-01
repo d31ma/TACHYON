@@ -78,7 +78,6 @@ class WasmProbeSource {
     for (const [mark, reached] of Object.entries(marks)) if (reached && !this.seen.has(mark)) this.seen.set(mark, Date.now() - this.began);
   }
 
-  /** What the page reached, for a host that has to record without Tac's own recorder service. */
   static diagnosis() {
     const plan = JSON.parse(document.getElementById('tachyon-view')?.textContent || '{}');
     const services = Object.entries(plan.services ?? {}).map(([name, service]) => name + (service.module ? ' module' : '') + (service.native ? ' native' : ''));
@@ -94,7 +93,7 @@ class WasmProbeSource {
     ];
   }
 
-  /** Calls the linked recorder through the host bridge, past Tac's service graph, so a page that never started the recorder still reports what it reached. @param {string} phase */
+  /** @param {string} phase */
   static async recordDirectly(phase) {
     if (typeof globalThis.__tachyonNativeHostCall !== 'function') throw new Error('no native host bridge on this page');
     const plan = JSON.parse(document.getElementById('tachyon-view')?.textContent || '{}');
@@ -118,11 +117,7 @@ class WasmProbeSource {
     this.line('diag - direct record ' + JSON.stringify(await call({ op: 'call', name: 'record', args: [proof] })).slice(0, 300));
   }
 
-  /**
-   * Whether the page's Tac plan declares a service. Tac commits the body once every top-level component's services resolved, so a probe
-   * whose steps finish first (a C# page answers in under 0.1 s) sees no #wasm-recorder element yet; the plan is there from the start.
-   * @param {string} name
-   */
+  /** @param {string} name */
   static planned(name) {
     return Boolean(JSON.parse(document.getElementById('tachyon-view')?.textContent || '{}').services?.[name]);
   }
@@ -520,7 +515,7 @@ export class WasmFeaturesFixture {
     for (const [name, text] of Object.entries(files)) this.write(project, name, text)
   }
 
-  /** The languages of a check that run as WebAssembly in the given host's web view. @param {string} check @param {string} target */
+  /** @param {string} check @param {string} target */
   static languages(check, target) {
     const linked = this.linked[target]
     assert.ok(linked, `unknown target ${target}; use ${Object.keys(this.linked).join(', ')}`)
@@ -534,10 +529,7 @@ export class WasmFeaturesFixture {
   }
 
   /**
-   * Stages one check for one language as a native app project.
    * @param {string} project @param {string} check @param {string} language
-   * A host that can't read the page passes the files of a linked wasmRecorder service with a state field and record(proof); a hydrated recorder component shows its state so the page starts the service.
-   * TAC_WASM_RECORDER_FIRST=1 puts the recorder before the page's own components; TAC_WASM_PROBE_DIAGNOSE=1 makes a probe whose page never started the recorder add what the page reached and record through the host bridge.
    * @param {{ yonOrigin?: string, gestures?: boolean, recorder?: Record<string, string> }} [options]
    */
   static stage(project, check, language, options = {}) {
@@ -568,14 +560,13 @@ export class WasmFeaturesFixture {
     this.files(project, { ...files, [WasmProbeSource.recorder.component]: WasmProbeSource.recorder.view, 'client/pages/tac.html': view })
   }
 
-  /** Every check and language that runs as WebAssembly on the target, narrowed by optional lists. @param {string} target @param {string[]} [checks] @param {string[]} [languages] */
+  /** @param {string} target @param {string[]} [checks] @param {string[]} [languages] */
   static plan(target, checks = Object.keys(this.checks), languages = []) {
     return checks.flatMap((check) => this.languages(check, target).filter((language) => !languages.length || languages.includes(language)).map((language) => ({ check, language })))
   }
 
   /**
-   * Asserts the services ship as WebAssembly in the app, not as a linked companion; a host's own recorder may be linked.
-   * @param {string} output @param {string} bundle @param {string[]} [recorders] linked companions the host added, as "Swift wasmRecorder"
+   * @param {string} output @param {string} bundle @param {string[]} [recorders]
    */
   static assertWebAssembly(output, bundle, recorders = []) {
     const host = path.join(output, 'tachyon.host.json')

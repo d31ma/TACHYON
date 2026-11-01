@@ -1335,7 +1335,6 @@ function expectedGuideValue(slug, section) {
 }
 
 /**
- * The error-handlers feature's controllers answer with their declared error on purpose, as its guide section does.
  * @param {Feature} feature
  * @returns {ExpectedError | undefined}
  */
@@ -1455,7 +1454,6 @@ async function verifyTacConfiguration(label, files) {
 }
 
 /**
- * Java and F# have no native target to stage instead, so without their web toolchain the step can't run.
  * @param {string} label
  * @param {string} extension
  */

@@ -167,7 +167,6 @@ export default class AndroidKeptService {
 `;
 }
 
-// The first route drives every native call the gate checks, so its view binds them; the second route only counts.
 function androidView(name, instance) {
   const first = name === 'First';
   const nameInput = first ? `<input aria-label="Your name" :value="${instance}.name" on:input="${instance}.name = $event.target.value" placeholder="Name">` : '';
@@ -383,7 +382,6 @@ async function checkNativeEvent(page) {
     globalThis.__tachyonCompanionPublish = event => { globalThis.nativeEvidence = event; receive(event); };
     await __tachyonTac.service('androidFirst').announce();
   });
-  // A published event is named after its model class and carries the model's fields.
   await page.waitForFunction(() => globalThis.nativeEvidence?.name === 'NativeEvent');
   assert.deepEqual(await page.evaluate(() => globalThis.nativeEvidence.value), { text: 'Kotlin' });
   await page.getByText('Received Kotlin', { exact: true }).waitFor();

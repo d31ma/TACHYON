@@ -27,8 +27,6 @@ class BehaviorGate {
     { source: 'stores/ProductQueriesStore.js', target: 'stores/ProductQueriesStore.js' },
   ];
   static clientPrefix = 'client/';
-  // The published example has a file per Tac language; the JavaScript project keeps only these kinds, so a newly
-  // published language (hpp was one) can't slip into it.
   static javaScriptProjectExtensions = new Set(['js', 'html', 'css', 'json']);
 
   static isJavaScriptProjectFile(name) {

@@ -148,8 +148,6 @@ enum PageChecksProbe {
         }
     }
 
-    // macOS shows a notification request as a Notification Center alert whose Allow and Don't Allow are
-    // named actions ("Name:Allow\nTarget:...") on the alert group, not buttons.
     static func alertAction(_ titles: [String], in application: NSRunningApplication) -> (AXUIElement, String)? {
         let root = AXUIElementCreateApplication(application.processIdentifier)
         let windows = attribute(root, kAXWindowsAttribute) as? [AXUIElement] ?? []

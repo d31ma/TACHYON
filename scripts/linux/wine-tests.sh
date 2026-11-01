@@ -1,8 +1,4 @@
 #!/usr/bin/env bash
-# Runs the Win32 tests that need Wine, and the MinGW compile checks, in the
-# image from scripts/linux/wine.Dockerfile. On arm64 the Wine tests build ARM64
-# Windows programs with llvm-mingw and run them under Wine 11.0 for aarch64;
-# the compile checks stay on x86_64 MinGW GCC.
 set -euo pipefail
 
 wine_tests=(

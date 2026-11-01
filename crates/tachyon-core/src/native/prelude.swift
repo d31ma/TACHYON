@@ -558,7 +558,6 @@ private func tacDisposeActivation(_ owner: TacActivation) {
     owner.disposed = true
     owner.queue.removeAll(); owner.retained.removeAll(); owner.deferred.removeAll()
 }
-// An owner stops only its prototypes; page singletons stop at page exit, newest first.
 private func tacDisposeOwner(_ id: String) {
     tacCancelTasks(id)
     guard let owner = TacNativeState.activations.removeValue(forKey: id) else { return }

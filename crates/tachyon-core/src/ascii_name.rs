@@ -1,7 +1,6 @@
 pub(crate) struct AsciiName;
 
 impl AsciiName {
-    /// Reads the ASCII letters, digits and underscores that start `text`.
     pub(crate) fn leading(text: &str) -> &str {
         let length = text
             .bytes()

@@ -270,10 +270,7 @@ final class ServicesProbeService {
     }
   }
 
-  /**
-   * A runtime below the app's floor must refuse the install and name the floor.
-   * @param {string} language @param {string} bundle @param {string} minimum
-   */
+  /** @param {string} language @param {string} bundle @param {string} minimum */
   static refusal(language, bundle, minimum) {
     const result = spawnSync('/usr/bin/xcrun', ['simctl', '--set', this.deviceSet, 'install', this.device, bundle], { encoding: 'utf8', timeout: this.installMilliseconds })
     const message = `${result.stdout}${result.stderr}`.trim()

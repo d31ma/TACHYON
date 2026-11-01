@@ -117,8 +117,7 @@ class WasmOfflineGate {
     }
   }
 
-  /** Every same-origin file the page loaded must be in the worker cache before the network goes away.
-   * @param {Page} page @param {string} label @returns {Promise<KeptFiles>} */
+  /** @param {Page} page @param {string} label @returns {Promise<KeptFiles>} */
   static async kept(page, label) {
     /** @type {KeptFiles} */
     let kept = { loaded: [], cached: [] }

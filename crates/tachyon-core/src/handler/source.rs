@@ -56,8 +56,6 @@ impl CompilerOutput {
     const DEFAULT_DEADLINE_SECONDS: u64 = 60;
     const LONGEST_DEADLINE_SECONDS: u64 = 900;
 
-    /// How long one handler compile may run. Slow or busy machines can raise it with
-    /// `TAC_HANDLER_COMPILE_SECONDS`; it stays bounded, and an unusable value keeps the default.
     fn deadline() -> Duration {
         Self::deadline_from(std::env::var(Self::DEADLINE_SETTING).ok().as_deref())
     }
@@ -3800,7 +3798,6 @@ mod tests {
                 .filter_map(|attempt| attempt.join().expect("join"))
                 .collect()
         });
-        // Under load the waiter may take the lock after the first owner lets go; it must never share it.
         assert!(!holds.is_empty(), "nobody recovered the stale lock");
         if let [
             (first_acquired, first_released),
@@ -4145,7 +4142,6 @@ final class Handler {
             "/",
             tachyon_contracts::HttpMethod::Get,
         );
-        // Generous enough for a slow php-cgi start on a loaded machine; the 200 ms initialization must still count.
         request.deadline_ms = Some(5_000);
         let response = supervisor
             .invoke(&source, &request, &crate::HandlerCancellation::default())

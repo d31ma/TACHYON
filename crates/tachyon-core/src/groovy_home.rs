@@ -43,8 +43,6 @@ impl GroovyHome {
         Self::from_path(&path)
     }
 
-    /// Homebrew installs Groovy under `libexec` and puts a wrapper script in `bin` that sets
-    /// `JAVA_HOME`, so the launcher's home has no `lib` folder and the library is one level down.
     fn from_path(path: &OsStr) -> Option<Self> {
         let launcher = Self::first_file(Self::launcher_candidates(path))?;
         let launcher = Self::resolved(&launcher).ok()?;
@@ -52,9 +50,6 @@ impl GroovyHome {
         Self::at(home).or_else(|| Self::at(&home.join(Self::HOMEBREW_FOLDER)))
     }
 
-    /// A launcher reached through a link resolves to its installed folder. Windows resolves to a
-    /// `\\?\` path, which Java cannot read in a class path, and links are rare there, so on
-    /// Windows the launcher path is only made absolute.
     fn resolved(launcher: &Path) -> std::io::Result<PathBuf> {
         let resolve: [fn(&Path) -> std::io::Result<PathBuf>; 2] = [
             |path| std::fs::canonicalize(path),

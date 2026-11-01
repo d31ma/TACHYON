@@ -52,8 +52,6 @@ function BehaviorClock.monotonic_ms()
   return math.max(measured, math.floor(whole_seconds_passed * 1000))
 end
 
--- os.clock() is C clock(): processor time on POSIX, but wall time on Windows,
--- where it already includes the time spent sleeping.
 function BehaviorClock.clock_counts_sleep()
   return package.config:sub(1, 1) == BehaviorClock.WINDOWS_SEPARATOR
 end

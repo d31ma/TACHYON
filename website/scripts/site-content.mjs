@@ -15,7 +15,7 @@ export class SiteContent {
   }
 
   /**
-   * @param {string} name the output file name, such as docs.json
+   * @param {string} name
    * @returns {any}
    */
   static data(name) {
@@ -35,7 +35,7 @@ export class SiteContent {
 
   /**
    * @param {any} value
-   * @param {string[]} keys the object keys to leave out, at any depth
+   * @param {string[]} keys
    * @returns {any}
    */
   static without(value, keys) {

@@ -38,8 +38,6 @@ impl DoctorReport {
         Self::check_for_release(project_root, false)
     }
 
-    /// Checks the project; with `release`, the tools that build and sign a
-    /// release of each declared native target are needed too.
     pub fn check_for_release(
         project_root: impl AsRef<Path>,
         release: bool,

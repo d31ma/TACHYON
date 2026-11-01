@@ -256,8 +256,6 @@ async fn a_go_log_follow_ends_cleanly_at_the_request_time_limit() {
     let mut request = HandlerRequest::route("log", "/log", HttpMethod::Get);
     request.target = Some(target);
     request.arguments = Some(Vec::new());
-    // The handler's context ends one grace before the supervisor's deadline, and the follow starts a new
-    // Go process inside that margin, so a loaded machine needs more than the default 100 ms of it.
     let supervisor = HandlerSupervisor::new(HandlerSupervisorOptions {
         cancellation_grace: Duration::from_secs(3),
         ..HandlerSupervisorOptions::default()

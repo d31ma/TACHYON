@@ -16,14 +16,6 @@ impl SiteAssociation {
     const ANDROID_NOTE: &'static str = "Note: tac.application.links lists hosts, but the build writes /.well-known/assetlinks.json only when tac.origin and TAC_ANDROID_CERT_SHA256 are both set. Until then, Android does not verify the hosts and asks which app opens their links.";
     const WINDOWS_NOTE: &'static str = "Note: tac.application.links lists hosts, but TAC_WINDOWS_CERTIFICATE_PUBLISHER is not set, so the build writes no /.well-known/windows-app-web-link. Until it is set, Windows opens links to the hosts in the browser.";
 
-    /// Returns the files that let a site hand its links to the native apps,
-    /// and adds a note for each file it cannot write.
-    ///
-    /// # Errors
-    ///
-    /// Returns a failure when the manifest, `TAC_APPLE_TEAM_ID`,
-    /// `TAC_ANDROID_CERT_SHA256` or `TAC_WINDOWS_CERTIFICATE_PUBLISHER` cannot
-    /// be read.
     pub(crate) fn files(
         snapshot_root: &Path,
         authored_root: &Path,

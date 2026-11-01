@@ -711,8 +711,6 @@ end
 }
 
 impl TopicFixture {
-    /// Most runtimes are an `.exe` on Windows and some are `.bat` or `.cmd` launchers, so the
-    /// probe looks for each of these names; elsewhere only the bare name exists.
     const PROGRAM_SUFFIXES: [&'static str; 4] = ["", ".exe", ".bat", ".cmd"];
 
     const JAVASCRIPT_PUBLISHER: &'static str = r#"

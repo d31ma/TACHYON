@@ -13,9 +13,6 @@ use redis_channel::RedisChannel;
 use redis_reply::RedisReply;
 use redis_target::RedisTarget;
 
-/// Tachyon's own Redis client: the three commands Yon offers (`GETRANGE`, `SET … EX`, `DEL`)
-/// over one multiplexed RESP2 connection that is reopened, with backoff, after it drops.
-/// A command that was in flight when the connection dropped fails; it is never retried.
 pub(super) struct RedisStore {
     target: RedisTarget,
     channel: Mutex<Option<RedisChannel>>,
@@ -69,8 +66,6 @@ impl RedisStore {
         Ok(channel.clone())
     }
 
-    /// Replaces a dropped connection. If Redis is still unreachable the dropped one stays, so the
-    /// command fails with its own message and the next command tries again.
     async fn reopen(&self, channel: &mut RedisChannel) {
         if channel.is_closed() {
             let dropped = channel.clone();

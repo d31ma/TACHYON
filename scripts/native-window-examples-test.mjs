@@ -13,9 +13,7 @@ class NativeWindowExamples {
   static testRepo = process.env.TAC_NATIVE_WINDOW_TEST_REPO ?? NativeWindowExamples.repo
   static feature = path.join(NativeWindowExamples.repo, 'website/content/features/window-controls')
   static cases = { rs: 'macos', swift: 'macos', cs: 'windows', kt: 'android' }
-  // Rust has no native alternative: the page's client service is the one a native app links (native/targets.txt).
   static serviceFolders = { rs: 'client/services' }
-  // dotnet run otherwise leaves its compiler and MSBuild servers running after the owned command family ends.
   static noBuildServers = { UseSharedCompilation: 'false', MSBUILDDISABLENODEREUSE: '1', DOTNET_CLI_USE_MSBUILD_SERVER: '0' }
 
   static async command(tool, args, cwd, environment = process.env) {

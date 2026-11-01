@@ -266,9 +266,6 @@ func behaviorFieldTag(field reflect.StructField) (string, string, bool) {
 	return behaviorTagName(name, field.Name), "," + options + ",", false
 }
 
-// behaviorTagName follows encoding/json from Go 1.27: a name without a comma,
-// backslash or quote is used as written; otherwise the leading Go identifier
-// is the name, and a name that does not start with one is the field name.
 func behaviorTagName(name string, field string) string {
 	if name == "" {
 		return field

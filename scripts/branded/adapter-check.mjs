@@ -3,10 +3,6 @@ import assert from 'node:assert/strict'
 import { createServer } from 'node:http'
 import playwright from 'playwright'
 
-/**
- * A quick check of the calls the web gates make, run first in a branded browser so a broken
- * driver setup (safaridriver not enabled, Chrome not on the device) shows before the long gates.
- */
 class AdapterCheck {
   static browsers = (process.env.TAC_ADAPTER_BROWSERS ?? 'chromium').split(',')
   static page = `<!doctype html><title>Adapter check</title><body>

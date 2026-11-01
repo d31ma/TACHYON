@@ -281,7 +281,6 @@ async function withoutDocker(binary) {
   console.log(`PASS: SQLite, FYLO${redis ? ' and Redis' : ''} real driver contracts without Docker.`)
 }
 
-/** The contract test and settings for one running fixture. */
 function served(fixture, port) {
   const host = ManagedStorageTest.publishAddress
   if (fixture.driver === 'redis') return { driver: fixture.driver, test: 'storage::tests::redis_real_json_ttl_and_delete', settings: { YON_TEST_REDIS_URL: `redis://${host}:${port}` } }
@@ -307,7 +306,6 @@ async function runDriverTest(binary, fixture) {
   runServed(binary, served(fixture, await start(fixture)), ManagedStorageTest.scratch)
 }
 
-/** Starts the chosen fixtures on TAC_STORAGE_PUBLISH_ADDRESS and keeps them until SIGINT, SIGTERM or TAC_STORAGE_SERVE_MINUTES, so another machine can run the contracts with --remote. */
 async function serve(chosen) {
   await certificates()
   const folder = resolve(ManagedStorageTest.serveFolder || ManagedStorageTest.scratch)
@@ -326,7 +324,6 @@ async function serve(chosen) {
   })
 }
 
-/** Runs the contracts against fixtures another machine serves (see --serve); no Docker here. */
 async function remote(file) {
   const answer = JSON.parse(await readFile(file, 'utf8'))
   const fixtures = answer.fixtures.filter(entry => !ManagedStorageTest.drivers.length || ManagedStorageTest.drivers.includes(entry.driver))

@@ -94,9 +94,6 @@ async fn private_service() -> u16 {
 #[tokio::test]
 async fn a_listed_name_that_resolves_to_a_loopback_address_is_refused() {
     let port = private_service().await;
-    // glibc and macOS expand the IPv4 shorthand 127.1 to 127.0.0.1, so the
-    // proxy sees a loopback answer and refuses it; Windows does not resolve
-    // the shorthand at all, so the proxy cannot connect. Neither reaches it.
     let resolves = tokio::net::lookup_host(("127.1", port)).await.is_ok();
     let refusal = if resolves {
         "HTTP/1.1 403"

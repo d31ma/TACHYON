@@ -134,8 +134,6 @@ int main(void) {
         format!("{}\n{block}\n{tray}\n{main}", Self::HARNESS_HEAD)
     }
 
-    /// The Wine loader on PATH: `wine` (Wine 10 and later, built for `aarch64`
-    /// or `x86_64`, and Ubuntu's wrapper), else Ubuntu's `wine64`.
     pub(super) fn wine() -> Option<&'static str> {
         ["wine", "wine64"].into_iter().find(|loader| {
             std::process::Command::new(loader)
@@ -145,8 +143,6 @@ int main(void) {
         })
     }
 
-    /// Copies llvm-mingw's `libunwind.dll`, which `aarch64-pc-windows-gnullvm`
-    /// Rust binaries may load, next to them; `x86_64-pc-windows-gnu` needs none.
     pub(super) fn stage_wine_runtime(folder: &std::path::Path) {
         if !cfg!(target_arch = "aarch64") {
             return;

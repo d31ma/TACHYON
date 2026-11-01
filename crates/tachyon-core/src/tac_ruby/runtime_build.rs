@@ -121,8 +121,6 @@ impl RubyRuntimeBuild {
             .await
     }
 
-    /// mruby joins its rake task names to this folder with `/`, so a Windows path with
-    /// backslashes names tasks that never match and the host `mrbc` is never built.
     fn build_folder(work: &Path) -> String {
         crate::compiler::PortablePath::file(&work.join("build"))
     }

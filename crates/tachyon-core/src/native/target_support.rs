@@ -16,20 +16,10 @@ impl TargetSupport {
     const PLATFORMS: [&'static str; 6] = ["Web", "macOS", "Windows", "Linux", "iOS", "Android"];
     const DECLARED: [&'static str; 2] = ["", " (declared)"];
 
-    /// Checks the members that `client/manifest.json` declares against one target.
-    ///
-    /// # Errors
-    ///
-    /// Returns the refusal of every declared member that the target refuses.
     pub fn notes(project_root: &Path, target: AppTarget) -> Result<Vec<String>, Failure> {
         Self::load()?.checked(&Self::manifest(project_root), target)
     }
 
-    /// Describes what every manifest member does on each of the given targets.
-    ///
-    /// # Errors
-    ///
-    /// Returns a failure when the built-in support table cannot be read.
     pub fn explain(project_root: &Path, targets: &[AppTarget]) -> Result<String, Failure> {
         let table = Self::load()?;
         let manifest = Self::manifest(project_root);
@@ -40,11 +30,6 @@ impl TargetSupport {
         Ok(sections.join("\n"))
     }
 
-    /// Returns the note that one built-in capability has on one target.
-    ///
-    /// # Errors
-    ///
-    /// Returns a failure when the built-in support table cannot be read.
     pub fn capability_note(capability: &str, target: AppTarget) -> Result<Option<String>, Failure> {
         let table = Self::load()?;
         let note = table

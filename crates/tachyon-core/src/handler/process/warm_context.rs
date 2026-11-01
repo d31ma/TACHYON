@@ -15,7 +15,6 @@ pub(super) struct WarmContext {
 }
 
 impl WarmContext {
-    /// The request frame, with `deadline_ms` measured now: after the warm process said it is ready.
     pub(super) fn request_frame(
         &self,
         request: &HandlerRequest,

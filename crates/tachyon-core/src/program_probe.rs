@@ -7,9 +7,6 @@ impl ProgramProbe {
     const WINDOWS_SHELL: &'static str = "cmd";
     const WINDOWS_SHELL_RUN: [&'static str; 2] = ["/D", "/C"];
 
-    /// Kotlin ships only `.bat` launchers on Windows and an emsdk may too, and a spawn by name
-    /// cannot find those, so a program is asked for through the launcher Tachyon builds with and,
-    /// on Windows, through the shell, which searches `PATHEXT`.
     pub(crate) fn answers(program: &str, flag: &str) -> bool {
         let memory = ProbeMemory::for_this_run();
         Self::run_unless_remembered(&memory, program, flag)

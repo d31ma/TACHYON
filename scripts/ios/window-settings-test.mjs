@@ -206,7 +206,7 @@ final class WindowProbeService {
     return project;
   }
 
-  /** A linked Rust caller of WindowControls, shown on the page so Tac starts it. @param {string} project */
+  /** @param {string} project */
   static stageRustTitle(project) {
     const { write } = IosWindowSettingsGate;
     write(project, 'client/components/rust/title/tac.html', '<p id="rust-title">{rustTitle.problem}</p>');

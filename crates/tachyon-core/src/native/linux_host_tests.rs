@@ -21,7 +21,6 @@ impl LinuxHostTests {
         .expect("menu declarations")
     }
 
-    // 800x560, so that GNOME Shell on a 1024x768 screen does not maximize the new window itself: it maximizes one that covers more than 80 % of the work area, and GNOME Shell 48 then never tells GTK.
     pub(super) fn window() -> super::config::WindowConfiguration {
         super::config::WindowConfiguration {
             width: 800,

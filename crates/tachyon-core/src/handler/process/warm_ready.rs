@@ -3,7 +3,6 @@ use crate::Failure;
 use crate::handler::frame::HandlerFrame;
 use serde_json::Value;
 
-/// The frame a warm runner writes once, when it can read its first request.
 pub(super) struct WarmReady;
 
 impl WarmReady {

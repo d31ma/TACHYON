@@ -2,9 +2,6 @@ use std::hash::{DefaultHasher, Hash, Hasher};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
 
-/// Remembers, for one nextest run, which programs answered a probe, so each test process does not
-/// start the same compiler again only to learn it is installed. Only answers that succeeded are
-/// remembered: a probe that fails is run again by the next test that needs it.
 pub(crate) struct ProbeMemory {
     folder: Option<PathBuf>,
 }

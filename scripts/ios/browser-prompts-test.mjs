@@ -220,8 +220,6 @@ final class PromptCheckService {
 
   /** @param {{ lines: Array<{ text: string }> }} shot */
   static joined(shot) {
-    // Vision sometimes reads a Latin capital C as the Cyrillic С (it read the share sheet's "Copy" as "Сopy"), so
-    // fold the Cyrillic letters that look like Latin ones back before matching.
     const latin = { 'А': 'A', 'В': 'B', 'С': 'C', 'Е': 'E', 'Н': 'H', 'К': 'K', 'М': 'M', 'О': 'O', 'Р': 'P', 'Т': 'T', 'Х': 'X', 'а': 'a', 'с': 'c', 'е': 'e', 'о': 'o', 'р': 'p', 'х': 'x', 'у': 'y' }
     return shot.lines.map(({ text }) => text).join(' ').replace(/\s+/g, ' ').replace(/[А-яЁё]/g, (letter) => latin[letter] ?? letter)
   }

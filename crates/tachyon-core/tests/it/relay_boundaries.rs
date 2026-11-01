@@ -13,7 +13,6 @@ struct Delegate;
 
 impl Delegate {
     const PATH: &str = "server/helpers/probe.py";
-    // HandlerSource::discover stages the project, so a later change must reach the probe in the request.
     const SLEEP_HEADER: &str = "x-sleep-seconds";
     const SOURCE: &str = r#"import json
 import os
@@ -397,8 +396,6 @@ fn timing_options() -> HandlerSupervisorOptions {
     }
 }
 
-// For tests that cut a relay off at the invocation budget: an 8 s request with a 2 s grace leaves the
-// handler 6 s, enough to start and launch its relay on a loaded machine.
 const LOADED_REQUEST_DEADLINE_MS: u64 = 8_000;
 
 fn loaded_timing_options() -> HandlerSupervisorOptions {
@@ -595,9 +592,6 @@ async fn assert_relay_fails_before(
     assert!(started.elapsed() < limit, "{:?}", started.elapsed());
 }
 
-// The handler starts for 3 s and the request allows 8 s with a 2 s cancellation grace, so the relay gets
-// what is left of a 6 s budget and its 502 arrives at about 6 s. If start-up time did not count, the relay
-// would run until about 9 s, past the 8 s deadline, and the supervisor would time out instead.
 #[tokio::test]
 async fn start_up_time_counts_against_the_relay_deadline() {
     for (extension, handler) in [
@@ -617,10 +611,6 @@ async fn start_up_time_counts_against_the_relay_deadline() {
     }
 }
 
-// A runtime that spends 3 s starting before its runner can read (a slow interpreter or VM start
-// on a loaded machine), under the same 8 s request with a 2 s grace: the relay must fail by about
-// 6 s. The supervisor measures deadline_ms once the warm runner says it is ready; measured before
-// the start, the handler would relay until about 9 s and the supervisor would time out instead.
 #[cfg(unix)]
 #[tokio::test]
 async fn a_slow_warm_runtime_start_counts_against_the_relay_deadline() {
@@ -802,8 +792,6 @@ async fn queue_time_counts_against_the_relay_deadline() {
     busy.await.expect("busy task").expect("busy response");
 }
 
-// Requests cannot ask for more than the default timeout, so a JVM or .NET start that leaves its relay too
-// little of it on a loaded machine gets more tries; the started handler stays warm for the next one.
 async fn start_handler(supervisor: &HandlerSupervisor, source: &HandlerSource, body: &str) {
     let mut failures = Vec::new();
     for _ in 0..3 {
@@ -828,8 +816,6 @@ async fn start_handler(supervisor: &HandlerSupervisor, source: &HandlerSource, b
     panic!("the handler did not answer within the default timeout: {failures:?}");
 }
 
-// The first request starts the warm handler and its relay answers at once, so the timed relay measures
-// only the default deadline. start_up_time_counts_against_the_relay_deadline covers start-up time.
 #[tokio::test]
 async fn the_supervisor_default_timeout_limits_relays_without_a_request_deadline() {
     for extension in [
@@ -881,9 +867,6 @@ async fn sequential_relays_and_a_longer_request_deadline_share_one_budget() {
         }
         let (root, source) = project(extension, handler);
         let supervisor = supervisor_for(root.path(), timing_options());
-        // The 2.5 s budget counts from when the handler is ready, so a loaded runtime start would
-        // leave the first relay too little of it; start_up_time_counts_against_the_relay_deadline
-        // covers start-up, and this test measures only the two relays.
         start_handler(&supervisor, &source, "sleep-as-asked").await;
         let mut twice = request("twice", HttpMethod::Post, "twice");
         twice.deadline_ms = Some(3_500);
@@ -915,7 +898,6 @@ async fn a_relay_program_that_never_reads_its_input_is_bounded() {
         large.headers.insert(String::from("x-padding"), padding);
         large.deadline_ms = Some(LOADED_REQUEST_DEADLINE_MS);
         let started = Instant::now();
-        // The relay's 502 must arrive within the request deadline.
         let deadline = Duration::from_millis(LOADED_REQUEST_DEADLINE_MS);
         assert_relay_fails_before(&supervisor, &source, &large, started, deadline).await;
     }
@@ -939,7 +921,6 @@ async fn a_descendant_holding_the_relay_pipes_is_bounded_and_reaped() {
         let mut inherit = request_with_pid_file("inherit", HttpMethod::Post, "inherit", &pid_file);
         inherit.deadline_ms = Some(LOADED_REQUEST_DEADLINE_MS);
         let started = Instant::now();
-        // The relay's 502 must arrive within the request deadline.
         let deadline = Duration::from_millis(LOADED_REQUEST_DEADLINE_MS);
         assert_relay_fails_before(&supervisor, &source, &inherit, started, deadline).await;
         assert_process_gone(&pid_file).await;

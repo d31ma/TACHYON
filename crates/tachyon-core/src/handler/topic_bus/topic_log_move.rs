@@ -71,7 +71,6 @@ impl TopicLogMove {
         let new = folder.create()?;
         let waiting = Self::names_to_move(&new, names, folder)?;
         Self::move_each(&old, &new, &waiting)?;
-        // Windows keeps a directory while a handle to it is open.
         drop(old);
         Self::finish(project, &waiting, folder);
         Ok(())
