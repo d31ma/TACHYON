@@ -1215,7 +1215,7 @@ async function verifyFeatureFile(feature, file, hasPage) {
   }
   if (Patterns.controllerPath.test(file.name)) {
     const serverFiles = feature.files.filter(other => other.name.startsWith('server/'))
-    await executeHandler(label, filesForHandlerLanguage(serverFiles, file), file)
+    await executeHandler(label, filesForHandlerLanguage(serverFiles, file), file, undefined, expectedFeatureError(feature))
     return
   }
   if (Patterns.componentViewPath.test(file.name)) {
@@ -1331,6 +1331,16 @@ function expectedGuideValue(slug, section) {
   if (slug === 'project-folders') {
     return (/** @type {Record<string,unknown>} */ value) => assert.deepEqual(value, { amount: 42 })
   }
+  return undefined
+}
+
+/**
+ * The error-handlers feature's controllers answer with their declared error on purpose, as its guide section does.
+ * @param {Feature} feature
+ * @returns {ExpectedError | undefined}
+ */
+function expectedFeatureError(feature) {
+  if (feature.id === 'error-handlers') return { status: 404, type: 'OrderNotFound', value: { code: 'order-not-found' } }
   return undefined
 }
 
