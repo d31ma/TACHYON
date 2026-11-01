@@ -234,35 +234,14 @@ commit_sample_app() {
 migrate_sample_app() {
   local prefix=$1
   local project=$2
+  "${prefix}/bin/ty" migrate check "${project}" || fail "the candidate's ty migrate check failed"
   "${prefix}/bin/ty" migrate fix "${project}" --write || fail "the candidate's ty migrate fix --write failed"
-  if [ -f "${project}/server/routes/yon.js" ]; then
-    mkdir -p "${project}/server/controllers"
-    cat > "${project}/server/controllers/HomeController.js" <<'EOF'
-@RequestRoute("/")
-@Public
-export class HomeController {
-  @GetRoute
-  async get() {
-    const { readFile } = await import('node:fs/promises')
-    return JSON.parse(await readFile(new URL('../data/notes.json', import.meta.url), 'utf8'))
-  }
-}
-EOF
-    rm -r "${project}/server/routes"
-    echo "    manual step: moved server/routes/yon.js to server/controllers/HomeController.js"
-  fi
-  if [ -f "${project}/client/pages/tac.js" ] || [ -f "${project}/client/pages/tac.css" ]; then
-    mkdir -p "${project}/client/components/shell" "${project}/client/shared/styles"
-    if [ -f "${project}/client/pages/tac.html" ]; then
-      mv "${project}/client/pages/tac.html" "${project}/client/components/shell/tac.html"
-    fi
-    printf '<shell />\n' > "${project}/client/pages/tac.html"
-    if [ -f "${project}/client/pages/tac.css" ]; then
-      cat "${project}/client/pages/tac.css" >> "${project}/client/shared/styles/app.css"
-    fi
-    rm -f "${project}/client/pages/tac.css" "${project}/client/pages/tac.js"
-    echo "    manual step: moved the page markup into client/components/shell and its companions out of client/pages"
-  fi
+  [ ! -e "${project}/server/routes" ] || fail "ty migrate fix --write left server/routes behind"
+  [ -f "${project}/server/controllers/HomeController.js" ] || fail "ty migrate fix --write did not make the route a controller"
+  for companion in tac.css tac.js; do
+    [ ! -e "${project}/client/pages/${companion}" ] || fail "ty migrate fix --write left client/pages/${companion} beside the page"
+  done
+  echo "    ok   ty migrate fix --write moved the route and the page companions with no manual edits"
   git -C "${project}" status --short | sed 's/^/      /'
 }
 

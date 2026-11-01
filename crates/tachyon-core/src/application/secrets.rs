@@ -1,4 +1,5 @@
-use super::{ApplicationConfig, Failure, bounded_value, invalid, read_bytes, shape};
+use super::name_refusal::NameRefusal;
+use super::{ApplicationConfig, Failure, bounded_value, invalid, read_bytes};
 use cap_std::fs::Dir;
 use serde_json::{Map, Value};
 use std::collections::BTreeSet;
@@ -34,55 +35,10 @@ pub(super) fn merge_file(directory: &Dir, document: &mut Value) -> Result<(), Fa
 }
 
 fn secret_path(name: &str) -> Result<Vec<String>, Failure> {
-    if !is_secret_name(name) {
-        return Err(invalid(
-            "Project-root .env accepts only uppercase YON_ secret names; TAC_ secrets and non-prefixed names are forbidden.",
-        ));
-    }
-    if is_reserved_name(name) {
-        return Err(invalid(
-            "Project-root .env cannot set framework transport, profile, endpoint, runtime, or isolation policy names.",
-        ));
-    }
-    let segments: Vec<String> = name.split('_').map(str::to_ascii_lowercase).collect();
-    if segments.len() > 16
-        || segments
-            .iter()
-            .any(|segment| !shape::is_path_segment(segment))
-    {
-        return Err(invalid(
-            "Secret names require nonempty underscore-separated segments beginning with ASCII letters, with at most 16 segments.",
-        ));
-    }
-    Ok(segments)
-}
-
-fn is_secret_name(name: &str) -> bool {
-    let allowed_bytes = name
-        .bytes()
-        .all(|byte| byte.is_ascii_uppercase() || byte.is_ascii_digit() || byte == b'_');
-    name.starts_with("YON_") && name.len() <= 128 && allowed_bytes
-}
-
-fn is_reserved_name(name: &str) -> bool {
-    matches!(
-        name,
-        "YON_PROFILE"
-            | "YON_HOST"
-            | "YON_HOSTNAME"
-            | "YON_PORT"
-            | "YON_ISOLATION"
-            | "YON_SKIP_BUNDLE"
-            | "YON_APPLICATION_JSON"
-            | "YON_RESOURCE_ENDPOINT"
-            | "YON_RESOURCE_TOKEN"
-            | "YON_HANDLER_PROTOCOL"
-            | "YON_JAVASCRIPT_RUNTIME"
-            | "YON_PYTHON_RUNTIME"
-            | "YON_RUBY_RUNTIME"
-            | "YON_SERVER"
-    ) || name.starts_with("YON_FIRECRACKER_")
-        || name.starts_with("YON_SERVER_")
+    NameRefusal::of(name).map_or_else(
+        || Ok(NameRefusal::segments(name)),
+        |refusal| Err(invalid(refusal.message())),
+    )
 }
 
 fn unquote_value(raw_value: &str) -> Result<String, Failure> {

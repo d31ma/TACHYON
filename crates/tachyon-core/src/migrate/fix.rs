@@ -7,6 +7,7 @@ use braced_attributes::BracedAttributeEdits;
 use clients::ClientConversion;
 use conversion_plan::ConversionPlan;
 use edits::{Hunk, TextEdit};
+use env_example::EnvExample;
 use file_name_fix::FileNameFix;
 use imports::ImportRemoval;
 use inline_model_fix::InlineModelFix;
@@ -14,6 +15,7 @@ use manifest::ManifestMigration;
 use middleware::{MiddlewareConversion, MiddlewarePlan};
 use model_split_fix::ModelSplitFix;
 use one_class::OneClassReport;
+use page_layout::PageLayout;
 use removed_control_edits::RemovedControlEdits;
 use renames::{AnnotationRename, FileMove, HiddenAnnotation, RoleRename};
 use routes::{RouteEdits, RouteFile, RouteMigration};
@@ -26,6 +28,7 @@ mod braced_attributes;
 mod clients;
 mod conversion_plan;
 mod edits;
+mod env_example;
 mod events;
 mod field_rename;
 mod field_use;
@@ -48,6 +51,8 @@ mod native_http;
 mod needs_all;
 mod nullable_field_edits;
 mod one_class;
+mod page_layout;
+mod page_sources;
 mod private_keyword;
 mod private_members;
 mod private_rename;
@@ -75,6 +80,18 @@ mod rename_tests;
 #[cfg(test)]
 #[allow(clippy::expect_used)]
 mod route_tests;
+
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod controller_route_tests;
+
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod page_layout_tests;
+
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod env_example_tests;
 
 #[cfg(test)]
 #[allow(clippy::expect_used)]
@@ -136,6 +153,23 @@ struct FileChange {
     updated: String,
 }
 
+impl FileChange {
+    fn edited(relative: &str, original: String, edits: &[TextEdit], notes: Vec<String>) -> Self {
+        Self {
+            source: String::from(relative),
+            notes,
+            hunks: Hunk::from_edits(&original, edits),
+            updated: TextEdit::apply(&original, edits),
+            original,
+        }
+    }
+
+    fn whole(relative: &str, original: String, updated: &str, note: &str) -> Self {
+        let edits = [TextEdit::replace(0, original.len(), updated)];
+        Self::edited(relative, original, &edits, vec![String::from(note)])
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct ManualStep {
     source: String,
@@ -194,6 +228,13 @@ impl MigrationFix {
         plan.add_file_names(root, &sources);
         plan.add_stored_views(root)?;
         plan.add_manifest(ManifestMigration::plan(root));
+        let planned: Vec<String> = plan
+            .changes
+            .iter()
+            .map(|change| change.source.clone())
+            .collect();
+        plan.add_page_layout(PageLayout::plan(root, &planned));
+        plan.add_env_example(EnvExample::plan(root));
         Ok(plan)
     }
 
@@ -391,12 +432,19 @@ impl MigrationFix {
     }
 
     fn is_writable_target(relative: &str) -> bool {
-        let is_manifest = relative == ManifestMigration::MANIFEST;
+        let is_planned_file = [
+            relative == ManifestMigration::MANIFEST,
+            relative == super::env_names::EnvNames::EXAMPLE,
+        ];
         let writable_source = [
             Self::is_normal(relative),
-            Self::is_writable_source(relative),
+            Self::is_writable_source(relative) | PageLayout::is_writable(relative),
         ];
-        [is_manifest, writable_source == [true, true]].contains(&true)
+        [
+            is_planned_file.contains(&true),
+            writable_source == [true, true],
+        ]
+        .contains(&true)
     }
 
     fn is_writable_source(relative: &str) -> bool {
@@ -427,6 +475,7 @@ impl MigrationFix {
             RoleRename::is_allowed_move(from, to),
             RouteMigration::is_allowed_move(from, to),
             FileNameFix::is_allowed_move(from, to),
+            PageLayout::is_allowed_move(from, to),
         ];
         [normal, planned.contains(&true)] == [true, true]
     }
@@ -538,6 +587,17 @@ impl MigrationFixPlan {
         );
         self.changes.extend(fix.changes);
         self.manual_steps.extend(fix.manual_steps);
+    }
+
+    fn add_page_layout(&mut self, layout: PageLayout) {
+        self.changes.extend(layout.changes);
+        self.moves.extend(layout.moves);
+        self.manual_steps.extend(layout.manual_steps);
+    }
+
+    fn add_env_example(&mut self, example: EnvExample) {
+        self.changes.extend(example.change);
+        self.manual_steps.extend(example.manual_steps);
     }
 
     fn add_manifest(&mut self, migration: ManifestMigration) {

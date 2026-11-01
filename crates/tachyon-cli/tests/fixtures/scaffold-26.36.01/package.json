@@ -1,0 +1,11 @@
+{
+  "name": "lifecycle-drill",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "serve": "ty serve",
+    "bundle": "ty bundle",
+    "preview": "ty preview --watch",
+    "test": "bun test"
+  }
+}

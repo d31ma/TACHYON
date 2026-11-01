@@ -430,7 +430,12 @@ fn write_files_the_fix_must_not_touch(root: &Path) {
     write(root, "index.js", import);
     write(root, "scripts/build.js", import);
     write(root, "client/shared/scripts/tool.mjs", import);
-    write(root, "client/pages/tac.html", "<main>Home</main>\n");
+    write(root, "client/pages/tac.html", "<app-home />\n");
+    write(
+        root,
+        "client/components/app/home/tac.html",
+        "<main>Home</main>\n",
+    );
 }
 
 #[test]

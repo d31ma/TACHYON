@@ -17,7 +17,15 @@ mod built_converter;
 #[cfg(test)]
 mod built_converter_tests;
 mod built_role;
+mod env_names;
 mod fix;
+mod name_advice;
+mod page_component;
+mod page_markup;
+mod refused_name;
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod scaffold_check_tests;
 pub use fix::{MigrationFix, MigrationFixPlan};
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize)]
@@ -280,6 +288,8 @@ impl MigrationAnalysis {
         ));
         findings.extend(signals.findings());
         findings.extend(crate::handler::TopicLogMove::migration_findings(root));
+        findings.extend(env_names::EnvNames::findings(root));
+        findings.extend(page_markup::PageMarkup::findings(root));
         Ok(build_report(findings))
     }
 }
@@ -1439,9 +1449,10 @@ mod tests {
     #[test]
     fn a_supported_project_reports_clean() {
         let root = project();
+        write(root.path(), "client/pages/tac.html", "<app-home />");
         write(
             root.path(),
-            "client/pages/tac.html",
+            "client/components/app/home/tac.html",
             "<main aria-label=\"Home\"><h1>Home</h1></main>",
         );
         write(
@@ -1804,7 +1815,12 @@ mod tests {
     #[test]
     fn surfaces_the_legacy_server_provided_are_reported_only_where_reached() {
         let quiet = project();
-        write(quiet.path(), "client/pages/tac.html", "<main>x</main>");
+        write(quiet.path(), "client/pages/tac.html", "<app-view />");
+        write(
+            quiet.path(),
+            "client/components/app/view/tac.html",
+            "<main>x</main>",
+        );
         write(
             quiet.path(),
             "server/controllers/HomeController.js",
@@ -2051,7 +2067,12 @@ mod tests {
     #[test]
     fn generated_and_vendored_directories_are_never_analyzed() {
         let root = project();
-        write(root.path(), "client/pages/tac.html", "<main>x</main>");
+        write(root.path(), "client/pages/tac.html", "<app-view />");
+        write(
+            root.path(),
+            "client/components/app/view/tac.html",
+            "<main>x</main>",
+        );
         write(root.path(), "node_modules/pkg/tac.rs", "fn main() {}");
         write(root.path(), "dist/web/tac.js", "export {}");
         write(root.path(), "target/debug/middleware.js", "export {}");

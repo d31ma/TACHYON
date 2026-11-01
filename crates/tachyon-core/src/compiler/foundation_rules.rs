@@ -28,6 +28,10 @@ impl FoundationRules {
             .try_for_each(|rule| Self::validate_rule(rule, reduced_motion))
     }
 
+    pub(super) fn accepts(rule: &CssRule<'_>) -> bool {
+        Self::validate_rule(rule, false).is_ok()
+    }
+
     fn validate_rule(rule: &CssRule<'_>, reduced_motion: bool) -> Result<(), CssProblem> {
         let grouped = Self::group_body(rule);
         grouped.map_or_else(

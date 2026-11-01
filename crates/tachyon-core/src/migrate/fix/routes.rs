@@ -1,6 +1,6 @@
 use super::super::{is_ignored_directory, portable_path, sorted_entries};
 use super::edits::TextEdit;
-use super::markers::Marker;
+use super::markers::{Marker, MarkerLine};
 use super::scan::SourceText;
 use super::{ManualStep, MigrationFix};
 use crate::Failure;
@@ -548,22 +548,26 @@ impl RouteFile {
         extension: &str,
         edits: &mut Vec<TextEdit>,
     ) -> Result<(), ManualStep> {
-        let markers = Marker::lines(text, extension, &["controller"]);
-        let single = markers.first().filter(|_| markers.len() == 1);
-        let marker = single.ok_or_else(|| {
+        let marker = Self::controller_line(text, extension).ok_or_else(|| {
             self.manual(String::from(
                 "It does not have exactly one @Controller marker.",
             ))
         })?;
-        let route = Marker::spelled(extension, "RequestRoute", &Marker::quoted(&self.template));
-        let indentation = Marker::indentation(text, text.line_start(marker.start));
-        let access = Marker::spelled(extension, "Public", "");
-        edits.push(TextEdit::replace(
-            marker.start,
-            marker.end,
-            &format!("{route}\n{indentation}{access}"),
-        ));
+        let [route, access] = self.route_markers(extension);
+        edits.push(Self::replaced_marker(text, &marker, [&route, &access]));
         Ok(())
+    }
+
+    fn controller_line(text: &SourceText<'_>, extension: &str) -> Option<MarkerLine> {
+        let markers = Marker::lines(text, extension, &["controller"]);
+        markers.first().filter(|_| markers.len() == 1).cloned()
+    }
+
+    fn route_markers(&self, extension: &str) -> [String; 2] {
+        [
+            Marker::spelled(extension, "RequestRoute", &Marker::quoted(&self.template)),
+            Marker::spelled(extension, "Public", ""),
+        ]
     }
 
     fn handler_class(
@@ -577,12 +581,8 @@ impl RouteFile {
             extension == "rs",
             "A Rust controller needs a struct with a new function and &self methods.",
         )?;
-        let uses = text.code_words(Self::HANDLER);
-        let declaration = uses
-            .iter()
-            .copied()
-            .find(|at| Self::TYPE_WORDS.contains(&text.previous_word(*at)))
-            .ok_or_else(|| self.manual(String::from("It has no class named Handler.")))?;
+        let (name, declaration, marker) = self.route_class(text, extension)?;
+        let uses = text.code_words(name);
         let script = Self::SCRIPTS.contains(&extension);
         let uses_this = !text.code_words("this").is_empty();
         self.refuse(
@@ -591,21 +591,75 @@ impl RouteFile {
         )?;
         let keyword_end = text.previous_code(declaration).unwrap_or(0) + 1;
         let keyword_start = text.word_start(keyword_end);
-        self.kotlin_object_edit(text, &uses, keyword_start, keyword_end, edits)?;
+        self.kotlin_object_edit(text, name, &uses, [keyword_start, keyword_end], edits)?;
         edits.extend(Self::static_class_edit(text, keyword_start));
         let renamed = uses
             .iter()
-            .map(|at| TextEdit::replace(*at, at + Self::HANDLER.len(), class));
+            .filter(|_| name != class)
+            .map(|at| TextEdit::replace(*at, at + name.len(), class));
         edits.extend(renamed);
-        let route = Marker::spelled(extension, "RequestRoute", &Marker::quoted(&self.template));
-        let access = Marker::spelled(extension, "Public", "");
-        edits.push(Self::class_markers(
-            text,
-            extension,
-            declaration,
-            [&route, &access],
+        let [route, access] = self.route_markers(extension);
+        edits.push(marker.map_or_else(
+            || Self::class_markers(text, extension, declaration, [&route, &access]),
+            |marker| Self::replaced_marker(text, &marker, [&route, &access]),
         ));
         Ok(())
+    }
+
+    fn route_class<'a>(
+        &self,
+        text: &SourceText<'a>,
+        extension: &str,
+    ) -> Result<(&'a str, usize, Option<MarkerLine>), ManualStep> {
+        let handler = Self::declaration(text, Self::HANDLER).map(|at| (Self::HANDLER, at, None));
+        handler
+            .or_else(|| Self::marked_class(text, extension))
+            .ok_or_else(|| {
+                self.manual(String::from(
+                    "It has no class named Handler, and no one class marked @Controller.",
+                ))
+            })
+    }
+
+    fn declaration(text: &SourceText<'_>, name: &str) -> Option<usize> {
+        text.code_words(name)
+            .into_iter()
+            .find(|at| Self::TYPE_WORDS.contains(&text.previous_word(*at)))
+    }
+
+    fn marked_class<'a>(
+        text: &SourceText<'a>,
+        extension: &str,
+    ) -> Option<(&'a str, usize, Option<MarkerLine>)> {
+        let marker = Self::controller_line(text, extension)?;
+        let line = Marker::next_declaration(text, extension, marker.start)?;
+        let name = Self::declared_name(text, line)?;
+        let declaration = Self::declaration(text, name)?;
+        Some((name, declaration, Some(marker)))
+    }
+
+    fn declared_name<'a>(text: &SourceText<'a>, line: usize) -> Option<&'a str> {
+        let declaration = &text.source[line..text.line_end(line)];
+        let mut words = declaration
+            .split(|character: char| {
+                ![character.is_ascii_alphanumeric(), character == '_'].contains(&true)
+            })
+            .filter(|word| !word.is_empty());
+        words.find(|word| Self::TYPE_WORDS.contains(word))?;
+        words.next()
+    }
+
+    fn replaced_marker(
+        text: &SourceText<'_>,
+        marker: &MarkerLine,
+        [route, access]: [&str; 2],
+    ) -> TextEdit {
+        let indentation = Marker::indentation(text, text.line_start(marker.start));
+        TextEdit::replace(
+            marker.start,
+            marker.end,
+            &format!("{route}\n{indentation}{access}"),
+        )
     }
 
     fn class_markers(
@@ -628,9 +682,9 @@ impl RouteFile {
     fn kotlin_object_edit(
         &self,
         text: &SourceText<'_>,
+        name: &str,
         uses: &[usize],
-        keyword_start: usize,
-        keyword_end: usize,
+        [keyword_start, keyword_end]: [usize; 2],
         edits: &mut Vec<TextEdit>,
     ) -> Result<(), ManualStep> {
         if &text.source[keyword_start..keyword_end] != "object" {
@@ -638,10 +692,10 @@ impl RouteFile {
         }
         let refers = uses
             .iter()
-            .any(|at| text.bytes.get(at + Self::HANDLER.len()) == Some(&b'.'));
+            .any(|at| text.bytes.get(at + name.len()) == Some(&b'.'));
         self.refuse(
             refers,
-            "Other code uses 'Handler.' to reach members of the Kotlin object.",
+            &format!("Other code uses '{name}.' to reach members of the Kotlin object."),
         )?;
         edits.push(TextEdit::replace(keyword_start, keyword_end, "class"));
         Ok(())

@@ -56,7 +56,7 @@ impl PrivateCases {
     ];
     const UNCHANGED: [(&'static str, &'static str); 4] = [
         (
-            "client/pages/tac.html",
+            "client/components/cart/view/tac.html",
             "<p>{cart.total()} {cart.count} {page.shown()}</p>\n",
         ),
         (

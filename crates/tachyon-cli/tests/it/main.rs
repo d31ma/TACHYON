@@ -23,6 +23,7 @@ mod phase7_cli;
 mod preview_resilience;
 mod reconciled_templates;
 mod release_cli;
+mod scaffold_upgrade;
 #[cfg(unix)]
 mod structure_validation_cli;
 mod test_preflight;

@@ -40,6 +40,10 @@ mod page_head;
 #[cfg(test)]
 mod page_head_tests;
 mod page_state;
+mod page_upgrade;
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod page_upgrade_tests;
 mod portable_path;
 mod precompression;
 mod route_budget;
@@ -75,6 +79,7 @@ pub(crate) mod shared_scripts;
 mod shared_scripts_tests;
 mod site_build;
 mod speculation_rules;
+mod split_styles;
 mod style_file;
 mod style_path;
 mod style_sources;
@@ -102,8 +107,10 @@ mod yon_reads_tests;
 pub use build_options::BuildOptions;
 pub use build_profile::BuildProfile;
 pub use build_result::BuildResult;
+pub(crate) use page_upgrade::PageUpgrade;
 pub use precompression::CompressionTotals;
 pub(crate) use route_budget::BudgetCheck;
+pub(crate) use split_styles::SplitStyles;
 pub(crate) use tool_build::ToolBuild;
 
 use crate::failure::diagnostic;

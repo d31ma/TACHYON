@@ -10,11 +10,14 @@ use std::io::{ErrorKind, Read};
 use std::net::IpAddr;
 use std::path::Path;
 
+mod name_refusal;
 mod parser;
 mod secrets;
 mod shape;
 #[cfg(test)]
 mod tests;
+
+pub(crate) use name_refusal::NameRefusal;
 
 type Environment<'a> = dyn Fn(&str) -> Result<Option<String>, Failure> + 'a;
 

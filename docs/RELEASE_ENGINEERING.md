@@ -153,9 +153,11 @@ previous release and roll back to it. It runs on macOS and Linux:
    SHA-256 of every project file outside `dist/` and `.git/`.
 5. It upgrades the binary in place, using the same staged rename as
    `install.sh`, and checks that the upgrade changed no project file.
-6. It migrates the app the way a user would: `ty migrate fix --write`, then
-   the manual steps that command reports for this app. Then it bundles and
-   serves the app with the cache and `dist/` that the previous release left.
+6. It migrates the app the way a user would: `ty migrate check`, then
+   `ty migrate fix --write`, with no manual edits. The fix must move the
+   route to `server/controllers/` and the page's `tac.css` and `tac.js` out of
+   `client/pages/`. Then it bundles and serves the app with the cache and
+   `dist/` that the previous release left.
 7. It rolls back by downloading the previous archive again and installing its
    binary. It reverts the migration's source changes with `git checkout` and
    `git clean`. Then it bundles and serves the app with the cache and `dist/`
