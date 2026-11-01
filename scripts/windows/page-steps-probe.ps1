@@ -88,6 +88,7 @@ public static class TachyonProbeNative
     [DllImport("user32.dll")] static extern bool GetClientRect(IntPtr window, out Rect rect);
     [DllImport("user32.dll")] static extern uint GetDpiForWindow(IntPtr window);
     [DllImport("user32.dll")] static extern bool AdjustWindowRectExForDpi(ref Rect rect, uint style, bool menu, uint extendedStyle, uint dpi);
+    [DllImport("user32.dll")] static extern IntPtr GetMenu(IntPtr window);
     [DllImport("user32.dll", EntryPoint = "GetWindowLongW")] static extern int GetWindowLong(IntPtr window, int index);
     [DllImport("user32.dll")] static extern IntPtr SetThreadDpiAwarenessContext(IntPtr context);
 
@@ -235,7 +236,9 @@ public static class TachyonProbeNative
         Rect expected = new Rect();
         expected.Right = (int)Math.Round(width * dpi / 96.0);
         expected.Bottom = (int)Math.Round(height * dpi / 96.0);
-        AdjustWindowRectExForDpi(ref expected, (uint)GetWindowLong(window, -16), false, 0, dpi);
+        // The frame holds the menu bar too, when the window has one: the host grows the frame so the client stays the
+        // size the page asked for.
+        AdjustWindowRectExForDpi(ref expected, (uint)GetWindowLong(window, -16), GetMenu(window) != IntPtr.Zero, 0, dpi);
         return new int[] {
             outer.Right - outer.Left, outer.Bottom - outer.Top,
             client.Right - client.Left, client.Bottom - client.Top,
