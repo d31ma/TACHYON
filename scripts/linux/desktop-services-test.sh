@@ -5,7 +5,8 @@ stop_services() {
   for pid in ${SERVICE_PIDS:-}; do
     kill "$pid" 2>/dev/null || true
   done
-  pkill -P "${FEED_PID:-0}" 2>/dev/null || true
+  # Only the feed's own children: `pkill -P 0` would stop the container's init (PID 1, whose parent is 0).
+  if [[ -n "${FEED_PID:-}" ]]; then pkill -P "$FEED_PID" 2>/dev/null || true; fi
   rm -rf "$STATE"
 }
 
@@ -44,7 +45,7 @@ find_geoclue() {
   done
   GEOCLUE_AGENT=/usr/libexec/geoclue-2.0/demos/agent
   local programs=("$GEOCLUE" "$GEOCLUE_AGENT")
-  if ! in_the_live_desktop; then programs+=("$(command -v dunst)" "$(command -v dunstctl)"); fi
+  if ! in_the_live_desktop; then programs+=("$(command -v dunst || true)" "$(command -v dunstctl || true)"); fi
   for program in "${programs[@]}"; do
     if [[ ! -x "$program" ]]; then
       echo "Missing GeoClue, its demo agent or dunst. On Ubuntu: apt install geoclue-2.0 dunst" >&2

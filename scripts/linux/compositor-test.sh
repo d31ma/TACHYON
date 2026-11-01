@@ -72,15 +72,18 @@ run_under_compositing_x11() {
   GDK_BACKEND=x11 LIBGL_ALWAYS_SOFTWARE=1 WEBKIT_DMABUF_RENDERER_FORCE_SHM=1 GDK_DEBUG=no-portals \
     dbus-run-session -- xvfb-run --auto-servernum --server-args='-screen 0 1280x1000x24 +extension Composite' bash -c '
       set -euo pipefail
+      eval "$COMPOSITOR_OWNER"
       xfwm4 --compositor=on --sm-client-disable >"$STATE/xfwm4.log" 2>&1 &
       manager=$!
       trap '\''kill "$manager" 2>/dev/null || true; wait "$manager" 2>/dev/null || true'\'' EXIT
+      owner=0
       for _ in $(seq 40); do
-        if [[ "$(compositor_owner)" != 0 ]]; then break; fi
+        owner=$(compositor_owner)
+        if [[ $owner =~ ^[1-9][0-9]*$ ]]; then break; fi
         sleep 0.25
       done
-      test "$(compositor_owner)" != 0 || { echo "xfwm4 did not start compositing" >&2; cat "$STATE/xfwm4.log" >&2; exit 1; }
-      echo "xfwm4 owns _NET_WM_CM_S0"
+      [[ $owner =~ ^[1-9][0-9]*$ ]] || { echo "xfwm4 did not start compositing (_NET_WM_CM_S0 owner: ${owner:-none})" >&2; cat "$STATE/xfwm4.log" >&2; exit 1; }
+      echo "xfwm4 owns _NET_WM_CM_S0 (window $owner)"
       cargo test --locked -p tachyon-core --lib native::linux_title_bar_tests -- --ignored --test-threads=1
       cargo test --locked -p tachyon-core --lib native::linux_window_control_tests -- --ignored --test-threads=1
     '
@@ -136,7 +139,10 @@ main() {
     echo "PASS: the Linux host, window controls, appearance, storage, page calls, links, the integrated title bar, the browser APIs and the file dialog in the live $XDG_SESSION_TYPE desktop session (${XDG_CURRENT_DESKTOP:-unnamed desktop}), under its own window manager and session bus$DESKTOP_GAPS"
     return
   fi
-  export -f compositor_owner
+  # xvfb-run is a /bin/sh script, and dash drops exported bash functions from the environment, so the
+  # function's source goes to the inner bash in a plain variable.
+  COMPOSITOR_OWNER=$(declare -f compositor_owner)
+  export COMPOSITOR_OWNER
   run_under_compositing_x11
   run_in_mutter
   echo 'PASS: the integrated title bar and window controls under a compositing X11 window manager, and the Linux host, window controls, appearance (size, theme_color, background_color), storage, page calls, links, the integrated title bar (insets, drag regions, double click), the browser APIs (pointer clicks) and the file dialog (key presses) under Wayland, with input through Mutter RemoteDesktop'

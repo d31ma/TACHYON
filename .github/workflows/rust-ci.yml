@@ -980,7 +980,8 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Build the pinned Linux execution image
-        run: docker build -f scripts/linux/Dockerfile -t tachyon-linux-gate:${{ env.RUST_TOOLCHAIN }} scripts/linux
+        # Only the gate stage: native, application-state and icon need none of the final stage's web-service toolchains.
+        run: docker build -f scripts/linux/Dockerfile --target gate -t tachyon-linux-gate:${{ env.RUST_TOOLCHAIN }} scripts/linux
 
       - name: Compile, launch, and read accessible names over AT-SPI
         run: >-

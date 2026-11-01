@@ -108,9 +108,13 @@ launch_until_mounted() {
   local log="$XDG_STATE_HOME/tachyon/dev.tachyon.desktop-gate.jsonl"
   rm -f "$log"
   export LOG="$log"
-  export -f stop_installed_app
+  # xvfb-run is a /bin/sh script, and dash drops exported bash functions from the environment, so the
+  # function's source goes to the inner bash in a plain variable.
+  STOP_INSTALLED_APP=$(declare -f stop_installed_app)
+  export STOP_INSTALLED_APP
   beside_display bash -c '
       set -euo pipefail
+      eval "$STOP_INSTALLED_APP"
       "$@" &
       launcher=$!
       trap '\''stop_installed_app; kill "$launcher" 2>/dev/null || true; wait 2>/dev/null || true'\'' EXIT
