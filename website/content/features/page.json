@@ -36,6 +36,7 @@
     { "include": "error-handlers/feature.json" },
     { "include": "openapi/feature.json" },
     { "include": "realtime/feature.json" },
+    { "include": "topics/feature.json" },
     { "include": "sockets/feature.json" },
     { "include": "application-modules/feature.json" },
     { "include": "native-targets/feature.json" },
