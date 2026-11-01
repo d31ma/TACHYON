@@ -459,7 +459,7 @@ pub(crate) async fn web_assembly(
     let version = run_tool("rustc", &["-vV"]).await? + &release.identity() + &settings;
     let source_bytes = super::host::native_io(std::fs::read(&source), &source)?;
     let key = cache_key(&version, &source_bytes);
-    let cache = RustWasmCache::new(&crate::cache::root().join("rust-wasm"), &key);
+    let cache = RustWasmCache::new(&crate::cache::root(), &key);
     if let Some(bytes) = cache.read() {
         return Ok(RustWebModule::built(bytes, &release, release.will_shrink()));
     }

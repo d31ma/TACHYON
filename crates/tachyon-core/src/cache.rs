@@ -81,7 +81,12 @@ fn status_at(root: PathBuf) -> CacheStatus {
     let build_entries = CacheStatus::BUILD_FOLDERS
         .into_iter()
         .filter(|name| root.join(name).is_dir())
-        .map(|name| (name, count_folder_entries(&root.join(name), false)))
+        .map(|name| {
+            (
+                name,
+                count_folder_entries(&entry_folder(&root, name), false),
+            )
+        })
         .collect();
     CacheStatus {
         root,
@@ -89,6 +94,13 @@ fn status_at(root: PathBuf) -> CacheStatus {
         legacy_entries: 0,
         build_entries,
     }
+}
+
+fn entry_folder(root: &Path, name: &str) -> PathBuf {
+    if name == "rust-wasm" {
+        return crate::native::rust_wasm_cache::RustWasmCache::folder(root);
+    }
+    root.join(name)
 }
 
 fn count_folder_entries(folder: &Path, folders_only: bool) -> usize {
@@ -179,8 +191,12 @@ mod tests {
             "go-wasm/key-2",
             "go-wasm/key-3",
             "rust-companion/key-4",
+            "rust-wasm/v2",
         ] {
             fs::create_dir_all(cache.join(folder)).expect("build entry");
+        }
+        for file in ["rust-wasm/v2/key-5.wasm", "rust-wasm/older-key.wasm"] {
+            fs::write(cache.join(file), b"\0asm").expect("rust wasm entry");
         }
         for tool in ["python-web/314.0.7", "teavm-0.15.0"] {
             fs::create_dir_all(cache.join(tool)).expect("installed tool");
@@ -188,7 +204,12 @@ mod tests {
         let status = status_at(cache.clone());
         assert_eq!(
             status.build_entries,
-            vec![("dotnet-web", 1), ("go-wasm", 2), ("rust-companion", 1)]
+            vec![
+                ("dotnet-web", 1),
+                ("go-wasm", 2),
+                ("rust-wasm", 1),
+                ("rust-companion", 1)
+            ]
         );
 
         clean_at(cache.clone()).expect("cleaned");

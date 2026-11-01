@@ -297,7 +297,7 @@ mod rust_page_graph;
 mod rust_service_plan;
 mod rust_service_scopes;
 mod rust_standard_library;
-mod rust_wasm_cache;
+pub(crate) mod rust_wasm_cache;
 mod rust_web_module;
 mod service_companions;
 mod site;
