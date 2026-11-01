@@ -77,6 +77,28 @@ export default class PlaceCheckService {
     return result.stdout.trim()
   }
 
+  /** CoreLocation finds a Mac by scanning Wi-Fi, so a Mac on Ethernet with the Wi-Fi radio off never gets a position. */
+  static wifiPowered() {
+    const ports = this.run('/usr/sbin/networksetup', ['-listallhardwareports'], 60_000)
+    const devices = [...ports.matchAll(/Hardware Port: Wi-Fi\s*\nDevice: (\S+)/g)].map((found) => found[1])
+    assert.ok(devices.length > 0, `this Mac has no Wi-Fi interface, so CoreLocation cannot find a position:\n${ports}`)
+    const power = devices.map((device) => this.run('/usr/sbin/networksetup', ['-getairportpower', device], 60_000))
+    assert.ok(power.some((line) => /: On$/.test(line)), `the Wi-Fi radio is off (${power.join('; ')}), so CoreLocation cannot find a position; turn Wi-Fi on (no network needs to be joined)`)
+    return power
+  }
+
+  static locationServicesEnabled() {
+    const result = spawnSync('/usr/bin/xcrun', ['swift', '-'], { input: 'import CoreLocation\nprint(CLLocationManager.locationServicesEnabled())\n', encoding: 'utf8', timeout: 120_000 })
+    assert.equal(result.status, 0, `could not ask CoreLocation whether Location Services is on:\n${result.error ?? ''}${result.stdout}${result.stderr}`)
+    assert.equal(result.stdout.trim().split('\n').at(-1), 'true', 'Location Services is off in System Settings > Privacy & Security, so no app can get a position; turn it on')
+  }
+
+  static preflight() {
+    const power = this.wifiPowered()
+    this.locationServicesEnabled()
+    console.log(`ok - ${power.join('; ')} and Location Services is on`)
+  }
+
   static write(name, text) {
     const target = path.join(this.project, name)
     mkdirSync(path.dirname(target), { recursive: true })
@@ -138,6 +160,7 @@ export default class PlaceCheckService {
 
   static async main() {
     const started = Date.now()
+    this.preflight()
     mkdirSync(this.root, { recursive: true })
     let outcome
     try {
