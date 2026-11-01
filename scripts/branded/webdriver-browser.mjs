@@ -46,15 +46,24 @@ export class WebDriverSession {
       throw new Error(`${plan.driver} did not answer /status within ${WebDriverSession.startMilliseconds} ms: ${output.join('')}`)
     }
     const session = new WebDriverSession(base, child, plan)
-    try {
-      const created = await session.command('POST', '/session', { capabilities: { alwaysMatch: plan.capabilities } }, false)
-      session.id = created.sessionId
-      session.capabilities = created.capabilities
-    } catch (error) {
-      child.kill()
-      throw new Error(`${plan.driver} refused a ${plan.name} session (${error.message}). Output: ${output.join('')}`)
+    // safaridriver boots a shut-down iOS simulator for the first session, and that boot can outlast its own wait for
+    // Safari ("timed out while connecting to a Safari instance"); by then the simulator is up, so ask once more.
+    const attempts = plan.capabilities['safari:useSimulator'] ? 2 : 1
+    for (let attempt = 1; ; attempt++) {
+      try {
+        const created = await session.command('POST', '/session', { capabilities: { alwaysMatch: plan.capabilities } }, false)
+        session.id = created.sessionId
+        session.capabilities = created.capabilities
+        return session
+      } catch (error) {
+        if (attempt < attempts && /timed out while connecting to a Safari instance/.test(error.message)) {
+          console.error(`branded: ${plan.name} was not ready for a session (${error.message}); asking again now the simulator has booted`)
+          continue
+        }
+        child.kill()
+        throw new Error(`${plan.driver} refused a ${plan.name} session (${error.message}). Output: ${output.join('')}`)
+      }
     }
-    return session
   }
 
   /** @returns {Promise<number>} */
