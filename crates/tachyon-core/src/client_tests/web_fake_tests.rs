@@ -55,6 +55,10 @@ impl Units {
     const FSHARP_WINDOW_SERVICE: &str = "[<Service>]\ntype StampService() =\n    let windowControls = WindowControls()\n\n    member this.Allowed() : bool = windowControls.Granted(\"minimize\")\n";
     const FSHARP_WINDOW_UNIT: &str = "[<Test(typeof<StampTestSetup>, {\"partition\":\"tests\"})>]\ntype StampServiceTest() =\n    member this.testUsesTheFakeWindow() : unit =\n        BrowserFakes.Answer(\"windowControls\", \"granted\", true)\n        Assert.isTrue(StampService().Allowed(), \"the fake window answers\")\n";
 
+    const KOTLIN_SETUP: &str = "@TestSetup\nclass StampTestSetup {\n    companion object {\n        fun configure(execution: Behaviors.Execution): Behaviors.Configuration = Behaviors.Configuration()\n    }\n}\n";
+    const KOTLIN_WINDOW_SERVICE: &str = "@Service\nclass StampService {\n    private val windowControls = WindowControls()\n\n    fun allowed(): Boolean = windowControls.granted(\"minimize\")\n\n    fun shrink() {\n        windowControls.minimize()\n    }\n}\n";
+    const KOTLIN_WINDOW_UNIT: &str = "@Test(StampTestSetup::class)\nclass StampServiceTest {\n    fun testUsesTheFakeWindow() {\n        BrowserFakes.answer(\"windowControls\", \"granted\", true)\n        BrowserFakes.answer(\"windowControls\", \"minimize\", null)\n        val service = StampService()\n        service.shrink()\n        Assert.isTrue(service.allowed(), \"the fake window answers\")\n    }\n\n    fun testAsksForAnAnswer() {\n        val error = Assert.throws { WindowControls().close() }\n        Assert.isTrue(error.message.orEmpty().contains(\"BrowserFakes.answer\"), \"a refusal that names BrowserFakes.answer\")\n    }\n}\n";
+
     fn available(program: &str, flag: &str) -> bool {
         Command::new(program)
             .arg(flag)
@@ -103,6 +107,26 @@ fn a_javascript_unit_fakes_the_browser_apis_of_a_service() {
     let files = [Units::JS_SETUP, Units::JS_SERVICE, Units::JS_UNIT];
     let results = Units::passed("js", files);
     assert_eq!(results, [(String::from("testUsesTheFakes"), true)]);
+}
+
+#[test]
+fn a_kotlin_web_service_gets_the_window_controls_fake() {
+    if crate::kotlin_home::KotlinHome::command("kotlinc")
+        .arg("-version")
+        .output()
+        .is_err()
+    {
+        assert!(std::env::var_os("CI").is_none(), "CI must provide kotlinc");
+        eprintln!("skipping: kotlinc is unavailable");
+        return;
+    }
+    let files = [
+        Units::KOTLIN_SETUP,
+        Units::KOTLIN_WINDOW_SERVICE,
+        Units::KOTLIN_WINDOW_UNIT,
+    ];
+    let results = Units::passed("kt", files);
+    assert_eq!(results.len(), 2, "{results:?}");
 }
 
 #[test]

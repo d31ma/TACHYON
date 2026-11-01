@@ -903,6 +903,8 @@ mod kotlin_behavior_tests;
 #[cfg(test)]
 mod kotlin_helper_tests;
 #[cfg(test)]
+mod kotlin_marker_proof_tests;
+#[cfg(test)]
 mod kotlin_retry_tests;
 
 #[cfg(test)]

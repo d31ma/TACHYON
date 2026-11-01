@@ -830,8 +830,9 @@ fn kotlin(
     std::fs::write(
         &path,
         format!(
-            "{lowered}\n{}\nfun main() {{ println({name}().POST()) }}\n",
-            kotlin_provider_contracts(lowered)
+            "{lowered}\n{}{}\nfun main() {{ println({name}().POST()) }}\n",
+            kotlin_provider_contracts(lowered),
+            kotlin_unit_files::KotlinUnitFiles::browser(lowered)
         ),
     )
     .map_err(|error| stage_failure(portable, &error))?;

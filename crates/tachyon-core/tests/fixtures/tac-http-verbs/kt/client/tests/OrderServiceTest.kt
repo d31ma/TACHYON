@@ -19,11 +19,12 @@ class OrderServiceTest {
         Assert.equals("nails", sent.item)
     }
 
-    suspend fun testDeleteSendsThePathAndTheHeaderWithoutABody() {
+    suspend fun testDeleteSendsThePathTheHeaderAndTheRequestParamWithoutABody() {
         val sent = construct(OrderService::class).remove()
         Assert.equals("DELETE", sent.method)
         Assert.equals("/api/orders/a-7", sent.path)
         Assert.equals("duplicate", sent.header)
         Assert.equals("none", sent.item)
+        Assert.equals("yes", sent.param)
     }
 }

@@ -9,5 +9,5 @@ interface OrdersClient {
     suspend fun change(@PathVariable("id") id: String, @RequestBody change: Map<String, String>, @RequestHeader("X-Tenant") tenant: String): SentRequest
 
     @DeleteRequest("/orders/{id}")
-    suspend fun remove(@PathVariable("id") id: String, @RequestHeader("X-Reason") reason: String): SentRequest
+    suspend fun remove(@PathVariable("id") id: String, @RequestHeader("X-Reason") reason: String, @RequestParam("soft") soft: String): SentRequest
 }

@@ -10,6 +10,7 @@ class OrdersTestSetup {
                     "path" to request["path"],
                     "header" to (headers["X-Tenant"] ?: headers["X-Reason"]),
                     "item" to (body?.get("item") ?: "none"),
+                    "param" to ((request["query"] as? Map<*, *>)?.get("soft") ?: "none"),
                 )
             }))
     }

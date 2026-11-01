@@ -143,6 +143,23 @@ fn a_kotlin_browser_service_that_needs_another_service_is_refused_at_the_field()
 }
 
 #[test]
+fn a_kotlin_refusal_says_the_services_of_a_page_share_one_runtime() {
+    let tally = "@Service\nclass TallyService {\n    @Needs\n    private val counter: CounterService\n    var total: Long = 0\n\n    \
+                 fun bump(): Long {\n        total = counter.increment()\n        return total\n    }\n}\n";
+    let failure = WebNeedsFixture::refused(
+        NativeCompanion::Kotlin,
+        "kt",
+        (WebNeedsFixture::KOTLIN_COUNTER, tally),
+    );
+    assert!(
+        failure.contains("TY1406")
+            && failure.contains("the Kotlin services of a page share one runtime")
+            && !failure.contains("on its own"),
+        "{failure}"
+    );
+}
+
+#[test]
 fn a_swift_browser_service_that_needs_another_service_is_refused_at_the_field() {
     for field in [
         "@Needs\n    private let counter: CounterService",

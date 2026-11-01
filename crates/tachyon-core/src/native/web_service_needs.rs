@@ -22,7 +22,7 @@ impl WebServiceNeeds {
     };
     const KOTLIN: Self = Self {
         language: "Kotlin",
-        consequence: "the page builds each Kotlin browser service on its own, so it has no instance of that service to fill the field with",
+        consequence: "the Kotlin services of a page share one runtime, but each keeps its own instances apart, so the page has no instance of that service to fill the field with",
         constructor_inputs: Self::no_constructor_inputs,
     };
     const SWIFT: Self = Self {

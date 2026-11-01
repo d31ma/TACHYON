@@ -9,5 +9,5 @@ class OrderService {
 
     suspend fun change(): SentRequest = ordersClient.change("a-7", mapOf("item" to "nails"), "south")
 
-    suspend fun remove(): SentRequest = ordersClient.remove("a-7", "duplicate")
+    suspend fun remove(): SentRequest = ordersClient.remove("a-7", "duplicate", "yes")
 }

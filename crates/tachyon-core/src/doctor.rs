@@ -299,6 +299,48 @@ mod tests {
     }
 
     #[test]
+    fn a_kotlin_web_service_reports_kotlinc_js_and_the_wasm_stdlib() {
+        let root = project_with(&[(
+            "client/services/TallyService.kt",
+            "@Service\nclass TallyService {\n    var total: Long = 0\n}\n",
+        )]);
+        let report = check(root.path()).expect("report");
+        let entry = report
+            .toolchains
+            .iter()
+            .find(|entry| entry.requirement == "Kotlin services on the web")
+            .expect("the Kotlin web toolchain is reported");
+        assert_eq!(entry.command, "kotlinc-js + TAC_KOTLIN_WASM_STDLIB");
+        assert!(entry.required, "{entry:?}");
+        assert!(
+            entry.install.contains("kotlin-stdlib-wasm-js 2.1.10"),
+            "{entry:?}"
+        );
+        assert!(
+            report
+                .to_text()
+                .contains("kotlinc-js + TAC_KOTLIN_WASM_STDLIB"),
+            "{}",
+            report.to_text()
+        );
+        let library = std::env::var_os("TAC_KOTLIN_WASM_STDLIB").map(PathBuf::from);
+        let installed = library.is_some_and(|path| path.is_file())
+            && crate::wasm_optimizer::WasmOptimizer::is_installed();
+        assert!(
+            installed || std::env::var_os("TAC_KOTLIN_WEB_REQUIRE_TOOLCHAINS").is_none(),
+            "the Kotlin Wasm stdlib and wasm-opt are required on this runner"
+        );
+        if !installed {
+            eprintln!("skipping the ready check: the Kotlin Wasm stdlib or wasm-opt is missing");
+            return;
+        }
+        assert!(
+            matches!(&entry.state, ToolchainState::Ready(version) if version.contains("kotlinc-js")),
+            "{entry:?}"
+        );
+    }
+
+    #[test]
     fn a_retired_companion_beside_a_view_reports_nothing() {
         let root = project_with(&[
             ("client/pages/tac.html", "<div>x</div>"),

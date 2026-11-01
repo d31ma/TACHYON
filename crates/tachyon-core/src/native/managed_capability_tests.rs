@@ -236,27 +236,30 @@ impl ManagedCapabilityCheck {
         Self::succeeds(Command::new("java").arg("-jar").arg(&jar))
     }
 
-    fn android_companion() {
-        let Some(platform) = std::env::var_os("ANDROID_HOME")
+    const ANDROID_SERVICE: &'static str = "@Service\nclass DeviceService {\n    fun model(): String = android.os.Build.MODEL ?: \"\"\n\n    fun sdk(): Int = android.os.Build.VERSION.SDK_INT\n\n    fun downloads(): String = android.os.Environment.DIRECTORY_DOWNLOADS\n}\n";
+
+    fn android_platform() -> Option<std::path::PathBuf> {
+        let platform = std::env::var_os("ANDROID_HOME")
             .map(std::path::PathBuf::from)
             .map(|home| home.join("platforms/android-35/android.jar"))
-            .filter(|platform| platform.is_file())
-        else {
+            .filter(|platform| platform.is_file());
+        if platform.is_none() {
             eprintln!("skipping: Android platform 35 is unavailable");
-            return;
-        };
-        let root = tempfile::tempdir().expect("project");
-        Self::registry(root.path(), NativeCompanion::Kotlin, false);
+        }
+        platform
+    }
+
+    fn android_build(root: &Path, platform: &Path, service: &str, class: &str) -> String {
         let input = NativeCompanionInput {
-            snapshot_root: root.path().to_path_buf(),
+            snapshot_root: root.to_path_buf(),
             language: NativeCompanion::Kotlin,
-            source: root.path().join("client/services/ImportService.kt"),
-            service: String::from("import"),
-            class: String::from("ImportService"),
+            source: root.join(format!("client/services/{class}.kt")),
+            service: String::from(service),
+            class: String::from(class),
             web_assembly: false,
             application_provider: false,
         };
-        let project = root.path().join("android");
+        let project = root.join("android");
         assert!(
             super::android::stage_companion(
                 &[input],
@@ -266,14 +269,40 @@ impl ManagedCapabilityCheck {
             )
             .expect("stage")
         );
+        let sources = project.join("app/src/main/kotlin");
         Self::succeeds(
             Command::new("kotlinc")
                 .arg("-classpath")
                 .arg(platform)
-                .arg(project.join("app/src/main/kotlin"))
+                .arg(&sources)
                 .arg("-d")
-                .arg(root.path().join("classes")),
+                .arg(root.join("classes")),
         );
+        std::fs::read_to_string(sources.join("app/capabilities/TachyonCompanion.kt"))
+            .expect("staged companion")
+    }
+
+    fn android_companion() {
+        let Some(platform) = Self::android_platform() else {
+            return;
+        };
+        let root = tempfile::tempdir().expect("project");
+        Self::registry(root.path(), NativeCompanion::Kotlin, false);
+        Self::android_build(root.path(), &platform, "import", "ImportService");
+    }
+
+    fn android_reach() -> Option<String> {
+        let platform = Self::android_platform()?;
+        let root = tempfile::tempdir().expect("project");
+        let file = root.path().join("client/services/DeviceService.kt");
+        std::fs::create_dir_all(file.parent().expect("parent")).expect("directory");
+        std::fs::write(&file, Self::ANDROID_SERVICE).expect("source");
+        Some(Self::android_build(
+            root.path(),
+            &platform,
+            "device",
+            "DeviceService",
+        ))
     }
 }
 
@@ -319,6 +348,21 @@ fn managed_native_kotlin_capture_providers_reach_the_android_companion() {
         return;
     }
     ManagedCapabilityCheck::android_companion();
+}
+
+#[test]
+fn a_linked_kotlin_service_compiles_against_the_android_sdk() {
+    if !kotlin_tools_are_available() {
+        return;
+    }
+    let Some(staged) = ManagedCapabilityCheck::android_reach() else {
+        return;
+    };
+    assert!(
+        staged.contains("android.os.Build.VERSION.SDK_INT"),
+        "{staged}"
+    );
+    assert!(staged.contains("class DeviceService"), "{staged}");
 }
 
 #[test]
