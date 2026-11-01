@@ -152,7 +152,9 @@ echo "MEMORY: $(ps -o rss= -p "$(echo $tree | tr ' ' ',')" | awk '{ total += $1 
     const [read, cancelled] = PageServicesFixture.pickerStatuses[language]
     const steps = [
       ['wait', ['Choose a text file', 'Ready']],
-      ['pick', { control: 'Choose file', keys: ['ctrl+l', { type: notes }, 'Return'] }],
+      // The keys of linux_file_picker_fixture.c: select the location entry's text, paste the path, and press Delete
+      // to drop any inline completion before Return. Typing the path races GTK 4.18's inline completion.
+      ['pick', { control: 'Choose file', keys: ['ctrl+l', 'ctrl+a', { paste: notes }, 'Delete', 'Return'] }],
       ['wait', [read]],
       ['pick', { control: 'Choose file', keys: ['Escape'] }],
       ['wait', [cancelled]],

@@ -4,7 +4,8 @@
 # only it, with `--target gate`). The final stage adds what the other Linux gates need:
 #   - the desktop pieces of compositor-test.sh (headless mutter), desktop-links-test.sh (xdg-utils and the
 #     OpenURI portal), desktop-services-test.sh (GeoClue, dunst, and systemd's busctl, which dunstctl calls) and
-#     deb-install-test.sh (desktop-file-utils),
+#     deb-install-test.sh (desktop-file-utils), and xclip, through which page-steps-probe.py pastes a path into
+#     the file dialog,
 #     installed in `gate` already, because they are small;
 #   - the toolchains of page-services-native-test.mjs, whose Tally page has a WebAssembly service in Go, C#, F#,
 #     Swift, Kotlin, Java, Dart, Ruby, Lua, C++ and Python. They are the versions and checksums of rust-ci.yml's
@@ -44,6 +45,7 @@ RUN apt-get update \
       systemd \
       unzip \
       x11-utils \
+      xclip \
       xauth \
       xdg-desktop-portal \
       xdg-desktop-portal-gtk \

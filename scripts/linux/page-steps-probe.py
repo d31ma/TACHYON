@@ -60,10 +60,29 @@ class PageStepsProbe:
         return worker
 
     @staticmethod
+    def paste(text):
+        # The text goes to the clipboard and comes back with one Ctrl+V. Typed key by key, it races GTK 4.18's
+        # location entry, which completes a path inline while it is typed (notes.txt became notes.txttes.txt).
+        # xclip -quiet serves the clipboard in the foreground, so it is stopped here and leaves no process behind.
+        owner = subprocess.Popen(["xclip", "-selection", "clipboard", "-quiet"], stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, text=True)
+        owner.stdin.write(text)
+        owner.stdin.close()
+        try:
+            time.sleep(0.3)
+            subprocess.run(["xdotool", "key", "ctrl+v"], check=True)
+            time.sleep(1)
+        finally:
+            owner.terminate()
+            owner.wait(5)
+
+    @staticmethod
     def press(keys):
         for key in keys:
-            command = ["xdotool", "type", "--delay", "20", key["type"]] if isinstance(key, dict) else ["xdotool", "key", key]
-            subprocess.run(command, check=True)
+            if isinstance(key, dict) and "paste" in key:
+                PageStepsProbe.paste(key["paste"])
+            else:
+                command = ["xdotool", "type", "--delay", "20", key["type"]] if isinstance(key, dict) else ["xdotool", "key", key]
+                subprocess.run(command, check=True)
             time.sleep(0.3)
 
     @staticmethod
