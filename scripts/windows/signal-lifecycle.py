@@ -30,6 +30,24 @@ def next_line(output: queue.Queue[str], description: str) -> str:
         raise RuntimeError(f"timed out waiting for {description}") from error
 
 
+def next_event(output: queue.Queue[str], name: str) -> dict:
+    while True:
+        event = json.loads(next_line(output, name))
+        if event.get("event") == name:
+            return event
+        check_egress_warning(event)
+
+
+def check_egress_warning(event: dict) -> None:
+    named = event.get("event") == "handler.egress_unenforced"
+    warns = event.get("level") == "warning"
+    explained = all(
+        isinstance(event.get(key), str) and event[key] for key in ("message", "reason")
+    )
+    if not (named and warns and explained):
+        raise RuntimeError(f"unexpected event before the signal event: {event}")
+
+
 def write_project(project: pathlib.Path) -> None:
     page = project / "client" / "pages" / "tac.html"
     page.parent.mkdir(parents=True)
@@ -59,7 +77,7 @@ def start_server(binary: pathlib.Path, project: pathlib.Path) -> subprocess.Pope
 
 
 def check_startup(stdout: queue.Queue[str], stderr: queue.Queue[str]) -> None:
-    startup = json.loads(next_line(stderr, "handler startup"))
+    startup = next_event(stderr, "runtime.signal_handlers_ready")
     if startup.get("installed") != ["CTRL_C", "CTRL_BREAK"]:
         raise RuntimeError(f"unexpected startup event: {startup}")
     ready = next_line(stdout, "server readiness")
@@ -75,7 +93,7 @@ def check_break_signal(child: subprocess.Popen[str]) -> None:
     check_startup(stdout, stderr)
 
     os.kill(child.pid, signal.CTRL_BREAK_EVENT)
-    receipt = json.loads(next_line(stderr, "CTRL-BREAK receipt"))
+    receipt = next_event(stderr, "runtime.shutdown_requested")
     if receipt.get("signal") != "CTRL_BREAK":
         raise RuntimeError(f"unexpected receipt event: {receipt}")
     status = child.wait(timeout=10)
