@@ -196,6 +196,16 @@ lifetime that the service owns. Annotations do not change which type the
 native bridge selects as the page, and they do not add Tac DI (dependency
 injection).
 
+## Page state (Tac only)
+
+`@LocalState` and `@SessionState` go on a field of a Tac service. The page
+keeps the field in the browser's `localStorage` or `sessionStorage`, so its
+value comes back after a reload: in later visits on the same device for
+`@LocalState`, and in the same tab for `@SessionState`. A field takes one of
+the two, never both and never together with `@Needs`. Each language writes
+them in its own marker form; a Python field writes them in its type
+(`Annotated[str, local_state]`). Yon code has no page, so it refuses them.
+
 ## Annotation Reference
 
 Rules for every declaration:
@@ -481,7 +491,7 @@ language gets:
 | Language | Declaration | Cleared before every case | Construct helper |
 | --- | --- | --- | --- |
 | JavaScript, TypeScript | yes | yes, to `undefined` | `this.construct(Role)` |
-| Python | yes | yes, to `None` | no |
+| Python | yes, written in the field's type: `name: Annotated[Type, fake]` (a `@fake` decorator is `TY1308`) | yes, to `None` | no |
 | Ruby | yes | yes, to `nil` | `construct(Role)` |
 | Lua | yes | yes, to `nil` | `self:construct(Role)` |
 | PHP | yes | yes: a typed field is unset, an untyped field becomes `null` | no |
@@ -549,6 +559,7 @@ makes Rust work, since Rust has no reflection to find cases at run time.
 | `@TestSettings({"yon.catalog.size":5})` | At most 64 bounded literal properties. Each must be inside the realm's own namespace: a Tac unit cannot reach `yon.*`. Every unit passes each path as its environment name (`tac.catalog.mode` is `TAC_CATALOG_MODE`) and each value as text (`"fast"` is `fast`, `5` is `5`), so the TestSetup's `@WhenSetting` and `@Settings` see it. |
 | `@Fake` | A field that the test assigns. In JavaScript and TypeScript, `construct(Role)` passes it to any role with a `@Needs` field of that name. At most 32 per unit. Each must be a field without an initial value and not static. |
 | `@FreshStart` | Disposes the context between cases. Accepted, and the driver already does this. |
+| `@ValueSource([0, 5, 1000])` | Goes on a test case. The case runs once for each value in the list and receives the value as its argument. |
 
 **Bare markers.** A marker without arguments is written bare, as Spring writes
 it: `@Service`, `@Delegate`, `@Store`, `@Setup`, `@Needs`,
