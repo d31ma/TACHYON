@@ -20,7 +20,7 @@ impl MethodBody {
             "swift" => SwiftBody::edits(header),
             "fs" => FsharpCallBody::edits(header),
             "lua" => LuaBody::edits(header),
-            _ => BraceBody::edits(header),
+            _ => BraceBody::edits(language, header),
         }
     }
 }

@@ -481,6 +481,60 @@ fn a_java_one_line_method_with_braces_in_its_body_records_its_call_first() {
 }
 
 #[test]
+fn a_rust_method_with_a_where_clause_records_its_call_in_its_own_body() {
+    let output = hooked(
+        "server/services/CatalogService.rs",
+        "#[Service()]\nstruct CatalogService {}\nimpl CatalogService {\n    fn first<T>(&self, x: T) -> T\n    where\n        T: Clone,\n    {\n        x\n    }\n\n    fn second(&self) -> i32 {\n        1\n    }\n}\n",
+    );
+    assert!(
+        output.contains(
+            "        T: Clone,\n    { BehaviorCalls::record(\"CatalogService.first\");\n        x\n"
+        ),
+        "{output}"
+    );
+}
+
+#[test]
+fn a_last_rust_method_with_a_where_clause_records_its_call() {
+    let output = hooked(
+        "server/services/CatalogService.rs",
+        "#[Service()]\nstruct CatalogService {}\nimpl CatalogService {\n    fn first<T>(&self, x: T) -> T\n    where\n        T: Clone,\n    {\n        x\n    }\n}\n",
+    );
+    assert!(
+        output.contains(
+            "        T: Clone,\n    { BehaviorCalls::record(\"CatalogService.first\");\n        x\n"
+        ),
+        "{output}"
+    );
+}
+
+#[test]
+fn a_cpp_method_returning_a_reference_records_its_call_in_its_own_body() {
+    let output = hooked(
+        "server/services/LabelService.hpp",
+        "#pragma once\n#include <string>\n\nclass [[Service]] LabelService {\npublic:\n    auto label() const -> const std::string& {\n        return text;\n    }\n\n    int size() const {\n        return 1;\n    }\n\n    std::string text;\n};\n",
+    );
+    assert!(
+        output.contains("-> const std::string& { BehaviorCalls::record(\"LabelService.label\");\n        return text;\n"),
+        "{output}"
+    );
+}
+
+#[test]
+fn a_typescript_method_returning_string_literal_types_is_a_method() {
+    let source = "@Service\nclass ShapeService {\n  kind(): 'circle' | 'square' {\n    return 'circle';\n  }\n}\n";
+    assert_eq!(
+        public_methods("server/services/ShapeService.ts", source),
+        vec!["kind"]
+    );
+    assert!(
+        hooked("server/services/ShapeService.ts", source)
+            .contains("'square' { Behaviors.called(\"ShapeService.kind\");\n"),
+        "{source}"
+    );
+}
+
+#[test]
 fn a_utility_records_its_static_methods() {
     let output = hooked(
         "client/shared/utils/PriceUtils.js",

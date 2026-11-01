@@ -1,10 +1,10 @@
-use super::{BodyBrace, MethodHeader, SourceEdit};
+use super::{BodyBraceFinder, MethodHeader, SourceEdit};
 
 pub(crate) struct BraceBody;
 
 impl BraceBody {
-    pub(crate) fn edits(header: &MethodHeader<'_>) -> Vec<SourceEdit> {
-        Self::open_brace(header)
+    pub(crate) fn edits(language: &str, header: &MethodHeader<'_>) -> Vec<SourceEdit> {
+        Self::open_brace(language, header)
             .map(|at| Self::hook_after(header, at))
             .into_iter()
             .collect()
@@ -14,8 +14,8 @@ impl BraceBody {
         SourceEdit::insert(open + 1, header.hook.clone())
     }
 
-    fn open_brace(header: &MethodHeader<'_>) -> Option<usize> {
+    fn open_brace(language: &str, header: &MethodHeader<'_>) -> Option<usize> {
         let from = header.parameters_end().unwrap_or(header.start);
-        BodyBrace::find(header.masked, from)
+        BodyBraceFinder::find(language, header.masked, header.source, from)
     }
 }

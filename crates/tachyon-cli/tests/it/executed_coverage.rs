@@ -91,16 +91,13 @@ impl CoverageProject {
 
     fn available(program: &str) -> bool {
         let found = Self::installed(program);
-        let required = [
-            std::env::var_os("CI").is_some(),
-            Self::INSTALLED_IN_CI.contains(&program)
-                || [
-                    cfg!(target_os = "macos"),
-                    program == Self::INSTALLED_IN_MACOS_CI,
-                ] == [true, true],
-        ] == [true, true];
+        let in_ci = std::env::var_os("CI").is_some();
+        let installed_everywhere = Self::INSTALLED_IN_CI.contains(&program);
+        let installed_on_macos =
+            cfg!(target_os = "macos") && program == Self::INSTALLED_IN_MACOS_CI;
+        let required = in_ci && (installed_everywhere || installed_on_macos);
         assert!(
-            [required, found] != [true, false],
+            found || !required,
             "{program} is installed in CI, so this test must run there instead of skipping"
         );
         found

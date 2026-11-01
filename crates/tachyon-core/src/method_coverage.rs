@@ -1,5 +1,5 @@
 mod arrow_body;
-mod body_brace;
+mod body_brace_finder;
 mod brace_body;
 mod call_hooks;
 mod class_coverage;
@@ -42,7 +42,7 @@ pub(crate) use role_class::RoleClass;
 pub use uncovered::Uncovered;
 
 use arrow_body::ArrowBody;
-use body_brace::BodyBrace;
+use body_brace_finder::BodyBraceFinder;
 use brace_body::BraceBody;
 use coverage_evidence::CoverageEvidence;
 use csharp_method_lines::CsharpMethodLines;
@@ -102,8 +102,10 @@ impl PublicMethods {
         let mut found = Vec::new();
         let mut seen = BTreeSet::new();
         let prepared = CsharpMethodLines::prepare(language, masked);
+        let originals: Vec<&str> = source.lines().collect();
         for (line_index, line) in prepared.lines().enumerate() {
-            let Some(name) = Self::method_on_line(language, line) else {
+            let original = originals.get(line_index).copied().unwrap_or(line);
+            let Some(name) = Self::method_on_line(language, line, original) else {
                 continue;
             };
             if seen.insert(name.clone()) {
@@ -129,11 +131,13 @@ impl PublicMethods {
         [has_no_body, line.trim_end().ends_with("{}")].contains(&true)
     }
 
-    fn method_on_line(language: &str, line: &str) -> Option<String> {
+    fn method_on_line(language: &str, line: &str, original: &str) -> Option<String> {
         if language == "go" {
             return go_method_name(line);
         }
         let trimmed = line.trim();
+        let indentation = line.len() - line.trim_start().len();
+        let original = original.get(indentation..).unwrap_or(trimmed);
         let is_indented = line.len() != trimmed.len();
         if trimmed.is_empty() || !is_indented {
             return None;
@@ -141,7 +145,7 @@ impl PublicMethods {
         if private(language, trimmed) || declared(language, trimmed) {
             return None;
         }
-        let name = method_name(language, trimmed)?;
+        let name = method_name(language, trimmed, original)?;
         if Self::RESERVED.contains(&name.as_str()) || name.starts_with('_') || name.starts_with('#')
         {
             return None;
@@ -174,14 +178,14 @@ fn declared(language: &str, line: &str) -> bool {
     is_bodyless_statement || has_empty_body
 }
 
-fn method_name(language: &str, line: &str) -> Option<String> {
+fn method_name(language: &str, line: &str, original: &str) -> Option<String> {
     match language {
         "py" => keyword_name(line, "def "),
         "php" => keyword_name(line, "function "),
         "kt" => keyword_name(line, "fun "),
         "swift" => keyword_name(line, "func "),
         "rs" => rust_method_name(line),
-        "js" | "ts" | "java" | "cs" | "dart" => braced_method_name(language, line),
+        "js" | "ts" | "java" | "cs" | "dart" => braced_method_name(language, line, original),
         _ => None,
     }
 }
@@ -211,7 +215,7 @@ fn rust_method_name(line: &str) -> Option<String> {
     Some(name)
 }
 
-fn braced_method_name(language: &str, line: &str) -> Option<String> {
+fn braced_method_name(language: &str, line: &str, original: &str) -> Option<String> {
     let open = line.find('(')?;
     let close = closing_parenthesis(line, open)?;
     let rest = line[close + 1..].trim_start();
@@ -221,7 +225,7 @@ fn braced_method_name(language: &str, line: &str) -> Option<String> {
     let modifiers = &before_parameters[..before_parameters.len() - name.len()];
     let has_typescript_return_type = language == "ts"
         && rest.starts_with(':')
-        && BodyBrace::opens_typescript_body(line, close + 1, modifiers);
+        && BodyBraceFinder::opens_typescript_body(line, original, close + 1, modifiers);
     let is_arrow = PublicMethods::ARROW_LANGUAGES.contains(&language) && rest.starts_with("=>");
     let opens_body = rest.starts_with('{') || has_typescript_return_type || is_arrow;
     if !opens_body {
