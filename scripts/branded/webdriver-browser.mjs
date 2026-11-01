@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process'
+import { execFileSync, spawn, spawnSync } from 'node:child_process'
 import { writeFileSync } from 'node:fs'
 import { createServer } from 'node:net'
 import { setTimeout as sleep } from 'node:timers/promises'
@@ -26,6 +26,47 @@ export class WebDriverSession {
   static startMilliseconds = 60_000
   static stopMilliseconds = 5_000
   static pollMilliseconds = 100
+  /** @type {Set<WebDriverSession>} sessions this process started and has not stopped */
+  static live = new Set()
+  static teardownInstalled = false
+
+  /**
+   * Every session this process opened is ended when the process ends, also when a gate fails or is interrupted: its
+   * WebDriver session is deleted (which quits the automation Safari) and its driver is stopped by its own PID. Without
+   * this, a failing gate left safaridriver and an automation Safari behind.
+   */
+  static installTeardown() {
+    if (WebDriverSession.teardownInstalled) return
+    WebDriverSession.teardownInstalled = true
+    const stopAll = () => Promise.all([...WebDriverSession.live].map((session) => session.stop()))
+    process.on('beforeExit', () => {
+      if (WebDriverSession.live.size > 0) stopAll()
+    })
+    for (const signal of ['SIGINT', 'SIGTERM']) {
+      process.once(signal, () => stopAll().finally(() => process.exit(128 + (signal === 'SIGINT' ? 2 : 15))))
+    }
+    process.on('uncaughtException', (error) => {
+      console.error(error)
+      stopAll().finally(() => process.exit(1))
+    })
+    process.on('unhandledRejection', (error) => {
+      console.error(error)
+      stopAll().finally(() => process.exit(1))
+    })
+    // Gates end with process.exit(), which skips beforeExit, and an 'exit' handler can't wait for fetch: delete each
+    // session synchronously so its automation Safari quits, then stop the driver.
+    process.on('exit', () => {
+      for (const session of WebDriverSession.live) {
+        if (session.id) {
+          try {
+            execFileSync('curl', ['--silent', '--max-time', '5', '--request', 'DELETE', `${session.base}/session/${session.id}`], { stdio: 'ignore' })
+          } catch {}
+        }
+        session.child.kill()
+        session.quitBrowsers()
+      }
+    })
+  }
 
   /** @param {DriverPlan} plan */
   static async start(plan) {
@@ -46,24 +87,54 @@ export class WebDriverSession {
       throw new Error(`${plan.driver} did not answer /status within ${WebDriverSession.startMilliseconds} ms: ${output.join('')}`)
     }
     const session = new WebDriverSession(base, child, plan)
+    // The driver and its pipes must not keep the gate's process alive: the session is stopped at beforeExit instead.
+    child.unref()
+    child.stdout.unref?.()
+    child.stderr.unref?.()
+    WebDriverSession.installTeardown()
+    WebDriverSession.live.add(session)
     // safaridriver boots a shut-down iOS simulator for the first session, and that boot can outlast its own wait for
     // Safari ("timed out while connecting to a Safari instance"); by then the simulator is up, so ask once more.
     const attempts = plan.capabilities['safari:useSimulator'] ? 2 : 1
     for (let attempt = 1; ; attempt++) {
       try {
+        const before = WebDriverSession.browserPids(plan)
         const created = await session.command('POST', '/session', { capabilities: { alwaysMatch: plan.capabilities } }, false)
         session.id = created.sessionId
         session.capabilities = created.capabilities
+        session.browsers = WebDriverSession.browserPids(plan).filter((pid) => !before.includes(pid))
         return session
       } catch (error) {
         if (attempt < attempts && /timed out while connecting to a Safari instance/.test(error.message)) {
           console.error(`branded: ${plan.name} was not ready for a session (${error.message}); asking again now the simulator has booted`)
           continue
         }
+        WebDriverSession.live.delete(session)
         child.kill()
         throw new Error(`${plan.driver} refused a ${plan.name} session (${error.message}). Output: ${output.join('')}`)
       }
     }
+  }
+
+  /**
+   * The desktop Safari processes running now. Deleting a WebDriver session does not quit the automation Safari it
+   * launched, so a session remembers which Safari appeared with it and quits exactly those PIDs when it ends. Safari on
+   * the iOS simulator runs inside the simulator, which its gate shuts down.
+   * @param {DriverPlan} plan @returns {number[]}
+   */
+  static browserPids(plan) {
+    if (process.platform !== 'darwin' || !plan.driver.endsWith('safaridriver') || plan.capabilities['safari:useSimulator']) return []
+    const listed = spawnSync('/usr/bin/pgrep', ['-x', 'Safari'], { encoding: 'utf8' })
+    return listed.stdout.split('\n').filter((line) => line !== '').map(Number)
+  }
+
+  quitBrowsers() {
+    for (const pid of this.browsers) {
+      try {
+        process.kill(pid, 'SIGTERM')
+      } catch {}
+    }
+    this.browsers = []
   }
 
   /** @returns {Promise<number>} */
@@ -87,6 +158,8 @@ export class WebDriverSession {
     /** @type {Record<string, any>} */
     this.capabilities = {}
     this.window = ''
+    /** @type {number[]} the desktop Safari PIDs that appeared with this session */
+    this.browsers = []
   }
 
   /** @param {string} method @param {string} route @param {unknown} [body] @param {boolean} [inSession] */
@@ -112,7 +185,9 @@ export class WebDriverSession {
   }
 
   async stop() {
+    if (!WebDriverSession.live.delete(this)) return
     await this.command('DELETE', '').catch(() => {})
+    this.quitBrowsers()
     if (this.child.exitCode !== null || this.child.signalCode !== null) return
     const exited = new Promise((resolve) => this.child.once('exit', resolve))
     this.child.kill()
@@ -875,19 +950,36 @@ export class BrandedBrowser {
     this.spare = []
     /** @type {string[]} */
     this.used = []
+    /** @type {BrandedBrowser|undefined} the guarded browser a gate holds */
+    this.guarded = undefined
   }
 
-  /** @param {DriverPlan} plan */
+  /** @type {Map<string, BrandedBrowser>} the live browser of each plan in this process */
+  static shared = new Map()
+
+  /**
+   * A gate that launches the browser again gets the same live session back, so a gate costs one Safari launch rather
+   * than one per check. Each launch still starts with no open context, so a check sees a fresh page.
+   * @param {DriverPlan} plan
+   */
   static async launch(plan) {
+    const live = BrandedBrowser.shared.get(plan.name)
+    if (live && WebDriverSession.live.has(live.session)) {
+      if (live.current) await live.current.close()
+      return live.guarded
+    }
     const session = await WebDriverSession.start(plan)
     const handle = await session.command('GET', '/window')
     session.window = handle
     const caps = session.capabilities
     const userAgent = await session.command('POST', '/execute/sync', { script: 'return navigator.userAgent', args: [] })
     const version = `${caps.browserName ?? plan.name} ${caps.browserVersion ?? ''}`.trim()
-    const browser = BrandedObject.guard(new BrandedBrowser(session, version), plan.name, 'browser')
+    const target = new BrandedBrowser(session, version)
+    const browser = BrandedObject.guard(target, plan.name, 'browser')
     browser.spare.push(handle)
     browser.userAgent = userAgent
+    target.guarded = browser
+    BrandedBrowser.shared.set(plan.name, target)
     return browser
   }
 
@@ -949,8 +1041,8 @@ export class BrandedBrowser {
     if (this.current === context) this.current = undefined
   }
 
+  /** Closes the gate's context; the session stays for the gate's next launch and ends when the process ends. */
   async close() {
     if (this.current) await this.current.close()
-    await this.session.stop()
   }
 }
