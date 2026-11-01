@@ -21,6 +21,7 @@ import WebKit
 
     @MainActor private static func run(_ arguments: [String]) async throws {
         switch arguments.count {
+        case 2 where arguments[1] == "lifecycle": try lifecycle()
         case 2: try css()
         case 7: try await ui(arguments)
         case 8: try retainedStore(arguments)
@@ -190,19 +191,44 @@ import WebKit
         try isolated(scene)
         await scene.session.invalidate()
         try NativeUiRuntimeFailure.require(request("started") == "{\"value\":1}" && request("stopped") == "{\"value\":0}", "CSS updated native lifecycle")
-        _ = tacNativeInvoke("{\"route\":\"/\",\"service\":\"liveCounter\",\"owner\":\"6F9619FF-8B86-D011-B42D-00C04FC964FF\",\"op\":\"dispose\"}")
         try observedStop()
 
         scene.window.close()
         print("native-ui-styles-webkit-passed pid=\(ProcessInfo.processInfo.processIdentifier) window=\(window)")
     }
 
+    @MainActor private static func lifecycle() throws {
+        try NativeUiRuntimeFailure.require(!invoke(firstOwner, "init").contains("error"), "Native service did not initialize")
+        try NativeUiRuntimeFailure.require(request("increment") == "{\"value\":1}", "Native count did not increment")
+        try observedStop()
+        print("native-ui-styles-lifecycle-passed")
+    }
+
     @MainActor private static func observedStop() throws {
         let owner = "6F9619FF-8B86-D011-B42D-00C04FC964FE"
-        let answer = tacNativeInvoke("{\"route\":\"/\",\"service\":\"liveCounter\",\"owner\":\"\(owner)\",\"op\":\"init\"}")
-        try NativeUiRuntimeFailure.require(!answer.contains("error"), "Lifecycle observer did not initialize")
-        try NativeUiRuntimeFailure.require(request("stopped", owner) == "{\"value\":1}", "Explicit final disposal must stop exactly once")
-        _ = tacNativeInvoke("{\"route\":\"/\",\"service\":\"liveCounter\",\"owner\":\"\(owner)\",\"op\":\"dispose\"}")
+        let identity = request("identity")
+        _ = invoke(firstOwner, "dispose")
+        try NativeUiRuntimeFailure.require(!invoke(owner, "init").contains("error"), "Lifecycle observer did not initialize")
+        try requireCounts(owner, "Disposing the last owner stopped the page singleton", started: 1, stopped: 0)
+        try NativeUiRuntimeFailure.require(request("identity", owner) == identity && request("read", owner) == "{\"value\":1}", "A new owner did not reach the running page singleton")
+        _ = tacNativeInvoke("{\"op\":\"host-dispose\"}")
+        _ = tacNativeInvoke("{\"op\":\"host-dispose\"}")
+        try NativeUiRuntimeFailure.require(!invoke(owner, "init").contains("error"), "Lifecycle observer did not initialize after page exit")
+        try requireCounts(owner, "Explicit final disposal must stop exactly once", started: 2, stopped: 1)
+        try NativeUiRuntimeFailure.require(request("read", owner) == "{\"value\":0}", "Page exit kept the old page singleton")
+        _ = invoke(owner, "dispose")
+    }
+
+    @MainActor private static func requireCounts(_ owner: String, _ message: String, started: Int, stopped: Int) throws {
+        let observed = [request("started", owner), request("stopped", owner)]
+        let expected = ["{\"value\":\(started)}", "{\"value\":\(stopped)}"]
+        try NativeUiRuntimeFailure.require(observed == expected, message + "; started/stopped=\(observed)")
+    }
+
+    private static let firstOwner = "6F9619FF-8B86-D011-B42D-00C04FC964FF"
+
+    @MainActor private static func invoke(_ owner: String, _ operation: String) -> String {
+        tacNativeInvoke("{\"route\":\"/\",\"service\":\"liveCounter\",\"owner\":\"\(owner)\",\"op\":\"\(operation)\"}")
     }
 
     @MainActor private static func initialized(_ scene: NativeUiStyleScene) async throws {

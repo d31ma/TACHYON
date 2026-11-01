@@ -27,7 +27,7 @@ impl CollectorService {
     pub fn started(&self) -> Result<(), String> {
         let (stop, receiver) = std::sync::mpsc::channel();
         let (ready, started) = std::sync::mpsc::channel();
-        let worker = std::thread::spawn(move || { ready.send(()).unwrap(); receiver.recv().unwrap(); });
+        let worker = std::thread::spawn(move || { let _ = ready.send(()); let _ = receiver.recv(); });
         *self.stop.lock().unwrap() = Some(stop);
         *self.worker.lock().unwrap() = Some(worker);
         started.recv_timeout(std::time::Duration::from_secs(2)).map_err(|_| String::from("worker start failed"))?;

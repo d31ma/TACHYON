@@ -192,6 +192,7 @@ async fn native_ui_host_fixture_compiles_generated_appdelegate_and_quiet_capture
         receipt.contains("native-ui-styles-css-profile-passed"),
         "{receipt}"
     );
+    NativeUiStylesFixture::check_lifecycle(&executable).await;
     let fingerprint = NativeUiHostFixture::fingerprint(&executable);
     let installed = fixture.generation("installed", "main { color: black; }", &fingerprint);
     let candidate = fixture.generation("candidate", "main { color: blue; }", &fingerprint);

@@ -34,7 +34,13 @@ private final class ApplicationCheck {
         try require(count("joined") == 1 && count("stopped") == 1, "Quit from Help did not join exactly once")
         delegate.applicationWillTerminate(Notification(name: NSApplication.willTerminateNotification))
         try require(count("joined") == 1 && count("stopped") == 1, "Repeated shutdown ran cleanup twice")
-        try require(!tacRustNativeApplicationStart(), "Retired application revived")
+        try require(tacRustNativeApplicationStart(), "A cleanly stopped application did not start again")
+        try require(count("created") == 2 && count("started") == 2, "A restart did not create new application services")
+        let again = "00000000-0000-4000-8000-000000000003"
+        try require(!request(again, "init", "").contains("error"), "Reader init failed after a restart")
+        try require(request(again, "call", "read") == "{\"value\":0}", "State carried over from the stopped application")
+        tacRustNativeApplicationShutdown()
+        try require(count("joined") == 2 && count("stopped") == 2, "The restarted application did not join exactly once")
         FileHandle.standardOutput.write(Data("generated AppDelegate Home/Help/Home and joined Quit passed\n".utf8))
     }
 

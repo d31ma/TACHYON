@@ -174,6 +174,14 @@ impl NativeUiStylesFixture {
             .await
             .expect("supervised actual stylesheet fixture")
     }
+
+    pub(super) async fn check_lifecycle(executable: &Path) {
+        let result = Self::execute(executable, &["lifecycle"]).await;
+        assert!(
+            result.contains("native-ui-styles-lifecycle-passed"),
+            "{result}"
+        );
+    }
 }
 
 #[tokio::test]
@@ -185,6 +193,7 @@ async fn native_ui_styles_compiles_and_rejects_unsupported_css_without_opening_a
         result.contains("native-ui-styles-css-profile-passed"),
         "{result}"
     );
+    NativeUiStylesFixture::check_lifecycle(&executable).await;
     let installed = fixture.generation("installed", "main { color: black; }");
     let candidate = fixture.generation("candidate", "main { color: blue; }");
     let arguments = std::iter::once("store")
