@@ -1665,7 +1665,7 @@ promote any tier.
 | Linux (GTK 4.14.5, WebKitGTK 2.52.6, x86_64 cloud, Xvfb + xfwm4) | Alt+Left, Alt+Right, the Back and Forward keys, mouse buttons 8 and 9 (host binding; WebKitGTK alone ignores them) | passed | `linux_generated_host_goes_back_and_forward_through_page_history` |
 | macOS 26.6.2, Xcode 27.1, arm64 | View > Back (Command-[), View > Forward (Command-]), trackpad swipes | passed (menu keys and items; trackpad swipes are not driven) | `macos_view_menu_goes_back_and_forward_through_the_web_view_history` |
 | iOS 18.0 simulator (iPhone 16 Pro), Xcode 27.1 | edge swipes | passed | `TAC_IOS_RUNTIME=.iOS-18-0 scripts/ios/system-back-test.mjs` |
-| iOS 26.5 simulator (iPhone 17 Pro), Xcode 27.1 | edge swipes | failed: the XCUITest edge drag does not move the web view back, and does not move Safari back either | `scripts/ios/system-back-test.mjs` |
+| iOS 26.5 simulator (iPhone 17 Pro), Xcode 27.1 | edge swipes; the page's `history.back()` | LIMITED in unattended runs, not a pass: an injected edge drag starts WebKit's back swipe but often releases too slowly to complete it; `history.back()` goes back. A manual check with the simulator's own edge gesture went back (2026-11-01) | `scripts/ios/system-back-test.mjs` (exit 77 when LIMITED) |
 | Android 15 (API 35) emulator, gesture navigation, WebView 124.0.6367.219 | Back key and the back gesture; Back on the first route leaves the app | passed | `scripts/android/system-back-test.mjs` |
 | Windows 11 25H2 (26200.9711) arm64, WebView2 155.0.4283.62, signed-in desktop | WebView2's own Alt+Left, Alt+Right and mouse back and forward buttons | passed | `scripts/windows/system-back-test.mjs` |
 
@@ -1676,6 +1676,16 @@ forward. A real touch on iOS 26 is not checked by these runs. Two System Back
 runs need a person: a real touch on an iOS 26 device, and a person at a Mac
 trackpad for the swipes. The support table claims the iOS 18.0 run and the
 macOS menu keys and items only.
+
+Since 2026-11-01 the iOS gate tries each swipe three times. If the app goes
+back and then forward, it passes. If no swipe completes, it reports LIMITED
+(exit 77, never a pass) and proves back navigation through the page's
+`history.back()` button instead. On 2026-11-01 a manual check on the iOS 26.5
+simulator used the simulator's own left-edge gesture: the app went back once
+in three tries, and in another try WebKit's interactive back swipe started and
+then snapped back. So the host's gesture works on iOS 26.5, and injected
+swipes complete it only some of the time. A release gate run that ends LIMITED
+is listed as LIMITED, not passed.
 
 ### Component styles on WebKitGTK (2026-10-25, GP1)
 
