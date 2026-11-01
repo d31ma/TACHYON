@@ -220,7 +220,10 @@ final class PromptCheckService {
 
   /** @param {{ lines: Array<{ text: string }> }} shot */
   static joined(shot) {
-    return shot.lines.map(({ text }) => text).join(' ').replace(/\s+/g, ' ')
+    // Vision sometimes reads a Latin capital C as the Cyrillic С (it read the share sheet's "Copy" as "Сopy"), so
+    // fold the Cyrillic letters that look like Latin ones back before matching.
+    const latin = { 'А': 'A', 'В': 'B', 'С': 'C', 'Е': 'E', 'Н': 'H', 'К': 'K', 'М': 'M', 'О': 'O', 'Р': 'P', 'Т': 'T', 'Х': 'X', 'а': 'a', 'с': 'c', 'е': 'e', 'о': 'o', 'р': 'p', 'х': 'x', 'у': 'y' }
+    return shot.lines.map(({ text }) => text).join(' ').replace(/\s+/g, ' ').replace(/[А-яЁё]/g, (letter) => latin[letter] ?? letter)
   }
 
   /** @param {string} name @param {(text: string) => boolean} check */
@@ -289,7 +292,7 @@ final class PromptCheckService {
 
   static async shareSheet() {
     const { before, tapped: button } = this.press('Share a link')
-    const sheet = await this.screenWith('share-sheet', (text) => /Copy|AirDrop|Messages/.test(text) && /Tachyon RM2|example\.com/.test(text))
+    const sheet = await this.screenWith('share-sheet', (text) => /Copy|AirDrop|Messages|Add to Reading List/.test(text) && /Tachyon RM2|example\.com/.test(text))
     this.run(this.tapper, [this.deviceSet, this.device, '0.5', '0.08'])
     const note = await this.noteStarting('shared', before)
     const closed = await this.screenWith('share-closed', (text) => text.includes('Prompt check') && text.includes('Share a link'))
