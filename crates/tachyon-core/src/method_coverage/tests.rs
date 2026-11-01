@@ -380,6 +380,106 @@ fn a_one_line_typescript_method_with_an_object_type_records_its_call_in_its_body
     );
 }
 
+fn public_methods(relative: &str, source: &str) -> Vec<String> {
+    RoleClass::read(Path::new(relative), source)
+        .expect("role class")
+        .expect("role")
+        .methods
+        .into_iter()
+        .map(|method| method.name)
+        .collect()
+}
+
+#[test]
+fn a_typescript_ternary_returning_an_object_is_not_a_method() {
+    let source = "@Service\nclass CatalogService {\n  private pick(found: boolean): unknown {\n    return found ? toItem(row) : { id: '', name: '' };\n  }\n}\n";
+    assert_eq!(
+        public_methods("server/services/CatalogService.ts", source),
+        Vec::<String>::new()
+    );
+    assert_eq!(hooked("server/services/CatalogService.ts", source), source);
+}
+
+#[test]
+fn a_typescript_member_declared_with_an_object_type_is_not_a_method() {
+    let source = "@Service\nclass CatalogService {\n  label(id: string): { text: string };\n}\n";
+    assert_eq!(
+        public_methods("server/services/CatalogService.ts", source),
+        Vec::<String>::new()
+    );
+    assert_eq!(hooked("server/services/CatalogService.ts", source), source);
+}
+
+#[test]
+fn a_typescript_overload_with_an_object_type_is_not_a_method() {
+    let source = "@Service\nclass CatalogService {\n  label(id: string): string;\n  label(id: number): string | { text: string };\n  private labelOf(id: unknown): unknown {\n    return id;\n  }\n}\n";
+    assert_eq!(
+        public_methods("server/services/CatalogService.ts", source),
+        Vec::<String>::new()
+    );
+    assert_eq!(hooked("server/services/CatalogService.ts", source), source);
+}
+
+#[test]
+fn a_typescript_case_returning_an_object_is_not_a_method() {
+    let source = "@Service\nclass CatalogService {\n  private pick(x: number): unknown {\n    switch (x) {\n      case kind(x): return { a: 1 };\n    }\n    return null;\n  }\n}\n";
+    assert_eq!(
+        public_methods("server/services/CatalogService.ts", source),
+        Vec::<String>::new()
+    );
+    assert_eq!(hooked("server/services/CatalogService.ts", source), source);
+}
+
+#[test]
+fn a_typescript_async_arrow_returning_an_object_is_not_a_method() {
+    let source = "@Service\nclass CatalogService {\n  private pick(): unknown {\n    const f = async (): Promise<{ a: number }> => ({ a: 1 });\n    return f;\n  }\n}\n";
+    assert_eq!(
+        public_methods("server/services/CatalogService.ts", source),
+        Vec::<String>::new()
+    );
+    assert_eq!(hooked("server/services/CatalogService.ts", source), source);
+}
+
+#[test]
+fn a_method_sharing_its_line_with_another_records_its_call_in_its_own_body() {
+    let output = hooked(
+        "server/services/SizeService.java",
+        "@Service\nclass SizeService {\n    int w = 1;\n    int width() { return w; } int height() { return 2; }\n}\n",
+    );
+    assert!(
+        output.contains("int width() { BehaviorCalls.record(\"SizeService.width\"); return w; } int height() { return 2; }"),
+        "{output}"
+    );
+}
+
+#[test]
+fn a_go_method_returning_an_empty_struct_records_its_call_in_its_body() {
+    let output = hooked(
+        "server/services/ShapeService.go",
+        "// @Service()\ntype ShapeService struct{}\n\nfunc (service *ShapeService) Empty() struct{} { return struct{}{} }\n",
+    );
+    assert!(
+        output.contains(
+            "Empty() struct{} { behaviorCallsRecord(\"ShapeService.Empty\"); return struct{}{} }"
+        ),
+        "{output}"
+    );
+}
+
+#[test]
+fn a_java_one_line_method_with_braces_in_its_body_records_its_call_first() {
+    let output = hooked(
+        "server/services/ListService.java",
+        "@Service\nclass ListService {\n    int[] all() { return new int[]{1, 2}; }\n}\n",
+    );
+    assert!(
+        output.contains(
+            "int[] all() { BehaviorCalls.record(\"ListService.all\"); return new int[]{1, 2}; }"
+        ),
+        "{output}"
+    );
+}
+
 #[test]
 fn a_utility_records_its_static_methods() {
     let output = hooked(

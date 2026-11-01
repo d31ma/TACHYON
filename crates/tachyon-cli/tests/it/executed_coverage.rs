@@ -72,10 +72,13 @@ struct CoverageProject;
 impl CoverageProject {
     const YON_FAKE_LANGUAGES: [(&'static str, &'static str); 3] =
         [("js", "bun"), ("ts", "bun"), ("rb", "ruby")];
-    const INSTALLED_IN_CI: [&'static str; 15] = [
-        "php", "php-cgi", "groovyc", "kotlinc", "dart", "lua", "go", "ruby", "bun", "cargo",
-        "clang++", "dotnet", "javac", "python3", "node",
+    const INSTALLED_IN_CI: [&'static str; 13] = [
+        "php-cgi", "groovyc", "kotlinc", "dart", "go", "ruby", "bun", "cargo", "clang++", "dotnet",
+        "javac", "python3", "node",
     ];
+    const INSTALLED_IN_MACOS_CI: &'static str = "swiftc";
+    const WINDOWS_SHELL: &'static str = "cmd";
+    const WINDOWS_SHELL_RUN: [&'static str; 2] = ["/D", "/C"];
     const PREVIEW_WAIT_SECONDS: u64 = 120;
     const TEST_ONLY_SERVICE_SETTINGS: &'static str = r#"{"visibility":{"check":false}}"#;
 
@@ -90,7 +93,11 @@ impl CoverageProject {
         let found = Self::installed(program);
         let required = [
             std::env::var_os("CI").is_some(),
-            Self::INSTALLED_IN_CI.contains(&program),
+            Self::INSTALLED_IN_CI.contains(&program)
+                || [
+                    cfg!(target_os = "macos"),
+                    program == Self::INSTALLED_IN_MACOS_CI,
+                ] == [true, true],
         ] == [true, true];
         assert!(
             [required, found] != [true, false],
@@ -100,12 +107,22 @@ impl CoverageProject {
     }
 
     fn installed(program: &str) -> bool {
-        Command::new(Self::command_name(program))
-            .arg(match program {
-                "go" => "version",
-                "kotlinc" => "-version",
-                _ => "--version",
-            })
+        let name = Self::command_name(program);
+        let flag = match program {
+            "go" => "version",
+            "kotlinc" => "-version",
+            _ => "--version",
+        };
+        let mut shell = Command::new(Self::WINDOWS_SHELL);
+        shell.args(Self::WINDOWS_SHELL_RUN).arg(name);
+        [Some(Command::new(name)), cfg!(windows).then_some(shell)]
+            .into_iter()
+            .flatten()
+            .any(|mut command| Self::succeeds(command.arg(flag)))
+    }
+
+    fn succeeds(command: &mut Command) -> bool {
+        command
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .status()

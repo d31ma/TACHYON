@@ -1,4 +1,5 @@
 mod arrow_body;
+mod body_brace;
 mod brace_body;
 mod call_hooks;
 mod class_coverage;
@@ -41,6 +42,7 @@ pub(crate) use role_class::RoleClass;
 pub use uncovered::Uncovered;
 
 use arrow_body::ArrowBody;
+use body_brace::BodyBrace;
 use brace_body::BraceBody;
 use coverage_evidence::CoverageEvidence;
 use csharp_method_lines::CsharpMethodLines;
@@ -214,15 +216,18 @@ fn braced_method_name(language: &str, line: &str) -> Option<String> {
     let close = closing_parenthesis(line, open)?;
     let rest = line[close + 1..].trim_start();
     let rest = without_async_modifier(rest).trim_start();
-    let has_typescript_return_type =
-        language == "ts" && rest.starts_with(':') && rest.contains('{');
+    let before_parameters = line[..open].trim_end();
+    let name = before_parameters.rsplit([' ', '\t', '*']).next()?;
+    let modifiers = &before_parameters[..before_parameters.len() - name.len()];
+    let has_typescript_return_type = language == "ts"
+        && rest.starts_with(':')
+        && BodyBrace::opens_typescript_body(line, close + 1, modifiers);
     let is_arrow = PublicMethods::ARROW_LANGUAGES.contains(&language) && rest.starts_with("=>");
     let opens_body = rest.starts_with('{') || has_typescript_return_type || is_arrow;
     if !opens_body {
         return None;
     }
-    let before_parameters = line[..open].trim_end();
-    identifier(before_parameters.rsplit([' ', '\t', '*']).next()?)
+    identifier(name)
 }
 
 fn without_async_modifier(text: &str) -> &str {
