@@ -990,6 +990,35 @@ fn every_dispatch_path_reaches_the_route_guard_or_is_declared_public()
 }
 
 #[test]
+fn the_published_api_reference_shows_only_what_the_route_guard_allows_anonymously()
+-> Result<(), Box<dyn std::error::Error>> {
+    let core = repository_root().join("crates/tachyon-core/src");
+    let reference = fs::read_to_string(core.join("handler/api_reference.rs"))?;
+    let site_build = fs::read_to_string(core.join("compiler/site_build.rs"))?;
+    let published = function_bodies(&reference)
+        .into_iter()
+        .find(|(name, _)| name == "published_files")
+        .map(|(_, body)| body)
+        .ok_or("api_reference.rs no longer has `published_files`")?;
+    assert!(
+        published.contains("Self::controller_routes(graph, RouteGuard::allows_anonymous"),
+        "`published_files` must list routes through `RouteGuard::allows_anonymous`"
+    );
+    let contract_callers: Vec<String> = function_bodies(&site_build)
+        .into_iter()
+        .filter(|(_, body)| body.contains("ApiReference::contract("))
+        .map(|(name, body)| (name, body.contains("ApiBaselineCheck::verify(")))
+        .filter(|(_, verifies)| !verifies)
+        .map(|(name, _)| name)
+        .collect();
+    assert!(
+        contract_callers.is_empty(),
+        "site_build.rs uses the full API contract outside the baseline check in {contract_callers:?}"
+    );
+    Ok(())
+}
+
+#[test]
 fn ci_runs_the_browser_gates_that_exist() -> Result<(), Box<dyn std::error::Error>> {
     let root = repository_root();
     let workflow = fs::read_to_string(root.join(".github/workflows/rust-ci.yml"))?;

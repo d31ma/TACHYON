@@ -96,7 +96,7 @@ use middleware_outcome::MiddlewareOutcome;
 use preview_dispatch::PreviewDispatch;
 use protocol_request::ProtocolRequest;
 use public_assets::PublicAssets;
-use route_guard::RouteGuard;
+pub(crate) use route_guard::RouteGuard;
 use server_listener::ServerListener;
 use server_response::ServerResponse;
 use server_runtime::{BackgroundPlan, ProducerTasks, ServerRuntime};

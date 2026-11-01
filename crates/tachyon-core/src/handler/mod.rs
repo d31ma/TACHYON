@@ -17,7 +17,7 @@ pub(crate) fn fuzz_resource_headers(bytes: &[u8]) {
     resources::ResourceAccess::fuzz_headers(bytes);
 }
 
-pub(crate) use api_reference::files as api_reference_files;
+pub(crate) use api_reference::ApiReference;
 pub use egress::EgressLaunch;
 pub(crate) use egress::{EgressPump, EgressSetup, NodeProxyGate};
 pub use interpreters::Workers;

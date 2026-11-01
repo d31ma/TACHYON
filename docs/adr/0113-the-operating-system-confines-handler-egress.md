@@ -120,7 +120,9 @@ in the platform layer.
   proxy credentials in the environment.
 - It still allows any port on a declared host. A port list needs a
   `host:port` form in `outgoing.hosts`, which is a configuration change of its
-  own (follow-up).
+  own (follow-up). The release that adds it also revisits the per-run
+  credential. Both are known limits of the release candidate
+  ([threat model](../THREAT_MODEL.md)).
 
 ### Linux launcher
 
@@ -165,6 +167,10 @@ such as a Go transport built from scratch, is refused by the operating system.
   `ty start` needs the opt-out. A network-namespace layer for those kernels is follow-up work.
 - `ty handler invoke` runs no guard, and so no confinement: it is a development
   tool that runs the developer's own code.
+- `ty test` runs its Yon test units without a guard as well, so they are not
+  confined either. Starting the guard there, as `ty start` does, is follow-up
+  work; until then it is a known limit of the release candidate
+  ([threat model](../THREAT_MODEL.md)).
 
 ## What it does not cover
 

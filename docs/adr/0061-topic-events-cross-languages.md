@@ -174,7 +174,10 @@ by default.
 - One client address holds at most 16 open topic streams, so one client can
   no longer take all 128 subscriber slots. The address is the peer address,
   or the client that a trusted proxy names (`X-Real-IP` after
-  `ForwardedHeaders`).
+  `ForwardedHeaders`). Two addresses can still fill a public topic's 32
+  streams, and eight the whole server. Limits per identity and caps the
+  operator sets are follow-up work; until then this is a known limit of the
+  release candidate ([threat model](../THREAT_MODEL.md)).
 - Delivery to Yon listeners does not change: it runs inside the server and
   never passes through the topic route.
 
@@ -186,6 +189,17 @@ schema of the routes on that path that the caller may call. When the caller
 may call none of them, it answers with the guard's refusal (401, 403 or
 500). A CORS preflight still answers first, from `CrossOrigin`, because a
 browser sends it without credentials.
+
+### The published API reference lists only public routes
+
+`/api.json` and `/api-docs/` published every controller route's schema as
+static files, guarded routes included: the same schema `OPTIONS` now hides.
+Static files cannot ask who is calling, so the build now lists only the
+routes that `RouteGuard` lets a caller without an identity call, and only
+the models those routes name. A signed-in caller reads a guarded route's
+schema from `OPTIONS`. A project whose routes are all guarded publishes
+neither file. `ty api freeze` and the `TY1338` check still compare every
+route in `server/api-baseline.json`, which is not published.
 
 ### Consequences
 

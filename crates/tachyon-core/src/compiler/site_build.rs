@@ -192,7 +192,8 @@ impl<'a> SiteBuild<'a> {
             "route-manifest.json",
             Self::pretty_json(manifest, "Route Manifest v1")?,
         );
-        let api_reference = crate::handler::api_reference_files(self.project.route_graph())?;
+        let api_reference =
+            crate::handler::ApiReference::published_files(self.project.route_graph())?;
         self.files.extend(api_reference);
         self.add_file(
             ".tachyon/register-sw.js",
@@ -256,7 +257,10 @@ impl<'a> SiteBuild<'a> {
                 self.compress,
                 &|path| compressed.sent_bytes(path),
             )?);
-        super::ApiBaselineCheck::verify(self.snapshot_root, &files)?;
+        super::ApiBaselineCheck::verify(
+            self.snapshot_root,
+            &crate::handler::ApiReference::contract(self.project.route_graph()),
+        )?;
         let output_directory = std::mem::take(&mut self.output_directory);
         let stage = BuildStage::create(&output_directory)?;
         BuildStage::output_io(BuildStage::write(stage.path(), &files), &output_directory)?;

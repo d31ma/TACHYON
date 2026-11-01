@@ -9,7 +9,7 @@ use axum::http::{HeaderMap, Response, Uri};
 use std::collections::BTreeMap;
 use tachyon_contracts::{HandlerRequest, HandlerResponse, HttpMethod};
 
-pub(in crate::server) struct RouteGuard;
+pub(crate) struct RouteGuard;
 
 impl RouteGuard {
     const LOG_KIND: &'static str = "identity";
@@ -22,6 +22,18 @@ impl RouteGuard {
     ) -> Option<Response<Body>> {
         let answer = Self::answer_when_needed(state, access, uri, headers).await;
         AccessVerdict::of(access, &answer).response()
+    }
+
+    pub(crate) fn allows_anonymous(access: &RouteAccess) -> bool {
+        let answer = Self::anonymous_answer(access);
+        AccessVerdict::of(access, &answer) == AccessVerdict::Allowed
+    }
+
+    fn anonymous_answer(access: &RouteAccess) -> IdentityAnswer {
+        if access.needs_identity() {
+            return IdentityAnswer::Nobody;
+        }
+        IdentityAnswer::NotAsked
     }
 
     async fn answer_when_needed(

@@ -180,6 +180,17 @@ separate cybersecurity review for this reconciliation.
   credentials, as browsers require. The repository policy test
   `every_dispatch_path_reaches_the_route_guard_or_is_declared_public` keeps
   this so.
+- **Published API reference.** `/api.json` and `/api-docs/` are static files,
+  so every caller gets the same copy. They list only the routes that
+  `RouteGuard` lets a caller without an identity call (`@Public`), and only
+  the models those routes name. A guarded route and a model that only
+  guarded routes use are left out. A signed-in caller reads a guarded
+  route's schema from `OPTIONS`, after the guard. A project whose routes are
+  all guarded publishes neither file. `ty api freeze` and the `TY1338` check
+  still compare every route, guarded or not, in `server/api-baseline.json`,
+  which is not published. The repository policy test
+  `the_published_api_reference_shows_only_what_the_route_guard_allows_anonymously`
+  keeps this so.
 - **Browser response storage.** Storing responses is opt-in, and only for
   same-origin GET or HEAD requests without credentials. These skip storage:
   requests with Authorization, requests with cookies, private or no-store
@@ -682,6 +693,36 @@ run `go mod vendor` with `git diff --exit-code`, `go mod verify` and
 - A real Chromium gate tests CSS retention, island replacement, disposal,
   retention of component and native DOM state, failed-build diagnostics,
   recovery and structural reload, with no browser console errors.
+
+## Known limits of this release candidate
+
+These are accepted for this release candidate. Each names where a later
+release addresses it.
+
+- **Any port on a declared host (SEC-6, partial).** The outgoing guard
+  checks the host of a request, not its port, so a handler reaches every port
+  of a host listed in `outgoing.hosts`. The guard also takes no per-run
+  credential: any process that can reach its `localhost` port can use it.
+  A confined handler reaches only its own server's guard, and an unconfined
+  local process can already reach the declared hosts itself. Later: a
+  `host:port` form in `outgoing.hosts`, the follow-up that
+  [ADR 0113](adr/0113-the-operating-system-confines-handler-egress.md) names
+  under "The guard itself", where a later release also revisits the per-run
+  credential.
+- **`ty test` units run unconfined (NEW-2).** `ty test` runs Yon test units
+  without the outgoing guard, so the operating system does not confine their
+  network access, as for `ty handler invoke`. Both are development tools that
+  run the developer's own code. Later: `ty test` starts the guard and the
+  confinement as `ty start` does, the follow-up that ADR 0113 names under
+  "Consequences".
+- **Topic stream caps (SEC-1 residual).** The server holds at most 128 topic
+  streams, 32 per topic and 16 per client address. Two client addresses can
+  therefore fill one public topic, and eight the whole server, for as long as
+  they hold their streams open. Guarded topics refuse callers without an identity
+  before they take a slot. Later: limits per identity and caps the operator
+  sets, the follow-up that
+  [ADR 0061](adr/0061-topic-events-cross-languages.md) names under "The
+  server checks every subscription".
 
 ## Remaining Security Gates
 

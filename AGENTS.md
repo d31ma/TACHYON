@@ -76,8 +76,9 @@ language-specific details and permitted exceptions in
 decorators and annotations.
 
 External builds, probes, and hooks must use the shared supervised runner.
-Respect the existing ANNEX artifact routing and `CARGO_TARGET_DIR` when
-locating a built `ty`. Use the source build command below with the project's
+Respect `CARGO_TARGET_DIR` when locating a built `ty`: a machine that sends
+build output elsewhere says so in its own agent notes (such as
+`~/.claude/CLAUDE.md`). Use the source build command below with the project's
 configured toolchain; do not assume an existing binary matches changed source.
 
 Update Graphify after code or documentation changes, following the shared

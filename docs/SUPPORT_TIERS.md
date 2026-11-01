@@ -27,6 +27,18 @@ pending on the release commit, are in [`CUTOVER.md`](CUTOVER.md). A target
 moves to `supported` only with all of the evidence in "Promotion Evidence"
 below.
 
+Known limits of the release candidate, on every target. Each is in
+[`THREAT_MODEL.md`](THREAT_MODEL.md) under "Known limits of this release
+candidate", with the ADR where a later release addresses it:
+
+- The outgoing guard lets a handler reach any port of a declared host, and
+  it takes no per-run credential (SEC-6, partial; ADR 0113).
+- `ty test` runs Yon test units without the outgoing guard, so the operating
+  system does not confine their network access (ADR 0113).
+- Topic streams are capped at 128 per server, 32 per topic and 16 per client
+  address, so two addresses can fill a public topic and eight the whole
+  server (ADR 0061).
+
 ## Reconciliation candidate evidence (unpublished)
 
 These results qualify only the working candidate. The Tier column names the

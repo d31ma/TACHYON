@@ -1,6 +1,5 @@
 use super::ApiBaselineCheck;
 use serde_json::{Value, json};
-use std::path::PathBuf;
 
 fn api() -> Value {
     json!({
@@ -48,8 +47,7 @@ fn breaks(change: impl FnOnce(&mut Value), version: &str) -> Vec<String> {
     .expect("manifest");
     let mut current = api();
     change(&mut current);
-    let files = vec![(PathBuf::from("api.json"), current.to_string().into_bytes())];
-    ApiBaselineCheck::verify(root.path(), &files)
+    ApiBaselineCheck::verify(root.path(), &current)
         .err()
         .map(|failure| {
             failure
@@ -184,5 +182,6 @@ fn additions_and_widened_inputs_are_allowed() {
 fn a_new_major_version_or_a_missing_baseline_allows_breaks() {
     assert!(breaks(|api| api["routes"] = json!([]), "2.0.0").is_empty());
     let root = tempfile::tempdir().expect("temporary project");
-    assert!(ApiBaselineCheck::verify(root.path(), &[]).is_ok());
+    let empty = json!({ "routes": [], "models": {} });
+    assert!(ApiBaselineCheck::verify(root.path(), &empty).is_ok());
 }

@@ -12,15 +12,13 @@ impl ApiBaselineCheck {
     const CODE: u16 = 1338;
     const OUTPUT_CODE: u16 = 1201;
     const BASELINE: &'static str = "server/api-baseline.json";
-    const API_FILE: &'static str = "api.json";
     const VERSION_KEY: &'static str = "application_version";
     const HELP: &'static str = "Callers built against the last release still send and expect the old shape. Keep the old route, field or type and add the new one beside it. If the break is on purpose, raise the major number of tac.application.version in client/manifest.json, such as 1.4.0 to 2.0.0. After the release, run `ty api freeze` to save the new baseline (ADR 0074).";
 
     pub fn freeze(project_root: impl AsRef<Path>) -> Result<PathBuf, Failure> {
         let root = project_root.as_ref();
         let project = ProjectDiscovery::discover(root)?;
-        let files = crate::handler::api_reference_files(project.route_graph())?;
-        let mut api = Self::current(&files);
+        let mut api = crate::handler::ApiReference::contract(project.route_graph());
         api[Self::VERSION_KEY] = Value::String(ApplicationVersion::current(root));
         let path = root.join(Self::BASELINE);
         let text = format!("{api:#}\n");
@@ -28,10 +26,10 @@ impl ApiBaselineCheck {
         Ok(path)
     }
 
-    pub(crate) fn verify(project_root: &Path, files: &[(PathBuf, Vec<u8>)]) -> Result<(), Failure> {
+    pub(crate) fn verify(project_root: &Path, current: &Value) -> Result<(), Failure> {
         let baseline = Self::baseline(project_root);
         let version = ApplicationVersion::current(project_root);
-        let breaks = Self::breaks(&baseline, &Self::current(files), &version);
+        let breaks = Self::breaks(&baseline, current, &version);
         Self::result(
             breaks
                 .iter()
@@ -46,14 +44,6 @@ impl ApiBaselineCheck {
             .ok()
             .and_then(|bytes| serde_json::from_slice(&bytes).ok())
             .unwrap_or(Value::Null)
-    }
-
-    fn current(files: &[(PathBuf, Vec<u8>)]) -> Value {
-        let api = files
-            .iter()
-            .find(|(path, _)| path == Path::new(Self::API_FILE))
-            .and_then(|(_, bytes)| serde_json::from_slice(bytes).ok());
-        api.unwrap_or_else(|| serde_json::json!({ "routes": [], "models": {} }))
     }
 
     fn breaks(baseline: &Value, current: &Value, version: &str) -> Vec<String> {

@@ -524,7 +524,9 @@ Tachyon checks role annotations before build or execution. A type and its file
 must have the suffix that matches the role, and the file must be in the shared
 role folder. Controllers live directly in `server/controllers/`. Old
 `server/routes/`, `yon.*` entries and `OPTIONS.schema.json` are refused.
-`OPTIONS` and `/api.json` publish schemas generated from the method types. See
+`OPTIONS` and `/api.json` publish schemas generated from the method types:
+`OPTIONS` only to a caller that the route's access rule lets in, and
+`/api.json` only for public routes. See
 [Yon annotations](docs/YON_ANNOTATIONS.md) for the annotation names in each
 language, scope semantics, and composition boundaries.
 

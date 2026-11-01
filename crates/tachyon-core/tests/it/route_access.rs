@@ -4,7 +4,7 @@ use crate::support::one_test_per_case::one_test_per_case;
 use std::fs;
 use std::path::Path;
 use std::time::Duration;
-use tachyon_core::{DevServer, DevServerOptions, ProjectDiscovery};
+use tachyon_core::{ApiBaselineCheck, DevServer, DevServerOptions, ProjectDiscovery};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 
@@ -269,6 +269,19 @@ impl Project {
     const ORDERS_SOURCE: &'static str = "from pathlib import Path\n\n\n@request_route(\"/orders\")\n@signed_in\nclass OrdersController:\n    _DELETED: str = \"deleted\"\n    @get_route\n    @public\n    def get_orders(self):\n        return {\"list\": \"public\"}\n\n    @post_route\n    def post_order(self):\n        Path(\"MARKERS/posted.marker\").write_text(\"posted\")\n        return {\"created\": True}\n\n    @delete_route\n    @allow(Admin)\n    def delete_orders(self):\n        Path(\"MARKERS/deleted.marker\").write_text(self._DELETED)\n        return {self._DELETED: True}\n";
     const JAVASCRIPT_ORDERS: &'static str = "@RequestRoute(\"/orders\")\n@Allow(Admin)\nexport class OrdersController {\n  @GetRoute\n  getOrders() {\n    return { list: \"admins\" };\n  }\n}\n";
 
+    const LEDGER: &'static str = "server/controllers/LedgerController.js";
+    const LEDGER_SOURCE: &'static str = "@RequestRoute(\"/ledger\")\n@Allow(Admin)\nexport class LedgerController {\n  /** @returns {Summary} */\n  @GetRoute\n  @Public\n  getSummary() {\n    return { total: 1 };\n  }\n\n  /** @param {Secret} secret */\n  @PostRoute\n  postRecord(@FromBody secret) {\n    return { saved: true };\n  }\n}\n";
+    const LEDGER_MODELS: [(&'static str, &'static str); 2] = [
+        (
+            "server/models/Summary.js",
+            "/**\n * @typedef {Object} Summary\n * @property {number} total\n */\nexport {}\n",
+        ),
+        (
+            "server/models/Secret.js",
+            "/**\n * @typedef {Object} Secret\n * @property {string} vault\n */\nexport {}\n",
+        ),
+    ];
+
     fn write(root: &Path, relative: &str, source: &str) {
         let path = root.join(relative);
         fs::create_dir_all(path.parent().expect("parent")).expect("directories");
@@ -307,6 +320,14 @@ impl Project {
             Self::JAVASCRIPT_ORDERS,
         );
         for (relative, source) in identity.files {
+            Self::write(root, relative, source);
+        }
+    }
+
+    fn guarded_ledger(root: &Path) {
+        Self::guarded_javascript(root, &IdentityProject::JAVASCRIPT);
+        Self::write(root, Self::LEDGER, Self::LEDGER_SOURCE);
+        for (relative, source) in Self::LEDGER_MODELS {
             Self::write(root, relative, source);
         }
     }
@@ -722,6 +743,68 @@ async fn options_answers_only_after_the_route_guard() {
         allowed.contains("200 OK") && allowed.contains("GET"),
         "{allowed}"
     );
+    server.stop().await;
+}
+
+#[tokio::test]
+async fn api_reference_lists_only_routes_an_anonymous_caller_may_call() {
+    if !available("node") {
+        eprintln!("skipping: node is unavailable");
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    Project::guarded_ledger(root.path());
+    let server = Server::start(root.path()).await;
+    let admin = "x-test-user: ada\r\nx-test-roles: Admin\r\n";
+    for headers in ["", admin] {
+        let api = server.call("GET", "/api.json", headers).await;
+        assert!(api.contains("200 OK"), "{api}");
+        assert!(
+            api.contains("\"/ledger\"") && api.contains("Summary"),
+            "{api}"
+        );
+        assert!(!api.contains("POST") && !api.contains("Secret"), "{api}");
+        assert!(!api.contains("\"/orders\""), "{api}");
+    }
+    let viewer = server.call("GET", "/api-docs/", "").await;
+    assert!(
+        viewer.contains("200 OK") && !viewer.contains("/orders"),
+        "{viewer}"
+    );
+    let allowed = server.call("OPTIONS", "/ledger", admin).await;
+    assert!(
+        allowed.contains("200 OK") && allowed.contains("POST") && allowed.contains("Secret"),
+        "{allowed}"
+    );
+    server.stop().await;
+}
+
+#[test]
+fn the_api_baseline_keeps_the_guarded_routes_that_api_json_leaves_out() {
+    let root = tempfile::tempdir().expect("project");
+    Project::guarded_ledger(root.path());
+    let baseline = ApiBaselineCheck::freeze(root.path()).expect("frozen baseline");
+    let frozen = fs::read_to_string(baseline).expect("baseline text");
+    assert!(
+        frozen.contains("\"/orders\"") && frozen.contains("POST") && frozen.contains("Secret"),
+        "{frozen}"
+    );
+}
+
+#[tokio::test]
+async fn a_project_whose_routes_are_all_guarded_publishes_no_api_reference() {
+    if !available("node") {
+        eprintln!("skipping: node is unavailable");
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    Project::guarded_javascript(root.path(), &IdentityProject::JAVASCRIPT);
+    let server = Server::start(root.path()).await;
+    let api = server.call("GET", "/api.json", "").await;
+    assert!(api.contains("404 Not Found"), "{api}");
+    assert!(!api.contains("/orders"), "{api}");
+    let viewer = server.call("GET", "/api-docs/", "").await;
+    assert!(!viewer.contains("API reference"), "{viewer}");
     server.stop().await;
 }
 
