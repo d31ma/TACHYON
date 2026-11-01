@@ -3588,7 +3588,7 @@
             },
             {
               "name": "server/controllers/ProductsController.go",
-              "code": "// @RequestRoute(\"/products\")\n// @Public\ntype ProductsController struct {\n\t// @Needs\n\tproductService *ProductService\n}\n\n// @PostRoute\nfunc (controller *ProductsController) PostProduct(\n\t// @FromBody\n\tproduct Product,\n) (any, error) {\n\tinput := map[string]any{\"name\": product.Name, \"level\": product.Level}\n\tif _, err := controller.productService.Accept(input); err != nil {\n\t\treturn nil, err\n\t}\n\treturn product, nil\n}\n"
+              "code": "// @RequestRoute(\"/products\")\n// @Public\ntype ProductsController struct {\n\t// @Needs\n\tproductService *ProductService\n}\n\n// @PostRoute\nfunc (controller *ProductsController) PostProduct(\n\t// @FromBody\n\tproduct Product,\n) (any, error) {\n\treturn controller.accepted(product)\n}\n\nfunc (controller *ProductsController) accepted(product Product) (any, error) {\n\tinput := map[string]any{\"name\": product.Name, \"level\": product.Level}\n\tif _, err := controller.productService.Accept(input); err != nil {\n\t\treturn nil, err\n\t}\n\treturn product, nil\n}\n"
             },
             {
               "name": "server/models/ProductInput.dart",

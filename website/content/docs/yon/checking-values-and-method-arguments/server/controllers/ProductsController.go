@@ -10,6 +10,10 @@ func (controller *ProductsController) PostProduct(
 	// @FromBody
 	product Product,
 ) (any, error) {
+	return controller.accepted(product)
+}
+
+func (controller *ProductsController) accepted(product Product) (any, error) {
 	input := map[string]any{"name": product.Name, "level": product.Level}
 	if _, err := controller.productService.Accept(input); err != nil {
 		return nil, err
