@@ -556,27 +556,10 @@ fn swift_scaffold_keeps_foundation_and_component_styles_separate() {
 
 #[tokio::test]
 async fn a_scaffolded_swift_service_answers_the_web_as_webassembly() {
-    let choices = ProjectChoices {
-        tac: vec![TacLanguage::Swift],
-        ..ProjectChoices::defaults()
-    };
-    let (_root, app) = generated(&choices);
-    let source = app.join("client/services/SwiftGreetingService.swift");
-    let copy = app.join("client/services/SwiftGreetingService.js");
-    let registry = crate::template::ServiceRegistry::discover(&app).expect("services");
-    let greeting = registry
-        .get("swiftGreeting")
-        .expect("Swift greeting service");
-    assert_eq!(greeting.script_path(), Some(copy.as_path()));
-    assert_eq!(greeting.web_assembly(), None);
-    fs::remove_file(&copy).expect("the JavaScript copy is deleted");
-    let registry = crate::template::ServiceRegistry::discover(&app).expect("services");
-    let greeting = registry
-        .get("swiftGreeting")
-        .expect("Swift greeting service");
-    assert_eq!(
-        greeting.web_assembly(),
-        Some((crate::tac_web::WebLanguage::Swift, source.as_path()))
+    let (_root, app) = ScaffoldedCopy::runs_until_deleted(
+        TacLanguage::Swift,
+        "SwiftGreetingService.swift",
+        crate::tac_web::WebLanguage::Swift,
     );
     if !crate::tac_web::swift_tests::swift_web_ready() {
         eprintln!(
@@ -604,6 +587,50 @@ impl ScaffoldedSwift {
          greeting.greet()\n\
          console.log(JSON.stringify({ before, after: greeting.message }))\n\
          process.exit(0)\n";
+}
+
+#[test]
+fn a_scaffolded_kotlin_service_runs_its_javascript_copy_until_the_copy_is_deleted() {
+    assert!(TacLanguage::Kotlin.note().contains("JavaScript copy"));
+    ScaffoldedCopy::runs_until_deleted(
+        TacLanguage::Kotlin,
+        "KotlinGreetingService.kt",
+        crate::tac_web::WebLanguage::Kotlin,
+    );
+}
+
+struct ScaffoldedCopy;
+
+impl ScaffoldedCopy {
+    fn runs_until_deleted(
+        language: TacLanguage,
+        file: &str,
+        web: crate::tac_web::WebLanguage,
+    ) -> (tempfile::TempDir, std::path::PathBuf) {
+        let choices = ProjectChoices {
+            tac: vec![language],
+            ..ProjectChoices::defaults()
+        };
+        let (root, app) = generated(&choices);
+        let services = app.join("client/services");
+        let source = services.join(file);
+        let copy = source.with_extension("js");
+        let greeting = Self::registered(&app, language);
+        assert_eq!(greeting.script_path(), Some(copy.as_path()));
+        assert_eq!(greeting.web_assembly(), None);
+        fs::remove_file(&copy).expect("the JavaScript copy is deleted");
+        let greeting = Self::registered(&app, language);
+        assert_eq!(greeting.web_assembly(), Some((web, source.as_path())));
+        (root, app)
+    }
+
+    fn registered(app: &Path, language: TacLanguage) -> crate::template::ServiceDefinition {
+        let registry = crate::template::ServiceRegistry::discover(app).expect("services");
+        registry
+            .get(language.instance())
+            .expect("the scaffolded greeting service")
+            .clone()
+    }
 }
 
 #[test]

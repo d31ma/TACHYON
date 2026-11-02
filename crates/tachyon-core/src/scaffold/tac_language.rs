@@ -51,7 +51,7 @@ impl TacLanguage {
             "kt,kotlin",
             "Kotlin",
             "kotlinGreeting",
-            "Kotlin services run natively in the Android app. On the web and the other targets, they compile to WebAssembly with garbage collection (WasmGC).",
+            "Kotlin services run natively in the Android app. On the web and the other targets, the page runs the JavaScript copy written beside the generated Kotlin service. Delete that copy to compile the service to WebAssembly with garbage collection (WasmGC).",
         ),
         (
             "java",
