@@ -164,6 +164,14 @@ export class WebDriverSession {
     return this.command('POST', '/execute/async', { script, args })
   }
 
+  /** @param {string} handle @returns {Promise<boolean>} */
+  async answers(handle) {
+    const failure = await this.command('POST', '/execute/sync', { script: 'return true', args: [] }).then(() => undefined, (error) => error)
+    if (failure === undefined) return true
+    if (!failure.message.includes(': no such window:') || !(await this.command('GET', '/window/handles')).includes(handle)) throw failure
+    return false
+  }
+
   async stop() {
     if (!WebDriverSession.live.delete(this)) return
     await this.command('DELETE', '').catch(() => {})
@@ -704,7 +712,17 @@ export class BrandedPage {
     for (const url of drained.requests) this.emit('request', { url: () => url, method: () => 'GET', resourceType: () => 'other' })
   }
 
+  async attached() {
+    await this.session.focus(this.handle)
+    const deadline = Date.now() + this.timeout
+    while (!(await this.session.answers(this.handle))) {
+      if (Date.now() >= deadline) throw new Error(`${this.browserName}: tab ${this.handle} is still open but answered "no such window" for ${this.timeout} ms after it navigated`)
+      await sleep(WebDriverSession.pollMilliseconds)
+    }
+  }
+
   async settle(waitUntil) {
+    await this.attached()
     await this.evaluateRaw(`(${PageProbe.source})()`, [])
     if (waitUntil !== 'networkidle') return
     const deadline = Date.now() + this.timeout
