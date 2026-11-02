@@ -1,9 +1,9 @@
 use crate::Failure;
 use crate::events::{EventModule, EventStream, EventType};
-use crate::failure::diagnostic;
+use crate::failure::{diagnostic, source_span};
 use crate::ruby_source::RubyNeeds;
-use std::collections::BTreeSet;
-use std::path::Path;
+use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
 
 pub(crate) struct RubyHeldStreams<'a> {
     module: &'a EventModule,
@@ -15,6 +15,7 @@ impl<'a> RubyHeldStreams<'a> {
     const MOST_STREAMS: usize = 16;
     const MOST_DEPTH: usize = 8;
     const HELPERS: &'static str = "client/delegates";
+    const HOOKS: [&'static str; 3] = ["#[OnStart", "#[OnStop", "#[OnEvent"];
     const CODE: u16 = 1605;
     const RUBY: &'static str = "Ruby";
     const LUA: &'static str = "Lua";
@@ -37,13 +38,15 @@ impl<'a> RubyHeldStreams<'a> {
     }
 
     pub(crate) fn refuse_helper_hooks(&self, snapshot_root: &Path) -> Result<(), Failure> {
-        let helpers = Self::helper_names(&snapshot_root.join(Self::HELPERS), 0);
+        let helpers = Self::helper_files(&snapshot_root.join(Self::HELPERS), 0);
         self.module
             .types
             .iter()
-            .filter(|event_type| helpers.contains(&event_type.name))
-            .find(|helper| Self::has_hooks(helper))
-            .map_or(Ok(()), |helper| Err(Self::helper_failure(&helper.name)))
+            .filter(|event_type| Self::has_hooks(event_type))
+            .find_map(|helper| helpers.get_key_value(&helper.name))
+            .map_or(Ok(()), |(name, path)| {
+                Err(Self::helper_failure(snapshot_root, name, path))
+            })
     }
 
     pub(crate) fn describe(
@@ -123,36 +126,44 @@ impl<'a> RubyHeldStreams<'a> {
         ] != [true, true, true]
     }
 
-    fn helper_names(folder: &Path, depth: usize) -> BTreeSet<String> {
+    fn helper_files(folder: &Path, depth: usize) -> BTreeMap<String, PathBuf> {
         std::fs::read_dir(folder)
             .into_iter()
             .flatten()
             .flatten()
-            .flat_map(|entry| Self::names_at(&entry.path(), depth))
+            .flat_map(|entry| Self::files_at(&entry.path(), depth))
             .collect()
     }
 
-    fn names_at(path: &Path, depth: usize) -> BTreeSet<String> {
+    fn files_at(path: &Path, depth: usize) -> BTreeMap<String, PathBuf> {
         let folder = std::fs::symlink_metadata(path).is_ok_and(|metadata| metadata.is_dir());
         if [folder, depth < Self::MOST_DEPTH] == [true, true] {
-            return Self::helper_names(path, depth + 1);
+            return Self::helper_files(path, depth + 1);
         }
         path.extension()
             .filter(|extension| *extension == "rb")
             .and_then(|_| path.file_stem()?.to_str())
-            .map(str::to_owned)
+            .map(|name| (name.to_owned(), path.to_path_buf()))
             .into_iter()
             .collect()
     }
 
-    fn helper_failure(helper: &str) -> Failure {
+    fn helper_failure(snapshot_root: &Path, helper: &str, path: &Path) -> Failure {
+        let relative = path.strip_prefix(snapshot_root).unwrap_or(path);
+        let portable = relative.to_string_lossy().replace('\\', "/");
         let message = format!(
             "The Ruby Delegate {helper} has an OnStart, OnStop or OnEvent method. A Ruby Tac Delegate is made when its service first uses it, so the page never runs those hooks."
         );
         let help = format!(
-            "Move the hook from client/delegates/{helper}.rb to the service that needs the Delegate, and let it call plain Delegate methods."
+            "Move the hook from {portable} to the service that needs the Delegate, and let it call plain Delegate methods."
         );
-        Self::failure(&message, help)
+        let text = std::fs::read_to_string(path).unwrap_or_default();
+        let span = Self::HOOKS
+            .iter()
+            .filter_map(|hook| text.find(hook).map(|at| (at, hook.len())))
+            .min()
+            .and_then(|(at, length)| source_span(&portable, at, at + length));
+        Failure::one(diagnostic(Self::CODE, message, Some(help), span))
     }
 
     fn failure(message: &str, help: String) -> Failure {

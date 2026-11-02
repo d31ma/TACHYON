@@ -220,11 +220,9 @@ fn a_ruby_delegate_with_a_lifecycle_hook_is_refused(hook: &str) {
         "client/models/LevelReset.rb",
         "# @!attribute [r] level\n#   @return [Integer]\nLevelReset = Data.define(:level)\n",
     );
-    write(
-        root.path(),
-        "client/delegates/LevelDelegate.rb",
-        &format!("#[Delegate]\nclass LevelDelegate\n{hook}\n  def level\n    @level\n  end\nend\n"),
-    );
+    let delegate =
+        format!("#[Delegate]\nclass LevelDelegate\n{hook}\n  def level\n    @level\n  end\nend\n");
+    write(root.path(), "client/delegates/LevelDelegate.rb", &delegate);
     let service = write(
         root.path(),
         "client/services/LevelService.rb",
@@ -245,6 +243,10 @@ fn a_ruby_delegate_with_a_lifecycle_hook_is_refused(hook: &str) {
             .is_some_and(|help| help.contains("client/delegates/LevelDelegate.rb")),
         "{failure}"
     );
+    let span = &diagnostic.spans[0];
+    assert_eq!(span.file, "client/delegates/LevelDelegate.rb", "{failure}");
+    let start = usize::try_from(span.start).expect("start");
+    assert!(delegate[start..].starts_with("#[On"), "{failure}");
 }
 
 one_test_per_case!(
