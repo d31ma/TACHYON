@@ -207,6 +207,35 @@ mod tests {
             ["py", "java", "rb", "go", "fs", "dart", "lua", "hpp"];
     }
 
+    struct ReloadingSources;
+
+    impl ReloadingSources {
+        const PATHS: [&'static str; 22] = [
+            "client/services/BasketService.swift",
+            "client/services/BasketService.kt",
+            "client/services/BasketService.cs",
+            "client/services/BasketService.rs",
+            "client/services/basket.js",
+            "client/services/Basket.js",
+            "client/services/nested/DeepService.js",
+            "client/components/card/tac.js",
+            "client/components/card/tac.ts",
+            "client/components/card/tachyon-island.js",
+            "client/components/card/tac.rs",
+            "client/components/card/tac.swift",
+            "client/pages/tac.js",
+            "client/pages/tac.rs",
+            "client/stores/BasketStore.js",
+            "client/delegates/PricingDelegate.js",
+            "client/remotes/ProductsClient.js",
+            "client/entities/ProductEntity.js",
+            "client/setups/ApiSetup.js",
+            "server/services/OrdersService.js",
+            "server/delegates/AuditDelegate.js",
+            "server/controllers/OrdersController.js",
+        ];
+    }
+
     fn action(paths: &[&str]) -> SourceAction {
         changes(paths).action()
     }
@@ -268,37 +297,41 @@ mod tests {
         );
     }
 
-    #[test]
-    fn only_browser_services_receive_hot_updates() {
-        for path in [
-            "client/services/BasketService.swift",
-            "client/services/BasketService.kt",
-            "client/services/BasketService.cs",
-            "client/services/BasketService.rs",
-            "client/services/basket.js",
-            "client/services/Basket.js",
-            "client/services/nested/DeepService.js",
-            "client/components/card/tac.js",
-            "client/components/card/tac.ts",
-            "client/components/card/tachyon-island.js",
-            "client/components/card/tac.rs",
-            "client/components/card/tac.swift",
-            "client/pages/tac.js",
-            "client/pages/tac.rs",
-            "client/stores/BasketStore.js",
-            "client/delegates/PricingDelegate.js",
-            "client/remotes/ProductsClient.js",
-            "client/entities/ProductEntity.js",
-            "client/setups/ApiSetup.js",
-            "server/services/OrdersService.js",
-            "server/delegates/AuditDelegate.js",
-            "server/controllers/OrdersController.js",
-        ] {
-            let changed = changes(&[path]);
-            assert!(!changed.is_empty(), "{path}");
-            assert_eq!(changed.action(), SourceAction::Reload, "{path}");
-        }
+    fn a_change_that_is_not_a_hot_browser_service_reloads_the_page(path: &str) {
+        let changed = changes(&[path]);
+        assert!(!changed.is_empty(), "{path}");
+        assert_eq!(changed.action(), SourceAction::Reload, "{path}");
     }
+
+    one_test_per_case!(
+        only_browser_services_receive_hot_updates,
+        a_change_that_is_not_a_hot_browser_service_reloads_the_page,
+        all ReloadingSources::PATHS,
+        [
+            swift_service => "client/services/BasketService.swift",
+            kotlin_service => "client/services/BasketService.kt",
+            csharp_service => "client/services/BasketService.cs",
+            rust_service => "client/services/BasketService.rs",
+            lowercase_script_service => "client/services/basket.js",
+            script_service_without_the_service_suffix => "client/services/Basket.js",
+            nested_script_service => "client/services/nested/DeepService.js",
+            component_script => "client/components/card/tac.js",
+            component_typescript => "client/components/card/tac.ts",
+            component_island_script => "client/components/card/tachyon-island.js",
+            rust_component => "client/components/card/tac.rs",
+            swift_component => "client/components/card/tac.swift",
+            page_script => "client/pages/tac.js",
+            rust_page => "client/pages/tac.rs",
+            store => "client/stores/BasketStore.js",
+            delegate => "client/delegates/PricingDelegate.js",
+            remote_client => "client/remotes/ProductsClient.js",
+            entity => "client/entities/ProductEntity.js",
+            setup => "client/setups/ApiSetup.js",
+            server_service => "server/services/OrdersService.js",
+            server_delegate => "server/delegates/AuditDelegate.js",
+            server_controller => "server/controllers/OrdersController.js",
+        ]
+    );
 
     #[test]
     fn every_supported_root_configuration_invalidates_the_dev_build() {
