@@ -823,7 +823,7 @@ fn self_hosted_runners_serve_only_opted_in_branch_pushes_and_dispatches()
     let workflow = fs::read_to_string(root.join(".github/workflows/rust-ci.yml"))?;
     let guard = "(github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/heads/') && vars.TACHYON_SELF_HOSTED == 'true'";
     let hosted_fallbacks = [
-        "|| 'ubuntu-latest' }}",
+        "|| 'ubuntu-24.04' }}",
         "|| 'macos-latest' }}",
         "|| 'windows-latest' }}",
         "|| matrix.os }}",
