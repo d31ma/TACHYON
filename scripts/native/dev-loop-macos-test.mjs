@@ -155,7 +155,8 @@ class MacOsDevLoopTest {
       writeFileSync(this.log, this.output)
     }
     const preview = this.preview = await SupervisedCommand.start(this.binary, ['preview', this.fixture, '--target', 'macos', '--port', String(port)], {
-      cwd: this.repository, env: process.env, timeoutMilliseconds: 1_800_000, onStdout: record, onStderr: record,
+      // The fixture has no tests by design; without this, ty preview's TY2023 overlay covers the page the gate reads.
+      cwd: this.repository, env: { ...process.env, TAC_ALLOW_UNTESTED: '1' }, timeoutMilliseconds: 1_800_000, onStdout: record, onStderr: record,
     })
     let executables = ''
     try {
