@@ -132,7 +132,7 @@ fn required_foundation_documents_are_present_and_substantive()
 -> Result<(), Box<dyn std::error::Error>> {
     let root = repository_root();
     let required = [
-        "AGENTS.md",
+        "CLAUDE.md",
         "CHANGELOG.md",
         "CODE_OF_CONDUCT.md",
         "CONTEXT.md",
@@ -726,7 +726,7 @@ fn the_snippet_job_builds_ty_with_every_storage_driver() -> Result<(), Box<dyn s
 fn foundation_document_links_resolve_locally() -> Result<(), Box<dyn std::error::Error>> {
     let root = repository_root();
     let mut documents = collect_files(&root.join("docs"), "md")?;
-    documents.push(root.join("AGENTS.md"));
+    documents.push(root.join("CLAUDE.md"));
     documents.push(root.join("CONTEXT.md"));
     documents.push(root.join("CONTRIBUTING.md"));
     documents.push(root.join("GOVERNANCE.md"));
