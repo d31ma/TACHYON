@@ -13,6 +13,7 @@ impl NodeDriver {
     pub(crate) const DEADLINE: Duration = Duration::from_mins(2);
     const PROBE_DEADLINE: Duration = Duration::from_secs(30);
     const OUTPUT_BYTES: usize = 64 * 1_024 * 1_024;
+    const CONTINUOUS_INTEGRATION: &'static str = "CI";
 
     pub(crate) fn command() -> std::process::Command {
         let mut command = std::process::Command::new("node");
@@ -27,8 +28,13 @@ impl NodeDriver {
     }
 
     pub(crate) fn available() -> bool {
-        Self::output_within(Self::command().arg("--version"), Self::PROBE_DEADLINE)
-            .is_ok_and(|output| output.status.success())
+        let found = Self::output_within(Self::command().arg("--version"), Self::PROBE_DEADLINE)
+            .is_ok_and(|output| output.status.success());
+        assert!(
+            found || std::env::var_os(Self::CONTINUOUS_INTEGRATION).is_none(),
+            "node is installed in CI, so this test must run there instead of skipping"
+        );
+        found
     }
 
     pub(crate) fn output(command: &mut std::process::Command) -> Result<Output, NodeFailure> {

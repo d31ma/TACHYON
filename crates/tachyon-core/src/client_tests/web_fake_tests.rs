@@ -100,7 +100,7 @@ impl Units {
 
 #[test]
 fn a_javascript_unit_fakes_the_browser_apis_of_a_service() {
-    if !Units::available("node", "--version") {
+    if !crate::node_driver::NodeDriver::available() {
         eprintln!("skipping: node is unavailable");
         return;
     }
