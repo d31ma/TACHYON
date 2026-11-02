@@ -666,7 +666,7 @@ fn stable_release_is_tag_gated_and_fail_closed() -> Result<(), Box<dyn std::erro
     );
     assert!(
         workflow
-            .contains("gh release edit \"${TAG}\" --repo \"${REPOSITORY}\" --draft=false --latest")
+            .contains("gh release edit \"${TAG}\" --repo \"${REPOSITORY}\" --draft=false --prerelease --latest=false")
     );
     assert!(workflow.contains("failed upgrade replaced the installed executable"));
     assert!(workflow.contains("./scripts/release/lifecycle-drill.sh --candidate"));
@@ -1088,7 +1088,7 @@ fn completed_phase_acceptance_is_enforced_by_ci_and_documentation()
     assert!(plan.contains("## Phase 3: Tac View Semantics"));
     assert!(plan.contains("## Phase 4: Native Vertical Slice"));
     assert!(plan.matches("Status: complete on 2026-07-26").count() >= 4);
-    assert_eq!(version.trim(), "26.36.01");
+    assert_eq!(version.trim(), "26.45.01");
     assert_eq!(version.trim(), tachyon_contracts::PRODUCT_VERSION);
     Ok(())
 }

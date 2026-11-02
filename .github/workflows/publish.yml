@@ -333,7 +333,7 @@ jobs:
         run: |
           set -euo pipefail
           gh release create "${TAG}" --verify-tag --draft \
-            --title "Tachyon ${VERSION}" --notes-file release-notes.md release/*
+            --title "Tachyon ${VERSION} (release candidate)" --notes-file release-notes.md release/*
 
   verify-release:
     name: Verify staged release (${{ matrix.os }})
@@ -667,4 +667,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
           TAG: ${{ needs.validate.outputs.tag }}
-        run: gh release edit "${TAG}" --repo "${REPOSITORY}" --draft=false --latest
+        run: gh release edit "${TAG}" --repo "${REPOSITORY}" --draft=false --prerelease --latest=false
