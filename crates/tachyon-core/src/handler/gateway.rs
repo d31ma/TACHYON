@@ -3,6 +3,7 @@ use super::process::{Drained, HandlerCancellation, HandlerSupervisor, ProcessRea
 use super::source::GatewaySnapshot;
 use crate::Failure;
 use crate::behavior::{GatewayDeclaration, GatewayLimits, GatewayTarget, gateway_target_failure};
+use crate::sorted_json::SortedJson;
 use command_group::{AsyncCommandGroup, AsyncGroupChild};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
@@ -383,7 +384,7 @@ impl GatewayCalls {
     }
 
     fn failed(&self, failure: GatewayFailure) -> Value {
-        eprintln!("{}", self.failure_event(failure));
+        eprintln!("{}", SortedJson::text(&self.failure_event(failure)));
         json!({ "error": failure.name() })
     }
 
@@ -429,7 +430,7 @@ impl GatewayCalls {
         request.deadline_ms = Some(milliseconds);
         request.body = Some(HandlerBody {
             encoding: HandlerBodyEncoding::Utf8,
-            data: input.to_string(),
+            data: SortedJson::text(input),
         });
         let response = self
             .supervisor

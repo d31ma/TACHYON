@@ -1,5 +1,6 @@
 use crate::events::{EventModule, EventStream, HeldStreams};
 use crate::project::NativeCompanion;
+use crate::sorted_json::SortedJson;
 
 pub(super) struct RustHeldStreams;
 
@@ -74,7 +75,7 @@ impl RustHeldStreams {
     fn entry(client: &str, stream: &EventStream) -> String {
         let models = stream.models.as_ref().map_or_else(
             || String::from("None"),
-            |models| format!("Some({:?})", models.to_string()),
+            |models| format!("Some({:?})", SortedJson::text(models)),
         );
         format!(
             "(\"__stream_{client}_{}\", TacMember::Stream(TacStream {{ client: {client:?}, path: {:?}, event: {:?}, socket: {}, models: {models} }})),\n",

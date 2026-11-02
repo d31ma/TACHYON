@@ -1,5 +1,6 @@
 use super::config::{WebAppManifest, config_failure};
 use crate::Failure;
+use crate::sorted_json::SortedJson;
 use serde_json::{Map, Value};
 use std::fs;
 use std::path::Path;
@@ -129,7 +130,7 @@ impl DevelopmentOrigin {
         let folder = path.parent().unwrap_or(path);
         fs::create_dir_all(folder).map_err(|error| Self::io_failure(folder, &error))?;
         let staged = folder.join(Self::STAGED_NAME);
-        let bytes = serde_json::to_vec_pretty(document).map_err(|error| {
+        let bytes = serde_json::to_vec_pretty(&SortedJson::value(document)).map_err(|error| {
             config_failure(&format!(
                 "Cannot write the development {}: {error}",
                 WebAppManifest::SOURCE_PATH

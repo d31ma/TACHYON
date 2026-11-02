@@ -2,6 +2,7 @@ use crate::Failure;
 use crate::companion::go::{GoResults, masked_code, parameter_types};
 use crate::events::{EventListener, EventMethod, EventModule, EventStream, EventType, HeldStreams};
 use crate::go_source::{self, GoMethod};
+use crate::sorted_json::SortedJson;
 use std::collections::BTreeSet;
 use std::fmt::Write as _;
 use std::path::Path;
@@ -49,7 +50,7 @@ impl GoEvents {
         let models = stream
             .models
             .as_ref()
-            .map(ToString::to_string)
+            .map(SortedJson::text)
             .unwrap_or_default();
         format!(
             "\t\t{{Name: {key:?}, Stream: &tac.Stream{{Client: {}, Path: {}, Event: {}, Socket: {}, Models: {}}}}},\n",
@@ -195,12 +196,12 @@ fn listener_entry(
     let condition = listener
         .condition
         .as_ref()
-        .map(ToString::to_string)
+        .map(SortedJson::text)
         .unwrap_or_default();
     let models = listener
         .models
         .as_ref()
-        .map(ToString::to_string)
+        .map(SortedJson::text)
         .unwrap_or_default();
     let returns = listener.returns.clone().unwrap_or_default();
     let mut output = format!(

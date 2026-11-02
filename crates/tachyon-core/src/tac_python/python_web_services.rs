@@ -8,6 +8,7 @@ use crate::Failure;
 use crate::annotation_modules::Module;
 use crate::model_sources::ModelSources;
 use crate::route_types::{ModelTable, WebEventModels};
+use crate::sorted_json::SortedJson;
 use serde_json::{Map, Value, json};
 use std::collections::BTreeSet;
 use std::fmt::Write as _;
@@ -269,7 +270,7 @@ impl PythonWebServices {
             .collect::<Vec<_>>()
             .join(", ");
         let (import, models) = Self::model_namespace(metadata);
-        let metadata = serde_json::to_string(&metadata.to_string()).map_err(|error| {
+        let metadata = serde_json::to_string(&SortedJson::text(metadata)).map_err(|error| {
             PythonProviderSource::failure(
                 Path::new("client/services"),
                 &format!("Cannot encode Python metadata: {error}"),

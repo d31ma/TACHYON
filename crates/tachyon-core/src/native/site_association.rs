@@ -3,6 +3,7 @@ use super::apple_team::AppleTeam;
 use super::config::NativeApplication;
 use super::windows_package_family::WindowsPackageFamily;
 use crate::Failure;
+use crate::sorted_json::SortedJson;
 use serde_json::json;
 use std::path::{Path, PathBuf};
 
@@ -111,7 +112,7 @@ impl SiteAssociation {
     }
 
     fn pretty(value: &serde_json::Value) -> Vec<u8> {
-        let mut bytes = serde_json::to_vec_pretty(value).unwrap_or_default();
+        let mut bytes = serde_json::to_vec_pretty(&SortedJson::value(value)).unwrap_or_default();
         bytes.push(b'\n');
         bytes
     }

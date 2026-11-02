@@ -1,4 +1,5 @@
 use super::{CppYonGraph, CppYonProvider};
+use crate::sorted_json::SortedJson;
 use crate::tac_cpp::CppListener;
 use crate::yon::plan::Scope;
 use serde_json::json;
@@ -108,6 +109,7 @@ impl CppYonContainer {
             "replay": listener.replay,
             "key": format!("{owner}.{}", listener.method),
         });
+        let options = SortedJson::text(&options);
         format!(
             "            events.listen(R\"tachyon({options})tachyon\", [&owner](const json::JsonNode& value) {{ return YonListener::call(owner, &::{owner}::{}, value); }});\n",
             listener.method

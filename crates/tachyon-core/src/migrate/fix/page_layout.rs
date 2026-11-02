@@ -6,6 +6,7 @@ use super::page_sources::PageSources;
 use super::renames::FileMove;
 use super::{FileChange, ManualStep};
 use crate::compiler::{PageUpgrade, SplitStyles};
+use crate::sorted_json::SortedJson;
 use serde_json::{Map, Value};
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
@@ -261,7 +262,7 @@ impl PageLayout {
         let manifest: Map<String, Value> = [(String::from("tac"), Value::Object(tac))]
             .into_iter()
             .collect();
-        let text = serde_json::to_string_pretty(&Value::Object(manifest)).unwrap_or_default();
+        let text = serde_json::to_string_pretty(&SortedJson::map(&manifest)).unwrap_or_default();
         FileChange::whole(
             ManifestMigration::MANIFEST,
             String::new(),

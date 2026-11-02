@@ -1,6 +1,7 @@
 use super::{CommandWrapper, EgressEnforcement};
 use crate::Failure;
 use crate::failure::diagnostic;
+use crate::sorted_json::SortedJson;
 use tokio::process::Command;
 
 #[derive(Clone, Debug, Default)]
@@ -80,7 +81,7 @@ impl EgressConfinement {
     }
 
     fn report_unenforced(reason: &str) {
-        eprintln!("{}", Self::unenforced_event(reason));
+        eprintln!("{}", SortedJson::text(&Self::unenforced_event(reason)));
     }
 
     pub(super) fn unenforced_event(reason: &str) -> serde_json::Value {

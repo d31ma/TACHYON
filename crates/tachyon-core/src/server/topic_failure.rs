@@ -1,3 +1,5 @@
+use crate::sorted_json::SortedJson;
+
 #[derive(Clone, Copy)]
 pub(in crate::server) enum TopicFailure {
     Open,
@@ -21,7 +23,10 @@ impl TopicFailure {
             "message": message,
             "terminal": true,
         });
-        format!("event: topic-error\ndata: {payload}\n\n")
+        format!(
+            "event: topic-error\ndata: {}\n\n",
+            SortedJson::text(&payload)
+        )
     }
 
     const fn details(self) -> (&'static str, &'static str, &'static str) {

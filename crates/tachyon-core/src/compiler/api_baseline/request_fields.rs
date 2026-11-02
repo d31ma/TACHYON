@@ -1,3 +1,4 @@
+use crate::sorted_json::SortedJson;
 use serde_json::Value;
 use std::collections::BTreeMap;
 
@@ -10,7 +11,10 @@ impl<'a> RequestFields<'a> {
     const OPTIONAL_MARK: char = '?';
 
     pub(super) fn of(request: &'a Value) -> Self {
-        let places = request.as_object().into_iter().flatten();
+        let places = request
+            .as_object()
+            .into_iter()
+            .flat_map(SortedJson::entries);
         let fields = places
             .filter(|(place, _)| place.as_str() != Self::BODY)
             .flat_map(|(place, fields)| Self::place_fields(place, fields))
@@ -22,7 +26,7 @@ impl<'a> RequestFields<'a> {
         fields
             .as_object()
             .into_iter()
-            .flatten()
+            .flat_map(SortedJson::entries)
             .map(|(key, schema)| Self::field(place, key, schema))
             .collect()
     }

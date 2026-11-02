@@ -5,6 +5,7 @@ use super::{
 use crate::Failure;
 use crate::annotation_rules::Realm;
 use crate::behavior::{WrittenMarker, WrittenPolicies};
+use crate::sorted_json::SortedJson;
 use serde_json::{Map, Value};
 use std::path::{Path, PathBuf};
 
@@ -232,14 +233,20 @@ impl CppTestUnit {
             .and_then(Value::as_array)
             .into_iter()
             .flatten()
-            .map(Value::to_string)
+            .map(SortedJson::text)
             .collect();
         let pairs: Vec<String> = self
             .selection
             .1
             .iter()
             .flatten()
-            .map(|(name, value)| format!("{{{}, {value}}}", Value::String(name.clone())))
+            .map(|(name, value)| {
+                format!(
+                    "{{{}, {}}}",
+                    Value::String(name.clone()),
+                    SortedJson::text(value)
+                )
+            })
             .collect();
         format!(
             "#line 1 \"tachyon-test-main.cpp\"\nstatic tachyon::BehaviorOptions tachyonTestOptions() {{\n    tachyon::BehaviorOptions options;\n    options.partition = {};\n    options.profiles = {{{}}};\n    options.properties = {{{}}};\n    return options;\n}}\n",

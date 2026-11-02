@@ -1,6 +1,7 @@
 use super::{CppAttribute, CppClass, CppMember, CppMemberKind};
 use crate::Failure;
 use crate::behavior::{WrittenMarker, WrittenPolicies};
+use crate::sorted_json::SortedJson;
 use serde_json::{Map, Value, json};
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -76,7 +77,7 @@ impl CppBehaviors {
 
     pub(crate) fn wrapping(member: &CppMember, policy: &Value) -> (String, String) {
         let result = member.plain_type();
-        let literal = Value::String(policy.to_string()).to_string();
+        let literal = Value::String(SortedJson::text(policy)).to_string();
         let encoded: String = Self::needs_arguments(policy)
             .then(|| Self::encoded(member))
             .into_iter()

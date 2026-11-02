@@ -1,5 +1,6 @@
 use super::{ApiDifference, ApplicationVersion};
 use crate::failure::diagnostic;
+use crate::sorted_json::SortedJson;
 use crate::{Failure, ProjectDiscovery};
 use serde_json::Value;
 use std::path::{Path, PathBuf};
@@ -21,7 +22,7 @@ impl ApiBaselineCheck {
         let mut api = crate::handler::ApiReference::contract(project.route_graph());
         api[Self::VERSION_KEY] = Value::String(ApplicationVersion::current(root));
         let path = root.join(Self::BASELINE);
-        let text = format!("{api:#}\n");
+        let text = format!("{}\n", SortedJson::pretty(&api));
         std::fs::write(&path, text).map_err(|error| Self::write_failure(&path, &error))?;
         Ok(path)
     }

@@ -1,5 +1,6 @@
 use super::python_provider_source::PythonProviderSource;
 use crate::Failure;
+use crate::sorted_json::SortedJson;
 use serde_json::{Map, Value};
 use std::collections::BTreeSet;
 use std::path::Path;

@@ -56,6 +56,7 @@ mod scaffold;
 mod schedule;
 mod server;
 mod setting_switch;
+mod sorted_json;
 mod storage;
 mod tac_cpp;
 mod tac_dart;

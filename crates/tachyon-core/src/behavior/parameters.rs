@@ -1,6 +1,7 @@
 use super::{Input, Marker};
 use crate::Failure;
 use crate::ascii_name::AsciiName;
+use crate::sorted_json::SortedJson;
 use serde_json::{Map, Value, json};
 use std::ops::Range;
 
@@ -195,7 +196,7 @@ fn page_defaults(input: &Input<'_>, marker: &Marker, index: usize) -> Result<Val
     }
     object.insert("argument".to_owned(), json!(index));
     let page_marker = Marker {
-        arguments: Value::Object(object).to_string(),
+        arguments: SortedJson::text(&Value::Object(object)),
         ..marker.clone()
     };
     super::pageable_default(input, &page_marker)

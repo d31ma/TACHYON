@@ -1,6 +1,7 @@
 use super::super::mapper;
 use super::super::testing::{Unit, joined, polyglot_unit};
 use super::{Edit, Method, Module, Parameter, Type, block, concrete_edit, declared_fields, render};
+use crate::sorted_json::SortedJson;
 use serde_json::{Map, Value};
 
 pub(super) fn lower(module: &Module) -> Result<String, String> {
@@ -42,7 +43,7 @@ pub(super) fn lower(module: &Module) -> Result<String, String> {
             serde_json::json!({"cache": type_declaration.cache, "methods": methods}),
         );
     }
-    let registry = Value::Object(registrations).to_string();
+    let registry = SortedJson::text(&Value::Object(registrations));
     let mut generated = runtime(
         &module.module_id,
         &module.environment,
@@ -82,7 +83,7 @@ pub(super) fn runtime(
 }
 
 fn policy_line(type_declaration: &Type) -> String {
-    let policies = Value::Object(type_declaration.policies.clone()).to_string();
+    let policies = SortedJson::text(&Value::Object(type_declaration.policies.clone()));
     format!(
         "if (type == typeof({})) return BehaviorJSON.Parse({});\n",
         type_declaration.name,
@@ -107,7 +108,7 @@ fn entity_line(type_declaration: &Type, entity: &Value) -> String {
     format!(
         "if (entity == typeof({})) return BehaviorJSON.Parse({});\n",
         type_declaration.name,
-        quote(&mapping.to_string())
+        quote(&SortedJson::text(&mapping))
     )
 }
 
@@ -260,7 +261,7 @@ fn pageable_line(method: &Method, policy: &Value) -> Result<String, String> {
         "{} = BehaviorPage.Normalize({}, BehaviorJSON.Parse({}));\n",
         parameter.name,
         parameter.name,
-        quote(&policy.to_string())
+        quote(&SortedJson::text(policy))
     ))
 }
 
@@ -275,7 +276,7 @@ fn validation_prefix(method: &Method) -> Result<String, String> {
     Ok(format!(
         "{} = Behaviors.CheckSchema(BehaviorJSON.Parse({}), {});\n",
         parameter.name,
-        quote(&policy["schema"].to_string()),
+        quote(&SortedJson::text(&policy["schema"])),
         parameter.name
     ))
 }
@@ -360,7 +361,7 @@ fn mapping_body(method: &Method, policy: &Value) -> Result<String, String> {
         .parameters
         .get(argument)
         .ok_or("Convert reads an argument the method does not declare")?;
-    let plan = quote(&policy.to_string());
+    let plan = quote(&SortedJson::text(policy));
     let Some(result) = result else {
         return Ok(format!(
             "\nreturn BehaviorContext.MapValue(BehaviorJSON.Parse({plan}), BehaviorJSON.From({}));\n",
@@ -386,7 +387,7 @@ fn query_body(method: &Method, query: &Value) -> Result<String, String> {
     let arguments = json_arguments(method);
     Ok(format!(
         "\nreturn await this.behaviors.Query(BehaviorJSON.Parse({}), new BehaviorJSON[] {{ {arguments} }});\n",
-        quote(&query.to_string())
+        quote(&SortedJson::text(query))
     ))
 }
 
@@ -497,11 +498,11 @@ fn property_entries(unit: &Unit) -> String {
     let Some(entries) = unit.properties.as_object() else {
         return String::new();
     };
-    joined(entries, |(key, value)| {
+    joined(SortedJson::entries(entries), |(key, value)| {
         let name = key.replace('.', "_").to_uppercase();
         let text = value
             .as_str()
-            .map_or_else(|| value.to_string(), str::to_owned);
+            .map_or_else(|| SortedJson::text(value), str::to_owned);
         format!("[{}] = {}, ", quote(&name), quote(&text))
     })
 }

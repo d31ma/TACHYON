@@ -1,6 +1,7 @@
 use super::super::mapper;
 use super::super::testing::polyglot_unit;
 use super::{Method, Module, PlannedMethod, PlannedType, Type, csharp};
+use crate::sorted_json::SortedJson;
 use serde_json::{Map, Value};
 
 pub(crate) struct DetachedCsharp {
@@ -133,14 +134,14 @@ impl DetachedCsharp {
                 )
             })
             .collect();
-        Value::Object(registrations).to_string()
+        SortedJson::text(&Value::Object(registrations))
     }
 
     fn named_line(parameter: &str, name: &str, value: &Value) -> String {
         format!(
             "if ({parameter}.Name == {}) return BehaviorJSON.Parse({});\n",
             Self::quote(name),
-            Self::quote(&value.to_string())
+            Self::quote(&SortedJson::text(value))
         )
     }
 

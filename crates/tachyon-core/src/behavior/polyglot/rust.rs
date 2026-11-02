@@ -1,6 +1,7 @@
 use super::rust_async_client::RustAsyncClient;
 use super::rust_test_construction::RustTestConstruction;
 use super::{Edit, Method, Module, Type, block, context_type, render};
+use crate::sorted_json::SortedJson;
 use serde_json::Value;
 use std::fmt::Write as _;
 
@@ -268,7 +269,7 @@ fn property_fields(
     name_key: &str,
 ) -> Result<String, String> {
     let mut rendered = Vec::new();
-    for (field, descriptor) in fields {
+    for (field, descriptor) in SortedJson::entries(fields) {
         rendered.push(property_field(field, descriptor, name_key)?);
     }
     Ok(rendered.join(", "))
@@ -344,7 +345,7 @@ fn validation(declaration: &Type, output: &mut String) -> Result<(), String> {
         .as_object()
         .ok_or("Missing Rust validation fields")?;
     let mut rendered = Vec::new();
-    for (name, rules) in fields {
+    for (name, rules) in SortedJson::entries(fields) {
         rendered.push(validation_field(name, rules)?);
     }
     let fields = rendered.join(", ");
@@ -844,7 +845,7 @@ fn argument_pairs(exchange: &Value, key: &str) -> String {
         return String::new();
     };
     let mut pairs = Vec::new();
-    for (name, index) in entries {
+    for (name, index) in SortedJson::entries(entries) {
         pairs.push(format!(
             "({name:?}, {})",
             index.as_u64().unwrap_or_default()

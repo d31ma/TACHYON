@@ -1,5 +1,6 @@
 use super::LuaSource;
 use crate::behavior::{LuaBehaviorMethod, LuaBehaviorPlan};
+use crate::sorted_json::SortedJson;
 use std::fmt::Write as _;
 use std::path::Path;
 
@@ -184,7 +185,7 @@ impl<'p> LuaBehaviorEdits<'p> {
     }
 
     fn mapping(policy: &serde_json::Value, arguments: &str) -> String {
-        let plan = LuaSource::long_string(&policy.to_string());
+        let plan = LuaSource::long_string(&SortedJson::text(policy));
         let mapped =
             format!("BehaviorBoundary.map_value(YonJson.decode({plan}), {{ {arguments} }})");
         let result = policy.get("result").and_then(serde_json::Value::as_str);

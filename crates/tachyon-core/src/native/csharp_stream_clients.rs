@@ -4,6 +4,7 @@ use super::swift_streams::SwiftStreams;
 use crate::Failure;
 use crate::events::{EventModule, EventStream, HeldStreams};
 use crate::project::NativeCompanion;
+use crate::sorted_json::SortedJson;
 use std::path::Path;
 
 pub(super) struct CsharpStreamClients;
@@ -108,7 +109,7 @@ impl CsharpStreamClients {
             "socket": stream.socket,
             "models": stream.models,
         });
-        let literal = serde_json::to_string(&description.to_string()).unwrap_or_default();
+        let literal = serde_json::to_string(&SortedJson::text(&description)).unwrap_or_default();
         format!(
             "[\"__stream_{client}_{}\"] = TacMember.ClientStream({literal}),\n",
             stream.method

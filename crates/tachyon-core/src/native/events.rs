@@ -1,4 +1,5 @@
 use super::kotlin_held_streams::KotlinHeldStreams;
+use crate::sorted_json::SortedJson;
 use crate::{
     Failure,
     companion::CompanionLanguage,
@@ -443,7 +444,7 @@ fn condition_literal(
     let Some(condition) = condition else {
         return Ok(optional_text(language, None));
     };
-    let json = serde_json::to_string(condition)
+    let json = serde_json::to_string(&SortedJson::value(condition))
         .map_err(|_| failure(path, "Invalid listener condition."))?;
     Ok(optional_text(language, Some(&json)))
 }
@@ -468,7 +469,7 @@ fn listener_parts(
     listener: &EventListener,
     path: &Path,
 ) -> Result<ListenerParts, Failure> {
-    let models = listener.models.as_ref().map(ToString::to_string);
+    let models = listener.models.as_ref().map(SortedJson::text);
     Ok(ListenerParts {
         events: events_literal(language, &listener.events),
         replay: listener.replay,

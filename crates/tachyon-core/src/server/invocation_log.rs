@@ -1,5 +1,6 @@
 use crate::Failure;
 use crate::handler::{HandlerSource, YonLanguage};
+use crate::sorted_json::SortedJson;
 use serde_json::Value;
 use std::path::Path;
 use tachyon_contracts::HandlerRequest;
@@ -37,7 +38,7 @@ impl InvocationLog {
         );
         event["route"] = serde_json::json!(request.route);
         event["handler"] = serde_json::json!(source.relative_path());
-        event.to_string()
+        SortedJson::text(&event)
     }
 
     #[cfg(test)]

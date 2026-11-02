@@ -1,6 +1,7 @@
 use super::{CppAttribute, CppClass, CppFailure, CppMember, CppMemberKind};
 use crate::Failure;
 use crate::behavior::{WrittenMarker, WrittenPolicies, WrittenQuery};
+use crate::sorted_json::SortedJson;
 use serde_json::{Value, json};
 use std::collections::BTreeSet;
 use std::fmt::Write as _;
@@ -279,7 +280,7 @@ impl CppStore {
                     page: None,
                 },
             )?;
-            let literal = Value::String(resolved.to_string()).to_string();
+            let literal = Value::String(SortedJson::text(&resolved)).to_string();
             let _ = write!(
                 functions,
                 "    static const json::JsonNode& {method}() {{\n        static const json::JsonNode plan = json::JsonNode::parse({literal});\n        return plan;\n    }}\n"
@@ -353,7 +354,7 @@ impl CppStore {
             .collect::<Vec<_>>()
             .join(", ");
         let constant = [" ", " const "][usize::from(member.is_const)];
-        let literal = Value::String(plan.to_string()).to_string();
+        let literal = Value::String(SortedJson::text(plan)).to_string();
         format!(
             "inline {} {class}::{}({parameters}){constant}{{\n    static const ::tachyon::json::JsonNode tachyonQuery = ::tachyon::json::JsonNode::parse({literal});\n    return ::tachyon::TacStore::query<{}>(tachyonQuery, {{{encoded}}});\n}}\n",
             member.type_text,

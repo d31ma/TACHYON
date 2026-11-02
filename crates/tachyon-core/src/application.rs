@@ -1,6 +1,7 @@
 use crate::Failure;
 use crate::failure::diagnostic;
 use crate::safety::{AppOrigins, EnvironmentAllowlist, ServerHost, TrustedProxies};
+use crate::sorted_json::SortedJson;
 use cap_fs_ext::{FollowSymlinks, OpenOptionsFollowExt, OpenOptionsSyncExt};
 use cap_std::fs::{Dir, File, Metadata, OpenOptions};
 use serde_json::{Map, Value};
@@ -219,7 +220,7 @@ impl ApplicationConfig {
             .transpose()?;
         normalize_endpoint(&mut document, host.as_ref(), port);
         parser::validate_bounds(&document)?;
-        let serialized = serde_json::to_string(&document)
+        let serialized = serde_json::to_string(&SortedJson::value(&document))
             .map_err(|_| invalid("Cannot encode application configuration."))?;
         if serialized.len() > Self::MAX_RESOLVED_BYTES {
             return Err(invalid(

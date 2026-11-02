@@ -1,6 +1,7 @@
 use super::{TopicBus, TopicDelivery, TopicFolder, TopicListeners};
 use crate::handler::process::{HandlerCancellation, HandlerSupervisor};
 use crate::handler::source::HandlerSource;
+use crate::sorted_json::SortedJson;
 use cap_std::fs::Dir;
 use serde_json::json;
 use std::sync::Arc;
@@ -119,7 +120,7 @@ impl TopicDeliveries {
         });
         request.body = Some(HandlerBody {
             encoding: HandlerBodyEncoding::Utf8,
-            data: body.to_string(),
+            data: SortedJson::text(&body),
         });
         request
     }

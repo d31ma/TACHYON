@@ -2,6 +2,7 @@ use super::element_declaration::ElementDeclaration;
 use super::element_events::ElementEvents;
 use crate::Failure;
 use crate::failure::{diagnostic, source_span};
+use crate::sorted_json::SortedJson;
 use crate::template::{
     ClientViewRenderer, ComponentDefinition, ComponentRegistry, ServiceRegistry,
 };
@@ -62,7 +63,11 @@ impl<'a> ExportedElements<'a> {
         Self::check_hyphen(name)?;
         let definition = self.definition(name, component, used_services)?;
         let declaration = self.declaration(name, &definition);
-        let module = format!("{}TacElements.define({definition})\n", Self::RUNTIME_IMPORT);
+        let module = format!(
+            "{}TacElements.define({})\n",
+            Self::RUNTIME_IMPORT,
+            SortedJson::text(&definition)
+        );
         Ok([
             (
                 Self::path(name, Self::MODULE_EXTENSION),

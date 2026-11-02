@@ -4,6 +4,7 @@ use crate::Failure;
 use crate::behavior::{PythonMembers, ServiceRoles};
 use crate::model_sources::ModelMetadata;
 use crate::route_types::{ModelTable, TypeText};
+use crate::sorted_json::SortedJson;
 use serde_json::{Map, Value, json};
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
@@ -102,8 +103,8 @@ impl PythonProviderSource {
             .events
             .listeners(self.declared_methods(), models)
             .map_err(|message| Self::failure(&self.path, &message))?;
-        let writable = fields
-            .iter()
+        let writable = SortedJson::entries(&fields)
+            .into_iter()
             .filter(|(_, field)| field["immutable"] != true)
             .map(|(name, _)| name.clone())
             .collect::<Vec<_>>();

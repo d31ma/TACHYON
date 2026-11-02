@@ -1,4 +1,5 @@
 use crate::behavior::PlannedMethod;
+use crate::sorted_json::SortedJson;
 use serde_json::Value;
 
 pub(crate) struct BehaviorBody<'a> {
@@ -41,7 +42,7 @@ impl<'a> BehaviorBody<'a> {
         format!(
             "{}.Query(BehaviorJSON.Parse({}), {})",
             self.receiver,
-            Self::quote(&query.to_string()),
+            Self::quote(&SortedJson::text(query)),
             self.arguments()
         )
     }
@@ -62,7 +63,7 @@ impl<'a> BehaviorBody<'a> {
             .and_then(|index| self.method.parameters.get(index))
             .ok_or("Convert reads an argument the method does not declare")?;
         if let Some(result) = policy.get("result").and_then(Value::as_str) {
-            let plan = Self::quote(&policy.to_string());
+            let plan = Self::quote(&SortedJson::text(policy));
             return Ok(if policy["realm"] == "tac" {
                 format!(
                     "TacMappingModels.read{result}(BehaviorContext.MapValue(BehaviorJSON.Parse({plan}), TacMappingModels.write(box {value})))"
@@ -75,7 +76,7 @@ impl<'a> BehaviorBody<'a> {
         }
         Ok(format!(
             "BehaviorContext.MapValue(BehaviorJSON.Parse({}), BehaviorJSON.From({value}))",
-            Self::quote(&policy.to_string())
+            Self::quote(&SortedJson::text(policy))
         ))
     }
 
@@ -100,7 +101,7 @@ impl<'a> BehaviorBody<'a> {
         let name = self.parameter(policy, "Check")?;
         Ok(format!(
             "let {name} = Behaviors.CheckSchema(BehaviorJSON.Parse({}), {name}) in ",
-            Self::quote(&policy["schema"].to_string())
+            Self::quote(&SortedJson::text(&policy["schema"]))
         ))
     }
 
@@ -108,7 +109,7 @@ impl<'a> BehaviorBody<'a> {
         let name = self.parameter(policy, "PageDefaults")?;
         Ok(format!(
             "let {name} = BehaviorPage.Normalize({name}, BehaviorJSON.Parse({})) in ",
-            Self::quote(&policy.to_string())
+            Self::quote(&SortedJson::text(policy))
         ))
     }
 

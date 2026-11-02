@@ -2,6 +2,7 @@ use crate::Failure;
 use crate::check_rejection::CheckProblem;
 use crate::handler::frame::{FrameLimits, HandlerFrame};
 use crate::handler::topic_bus::TopicOutbox;
+use crate::sorted_json::SortedJson;
 use futures_util::future::OptionFuture;
 use serde_json::Value;
 use std::sync::Arc;
@@ -105,11 +106,11 @@ impl DirectResponse {
     fn print_topic_failure(request_id: &str, message: &str) {
         eprintln!(
             "{}",
-            serde_json::json!({
+            SortedJson::text(&serde_json::json!({
                 "event": "handler.topic_failed",
                 "request_id": request_id,
                 "message": message,
-            })
+            }))
         );
     }
 

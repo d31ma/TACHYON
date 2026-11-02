@@ -13,6 +13,7 @@ use crate::Failure;
 use crate::events::EventModule;
 use crate::failure::diagnostic;
 use crate::ruby_source::RubyMembers;
+use crate::sorted_json::SortedJson;
 use browser_api_fields::BrowserApiFields;
 pub(crate) use ruby_held_streams::RubyHeldStreams;
 use ruby_model_readers::RubyModelReaders;
@@ -91,7 +92,7 @@ impl RubyWebServices {
         for name in table.record_names() {
             table.shape_description(&crate::route_types::Shape::Model(name), &mut described);
         }
-        Ok(serde_json::Value::Object(described).to_string())
+        Ok(SortedJson::text(&serde_json::Value::Object(described)))
     }
 
     pub(crate) fn client_models(snapshot_root: &Path) -> Result<Vec<String>, Failure> {
@@ -174,7 +175,7 @@ impl RubyWebServices {
         let runtime = ["", Self::BEHAVIOR_RUNTIME][usize::from(Self::holds_a_socket(&metadata))];
         Ok(format!(
             "\n{runtime}\n{lowered}\nTacServices.register({instance}, {class}, {})\n",
-            Self::single_quoted(&metadata.to_string())
+            Self::single_quoted(&SortedJson::text(&metadata))
         ))
     }
 

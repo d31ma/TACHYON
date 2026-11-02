@@ -1,5 +1,6 @@
 use super::{Input, Marker};
 use crate::Failure;
+use crate::sorted_json::SortedJson;
 use serde_json::{Map, Value};
 
 struct TestPropertyLimits;
@@ -85,7 +86,7 @@ pub(super) fn properties(
             ));
         }
     };
-    for (path, item) in entries {
+    for (path, item) in SortedJson::entries(entries) {
         check_property(input, marker, environment, path, item)?;
     }
     Ok(Value::Object(entries.clone()))
@@ -185,11 +186,11 @@ impl Unit {
         properties
             .as_object()
             .into_iter()
-            .flatten()
+            .flat_map(SortedJson::entries)
             .map(|(path, value)| {
                 let text = value
                     .as_str()
-                    .map_or_else(|| value.to_string(), str::to_owned);
+                    .map_or_else(|| SortedJson::text(value), str::to_owned);
                 (path.replace('.', "_").to_uppercase(), text)
             })
             .collect()
@@ -276,16 +277,16 @@ pub(super) fn members(registration: &super::Registration) -> Option<String> {
     let profiles = registration
         .data
         .get("activeProfiles")
-        .map_or_else(|| String::from("[]"), ToString::to_string);
+        .map_or_else(|| String::from("[]"), SortedJson::text);
     let properties = registration.data.get("testProperties").map_or_else(
         || String::from("{}"),
-        |value| Unit::flat_object(value).to_string(),
+        |value| SortedJson::text(&Unit::flat_object(value)),
     );
     let mocks = mock_bindings(&registration.data);
     let fakes = registration
         .data
         .get("mockBeans")
-        .map_or_else(|| String::from("[]"), ToString::to_string);
+        .map_or_else(|| String::from("[]"), SortedJson::text);
     Some(format!(
         " async startBehaviors() {{ await this.stopBehaviors();          this.behaviors = await Behaviors.create({configuration}, {{ partition: {},          signal: new AbortController().signal, profiles: {profiles}, properties: {properties} }}); }}          async stopBehaviors() {{ if (this.behaviors) {{ this.behaviors.dispose(); this.behaviors = undefined; }} }}          construct(Type) {{ return Behaviors.constructWith(Type, this.behaviors, {{ {mocks} }}); }}          async POST() {{ const cases = [];          for (const [name, method, input] of {}) {{          for (const fake of {fakes}) this[fake] = undefined;          await this.startBehaviors(); Behaviors.takeCalled();          try {{ await this[method](...input); cases.push({{ name, passed: true, called: Behaviors.takeCalled() }}); }}          catch (error) {{ cases.push({{ name, passed: false, error: String(error && error.message || error), called: Behaviors.takeCalled() }}); }}          finally {{ await this.stopBehaviors(); }} }}          return {{ unit: {}, cases }}; }} ",
         serde_json::Value::String(partition.to_owned()),

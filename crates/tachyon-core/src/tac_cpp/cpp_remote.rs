@@ -3,6 +3,7 @@ use super::{
 };
 use crate::Failure;
 use crate::annotation_rules::Realm;
+use crate::sorted_json::SortedJson;
 use serde_json::Value;
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -220,7 +221,7 @@ impl<'a> CppRemote<'a> {
         let mut policy = policy.cloned().unwrap_or(Value::Null);
         let public = [verb == "Get", !policy["keyArgs"].is_null()] == [true, true];
         policy["publicRead"] = Value::Bool(public);
-        Value::String(policy.to_string()).to_string()
+        Value::String(SortedJson::text(&policy)).to_string()
     }
 
     pub(crate) fn answer_type(member: &CppMember) -> String {

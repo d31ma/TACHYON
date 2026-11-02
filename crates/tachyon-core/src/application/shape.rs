@@ -1,11 +1,12 @@
 use super::{Failure, bounded_value, invalid};
+use crate::sorted_json::SortedJson;
 use serde_json::{Map, Value};
 
 pub(super) fn validate(document: &Value) -> Result<(), Failure> {
     let root = document
         .as_object()
         .ok_or_else(|| invalid("Application configuration must be a JSON object."))?;
-    for (namespace, value) in root {
+    for (namespace, value) in SortedJson::entries(root) {
         if !matches!(namespace.as_str(), "tac" | "yon") {
             return Err(invalid(
                 "The configuration has two namespaces: yon, read from the top level of server/application.json, and tac, read from the tac member of client/manifest.json. Move old server/datasource/properties settings to the top level of server/application.json.",
@@ -69,7 +70,7 @@ fn visit_object<'a>(
     object: &'a Map<String, Value>,
     path: &mut Vec<&'a str>,
 ) -> Result<(), Failure> {
-    for (key, value) in object {
+    for (key, value) in SortedJson::entries(object) {
         if !is_path_segment(key) {
             return Err(invalid(
                 "Configuration path segments must begin with a lowercase ASCII letter and contain only lowercase letters or digits; underscores and dots are path separators, not JSON keys.",

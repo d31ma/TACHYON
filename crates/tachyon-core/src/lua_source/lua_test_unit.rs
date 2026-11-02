@@ -1,5 +1,6 @@
 use super::LuaLowering;
 use crate::behavior::UnitTable;
+use crate::sorted_json::SortedJson;
 use std::fmt::Write as _;
 
 pub(crate) struct LuaTestUnit<'u> {
@@ -60,7 +61,7 @@ impl<'u> LuaTestUnit<'u> {
     fn runner(&self, unit: &str) -> String {
         format!(
             "  local unit = {unit}\n  local results = {{}}\n  for _, row in ipairs(YonJson.decode({cases})) do\n{clear}{start}    BehaviorCalls.take()\n    local ok, failure = pcall(unit[row[2]], unit, YonJson.arguments(row[3] or {{}}))\n{stop}    local result = {{ name = row[1], passed = ok, called = BehaviorCalls.take() }}\n    if not ok then\n      result.error = tostring(type(failure) == \"table\" and failure.message or failure)\n    end\n    results[#results + 1] = result\n  end\n  return {{ unit = {name}, cases = results }}\n",
-            cases = Self::quoted(&self.unit.cases.to_string()),
+            cases = Self::quoted(&SortedJson::text(&self.unit.cases)),
             clear = self.clear_fakes(),
             start = self.start(),
             stop = Self::STOPS[usize::from(self.behaviors)],
@@ -108,8 +109,8 @@ impl<'u> LuaTestUnit<'u> {
         format!(
             "{{ partition = {}, profiles = YonJson.decode({}), properties = YonJson.decode({}) }}",
             Self::quoted(&self.unit.partition),
-            Self::quoted(&self.unit.profiles.to_string()),
-            Self::quoted(&self.flat_properties().to_string())
+            Self::quoted(&SortedJson::text(&self.unit.profiles)),
+            Self::quoted(&SortedJson::text(&self.flat_properties()))
         )
     }
 
@@ -119,7 +120,7 @@ impl<'u> LuaTestUnit<'u> {
             .properties
             .as_object()
             .into_iter()
-            .flatten()
+            .flat_map(SortedJson::entries)
             .filter_map(|(path, value)| {
                 let name = path.replace('.', "_").to_ascii_uppercase();
                 Self::property_text(value).map(|text| (name, text))
@@ -132,7 +133,7 @@ impl<'u> LuaTestUnit<'u> {
         match value {
             serde_json::Value::String(text) => Some(text.clone().into()),
             serde_json::Value::Null => None,
-            other => Some(other.to_string().into()),
+            other => Some(SortedJson::text(other).into()),
         }
     }
 
