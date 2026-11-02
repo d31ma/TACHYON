@@ -4,6 +4,8 @@ use std::fs;
 use std::path::Path;
 use std::process::{Command, Output};
 
+use crate::windows_egress::WindowsEgress;
+
 struct ItemsFixture;
 
 impl ItemsFixture {
@@ -162,15 +164,17 @@ fn servers_refuse_a_non_loopback_host_without_explicit_permission() {
         );
     }
 
-    let permitted = run(ty().arg("start").arg(&project).args([
-        "--host",
-        "0.0.0.0",
-        "--port",
-        "0",
-        "--allow-non-loopback",
-        "--out-dir",
-        "missing-bundle",
-    ]));
+    let permitted = run(WindowsEgress::proxied_where_unconfinable(
+        ty().arg("start").arg(&project).args([
+            "--host",
+            "0.0.0.0",
+            "--port",
+            "0",
+            "--allow-non-loopback",
+            "--out-dir",
+            "missing-bundle",
+        ]),
+    ));
     assert!(!permitted.status.success());
     let message = stderr(&permitted);
     assert!(!message.contains("TY1301"), "{message}");

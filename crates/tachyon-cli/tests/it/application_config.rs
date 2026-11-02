@@ -6,6 +6,8 @@ use std::process::{Child, Command, Stdio};
 use std::sync::mpsc;
 use std::time::Duration;
 
+use crate::windows_egress::WindowsEgress;
+
 struct Process(Child);
 
 impl Drop for Process {
@@ -32,6 +34,7 @@ fn command(project: &std::path::Path) -> Command {
     ] {
         command.env_remove(name);
     }
+    WindowsEgress::proxied_where_unconfinable(&mut command);
     command
 }
 

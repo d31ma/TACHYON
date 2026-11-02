@@ -8,6 +8,8 @@ use std::process::{Child, Command, Output, Stdio};
 use std::sync::mpsc;
 use std::time::Duration;
 
+use crate::windows_egress::WindowsEgress;
+
 fn ty() -> Command {
     Command::new(env!("CARGO_BIN_EXE_ty"))
 }
@@ -125,7 +127,7 @@ fn preview_builds_a_fresh_bundle_but_start_preserves_the_published_bundle() {
                 "<main>Unpublished source must not replace production</main>",
             );
         }
-        let mut child = ty()
+        let mut child = WindowsEgress::proxied_where_unconfinable(&mut ty())
             .arg(command)
             .arg(project.path())
             .args(["--host", "127.0.0.1", "--port", "0"])
@@ -206,7 +208,7 @@ fn a_started_bundle_serves_a_groovy_controller() {
     let bundled = run(ty().arg("bundle").arg(project.path()));
     assert!(bundled.status.success(), "{}", stderr(&bundled));
 
-    let mut child = ty()
+    let mut child = WindowsEgress::proxied_where_unconfinable(&mut ty())
         .arg("start")
         .arg(project.path())
         .args(["--host", "127.0.0.1", "--port", "0"])
@@ -243,11 +245,10 @@ fn wait_preview_ready(child: &mut Child) -> String {
             }
         }
     });
-    let ready = receiver.recv_timeout(Duration::from_secs(20));
-    if ready.is_err() {
-        stop(child);
-    }
-    ready.expect("readiness within deadline")
+    let Ok(ready) = receiver.recv_timeout(Duration::from_secs(20)) else {
+        panic!("readiness within deadline: {}", stop_and_read_stderr(child));
+    };
+    ready
 }
 
 #[test]

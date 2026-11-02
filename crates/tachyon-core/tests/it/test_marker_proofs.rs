@@ -37,6 +37,7 @@ impl ProofLanguage {
         "TestTakesEachInput[1]",
         "TestTakesEachInput[2]",
     ];
+    const NOT_INSTALLED_IN_WINDOWS_CI: &'static str = "swiftc";
     const LANGUAGES: [Self; 16] = [
         Self {
             extension: "js",
@@ -770,9 +771,8 @@ public:
         let available =
             crate::support::program_probe::ProgramProbe::answers(self.program, self.flag);
         if !available {
-            assert_ne!(
-                std::env::var("TAC_TEST_UNITS_REQUIRE_TOOLCHAINS").as_deref(),
-                Ok("1"),
+            assert!(
+                !self.required(),
                 "Required test unit toolchain {} is unavailable",
                 self.program
             );
@@ -782,6 +782,14 @@ public:
             );
         }
         available
+    }
+
+    fn required(&self) -> bool {
+        let absent_from_windows_ci =
+            cfg!(windows) && self.program == Self::NOT_INSTALLED_IN_WINDOWS_CI;
+        let toolchains_required =
+            std::env::var("TAC_TEST_UNITS_REQUIRE_TOOLCHAINS").as_deref() == Ok("1");
+        toolchains_required && !absent_from_windows_ci
     }
 
     fn in_realm(source: &str, realm: &str) -> String {
