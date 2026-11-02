@@ -49,7 +49,10 @@ pub(super) fn fsharp_web_ready() -> bool {
     let workloads = Command::new("dotnet").args(["workload", "list"]).output();
     let has_workload = workloads
         .is_ok_and(|output| String::from_utf8_lossy(&output.stdout).contains("wasm-tools"));
-    has_workload && NodeDriver::available()
+    crate::required_toolchain::RequiredToolchain::checked(
+        "the .NET wasm-tools workload and node",
+        has_workload && NodeDriver::available(),
+    )
 }
 
 pub(super) fn write(root: &Path, relative: &str, text: &str) -> PathBuf {

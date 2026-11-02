@@ -210,10 +210,11 @@ mod tests {
     const MAIN: &str = "class Shelf {\n  final List<String> titles = [];\n  void add(Object title) => titles.add(title as String);\n}\n\nvoid main() {\n  final shelf = Shelf();\n  for (final title in ['a', 'b', 'c']) {\n    shelf.add(title);\n  }\n  print(shelf.titles.join(','));\n}\n";
 
     fn dart_installed() -> bool {
-        std::process::Command::new("dart")
+        let found = std::process::Command::new("dart")
             .arg("--version")
             .output()
-            .is_ok_and(|output| output.status.success())
+            .is_ok_and(|output| output.status.success());
+        crate::required_toolchain::RequiredToolchain::checked("dart", found)
     }
 
     #[tokio::test]

@@ -102,11 +102,8 @@ int main() {
         let found = Command::new(super::CppTools::test_compiler())
             .arg("--version")
             .output()
-            .is_ok();
-        if !found {
-            eprintln!("skipping: no C++ test compiler");
-        }
-        found
+            .is_ok_and(|output| output.status.success());
+        crate::required_toolchain::RequiredToolchain::checked("the C++ test compiler", found)
     }
 
     pub(super) fn write(root: &Path, files: &[(&str, &str)]) {

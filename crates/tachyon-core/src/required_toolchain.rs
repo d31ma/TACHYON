@@ -20,7 +20,7 @@ impl RequiredToolchain {
         Self::checked("tsc", found).then_some(program)
     }
 
-    fn checked(program: &str, found: bool) -> bool {
+    pub(crate) fn checked(program: &str, found: bool) -> bool {
         let required = [Self::CONTINUOUS_INTEGRATION, Self::REQUIREMENT]
             .iter()
             .any(|variable| std::env::var_os(variable).is_some());

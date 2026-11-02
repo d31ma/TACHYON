@@ -130,10 +130,11 @@ public:
     }
 
     pub(super) fn compiler_available() -> bool {
-        std::process::Command::new("clang++")
+        let found = std::process::Command::new("clang++")
             .arg("--version")
             .output()
-            .is_ok_and(|output| output.status.success())
+            .is_ok_and(|output| output.status.success());
+        crate::required_toolchain::RequiredToolchain::checked("clang++", found)
     }
 
     pub(super) fn run(program: &str, frame: &str) -> (serde_json::Value, String) {

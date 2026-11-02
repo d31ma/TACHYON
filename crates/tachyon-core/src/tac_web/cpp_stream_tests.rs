@@ -72,9 +72,10 @@ impl CppStreams {
          process.exit(0)\n";
 
     fn tools_available() -> bool {
-        ["em++", "node"]
+        let found = ["em++", "node"]
             .iter()
-            .all(|program| crate::program_probe::ProgramProbe::answers(program, "--version"))
+            .all(|program| crate::program_probe::ProgramProbe::answers(program, "--version"));
+        crate::required_toolchain::RequiredToolchain::checked("em++ and node", found)
     }
 
     fn write(root: &Path, relative: &str, bytes: &[u8]) -> PathBuf {

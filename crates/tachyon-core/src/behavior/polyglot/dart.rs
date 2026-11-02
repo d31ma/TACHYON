@@ -418,12 +418,11 @@ fn property_list(unit: &Unit) -> String {
 #[allow(clippy::expect_used)]
 mod tests {
     fn emit(fixture: &str) -> Option<String> {
-        if std::process::Command::new("dart")
+        let found = std::process::Command::new("dart")
             .arg("--version")
             .output()
-            .is_err()
-        {
-            eprintln!("skipping: dart is unavailable");
+            .is_ok_and(|output| output.status.success());
+        if !crate::required_toolchain::RequiredToolchain::checked("dart", found) {
             return None;
         }
         let emitted = super::super::lower(

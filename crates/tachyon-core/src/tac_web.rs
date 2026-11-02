@@ -1310,26 +1310,30 @@ mod tests {
             ])
             .output()
         else {
-            return false;
+            return crate::required_toolchain::RequiredToolchain::checked(
+                "the wasm32 Rust target",
+                false,
+            );
         };
-        if !output.status.success() {
-            return false;
-        }
-        Path::new(String::from_utf8_lossy(&output.stdout).trim()).is_dir()
+        let found = output.status.success()
+            && Path::new(String::from_utf8_lossy(&output.stdout).trim()).is_dir();
+        crate::required_toolchain::RequiredToolchain::checked("the wasm32 Rust target", found)
     }
 
     fn go_installed() -> bool {
-        Command::new("go")
+        let found = Command::new("go")
             .arg("version")
             .output()
-            .is_ok_and(|output| output.status.success())
+            .is_ok_and(|output| output.status.success());
+        crate::required_toolchain::RequiredToolchain::checked("go", found)
     }
 
     fn dotnet_web_workload_installed() -> bool {
-        let Ok(output) = Command::new("dotnet").args(["workload", "list"]).output() else {
-            return false;
-        };
-        String::from_utf8_lossy(&output.stdout).contains("wasm-tools")
+        let found = Command::new("dotnet")
+            .args(["workload", "list"])
+            .output()
+            .is_ok_and(|output| String::from_utf8_lossy(&output.stdout).contains("wasm-tools"));
+        crate::required_toolchain::RequiredToolchain::checked("the .NET wasm-tools workload", found)
     }
 
     fn node_available() -> bool {

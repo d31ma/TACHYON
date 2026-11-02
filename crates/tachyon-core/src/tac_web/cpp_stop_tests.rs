@@ -33,7 +33,10 @@ impl CppStopPage {
 
     fn ready() -> bool {
         let compiler = crate::program_probe::ProgramProbe::answers("em++", "--version");
-        [compiler, NodeDriver::available()] == [true, true]
+        crate::required_toolchain::RequiredToolchain::checked(
+            "em++ and node",
+            [compiler, NodeDriver::available()] == [true, true],
+        )
     }
 
     async fn publish(root: &Path) {

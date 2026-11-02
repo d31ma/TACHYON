@@ -141,12 +141,13 @@ impl DartStreams {
          process.exit(0)\n";
 
     pub(super) fn tools_available() -> bool {
-        ["dart", "node"].iter().all(|tool| {
+        let found = ["dart", "node"].iter().all(|tool| {
             Command::new(tool)
                 .arg("--version")
                 .output()
                 .is_ok_and(|output| output.status.success())
-        })
+        });
+        crate::required_toolchain::RequiredToolchain::checked("dart and node", found)
     }
 
     fn write(root: &Path, relative: &str, bytes: &[u8]) {

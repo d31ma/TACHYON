@@ -110,10 +110,7 @@ impl CppMarkerPage {
         let found = ["em++", "node"]
             .iter()
             .all(|program| crate::program_probe::ProgramProbe::answers(program, "--version"));
-        if !found {
-            eprintln!("skipping: em++ (Emscripten) or node is unavailable");
-        }
-        found
+        crate::required_toolchain::RequiredToolchain::checked("em++ (Emscripten) and node", found)
     }
 
     fn write(root: &Path, relative: &str, bytes: &[u8]) -> PathBuf {

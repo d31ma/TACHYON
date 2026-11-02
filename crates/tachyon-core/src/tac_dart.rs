@@ -1929,7 +1929,10 @@ class CounterService {
     }
 
     fn dart_and_node_available() -> bool {
-        available("dart") && available("node")
+        crate::required_toolchain::RequiredToolchain::checked(
+            "dart and node",
+            available("dart") && available("node"),
+        )
     }
 
     fn write_file(root: &std::path::Path, relative: &str, contents: &str) {
