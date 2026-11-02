@@ -1,6 +1,6 @@
 use super::groovy_build::GroovyBuild;
 use super::{
-    CacheDirectory, Compiler, CompilerOutput, EntryClass, Failure, PreparedCommand,
+    CacheDirectory, Compiler, CompilerOutput, EntryClass, Failure, JavaLaunch, PreparedCommand,
     bounded_compiler_output, build_once_under_lock, compiler_workspace, invalid_source,
     missing_compiler, names_a_missing_program, prepare_cached_artifact, protocol_prelude,
     valid_owned_artifact, write_compiler_file,
@@ -13,8 +13,8 @@ pub(super) struct GroovyHandler;
 
 impl GroovyHandler {
     const COMPILER: Compiler = Compiler {
-        compile: &["java"],
-        run: &["java", "-jar"],
+        compile: &[JavaLaunch::PROGRAM],
+        run: JavaLaunch::JAR_RUN,
         suffix: ".jar",
         lists_model_files: false,
     };
