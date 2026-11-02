@@ -508,6 +508,15 @@ macro_rules! published_section_tests {
                 }
             }
         )+
+
+        #[test]
+        fn every_language_runs_its_published_yon_sections() {
+            let mut tested = vec![$(Language::$language),+];
+            let mut all: Vec<Language> = Language::ALL.into_iter().collect();
+            tested.sort();
+            all.sort();
+            assert_eq!(tested, all, "every language needs its published section tests");
+        }
     };
 }
 
