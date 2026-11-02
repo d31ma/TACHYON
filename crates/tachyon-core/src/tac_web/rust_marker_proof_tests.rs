@@ -94,7 +94,7 @@ impl RustPage {
     }
 }
 
-struct RustMarkerProofs;
+pub(super) struct RustMarkerProofs;
 
 impl RustMarkerProofs {
     const LIFECYCLE_FILES: [(&'static str, &'static str); 2] = [
@@ -232,6 +232,20 @@ impl RustMarkerProofs {
         tempfile::tempdir().expect("project")
     }
 
+    pub(super) async fn stored_state() -> (serde_json::Value, Option<serde_json::Value>) {
+        let stored = Self::stored_fields();
+        if !RustPage::ready() {
+            eprintln!("skipping: the wasm32 Rust target or node is unavailable");
+            return (stored, None);
+        }
+        let root = Self::project();
+        let service = ("draft", "DraftService");
+        RustPage::publish(root.path(), &[Self::STATE_SOURCE], service).await;
+        std::fs::write(root.path().join("state.json"), stored.to_string()).expect("stored fields");
+        let report = RustPage::drive(root.path(), Self::STATE_DRIVER);
+        (stored, Some(report))
+    }
+
     fn stored_fields() -> serde_json::Value {
         let (relative, source) = Self::STATE_SOURCE;
         let fields = crate::behavior::StoredState::fields(Path::new(relative), source)
@@ -267,44 +281,6 @@ async fn a_rust_web_service_runs_its_stop_hook_ordered_and_background_listeners(
         "{report}"
     );
     assert_eq!(report["failures"], 0, "{report}");
-}
-
-#[tokio::test]
-async fn a_rust_service_writes_its_local_state_to_page_storage_and_restores_it() {
-    let stored = RustMarkerProofs::stored_fields();
-    assert_eq!(stored, json!({"draft": "session", "visits": "local"}));
-    if !RustPage::ready() {
-        eprintln!("skipping: the wasm32 Rust target or node is unavailable");
-        return;
-    }
-    let root = RustMarkerProofs::project();
-    let service = ("draft", "DraftService");
-    RustPage::publish(root.path(), &[RustMarkerProofs::STATE_SOURCE], service).await;
-    std::fs::write(root.path().join("state.json"), stored.to_string()).expect("stored fields");
-    let report = RustPage::drive(root.path(), RustMarkerProofs::STATE_DRIVER);
-    assert_eq!(
-        report["written"],
-        json!({
-            "saved": {"tac:service:draft:/:visits": "2"},
-            "session": {"tac:service:draft:/:draft": "\"chapter one\""},
-        }),
-        "{report}"
-    );
-    assert_eq!(
-        report["afterReload"],
-        json!({"visits": 2, "draft": "chapter one", "visit": 3}),
-        "{report}"
-    );
-    assert_eq!(
-        report["newTab"],
-        json!({"visits": 3, "draft": ""}),
-        "{report}"
-    );
-    assert_eq!(
-        report["saved"],
-        json!({"tac:service:draft:/:visits": "3"}),
-        "{report}"
-    );
 }
 
 #[tokio::test]

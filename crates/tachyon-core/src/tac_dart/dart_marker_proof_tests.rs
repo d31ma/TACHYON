@@ -2,7 +2,7 @@ use super::dart_stream_tests::DartStreams;
 use serde_json::json;
 use std::path::Path;
 
-struct DartMarkerProofs;
+pub(crate) struct DartMarkerProofs;
 
 impl DartMarkerProofs {
     const CONVERTER_FILES: [(&'static str, &'static str); 8] = [
@@ -268,6 +268,26 @@ impl DartMarkerProofs {
         );
     }
 
+    pub(crate) async fn stored_state() -> (serde_json::Value, Option<serde_json::Value>) {
+        let stored = Self::stored_fields();
+        if !DartStreams::tools_available() {
+            eprintln!("skipping: dart or node is unavailable");
+            return (stored, None);
+        }
+        let root = Self::project();
+        DartStreams::publish(
+            root.path(),
+            &[Self::STATE_SOURCE],
+            &Self::STATE_SERVICES,
+            &["draft"],
+        )
+        .await;
+        Self::with_page_runtime(root.path());
+        Self::write(root.path(), "state.json", &stored.to_string());
+        let report = DartStreams::drive(root.path(), Self::STATE_DRIVER);
+        (stored, Some(report))
+    }
+
     fn stored_fields() -> serde_json::Value {
         let (relative, source) = Self::STATE_SOURCE;
         let fields = crate::behavior::StoredState::fields(Path::new(relative), source)
@@ -321,50 +341,6 @@ async fn a_dart_needs_all_service_takes_its_fields_from_the_component_properties
         "{report}"
     );
     assert_eq!(report["shop"], json!(["/shop", 5, "/shop:5:1"]), "{report}");
-}
-
-#[tokio::test]
-async fn a_dart_service_writes_its_local_state_to_page_storage_and_restores_it() {
-    let stored = DartMarkerProofs::stored_fields();
-    assert_eq!(stored, json!({"draft": "session", "visits": "local"}));
-    if !DartStreams::tools_available() {
-        eprintln!("skipping: dart or node is unavailable");
-        return;
-    }
-    let root = DartMarkerProofs::project();
-    DartStreams::publish(
-        root.path(),
-        &[DartMarkerProofs::STATE_SOURCE],
-        &DartMarkerProofs::STATE_SERVICES,
-        &["draft"],
-    )
-    .await;
-    DartMarkerProofs::with_page_runtime(root.path());
-    DartMarkerProofs::write(root.path(), "state.json", &stored.to_string());
-    let report = DartStreams::drive(root.path(), DartMarkerProofs::STATE_DRIVER);
-    assert_eq!(
-        report["written"],
-        json!({
-            "saved": {"tac:service:draft:/:visits": "2"},
-            "session": {"tac:service:draft:/:draft": "\"chapter one\""},
-        }),
-        "{report}"
-    );
-    assert_eq!(
-        report["afterReload"],
-        json!({"visits": 2, "draft": "chapter one", "visit": 3}),
-        "{report}"
-    );
-    assert_eq!(
-        report["newTab"],
-        json!({"visits": 3, "draft": ""}),
-        "{report}"
-    );
-    assert_eq!(
-        report["saved"],
-        json!({"tac:service:draft:/:visits": "3"}),
-        "{report}"
-    );
 }
 
 #[tokio::test]

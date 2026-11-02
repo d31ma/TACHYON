@@ -6,7 +6,7 @@ use serde_json::json;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-struct GoMarkerProofs;
+pub(super) struct GoMarkerProofs;
 
 impl GoMarkerProofs {
     const STATE_FILES: [(&str, &str); 1] = [(
@@ -140,53 +140,29 @@ impl GoMarkerProofs {
         serde_json::from_str(stdout.trim()).expect("report")
     }
 
+    pub(super) async fn stored_state() -> (serde_json::Value, Option<serde_json::Value>) {
+        let stored = Self::stored_fields();
+        if !Self::tools_available() {
+            assert!(
+                std::env::var_os("CI").is_none(),
+                "CI must provide go and node"
+            );
+            eprintln!("skipping: go or node is unavailable");
+            return (stored, None);
+        }
+        let root = tempfile::tempdir().expect("project");
+        Self::publish(root.path(), &Self::STATE_FILES, "DraftService").await;
+        Self::write(root.path(), "state.json", stored.to_string().as_bytes());
+        let report = Self::drive(root.path(), Self::STATE_DRIVER);
+        (stored, Some(report))
+    }
+
     fn stored_fields() -> serde_json::Value {
         let (relative, source) = Self::STATE_FILES[0];
         let fields = crate::behavior::StoredState::fields(Path::new(relative), source)
             .unwrap_or_else(|failure| panic!("{failure}"));
         json!(fields)
     }
-}
-
-#[tokio::test]
-async fn a_go_service_writes_its_local_state_to_page_storage_and_restores_it() {
-    let stored = GoMarkerProofs::stored_fields();
-    assert_eq!(stored, json!({"draft": "session", "visits": "local"}));
-    if !GoMarkerProofs::tools_available() {
-        assert!(
-            std::env::var_os("CI").is_none(),
-            "CI must provide go and node"
-        );
-        eprintln!("skipping: go or node is unavailable");
-        return;
-    }
-    let root = tempfile::tempdir().expect("project");
-    GoMarkerProofs::publish(root.path(), &GoMarkerProofs::STATE_FILES, "DraftService").await;
-    GoMarkerProofs::write(root.path(), "state.json", stored.to_string().as_bytes());
-    let report = GoMarkerProofs::drive(root.path(), GoMarkerProofs::STATE_DRIVER);
-    assert_eq!(
-        report["written"],
-        json!({
-            "saved": {"tac:service:draft:/:visits": "2"},
-            "session": {"tac:service:draft:/:draft": "\"chapter one\""},
-        }),
-        "{report}"
-    );
-    assert_eq!(
-        report["afterReload"],
-        json!({"visits": 2, "draft": "chapter one", "visit": 3}),
-        "{report}"
-    );
-    assert_eq!(
-        report["newTab"],
-        json!({"visits": 3, "draft": ""}),
-        "{report}"
-    );
-    assert_eq!(
-        report["saved"],
-        json!({"tac:service:draft:/:visits": "3"}),
-        "{report}"
-    );
 }
 
 #[tokio::test]
