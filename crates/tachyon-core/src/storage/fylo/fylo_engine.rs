@@ -4,6 +4,7 @@ use std::sync::{Arc, Mutex, PoisonError};
 use serde_json::{Map, Value, json};
 
 use super::FyloError;
+use crate::sorted_json::SortedJson;
 use crate::storage::admission_permit::AdmissionPermit;
 
 pub(super) struct FyloLauncher {
@@ -79,6 +80,7 @@ impl FyloProcess {
     }
 
     pub(super) async fn request(&mut self, request: Value) -> Result<Value, FyloError> {
+        let request = SortedJson::into_sorted(request);
         self.run(move |root| Self::answer(root, &request)).await
     }
 
