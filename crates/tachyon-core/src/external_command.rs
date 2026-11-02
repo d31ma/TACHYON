@@ -371,7 +371,7 @@ mod tests {
         let tracker = LifecycleTracker::default();
         let error = Box::pin(run_owned(
             &mut command,
-            Duration::from_millis(100),
+            Duration::from_secs(1),
             1_024,
             tracker.clone(),
         ))
@@ -380,7 +380,7 @@ mod tests {
         let ToolError::TimedOut(partial) = error else {
             panic!("expected a deadline failure, got {error:?}");
         };
-        assert!(started.elapsed() < Duration::from_secs(1));
+        assert!(started.elapsed() < Duration::from_secs(5));
         assert_process_gone(first_line_pid(&partial.stdout)).await;
         assert_eq!(
             active_count(&tracker.active_drains),

@@ -27,6 +27,7 @@ mod go;
 mod go_native_module;
 mod groovy_build;
 mod groovy_handler;
+mod java_launch;
 mod rust_error_place;
 mod shared_handler_artifacts;
 mod staged_files;
@@ -38,6 +39,7 @@ use go::GoHandler;
 pub(crate) use go::GoSharedCode;
 use go_native_module::GoNativeModule;
 use groovy_handler::GroovyHandler;
+use java_launch::JavaLaunch;
 use rust_error_place::RustErrorPlace;
 use shared_handler_artifacts::SharedHandlerArtifacts;
 use test_unit_asserts::TestUnitAsserts;
@@ -1238,7 +1240,7 @@ impl Compiler {
             "kt",
             Compiler {
                 compile: &["kotlinc", "{src}", "-include-runtime", "-d", "{out}"],
-                run: &["java", "-jar"],
+                run: JavaLaunch::JAR_RUN,
                 suffix: ".jar",
                 lists_model_files: true,
             },
@@ -2526,7 +2528,10 @@ fn stage_with_prelude(
 }
 
 fn java_launcher(portable: &str, runtime: &Path) -> Vec<String> {
-    let mut launcher = vec![String::from("java")];
+    let mut launcher = vec![
+        String::from(JavaLaunch::PROGRAM),
+        String::from(JavaLaunch::IPV4_SOCKETS),
+    ];
     launcher.extend(TestUnitAsserts::java(portable));
     launcher.push(runtime.to_string_lossy().into_owned());
     launcher
@@ -2954,7 +2959,7 @@ mod tests {
     use super::{
         CompilerOutput, DartPackages, EntryClass, HandlerLanguage, HandlerSource,
         bounded_compiler_output_with_limits, compiled_digest, csharp_digest, dart_prelude_parts,
-        dart_protocol, has_own_entry_point, java_runtime_source, valid_csharp_cache,
+        dart_protocol, has_own_entry_point, java_launcher, java_runtime_source, valid_csharp_cache,
     };
     #[cfg(unix)]
     use std::os::unix::process::ExitStatusExt as _;
@@ -3206,6 +3211,27 @@ mod tests {
             CacheDirectory::open_test_root(parent).expect("cache capability"),
             relative,
         )
+    }
+
+    #[test]
+    fn java_handlers_open_ipv4_sockets_to_reach_the_loopback_guard() {
+        let launcher = java_launcher(
+            "server/controllers/Probe.java",
+            std::path::Path::new("Probe.java"),
+        );
+        assert_eq!(
+            launcher,
+            ["java", "-Djava.net.preferIPv4Stack=true", "Probe.java"]
+        );
+    }
+
+    #[test]
+    fn kotlin_handlers_open_ipv4_sockets_to_reach_the_loopback_guard() {
+        let kotlin = super::built_in_compiler("kt").expect("Kotlin compiler");
+        assert_eq!(
+            kotlin.run,
+            ["java", "-Djava.net.preferIPv4Stack=true", "-jar"]
+        );
     }
 
     #[test]
