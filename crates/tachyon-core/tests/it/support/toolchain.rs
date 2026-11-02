@@ -1,9 +1,9 @@
 pub struct Toolchain;
 
 impl Toolchain {
-    const INSTALLED_IN_CI: [&'static str; 13] = [
+    const INSTALLED_IN_CI: [&'static str; 15] = [
         "php", "php-cgi", "groovyc", "kotlinc", "dart", "lua", "go", "ruby", "bun", "cargo",
-        "clang++", "dotnet", "javac",
+        "rustc", "node", "clang++", "dotnet", "javac",
     ];
 
     #[must_use]
