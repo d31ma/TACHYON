@@ -31,7 +31,8 @@ impl HttpVerbProject {
             .iter()
             .find(|(name, _)| *name == program)
             .map_or("--version", |(_, flag)| flag);
-        crate::support::program_probe::ProgramProbe::answers(program, flag)
+        let found = crate::support::program_probe::ProgramProbe::answers(program, flag);
+        crate::support::toolchain::Toolchain::checked(program, found)
     }
 
     fn copy(from: &Path, to: &Path) {
@@ -80,7 +81,7 @@ impl HttpVerbProject {
     }
 }
 
-fn sends_put_patch_delete_and_headers_in(wanted: &str) {
+fn sends_write_verbs_and_headers_in(wanted: &str) {
     let (extension, program) = HttpVerbProject::LANGUAGES
         .into_iter()
         .find(|(extension, _)| *extension == wanted)
@@ -93,8 +94,8 @@ fn sends_put_patch_delete_and_headers_in(wanted: &str) {
 }
 
 one_test_per_case!(
-    a_tac_http_client_sends_put_patch_delete_and_headers_in_every_language,
-    sends_put_patch_delete_and_headers_in,
+    a_tac_http_client_sends_its_write_verbs_and_headers_in_every_language,
+    sends_write_verbs_and_headers_in,
     all HttpVerbProject::LANGUAGES.map(|(extension, _)| extension),
     [
         javascript => "js",
