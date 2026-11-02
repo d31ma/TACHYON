@@ -284,15 +284,20 @@ final class SettingsService {
 
 pub(crate) fn swift_web_ready() -> bool {
     let sdk = std::env::var_os("TAC_SWIFT_WASM_SDK").map(PathBuf::from);
+    let required = sdk.is_some();
     let has_sdk = sdk.is_some_and(|path| path.join("WASI.sdk").is_dir());
     let compiler = std::env::var_os("TAC_SWIFT_WASM_COMPILER").unwrap_or_else(|| "swiftc".into());
-    let runs = |program: &std::ffi::OsStr, flag: &str| {
-        Command::new(program)
-            .arg(flag)
-            .output()
-            .is_ok_and(|output| output.status.success())
-    };
-    has_sdk && runs(&compiler, "--version") && runs("node".as_ref(), "--version")
+    let swiftc_runs = Command::new(&compiler)
+        .arg("--version")
+        .output()
+        .is_ok_and(|output| output.status.success());
+    let ready = has_sdk && swiftc_runs && NodeDriver::available();
+    assert!(
+        ready || !required,
+        "TAC_SWIFT_WASM_SDK is set, so its WASI.sdk, {} and node must work and the Swift web test must run instead of skipping",
+        compiler.to_string_lossy()
+    );
+    ready
 }
 
 pub(crate) fn run_driver(root: &Path, script: &str) -> serde_json::Value {
