@@ -1019,9 +1019,10 @@ function checkJsonBody(body, method, checkValue) {
  * @param {string} label
  * @param {(path: string, options?: RequestInit) => Promise<Response>} request
  * @param {string} routePath
+ * @param {Record<string, string>} headers
  */
-async function checkSchemaAnswer(label, request, routePath) {
-  const response = await request(routePath, { method: 'OPTIONS' })
+async function checkSchemaAnswer(label, request, routePath, headers) {
+  const response = await request(routePath, { method: 'OPTIONS', headers })
   const body = await readBodyWithLimit(response)
   assert.equal(response.status, 200, `OPTIONS returned ${response.status}: ${body}`)
   const schema = JSON.parse(body)
@@ -1058,9 +1059,16 @@ async function executeHandler(label, files, handler, checkValue, expectedError) 
       const routes = controllerRoutes(handler.code)
       const schemas = new Map()
       const identity = files.some(file => Patterns.identityProviderPath.test(file.name))
+      /** @type {Record<string, string>} */
+      const schemaHeaders = identity ? { authorization: Settings.identityToken } : {}
       let refused = 0
+      let hidden = 0
       for (const { method, path: routePath } of routes) {
-        if (!schemas.has(routePath)) schemas.set(routePath, await checkSchemaAnswer(label, request, routePath))
+        if (!schemas.has(routePath)) {
+          const signedInSchema = await checkSchemaAnswer(label, request, routePath, schemaHeaders)
+          schemas.set(routePath, signedInSchema)
+          if (identity) hidden += await methodsHiddenWithoutIdentity(request, routePath, signedInSchema)
+        }
         const schema = schemas.get(routePath)
         const options = requestOptionsFor(method, streaming, schema)
         if (identity) refused += await refusedWithoutIdentity(request, requestPathFor(routePath, method, schema), options)
@@ -1081,9 +1089,24 @@ async function executeHandler(label, files, handler, checkValue, expectedError) 
       if (identity) {
         assert.ok(refused > 0, 'A guarded example must answer 401 to a caller who is not signed in')
         pass(`${label} 401 without identity`, 'http')
+        assert.ok(hidden > 0, 'OPTIONS without identity must leave out the methods a guest may not call')
+        pass(`${label} OPTIONS without identity`, 'http')
       }
     })
   })
+}
+
+/**
+ * @param {(path: string, options?: RequestInit) => Promise<Response>} request
+ * @param {string} routePath
+ * @param {Record<string, any>} signedInSchema
+ */
+async function methodsHiddenWithoutIdentity(request, routePath, signedInSchema) {
+  const anonymous = await request(routePath, { method: 'OPTIONS' })
+  const body = await readBodyWithLimit(anonymous)
+  assert.ok([200, 401].includes(anonymous.status), `OPTIONS without identity returned ${anonymous.status}: ${body}`)
+  const listed = anonymous.status === 200 ? JSON.parse(body).methods : {}
+  return Object.keys(signedInSchema.methods).filter(method => !Object.hasOwn(listed, method)).length
 }
 
 /**
