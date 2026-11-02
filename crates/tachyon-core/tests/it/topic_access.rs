@@ -1,5 +1,6 @@
 #![allow(clippy::expect_used)]
 
+use crate::support::one_test_per_case::one_test_per_case;
 use std::fs;
 use std::path::Path;
 use std::time::Duration;
@@ -89,7 +90,40 @@ impl TopicLanguage {
         model: "#pragma once\n#include <string>\n\nstruct [[Topic]] ACCESS NAME {\n    std::string id;\n};\n",
         access: ["[[Public]]", "[[SignedIn]]", "[[Allow(Admin)]]"],
     };
+    const ALL: [&'static Self; 15] = [
+        &Self::PYTHON,
+        &Self::JAVA,
+        &Self::GROOVY,
+        &Self::KOTLIN,
+        &Self::DART,
+        &Self::CSHARP,
+        &Self::FSHARP,
+        &Self::RUST,
+        &Self::GO,
+        &Self::PHP,
+        &Self::RUBY,
+        &Self::TYPESCRIPT,
+        &Self::JAVASCRIPT,
+        &Self::LUA,
+        &Self::CPP,
+    ];
     const TOPICS: [&'static str; 3] = ["PriceTick", "ChatLine", "AuditNote"];
+    const EDITOR: &'static str = "x-test-user: ada\r\nx-test-roles: Editor\r\n";
+    const ADMIN: &'static str = "x-test-user: ada\r\nx-test-roles: Admin\r\n";
+    const ANSWERS: [(&'static str, &'static str, &'static str); 6] = [
+        ("price-tick", "", "200 OK"),
+        ("chat-line", "", "401 Unauthorized"),
+        ("chat-line", Self::EDITOR, "200 OK"),
+        ("audit-note", Self::EDITOR, "403 Forbidden"),
+        ("audit-note", Self::ADMIN, "200 OK"),
+        ("order-placed", Self::ADMIN, "404 Not Found"),
+    ];
+    const STATUSES: [&'static str; 4] = [
+        "200 OK",
+        "401 Unauthorized",
+        "403 Forbidden",
+        "404 Not Found",
+    ];
     const IDENTITY: &'static str = "@IdentityProvider\nexport class AppIdentityProvider {\n  identify(@FromHeader(\"x-test-user\") user, @FromHeader(\"x-test-roles\") roles) {\n    return { user, roles: roles.split(\",\") };\n  }\n}\n";
 
     fn write(root: &Path, relative: &str, source: &str) {
@@ -138,27 +172,36 @@ impl TopicLanguage {
         let root = tempfile::tempdir().expect("project");
         self.project(root.path());
         let server = Server::start(root.path()).await;
-        let editor = "x-test-user: ada\r\nx-test-roles: Editor\r\n";
-        let admin = "x-test-user: ada\r\nx-test-roles: Admin\r\n";
-        let cases = [
-            ("price-tick", "", "200 OK"),
-            ("chat-line", "", "401 Unauthorized"),
-            ("chat-line", editor, "200 OK"),
-            ("audit-note", editor, "403 Forbidden"),
-            ("audit-note", admin, "200 OK"),
-            ("order-placed", admin, "404 Not Found"),
-        ];
-        for (topic, headers, status) in cases {
+        let mut answered = Vec::new();
+        for (topic, headers, _) in Self::ANSWERS {
             let head = server.subscribe(topic, headers).await;
-            assert!(
-                head.contains(status),
-                "{} {topic} {headers:?}: {head}",
-                self.extension
-            );
-            let streams = head.contains("text/event-stream");
-            assert_eq!(streams, status == "200 OK", "{}: {head}", self.extension);
+            answered.push(Self::answer(topic, headers, &head));
         }
         server.stop().await;
+        let expected: Vec<(&str, &str, &str, bool)> = Self::ANSWERS
+            .into_iter()
+            .map(|(topic, headers, status)| (topic, headers, status, status == "200 OK"))
+            .collect();
+        assert_eq!(answered, expected, "{}", self.extension);
+    }
+
+    fn answer<'a>(
+        topic: &'a str,
+        headers: &'a str,
+        head: &str,
+    ) -> (&'a str, &'a str, &'static str, bool) {
+        let status = Self::STATUSES
+            .into_iter()
+            .find(|status| head.contains(status))
+            .unwrap_or("no expected status");
+        (topic, headers, status, head.contains("text/event-stream"))
+    }
+
+    fn named(extension: &str) -> &'static Self {
+        Self::ALL
+            .into_iter()
+            .find(|language| language.extension == extension)
+            .unwrap_or_else(|| panic!("no topic language uses .{extension}"))
     }
 }
 
@@ -287,77 +330,29 @@ fn a_topic_with_an_unknown_role_or_two_rules_is_refused() {
     );
 }
 
-#[tokio::test]
-async fn python_topic_streams_follow_their_access_rule() {
-    TopicLanguage::PYTHON.assert_guarded().await;
+async fn topic_streams_follow_their_access_rule_in(extension: &str) {
+    TopicLanguage::named(extension).assert_guarded().await;
 }
 
-#[tokio::test]
-async fn java_topic_streams_follow_their_access_rule() {
-    TopicLanguage::JAVA.assert_guarded().await;
-}
-
-#[tokio::test]
-async fn groovy_topic_streams_follow_their_access_rule() {
-    TopicLanguage::GROOVY.assert_guarded().await;
-}
-
-#[tokio::test]
-async fn kotlin_topic_streams_follow_their_access_rule() {
-    TopicLanguage::KOTLIN.assert_guarded().await;
-}
-
-#[tokio::test]
-async fn dart_topic_streams_follow_their_access_rule() {
-    TopicLanguage::DART.assert_guarded().await;
-}
-
-#[tokio::test]
-async fn csharp_topic_streams_follow_their_access_rule() {
-    TopicLanguage::CSHARP.assert_guarded().await;
-}
-
-#[tokio::test]
-async fn fsharp_topic_streams_follow_their_access_rule() {
-    TopicLanguage::FSHARP.assert_guarded().await;
-}
-
-#[tokio::test]
-async fn rust_topic_streams_follow_their_access_rule() {
-    TopicLanguage::RUST.assert_guarded().await;
-}
-
-#[tokio::test]
-async fn go_topic_streams_follow_their_access_rule() {
-    TopicLanguage::GO.assert_guarded().await;
-}
-
-#[tokio::test]
-async fn php_topic_streams_follow_their_access_rule() {
-    TopicLanguage::PHP.assert_guarded().await;
-}
-
-#[tokio::test]
-async fn ruby_topic_streams_follow_their_access_rule() {
-    TopicLanguage::RUBY.assert_guarded().await;
-}
-
-#[tokio::test]
-async fn typescript_topic_streams_follow_their_access_rule() {
-    TopicLanguage::TYPESCRIPT.assert_guarded().await;
-}
-
-#[tokio::test]
-async fn javascript_topic_streams_follow_their_access_rule() {
-    TopicLanguage::JAVASCRIPT.assert_guarded().await;
-}
-
-#[tokio::test]
-async fn lua_topic_streams_follow_their_access_rule() {
-    TopicLanguage::LUA.assert_guarded().await;
-}
-
-#[tokio::test]
-async fn cpp_topic_streams_follow_their_access_rule() {
-    TopicLanguage::CPP.assert_guarded().await;
-}
+one_test_per_case!(
+    topic_streams_follow_their_access_rule,
+    async topic_streams_follow_their_access_rule_in,
+    all TopicLanguage::ALL.map(|language| language.extension),
+    [
+        python => "py",
+        java => "java",
+        groovy => "groovy",
+        kotlin => "kt",
+        dart => "dart",
+        csharp => "cs",
+        fsharp => "fs",
+        rust => "rs",
+        go => "go",
+        php => "php",
+        ruby => "rb",
+        typescript => "ts",
+        javascript => "js",
+        lua => "lua",
+        cpp => "hpp",
+    ]
+);
