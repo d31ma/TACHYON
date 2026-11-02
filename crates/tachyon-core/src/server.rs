@@ -8,6 +8,9 @@ mod cross_origin;
 #[allow(clippy::expect_used)]
 mod cross_origin_tests;
 mod dev_server_options;
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod development_mark_tests;
 mod diagnostic_entry;
 mod dispatch;
 mod dispatch_route;
