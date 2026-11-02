@@ -231,6 +231,29 @@ impl NativeServiceProject {
         write(&project.join("client/services").join(file), source);
     }
 
+    fn toolchain_ready(project: &Path, requirement: &str, provided_by_ci: &str) -> bool {
+        let report = tachyon_core::doctor::DoctorReport::check(project).expect("doctor");
+        let missing: Vec<_> = report
+            .toolchains
+            .iter()
+            .filter(|row| row.requirement == requirement)
+            .filter(|row| !matches!(row.state, tachyon_core::doctor::ToolchainState::Ready(_)))
+            .map(|row| row.command.clone())
+            .collect();
+        assert!(
+            missing.is_empty() || std::env::var_os("CI").is_none(),
+            "{provided_by_ci}: {missing:?}"
+        );
+        if !missing.is_empty() {
+            eprintln!("skipping: {requirement} need {missing:?}");
+        }
+        missing.is_empty()
+    }
+
+    fn web(workspace: &Path, target: &str) -> std::path::PathBuf {
+        workspace.join("published").join(target).join("web")
+    }
+
     fn assert_bundles(workspace: &Path, project: &Path, target: &str, runtime: &str) {
         let published = workspace.join("published");
         let output = run(ty()
@@ -239,7 +262,7 @@ impl NativeServiceProject {
             .args(["--target", target, "--skip-package"])
             .env("TAC_DIST_PATH", &published));
         assert!(output.status.success(), "{target}: {}", stderr(&output));
-        let web = published.join(target).join("web");
+        let web = Self::web(workspace, target);
         assert!(
             web.join(".tachyon/services/CounterService.js").is_file(),
             "{target} bundled no service module"
@@ -270,22 +293,11 @@ impl RubyNativeProject {
     const RUNTIME_REQUIREMENT: &'static str = "Ruby services on the web";
 
     fn has_ruby_runtime(project: &Path) -> bool {
-        let report = tachyon_core::doctor::DoctorReport::check(project).expect("doctor");
-        let missing: Vec<_> = report
-            .toolchains
-            .iter()
-            .filter(|row| row.requirement == Self::RUNTIME_REQUIREMENT)
-            .filter(|row| !matches!(row.state, tachyon_core::doctor::ToolchainState::Ready(_)))
-            .map(|row| row.command.clone())
-            .collect();
-        assert!(
-            missing.is_empty() || std::env::var_os("CI").is_none(),
-            "CI installs Emscripten and Ruby to build the pinned mruby runtime, so the Ruby native bundles must run there: {missing:?}"
-        );
-        if !missing.is_empty() {
-            eprintln!("skipping: the mruby runtime is not cached and cannot be built: {missing:?}");
-        }
-        missing.is_empty()
+        NativeServiceProject::toolchain_ready(
+            project,
+            Self::RUNTIME_REQUIREMENT,
+            "CI installs Emscripten and Ruby to build the pinned mruby runtime, so the Ruby native bundles must run there",
+        )
     }
 }
 
@@ -367,6 +379,90 @@ fn python_service_bundles_into(target: &str) {
 one_test_per_case!(
     a_python_service_bundles_into_every_native_target,
     python_service_bundles_into,
+    all NativeServiceProject::TARGETS,
+    [
+        macos => "macos",
+        ios => "ios",
+        linux => "linux",
+        windows => "windows",
+        android => "android",
+    ]
+);
+
+struct FsharpNativeProject;
+
+impl FsharpNativeProject {
+    const MANIFEST: &'static str = r#"{"name":"FsharpNative","start_url":"/","tac":{"application":{"id":"dev.tachyon.fsharp-native","version":"0.1.0"}}}"#;
+    const SERVICE: (&'static str, &'static str) = (
+        "CounterService.fs",
+        "[<Service>]\ntype CounterService() =\n    member val Count = 0 with get, set\n\n    member this.Increment() : unit =\n        this.Count <- this.Count + 1\n",
+    );
+    const FRAMEWORK: &'static str = ".tachyon/services/dotnet/_framework";
+    const RUNTIME: &'static str = ".tachyon/services/dotnet/_framework/dotnet.js";
+    const RUNTIME_REQUIREMENT: &'static str = "C# services on the web";
+    const ASSEMBLIES: [&'static str; 2] = ["FsharpServices", "FSharp.Core"];
+
+    fn has_dotnet_web_workload(project: &Path) -> bool {
+        NativeServiceProject::toolchain_ready(
+            project,
+            Self::RUNTIME_REQUIREMENT,
+            "CI installs the .NET SDK with the wasm-tools workload, so the F# native bundles must run there",
+        )
+    }
+
+    fn assert_companion(workspace: &Path, target: &str) {
+        let framework = NativeServiceProject::web(workspace, target).join(Self::FRAMEWORK);
+        let names: Vec<String> = fs::read_dir(&framework)
+            .expect("the .NET framework folder")
+            .map(|entry| {
+                entry
+                    .expect("framework entry")
+                    .file_name()
+                    .to_string_lossy()
+                    .into_owned()
+            })
+            .collect();
+        for assembly in Self::ASSEMBLIES {
+            let prefix = format!("{assembly}.");
+            assert!(
+                names.iter().any(|name| name.starts_with(&prefix)
+                    && Path::new(name)
+                        .extension()
+                        .is_some_and(|extension| extension == "wasm")),
+                "{target} bundled no {assembly} assembly: {names:?}"
+            );
+        }
+        let boot = fs::read_to_string(framework.join("blazor.boot.json")).expect("boot manifest");
+        assert!(
+            boot.contains("\"FsharpServices.wasm\""),
+            "{target} does not load the F# services assembly: {boot}"
+        );
+    }
+}
+
+fn fsharp_service_bundles_into(target: &str) {
+    let workspace = tempfile::tempdir().expect("workspace");
+    let project = workspace.path().join("fsharp-native");
+    NativeServiceProject::write(
+        &project,
+        FsharpNativeProject::MANIFEST,
+        FsharpNativeProject::SERVICE,
+    );
+    if !FsharpNativeProject::has_dotnet_web_workload(&project) {
+        return;
+    }
+    NativeServiceProject::assert_bundles(
+        workspace.path(),
+        &project,
+        target,
+        FsharpNativeProject::RUNTIME,
+    );
+    FsharpNativeProject::assert_companion(workspace.path(), target);
+}
+
+one_test_per_case!(
+    an_fsharp_service_bundles_into_every_native_target,
+    fsharp_service_bundles_into,
     all NativeServiceProject::TARGETS,
     [
         macos => "macos",
