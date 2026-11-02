@@ -155,15 +155,27 @@ fn preview_builds_a_fresh_bundle_but_start_preserves_the_published_bundle() {
 }
 
 fn groovy_available() -> bool {
-    let found = Command::new("groovyc")
-        .arg("--version")
-        .output()
-        .is_ok_and(|output| output.status.success());
-    let required = cfg!(unix) && std::env::var_os("CI").is_some();
+    let mut windows_launcher = Command::new("cmd");
+    windows_launcher.args(["/D", "/C", "groovyc"]);
+    let found = [
+        Some(Command::new("groovyc")),
+        cfg!(windows).then_some(windows_launcher),
+    ]
+    .into_iter()
+    .flatten()
+    .any(|mut command| {
+        command
+            .arg("--version")
+            .output()
+            .is_ok_and(|output| output.status.success())
+    });
     assert!(
-        found || !required,
+        found || std::env::var_os("CI").is_none(),
         "groovyc is required for the Groovy controller tests in CI"
     );
+    if !found {
+        eprintln!("skipping: groovyc is unavailable");
+    }
     found
 }
 
