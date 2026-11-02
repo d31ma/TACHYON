@@ -41,7 +41,7 @@ impl RubyLowering {
                 units.push_str(&Self::test_members(&unit));
             }
         }
-        let encoded = Self::records(module)?;
+        let encoded = Self::records(module);
         let suffix = format!(
             "{}\nBehaviors.register({}, {:?}, {:?})\n{units}{}",
             include_str!("ruby_runtime.rb"),
