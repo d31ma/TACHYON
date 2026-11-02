@@ -53,10 +53,11 @@ impl FsharpHttpProject {
     }
 
     fn dotnet_available() -> bool {
-        std::process::Command::new("dotnet")
+        let found = std::process::Command::new("dotnet")
             .arg("--version")
             .output()
-            .is_ok_and(|output| output.status.success())
+            .is_ok_and(|output| output.status.success());
+        crate::support::toolchain::Toolchain::checked("dotnet", found)
     }
 }
 

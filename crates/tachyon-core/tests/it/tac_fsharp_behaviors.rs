@@ -271,12 +271,13 @@ type CatalogServiceTest() =
     ];
 
     fn dotnet_available() -> bool {
-        std::process::Command::new("dotnet")
+        let found = std::process::Command::new("dotnet")
             .arg("--version")
             .stdout(std::process::Stdio::null())
             .stderr(std::process::Stdio::null())
             .status()
-            .is_ok_and(|status| status.success())
+            .is_ok_and(|status| status.success());
+        crate::support::toolchain::Toolchain::checked("dotnet", found)
     }
 
     fn staged() -> tempfile::TempDir {

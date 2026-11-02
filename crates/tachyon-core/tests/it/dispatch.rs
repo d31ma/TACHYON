@@ -1127,12 +1127,8 @@ async fn the_development_server_marks_every_document_and_a_bundle_never_does() {
 }
 
 fn available(program: &str) -> bool {
-    std::process::Command::new(program)
-        .arg("--version")
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .status()
-        .is_ok_and(|status| status.success())
+    let found = crate::support::program_probe::ProgramProbe::answers(program, "--version");
+    crate::support::toolchain::Toolchain::checked(program, found)
 }
 
 #[tokio::test]

@@ -77,10 +77,11 @@ private:
     }
 
     pub(super) fn compiler_available() -> bool {
-        std::process::Command::new("clang++")
+        let found = std::process::Command::new("clang++")
             .arg("--version")
             .output()
-            .is_ok_and(|output| output.status.success())
+            .is_ok_and(|output| output.status.success());
+        crate::support::toolchain::Toolchain::checked("clang++", found)
     }
 
     fn refusal(controller: &str) -> String {

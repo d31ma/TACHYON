@@ -117,7 +117,7 @@ impl CheckedOrders {
             .stderr(std::process::Stdio::null())
             .status()
             .is_ok_and(|status| status.success());
-        if !found {
+        if !crate::support::toolchain::Toolchain::checked("dotnet", found) {
             eprintln!("skipping F# Tac checks: dotnet is unavailable");
         }
         found

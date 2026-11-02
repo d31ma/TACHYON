@@ -37,10 +37,11 @@ impl FsharpNeeds {
     const UNIT: &str = "[<Test(typeof<StockTestSetup>)>]\ntype StockServiceTest() =\n    [<Fake>]\n    member val Names : NameService = Unchecked.defaultof<NameService> with get, set\n\n    member this.testReadsTheFakeName() : unit =\n        this.Names <- NameService()\n        let service = StockService(Names = this.Names)\n        Assert.equals(\"anvil\", service.Name())\n\n    member this.testStartsWithoutAFake() : unit =\n        Assert.isTrue(isNull (box this.Names), \"the fake is cleared\")\n";
 
     fn dotnet_available() -> bool {
-        std::process::Command::new("dotnet")
+        let found = std::process::Command::new("dotnet")
             .arg("--version")
             .output()
-            .is_ok_and(|output| output.status.success())
+            .is_ok_and(|output| output.status.success());
+        crate::support::toolchain::Toolchain::checked("dotnet", found)
     }
 
     fn project(controller: &str) -> tempfile::TempDir {

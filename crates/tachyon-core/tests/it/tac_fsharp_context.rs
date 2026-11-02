@@ -43,7 +43,7 @@ impl FsharpContext {
             .arg("--version")
             .output()
             .is_ok_and(|output| output.status.success());
-        if !available {
+        if !crate::support::toolchain::Toolchain::checked("dotnet", available) {
             eprintln!("skipping: dotnet is unavailable");
             return None;
         }

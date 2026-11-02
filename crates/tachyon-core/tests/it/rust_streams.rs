@@ -35,12 +35,13 @@ impl RustStreams {
     ];
 
     fn cargo_available() -> bool {
-        Command::new("cargo")
+        let found = Command::new("cargo")
             .arg("--version")
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .status()
-            .is_ok_and(|status| status.success())
+            .is_ok_and(|status| status.success());
+        crate::support::toolchain::Toolchain::checked("cargo", found)
     }
 
     fn project() -> tempfile::TempDir {

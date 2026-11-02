@@ -57,7 +57,8 @@ fn available(program: &str) -> bool {
         "go" => "version",
         _ => "--version",
     };
-    crate::support::program_probe::ProgramProbe::answers(program, version)
+    let found = crate::support::program_probe::ProgramProbe::answers(program, version);
+    crate::support::toolchain::Toolchain::checked(program, found)
 }
 
 #[cfg(unix)]
