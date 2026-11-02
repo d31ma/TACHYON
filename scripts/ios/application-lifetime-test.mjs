@@ -17,6 +17,7 @@ class IosLifetimeGate {
   static keyboard = path.join(IosLifetimeGate.project, 'simulator-keyboard');
   static tapper = path.join(IosLifetimeGate.project, 'simulator-tap');
   static reader = path.join(IosLifetimeGate.project, 'screenshot-text');
+  static cardSize = 0.4;
   static evidence = process.env.TAC_IOS_LIFETIME_EVIDENCE ?? path.join(IosLifetimeGate.repo, 'target/ios-lifetime-evidence');
   static topEdge = process.env.TAC_IOS_TOP_EDGE ?? '0';
   static appId = ApplicationLifetimeFixture.applicationId;
@@ -207,6 +208,20 @@ class IosLifetimeGate {
     IosLifetimeGate.notes.push(name + ': a touch swipe from the top edge opened the menu bar, and touches on View (' + view.x.toFixed(2) + ', ' + view.y.toFixed(2) + ') and What\'s Running (' + item.x.toFixed(2) + ', ' + item.y.toFixed(2) + ') called LifetimeService ' + instance);
   }
 
+  static cardArea(label, top) {
+    const { cardSize } = IosLifetimeGate;
+    return [label.x - cardSize / 2, top, cardSize, cardSize].map(value => Math.max(value, 0).toFixed(4)).join(',');
+  }
+
+  static readCard(name, lines) {
+    const { letters, run, reader, cardArea, cardSize } = IosLifetimeGate;
+    const label = lines.find(line => letters(line.text) === letters(ApplicationLifetimeFixture.name)) ?? { x: 0.5, y: 0.5 };
+    const file = path.join(IosLifetimeGate.project, name + '.png');
+    const above = JSON.parse(run(reader, ['--region', cardArea(label, label.y - cardSize), file]));
+    const below = JSON.parse(run(reader, ['--region', cardArea(label, label.y), file]));
+    return [...lines, ...above, ...below];
+  }
+
   static findCard(lines, name, instance) {
     const { letters } = IosLifetimeGate;
     const label = lines.find(line => letters(line.text) === letters(ApplicationLifetimeFixture.name));
@@ -220,7 +235,8 @@ class IosLifetimeGate {
     const { waitFor, launch, journal, gesture, pause, read } = IosLifetimeGate;
     gesture(device, 'home', '2');
     await pause(1200);
-    const card = IosLifetimeGate.findCard(read(device, name.replace(/\W+/g, '-') + '-app-switcher'), name, instance);
+    const shot = name.replace(/\W+/g, '-') + '-app-switcher';
+    const card = IosLifetimeGate.findCard(IosLifetimeGate.readCard(shot, read(device, shot)), name, instance);
     gesture(device, 'drag', card.x.toFixed(3), card.y.toFixed(3), card.x.toFixed(3), '0.02', '6');
     const stopped = await waitFor(device, current => current.lines.includes('stopped ' + instance), name + ': ending the app from the app switcher runs applicationWillTerminate and the application OnStop', 80);
     assert.equal(stopped.lines.filter(line => line.startsWith('stopped ')).length, 1, name + ': the service stops once');
