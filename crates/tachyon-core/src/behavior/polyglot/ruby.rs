@@ -8,7 +8,7 @@ use std::fmt::Write as _;
 pub(super) struct RubyLowering;
 
 impl RubyLowering {
-    pub(super) fn records(module: &Module) -> Result<String, String> {
+    pub(super) fn records(module: &Module) -> String {
         let records: Map<String, Value> = module
             .types
             .iter()
@@ -19,7 +19,7 @@ impl RubyLowering {
                 )
             })
             .collect();
-        Ok(SortedJson::text(&Value::Object(records)))
+        SortedJson::text(&Value::Object(records))
     }
 
     fn with_methods(type_declaration: &Type) -> Value {

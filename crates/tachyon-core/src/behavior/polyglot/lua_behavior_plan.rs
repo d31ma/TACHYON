@@ -32,7 +32,7 @@ impl LuaBehaviorPlan {
 
     fn of(module: &Module) -> Result<Self, String> {
         Ok(Self {
-            records: RubyLowering::records(module)?,
+            records: RubyLowering::records(module),
             module_id: module.module_id.clone(),
             erased: render(module, Vec::new(), "")?,
             types: module.types.iter().map(|ty| ty.name.clone()).collect(),
