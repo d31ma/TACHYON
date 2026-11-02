@@ -48,7 +48,12 @@ impl InvocationLog {
         runtime_family: Option<&str>,
         failure: &Failure,
     ) -> String {
-        Self::failure_value(operation, request_id, runtime_family, failure).to_string()
+        SortedJson::text(&Self::failure_value(
+            operation,
+            request_id,
+            runtime_family,
+            failure,
+        ))
     }
 
     fn failure_value(

@@ -104,7 +104,7 @@ fn constructor_edit(module: &Module, type_declaration: &Type, fields: &[String])
 }
 
 fn registration(type_declaration: &Type, data: &Map<String, Value>) -> Result<String, String> {
-    let json = serde_json::to_string(data).map_err(|error| error.to_string())?;
+    let json = SortedJson::text(&Value::Object(data.clone()));
     let quoted_json = serde_json::to_string(&json).map_err(|error| error.to_string())?;
     Ok(format!(
         "{}: _behavior_json.loads({quoted_json})",

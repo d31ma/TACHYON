@@ -1,5 +1,6 @@
 use super::{Rejection, RouteRequest};
 use crate::route_types::{ModelTable, Shape, TextValue};
+use crate::sorted_json::SortedJson;
 use crate::yon::plan::{ParameterSource, Route, RouteParameter};
 use axum::http::HeaderMap;
 use axum::http::header::COOKIE;
@@ -189,6 +190,7 @@ impl RouteArguments {
             return Ok(Value::Null);
         }
         serde_json::from_slice(body)
+            .map(SortedJson::into_sorted)
             .map_err(|_| Rejection::new("body", "", "The request body is not valid JSON."))
     }
 

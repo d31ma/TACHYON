@@ -2,6 +2,7 @@ use super::python_provider_source::PythonProviderSource;
 use crate::Failure;
 use crate::events::{EventStream, HeldStreams};
 use crate::route_types::ModelTable;
+use crate::sorted_json::SortedJson;
 use serde_json::{Map, Value, json};
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -29,9 +30,13 @@ impl PythonHeldStreams {
     }
 
     pub(super) fn describe(&self, descriptions: &mut Map<String, Value>) -> Result<(), Failure> {
-        descriptions
-            .iter_mut()
-            .try_for_each(|(class, description)| self.add_streams(class, description))
+        let classes: Vec<String> = SortedJson::keys(descriptions)
+            .into_iter()
+            .cloned()
+            .collect();
+        classes
+            .iter()
+            .try_for_each(|class| self.add_streams(class, &mut descriptions[class.as_str()]))
     }
 
     fn add_streams(&self, class: &str, description: &mut Value) -> Result<(), Failure> {

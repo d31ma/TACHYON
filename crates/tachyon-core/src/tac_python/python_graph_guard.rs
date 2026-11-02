@@ -9,8 +9,8 @@ pub(super) struct PythonGraphGuard;
 
 impl PythonGraphGuard {
     pub(super) fn check(providers: &Map<String, Value>) -> Result<(), Failure> {
-        providers
-            .keys()
+        SortedJson::keys(providers)
+            .into_iter()
             .try_for_each(|name| Self::visit(name, providers, &BTreeSet::new()).map(|_| ()))
     }
 

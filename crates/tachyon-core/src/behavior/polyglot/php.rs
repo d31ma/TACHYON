@@ -37,7 +37,7 @@ pub(super) fn lower(module: &Module) -> Result<String, String> {
         records.insert(type_declaration.name.clone(), record);
     }
     edits.extend(closing_tag_removal(module));
-    let encoded_records = serde_json::to_string(&records).map_err(|error| error.to_string())?;
+    let encoded_records = SortedJson::text(&Value::Object(records));
     let runtime = include_str!("php_runtime.php")
         .replace(
             "__BEHAVIOR_RECORDS__",

@@ -2,6 +2,7 @@ use super::{ServiceDefinition, ServiceRegistry};
 use crate::Failure;
 use crate::companion::go::GoTable;
 use crate::failure::{diagnostic, source_span};
+use crate::sorted_json::SortedJson;
 use crate::tac_web::WebLanguage;
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
@@ -54,10 +55,7 @@ impl ViewMemberCheck {
     }
 
     fn children(value: &Value) -> impl Iterator<Item = &Value> {
-        let members = value
-            .as_object()
-            .into_iter()
-            .flat_map(serde_json::Map::values);
+        let members = value.as_object().into_iter().flat_map(SortedJson::values);
         members.chain(value.as_array().into_iter().flatten())
     }
 

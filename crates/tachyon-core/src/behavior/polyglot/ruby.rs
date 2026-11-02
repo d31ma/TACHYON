@@ -19,7 +19,7 @@ impl RubyLowering {
                 )
             })
             .collect();
-        serde_json::to_string(&records).map_err(|error| error.to_string())
+        Ok(SortedJson::text(&Value::Object(records)))
     }
 
     fn with_methods(type_declaration: &Type) -> Value {

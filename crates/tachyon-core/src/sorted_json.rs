@@ -20,6 +20,11 @@ impl SortedJson {
         serde_json::to_string_pretty(&Self::sorted(value)).unwrap_or_default()
     }
 
+    pub(crate) fn into_sorted(mut value: Value) -> Value {
+        value.sort_all_objects();
+        value
+    }
+
     pub(crate) fn map(map: &Map<String, Value>) -> Map<String, Value> {
         Self::sorted_map(map)
     }
@@ -27,6 +32,12 @@ impl SortedJson {
     pub(crate) fn entries(map: &Map<String, Value>) -> Vec<(&String, &Value)> {
         let mut entries: Vec<(&String, &Value)> = map.iter().collect();
         entries.sort_by(|left, right| left.0.cmp(right.0));
+        entries
+    }
+
+    pub(crate) fn owned_entries(map: Map<String, Value>) -> Vec<(String, Value)> {
+        let mut entries: Vec<(String, Value)> = map.into_iter().collect();
+        entries.sort_by(|left, right| left.0.cmp(&right.0));
         entries
     }
 

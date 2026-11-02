@@ -29,10 +29,8 @@ impl<'a> ElementDeclaration<'a> {
     }
 
     pub(super) fn text(&self) -> String {
-        let models: String = self
-            .events
-            .models
-            .iter()
+        let models: String = SortedJson::entries(&self.events.models)
+            .into_iter()
             .map(|(model, described)| Self::model_interface(model, described))
             .collect();
         [

@@ -56,3 +56,15 @@ fn the_json_order_guard_build_keeps_authored_order() {
     assert_eq!(authored.to_string(), r#"{"b":1,"a":2}"#);
     assert_eq!(SortedJson::text(&authored), r#"{"a":2,"b":1}"#);
 }
+
+#[test]
+fn owned_entries_come_out_sorted_by_key() {
+    let authored = parsed(r#"{"b":1,"a":2}"#);
+    let Value::Object(map) = authored else {
+        panic!("object");
+    };
+    assert_eq!(
+        SortedJson::owned_entries(map),
+        [("a".to_owned(), json!(2)), ("b".to_owned(), json!(1))]
+    );
+}

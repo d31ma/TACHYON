@@ -246,7 +246,7 @@ fn field_constraints_allow_inline_comments_in_every_language() {
             let expected = expected_name_rules(language);
             assert!(
                 normalized.contains(expected),
-                "{language}/{environment}: comments redirected constraints away from the authored field TEMPDEBUG {normalized}"
+                "{language}/{environment}: comments redirected constraints away from the authored field"
             );
         }
     }

@@ -49,6 +49,7 @@ impl ServiceWorker {
     ) -> Result<String, Failure> {
         let mut assets = BTreeMap::new();
         Self::add_assets(files, &mut assets, profile)?;
+        assets.values_mut().for_each(Value::sort_all_objects);
         serde_json::to_string(&assets).map_err(|_| {
             Failure::one(diagnostic(
                 1201,

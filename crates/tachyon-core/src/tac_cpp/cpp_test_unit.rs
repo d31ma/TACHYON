@@ -239,7 +239,7 @@ impl CppTestUnit {
             .selection
             .1
             .iter()
-            .flatten()
+            .flat_map(SortedJson::entries)
             .map(|(name, value)| {
                 format!(
                     "{{{}, {}}}",

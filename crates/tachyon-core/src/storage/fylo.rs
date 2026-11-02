@@ -24,6 +24,7 @@ use super::dialect::{
 };
 use super::{ManagedStorage, failure, object_keys, scalar, text};
 use crate::Failure;
+use crate::sorted_json::SortedJson;
 pub(super) use collection_name::CollectionName;
 use document_commands::DocumentCommands;
 use patch_queue::{PatchAnswer, PatchQueue};
@@ -616,8 +617,7 @@ impl FyloProcess {
     }
 
     async fn request(&mut self, request: Value) -> Result<Value, FyloError> {
-        let mut line = serde_json::to_string(&request)
-            .map_err(|_| FyloError::protocol("FYLO request could not be encoded."))?;
+        let mut line = SortedJson::text(&request);
         if line.len() > 1024 * 1024 {
             return Err(FyloError::protocol("FYLO request exceeds 1 MiB."));
         }
@@ -707,7 +707,7 @@ fn rows_of(answer: Value, id_field: &str) -> Result<Vec<Value>, Failure> {
     };
     let mut rows = Vec::with_capacity(items.len());
     let mut bytes = 0;
-    for (id, document) in items {
+    for (id, document) in SortedJson::owned_entries(items) {
         let Value::Object(mut document) = document else {
             continue;
         };

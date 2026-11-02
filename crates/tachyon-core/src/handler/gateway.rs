@@ -375,12 +375,12 @@ impl GatewayCalls {
             Ok(result) => json!({ "result": result }),
             Err(failure) => self.failed(failure),
         };
-        let bytes = serde_json::to_vec(&answer).unwrap_or_default();
+        let bytes = SortedJson::text(&answer).into_bytes();
         if bytes.len() <= GatewayLimits::MAX_BYTES {
             return bytes;
         }
         let failed = self.failed(GatewayFailure::Adapter);
-        serde_json::to_vec(&failed).unwrap_or_default()
+        SortedJson::text(&failed).into_bytes()
     }
 
     fn failed(&self, failure: GatewayFailure) -> Value {
@@ -538,7 +538,7 @@ impl GatewayCalls {
             child,
             stdout: tokio::spawn(Drained::read_all(stdout, GatewayLimits::MAX_BYTES + 1)),
             stderr: tokio::spawn(Drained::read_all(stderr, self.supervisor.stderr_limit())),
-            input: write_input(stdin, serde_json::to_vec(input).unwrap_or_default()),
+            input: write_input(stdin, SortedJson::text(input).into_bytes()),
         })
     }
 }
