@@ -723,7 +723,7 @@ jobs:
     if: (github.event_name != 'pull_request' || github.head_ref == 'develop' || startsWith(github.head_ref, 'release/')) && (!inputs.jobs || contains(format(',{0},', inputs.jobs), ',macos-native,'))
     name: Phase 4 macOS native and mobile-web parity
     runs-on: ${{ ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/heads/') && vars.TACHYON_SELF_HOSTED == 'true') && fromJSON('["self-hosted","tachyon","macos"]') || 'macos-latest' }}
-    timeout-minutes: 100
+    timeout-minutes: 180
 
     steps:
       - name: Check out source
@@ -827,8 +827,8 @@ jobs:
           echo "${expected_checksum}  ${library}" | shasum -a 256 --check
           echo "TAC_KOTLIN_WASM_STDLIB=${library}" >> "${GITHUB_ENV}"
 
-      - name: Install checksum-pinned Groovy for Groovy behavior annotations
-        run: node scripts/ci/install-toolchains.mjs "${RUNNER_TEMP}/tachyon-toolchains" groovy
+      - name: Install checksum-pinned Groovy for Groovy behavior annotations and Pyodide for Python snippets
+        run: node scripts/ci/install-toolchains.mjs "${RUNNER_TEMP}/tachyon-toolchains" groovy pyodide
 
       - name: Install checksum-pinned Dart SDK for Dart services and published examples
         run: |
@@ -1089,6 +1089,9 @@ jobs:
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24.22.2
+
+      - name: Install the checksum-pinned Pyodide for the Python page service
+        run: node scripts/ci/install-toolchains.mjs "${RUNNER_TEMP}/tachyon-toolchains" pyodide
 
       - name: Install Bun for native WebView acceptance
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
@@ -1469,6 +1472,11 @@ jobs:
         run: |
           rustup toolchain install 1.97.1 --profile minimal
           rustup default 1.97.1
+
+      - name: Install Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.22.2
 
       - name: Install Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
