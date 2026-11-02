@@ -32,7 +32,7 @@ jobs:
   rewrite-policy:
     if: (github.event_name != 'pull_request' || github.head_ref == 'develop' || startsWith(github.head_ref, 'release/')) && (!inputs.jobs || contains(format(',{0},', inputs.jobs), ',rewrite-policy,'))
     name: Rewrite-only repository policy
-    runs-on: ${{ ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/heads/') && vars.TACHYON_SELF_HOSTED == 'true') && fromJSON('["self-hosted","tachyon","linux"]') || 'ubuntu-latest' }}
+    runs-on: ${{ ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/heads/') && vars.TACHYON_SELF_HOSTED == 'true') && fromJSON('["self-hosted","tachyon","linux"]') || 'ubuntu-24.04' }}
     timeout-minutes: 10
 
     steps:
@@ -62,11 +62,11 @@ jobs:
       fail-fast: false
       matrix:
         os:
-          - ubuntu-latest
+          - ubuntu-24.04
           - macos-latest
           - windows-latest
         include:
-          - os: ubuntu-latest
+          - os: ubuntu-24.04
             self_hosted_labels: '["self-hosted","tachyon","linux"]'
           - os: macos-latest
             self_hosted_labels: '["self-hosted","tachyon","macos"]'
@@ -204,7 +204,7 @@ jobs:
   managed-storage:
     if: (github.event_name != 'pull_request' || github.head_ref == 'develop' || startsWith(github.head_ref, 'release/')) && (!inputs.jobs || contains(format(',{0},', inputs.jobs), ',managed-storage,'))
     name: Real managed SQL, document and Redis contracts
-    runs-on: ${{ ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/heads/') && vars.TACHYON_SELF_HOSTED == 'true') && fromJSON('["self-hosted","tachyon","linux"]') || 'ubuntu-latest' }}
+    runs-on: ${{ ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/heads/') && vars.TACHYON_SELF_HOSTED == 'true') && fromJSON('["self-hosted","tachyon","linux"]') || 'ubuntu-24.04' }}
     timeout-minutes: 40
     steps:
       - name: Check out source
@@ -284,7 +284,7 @@ jobs:
   supply-chain:
     if: (github.event_name != 'pull_request' || github.head_ref == 'develop' || startsWith(github.head_ref, 'release/')) && (!inputs.jobs || contains(format(',{0},', inputs.jobs), ',supply-chain,'))
     name: Dependency, license, and source policy
-    runs-on: ${{ ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/heads/') && vars.TACHYON_SELF_HOSTED == 'true') && fromJSON('["self-hosted","tachyon","linux"]') || 'ubuntu-latest' }}
+    runs-on: ${{ ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/heads/') && vars.TACHYON_SELF_HOSTED == 'true') && fromJSON('["self-hosted","tachyon","linux"]') || 'ubuntu-24.04' }}
     timeout-minutes: 25
 
     steps:
@@ -305,7 +305,7 @@ jobs:
   browser:
     if: (github.event_name != 'pull_request' || github.head_ref == 'develop' || startsWith(github.head_ref, 'release/')) && (!inputs.jobs || contains(format(',{0},', inputs.jobs), ',browser,'))
     name: Phase 3 Chromium component and service behavior
-    runs-on: ${{ ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/heads/') && vars.TACHYON_SELF_HOSTED == 'true') && fromJSON('["self-hosted","tachyon","linux"]') || 'ubuntu-latest' }}
+    runs-on: ${{ ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/heads/') && vars.TACHYON_SELF_HOSTED == 'true') && fromJSON('["self-hosted","tachyon","linux"]') || 'ubuntu-24.04' }}
     timeout-minutes: 55
 
     steps:
@@ -366,6 +366,37 @@ jobs:
             ~/Library/Caches/Tachyon/ruby-web
             ~/AppData/Local/Tachyon/Cache/ruby-web
           key: tachyon-ruby-web-${{ runner.os }}-${{ hashFiles('runtimes/ruby-web/**') }}
+
+      - name: Install checksum-pinned Kotlin, the Kotlin/Wasm stdlib and TeaVM for the website's services
+        run: node scripts/ci/install-toolchains.mjs "${RUNNER_TEMP}/tachyon-toolchains" kotlin kotlin-wasm teavm
+
+      - name: Select JDK 21 for Kotlin and Java web services
+        run: |
+          set -euo pipefail
+          test -x "${JAVA_HOME_21_X64}/bin/javac"
+          echo "JAVA_HOME=${JAVA_HOME_21_X64}" >> "${GITHUB_ENV}"
+          echo "${JAVA_HOME_21_X64}/bin" >> "${GITHUB_PATH}"
+
+      - name: Install the pinned Swift 6.3.3 toolchain and Swift SDK for WebAssembly
+        run: |
+          set -euo pipefail
+          release=https://download.swift.org/swift-6.3.3-release
+          archive="${RUNNER_TEMP}/swift-6.3.3-RELEASE-ubuntu24.04.tar.gz"
+          expected_checksum=da8272a5fddccd65b1529ed0e52e04526e2eadd4237d58d6220efeb973c6cd19
+          curl --fail --location --silent --show-error --max-time 900 --retry 3 \
+            --output "${archive}" \
+            "${release}/ubuntu2404/swift-6.3.3-RELEASE/swift-6.3.3-RELEASE-ubuntu24.04.tar.gz"
+          echo "${expected_checksum}  ${archive}" | sha256sum --check
+          tar -xzf "${archive}" -C "${RUNNER_TEMP}"
+          toolchain="${RUNNER_TEMP}/swift-6.3.3-RELEASE-ubuntu24.04/usr"
+          sdks="${RUNNER_TEMP}/swift-sdks"
+          "${toolchain}/bin/swift" sdk install --swift-sdks-path "${sdks}" \
+            "${release}/wasm-sdk/swift-6.3.3-RELEASE/swift-6.3.3-RELEASE_wasm.artifactbundle.tar.gz" \
+            --checksum cabfa08b73bb8ac783927ecd15fa386e99d0c139c5f232445067bcf58379cae7
+          sdk="${sdks}/swift-6.3.3-RELEASE_wasm.artifactbundle/swift-6.3.3-RELEASE_wasm/wasm32-unknown-wasip1"
+          test -d "${sdk}/WASI.sdk"
+          echo "TAC_SWIFT_WASM_COMPILER=${toolchain}/bin/swiftc" >> "${GITHUB_ENV}"
+          echo "TAC_SWIFT_WASM_SDK=${sdk}" >> "${GITHUB_ENV}"
 
       - name: Check the website data generated from website/content
         run: node website/scripts/build-content.mjs --check
@@ -568,7 +599,7 @@ jobs:
   browser-languages:
     if: (github.event_name != 'pull_request' || github.head_ref == 'develop' || startsWith(github.head_ref, 'release/')) && (!inputs.jobs || contains(format(',{0},', inputs.jobs), ',browser-languages,'))
     name: Tac service languages in Chromium, Firefox and WebKit (${{ matrix.gate }})
-    runs-on: ${{ ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/heads/') && vars.TACHYON_SELF_HOSTED == 'true') && fromJSON('["self-hosted","tachyon","linux"]') || 'ubuntu-latest' }}
+    runs-on: ${{ ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/heads/') && vars.TACHYON_SELF_HOSTED == 'true') && fromJSON('["self-hosted","tachyon","linux"]') || 'ubuntu-24.04' }}
     timeout-minutes: 60
     strategy:
       fail-fast: false
@@ -972,7 +1003,7 @@ jobs:
   linux-native:
     if: (github.event_name != 'pull_request' || github.head_ref == 'develop' || startsWith(github.head_ref, 'release/')) && (!inputs.jobs || contains(format(',{0},', inputs.jobs), ',linux-native,'))
     name: Phase 5 Linux GTK4 native gate
-    runs-on: ${{ ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/heads/') && vars.TACHYON_SELF_HOSTED == 'true') && fromJSON('["self-hosted","tachyon","linux"]') || 'ubuntu-latest' }}
+    runs-on: ${{ ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/heads/') && vars.TACHYON_SELF_HOSTED == 'true') && fromJSON('["self-hosted","tachyon","linux"]') || 'ubuntu-24.04' }}
     timeout-minutes: 40
 
     steps:
@@ -1038,7 +1069,7 @@ jobs:
   android-native:
     if: (github.event_name != 'pull_request' || github.head_ref == 'develop' || startsWith(github.head_ref, 'release/')) && (!inputs.jobs || contains(format(',{0},', inputs.jobs), ',android-native,'))
     name: Phase 5 Android native gate
-    runs-on: ${{ ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/heads/') && vars.TACHYON_SELF_HOSTED == 'true' && vars.TACHYON_SELF_HOSTED_ANDROID == 'true') && fromJSON('["self-hosted","tachyon","linux"]') || 'ubuntu-latest' }}
+    runs-on: ${{ ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/heads/') && vars.TACHYON_SELF_HOSTED == 'true' && vars.TACHYON_SELF_HOSTED_ANDROID == 'true') && fromJSON('["self-hosted","tachyon","linux"]') || 'ubuntu-24.04' }}
     timeout-minutes: 60
     env:
       ANDROID_USER_HOME: /tmp/tachyon-android
@@ -1052,6 +1083,7 @@ jobs:
         run: |
           rustup toolchain install 1.97.1 --profile minimal
           rustup default 1.97.1
+          rustup target add aarch64-linux-android x86_64-linux-android --toolchain 1.97.1
 
       - name: Install Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -1148,7 +1180,7 @@ jobs:
   compatibility:
     if: (github.event_name != 'pull_request' || github.head_ref == 'develop' || startsWith(github.head_ref, 'release/')) && (!inputs.jobs || contains(format(',{0},', inputs.jobs), ',compatibility,'))
     name: Phase 6 legacy compatibility differential
-    runs-on: ${{ ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/heads/') && vars.TACHYON_SELF_HOSTED == 'true') && fromJSON('["self-hosted","tachyon","linux"]') || 'ubuntu-latest' }}
+    runs-on: ${{ ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/heads/') && vars.TACHYON_SELF_HOSTED == 'true') && fromJSON('["self-hosted","tachyon","linux"]') || 'ubuntu-24.04' }}
     timeout-minutes: 30
 
     steps:
@@ -1206,7 +1238,7 @@ jobs:
   fuzz:
     if: (github.event_name != 'pull_request' || github.head_ref == 'develop' || startsWith(github.head_ref, 'release/')) && (!inputs.jobs || contains(format(',{0},', inputs.jobs), ',fuzz,'))
     name: Phase 7 fuzzing
-    runs-on: ${{ ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/heads/') && vars.TACHYON_SELF_HOSTED == 'true') && fromJSON('["self-hosted","tachyon","linux"]') || 'ubuntu-latest' }}
+    runs-on: ${{ ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/heads/') && vars.TACHYON_SELF_HOSTED == 'true') && fromJSON('["self-hosted","tachyon","linux"]') || 'ubuntu-24.04' }}
     timeout-minutes: 50
 
     steps:
@@ -1240,7 +1272,7 @@ jobs:
   sanitizers:
     if: (github.event_name != 'pull_request' || github.head_ref == 'develop' || startsWith(github.head_ref, 'release/')) && (!inputs.jobs || contains(format(',{0},', inputs.jobs), ',sanitizers,'))
     name: Phase 7 sanitizers
-    runs-on: ${{ ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/heads/') && vars.TACHYON_SELF_HOSTED == 'true') && fromJSON('["self-hosted","tachyon","linux"]') || 'ubuntu-latest' }}
+    runs-on: ${{ ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/heads/') && vars.TACHYON_SELF_HOSTED == 'true') && fromJSON('["self-hosted","tachyon","linux"]') || 'ubuntu-24.04' }}
     timeout-minutes: 90
     env:
       TAC_TEST_TIME_SCALE: "20"
@@ -1358,7 +1390,7 @@ jobs:
   soak:
     if: (github.event_name != 'pull_request' || github.head_ref == 'develop' || startsWith(github.head_ref, 'release/')) && (!inputs.jobs || contains(format(',{0},', inputs.jobs), ',soak,'))
     name: Phase 7 soak and recovery drills
-    runs-on: ${{ ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/heads/') && vars.TACHYON_SELF_HOSTED == 'true') && fromJSON('["self-hosted","tachyon","linux"]') || 'ubuntu-latest' }}
+    runs-on: ${{ ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/heads/') && vars.TACHYON_SELF_HOSTED == 'true') && fromJSON('["self-hosted","tachyon","linux"]') || 'ubuntu-24.04' }}
     timeout-minutes: 40
 
     steps:
@@ -1379,7 +1411,7 @@ jobs:
   provenance:
     if: (github.event_name != 'pull_request' || github.head_ref == 'develop' || startsWith(github.head_ref, 'release/')) && (!inputs.jobs || contains(format(',{0},', inputs.jobs), ',provenance,'))
     name: Phase 7 supply-chain evidence
-    runs-on: ${{ ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/heads/') && vars.TACHYON_SELF_HOSTED == 'true') && fromJSON('["self-hosted","tachyon","linux"]') || 'ubuntu-latest' }}
+    runs-on: ${{ ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/heads/') && vars.TACHYON_SELF_HOSTED == 'true') && fromJSON('["self-hosted","tachyon","linux"]') || 'ubuntu-24.04' }}
     timeout-minutes: 30
 
     steps:
@@ -1421,10 +1453,10 @@ jobs:
       fail-fast: false
       matrix:
         os:
-          - ubuntu-latest
+          - ubuntu-24.04
           - macos-latest
         include:
-          - os: ubuntu-latest
+          - os: ubuntu-24.04
             self_hosted_labels: '["self-hosted","tachyon","linux"]'
           - os: macos-latest
             self_hosted_labels: '["self-hosted","tachyon","macos"]'
@@ -1437,6 +1469,11 @@ jobs:
         run: |
           rustup toolchain install 1.97.1 --profile minimal
           rustup default 1.97.1
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.4.3
 
       - name: Verify, install, upgrade, roll back, and uninstall a real artifact
         run: ./scripts/release/lifecycle-drill.sh
@@ -1458,7 +1495,7 @@ jobs:
   coverage:
     if: (github.event_name != 'pull_request' || github.head_ref == 'develop' || startsWith(github.head_ref, 'release/')) && (!inputs.jobs || contains(format(',{0},', inputs.jobs), ',coverage,'))
     name: Rust coverage ratchet
-    runs-on: ${{ ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/heads/') && vars.TACHYON_SELF_HOSTED == 'true') && fromJSON('["self-hosted","tachyon","linux"]') || 'ubuntu-latest' }}
+    runs-on: ${{ ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/heads/') && vars.TACHYON_SELF_HOSTED == 'true') && fromJSON('["self-hosted","tachyon","linux"]') || 'ubuntu-24.04' }}
     timeout-minutes: 90
 
     steps:
