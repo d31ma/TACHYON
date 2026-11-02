@@ -378,7 +378,7 @@ fn the_only_token_minting_job_refuses_pull_requests_from_forks()
     assert_eq!(
         job["if"].as_str(),
         Some(
-            "(github.event_name != 'pull_request' || (github.head_ref == 'develop' && github.event.pull_request.head.repo.full_name == github.repository)) && (!inputs.jobs || contains(format(',{0},', inputs.jobs), ',release-lifecycle,'))"
+            "(github.event_name != 'pull_request' || ((github.head_ref == 'develop' || startsWith(github.head_ref, 'release/')) && github.event.pull_request.head.repo.full_name == github.repository)) && (!inputs.jobs || contains(format(',{0},', inputs.jobs), ',release-lifecycle,'))"
         )
     );
     Ok(())
@@ -766,9 +766,10 @@ fn exact_toolchain_is_consistent_across_repository_controls()
 }
 
 #[test]
-fn github_ci_runs_only_for_develop_into_main() -> Result<(), Box<dyn std::error::Error>> {
+fn github_ci_runs_only_for_develop_or_release_into_main() -> Result<(), Box<dyn std::error::Error>>
+{
     let root = repository_root();
-    let guard = "if: github.event_name != 'pull_request' || github.head_ref == 'develop'";
+    let guard = "if: github.event_name != 'pull_request' || github.head_ref == 'develop' || startsWith(github.head_ref, 'release/')";
     for name in ["rust-ci.yml", "ruby-runtime.yml"] {
         let workflow = fs::read_to_string(root.join(".github/workflows").join(name))?;
         assert!(
@@ -790,10 +791,10 @@ fn github_ci_runs_only_for_develop_into_main() -> Result<(), Box<dyn std::error:
                 let next = lines.get(index + 1).map(|next| next.trim());
                 let job = line.trim().trim_end_matches(':');
                 let selected = format!(
-                    "if: (github.event_name != 'pull_request' || github.head_ref == 'develop') && (!inputs.jobs || contains(format(',{{0}},', inputs.jobs), ',{job},'))"
+                    "if: (github.event_name != 'pull_request' || github.head_ref == 'develop' || startsWith(github.head_ref, 'release/')) && (!inputs.jobs || contains(format(',{{0}},', inputs.jobs), ',{job},'))"
                 );
                 let same_repository = format!(
-                    "if: (github.event_name != 'pull_request' || (github.head_ref == 'develop' && github.event.pull_request.head.repo.full_name == github.repository)) && (!inputs.jobs || contains(format(',{{0}},', inputs.jobs), ',{job},'))"
+                    "if: (github.event_name != 'pull_request' || ((github.head_ref == 'develop' || startsWith(github.head_ref, 'release/')) && github.event.pull_request.head.repo.full_name == github.repository)) && (!inputs.jobs || contains(format(',{{0}},', inputs.jobs), ',{job},'))"
                 );
                 assert!(
                     [
@@ -802,7 +803,7 @@ fn github_ci_runs_only_for_develop_into_main() -> Result<(), Box<dyn std::error:
                         Some(same_repository.as_str())
                     ]
                     .contains(&next),
-                    "{name}: job {line} must run only for develop into main"
+                    "{name}: job {line} must run only for develop or release branches into main"
                 );
             }
         }

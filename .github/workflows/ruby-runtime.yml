@@ -18,7 +18,7 @@ concurrency:
 
 jobs:
   rebuild:
-    if: github.event_name != 'pull_request' || github.head_ref == 'develop'
+    if: github.event_name != 'pull_request' || github.head_ref == 'develop' || startsWith(github.head_ref, 'release/')
     runs-on: macos-15
     timeout-minutes: 40
     env:
