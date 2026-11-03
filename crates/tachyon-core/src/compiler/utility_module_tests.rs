@@ -1,0 +1,103 @@
+#![allow(clippy::expect_used)]
+
+use super::utility_module::UtilityModule;
+use std::path::Path;
+
+struct UtilityModuleFixture;
+
+impl UtilityModuleFixture {
+    const PATH: &'static str = "client/shared/utils/TitleUtils.js";
+    const BODY: &'static str = "class TitleUtils { static location() { return new URL('../shared/assets/item.txt', import.meta.url).href; } }";
+}
+
+#[test]
+fn utility_module_recognizes_code_meta_without_rewriting_comments_or_literals() {
+    let path = Path::new(UtilityModuleFixture::PATH);
+    for source in [
+        UtilityModuleFixture::BODY,
+        "class TitleUtils { static location() { return import /* note */ . meta.url; } }",
+    ] {
+        assert!(UtilityModule::needs_module(path, source).expect("mask"));
+    }
+    for source in [
+        "class TitleUtils { static location() { return 'import.meta.url'; } }",
+        "// import.meta.url\nclass TitleUtils { static location() { return 'Ready'; } }",
+        "class TitleUtils { static location() { return /import.meta.url/.test('text'); } }",
+    ] {
+        assert!(!UtilityModule::needs_module(path, source).expect("mask"));
+    }
+}
+
+#[test]
+fn utility_module_ignores_regex_named_export_text() {
+    let source = "class TitleUtils { static matches(value) { return /export class TitleUtils/.test(value); } static location() { return import.meta.url; } }";
+    let emitted = UtilityModule::exported(Path::new(UtilityModuleFixture::PATH), source)
+        .expect("a regex in a static method stays inert");
+    assert_eq!(
+        String::from_utf8(emitted).expect("UTF-8"),
+        format!("{source}\nexport {{ TitleUtils }};\n")
+    );
+}
+
+#[test]
+fn utility_module_preserves_named_default_and_bare_exports() {
+    let path = Path::new(UtilityModuleFixture::PATH);
+    let source = format!("export {}", UtilityModuleFixture::BODY);
+    assert_eq!(
+        UtilityModule::exported(path, &source).expect("export"),
+        source.as_bytes()
+    );
+    for source in [
+        UtilityModuleFixture::BODY.to_owned(),
+        format!("export default {}", UtilityModuleFixture::BODY),
+    ] {
+        let emitted = UtilityModule::exported(path, &source).expect("export");
+        assert_eq!(
+            String::from_utf8(emitted).expect("UTF-8"),
+            format!("{source}\nexport {{ TitleUtils }};\n")
+        );
+    }
+}
+
+#[test]
+fn utility_module_keeps_postfix_authored_exports_unsupported() {
+    for export in [
+        "export { TitleUtils };",
+        "export { TitleUtils as Label };",
+        "export { TitleUtils as default };",
+    ] {
+        let source = format!("{}\n{export}", UtilityModuleFixture::BODY);
+        let failure = UtilityModule::exported(Path::new(UtilityModuleFixture::PATH), &source)
+            .expect_err("the authored one-class boundary still applies");
+        assert_eq!(failure.diagnostics()[0].code.number(), 1310);
+    }
+}
+
+#[test]
+fn utility_module_preserves_abstract_named_exports_with_masked_spacing() {
+    let path = Path::new("client/shared/utils/TitleUtils.ts");
+    for prefix in [
+        "export abstract class",
+        "export abstract   class",
+        "export abstract\nclass",
+        "export abstract\tclass",
+        "export /* export marker */ abstract /* modifier */ class",
+    ] {
+        let source = format!(
+            "{prefix} TitleUtils {{ static location(): string {{ return import.meta.url; }} }}"
+        );
+        assert_eq!(
+            UtilityModule::exported(path, &source).expect("named abstract utility"),
+            source.as_bytes()
+        );
+    }
+}
+
+#[test]
+fn utility_module_does_not_publish_an_unvalidated_stateful_utility() {
+    let source =
+        "class TitleUtils { static value = 1; static text() { return String(TitleUtils.value); } }";
+    let failure = UtilityModule::exported(Path::new(UtilityModuleFixture::PATH), source)
+        .expect_err("state stays rejected");
+    assert_eq!(failure.diagnostics()[0].code.number(), 1316);
+}

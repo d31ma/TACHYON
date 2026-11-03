@@ -1,0 +1,14 @@
+#[Service]
+class RubyGreetingService
+  # @return [String]
+  attr_reader :message
+
+  def initialize
+    @message = "Hello from Ruby"
+  end
+
+  # @return [String]
+  def greet
+    @message = "Ruby says hello again."
+  end
+end

@@ -1,410 +1,192 @@
-//! Reports whether the toolchains a project needs are actually installed.
-//!
-//! A build fails with a diagnostic naming one missing tool at a time, which is
-//! the wrong shape for the question "can this machine build this project at
-//! all". This answers that question up front, for the whole project, before
-//! anything is compiled.
-//!
-//! Only what a project actually uses is reported. A project with no `tac.ts`
-//! is not told about the TypeScript compiler, because it does not need one.
+mod command_probe;
+mod keychain_identities;
+mod known_toolchains;
+mod release_toolchains;
+mod sdk_build_tools;
+mod service_toolchains;
+mod target_probe;
+mod target_toolchain;
+mod target_toolchains;
+mod toolchain;
+mod toolchain_state;
+mod yon_discovery;
+
+pub(crate) use command_probe::CommandProbe;
+pub(crate) use target_toolchains::TargetToolchains;
+pub use toolchain::Toolchain;
+pub use toolchain_state::ToolchainState;
 
 use crate::Failure;
-use crate::external_command::run_sync;
 use crate::failure::{diagnostic, source_span};
-use crate::handler::{
-    HandlerSupervisorOptions, RuntimeProbeResult, RuntimeProbeState, RuntimeRequirements,
-    probe_all_sync,
-};
+use crate::handler::{HandlerSupervisorOptions, RuntimeProbe, RuntimeRequirements};
+use crate::template::ServiceRegistry;
+use known_toolchains::KnownToolchains;
 use serde::Serialize;
-use std::collections::BTreeSet;
+use service_toolchains::ServiceToolchains;
 use std::fmt::Write as _;
-use std::fs;
 use std::path::Path;
-use std::process::Command;
-use std::time::Duration;
+use yon_discovery::YonDiscovery;
 
-const PROBE_DEADLINE: Duration = Duration::from_secs(10);
-const PROBE_OUTPUT_BYTES: usize = 64 * 1_024;
-
-/// Directories that never hold project sources.
-const IGNORED: [&str; 7] = [
-    ".git",
-    ".tachyon",
-    "dist",
-    "dist-bin",
-    "node_modules",
-    "target",
-    "__pycache__",
-];
-
-/// How a required toolchain stands on this machine.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "snake_case", tag = "state", content = "detail")]
-pub enum ToolchainState {
-    /// Present and usable, with what the tool reported about itself.
-    Ready(String),
-    /// The command runs but cannot yet produce what is needed.
-    Incomplete(String),
-    /// The command is not on `PATH`.
-    Missing,
-}
-
-/// One toolchain a project needs.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
-pub struct Toolchain {
-    /// What in the project requires it.
-    pub requirement: String,
-    /// The command that provides it.
-    pub command: String,
-    /// Whether it is usable here.
-    pub state: ToolchainState,
-    /// How to obtain or complete it.
-    pub install: String,
-}
-
-/// Everything a project needs, and whether this machine has it.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct DoctorReport {
-    /// Diagnostics contract major version.
     pub contract_version: u8,
-    /// Toolchains, in the order they were discovered.
     pub toolchains: Vec<Toolchain>,
 }
 
 impl DoctorReport {
-    /// Reports whether every required toolchain is ready.
+    pub fn check(project_root: impl AsRef<Path>) -> Result<Self, Failure> {
+        Self::check_for_release(project_root, false)
+    }
+
+    pub fn check_for_release(
+        project_root: impl AsRef<Path>,
+        release: bool,
+    ) -> Result<Self, Failure> {
+        Self::check_with_options(
+            project_root.as_ref(),
+            &HandlerSupervisorOptions::from_environment()?,
+            release,
+        )
+    }
+
     #[must_use]
     pub fn is_ready(&self) -> bool {
-        self.toolchains
-            .iter()
-            .all(|entry| matches!(entry.state, ToolchainState::Ready(_)))
+        !self.toolchains.iter().any(Toolchain::blocks_the_project)
     }
 
-    /// Renders the report for a terminal.
     #[must_use]
     pub fn to_text(&self) -> String {
-        if self.toolchains.is_empty() {
-            return String::from("This project needs no external toolchain.\n");
-        }
+        self.empty_text().unwrap_or_else(|| self.table_text())
+    }
+
+    fn empty_text(&self) -> Option<String> {
+        self.toolchains
+            .is_empty()
+            .then(|| String::from("This project needs no external toolchain.\n"))
+    }
+
+    fn table_text(&self) -> String {
+        let requirement_width = self.widest(|entry| entry.requirement.len());
+        let command_width = self.widest(|entry| entry.command.len());
         let mut text = String::new();
         for entry in &self.toolchains {
-            let (mark, detail) = match &entry.state {
-                ToolchainState::Ready(version) => ("ready", version.clone()),
-                ToolchainState::Incomplete(reason) => ("partial", reason.clone()),
-                ToolchainState::Missing => ("missing", String::from("not on PATH")),
-            };
-            let _ = writeln!(
-                text,
-                "{mark:<8}  {:<30}{:<24} {detail}",
-                entry.requirement, entry.command
-            );
-            if !matches!(entry.state, ToolchainState::Ready(_)) {
-                let _ = writeln!(text, "        {}", entry.install);
-            }
+            entry.write_line(&mut text, requirement_width, command_width);
         }
-        let missing = self
+        let ready = self
             .toolchains
             .iter()
-            .filter(|entry| !matches!(entry.state, ToolchainState::Ready(_)))
+            .filter(|entry| entry.is_ready())
             .count();
-        let _ = writeln!(
-            text,
-            "\n{} of {} ready",
-            self.toolchains.len() - missing,
-            self.toolchains.len()
-        );
+        let _ = writeln!(text, "\n{ready} of {} ready", self.toolchains.len());
         text
     }
-}
 
-/// Inspects a project and reports the toolchains it needs.
-///
-/// # Errors
-///
-/// Returns a diagnostic when the project root cannot be read.
-pub fn check(project_root: impl AsRef<Path>) -> Result<DoctorReport, Failure> {
-    check_with_options(
-        project_root.as_ref(),
-        &HandlerSupervisorOptions::from_environment()?,
-    )
-}
+    fn widest(&self, width: impl Fn(&Toolchain) -> usize) -> usize {
+        self.toolchains.iter().map(width).max().unwrap_or(0)
+    }
 
-fn check_with_options(
-    root: &Path,
-    options: &HandlerSupervisorOptions,
-) -> Result<DoctorReport, Failure> {
-    if !root.is_dir() {
-        return Err(Failure::one(diagnostic(
+    fn check_with_options(
+        root: &Path,
+        options: &HandlerSupervisorOptions,
+        release: bool,
+    ) -> Result<Self, Failure> {
+        let root = &Self::existing_project(root)?;
+        let services = ServiceRegistry::discover(root)?;
+        let workers = crate::Workers::discover(root)?;
+        let yon = YonDiscovery::extensions(root, &workers);
+        let mut toolchains = ServiceToolchains::list(root, &services);
+        toolchains.extend(crate::tac_python::RuntimeDoctor::for_project(root)?);
+        let requirements = RuntimeRequirements::from_extensions(yon.iter().map(String::as_str));
+        let resolved = requirements.resolve(&options.runtimes, &options.isolation)?;
+        let probes = RuntimeProbe::all_sync(resolved, &options.environment)?;
+        toolchains.extend(probes.iter().map(KnownToolchains::runtime));
+        let links_rust = ServiceToolchains::links_native_rust(&services);
+        toolchains.extend(TargetToolchains::for_project(root, release, links_rust));
+        Ok(Self {
+            contract_version: 1,
+            toolchains,
+        })
+    }
+
+    fn existing_project(root: &Path) -> Result<std::path::PathBuf, Failure> {
+        std::fs::canonicalize(root)
+            .ok()
+            .filter(|folder| folder.is_dir())
+            .ok_or_else(|| Self::project_missing(root))
+    }
+
+    fn project_missing(root: &Path) -> Failure {
+        Failure::one(diagnostic(
             1601,
             format!("Cannot inspect project '{}'.", root.display()),
             Some(String::from("Point ty doctor at a project directory.")),
             source_span("doctor", 0, 6),
-        )));
-    }
-
-    let extensions = companion_extensions(root);
-    let workers = crate::Workers::discover(root)?;
-    let yon = yon_extensions(root, &workers);
-    let mut toolchains = Vec::new();
-    if extensions.contains("ts") {
-        toolchains.push(typescript(root));
-    }
-    for extension in &extensions {
-        if let Some(entry) = companion_toolchain(extension) {
-            toolchains.push(entry);
-        }
-    }
-    let requirements = RuntimeRequirements::from_extensions(yon.iter().map(String::as_str));
-    let resolved = requirements.resolve(&options.runtimes, &options.isolation)?;
-    toolchains.extend(
-        probe_all_sync(resolved, &options.environment)?
-            .iter()
-            .map(runtime_toolchain),
-    );
-    Ok(DoctorReport {
-        contract_version: 1,
-        toolchains,
-    })
-}
-
-fn yon_extensions(root: &Path, workers: &crate::Workers) -> BTreeSet<String> {
-    let mut extensions = BTreeSet::new();
-    let mut pending: Vec<_> = [
-        "server/routes",
-        "server/services",
-        "server/repositories",
-        "server/clients",
-        "server/delegates",
-    ]
-    .into_iter()
-    .map(|relative| root.join(relative))
-    .filter(|path| {
-        fs::symlink_metadata(path)
-            .is_ok_and(|metadata| metadata.is_dir() && !metadata.file_type().is_symlink())
-    })
-    .collect();
-    while let Some(directory) = pending.pop() {
-        let Ok(entries) = fs::read_dir(directory) else {
-            continue;
-        };
-        for entry in entries.filter_map(Result::ok) {
-            let name = entry.file_name().to_string_lossy().into_owned();
-            let Ok(file_type) = entry.file_type() else {
-                continue;
-            };
-            if file_type.is_symlink() {
-                continue;
-            }
-            if file_type.is_dir() {
-                if !IGNORED.contains(&name.as_str()) && !name.starts_with('.') {
-                    pending.push(entry.path());
-                }
-            } else if file_type.is_file()
-                && let Some(extension) = name.strip_prefix("yon.")
-            {
-                extensions.insert(String::from(extension));
-            }
-        }
-    }
-    if let Ok(entries) = fs::read_dir(root) {
-        for entry in entries.filter_map(Result::ok) {
-            let name = entry.file_name().to_string_lossy().into_owned();
-            if entry.file_type().is_ok_and(|kind| kind.is_file())
-                && let Some(extension) = name.strip_prefix("middleware.")
-            {
-                extensions.insert(String::from(extension));
-            }
-        }
-    }
-    for (worker, _) in workers.iter() {
-        if let Some(extension) = Path::new(worker)
-            .extension()
-            .and_then(|value| value.to_str())
-        {
-            extensions.insert(String::from(extension));
-        }
-    }
-    extensions
-}
-
-fn runtime_toolchain(result: &RuntimeProbeResult) -> Toolchain {
-    let requirement = result.requirement();
-    let state = match result.state() {
-        RuntimeProbeState::Ready => {
-            ToolchainState::Ready(String::from("deployment readiness probe succeeded"))
-        }
-        RuntimeProbeState::Missing => ToolchainState::Missing,
-        RuntimeProbeState::Incomplete => ToolchainState::Incomplete(String::from(
-            "deployment readiness probe did not complete successfully",
-        )),
-    };
-    Toolchain {
-        requirement: requirement.label().to_owned(),
-        command: requirement.command_label().to_owned(),
-        state,
-        install: requirement.help().to_owned(),
+        ))
     }
 }
 
-/// Collects the extensions of every browser companion in a project.
-fn companion_extensions(root: &Path) -> BTreeSet<String> {
-    let mut extensions = BTreeSet::new();
-    let mut pending = vec![root.to_path_buf()];
-    while let Some(directory) = pending.pop() {
-        let Ok(entries) = fs::read_dir(&directory) else {
-            continue;
-        };
-        for entry in entries.flatten() {
-            let name = entry.file_name().to_string_lossy().into_owned();
-            let Ok(metadata) = entry.metadata() else {
-                continue;
-            };
-            if metadata.file_type().is_symlink() {
-                continue;
-            }
-            if metadata.is_dir() {
-                if !IGNORED.contains(&name.as_str()) && !name.starts_with('.') {
-                    pending.push(entry.path());
-                }
-            } else if let Some(extension) = name.strip_prefix("tac.") {
-                extensions.insert(String::from(extension));
-            }
-        }
-    }
-    extensions
-}
-
-/// Checks the TypeScript compiler that emits a `tac.ts` companion.
-///
-/// A project's own dependency is preferred over one on `PATH`, because that is
-/// the one the compiler will invoke.
-fn typescript(root: &Path) -> Toolchain {
-    let local = root.join("node_modules/.bin/tsc");
-    let program = if local.is_file() {
-        local.to_string_lossy().into_owned()
-    } else {
-        String::from("tsc")
-    };
-    let state = match run(&program, &["--version"]) {
-        None => ToolchainState::Missing,
-        Some(version) => {
-            let major = version
-                .split_whitespace()
-                .next_back()
-                .and_then(|value| value.split('.').next())
-                .and_then(|value| value.parse::<u32>().ok())
-                .unwrap_or(0);
-            if major >= 6 {
-                ToolchainState::Ready(version)
-            } else {
-                ToolchainState::Incomplete(format!("{version}, but 6 or newer is required"))
-            }
-        }
-    };
-    Toolchain {
-        requirement: String::from("tac.ts companions"),
-        command: if program == "tsc" {
-            String::from("tsc")
-        } else {
-            String::from("node_modules/.bin/tsc")
-        },
-        state,
-        install: String::from("Install typescript 6 or newer as a project dependency or on PATH."),
-    }
-}
-
-/// Checks the toolchain that compiles one native companion language.
-///
-/// A companion is compiled by its own platform's compiler now, so the question
-/// is simply whether that compiler is here. Nothing is asked about
-/// WebAssembly: a companion either belongs to a target and is built by that
-/// target's toolchain, or it does not belong to that target at all.
-fn companion_toolchain(extension: &str) -> Option<Toolchain> {
-    // Which targets a companion reaches is the matrix's answer, not one
-    // written out again here: the two had already drifted apart once.
-    let targets =
-        crate::project::companion_kind(&format!("tac.{extension}")).and_then(
-            |kind| match kind {
-                crate::project::CompanionKind::Native(language) => Some(language.target_names()),
-                _ => None,
-            },
-        )?;
-    let (name, arguments, remedy) = match extension {
-        "rs" => (
-            "rustc",
-            vec!["--version"],
-            "Install Rust from https://rustup.rs",
-        ),
-        "swift" => (
-            "swiftc",
-            vec!["--version"],
-            "Install Xcode, which provides swiftc",
-        ),
-        "kt" => (
-            "kotlinc",
-            vec!["-version"],
-            "Install Kotlin, or let the Android Gradle plugin provide it",
-        ),
-        "cs" => (
-            "dotnet",
-            vec!["--version"],
-            "Install the .NET SDK from https://dotnet.microsoft.com",
-        ),
-        _ => return None,
-    };
-    Some(Toolchain {
-        requirement: format!("tac.{extension} companions for {targets}"),
-        command: String::from(name),
-        state: output(name, &arguments).map_or(ToolchainState::Missing, ToolchainState::Ready),
-        install: String::from(remedy),
-    })
-}
-
-/// Runs one command and returns its first line of output.
-fn run(program: &str, arguments: &[&str]) -> Option<String> {
-    output(program, arguments)?
-        .lines()
-        .next()
-        .map(|line| line.trim().to_owned())
-}
-
-/// Runs one command and returns everything it wrote.
-///
-/// A tool that reports its version on standard error is common enough that
-/// falling back to it is the difference between "missing" and "found".
-fn output(program: &str, arguments: &[&str]) -> Option<String> {
-    let mut command = Command::new(program);
-    command.args(arguments);
-    let result = run_sync(&mut command, PROBE_DEADLINE, PROBE_OUTPUT_BYTES).ok()?;
-    if !result.status.success() {
-        return None;
-    }
-    let text = String::from_utf8_lossy(&result.stdout);
-    if text.trim().is_empty() {
-        Some(String::from_utf8_lossy(&result.stderr).into_owned())
-    } else {
-        Some(text.into_owned())
-    }
+pub fn check(project_root: impl AsRef<Path>) -> Result<DoctorReport, Failure> {
+    DoctorReport::check(project_root)
 }
 
 #[cfg(test)]
 mod tests {
     #![allow(clippy::expect_used)]
 
-    use super::{ToolchainState, check, check_with_options};
-    use crate::handler::{HandlerRuntimePrograms, HandlerSupervisorOptions};
+    use super::{DoctorReport, Toolchain, ToolchainState, check};
+    use crate::handler::{HandlerRuntimePrograms, HandlerSupervisorOptions, InstalledPrograms};
     use std::fs;
-    use std::path::PathBuf;
+    use std::path::{Path, PathBuf};
+    use tempfile::TempDir;
+
+    fn project_with(files: &[(&str, &str)]) -> TempDir {
+        let root = tempfile::tempdir().expect("project");
+        for (relative, contents) in files {
+            write_file(root.path(), relative, contents);
+        }
+        root
+    }
+
+    fn write_file(root: &Path, relative: &str, contents: &str) {
+        let path = root.join(relative);
+        fs::create_dir_all(path.parent().expect("parent")).expect("directory");
+        fs::write(path, contents).expect("source");
+    }
+
+    fn command_names(report: &DoctorReport) -> Vec<&str> {
+        let mut commands = Vec::new();
+        for toolchain in &report.toolchains {
+            commands.push(toolchain.command.as_str());
+        }
+        commands
+    }
+
+    fn check_with_runtimes(
+        root: &Path,
+        installed: &[&str],
+        configured: Option<&str>,
+    ) -> DoctorReport {
+        let options = HandlerSupervisorOptions {
+            runtimes: InstalledPrograms::runtimes(installed, configured),
+            ..HandlerSupervisorOptions::default()
+        };
+        DoctorReport::check_with_options(root, &options, false).expect("report")
+    }
+
+    fn python_command() -> &'static str {
+        if cfg!(windows) { "python" } else { "python3" }
+    }
+
+    fn count_of(commands: &[&str], wanted: &str) -> usize {
+        commands
+            .iter()
+            .filter(|command| **command == wanted)
+            .count()
+    }
 
     #[test]
     fn a_project_is_told_only_about_what_it_uses() {
-        let root = tempfile::tempdir().expect("project");
-        let pages = root.path().join("client/pages");
-        fs::create_dir_all(&pages).expect("pages");
-        fs::write(pages.join("tac.html"), "<main>x</main>").expect("view");
-
-        // A project with only a view needs nothing external, and is not told
-        // about compilers it will never invoke.
+        let root = project_with(&[("client/pages/tac.html", "<main>x</main>")]);
         let report = check(root.path()).expect("report");
         assert!(report.toolchains.is_empty(), "{:?}", report.toolchains);
         assert!(report.is_ready());
@@ -412,13 +194,11 @@ mod tests {
     }
 
     #[test]
-    fn a_polyglot_companion_reports_its_native_toolchain() {
-        let root = tempfile::tempdir().expect("project");
-        let component = root.path().join("client/pages");
-        fs::create_dir_all(&component).expect("component");
-        fs::write(component.join("tac.html"), "<div>x</div>").expect("view");
-        fs::write(component.join("tac.rs"), "fn main() {}").expect("companion");
-
+    fn a_native_service_reports_its_native_toolchain() {
+        let root = project_with(&[(
+            "client/services/CatalogService.rs",
+            "#[Service]\nstruct CatalogService;",
+        )]);
         let report = check(root.path()).expect("report");
         let entry = report
             .toolchains
@@ -426,12 +206,18 @@ mod tests {
             .find(|entry| entry.command == "rustc")
             .expect("rust toolchain reported");
         assert!(
-            entry.requirement.contains("macos, windows, linux"),
+            entry
+                .requirement
+                .contains("macos, windows, linux, ios, android"),
             "{entry:?}"
         );
+        assert!(entry.requirement.contains("services"), "{entry:?}");
         assert!(entry.install.contains("rustup.rs"), "{entry:?}");
-        // Whether it is ready depends on the machine; the report must say
-        // which of the three states it is in either way.
+        let text = report.to_text();
+        assert!(
+            text.contains("macos, windows, linux, ios, android  rustc"),
+            "{text}"
+        );
         match &entry.state {
             ToolchainState::Ready(version) => assert!(!version.is_empty()),
             ToolchainState::Incomplete(reason) => assert!(!reason.is_empty()),
@@ -440,31 +226,147 @@ mod tests {
     }
 
     #[test]
-    fn yon_sources_report_only_the_runtime_toolchains_the_project_uses() {
-        let root = tempfile::tempdir().expect("project");
-        for relative in ["server/routes/a/yon.py", "server/routes/b/yon.java"] {
-            let path = root.path().join(relative);
-            fs::create_dir_all(path.parent().expect("parent")).expect("directory");
-            fs::write(path, "source").expect("source");
-        }
+    fn browser_services_report_the_compiler_their_language_needs() {
+        let root = project_with(&[
+            (
+                "client/services/BasketService.ts",
+                "@Service\nexport default class BasketService {}\n",
+            ),
+            (
+                "client/services/ClockService.js",
+                "@Service\nexport default class ClockService {}\n",
+            ),
+            (
+                "client/services/TallyService.dart",
+                "@Service\nclass TallyService {}\n",
+            ),
+        ]);
         let report = check(root.path()).expect("report");
-        let commands: Vec<_> = report
+        let mut requirements = Vec::new();
+        for entry in &report.toolchains {
+            requirements.push((entry.requirement.as_str(), entry.command.as_str()));
+        }
+        assert_eq!(
+            requirements,
+            [
+                ("TypeScript services", "tsc"),
+                ("Dart browser services", "dart")
+            ],
+            "{:?}",
+            report.toolchains
+        );
+    }
+
+    #[test]
+    fn a_swift_web_service_reports_the_swift_wasm_sdk_and_wasm_opt() {
+        let root = project_with(&[(
+            "client/services/TallyService.swift",
+            "@Service\nfinal class TallyService {\n    var count: Int = 0\n}\n",
+        )]);
+        let report = check(root.path()).expect("report");
+        let mut requirements = Vec::new();
+        for entry in &report.toolchains {
+            requirements.push((entry.requirement.as_str(), entry.command.as_str()));
+        }
+        assert_eq!(
+            requirements,
+            [
+                ("Swift services for macos, ios", "swiftc"),
+                ("smaller release WebAssembly", "wasm-opt"),
+                ("Swift services on the web", "swiftc + TAC_SWIFT_WASM_SDK"),
+            ],
+            "{:?}",
+            report.toolchains
+        );
+        let web = report.toolchains.last().expect("Swift on the web");
+        assert!(web.required, "{web:?}");
+        assert!(web.install.contains("TAC_SWIFT_WASM_SDK"), "{web:?}");
+        assert!(report.to_text().contains("swiftc + TAC_SWIFT_WASM_SDK"));
+        if !crate::tac_web::swift_tests::swift_web_ready()
+            || !crate::wasm_optimizer::WasmOptimizer::is_installed()
+        {
+            eprintln!(
+                "skipping the ready check: the Swift SDK for WebAssembly, swiftc, node or wasm-opt is unavailable"
+            );
+            return;
+        }
+        assert!(
+            matches!(&web.state, ToolchainState::Ready(version) if version.contains("Swift version")),
+            "{web:?}"
+        );
+    }
+
+    #[test]
+    fn a_kotlin_web_service_reports_kotlinc_js_and_the_wasm_stdlib() {
+        let root = project_with(&[(
+            "client/services/TallyService.kt",
+            "@Service\nclass TallyService {\n    var total: Long = 0\n}\n",
+        )]);
+        let report = check(root.path()).expect("report");
+        let entry = report
             .toolchains
             .iter()
-            .map(|toolchain| toolchain.command.as_str())
-            .collect();
-        let python = if cfg!(windows) { "python" } else { "python3" };
-        assert!(commands.contains(&python), "{commands:?}");
+            .find(|entry| entry.requirement == "Kotlin services on the web")
+            .expect("the Kotlin web toolchain is reported");
+        assert_eq!(entry.command, "kotlinc-js + TAC_KOTLIN_WASM_STDLIB");
+        assert!(entry.required, "{entry:?}");
+        assert!(
+            entry.install.contains("kotlin-stdlib-wasm-js 2.1.10"),
+            "{entry:?}"
+        );
+        assert!(
+            report
+                .to_text()
+                .contains("kotlinc-js + TAC_KOTLIN_WASM_STDLIB"),
+            "{}",
+            report.to_text()
+        );
+        let library = std::env::var_os("TAC_KOTLIN_WASM_STDLIB").map(PathBuf::from);
+        let installed = library.is_some_and(|path| path.is_file())
+            && crate::wasm_optimizer::WasmOptimizer::is_installed();
+        assert!(
+            installed || std::env::var_os("TAC_KOTLIN_WEB_REQUIRE_TOOLCHAINS").is_none(),
+            "the Kotlin Wasm stdlib and wasm-opt are required on this runner"
+        );
+        if !installed {
+            eprintln!("skipping the ready check: the Kotlin Wasm stdlib or wasm-opt is missing");
+            return;
+        }
+        assert!(
+            matches!(&entry.state, ToolchainState::Ready(version) if version.contains("kotlinc-js")),
+            "{entry:?}"
+        );
+    }
+
+    #[test]
+    fn a_retired_companion_beside_a_view_reports_nothing() {
+        let root = project_with(&[
+            ("client/pages/tac.html", "<div>x</div>"),
+            ("client/pages/tac.rs", "fn main() {}"),
+        ]);
+        let report = check(root.path()).expect("report");
+        assert!(report.toolchains.is_empty(), "{:?}", report.toolchains);
+    }
+
+    #[test]
+    fn yon_sources_report_only_the_runtime_toolchains_the_project_uses() {
+        let root = project_with(&[
+            ("server/controllers/AController.py", "source"),
+            ("server/controllers/BController.java", "source"),
+        ]);
+        let report = check(root.path()).expect("report");
+        let commands = command_names(&report);
+        assert!(commands.contains(&python_command()), "{commands:?}");
         assert!(commands.contains(&"java"), "{commands:?}");
         assert!(!commands.contains(&"bun"), "{commands:?}");
     }
 
     #[test]
     fn yon_runtime_checks_use_resolved_overrides_without_disclosing_them() {
-        let root = tempfile::tempdir().expect("project");
-        let route = root.path().join("server/routes/example/yon.js");
-        fs::create_dir_all(route.parent().expect("parent")).expect("directory");
-        fs::write(route, "@Controller class ExampleController {}").expect("source");
+        let root = project_with(&[(
+            "server/controllers/ExampleController.js",
+            "export class Handler {}",
+        )]);
         let canary = "/private/credentials/doctor-runtime-canary";
         let options = HandlerSupervisorOptions {
             runtimes: HandlerRuntimePrograms {
@@ -473,7 +375,8 @@ mod tests {
             },
             ..HandlerSupervisorOptions::default()
         };
-        let report = check_with_options(root.path(), &options).expect("report");
+        let report =
+            DoctorReport::check_with_options(root.path(), &options, false).expect("report");
         let javascript = report.toolchains.first().expect("javascript");
         assert_eq!(javascript.command, "YON_JAVASCRIPT_RUNTIME");
         assert_eq!(javascript.state, ToolchainState::Missing);
@@ -486,57 +389,314 @@ mod tests {
 
     #[test]
     fn yon_discovery_is_limited_to_maintained_source_roots_and_configured_workers() {
-        let root = tempfile::tempdir().expect("project");
-        for (relative, source) in [
-            ("server/routes/a/yon.js", "source"),
-            ("server/services/a/yon.py", "source"),
-            ("server/services/typescript/yon.ts", "source"),
-            ("server/repositories/a/yon.java", "source"),
-            ("server/clients/a/yon.cs", "source"),
-            ("server/delegates/a/yon.kt", "source"),
+        let root = project_with(&[
+            ("server/controllers/AController.js", "source"),
+            ("server/controllers/BController.py", "source"),
+            ("server/controllers/typescript/CController.ts", "source"),
+            ("server/controllers/DController.java", "source"),
+            ("server/controllers/EController.cs", "source"),
+            ("server/controllers/FController.kt", "source"),
+            ("server/controllers/HController.groovy", "source"),
+            ("server/services/GService.swift", "source"),
             ("middleware.php", "source"),
             ("server/workers/cleanup.rs", "source"),
             ("fixtures/decoy/yon.ts", "source"),
             ("docs/examples/yon.py", "source"),
             ("generated/preludes/yon.php", "source"),
+            (
+                ".tachyonrc",
+                r#"{"workers":{"server/workers/cleanup.rs":{"every_seconds":60}}}"#,
+            ),
+        ]);
+        let report = check_with_runtimes(root.path(), &["node"], None);
+        let commands = command_names(&report);
+        for expected in [
+            "node", "java", "dotnet", "kotlinc", "groovyc", "php-cgi", "cargo",
         ] {
-            let path = root.path().join(relative);
-            fs::create_dir_all(path.parent().expect("parent")).expect("directory");
-            fs::write(path, source).expect("source");
-        }
-        fs::write(
-            root.path().join(".tachyonrc"),
-            r#"{"workers":{"server/workers/cleanup.rs":{"every_seconds":60}}}"#,
-        )
-        .expect("workers");
-        let report = check(root.path()).expect("report");
-        let commands: Vec<_> = report
-            .toolchains
-            .iter()
-            .map(|toolchain| toolchain.command.as_str())
-            .collect();
-        for expected in ["bun", "java", "dotnet", "kotlinc", "php", "rustc"] {
             assert!(commands.contains(&expected), "{expected}: {commands:?}");
         }
+        assert!(commands.contains(&python_command()), "{commands:?}");
+        assert_eq!(count_of(&commands, "php-cgi"), 1);
+        assert_eq!(count_of(&commands, "node"), 1);
+        assert_eq!(count_of(&commands, "java"), 1);
+    }
+
+    #[test]
+    fn yon_javascript_runtime_is_the_installed_program_or_the_configured_one() {
+        let root = project_with(&[("server/controllers/AController.js", "source")]);
+        let cases: [(&[&str], Option<&str>, &str); 6] = [
+            (&["node"], None, "node"),
+            (&["bun"], None, "bun"),
+            (&["bun", "node"], None, "node"),
+            (&[], None, "node"),
+            (&["node"], Some("bun"), "bun"),
+            (
+                &["bun", "node"],
+                Some("/opt/javascript/run"),
+                "YON_JAVASCRIPT_RUNTIME",
+            ),
+        ];
+        for (installed, configured, expected) in cases {
+            let report = check_with_runtimes(root.path(), installed, configured);
+            let commands = command_names(&report);
+            assert_eq!(commands, [expected], "{installed:?} {configured:?}");
+        }
+    }
+
+    #[test]
+    fn fsharp_and_csharp_handlers_report_dotnet_once() {
+        let root = project_with(&[
+            ("server/controllers/AController.fs", "source"),
+            ("server/controllers/BController.cs", "source"),
+        ]);
+        let report = check(root.path()).expect("report");
+        let commands = command_names(&report);
+        assert_eq!(count_of(&commands, "dotnet"), 1, "{commands:?}");
+    }
+
+    #[test]
+    fn go_handlers_report_the_go_compiler_once() {
+        let root = project_with(&[
+            ("server/controllers/AController.go", "source"),
+            ("middleware.go", "source"),
+            ("server/workers/cleanup.go", "source"),
+            (
+                ".tachyonrc",
+                r#"{"workers":{"server/workers/cleanup.go":{"every_seconds":60}}}"#,
+            ),
+        ]);
+        let report = check(root.path()).expect("report");
+        let commands = command_names(&report);
+        assert_eq!(commands, ["go"], "{:?}", report.toolchains);
+        let entry = &report.toolchains[0];
+        assert_eq!(entry.requirement, "Yon Go compiler 'go'");
+        assert_eq!(
+            entry.install,
+            "Install Go 1.27 or newer before starting Tachyon."
+        );
+    }
+
+    #[test]
+    fn dart_handlers_report_the_dart_compiler_once() {
+        let root = project_with(&[
+            ("server/controllers/AController.dart", "source"),
+            ("server/controllers/BController.dart", "source"),
+            ("middleware.dart", "source"),
+            ("server/workers/cleanup.dart", "source"),
+            (
+                ".tachyonrc",
+                r#"{"workers":{"server/workers/cleanup.dart":{"every_seconds":60}}}"#,
+            ),
+        ]);
+        let report = check(root.path()).expect("report");
+        let commands = command_names(&report);
+        assert_eq!(commands, ["dart"], "{:?}", report.toolchains);
+        let entry = &report.toolchains[0];
+        assert_eq!(entry.requirement, "Yon Dart compiler 'dart'");
+        assert_eq!(
+            entry.install,
+            "Install the Dart SDK before starting Tachyon."
+        );
+    }
+
+    #[test]
+    fn ruby_handlers_report_the_ruby_runtime_once() {
+        let root = project_with(&[
+            ("server/controllers/AController.rb", "source"),
+            ("middleware.rb", "source"),
+            ("server/workers/cleanup.rb", "source"),
+            (
+                ".tachyonrc",
+                r#"{"workers":{"server/workers/cleanup.rb":{"every_seconds":60}}}"#,
+            ),
+        ]);
+        let report = check(root.path()).expect("report");
+        let commands = command_names(&report);
+        assert_eq!(commands, ["ruby"], "{:?}", report.toolchains);
+        let entry = &report.toolchains[0];
+        assert_eq!(entry.requirement, "Yon Ruby runtime 'ruby'");
+        assert_eq!(
+            entry.install,
+            "Install Ruby 3.3 or newer, or correct YON_RUBY_RUNTIME."
+        );
+    }
+
+    #[test]
+    fn lua_handlers_report_the_lua_runtime_once() {
+        let root = project_with(&[
+            ("server/controllers/AController.lua", "source"),
+            ("middleware.lua", "source"),
+        ]);
+        let report = check(root.path()).expect("report");
+        let commands = command_names(&report);
+        assert_eq!(commands, ["lua"], "{:?}", report.toolchains);
+        let entry = &report.toolchains[0];
+        assert_eq!(entry.requirement, "Yon Lua runtime 'lua'");
+        assert_eq!(
+            entry.install,
+            "Install Lua 5.4 or newer and put its `lua` program on PATH before starting Tachyon."
+        );
+    }
+
+    #[test]
+    fn a_lua_web_service_reports_the_tools_that_build_and_test_it() {
+        let root = project_with(&[(
+            "client/services/BasketService.lua",
+            "-- @Service\n---@class BasketService\nBasketService = {\n  ---@type integer\n  count = 0,\n}\n",
+        )]);
+        let report = check(root.path()).expect("report");
+        let commands = command_names(&report);
+        let built = crate::tac_lua::LuaRuntimeBuild::cached_path().is_file();
+        let first = ["emcc", "tachyon-lua.wasm"][usize::from(built)];
+        assert!(commands[0].starts_with(first), "{commands:?}");
+        assert!(commands.contains(&"lua"), "{commands:?}");
+        for entry in &report.toolchains {
+            assert_eq!(entry.requirement, "Lua services on the web");
+            assert!(entry.required, "{entry:?}");
+        }
+    }
+
+    #[test]
+    fn a_ruby_web_service_reports_the_tools_that_build_its_runtime() {
+        let root = project_with(&[(
+            "client/services/BasketService.rb",
+            "#[Service]\nclass BasketService\n  attr_reader :count\nend\n",
+        )]);
+        let report = check(root.path()).expect("report");
+        let commands = command_names(&report);
+        if crate::tac_ruby::RubyRuntimeBuild::cached_path().is_file() {
+            assert_eq!(commands, ["tachyon-ruby.wasm"], "{:?}", report.toolchains);
+        } else {
+            assert!(
+                commands.iter().any(|command| command.starts_with("emcc")),
+                "{commands:?}"
+            );
+            assert!(commands.contains(&"ruby"), "{commands:?}");
+        }
+        for entry in &report.toolchains {
+            assert_eq!(entry.requirement, "Ruby services on the web");
+            assert!(entry.required, "{entry:?}");
+        }
+    }
+
+    #[test]
+    fn a_go_web_service_reports_the_go_toolchain() {
+        let root = project_with(&[(
+            "client/services/BasketService.go",
+            "// @Service\ntype BasketService struct{ Count int }\n",
+        )]);
+        let report = check(root.path()).expect("report");
+        assert_eq!(
+            command_names(&report),
+            ["go", "tinygo", "wasm-opt"],
+            "{:?}",
+            report.toolchains
+        );
+        assert!(!report.toolchains[1].required, "{:?}", report.toolchains);
         assert!(
-            commands.contains(&if cfg!(windows) { "python" } else { "python3" }),
-            "{commands:?}"
+            report.toolchains[1]
+                .install
+                .contains("standard Go compiler")
         );
+        assert!(!report.toolchains[2].required, "{:?}", report.toolchains);
+        let entry = &report.toolchains[0];
+        assert_eq!(entry.requirement, "Go services on the web");
+        assert!(entry.install.contains("Go 1.27 or newer"), "{entry:?}");
+        if let ToolchainState::Ready(version) = &entry.state {
+            assert!(
+                crate::handler::RuntimeProbe::supports_go_version(version),
+                "{version}"
+            );
+        }
+    }
+
+    fn dotnet_web_workload_ready() -> bool {
+        let state = super::KnownToolchains::dotnet_web().state;
+        let ready = state != ToolchainState::Missing;
+        assert!(
+            ready || std::env::var_os("CI").is_none(),
+            "CI must provide the .NET wasm-tools workload"
+        );
+        if !ready {
+            eprintln!("skipping: the .NET wasm-tools workload is unavailable");
+        }
+        ready
+    }
+
+    fn assert_dotnet_web_workload(entry: &Toolchain) {
         assert_eq!(
-            commands.iter().filter(|command| **command == "php").count(),
-            1
+            entry,
+            &Toolchain {
+                requirement: String::from("C# services on the web"),
+                command: String::from("dotnet workload wasm-tools"),
+                state: ToolchainState::Ready(String::from("wasm-tools")),
+                install: String::from("dotnet workload install wasm-tools"),
+                required: true,
+            }
         );
+    }
+
+    #[test]
+    fn a_csharp_web_service_reports_the_dotnet_wasm_workload() {
+        if !dotnet_web_workload_ready() {
+            return;
+        }
+        let root = project_with(&[(
+            "client/services/BasketService.cs",
+            "[Service]\npublic class BasketService\n{\n    public int Count = 0;\n}\n",
+        )]);
+        let report = check(root.path()).expect("report");
         assert_eq!(
-            commands.iter().filter(|command| **command == "bun").count(),
-            1
+            command_names(&report),
+            ["dotnet", "dotnet workload wasm-tools"],
+            "{:?}",
+            report.toolchains
         );
+        assert_dotnet_web_workload(&report.toolchains[1]);
+        assert!(report.is_ready(), "{:?}", report.toolchains);
+    }
+
+    #[test]
+    fn an_fsharp_web_service_reports_the_dotnet_wasm_workload() {
+        if !dotnet_web_workload_ready() {
+            return;
+        }
+        let root = project_with(&[(
+            "client/services/BasketService.fs",
+            "[<Service>]\ntype BasketService() =\n    member val Count = 0 with get, set\n",
+        )]);
+        let report = check(root.path()).expect("report");
         assert_eq!(
-            commands
-                .iter()
-                .filter(|command| **command == "java")
-                .count(),
-            1
+            command_names(&report),
+            ["dotnet workload wasm-tools"],
+            "{:?}",
+            report.toolchains
         );
+        assert_dotnet_web_workload(&report.toolchains[0]);
+        assert!(report.is_ready(), "{:?}", report.toolchains);
+    }
+
+    #[test]
+    fn a_java_web_service_reports_teavm_and_binaryen() {
+        let root = project_with(&[(
+            "client/services/BasketService.java",
+            "@Service\nclass BasketService {\n    int count = 0;\n}\n",
+        )]);
+        let report = check(root.path()).expect("report");
+        assert_eq!(
+            command_names(&report),
+            ["javac", "teavm", "wasm-opt"],
+            "{:?}",
+            report.toolchains
+        );
+        let compiler = &report.toolchains[0];
+        assert_eq!(compiler.requirement, "Java services on the web");
+        assert!(compiler.install.contains("JDK 21"), "{compiler:?}");
+        let tea_vm = &report.toolchains[1];
+        assert_eq!(tea_vm.requirement, "Java services on the web");
+        assert!(tea_vm.required, "{tea_vm:?}");
+        assert!(tea_vm.install.contains("ty doctor --install"), "{tea_vm:?}");
+        assert!(tea_vm.install.contains("TeaVM 0.15.0"), "{tea_vm:?}");
     }
 
     #[cfg(unix)]
@@ -544,27 +704,243 @@ mod tests {
     fn yon_discovery_never_follows_outside_or_cyclic_directory_symlinks() {
         use std::os::unix::fs::symlink;
 
-        let root = tempfile::tempdir().expect("project");
-        let outside = tempfile::tempdir().expect("outside");
-        fs::create_dir_all(outside.path().join("nested")).expect("outside directory");
-        fs::write(outside.path().join("nested/yon.py"), "source").expect("outside source");
-        fs::create_dir_all(root.path().join("server/routes/live")).expect("route");
-        fs::write(root.path().join("server/routes/live/yon.js"), "source").expect("source");
-        symlink(outside.path(), root.path().join("server/routes/outside")).expect("outside link");
-        symlink(
-            root.path().join("server/routes"),
-            root.path().join("server/routes/live/parent"),
-        )
-        .expect("cycle");
-        let report = check(root.path()).expect("bounded discovery");
-        let commands: Vec<_> = report
+        let root = project_with(&[("server/controllers/LiveController.js", "source")]);
+        let outside = project_with(&[("nested/yon.py", "source")]);
+        let controllers = root.path().join("server/controllers");
+        symlink(outside.path(), controllers.join("outside")).expect("outside link");
+        std::fs::create_dir_all(controllers.join("live")).expect("live folder");
+        symlink(&controllers, controllers.join("live/parent")).expect("cycle");
+        let report = check_with_runtimes(root.path(), &["node"], None);
+        let commands = command_names(&report);
+        assert!(commands.contains(&"node"), "{commands:?}");
+        assert!(!commands.contains(&python_command()), "{commands:?}");
+    }
+
+    fn toolchain(state: ToolchainState, required: bool) -> Toolchain {
+        Toolchain {
+            requirement: String::from("Kotlin services for android"),
+            command: String::from("kotlinc"),
+            state,
+            install: String::from("Install Kotlin"),
+            required,
+        }
+    }
+
+    fn report_of(toolchains: Vec<Toolchain>) -> DoctorReport {
+        DoctorReport {
+            contract_version: 1,
+            toolchains,
+        }
+    }
+
+    #[test]
+    fn a_missing_or_old_required_toolchain_makes_the_project_not_ready() {
+        let missing = report_of(vec![toolchain(ToolchainState::Missing, true)]);
+        assert!(!missing.is_ready());
+        assert!(
+            missing.to_text().starts_with("missing "),
+            "{}",
+            missing.to_text()
+        );
+        let old = ToolchainState::Incomplete(String::from("go1.26"));
+        let too_old = report_of(vec![toolchain(old, true)]);
+        assert!(!too_old.is_ready());
+        assert!(
+            too_old.to_text().starts_with("partial "),
+            "{}",
+            too_old.to_text()
+        );
+    }
+
+    #[test]
+    fn a_missing_optional_toolchain_is_information_only() {
+        let report = report_of(vec![
+            toolchain(ToolchainState::Missing, false),
+            toolchain(ToolchainState::Ready(String::from("2.1.10")), true),
+        ]);
+        assert!(report.is_ready());
+        let text = report.to_text();
+        assert!(text.starts_with("info "), "{text}");
+        assert!(text.contains("\nready "), "{text}");
+    }
+
+    #[test]
+    fn native_target_toolchains_are_optional_and_the_others_are_required() {
+        let root = project_with(&[
+            (
+                "client/services/CatalogService.kt",
+                "@Service\nclass CatalogService\n",
+            ),
+            (
+                "client/services/CatalogService.js",
+                "@Service\nexport default class CatalogService {}\n",
+            ),
+            ("server/controllers/AController.py", "source"),
+        ]);
+        let report = check(root.path()).expect("report");
+        let mut required = Vec::new();
+        for entry in &report.toolchains {
+            required.push((entry.command.as_str(), entry.required));
+        }
+        assert_eq!(
+            required,
+            [("kotlinc", false), (python_command(), true)],
+            "{:?}",
+            report.toolchains
+        );
+    }
+
+    #[test]
+    fn declared_native_targets_report_their_host_toolchains_as_info() {
+        let root = project_with(&[
+            ("client/pages/tac.html", "<main>x</main>"),
+            (
+                "package.json",
+                "{\"scripts\": {\n    \"bundle:windows\": \"ty bundle --target windows\",\n    \"bundle:linux\": \"ty bundle --target linux\"\n}}",
+            ),
+        ]);
+        let report = check(root.path()).expect("report");
+        let mut rows = Vec::new();
+        for entry in &report.toolchains {
+            rows.push((entry.requirement.as_str(), entry.command.as_str()));
+            assert!(!entry.required, "{entry:?}");
+            assert!(!entry.install.is_empty(), "{entry:?}");
+        }
+        let package_checks = [
+            ("windows package checks", "TAC_MAKEMSIX"),
+            ("windows package checks", "osslsigncode"),
+        ];
+        let away_from_windows = if cfg!(windows) {
+            &package_checks[..0]
+        } else {
+            &package_checks[..]
+        };
+        assert_eq!(
+            rows,
+            [
+                ("windows apps", "cl"),
+                ("windows apps", "rc.exe"),
+                ("windows apps", "TAC_WEBVIEW2_SDK"),
+                ("linux apps", "cc"),
+                ("linux apps", "pkg-config gtk4"),
+                ("linux apps", "pkg-config webkitgtk-6.0"),
+                ("windows releases", "makeappx.exe"),
+                ("windows releases", "signtool.exe"),
+                ("linux releases", "dpkg-deb"),
+                ("linux releases", "mksquashfs"),
+            ]
+            .iter()
+            .chain(away_from_windows)
+            .copied()
+            .collect::<Vec<_>>()
+        );
+        assert!(
+            report.is_ready(),
+            "target tools never change the exit status"
+        );
+    }
+
+    #[test]
+    fn a_release_check_needs_only_the_tools_of_targets_this_machine_builds() {
+        let root = project_with(&[
+            ("client/pages/tac.html", "<main>x</main>"),
+            (
+                "package.json",
+                "{\"scripts\": {\"bundle:windows\": \"\", \"bundle:linux\": \"\", \"bundle:android\": \"\"}}",
+            ),
+        ]);
+        let report = DoctorReport::check_for_release(root.path(), true).expect("report");
+        for entry in &report.toolchains {
+            let needed = [
+                entry.requirement.starts_with("windows") && cfg!(windows),
+                entry.requirement.starts_with("linux") && cfg!(target_os = "linux"),
+                entry.requirement.starts_with("android"),
+            ]
+            .contains(&true);
+            assert_eq!(entry.required, needed, "{entry:?}");
+        }
+        let releases = report
             .toolchains
             .iter()
-            .map(|toolchain| toolchain.command.as_str())
-            .collect();
-        assert!(commands.contains(&"bun"), "{commands:?}");
-        let python = if cfg!(windows) { "python" } else { "python3" };
-        assert!(!commands.contains(&python), "{commands:?}");
+            .filter(|entry| entry.requirement.ends_with(" releases"))
+            .count();
+        assert_eq!(releases, 6, "{:?}", report.toolchains);
+        let ready = report
+            .toolchains
+            .iter()
+            .filter(|entry| entry.required)
+            .all(Toolchain::is_ready);
+        assert_eq!(report.is_ready(), ready, "{:?}", report.toolchains);
+        let informational = check(root.path()).expect("report");
+        assert!(informational.is_ready(), "{:?}", informational.toolchains);
+    }
+
+    #[test]
+    fn every_native_target_names_its_host_toolchain() {
+        let root = project_with(&[
+            ("client/pages/tac.html", "<main>x</main>"),
+            (
+                "package.json",
+                "{\"scripts\": {\"bundle:macos\": \"\", \"bundle:ios\": \"\", \"bundle:android\": \"\"}}",
+            ),
+        ]);
+        let report = check(root.path()).expect("report");
+        let commands = command_names(&report);
+        assert_eq!(
+            commands,
+            [
+                "xcrun",
+                "xcodebuild",
+                "xcrun --sdk iphonesimulator",
+                "ANDROID_HOME",
+                "gradle",
+                "javac",
+                "xcrun notarytool",
+                "Developer ID Application",
+                "xcrun --sdk iphoneos",
+                "Apple Distribution",
+                "apksigner",
+                "zipalign"
+            ]
+        );
+    }
+
+    #[test]
+    fn an_android_app_with_rust_services_reports_the_android_ndk() {
+        let android = ("package.json", "{\"scripts\": {\"bundle:android\": \"\"}}");
+        let rust = (
+            "client/services/CatalogService.rs",
+            "#[Service]\npub struct CatalogService {}\n",
+        );
+        let ndk_rows = |files: &[(&str, &str)], release: bool| {
+            let root = project_with(files);
+            let report = DoctorReport::check_for_release(root.path(), release).expect("report");
+            report
+                .toolchains
+                .into_iter()
+                .filter(|entry| entry.command == "Android NDK")
+                .map(|entry| (entry.requirement, entry.required))
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(
+            ndk_rows(&[android, rust], false),
+            [(String::from("android Rust services"), false)]
+        );
+        assert_eq!(
+            ndk_rows(&[android, rust], true),
+            [(String::from("android Rust services"), true)]
+        );
+        assert!(ndk_rows(&[android], true).is_empty());
+    }
+
+    #[test]
+    fn a_project_named_through_dot_dot_reports_its_services() {
+        let root = project_with(&[(
+            "client/services/CatalogService.kt",
+            "@Service\nclass CatalogService\n",
+        )]);
+        let report = check(root.path().join("client").join("..")).expect("report");
+        assert!(command_names(&report).contains(&"kotlinc"), "{report:?}");
     }
 
     #[test]

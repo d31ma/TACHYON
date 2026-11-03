@@ -1,0 +1,18 @@
+{
+  "title": "Targets",
+  "summary": "A target is the kind of app that you build: web, macos, windows, linux, ios or android. You write the pages once. The web target runs in a browser. The other targets put the same pages in a desktop or mobile app.",
+  "before": [
+    "preview-and-build"
+  ],
+  "sections": [
+    {
+      "include": "targets/section.json"
+    },
+    {
+      "include": "one-bundle-every-target/section.json"
+    },
+    {
+      "include": "what-the-page-knows-about-its-host/section.json"
+    }
+  ]
+}

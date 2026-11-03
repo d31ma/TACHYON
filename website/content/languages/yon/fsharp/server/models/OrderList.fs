@@ -1,0 +1,1 @@
+type OrderList = { Orders: string[] }

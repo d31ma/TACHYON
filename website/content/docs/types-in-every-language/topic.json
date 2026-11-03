@@ -1,0 +1,12 @@
+{
+  "title": "Types in every language",
+  "summary": "Every field, parameter and return value of a class states its type: a type comment where the language has no type syntax, the native type where it has one. The build checks this with TY1356.",
+  "before": [
+    "public-only-when-used"
+  ],
+  "sections": [
+    {
+      "include": "every-member-states-its-type/section.json"
+    }
+  ]
+}

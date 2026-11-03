@@ -10,31 +10,57 @@ repository.workspace = true
 publish = false
 
 [features]
-# Exposes crate-private parsers and decoders to fuzz targets only.
-# Never enable this in a released artifact.
 fuzzing = []
+storage-all = ["storage-mysql", "storage-postgres", "storage-redis", "storage-sqlserver"]
+storage-mysql = ["sqlx/any", "sqlx/mysql", "sqlx/tls-rustls-ring-webpki"]
+storage-postgres = ["sqlx/any", "sqlx/postgres", "sqlx/tls-rustls-ring-webpki"]
+storage-redis = ["dep:rustls", "dep:tokio-rustls", "dep:webpki-roots", "rustls/ring", "rustls/std"]
+storage-sqlserver = ["dep:tiberius", "tokio-util/compat"]
 
 [dependencies]
-axum = { version = "0.8.9", default-features = false, features = ["http1", "tokio"] }
+axum = { version = "0.8.9", default-features = false, features = ["http1", "tokio", "ws"] }
+base64 = "0.22.1"
 cap-fs-ext.workspace = true
 cap-std.workspace = true
 command-group = { version = "5.0.1", features = ["with-tokio"] }
 html5gum = { version = "0.8.4", default-features = false }
+futures-util = { version = "0.3.31", default-features = false, features = ["io", "std"] }
+getrandom = "0.4.2"
+# Pins url's IDNA back end to unicode-rs (full UTS 46, as with ICU4X) instead of
+# ICU4X, which pulls in about 20 more packages. Not used directly.
+idna_adapter = "~1.1.0"
+rustls = { version = "0.23.46", default-features = false, optional = true }
+sqlx = { version = "0.9.0", default-features = false, features = ["sqlite-bundled", "runtime-tokio"] }
+tiberius = { version = "0.12.3", default-features = false, features = ["tds73", "native-tls"], optional = true }
+tokio-rustls = { version = "0.26.5", default-features = false, optional = true }
+url = "2.5.8"
+webpki-roots = { version = "1.0.11", optional = true }
 notify.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+sha1 = "0.11.0"
 sha2.workspace = true
+tachyon-compression.workspace = true
 tachyon-contracts.workspace = true
 tachyon-diagnostics.workspace = true
+tachyon-duplication.workspace = true
 tempfile.workspace = true
 tokio = { workspace = true, features = ["fs", "io-util", "net", "process", "rt", "signal", "sync", "time"] }
 tokio-util = { workspace = true, features = ["io", "rt"] }
 tower = { version = "0.5.3", default-features = false, features = ["util"] }
 tower-http = { version = "0.7.0", features = ["fs", "set-header"] }
+brotli = { version = "9.0.0", default-features = false, features = ["std"] }
+flate2 = { version = "1.1.10", default-features = false, features = ["rust_backend"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+landlock = "0.4.7"
+libc = "0.2.189"
+seccompiler = "0.5.0"
 
 [dev-dependencies]
-jsonschema = { version = "0.49.1", default-features = false }
-tempfile.workspace = true
+jsonschema = { version = "0.58.6", default-features = false }
+futures-util = { version = "0.3.31", default-features = false, features = ["io", "std", "sink"] }
+tokio-tungstenite = { version = "0.29.0", default-features = false, features = ["connect", "handshake"] }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 
 [lints]

@@ -1,9 +1,3 @@
-//! Capability-confined handler build cache.
-//!
-//! The project path is ambient only while the cache directory handle is
-//! acquired. Every subsequent lookup and mutation is relative to that handle,
-//! and every directory component is opened without following symlinks.
-
 use cap_fs_ext::{DirExt as _, FollowSymlinks, MetadataExt as _, OpenOptionsFollowExt as _};
 #[cfg(test)]
 use cap_std::ambient_authority;
@@ -18,15 +12,6 @@ use std::process::Stdio;
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime};
 
-const MAX_CACHE_ENTRIES: usize = 256;
-const MAX_CACHE_BYTES: u64 = 512 * 1024 * 1024;
-const MAX_LOCK_METADATA_BYTES: usize = 1024;
-// Compiler processes are killed after one minute. Ten minutes leaves ample
-// room for process-group cleanup and cache publication while still bounding a
-// lock whose PID has been reused by an unrelated process.
-const MAX_LOCK_LEASE: Duration = Duration::from_mins(10);
-
-/// An already-open capability for `.tachyon/handlers`.
 #[derive(Clone, Debug)]
 pub(super) struct CacheDirectory {
     directory: Arc<Dir>,
@@ -38,7 +23,15 @@ struct EntryIdentity {
     inode: u64,
 }
 
-/// Removes a temporary cache entry only while its original identity remains.
+impl EntryIdentity {
+    fn of(metadata: &Metadata) -> Self {
+        Self {
+            device: metadata.dev(),
+            inode: metadata.ino(),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub(super) struct OwnedCacheEntry {
     cache: CacheDirectory,
@@ -47,7 +40,6 @@ pub(super) struct OwnedCacheEntry {
     published: bool,
 }
 
-/// A cache lock whose ownership is bound to both identity and random token.
 #[derive(Debug)]
 pub(super) struct CacheLock {
     cache: CacheDirectory,
@@ -79,6 +71,41 @@ struct LockSnapshot {
     modified: Duration,
 }
 
+impl LockSnapshot {
+    fn same_lock_as(&self, other: &Self) -> bool {
+        (self.identity, self.fingerprint) == (other.identity, other.fingerprint)
+    }
+
+    fn read_metadata(file: &mut cap_std::fs::File) -> std::io::Result<(Vec<u8>, bool)> {
+        let limit = CacheLock::MAX_METADATA_BYTES;
+        let mut parser_bytes = Vec::with_capacity(limit + 1);
+        std::io::Read::by_ref(file)
+            .take((limit + 1) as u64)
+            .read_to_end(&mut parser_bytes)?;
+        let overflowed = parser_bytes.len() > limit;
+        parser_bytes.truncate(limit);
+        Ok((parser_bytes, overflowed))
+    }
+
+    fn fingerprint_of(
+        identity: EntryIdentity,
+        length: u64,
+        modified: Duration,
+        overflowed: bool,
+        parser_bytes: &[u8],
+    ) -> [u8; 32] {
+        let mut hasher = Sha256::new();
+        hasher.update(identity.device.to_le_bytes());
+        hasher.update(identity.inode.to_le_bytes());
+        hasher.update(length.to_le_bytes());
+        hasher.update(modified.as_secs().to_le_bytes());
+        hasher.update(modified.subsec_nanos().to_le_bytes());
+        hasher.update([u8::from(overflowed)]);
+        hasher.update(parser_bytes);
+        hasher.finalize().into()
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct LockOwner {
     pid: u32,
@@ -86,19 +113,48 @@ struct LockOwner {
     token: String,
 }
 
+impl LockOwner {
+    fn parse(contents: &str) -> Option<Self> {
+        let mut fields = contents.split_whitespace();
+        let pid = fields.next()?;
+        let created = fields.next()?;
+        let token = fields.next()?;
+        if fields.next().is_some() {
+            return None;
+        }
+        let pid = pid.parse::<u32>().ok()?;
+        let created = created.parse::<u64>().ok()?;
+        Some(Self {
+            pid,
+            created,
+            token: token.to_string(),
+        })
+    }
+}
+
 impl CacheDirectory {
-    /// Opens the project-owned cache through non-following directory handles.
+    const MAX_ENTRIES: usize = 256;
+    const MAX_BYTES: u64 = 512 * 1024 * 1024;
+    const LOCK_RETRY: Duration = Duration::from_millis(10);
+    const EXISTING_STAGE_ERRORS: [&'static str; 2] = [
+        "cache child is a symlink or unsupported type",
+        "cached stage does not match its content identity",
+    ];
+    const COMPETING_STAGE_ERRORS: [&'static str; 2] = [
+        "competing cache stage is not the expected file",
+        "competing cache stage is not the expected file",
+    ];
+
     #[cfg(all(test, unix))]
     pub(super) fn open(project_root: &Path) -> std::io::Result<Self> {
         let project = Dir::open_ambient_dir(project_root, ambient_authority())?;
         Self::open_project(&project)
     }
 
-    /// Opens the cache below an already-retained project capability.
     pub(super) fn open_project(project: &Dir) -> std::io::Result<Self> {
-        create_directory_if_missing(project, Path::new(".tachyon"))?;
+        Self::create_directory_if_missing(project, Path::new(".tachyon"))?;
         let tachyon = project.open_dir_nofollow(".tachyon")?;
-        create_directory_if_missing(&tachyon, Path::new("handlers"))?;
+        Self::create_directory_if_missing(&tachyon, Path::new("handlers"))?;
         let handlers = tachyon.open_dir_nofollow("handlers")?;
         Ok(Self {
             directory: Arc::new(handlers),
@@ -131,9 +187,12 @@ impl CacheDirectory {
     }
 
     pub(super) fn is_valid_file(&self, relative: &Path) -> bool {
-        self.metadata(relative).is_ok_and(|metadata| {
-            metadata.is_file() && !metadata.is_symlink() && metadata.len() > 0
-        })
+        self.metadata(relative)
+            .is_ok_and(|metadata| Self::is_filled_regular_file(&metadata))
+    }
+
+    fn is_filled_regular_file(metadata: &Metadata) -> bool {
+        metadata.is_file() && !metadata.is_symlink() && metadata.len() > 0
     }
 
     pub(super) fn create_owned_directory(
@@ -142,7 +201,7 @@ impl CacheDirectory {
     ) -> std::io::Result<OwnedCacheEntry> {
         let (parent, name) = self.parent_and_name(relative)?;
         parent.create_dir(&name)?;
-        let identity = entry_identity(&parent.symlink_metadata(&name)?);
+        let identity = EntryIdentity::of(&parent.symlink_metadata(&name)?);
         Ok(OwnedCacheEntry {
             cache: self.clone(),
             relative: relative.to_path_buf(),
@@ -188,65 +247,93 @@ impl CacheDirectory {
     }
 
     pub(super) fn stage_bytes(&self, final_path: &Path, bytes: &[u8]) -> std::io::Result<()> {
-        match self.metadata(final_path) {
-            Ok(metadata) if metadata.is_symlink() || !metadata.is_file() => {
-                return Err(invalid_data("cache child is a symlink or unsupported type"));
-            }
-            Ok(_) if self.read(final_path)? == bytes => return Ok(()),
-            Ok(_) => {
-                return Err(invalid_data(
-                    "cached stage does not match its content identity",
-                ));
-            }
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-            Err(error) => return Err(error),
-        }
-        let temporary = sibling_temporary(final_path, "stage")?;
+        let existing = Self::tolerating(self.metadata(final_path), std::io::ErrorKind::NotFound)?;
+        existing.map_or_else(
+            || self.write_stage(final_path, bytes),
+            |metadata| self.check_stage(&metadata, final_path, bytes, Self::EXISTING_STAGE_ERRORS),
+        )
+    }
+
+    fn write_stage(&self, final_path: &Path, bytes: &[u8]) -> std::io::Result<()> {
+        let temporary = Self::sibling_temporary(final_path, "stage")?;
         let guard = self.write_owned_file(&temporary, bytes)?;
-        match self.hard_link(&temporary, final_path) {
-            Ok(()) => {}
-            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
-                let metadata = self.metadata(final_path)?;
-                if metadata.is_symlink()
-                    || !metadata.is_file()
-                    || self.read(final_path)?.as_slice() != bytes
-                {
-                    return Err(invalid_data(
-                        "competing cache stage is not the expected file",
-                    ));
-                }
-            }
-            Err(error) => return Err(error),
-        }
+        let linked = Self::tolerating(
+            self.hard_link(&temporary, final_path),
+            std::io::ErrorKind::AlreadyExists,
+        )?;
+        linked.map_or_else(|| self.check_competing_stage(final_path, bytes), Ok)?;
         drop(guard);
         Ok(())
     }
 
-    /// Copies an owned compiler output into a content-addressed cache file.
+    fn check_competing_stage(&self, final_path: &Path, bytes: &[u8]) -> std::io::Result<()> {
+        let metadata = self.metadata(final_path)?;
+        self.check_stage(&metadata, final_path, bytes, Self::COMPETING_STAGE_ERRORS)
+    }
+
+    fn check_stage(
+        &self,
+        metadata: &Metadata,
+        final_path: &Path,
+        bytes: &[u8],
+        [kind_error, content_error]: [&str; 2],
+    ) -> std::io::Result<()> {
+        Self::require(Self::is_regular_file(metadata), kind_error)?;
+        let same_content = self.read(final_path)? == bytes;
+        Self::require(same_content, content_error)
+    }
+
+    fn is_regular_file(metadata: &Metadata) -> bool {
+        metadata.is_file() && !metadata.is_symlink()
+    }
+
+    fn require(condition: bool, message: &str) -> std::io::Result<()> {
+        condition
+            .then_some(())
+            .ok_or_else(|| Self::invalid_data(message))
+    }
+
+    fn regular_component(component: Component<'_>) -> std::io::Result<OsString> {
+        let Component::Normal(value) = component else {
+            return Err(Self::invalid_data(
+                "cache paths must be relative and regular",
+            ));
+        };
+        Ok(value.to_os_string())
+    }
+
+    fn tolerating<T>(
+        result: std::io::Result<T>,
+        tolerated: std::io::ErrorKind,
+    ) -> std::io::Result<Option<T>> {
+        match result {
+            Ok(value) => Ok(Some(value)),
+            Err(error) if error.kind() == tolerated => Ok(None),
+            Err(error) => Err(error),
+        }
+    }
+
     pub(super) fn publish_file(&self, source: &Path, final_path: &Path) -> std::io::Result<()> {
         let source_metadata = fs::symlink_metadata(source)?;
-        if source_metadata.file_type().is_symlink()
-            || !source_metadata.is_file()
-            || source_metadata.len() == 0
-        {
-            return Err(invalid_data(
-                "compiler output is not a non-empty regular file",
-            ));
-        }
-        let temporary = sibling_temporary(final_path, "publish")?;
+        Self::require(
+            Self::is_filled_source_file(&source_metadata),
+            "compiler output is not a non-empty regular file",
+        )?;
+        let temporary = Self::sibling_temporary(final_path, "publish")?;
         let guard = self.copy_owned_file(source, &temporary)?;
         self.hard_link(&temporary, final_path)?;
         drop(guard);
         Ok(())
     }
 
-    /// Copies a trusted cache file into an independently owned runtime path.
+    fn is_filled_source_file(metadata: &fs::Metadata) -> bool {
+        !metadata.file_type().is_symlink() && metadata.is_file() && metadata.len() > 0
+    }
+
     pub(super) fn copy_file_out(&self, relative: &Path, destination: &Path) -> std::io::Result<()> {
         let mut source = self.open_regular_file(relative)?;
         let metadata = source.metadata()?;
-        if metadata.len() == 0 {
-            return Err(invalid_data("cached artifact is empty"));
-        }
+        Self::require(metadata.len() > 0, "cached artifact is empty")?;
         let mut destination_file = fs::OpenOptions::new()
             .write(true)
             .create_new(true)
@@ -267,54 +354,73 @@ impl CacheDirectory {
 
     pub(super) fn remove(&self, relative: &Path) -> std::io::Result<()> {
         let metadata = self.metadata(relative)?;
-        if metadata.is_symlink() {
-            return Err(invalid_data("cache traversal encountered a symlink"));
-        }
-        if metadata.is_file() {
-            let (parent, name) = self.parent_and_name(relative)?;
-            return parent.remove_file(name);
-        }
-        if !metadata.is_dir() {
-            return Err(invalid_data(
-                "cache traversal encountered an unsupported entry",
-            ));
-        }
-        for entry in self.entries(relative)? {
-            self.remove(&entry.relative)?;
-        }
+        Self::require_supported(&metadata, "traversal")?;
+        self.children_of(&metadata, relative)?
+            .iter()
+            .try_for_each(|child| self.remove(&child.relative))?;
         let (parent, name) = self.parent_and_name(relative)?;
-        parent.remove_dir(name)
+        Self::remove_entry(&parent, name, &metadata)
     }
 
     pub(super) fn path_usage(&self, relative: &Path) -> std::io::Result<(usize, u64)> {
         let metadata = self.metadata(relative)?;
+        Self::require_supported(&metadata, "accounting")?;
+        let file_bytes = metadata.is_file().then_some(metadata.len());
+        let own_usage = (1, file_bytes.unwrap_or_default());
+        self.children_of(&metadata, relative)?
+            .iter()
+            .try_fold(own_usage, |usage, child| {
+                self.add_child_usage(usage, &child.relative)
+            })
+    }
+
+    fn require_supported(metadata: &Metadata, activity: &str) -> std::io::Result<()> {
         if metadata.is_symlink() {
-            return Err(invalid_data("cache accounting encountered a symlink"));
+            Err(Self::invalid_data(&format!(
+                "cache {activity} encountered a symlink"
+            )))
+        } else if metadata.is_file() || metadata.is_dir() {
+            Ok(())
+        } else {
+            Err(Self::invalid_data(&format!(
+                "cache {activity} encountered an unsupported entry"
+            )))
         }
+    }
+
+    fn children_of(
+        &self,
+        metadata: &Metadata,
+        relative: &Path,
+    ) -> std::io::Result<Vec<CacheEntry>> {
+        let children = metadata
+            .is_dir()
+            .then(|| self.entries(relative))
+            .transpose()?;
+        Ok(children.unwrap_or_default())
+    }
+
+    fn remove_entry(parent: &Dir, name: OsString, metadata: &Metadata) -> std::io::Result<()> {
         if metadata.is_file() {
-            return Ok((1, metadata.len()));
+            parent.remove_file(name)
+        } else {
+            parent.remove_dir(name)
         }
-        if !metadata.is_dir() {
-            return Err(invalid_data(
-                "cache accounting encountered an unsupported entry",
-            ));
-        }
-        let mut entries = 1_usize;
-        let mut bytes = 0_u64;
-        for child in self.entries(relative)? {
-            let (child_entries, child_bytes) = self.path_usage(&child.relative)?;
-            entries = entries
-                .checked_add(child_entries)
-                .ok_or_else(|| std::io::Error::other("handler cache entry accounting overflow"))?;
-            bytes = bytes
-                .checked_add(child_bytes)
-                .ok_or_else(|| std::io::Error::other("handler cache byte accounting overflow"))?;
-        }
+    }
+
+    fn add_child_usage(
+        &self,
+        (entries, bytes): (usize, u64),
+        child: &Path,
+    ) -> std::io::Result<(usize, u64)> {
+        let (child_entries, child_bytes) = self.path_usage(child)?;
+        let entries = Self::checked_sum_entries([entries, child_entries].into_iter())?;
+        let bytes = Self::checked_sum_bytes([bytes, child_bytes].into_iter())?;
         Ok((entries, bytes))
     }
 
     pub(super) fn prune(&self) -> std::io::Result<()> {
-        self.prune_with_limits(MAX_CACHE_ENTRIES, MAX_CACHE_BYTES)
+        self.prune_with_limits(Self::MAX_ENTRIES, Self::MAX_BYTES)
     }
 
     pub(super) fn acquire_lock(
@@ -338,7 +444,13 @@ impl CacheDirectory {
     where
         F: Fn(&mut cap_std::fs::File, u32, u64, &str) -> std::io::Result<()>,
     {
-        self.acquire_lock_with_runtime(relative, wait, initialize, &unix_time, &process_is_live)
+        self.acquire_lock_with_runtime(
+            relative,
+            wait,
+            initialize,
+            &Self::unix_time,
+            &Self::process_is_live,
+        )
     }
 
     fn acquire_lock_with_runtime<F, N, L>(
@@ -355,45 +467,90 @@ impl CacheDirectory {
         L: Fn(u32) -> bool,
     {
         let deadline = Instant::now() + wait;
-        loop {
-            match self.create_new_file(relative) {
-                Ok(mut file) => {
-                    let identity = entry_identity(&file.metadata()?);
-                    let created = now().as_secs();
-                    let token = format!("{}-{}", std::process::id(), now().as_nanos());
-                    let mut guard = OwnedCacheEntry {
-                        cache: self.clone(),
-                        relative: relative.to_path_buf(),
-                        identity,
-                        published: false,
-                    };
-                    initialize(&mut file, std::process::id(), created, &token)?;
-                    guard.publish();
-                    return Ok(CacheLock {
-                        cache: self.clone(),
-                        relative: relative.to_path_buf(),
-                        token,
-                        identity,
-                    });
-                }
-                Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
-                    if self.recover_lock_with(relative, now, process_live)? {
-                        continue;
-                    }
-                    if Instant::now() >= deadline {
-                        return Err(std::io::Error::new(
-                            std::io::ErrorKind::TimedOut,
-                            "Timed out waiting for handler cache lock",
-                        ));
-                    }
-                    std::thread::sleep(Duration::from_millis(10));
-                }
-                Err(error) => return Err(error),
-            }
+        std::iter::repeat_with(|| {
+            self.attempt_lock(relative, &initialize, now, process_live, deadline)
+        })
+        .find_map(Result::transpose)
+        .unwrap_or_else(|| Err(Self::lock_timeout()))
+    }
+
+    fn attempt_lock<F, N, L>(
+        &self,
+        relative: &Path,
+        initialize: &F,
+        now: &N,
+        process_live: &L,
+        deadline: Instant,
+    ) -> std::io::Result<Option<CacheLock>>
+    where
+        F: Fn(&mut cap_std::fs::File, u32, u64, &str) -> std::io::Result<()>,
+        N: Fn() -> Duration,
+        L: Fn(u32) -> bool,
+    {
+        let created = Self::tolerating(
+            self.create_new_file(relative),
+            std::io::ErrorKind::AlreadyExists,
+        )?;
+        created.map_or_else(
+            || {
+                let recovered = self.recover_lock_with(relative, now, process_live)?;
+                Self::retry_lock_after(recovered, deadline).map(|()| None)
+            },
+            |file| {
+                self.initialize_lock(file, relative, initialize, now)
+                    .map(Some)
+            },
+        )
+    }
+
+    fn retry_lock_after(recovered: bool, deadline: Instant) -> std::io::Result<()> {
+        if recovered {
+            Ok(())
+        } else if Instant::now() >= deadline {
+            Err(Self::lock_timeout())
+        } else {
+            std::thread::sleep(Self::LOCK_RETRY);
+            Ok(())
         }
     }
 
-    #[cfg(test)]
+    fn lock_timeout() -> std::io::Error {
+        std::io::Error::new(
+            std::io::ErrorKind::TimedOut,
+            "Timed out waiting for handler cache lock",
+        )
+    }
+
+    fn initialize_lock<F, N>(
+        &self,
+        mut file: cap_std::fs::File,
+        relative: &Path,
+        initialize: &F,
+        now: &N,
+    ) -> std::io::Result<CacheLock>
+    where
+        F: Fn(&mut cap_std::fs::File, u32, u64, &str) -> std::io::Result<()>,
+        N: Fn() -> Duration,
+    {
+        let identity = EntryIdentity::of(&file.metadata()?);
+        let created = now().as_secs();
+        let token = format!("{}-{}", std::process::id(), now().as_nanos());
+        let mut guard = OwnedCacheEntry {
+            cache: self.clone(),
+            relative: relative.to_path_buf(),
+            identity,
+            published: false,
+        };
+        initialize(&mut file, std::process::id(), created, &token)?;
+        guard.publish();
+        Ok(CacheLock {
+            cache: self.clone(),
+            relative: relative.to_path_buf(),
+            token,
+            identity,
+        })
+    }
+
     pub(super) fn prune_with_limits(
         &self,
         max_entries: usize,
@@ -407,47 +564,7 @@ impl CacheDirectory {
         )
     }
 
-    #[cfg(not(test))]
-    fn prune_with_limits(&self, max_entries: usize, max_bytes: u64) -> std::io::Result<()> {
-        self.prune_with(
-            max_entries,
-            max_bytes,
-            CacheDirectory::remove,
-            CacheDirectory::path_usage,
-        )
-    }
-
-    #[cfg(test)]
     pub(super) fn prune_with<F, M>(
-        &self,
-        max_entries: usize,
-        max_bytes: u64,
-        remove: F,
-        measure: M,
-    ) -> std::io::Result<()>
-    where
-        F: Fn(&Self, &Path) -> std::io::Result<()>,
-        M: Fn(&Self, &Path) -> std::io::Result<(usize, u64)>,
-    {
-        self.prune_entries(max_entries, max_bytes, remove, measure)
-    }
-
-    #[cfg(not(test))]
-    fn prune_with<F, M>(
-        &self,
-        max_entries: usize,
-        max_bytes: u64,
-        remove: F,
-        measure: M,
-    ) -> std::io::Result<()>
-    where
-        F: Fn(&Self, &Path) -> std::io::Result<()>,
-        M: Fn(&Self, &Path) -> std::io::Result<(usize, u64)>,
-    {
-        self.prune_entries(max_entries, max_bytes, remove, measure)
-    }
-
-    fn prune_entries<F, M>(
         &self,
         max_entries: usize,
         max_bytes: u64,
@@ -463,8 +580,8 @@ impl CacheDirectory {
             max_bytes,
             remove,
             measure,
-            &unix_time,
-            &process_is_live,
+            &Self::unix_time,
+            &Self::process_is_live,
         )
     }
 
@@ -484,29 +601,52 @@ impl CacheDirectory {
         L: Fn(u32) -> bool,
     {
         self.scavenge_locks_with(now, process_live)?;
+        let limits = (max_entries, max_bytes);
         let mut entries = self.prunable_entries(&measure)?;
         entries
             .sort_by(|left, right| (left.modified, &left.name).cmp(&(right.modified, &right.name)));
-        let mut total_bytes = checked_sum_bytes(entries.iter().map(|entry| entry.usage.1))?;
-        let mut remaining = checked_sum_entries(entries.iter().map(|entry| entry.usage.0))?;
-        for entry in entries {
-            if remaining <= max_entries && total_bytes <= max_bytes {
-                break;
-            }
-            remove(self, &entry.relative)?;
-            total_bytes = total_bytes.saturating_sub(entry.usage.1);
-            remaining = remaining.saturating_sub(entry.usage.0);
-        }
+        let usage = Self::total_usage(&entries)?;
+        entries.iter().try_fold(usage, |usage, entry| {
+            self.prune_entry(usage, entry, limits, &remove)
+        })?;
+        let final_usage = Self::total_usage(&self.prunable_entries(&measure)?)?;
+        (!Self::exceeds(limits, final_usage))
+            .then_some(())
+            .ok_or_else(|| {
+                std::io::Error::other(
+                    "handler cache pruning did not achieve its entry and byte limits",
+                )
+            })
+    }
 
-        let remaining_entries = self.prunable_entries(&measure)?;
-        let final_bytes = checked_sum_bytes(remaining_entries.iter().map(|entry| entry.usage.1))?;
-        let final_count = checked_sum_entries(remaining_entries.iter().map(|entry| entry.usage.0))?;
-        if final_count > max_entries || final_bytes > max_bytes {
-            return Err(std::io::Error::other(
-                "handler cache pruning did not achieve its entry and byte limits",
-            ));
+    fn prune_entry<F>(
+        &self,
+        usage: (usize, u64),
+        entry: &PrunableEntry,
+        limits: (usize, u64),
+        remove: &F,
+    ) -> std::io::Result<(usize, u64)>
+    where
+        F: Fn(&Self, &Path) -> std::io::Result<()>,
+    {
+        if !Self::exceeds(limits, usage) {
+            return Ok(usage);
         }
-        Ok(())
+        remove(self, &entry.relative)?;
+        Ok((
+            usage.0.saturating_sub(entry.usage.0),
+            usage.1.saturating_sub(entry.usage.1),
+        ))
+    }
+
+    fn exceeds((max_entries, max_bytes): (usize, u64), (entries, bytes): (usize, u64)) -> bool {
+        [entries > max_entries, bytes > max_bytes].contains(&true)
+    }
+
+    fn total_usage(entries: &[PrunableEntry]) -> std::io::Result<(usize, u64)> {
+        let bytes = Self::checked_sum_bytes(entries.iter().map(|entry| entry.usage.1))?;
+        let count = Self::checked_sum_entries(entries.iter().map(|entry| entry.usage.0))?;
+        Ok((count, bytes))
     }
 
     fn scavenge_locks_with<N, L>(&self, now: &N, process_live: &L) -> std::io::Result<()>
@@ -515,12 +655,17 @@ impl CacheDirectory {
         L: Fn(u32) -> bool,
     {
         let root = Path::new("");
-        for entry in self.entries(root)? {
-            if entry.name != ".prune.lock" && entry.name.strip_suffix(".lock").is_some() {
-                self.recover_lock_with(&entry.relative, now, process_live)?;
-            }
-        }
-        Ok(())
+        self.entries(root)?
+            .iter()
+            .filter(|entry| Self::is_entry_lock(&entry.name))
+            .try_for_each(|entry| {
+                self.recover_lock_with(&entry.relative, now, process_live)
+                    .map(|_recovered| ())
+            })
+    }
+
+    fn is_entry_lock(name: &str) -> bool {
+        name != ".prune.lock" && name.strip_suffix(".lock").is_some()
     }
 
     fn prunable_entries<M>(&self, measure: &M) -> std::io::Result<Vec<PrunableEntry>>
@@ -529,67 +674,69 @@ impl CacheDirectory {
     {
         let root = Path::new("");
         let discovered = self.entries(root)?;
-        let mut active = Vec::new();
-        for entry in &discovered {
-            if let Some(digest) = entry.name.strip_suffix(".lock")
-                && digest != ".prune"
-            {
-                active.push(String::from(digest));
-            }
-        }
-        let mut entries = Vec::new();
-        for entry in discovered {
-            if Path::new(&entry.name)
-                .extension()
-                .is_some_and(|extension| extension == "lock")
-                || active
-                    .iter()
-                    .any(|digest| entry.name.trim_start_matches('.').starts_with(digest))
-            {
-                continue;
-            }
-            if entry.metadata.is_symlink() {
-                return Err(invalid_data("cache pruning encountered a symlink"));
-            }
-            let modified = entry.metadata.modified()?;
-            let usage = measure(self, &entry.relative)?;
-            entries.push(PrunableEntry {
-                relative: entry.relative,
-                name: entry.name,
-                modified,
-                usage,
-            });
-        }
-        Ok(entries)
+        let active: Vec<String> = discovered
+            .iter()
+            .filter_map(|entry| Self::active_digest(&entry.name))
+            .collect();
+        discovered
+            .into_iter()
+            .filter(|entry| Self::is_prunable_name(&entry.name, &active))
+            .map(|entry| self.prunable_entry(entry, measure))
+            .collect()
+    }
+
+    fn active_digest(name: &str) -> Option<String> {
+        name.strip_suffix(".lock")
+            .filter(|digest| *digest != ".prune")
+            .map(String::from)
+    }
+
+    fn is_prunable_name(name: &str, active_digests: &[String]) -> bool {
+        !Self::is_lock_file(name) && !Self::belongs_to_active_lock(name, active_digests)
+    }
+
+    fn prunable_entry<M>(&self, entry: CacheEntry, measure: &M) -> std::io::Result<PrunableEntry>
+    where
+        M: Fn(&Self, &Path) -> std::io::Result<(usize, u64)>,
+    {
+        Self::require(
+            !entry.metadata.is_symlink(),
+            "cache pruning encountered a symlink",
+        )?;
+        let modified = entry.metadata.modified()?;
+        let usage = measure(self, &entry.relative)?;
+        Ok(PrunableEntry {
+            relative: entry.relative,
+            name: entry.name,
+            modified,
+            usage,
+        })
     }
 
     fn entries(&self, relative: &Path) -> std::io::Result<Vec<CacheEntry>> {
-        let directory = if relative.as_os_str().is_empty() {
-            self.directory.try_clone()?
-        } else {
-            self.open_directory(relative)?
-        };
-        let mut entries = Vec::new();
-        for entry in directory.entries()? {
-            let entry = entry?;
-            let name = entry.file_name();
-            let name_text = name
-                .to_str()
-                .ok_or_else(|| invalid_data("cache entry name is not UTF-8"))?
-                .to_string();
-            let child = if relative.as_os_str().is_empty() {
-                PathBuf::from(&name)
-            } else {
-                relative.join(&name)
-            };
-            let metadata = self.metadata(&child)?;
-            entries.push(CacheEntry {
-                relative: child,
-                name: name_text,
-                metadata,
-            });
-        }
-        Ok(entries)
+        self.open_directory(relative)?
+            .entries()?
+            .map(|entry| self.cache_entry(relative, &entry?))
+            .collect()
+    }
+
+    fn cache_entry(
+        &self,
+        relative: &Path,
+        entry: &cap_std::fs::DirEntry,
+    ) -> std::io::Result<CacheEntry> {
+        let name = entry.file_name();
+        let name_text = name
+            .to_str()
+            .ok_or_else(|| Self::invalid_data("cache entry name is not UTF-8"))?
+            .to_string();
+        let child = relative.join(&name);
+        let metadata = self.metadata(&child)?;
+        Ok(CacheEntry {
+            relative: child,
+            name: name_text,
+            metadata,
+        })
     }
 
     fn open_regular_file(&self, relative: &Path) -> std::io::Result<cap_std::fs::File> {
@@ -599,7 +746,7 @@ impl CacheDirectory {
         let file = parent.open_with(name, &options)?;
         let metadata = file.metadata()?;
         if !metadata.is_file() || metadata.is_symlink() {
-            return Err(invalid_data("cache child is not a regular file"));
+            return Err(Self::invalid_data("cache child is not a regular file"));
         }
         Ok(file)
     }
@@ -616,7 +763,7 @@ impl CacheDirectory {
 
     fn write_owned_file(&self, relative: &Path, bytes: &[u8]) -> std::io::Result<OwnedCacheEntry> {
         let mut file = self.create_new_file(relative)?;
-        let identity = entry_identity(&file.metadata()?);
+        let identity = EntryIdentity::of(&file.metadata()?);
         let guard = OwnedCacheEntry {
             cache: self.clone(),
             relative: relative.to_path_buf(),
@@ -632,7 +779,7 @@ impl CacheDirectory {
     fn copy_owned_file(&self, source: &Path, relative: &Path) -> std::io::Result<OwnedCacheEntry> {
         let mut source_file = fs::File::open(source)?;
         let mut destination = self.create_new_file(relative)?;
-        let identity = entry_identity(&destination.metadata()?);
+        let identity = EntryIdentity::of(&destination.metadata()?);
         let guard = OwnedCacheEntry {
             cache: self.clone(),
             relative: relative.to_path_buf(),
@@ -668,51 +815,28 @@ impl CacheDirectory {
     fn inspect_lock(&self, relative: &Path) -> std::io::Result<LockSnapshot> {
         let mut file = self.open_regular_file(relative)?;
         let metadata = file.metadata()?;
-        let identity = entry_identity(&metadata);
+        let identity = EntryIdentity::of(&metadata);
         let modified = metadata
             .modified()?
             .into_std()
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap_or_default();
-        let mut parser_bytes = Vec::with_capacity(MAX_LOCK_METADATA_BYTES + 1);
-        std::io::Read::by_ref(&mut file)
-            .take((MAX_LOCK_METADATA_BYTES + 1) as u64)
-            .read_to_end(&mut parser_bytes)?;
-        let overflowed = parser_bytes.len() > MAX_LOCK_METADATA_BYTES;
-        if overflowed {
-            parser_bytes.truncate(MAX_LOCK_METADATA_BYTES);
-        }
-        let mut hasher = Sha256::new();
-        hasher.update(identity.device.to_le_bytes());
-        hasher.update(identity.inode.to_le_bytes());
-        hasher.update(metadata.len().to_le_bytes());
-        hasher.update(modified.as_secs().to_le_bytes());
-        hasher.update(modified.subsec_nanos().to_le_bytes());
-        hasher.update([u8::from(overflowed)]);
-        hasher.update(&parser_bytes);
-        let fingerprint = hasher.finalize().into();
-        let contents = if overflowed {
-            ""
-        } else {
-            std::str::from_utf8(&parser_bytes).unwrap_or_default()
-        };
-        let mut fields = contents.split_whitespace();
-        let owner = match (fields.next(), fields.next(), fields.next(), fields.next()) {
-            (Some(pid), Some(created), Some(token), None) => pid
-                .parse::<u32>()
-                .ok()
-                .zip(created.parse::<u64>().ok())
-                .map(|(pid, created)| LockOwner {
-                    pid,
-                    created,
-                    token: token.to_string(),
-                }),
-            _ => None,
-        };
+        let (parser_bytes, overflowed) = LockSnapshot::read_metadata(&mut file)?;
+        let fingerprint = LockSnapshot::fingerprint_of(
+            identity,
+            metadata.len(),
+            modified,
+            overflowed,
+            &parser_bytes,
+        );
+        let contents = std::str::from_utf8(&parser_bytes)
+            .ok()
+            .filter(|_| !overflowed)
+            .unwrap_or_default();
         Ok(LockSnapshot {
             identity,
             fingerprint,
-            owner,
+            owner: LockOwner::parse(contents),
             modified,
         })
     }
@@ -721,24 +845,39 @@ impl CacheDirectory {
     where
         L: Fn(u32) -> bool,
     {
-        if snapshot.modified > now {
-            return true;
-        }
+        let latest_current = now.saturating_add(CacheLock::CLOCK_STEP_TOLERANCE);
+        let current = Some(snapshot).filter(|snapshot| snapshot.modified <= latest_current);
+        current.is_none_or(|snapshot| Self::lease_is_over(snapshot, now, process_live))
+    }
+
+    fn lease_is_over<L>(snapshot: &LockSnapshot, now: Duration, process_live: &L) -> bool
+    where
+        L: Fn(u32) -> bool,
+    {
         snapshot.owner.as_ref().map_or_else(
-            || now.saturating_sub(snapshot.modified) >= MAX_LOCK_LEASE,
-            |owner| {
-                if !process_live(owner.pid) {
-                    return true;
-                }
-                let created = Duration::from_secs(owner.created);
-                let lease_origin = if created <= now {
-                    created
-                } else {
-                    snapshot.modified
-                };
-                now.saturating_sub(lease_origin) >= MAX_LOCK_LEASE
-            },
+            || Self::lease_expired(now, snapshot.modified),
+            |owner| Self::owner_lease_is_over(owner, snapshot.modified, now, process_live),
         )
+    }
+
+    fn owner_lease_is_over<L>(
+        owner: &LockOwner,
+        modified: Duration,
+        now: Duration,
+        process_live: &L,
+    ) -> bool
+    where
+        L: Fn(u32) -> bool,
+    {
+        let created = Duration::from_secs(owner.created);
+        let lease_origin = Some(created)
+            .filter(|created| *created <= now)
+            .unwrap_or(modified);
+        !process_live(owner.pid) || Self::lease_expired(now, lease_origin)
+    }
+
+    fn lease_expired(now: Duration, lease_origin: Duration) -> bool {
+        now.saturating_sub(lease_origin) >= CacheLock::MAX_LEASE
     }
 
     fn recover_lock_with<N, L>(
@@ -751,68 +890,207 @@ impl CacheDirectory {
         N: Fn() -> Duration,
         L: Fn(u32) -> bool,
     {
-        let before = match self.inspect_lock(relative) {
-            Ok(snapshot) => snapshot,
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(true),
-            Err(error) => return Err(error),
-        };
-        if !Self::lock_is_reclaimable(&before, now(), process_live) {
-            return Ok(false);
-        }
+        let before = Self::tolerating(self.inspect_lock(relative), std::io::ErrorKind::NotFound)?;
+        before.map_or(Ok(true), |before| {
+            let reclaimable = Self::lock_is_reclaimable(&before, now(), process_live);
+            let recovered =
+                reclaimable.then(|| self.quarantine_lock(relative, &before, now, process_live));
+            recovered.unwrap_or(Ok(false))
+        })
+    }
 
-        let quarantine = sibling_temporary(relative, "recover")?;
-        match self.rename(relative, &quarantine) {
-            Ok(()) => {}
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(true),
-            Err(error) => return Err(error),
-        }
-        let after = self.inspect_lock(&quarantine)?;
-        if after.identity == before.identity
-            && after.fingerprint == before.fingerprint
-            && Self::lock_is_reclaimable(&after, now(), process_live)
-        {
-            let current = self.inspect_lock(&quarantine)?;
-            if current.identity == after.identity && current.fingerprint == after.fingerprint {
-                self.remove(&quarantine)?;
-                return Ok(true);
-            }
-        }
+    fn quarantine_lock<N, L>(
+        &self,
+        relative: &Path,
+        before: &LockSnapshot,
+        now: &N,
+        process_live: &L,
+    ) -> std::io::Result<bool>
+    where
+        N: Fn() -> Duration,
+        L: Fn(u32) -> bool,
+    {
+        let quarantine = Self::sibling_temporary(relative, "recover")?;
+        let moved = Self::tolerating(
+            self.rename(relative, &quarantine),
+            std::io::ErrorKind::NotFound,
+        )?;
+        moved.map_or(Ok(true), |()| {
+            self.finish_lock_recovery(relative, &quarantine, before, now, process_live)
+        })
+    }
 
-        // Never rename over a replacement lock. A hard link restores the
-        // quarantined inode only when the original name is still vacant.
-        if self.hard_link(&quarantine, relative).is_ok()
+    fn finish_lock_recovery<N, L>(
+        &self,
+        relative: &Path,
+        quarantine: &Path,
+        before: &LockSnapshot,
+        now: &N,
+        process_live: &L,
+    ) -> std::io::Result<bool>
+    where
+        N: Fn() -> Duration,
+        L: Fn(u32) -> bool,
+    {
+        let after = self.inspect_lock(quarantine)?;
+        let removed = Self::is_still_stale(before, &after, now, process_live)
+            .then(|| self.remove_unchanged_lock(quarantine, &after))
+            .transpose()?
+            .unwrap_or(false);
+        (!removed)
+            .then(|| self.restore_lock(relative, quarantine, &after))
+            .transpose()?;
+        Ok(removed)
+    }
+
+    fn is_still_stale<N, L>(
+        before: &LockSnapshot,
+        after: &LockSnapshot,
+        now: &N,
+        process_live: &L,
+    ) -> bool
+    where
+        N: Fn() -> Duration,
+        L: Fn(u32) -> bool,
+    {
+        after.same_lock_as(before) && Self::lock_is_reclaimable(after, now(), process_live)
+    }
+
+    fn remove_unchanged_lock(
+        &self,
+        quarantine: &Path,
+        after: &LockSnapshot,
+    ) -> std::io::Result<bool> {
+        let unchanged = self.inspect_lock(quarantine)?.same_lock_as(after);
+        unchanged
+            .then(|| self.remove(quarantine))
+            .transpose()
+            .map(|removed| removed.is_some())
+    }
+
+    fn restore_lock(
+        &self,
+        relative: &Path,
+        quarantine: &Path,
+        after: &LockSnapshot,
+    ) -> std::io::Result<()> {
+        let restored = self.hard_link(quarantine, relative).is_ok()
             && self
-                .inspect_lock(&quarantine)
-                .is_ok_and(|current| current.identity == after.identity)
-        {
-            self.remove(&quarantine)?;
-        }
-        Ok(false)
+                .inspect_lock(quarantine)
+                .is_ok_and(|current| current.identity == after.identity);
+        restored
+            .then(|| self.remove(quarantine))
+            .transpose()
+            .map(|_removed| ())
     }
 
     fn identity(&self, relative: &Path) -> std::io::Result<EntryIdentity> {
         self.metadata(relative)
-            .map(|metadata| entry_identity(&metadata))
+            .map(|metadata| EntryIdentity::of(&metadata))
     }
 
     fn open_directory(&self, relative: &Path) -> std::io::Result<Dir> {
         let mut directory = self.directory.try_clone()?;
-        for component in relative_components(relative)? {
+        for component in Self::relative_components(relative)? {
             directory = directory.open_dir_nofollow(component)?;
         }
         Ok(directory)
     }
 
     fn parent_and_name(&self, relative: &Path) -> std::io::Result<(Dir, OsString)> {
-        let mut components = relative_components(relative)?;
+        let mut components = Self::relative_components(relative)?;
         let name = components
             .pop()
-            .ok_or_else(|| invalid_data("cache operation requires a child path"))?;
+            .ok_or_else(|| Self::invalid_data("cache operation requires a child path"))?;
         let mut directory = self.directory.try_clone()?;
         for component in components {
             directory = directory.open_dir_nofollow(component)?;
         }
         Ok((directory, name))
+    }
+
+    fn is_lock_file(name: &str) -> bool {
+        Path::new(name)
+            .extension()
+            .is_some_and(|extension| extension == "lock")
+    }
+
+    fn belongs_to_active_lock(name: &str, active_digests: &[String]) -> bool {
+        let name = name.trim_start_matches('.');
+        active_digests.iter().any(|digest| name.starts_with(digest))
+    }
+
+    fn create_directory_if_missing(parent: &Dir, child: &Path) -> std::io::Result<()> {
+        Self::tolerating(parent.create_dir(child), std::io::ErrorKind::AlreadyExists)
+            .map(|_created| ())
+    }
+
+    fn relative_components(path: &Path) -> std::io::Result<Vec<OsString>> {
+        path.components().map(Self::regular_component).collect()
+    }
+
+    fn sibling_temporary(path: &Path, purpose: &str) -> std::io::Result<PathBuf> {
+        let name = path
+            .file_name()
+            .and_then(OsStr::to_str)
+            .ok_or_else(|| Self::invalid_data("cache child name is not UTF-8"))?;
+        let temporary = format!(
+            ".{name}.{purpose}.{}.{}.tmp",
+            std::process::id(),
+            Self::unix_time().as_nanos()
+        );
+        let Some(parent) = path.parent() else {
+            return Ok(PathBuf::from(&temporary));
+        };
+        Ok(parent.join(&temporary))
+    }
+
+    fn checked_sum_bytes(values: impl Iterator<Item = u64>) -> std::io::Result<u64> {
+        let mut total = 0_u64;
+        for value in values {
+            total = total
+                .checked_add(value)
+                .ok_or_else(|| std::io::Error::other("handler cache byte accounting overflow"))?;
+        }
+        Ok(total)
+    }
+
+    fn checked_sum_entries(values: impl Iterator<Item = usize>) -> std::io::Result<usize> {
+        let mut total = 0_usize;
+        for value in values {
+            total = total
+                .checked_add(value)
+                .ok_or_else(|| std::io::Error::other("handler cache entry accounting overflow"))?;
+        }
+        Ok(total)
+    }
+
+    fn invalid_data(message: &str) -> std::io::Error {
+        std::io::Error::new(std::io::ErrorKind::InvalidData, message)
+    }
+
+    fn unix_time() -> Duration {
+        SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap_or_default()
+    }
+
+    #[cfg(unix)]
+    fn process_is_live(pid: u32) -> bool {
+        std::process::Command::new("kill")
+            .args(["-0", &pid.to_string()])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()
+            .is_ok_and(|status| status.success())
+    }
+
+    #[cfg(windows)]
+    fn process_is_live(pid: u32) -> bool {
+        std::process::Command::new("tasklist")
+            .args(["/FI", &format!("PID eq {pid}"), "/NH"])
+            .output()
+            .is_ok_and(|output| String::from_utf8_lossy(&output.stdout).contains(&pid.to_string()))
     }
 }
 
@@ -820,120 +1098,46 @@ impl OwnedCacheEntry {
     pub(super) fn publish(&mut self) {
         self.published = true;
     }
+
+    fn is_unpublished_original(&self) -> bool {
+        !self.published && self.cache.identity(&self.relative).ok() == Some(self.identity)
+    }
 }
 
 impl Drop for OwnedCacheEntry {
     fn drop(&mut self) {
-        if self.published || self.cache.identity(&self.relative).ok() != Some(self.identity) {
-            return;
-        }
-        let _removed = self.cache.remove(&self.relative);
+        let _removed = self
+            .is_unpublished_original()
+            .then(|| self.cache.remove(&self.relative));
+    }
+}
+
+impl CacheLock {
+    const MAX_METADATA_BYTES: usize = 1024;
+    const MAX_LEASE: Duration = Duration::from_mins(10);
+    const CLOCK_STEP_TOLERANCE: Duration = Duration::from_mins(1);
+
+    fn is_still_held(&self) -> bool {
+        self.cache
+            .inspect_lock(&self.relative)
+            .is_ok_and(|snapshot| self.holds(&snapshot))
+    }
+
+    fn holds(&self, snapshot: &LockSnapshot) -> bool {
+        snapshot.identity == self.identity
+            && snapshot
+                .owner
+                .as_ref()
+                .is_some_and(|owner| owner.token == self.token)
     }
 }
 
 impl Drop for CacheLock {
     fn drop(&mut self) {
-        if self
-            .cache
-            .inspect_lock(&self.relative)
-            .is_ok_and(|snapshot| {
-                snapshot.identity == self.identity
-                    && snapshot
-                        .owner
-                        .is_some_and(|owner| owner.token == self.token)
-            })
-        {
-            let _removed = self.cache.remove(&self.relative);
-        }
+        let _removed = self
+            .is_still_held()
+            .then(|| self.cache.remove(&self.relative));
     }
-}
-
-fn create_directory_if_missing(parent: &Dir, child: &Path) -> std::io::Result<()> {
-    match parent.create_dir(child) {
-        Ok(()) => Ok(()),
-        Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => Ok(()),
-        Err(error) => Err(error),
-    }
-}
-
-fn relative_components(path: &Path) -> std::io::Result<Vec<OsString>> {
-    path.components()
-        .map(|component| match component {
-            Component::Normal(value) => Ok(value.to_os_string()),
-            _ => Err(invalid_data("cache paths must be relative and regular")),
-        })
-        .collect()
-}
-
-fn sibling_temporary(path: &Path, purpose: &str) -> std::io::Result<PathBuf> {
-    let name = path
-        .file_name()
-        .and_then(OsStr::to_str)
-        .ok_or_else(|| invalid_data("cache child name is not UTF-8"))?;
-    let temporary = format!(
-        ".{name}.{purpose}.{}.{}.tmp",
-        std::process::id(),
-        unix_time().as_nanos()
-    );
-    Ok(path.parent().map_or_else(
-        || PathBuf::from(&temporary),
-        |parent| parent.join(&temporary),
-    ))
-}
-
-fn entry_identity(metadata: &Metadata) -> EntryIdentity {
-    EntryIdentity {
-        device: metadata.dev(),
-        inode: metadata.ino(),
-    }
-}
-
-fn checked_sum_bytes(values: impl Iterator<Item = u64>) -> std::io::Result<u64> {
-    let mut total = 0_u64;
-    for value in values {
-        total = total
-            .checked_add(value)
-            .ok_or_else(|| std::io::Error::other("handler cache byte accounting overflow"))?;
-    }
-    Ok(total)
-}
-
-fn checked_sum_entries(values: impl Iterator<Item = usize>) -> std::io::Result<usize> {
-    let mut total = 0_usize;
-    for value in values {
-        total = total
-            .checked_add(value)
-            .ok_or_else(|| std::io::Error::other("handler cache entry accounting overflow"))?;
-    }
-    Ok(total)
-}
-
-fn invalid_data(message: &str) -> std::io::Error {
-    std::io::Error::new(std::io::ErrorKind::InvalidData, message)
-}
-
-fn unix_time() -> Duration {
-    SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .unwrap_or_default()
-}
-
-#[cfg(unix)]
-fn process_is_live(pid: u32) -> bool {
-    std::process::Command::new("kill")
-        .args(["-0", &pid.to_string()])
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .is_ok_and(|status| status.success())
-}
-
-#[cfg(windows)]
-fn process_is_live(pid: u32) -> bool {
-    std::process::Command::new("tasklist")
-        .args(["/FI", &format!("PID eq {pid}"), "/NH"])
-        .output()
-        .is_ok_and(|output| String::from_utf8_lossy(&output.stdout).contains(&pid.to_string()))
 }
 
 #[cfg(test)]
@@ -990,6 +1194,16 @@ mod tests {
     }
 
     #[cfg(unix)]
+    fn publish_compiled_artifact(cache: &CacheDirectory, destination: &Path) {
+        let compiler = tempfile::tempdir().expect("compiler workspace");
+        let output = compiler.path().join("artifact");
+        fs::write(&output, b"compiled").expect("compiler output");
+        cache
+            .publish_file(&output, destination)
+            .expect("publish through opened directory");
+    }
+
+    #[cfg(unix)]
     #[test]
     fn opened_cache_capability_survives_ambient_root_swap() {
         let project = tempfile::tempdir().expect("project");
@@ -1019,12 +1233,7 @@ mod tests {
         cache
             .stage_bytes(Path::new("stage.bin"), b"staged")
             .expect("stage through opened directory");
-        let compiler = tempfile::tempdir().expect("compiler workspace");
-        let output = compiler.path().join("artifact");
-        fs::write(&output, b"compiled").expect("compiler output");
-        cache
-            .publish_file(&output, Path::new("artifact.bin"))
-            .expect("publish through opened directory");
+        publish_compiled_artifact(&cache, Path::new("artifact.bin"));
 
         assert!(cache.is_valid_file(Path::new("stage.bin")));
         assert_eq!(
@@ -1126,7 +1335,7 @@ mod tests {
             cache.read(Path::new("live.lock")).expect("live lock"),
             b"42 1 live-token\n"
         );
-        assert!(MAX_LOCK_LEASE > Duration::from_mins(1));
+        assert!(CacheLock::MAX_LEASE > Duration::from_mins(1));
     }
 
     #[test]
@@ -1134,7 +1343,7 @@ mod tests {
         let root = tempfile::tempdir().expect("cache");
         let cache = CacheDirectory::open_test_root(root.path()).expect("cache capability");
         seed(&cache, "reused.lock", b"43 100 reused-token\n");
-        let now = || Duration::from_secs(100) + MAX_LOCK_LEASE;
+        let now = || Duration::from_secs(100) + CacheLock::MAX_LEASE;
 
         let recovered = cache
             .acquire_lock_with_runtime(
@@ -1177,14 +1386,14 @@ mod tests {
 
         assert!(!CacheDirectory::lock_is_reclaimable(
             &snapshot,
-            (Duration::from_secs(100) + MAX_LOCK_LEASE)
+            (Duration::from_secs(100) + CacheLock::MAX_LEASE)
                 .checked_sub(Duration::from_nanos(1))
                 .expect("positive lease"),
             &live,
         ));
         assert!(CacheDirectory::lock_is_reclaimable(
             &snapshot,
-            Duration::from_secs(100) + MAX_LOCK_LEASE,
+            Duration::from_secs(100) + CacheLock::MAX_LEASE,
             &live,
         ));
     }
@@ -1213,11 +1422,49 @@ mod tests {
     }
 
     #[test]
+    fn a_live_lock_survives_the_clock_stepping_back() {
+        let root = tempfile::tempdir().expect("cache");
+        let cache = CacheDirectory::open_test_root(root.path()).expect("cache capability");
+        let lock = Path::new("digest.lock");
+        let held = cache
+            .acquire_lock(lock, Duration::from_secs(1))
+            .expect("first holder");
+        let modified = cache.inspect_lock(lock).expect("held lock").modified;
+        let stepped_back = || {
+            modified
+                .checked_sub(Duration::from_millis(250))
+                .expect("positive time")
+        };
+        let live = |_| true;
+
+        let competing = cache.acquire_lock_with_runtime(
+            lock,
+            Duration::from_millis(50),
+            |file, pid, created, token| writeln!(file, "{pid} {created} {token}"),
+            &stepped_back,
+            &live,
+        );
+        assert!(competing.is_err(), "a second holder took a live lock");
+        cache
+            .prune_entries_with_runtime(
+                CacheDirectory::MAX_ENTRIES,
+                CacheDirectory::MAX_BYTES,
+                CacheDirectory::remove,
+                CacheDirectory::path_usage,
+                &stepped_back,
+                &live,
+            )
+            .expect("prune with a stepped clock");
+        assert!(held.is_still_held(), "pruning reclaimed a live lock");
+        drop(held);
+    }
+
+    #[test]
     fn oversized_sparse_lock_is_inspected_and_recovered_with_bounded_io() {
         let root = tempfile::tempdir().expect("cache");
         let path = root.path().join("oversized.lock");
         let file = fs::File::create(&path).expect("create sparse lock");
-        file.set_len((MAX_LOCK_METADATA_BYTES + 1) as u64)
+        file.set_len((CacheLock::MAX_METADATA_BYTES + 1) as u64)
             .expect("make oversized lock");
         drop(file);
         let cache = CacheDirectory::open_test_root(root.path()).expect("cache capability");
@@ -1241,7 +1488,7 @@ mod tests {
                 .metadata(Path::new("oversized.lock"))
                 .expect("replacement metadata")
                 .len()
-                < MAX_LOCK_METADATA_BYTES as u64
+                < CacheLock::MAX_METADATA_BYTES as u64
         );
         drop(recovered);
     }
@@ -1251,7 +1498,7 @@ mod tests {
         let root = tempfile::tempdir().expect("cache");
         let path = root.path().join("future.lock");
         let file = fs::File::create(&path).expect("create sparse lock");
-        file.set_len((MAX_LOCK_METADATA_BYTES + 1) as u64)
+        file.set_len((CacheLock::MAX_METADATA_BYTES + 1) as u64)
             .expect("make oversized lock");
         file.set_modified(SystemTime::UNIX_EPOCH + Duration::from_secs(1_000))
             .expect("set hostile future mtime");
@@ -1289,12 +1536,12 @@ mod tests {
             .prunable_entries(&CacheDirectory::path_usage)
             .expect("remaining entries");
         assert!(
-            checked_sum_entries(remaining.iter().map(|entry| entry.usage.0))
+            CacheDirectory::checked_sum_entries(remaining.iter().map(|entry| entry.usage.0))
                 .expect("entry accounting")
                 <= 1
         );
         assert!(
-            checked_sum_bytes(remaining.iter().map(|entry| entry.usage.1))
+            CacheDirectory::checked_sum_bytes(remaining.iter().map(|entry| entry.usage.1))
                 .expect("byte accounting")
                 <= 2
         );

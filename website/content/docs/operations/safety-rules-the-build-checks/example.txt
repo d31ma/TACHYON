@@ -1,0 +1,20 @@
+Safety rules that stop the build (ADR 0068)
+
+  Code     The build stops when                         Do this instead
+  TY1322   a route does not say who may call it         @Public, @SignedIn or @Allow(Role)
+  TY1323   @SignedIn or @Allow has no identity          one @IdentityProvider class
+           provider, or there are two
+  TY1324   the code, a template or public settings      put the value in .env as YON_<NAME>
+           hold a password, token or key                and read it through the settings
+  TY1325   code runs text as code (eval, exec,          call the code directly; pass values
+           new Function ...) or joins values into       as query parameters:
+           query text                                   query("... WHERE name = $1", [name])
+  TY1326   code sends a request to a host that is not   list the host:
+           listed                                       client/manifest.json
+                                                          { "tac": { "outgoing": { "hosts": ["api.example.com"] } } }
+                                                        server/application.json
+                                                          { "outgoing": { "hosts": ["api.example.com"] } }
+
+An obvious example secret in a test or a guide may stay when the file has the
+comment `tachyon: example secrets` and the value says that it is an example,
+such as sk_live_example.

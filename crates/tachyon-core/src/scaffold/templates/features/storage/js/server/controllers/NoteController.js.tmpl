@@ -1,0 +1,13 @@
+@RequestRoute("/api/notes")
+@Public
+export class NoteController {
+  /** @type {NoteService} */
+  @Needs
+  noteService
+
+  /** @returns {Promise<unknown[]>} */
+  @GetRoute
+  getNotes() {
+    return this.noteService.countNotes()
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "title": "Routing glossary",
+  "summary": "Routes answer incoming requests. Clients send outgoing requests. These names explain where paths and argument values come from. Access annotations say who may call a route.",
+  "sections": [
+    {
+      "include": "controller-paths/section.json"
+    },
+    {
+      "include": "incoming-values/section.json"
+    },
+    {
+      "include": "error-handlers/section.json"
+    },
+    {
+      "include": "outgoing-requests/section.json"
+    },
+    {
+      "include": "a-typed-path-in-every-yon-language/section.json"
+    },
+    {
+      "include": "migrating-old-names/section.json"
+    }
+  ]
+}

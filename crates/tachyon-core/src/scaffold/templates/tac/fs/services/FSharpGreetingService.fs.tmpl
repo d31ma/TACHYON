@@ -1,0 +1,6 @@
+[<Service>]
+type FSharpGreetingService() =
+    member val Message = "Hello from F#" with get, set
+
+    member this.Greet() : unit =
+        this.Message <- "F# says hello again."

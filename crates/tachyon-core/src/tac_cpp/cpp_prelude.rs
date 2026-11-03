@@ -1,0 +1,109 @@
+pub(crate) struct CppPrelude;
+
+impl CppPrelude {
+    const INCLUDES: &'static str = include_str!("tachyon/includes.hpp");
+    const JSON: &'static str = include_str!("tachyon/json.hpp");
+    const TASK: &'static str = include_str!("tachyon/task.hpp");
+    const CHECKS: &'static str = include_str!("tachyon/checks.hpp");
+    const CONVERT: &'static str = include_str!("tachyon/convert.hpp");
+    const BEHAVIORS: &'static str = include_str!("tachyon/behaviors.hpp");
+    const STORE: &'static str = include_str!("tachyon/store.hpp");
+    const SETTINGS: &'static str = include_str!("tachyon/settings.hpp");
+    pub(crate) const MEMORY_ENTITIES: &'static str = include_str!("tachyon/memory_entities.hpp");
+    const PAGE: &'static str = include_str!("tachyon/page.hpp");
+    const TICKETS: &'static str = include_str!("tachyon/tickets.hpp");
+    const PAGE_TASKS: &'static str = include_str!("tachyon/page_tasks.hpp");
+    const TEST_HOST: &'static str = include_str!("tachyon/test_host.hpp");
+    const TEST_EVENTS: &'static str = include_str!("tachyon/test_events.hpp");
+    const HTTP_AND_SETUP: &'static str = concat!(
+        include_str!("tachyon/http.hpp"),
+        include_str!("tachyon/setup.hpp"),
+        include_str!("tachyon/adapters.hpp")
+    );
+    const TRANSPORT: &'static str = include_str!("tachyon/transport.hpp");
+    const TEST_TRANSPORT: &'static str = include_str!("tachyon/test_transport.hpp");
+    const CLIENTS: &'static str = concat!(
+        include_str!("tachyon/http_client.hpp"),
+        include_str!("tachyon/web_apis.hpp")
+    );
+    const NEEDS: &'static str = include_str!("tachyon/needs.hpp");
+    const TEST_NEEDS: &'static str = include_str!("tachyon/test_needs.hpp");
+    const SERVICES: &'static str = include_str!("tachyon/services.hpp");
+    const TEST: &'static str = include_str!("tachyon/test.hpp");
+    pub(crate) const EXPORTS: &'static str = include_str!("tachyon/exports.hpp");
+
+    pub(crate) fn yon() -> String {
+        [
+            Self::INCLUDES,
+            Self::JSON,
+            Self::TASK,
+            Self::CHECKS,
+            Self::CONVERT,
+        ]
+        .concat()
+    }
+
+    pub(crate) fn context() -> String {
+        [
+            Self::BEHAVIORS,
+            Self::STORE,
+            Self::SETTINGS,
+            Self::HTTP_AND_SETUP,
+        ]
+        .concat()
+    }
+
+    pub(crate) fn services() -> &'static str {
+        Self::SERVICES
+    }
+
+    pub(crate) fn test_harness() -> String {
+        [Self::TEST_TRANSPORT, Self::TEST_NEEDS, Self::TEST].concat()
+    }
+
+    pub(crate) fn web() -> String {
+        [
+            Self::INCLUDES,
+            Self::JSON,
+            Self::TASK,
+            Self::CHECKS,
+            Self::CONVERT,
+            Self::PAGE,
+            Self::BEHAVIORS,
+            Self::STORE,
+            Self::SETTINGS,
+            Self::TICKETS,
+            Self::PAGE_TASKS,
+            Self::HTTP_AND_SETUP,
+            Self::TRANSPORT,
+            Self::CLIENTS,
+            Self::NEEDS,
+            Self::SERVICES,
+        ]
+        .concat()
+    }
+
+    pub(crate) fn test() -> String {
+        [
+            Self::INCLUDES,
+            Self::JSON,
+            Self::TASK,
+            Self::CHECKS,
+            Self::CONVERT,
+            Self::MEMORY_ENTITIES,
+            Self::TEST_HOST,
+            Self::BEHAVIORS,
+            Self::STORE,
+            Self::SETTINGS,
+            Self::TICKETS,
+            Self::TEST_EVENTS,
+            Self::HTTP_AND_SETUP,
+            Self::TEST_TRANSPORT,
+            Self::CLIENTS,
+            Self::TEST_NEEDS,
+            Self::SERVICES,
+            Self::TEST,
+        ]
+        .concat()
+    }
+}

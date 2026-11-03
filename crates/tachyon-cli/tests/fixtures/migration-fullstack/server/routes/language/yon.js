@@ -1,8 +1,4 @@
 // @ts-check
-//
-// GET/HEAD /language — the JavaScript face of the consolidated polyglot route.
-// The same route path is also served by yon.rs (POST, DELETE) and yon.cpp
-// (PUT, PATCH), demonstrating one Yon route split across three languages.
 
 export class Handler {
   /** @returns {Record<string, unknown>} */

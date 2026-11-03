@@ -1,0 +1,33 @@
+{
+  "contract_version": 1,
+  "models": {
+    "Item": {
+      "type": "object",
+      "properties": { "name": { "type": "string" }, "note": { "type": "string" } },
+      "required": ["name"],
+      "additionalProperties": false
+    },
+    "ChatMessage": {
+      "type": "object",
+      "properties": { "text": { "type": "string" } },
+      "required": ["text"],
+      "additionalProperties": false
+    }
+  },
+  "routes": [
+    {
+      "path": "/items",
+      "methods": {
+        "POST": { "request": { "body": { "$ref": "#/models/Item" } }, "ok": { "$ref": "#/models/Item" }, "status": 201 }
+      }
+    },
+    {
+      "path": "/ticks",
+      "methods": { "GET": { "stream": true, "produces": "text/event-stream", "status": 200 } }
+    },
+    {
+      "path": "/chat",
+      "methods": { "GET": { "socket": true, "request": { "body": { "$ref": "#/models/ChatMessage" } }, "status": 200 } }
+    }
+  ]
+}

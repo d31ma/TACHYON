@@ -1,40 +1,40 @@
-//! Internal surfaces exposed to fuzz targets.
-//!
-//! This module exists only under the `fuzzing` feature. It is not a stable
-//! API, carries no compatibility guarantee, and must never be enabled by a
-//! released artifact. It exists so `fuzz/` can reach the parsers and decoders
-//! that sit on a trust boundary but are otherwise crate-private.
-
 use crate::Failure;
 use crate::template::TemplateFrontend;
 use std::collections::BTreeSet;
 use tachyon_contracts::{HandlerResponse, NativeTarget};
 
-/// Compiles one template source exactly as the web compiler does.
-///
-/// # Errors
-///
-/// Returns the same diagnostics the compiler would return.
 pub fn compile_template(source: &str, source_path: &str) -> Result<(), Failure> {
     TemplateFrontend::compile(source, source_path, &BTreeSet::new()).map(|_| ())
 }
 
-/// Decodes one length-prefixed Handler Protocol v1 response frame.
-///
-/// This is the decoder that reads untrusted child-process output.
-///
-/// # Errors
-///
-/// Returns a protocol diagnostic for every malformed or oversized frame.
 pub fn decode_response_frame(bytes: &[u8], request_id: &str) -> Result<HandlerResponse, Failure> {
-    crate::handler::frame::response_frame(bytes, request_id)
+    crate::handler::frame::HandlerFrame::response(bytes, request_id)
 }
 
-/// Validates the bounded web frontend consumed by every native host.
-///
-/// # Errors
-///
-/// Returns the same planning diagnostics a native build would return.
 pub fn plan_native(target: NativeTarget, html: &str) -> Result<(), Failure> {
     crate::native::plan_for_fuzzing(target, html)
+}
+
+pub fn compile_yon_annotations(source: &str, extension: &str) -> Result<(), Failure> {
+    let path = format!("server/controllers/FuzzController.{extension}");
+    let path = std::path::Path::new(&path);
+    crate::behavior::gateway_declarations(path, source)?;
+    crate::yon::lower_with_routes(path, source, None).map(|_| ())
+}
+
+pub fn compile_tac_annotations(source: &str, extension: &str) -> Result<(), Failure> {
+    let path = format!("client/pages/fuzz/tac.{extension}");
+    let events = crate::events::extract(std::path::Path::new(&path), source, "tac")?;
+    let source = events
+        .as_ref()
+        .map_or(source, |events| events.source.as_str());
+    crate::behavior::lower(std::path::Path::new(&path), source, "tac").map(|_| ())
+}
+
+pub fn application_configuration(bytes: &[u8]) {
+    crate::application::fuzz(bytes);
+}
+
+pub fn managed_resource_headers(bytes: &[u8]) {
+    crate::handler::fuzz_resource_headers(bytes);
 }

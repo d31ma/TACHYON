@@ -1,152 +1,208 @@
-//! Request-time route matching.
-//!
-//! The compiler produces route patterns whose dynamic segments keep their
-//! authored `_name` form. This module binds a concrete request path to one of
-//! those patterns and extracts the parameter values, with a fixed specificity
-//! rule so matching never depends on discovery order.
+mod route_method;
+mod route_path;
 
+pub(crate) use route_method::RouteMethod;
+pub(crate) use route_path::RoutePath;
+
+use std::cmp::Reverse;
 use std::collections::BTreeMap;
 
-/// Maximum path segments considered when matching one request.
-const MAX_SEGMENTS: usize = 64;
-/// Maximum bytes accepted in one bound parameter value.
-const MAX_PARAMETER_BYTES: usize = 1_024;
-
-/// One route pattern bound to a concrete request path.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RouteMatch {
-    /// The matched route pattern, in its authored `_name` form.
     pub route: String,
-    /// Parameter values bound from the request path.
     pub parameters: BTreeMap<String, String>,
 }
 
-/// Splits a request path into non-empty segments.
-fn segments(path: &str) -> Option<Vec<&str>> {
-    let trimmed = path.trim_matches('/');
-    if trimmed.is_empty() {
-        return Some(Vec::new());
-    }
-    let parts: Vec<&str> = trimmed.split('/').collect();
-    if parts.len() > MAX_SEGMENTS || parts.iter().any(|part| part.is_empty()) {
-        return None;
-    }
-    Some(parts)
-}
+impl RouteMatch {
+    const MAX_SEGMENTS: usize = 64;
+    const MAX_PARAMETER_BYTES: usize = 1_024;
 
-/// Attempts to bind one request path to one route pattern.
-///
-/// Returns the bound parameters and the pattern's specificity, where a static
-/// segment is more specific than a dynamic one.
-fn bind(pattern: &str, path: &[&str]) -> Option<(BTreeMap<String, String>, u32)> {
-    let expected = segments(pattern)?;
-    if expected.len() != path.len() {
-        return None;
+    pub(crate) fn most_specific<'a>(
+        routes: impl IntoIterator<Item = &'a str>,
+        path: &str,
+    ) -> Option<Self> {
+        let actual = Self::segments(path)?;
+        routes
+            .into_iter()
+            .filter_map(|route| Self::candidate(route, &actual))
+            .min_by_key(|(specificity, _)| Reverse(*specificity))
+            .map(|(_, matched)| matched)
     }
-    let mut parameters = BTreeMap::new();
-    let mut specificity = 0;
-    for (expected, actual) in expected.iter().zip(path) {
-        if let Some(name) = expected.strip_prefix('_') {
-            // A dynamic segment never matches an empty or oversized value, and
-            // never spans a path separator.
-            if actual.is_empty() || actual.len() > MAX_PARAMETER_BYTES {
-                return None;
-            }
-            let decoded = percent_decode(actual)?;
-            parameters.insert(String::from(name), decoded);
-        } else {
-            if expected != actual {
-                return None;
-            }
-            specificity += 1;
+
+    fn candidate(route: &str, actual: &[&str]) -> Option<(u32, Self)> {
+        let (parameters, specificity) = Self::bind(route, actual)?;
+        let matched = Self {
+            route: String::from(route),
+            parameters,
+        };
+        Some((specificity, matched))
+    }
+
+    fn segments(path: &str) -> Option<Vec<&str>> {
+        let parts = Self::split_parts(path.trim_matches('/'));
+        Self::usable_parts(parts)
+    }
+
+    fn split_parts(trimmed: &str) -> Vec<&str> {
+        if trimmed.is_empty() {
+            return Vec::new();
         }
+        trimmed.split('/').collect()
     }
-    Some((parameters, specificity))
-}
 
-/// Decodes percent-encoded bytes, rejecting anything that is not valid UTF-8
-/// or that smuggles a path separator or control character.
-fn percent_decode(value: &str) -> Option<String> {
-    let bytes = value.as_bytes();
-    let mut decoded = Vec::with_capacity(bytes.len());
-    let mut index = 0;
-    while index < bytes.len() {
-        if bytes[index] == b'%' {
-            let high = bytes.get(index + 1).and_then(|byte| hex(*byte))?;
-            let low = bytes.get(index + 2).and_then(|byte| hex(*byte))?;
-            decoded.push((high << 4) | low);
-            index += 3;
-        } else {
+    fn usable_parts(parts: Vec<&str>) -> Option<Vec<&str>> {
+        let usable = parts.len() <= Self::MAX_SEGMENTS && !parts.contains(&"");
+        usable.then_some(parts)
+    }
+
+    fn bind(pattern: &str, path: &[&str]) -> Option<(BTreeMap<String, String>, u32)> {
+        let pattern_segments = Self::segments(pattern)?;
+        (pattern_segments.len() == path.len()).then_some(())?;
+        let mut parameters = BTreeMap::new();
+        let mut specificity = 0;
+        pattern_segments
+            .iter()
+            .zip(path)
+            .try_for_each(|(pattern_segment, actual)| {
+                Self::bind_segment(pattern_segment, actual, &mut parameters, &mut specificity)
+            })?;
+        Some((parameters, specificity))
+    }
+
+    fn bind_segment(
+        pattern_segment: &str,
+        actual: &str,
+        parameters: &mut BTreeMap<String, String>,
+        specificity: &mut u32,
+    ) -> Option<()> {
+        pattern_segment.strip_prefix('_').map_or_else(
+            || Self::match_static(pattern_segment, actual, specificity),
+            |name| Self::bind_parameter(name, actual, parameters),
+        )
+    }
+
+    fn match_static(pattern_segment: &str, actual: &str, specificity: &mut u32) -> Option<()> {
+        if pattern_segment != actual {
+            return None;
+        }
+        *specificity += 1;
+        Some(())
+    }
+
+    fn bind_parameter(
+        name: &str,
+        actual: &str,
+        parameters: &mut BTreeMap<String, String>,
+    ) -> Option<()> {
+        (1..=Self::MAX_PARAMETER_BYTES)
+            .contains(&actual.len())
+            .then_some(())?;
+        let decoded = Self::percent_decode(actual)?;
+        parameters.insert(String::from(name), decoded);
+        Some(())
+    }
+
+    fn percent_decode(value: &str) -> Option<String> {
+        let decoded = Self::decode_bytes(value.as_bytes())?;
+        let text = String::from_utf8(decoded).ok()?;
+        Self::safe_text(text)
+    }
+
+    fn decode_bytes(bytes: &[u8]) -> Option<Vec<u8>> {
+        let mut decoded = Vec::with_capacity(bytes.len());
+        let mut index = 0;
+        while index < bytes.len() {
+            index += Self::decode_at(bytes, index, &mut decoded)?;
+        }
+        Some(decoded)
+    }
+
+    fn decode_at(bytes: &[u8], index: usize, decoded: &mut Vec<u8>) -> Option<usize> {
+        if bytes[index] != b'%' {
             decoded.push(bytes[index]);
-            index += 1;
+            return Some(1);
+        }
+        decoded.push(Self::escaped_byte(bytes, index)?);
+        Some(3)
+    }
+
+    fn escaped_byte(bytes: &[u8], index: usize) -> Option<u8> {
+        let high = bytes.get(index + 1).and_then(|byte| Self::hex(*byte))?;
+        let low = bytes.get(index + 2).and_then(|byte| Self::hex(*byte))?;
+        Some((high << 4) | low)
+    }
+
+    const fn hex(byte: u8) -> Option<u8> {
+        match byte {
+            b'0'..=b'9' => Some(byte - b'0'),
+            b'a'..=b'f' => Some(byte - b'a' + 10),
+            b'A'..=b'F' => Some(byte - b'A' + 10),
+            _ => None,
         }
     }
-    let text = String::from_utf8(decoded).ok()?;
-    if text.contains('/') || text.contains('\\') || text.chars().any(char::is_control) {
-        return None;
-    }
-    Some(text)
-}
 
-const fn hex(byte: u8) -> Option<u8> {
-    match byte {
-        b'0'..=b'9' => Some(byte - b'0'),
-        b'a'..=b'f' => Some(byte - b'a' + 10),
-        b'A'..=b'F' => Some(byte - b'A' + 10),
-        _ => None,
+    fn safe_text(text: String) -> Option<String> {
+        let unsafe_text =
+            text.contains('/') || text.contains('\\') || text.chars().any(char::is_control);
+        (!unsafe_text).then_some(text)
     }
 }
 
-/// Selects the single best route for a request path.
-///
-/// The most specific pattern wins: a route whose segments are static is
-/// preferred over one that binds a parameter in the same position. Ties are
-/// broken by route order, which the route graph already makes deterministic.
 #[must_use]
 pub fn match_route<'a, I>(routes: I, path: &str) -> Option<RouteMatch>
 where
     I: IntoIterator<Item = &'a str>,
 {
-    let actual = segments(path)?;
-    let mut best: Option<(u32, RouteMatch)> = None;
-    for route in routes {
-        let Some((parameters, specificity)) = bind(route, &actual) else {
-            continue;
-        };
-        let candidate = RouteMatch {
-            route: String::from(route),
-            parameters,
-        };
-        match &best {
-            Some((best_specificity, _)) if *best_specificity >= specificity => {}
-            _ => best = Some((specificity, candidate)),
-        }
-    }
-    best.map(|(_, matched)| matched)
+    RouteMatch::most_specific(routes, path)
 }
 
 #[cfg(test)]
 mod tests {
     #![allow(clippy::expect_used)]
 
-    use super::{RouteMatch, match_route};
+    use super::{RouteMatch, RoutePath, match_route};
 
-    const ROUTES: [&str; 5] = [
-        "/",
-        "/items",
-        "/items/_id",
-        "/items/new",
-        "/items/_id/reviews/_review",
-    ];
+    #[test]
+    fn a_route_path_becomes_an_internal_pattern() {
+        assert_eq!(RoutePath::pattern("", "").as_deref(), Ok("/"));
+        assert_eq!(RoutePath::pattern("/", "").as_deref(), Ok("/"));
+        assert_eq!(RoutePath::pattern("/orders", "").as_deref(), Ok("/orders"));
+        assert_eq!(
+            RoutePath::pattern("/orders", "/{id}/lines").as_deref(),
+            Ok("/orders/_id/lines")
+        );
+        assert_eq!(RoutePath::template("/orders/_id"), "/orders/{id}");
+    }
+
+    #[test]
+    fn a_bad_route_path_is_explained() {
+        let cases = [
+            ("orders", "must start with '/'"),
+            ("/orders/", "empty part"),
+            ("/Orders", "lowercase letters"),
+            ("/orders/{Id}", "path variable '{Id}'"),
+            ("/a/{id}/b/{id}", "appears twice"),
+            ("/_secret", "lowercase letters"),
+        ];
+        for (path, expected) in cases {
+            let error = RoutePath::pattern("", path).expect_err(path);
+            assert!(error.contains(expected), "{path}: {error}");
+        }
+    }
 
     fn matched(path: &str) -> Option<RouteMatch> {
-        match_route(ROUTES, path)
+        let routes = [
+            "/",
+            "/items",
+            "/items/_id",
+            "/items/new",
+            "/items/_id/reviews/_review",
+        ];
+        match_route(routes, path)
     }
 
     #[test]
     fn static_routes_win_over_dynamic_ones_in_the_same_position() {
-        // `/items/new` and `/items/_id` both match; the static one must win,
-        // regardless of the order routes are declared in.
         let new = matched("/items/new").expect("static match");
         assert_eq!(new.route, "/items/new");
         assert!(new.parameters.is_empty());
@@ -180,8 +236,6 @@ mod tests {
 
     #[test]
     fn traversal_and_control_characters_never_bind() {
-        // A parameter must never smuggle a separator or a control character
-        // into a handler, however it is encoded.
         for path in [
             "/items/%2e%2e%2fetc",
             "/items/%2f",
@@ -190,7 +244,6 @@ mod tests {
         ] {
             assert!(matched(path).is_none(), "{path} bound a parameter");
         }
-        // A literal traversal segment simply does not match any pattern.
         assert!(matched("/items/../secret").is_none());
     }
 

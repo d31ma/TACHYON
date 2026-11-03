@@ -1,0 +1,12 @@
+#pragma once
+#include <string>
+
+class [[Service]] CppGreetingService {
+public:
+    std::string message = "Hello from C++";
+
+    std::string greet() {
+        message = "C++ says hello again.";
+        return message;
+    }
+};

@@ -1,0 +1,5 @@
+<loop :for="entry of data.faq">
+  <h3>{entry.question}</h3>
+  <p>{entry.answer}</p>
+</loop>
+<docs-pager :path="page.path" :documents="data.docs" :features="data.features" />

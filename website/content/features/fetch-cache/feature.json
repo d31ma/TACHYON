@@ -1,0 +1,267 @@
+{
+  "id": "fetch-cache",
+  "title": "Caching public reads",
+  "summary": "A service reads the network only through an `HTTPClient`; a JavaScript or TypeScript service that calls `fetch` itself fails to build with `TY1361`. To keep a read, put the cache annotations that services use on the client, as Spring's `@Cacheable` works on any bean: `CacheSettings` on the client class names the cache and its limits, `Cached` on a read keeps its answer (with `CacheKey` on the arguments that pick the answer), and `ClearCache` or `UpdateCache` on a write removes or replaces that answer after the write succeeds. This works the same in every language that has an `HTTPClient`. Lua writes these markers as comments, such as `-- @Cached` and `-- @ClearCache`, on the lines above each `function`. In JavaScript and TypeScript, Tachyon's browser transport also sends a `Cached` GET as a public read, so the service worker may answer it. A service worker is a browser script that can answer requests from a cache. The manifest's `tac.cache` sets the worker's policy for each path: `cache-first`, `network-first` or `no-store`. A path without a rule is not kept by the worker. The worker never sees a read sent to Yon on another origin (`tac.yon.origin`), so the page applies the same rules to those reads itself and keeps them in its own Cache Storage, on the web and in a native app. The worker keeps a read only when it has no `Authorization` header and the response is cacheable; a response with `private`, `no-store` or any `Vary` other than `Vary: Accept-Encoding` is not kept (the page's own store of reads from another origin also keeps `Vary: Origin`), and a successful write removes the entries at its own path and at each parent path. After `ClearCache` or `UpdateCache`, the next uncached JavaScript or TypeScript GET revalidates the browser HTTP cache, even when the server sent a long public `max-age`; a cache-first worker rule also asks the network for that read. A read that is not `Cached` is sent `no-store`, so it is always fresh. A GET that sends an `Authorization` header is never kept in the browser HTTP cache, even when it is `Cached`. Dart, Rust, Go, Kotlin, Swift, Java, Ruby, Lua, Python, C#, F# and C++ clients use the same browser transport when their Setup has no HTTP adapter for the client; a C++ client method returns a `Task` and keeps its `Cached` answer in the page's cache (ADR 0099). In the compiled examples below, the Setup's HTTP adapter answers inside the page, so the worker never sees the request, and `Cached` keeps the answer in the page. The old `cache` option of `@HTTPClient` is replaced by `Cached` (ADR 0087).",
+  "group": "Browser storage",
+  "files": [
+    {
+      "name": "client/manifest.json",
+      "code": {
+        "file": "client/manifest.json"
+      }
+    },
+    {
+      "name": "client/remotes/ProductsClient.js",
+      "code": {
+        "file": "client/remotes/ProductsClient.js"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.js",
+      "code": {
+        "file": "client/services/CatalogService.js"
+      }
+    },
+    {
+      "name": "client/remotes/ProductsClient.ts",
+      "code": {
+        "file": "client/remotes/ProductsClient.ts"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.ts",
+      "code": {
+        "file": "client/services/CatalogService.ts"
+      }
+    },
+    {
+      "name": "client/remotes/ProductsClient.rs",
+      "code": {
+        "file": "client/remotes/ProductsClient.rs"
+      }
+    },
+    {
+      "name": "client/setups/ProductsSetup.rs",
+      "code": {
+        "file": "client/setups/ProductsSetup.rs"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.rs",
+      "code": {
+        "file": "client/services/CatalogService.rs"
+      }
+    },
+    {
+      "name": "client/remotes/ProductsClient.go",
+      "code": {
+        "file": "client/remotes/ProductsClient.go"
+      }
+    },
+    {
+      "name": "client/setups/ProductsSetup.go",
+      "code": {
+        "file": "client/setups/ProductsSetup.go"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.go",
+      "code": {
+        "file": "client/services/CatalogService.go"
+      }
+    },
+    {
+      "name": "client/remotes/ProductsClient.cs",
+      "code": {
+        "file": "client/remotes/ProductsClient.cs"
+      }
+    },
+    {
+      "name": "client/setups/ProductsSetup.cs",
+      "code": {
+        "file": "client/setups/ProductsSetup.cs"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.cs",
+      "code": {
+        "file": "client/services/CatalogService.cs"
+      }
+    },
+    {
+      "name": "client/remotes/ProductsClient.fs",
+      "code": {
+        "file": "client/remotes/ProductsClient.fs"
+      }
+    },
+    {
+      "name": "client/setups/ProductsSetup.fs",
+      "code": {
+        "file": "client/setups/ProductsSetup.fs"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.fs",
+      "code": {
+        "file": "client/services/CatalogService.fs"
+      }
+    },
+    {
+      "name": "client/remotes/ProductsClient.kt",
+      "code": {
+        "file": "client/remotes/ProductsClient.kt"
+      }
+    },
+    {
+      "name": "client/setups/ProductsSetup.kt",
+      "code": {
+        "file": "client/setups/ProductsSetup.kt"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.kt",
+      "code": {
+        "file": "client/services/CatalogService.kt"
+      }
+    },
+    {
+      "name": "client/remotes/ProductsClient.java",
+      "code": {
+        "file": "client/remotes/ProductsClient.java"
+      }
+    },
+    {
+      "name": "client/setups/ProductsSetup.java",
+      "code": {
+        "file": "client/setups/ProductsSetup.java"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.java",
+      "code": {
+        "file": "client/services/CatalogService.java"
+      }
+    },
+    {
+      "name": "client/remotes/ProductsClient.dart",
+      "code": {
+        "file": "client/remotes/ProductsClient.dart"
+      }
+    },
+    {
+      "name": "client/setups/ProductsSetup.dart",
+      "code": {
+        "file": "client/setups/ProductsSetup.dart"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.dart",
+      "code": {
+        "file": "client/services/CatalogService.dart"
+      }
+    },
+    {
+      "name": "client/remotes/ProductsClient.swift",
+      "code": {
+        "file": "client/remotes/ProductsClient.swift"
+      }
+    },
+    {
+      "name": "client/setups/ProductsSetup.swift",
+      "code": {
+        "file": "client/setups/ProductsSetup.swift"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.swift",
+      "code": {
+        "file": "client/services/CatalogService.swift"
+      }
+    },
+    {
+      "name": "client/remotes/ProductsClient.rb",
+      "code": {
+        "file": "client/remotes/ProductsClient.rb"
+      }
+    },
+    {
+      "name": "client/setups/ProductsSetup.rb",
+      "code": {
+        "file": "client/setups/ProductsSetup.rb"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.rb",
+      "code": {
+        "file": "client/services/CatalogService.rb"
+      }
+    },
+    {
+      "name": "client/remotes/ProductsClient.py",
+      "code": {
+        "file": "client/remotes/ProductsClient.py"
+      }
+    },
+    {
+      "name": "client/setups/ProductsSetup.py",
+      "code": {
+        "file": "client/setups/ProductsSetup.py"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.py",
+      "code": {
+        "file": "client/services/CatalogService.py"
+      }
+    },
+    {
+      "name": "client/remotes/ProductsClient.lua",
+      "code": {
+        "file": "client/remotes/ProductsClient.lua"
+      }
+    },
+    {
+      "name": "client/setups/ProductsSetup.lua",
+      "code": {
+        "file": "client/setups/ProductsSetup.lua"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.lua",
+      "code": {
+        "file": "client/services/CatalogService.lua"
+      }
+    },
+    {
+      "name": "client/remotes/ProductsClient.hpp",
+      "code": {
+        "file": "client/remotes/ProductsClient.hpp"
+      }
+    },
+    {
+      "name": "client/setups/ProductsSetup.hpp",
+      "code": {
+        "file": "client/setups/ProductsSetup.hpp"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.hpp",
+      "code": {
+        "file": "client/services/CatalogService.hpp"
+      }
+    },
+    {
+      "name": "client/pages/tac.html",
+      "code": {
+        "file": "client/pages/tac.html"
+      }
+    },
+    {
+      "name": "client/components/products/page/tac.html",
+      "code": {
+        "file": "client/components/products/page/tac.html"
+      }
+    }
+  ],
+  "verify": "tac"
+}

@@ -1,0 +1,446 @@
+{
+  "id": "realtime",
+  "title": "Streaming controllers",
+  "summary": "StreamRoute marks a controller method that answers GET requests with a stream of server-sent events (SSE). The method produces many values, one at a time, with the language's own `yield` syntax, and its name starts with `stream`. It keeps the loop in a private generator method and only passes on that method's values. Tachyon sends each value as one limited event, and an end event when the method finishes. In the browser, StreamRequest on an HTTPClient method receives the stream. Tachyon opens it when a component first uses the client, opens it again after 1, 2, 4, 8 and 16 seconds when it fails (at most five tries in a row), and closes it with the component. Sixty seconds with no message also counts as a failure, so a silent stream is opened again. Each message is checked against the model type of the method's one parameter, passed to the method, and published as that model's event, so an OnEvent listener in any Tac language receives it. The StreamRequest client is JavaScript, TypeScript, Go, Ruby, Rust, Dart, Swift, Kotlin, Java, C#, Lua, Python, F# or C++ (a Dart client is a method of an abstract interface class such as `void receive(Tick tick);`, held by the page for the Dart service that keeps it in a `@Needs` field; a Rust client is a trait method such as `fn receive(&self, tick: Tick)`, held by the page for the Rust service that keeps it in a `#[Needs]` field). A Go client is an interface method such as `Receive(tick Tick)`; the page holds the stream for the Go service that keeps the client in a `// @Needs` field, and the service receives each message with `// @OnEvent`. A Swift client is a protocol method such as `func receive(_ tick: Tick)`, held the same way for the Swift web service that keeps the client in a `@Needs` field. A Ruby client is an empty method of an `#[HTTPClient]` class such as `def receive(tick)` with `# @param tick [Tick]`, held the same way for the Ruby service that keeps it in a `#[Needs]` field and received with `#[OnEvent]`. A Kotlin client is an interface method such as `fun receive(tick: Tick)`, held the same way for the Kotlin web service that keeps it in a `@Needs` field. A C# client is an interface method such as `void Receive(Models.Tick tick);`, held the same way by a browser C# service through a `[Needs]` field and received with `[OnEvent]`. A Lua client is an empty method such as `function TicksClient:receive(tick)` with `---@param tick Tick`, held by the page for the Lua service that keeps it in a typed `-- @Needs` field and received with `-- @OnEvent`. A Python client is a `Protocol` method such as `def receive(self, tick: Tick) -> None: ...`, held the same way for the Python service that keeps it in a `Needs` field and received with `@on_event`. A Java client is an interface method such as `void receive(Tick tick);`, held the same way for the Java service that keeps it in a `@Needs` field and received with `@OnEvent`. An F# client is an abstract member such as `abstract Receive: Tick -> unit`, held the same way by a browser F# service through a `[<Needs>]` property and received with `[<OnEvent>]`. A C++ client is a method of an `[[HTTPClient]]` class such as `[[StreamRequest]] void receive(const Tick& tick);`, held the same way for the C++ service that keeps it in a `[[Needs]]` field and received with `[[OnEvent]]`. A Lua stream method sends each value with `coroutine.yield`, and a Go stream method returns an `iter.Seq` whose function calls `yield`. On the server, a Java or Groovy stream method returns a `java.util.stream.Stream` or a `java.util.Iterator`, and Tachyon sends each value as it reads it. A Rust stream route method returns an `impl Iterator`. A C++ stream route method returns `tachyon::Generator<Tick>`, and its private generator sends each value with `co_yield`; a thrown exception ends the stream with an error event. Like every route, a stream says who may call it with `Public`, `SignedIn` or `Allow(Role)`.",
+  "group": "Yon server",
+  "files": [
+    {
+      "name": "client/pages/tac.html",
+      "code": {
+        "file": "client/pages/tac.html"
+      }
+    },
+    {
+      "name": "client/components/ticks/stream/tac.html",
+      "code": {
+        "file": "client/components/ticks/stream/tac.html"
+      }
+    },
+    {
+      "name": "server/controllers/TicksController.js",
+      "code": {
+        "file": "server/controllers/TicksController.js"
+      }
+    },
+    {
+      "name": "server/models/Tick.ts",
+      "code": {
+        "file": "server/models/Tick.ts"
+      }
+    },
+    {
+      "name": "server/controllers/TicksController.ts",
+      "code": {
+        "file": "server/controllers/TicksController.ts"
+      }
+    },
+    {
+      "name": "server/models/Tick.py",
+      "code": {
+        "file": "server/models/Tick.py"
+      }
+    },
+    {
+      "name": "server/controllers/TicksController.py",
+      "code": {
+        "file": "server/controllers/TicksController.py"
+      }
+    },
+    {
+      "name": "server/models/Tick.php",
+      "code": {
+        "file": "server/models/Tick.php"
+      }
+    },
+    {
+      "name": "server/controllers/TicksController.php",
+      "code": {
+        "file": "server/controllers/TicksController.php"
+      }
+    },
+    {
+      "name": "server/models/Tick.kt",
+      "code": {
+        "file": "server/models/Tick.kt"
+      }
+    },
+    {
+      "name": "server/controllers/TicksController.kt",
+      "code": {
+        "file": "server/controllers/TicksController.kt"
+      }
+    },
+    {
+      "name": "server/models/Tick.java",
+      "code": {
+        "file": "server/models/Tick.java"
+      }
+    },
+    {
+      "name": "server/controllers/TicksController.java",
+      "code": {
+        "file": "server/controllers/TicksController.java"
+      }
+    },
+    {
+      "name": "server/models/Tick.groovy",
+      "code": {
+        "file": "server/models/Tick.groovy"
+      }
+    },
+    {
+      "name": "server/controllers/TicksController.groovy",
+      "code": {
+        "file": "server/controllers/TicksController.groovy"
+      }
+    },
+    {
+      "name": "server/models/Tick.cs",
+      "code": {
+        "file": "server/models/Tick.cs"
+      }
+    },
+    {
+      "name": "server/controllers/TicksController.cs",
+      "code": {
+        "file": "server/controllers/TicksController.cs"
+      }
+    },
+    {
+      "name": "server/models/Tick.fs",
+      "code": {
+        "file": "server/models/Tick.fs"
+      }
+    },
+    {
+      "name": "server/controllers/TicksController.fs",
+      "code": {
+        "file": "server/controllers/TicksController.fs"
+      }
+    },
+    {
+      "name": "server/models/Tick.dart",
+      "code": {
+        "file": "server/models/Tick.dart"
+      }
+    },
+    {
+      "name": "server/controllers/TicksController.dart",
+      "code": {
+        "file": "server/controllers/TicksController.dart"
+      }
+    },
+    {
+      "name": "client/remotes/TicksClient.js",
+      "code": {
+        "file": "client/remotes/TicksClient.js"
+      }
+    },
+    {
+      "name": "client/remotes/TicksClient.ts",
+      "code": {
+        "file": "client/remotes/TicksClient.ts"
+      }
+    },
+    {
+      "name": "client/services/StreamService.js",
+      "code": {
+        "file": "client/services/StreamService.js"
+      }
+    },
+    {
+      "name": "client/services/StreamService.ts",
+      "code": {
+        "file": "client/services/StreamService.ts"
+      }
+    },
+    {
+      "name": "client/remotes/TicksClient.dart",
+      "code": {
+        "file": "client/remotes/TicksClient.dart"
+      }
+    },
+    {
+      "name": "client/services/StreamService.dart",
+      "code": {
+        "file": "client/services/StreamService.dart"
+      }
+    },
+    {
+      "name": "client/models/Tick.dart",
+      "code": {
+        "file": "client/models/Tick.dart"
+      }
+    },
+    {
+      "name": "languages",
+      "code": {
+        "file": "languages.txt"
+      }
+    },
+    {
+      "name": "client/models/Tick.ts",
+      "code": {
+        "file": "client/models/Tick.ts"
+      }
+    },
+    {
+      "name": "client/remotes/TicksClient.go",
+      "code": {
+        "file": "client/remotes/TicksClient.go"
+      }
+    },
+    {
+      "name": "client/services/StreamService.go",
+      "code": {
+        "file": "client/services/StreamService.go"
+      }
+    },
+    {
+      "name": "client/models/Tick.go",
+      "code": {
+        "file": "client/models/Tick.go"
+      }
+    },
+    {
+      "name": "client/remotes/TicksClient.rs",
+      "code": {
+        "file": "client/remotes/TicksClient.rs"
+      }
+    },
+    {
+      "name": "client/services/StreamService.rs",
+      "code": {
+        "file": "client/services/StreamService.rs"
+      }
+    },
+    {
+      "name": "client/models/Tick.rs",
+      "code": {
+        "file": "client/models/Tick.rs"
+      }
+    },
+    {
+      "name": "client/models/Tick.kt",
+      "code": {
+        "file": "client/models/Tick.kt"
+      }
+    },
+    {
+      "name": "client/remotes/TicksClient.kt",
+      "code": {
+        "file": "client/remotes/TicksClient.kt"
+      }
+    },
+    {
+      "name": "client/services/StreamService.kt",
+      "code": {
+        "file": "client/services/StreamService.kt"
+      }
+    },
+    {
+      "name": "client/remotes/TicksClient.cs",
+      "code": {
+        "file": "client/remotes/TicksClient.cs"
+      }
+    },
+    {
+      "name": "client/services/StreamService.cs",
+      "code": {
+        "file": "client/services/StreamService.cs"
+      }
+    },
+    {
+      "name": "client/models/Tick.cs",
+      "code": {
+        "file": "client/models/Tick.cs"
+      }
+    },
+    {
+      "name": "client/remotes/TicksClient.fs",
+      "code": {
+        "file": "client/remotes/TicksClient.fs"
+      }
+    },
+    {
+      "name": "client/services/StreamService.fs",
+      "code": {
+        "file": "client/services/StreamService.fs"
+      }
+    },
+    {
+      "name": "client/models/Tick.fs",
+      "code": {
+        "file": "client/models/Tick.fs"
+      }
+    },
+    {
+      "name": "client/models/Tick.lua",
+      "code": {
+        "file": "client/models/Tick.lua"
+      }
+    },
+    {
+      "name": "client/remotes/TicksClient.lua",
+      "code": {
+        "file": "client/remotes/TicksClient.lua"
+      }
+    },
+    {
+      "name": "client/services/StreamService.lua",
+      "code": {
+        "file": "client/services/StreamService.lua"
+      }
+    },
+    {
+      "name": "client/remotes/TicksClient.py",
+      "code": {
+        "file": "client/remotes/TicksClient.py"
+      }
+    },
+    {
+      "name": "client/services/StreamService.py",
+      "code": {
+        "file": "client/services/StreamService.py"
+      }
+    },
+    {
+      "name": "client/models/Tick.py",
+      "code": {
+        "file": "client/models/Tick.py"
+      }
+    },
+    {
+      "name": "client/models/Tick.hpp",
+      "code": {
+        "file": "client/models/Tick.hpp"
+      }
+    },
+    {
+      "name": "client/remotes/TicksClient.hpp",
+      "code": {
+        "file": "client/remotes/TicksClient.hpp"
+      }
+    },
+    {
+      "name": "client/services/StreamService.hpp",
+      "code": {
+        "file": "client/services/StreamService.hpp"
+      }
+    },
+    {
+      "name": "client/models/Tick.java",
+      "code": {
+        "file": "client/models/Tick.java"
+      }
+    },
+    {
+      "name": "client/remotes/TicksClient.java",
+      "code": {
+        "file": "client/remotes/TicksClient.java"
+      }
+    },
+    {
+      "name": "client/services/StreamService.java",
+      "code": {
+        "file": "client/services/StreamService.java"
+      }
+    },
+    {
+      "name": "client/models/Tick.rb",
+      "code": {
+        "file": "client/models/Tick.rb"
+      }
+    },
+    {
+      "name": "client/remotes/TicksClient.rb",
+      "code": {
+        "file": "client/remotes/TicksClient.rb"
+      }
+    },
+    {
+      "name": "client/services/StreamService.rb",
+      "code": {
+        "file": "client/services/StreamService.rb"
+      }
+    },
+    {
+      "name": "client/models/Tick.swift",
+      "code": {
+        "file": "client/models/Tick.swift"
+      }
+    },
+    {
+      "name": "client/remotes/TicksClient.swift",
+      "code": {
+        "file": "client/remotes/TicksClient.swift"
+      }
+    },
+    {
+      "name": "client/services/StreamService.swift",
+      "code": {
+        "file": "client/services/StreamService.swift"
+      }
+    },
+    {
+      "name": "server/models/Tick.rb",
+      "code": {
+        "file": "server/models/Tick.rb"
+      }
+    },
+    {
+      "name": "server/controllers/TicksController.rb",
+      "code": {
+        "file": "server/controllers/TicksController.rb"
+      }
+    },
+    {
+      "name": "server/models/Tick.lua",
+      "code": {
+        "file": "server/models/Tick.lua"
+      }
+    },
+    {
+      "name": "server/controllers/TicksController.lua",
+      "code": {
+        "file": "server/controllers/TicksController.lua"
+      }
+    },
+    {
+      "name": "server/models/Tick.go",
+      "code": {
+        "file": "server/models/Tick.go"
+      }
+    },
+    {
+      "name": "server/controllers/TicksController.go",
+      "code": {
+        "file": "server/controllers/TicksController.go"
+      }
+    },
+    {
+      "name": "server/models/Tick.rs",
+      "code": {
+        "file": "server/models/Tick.rs"
+      }
+    },
+    {
+      "name": "server/controllers/TicksController.rs",
+      "code": {
+        "file": "server/controllers/TicksController.rs"
+      }
+    },
+    {
+      "name": "server/models/Tick.hpp",
+      "code": {
+        "file": "server/models/Tick.hpp"
+      }
+    },
+    {
+      "name": "server/controllers/TicksController.hpp",
+      "code": {
+        "file": "server/controllers/TicksController.hpp"
+      }
+    }
+  ]
+}  

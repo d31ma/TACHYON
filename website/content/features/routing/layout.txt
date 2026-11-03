@@ -1,0 +1,6 @@
+client/pages/tac.html            ->  /
+client/pages/docs/tac.html       ->  /docs
+client/pages/items/_id/tac.html  ->  /items/:id
+server/controllers/ProductsController.py
+  @request_route("/products")
+  @get_route -> GET /products

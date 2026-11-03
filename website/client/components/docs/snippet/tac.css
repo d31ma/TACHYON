@@ -1,0 +1,169 @@
+@layer brand {
+.demo {
+min-width: 0;
+  max-width: 100%;
+  margin: 1rem 0 2rem;
+  border: 1px solid var(--w-border, currentColor);
+  border-radius: var(--w-radius-lg, 12px);
+  background: var(--w-surface, canvas);
+  overflow: hidden;
+}
+
+.demo-os-tabs {
+display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+  padding: 0 .5rem;
+  border-bottom: 1px solid var(--w-border, currentColor);
+  background: var(--w-surface-container-low, transparent);
+}
+
+.demo-os-tabs::-webkit-scrollbar {
+display: none;
+}
+
+.demo-os-tabs--companion {
+background: transparent;
+}
+
+.demo-os-tab {
+appearance: none;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  background: none;
+  padding: .5rem .75rem;
+  color: var(--w-text-subtle, inherit);
+  font: inherit;
+  font-size: var(--step-sm);
+  line-height: 1.5;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.demo-os-tab:hover {
+color: var(--w-text, inherit);
+}
+
+.demo-os-tab:focus-visible {
+outline: 2px solid var(--w-primary, currentColor);
+  outline-offset: -2px;
+  border-radius: var(--w-radius-md, 8px) var(--w-radius-md, 8px) 0 0;
+}
+
+.demo-os-tab[aria-selected='true'] {
+color: var(--w-primary, currentColor);
+  border-bottom-color: var(--w-primary, currentColor);
+  font-weight: 600;
+}
+
+.demo-code-col {
+min-width: 0;
+}
+
+.demo-code-col + .demo-code-col {
+border-top: 1px solid var(--w-border, currentColor);
+}
+
+.demo-code-label {
+display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: .5rem;
+  margin: 0;
+  padding: .75rem 1rem 0;
+  font-size: var(--step-sm);
+  line-height: 1.5;
+  color: var(--w-text-very-subtle, inherit);
+}
+
+.demo-code-name {
+min-width: 0;
+  font-family: var(--tachyon-mono);
+  overflow-wrap: anywhere;
+}
+
+.demo-code-language {
+font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  opacity: .8;
+}
+
+.demo-code .code-block {
+margin: .5rem 1rem 1rem;
+}
+
+.code-copy {
+position: absolute;
+  top: .375rem;
+  right: .375rem;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  padding: .5rem .75rem;
+  border: 1px solid var(--w-border, currentColor);
+  border-radius: var(--w-radius-md, 8px);
+  background: var(--w-surface, canvas);
+  color: var(--w-text, inherit);
+  font: inherit;
+  font-size: var(--step-sm);
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.code-copy:hover {
+background: var(--w-surface-container-high, canvas);
+}
+
+.code-copy:focus-visible {
+outline: 2px solid var(--w-primary, currentColor);
+  outline-offset: 2px;
+}
+
+.panel,
+.code-block {
+background: var(--w-surface-container-low);
+  border: 1px solid var(--w-border);
+  border-radius: var(--w-radius-lg, 12px);
+}
+
+.code-block {
+position: relative;
+  max-width: 100%;
+  margin: 0;
+  min-height: 3.5rem;
+  padding: 1rem 6rem 1rem 1rem;
+  overflow-x: auto;
+  font-size: var(--step-sm);
+  line-height: 1.6;
+}
+
+.code-block code {
+font-family: var(--tachyon-mono);
+}
+}
+
+/* @tachyon-generated-tailwind:start */
+/*! tailwindcss v4.3.3 | MIT License | https://tailwindcss.com */
+@layer utilities {
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border-width: 0;
+  }
+}
+/* @tachyon-generated-tailwind:end */

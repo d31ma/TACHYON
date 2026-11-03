@@ -1,0 +1,11 @@
+Z
+@Service()
+class Catalog {
+  list() { return ['anvil']; }
+}
+@Controller()
+@Needs(Catalog)
+class Products {
+  constructor(catalog) { this.catalog = catalog; }
+  GET() { return this.catalog.list(); }
+}

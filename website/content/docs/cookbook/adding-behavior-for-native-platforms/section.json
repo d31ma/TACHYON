@@ -1,0 +1,5 @@
+{
+  "heading": "Adding behavior for native platforms",
+  "body": "Keep the shared HTML and responsive styles. Then add platform behavior in a native service. Native hosts set a marker on the document. A stylesheet can use this marker. So it does not need template globals, and those do not exist. Use a service in the target's native language for operating system (OS) SDK calls. Handle its asynchronous results in your own code.",
+  "code": { "file": "example.css" }
+}

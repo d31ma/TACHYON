@@ -1,0 +1,7 @@
+{
+  "heading": "Redis in a store",
+  "body": "Redis is another server resource that Yon can inject. It is not a SQL dialect. On a managed Store, declare a redisTemplate field with no value and mark it with Needs. This field is Spring's RedisTemplate. Your application source does not need to install a driver. get(key) returns a JSON value or null. set(key, value, ttlSeconds) stores limited JSON. It requires an expiry time. delete(key) returns whether it removed a key. Rust methods return Result<Json, YonResourceError>, and Go methods return (any, error). C# also offers Get, Set and Delete. Keep session and cache authorization in your application. Each operation has a time limit of five seconds. If a change times out, the change may still have happened. Keys and values are always passed as parameters, so no Redis command text is ever built from input.",
+  "code": {
+    "file": "example.txt"
+  }
+}

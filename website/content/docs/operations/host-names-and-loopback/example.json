@@ -1,0 +1,10 @@
+{
+  "server": {
+    "host": "shop.localhost",
+    "port": 8080,
+    "hosts": ["preview.example.com", "*.tunnel.example"]
+  },
+  "outgoing": {
+    "hosts": ["api.localhost", "10.0.0.5", "api.example.com"]
+  }
+}

@@ -1,0 +1,213 @@
+{
+  "id": "behavior-annotations",
+  "title": "Shared behavior annotations",
+  "summary": "Tac and Yon share these annotations across their languages. The role, injection and description annotations are `Service`, `Delegate`, `HTTPClient`, `Store`, `Converter`, `Setup`, `Lifetime`, `Needs`, `Named` and `Description`. Injection means the framework gives a class the objects it needs. The caching, data and resilience annotations are `CacheSettings`, `Cached`, `UpdateCache`, `ClearCache`, `PageDefaults`, `Retry`, `MaxAtOnce`, `AllOrNothing`, `Entity`, `Id`, `Table` and `Query`. The HTTP request annotations and `Convert` cover outgoing HTTP calls and mapping values. `Schedule` runs a worker again and again after a fixed delay; it is Yon only, because Tac has no workers. The configuration annotations are `Settings`, `WhenProfile`, `WhenSetting` and `Setting`. The validation annotations are `Checked`, `Check`, `Required`, `NotEmpty`, `Length`, `Min` and `Max`. The test annotations are `Test`, `TestSetup`, `UseProfiles`, `TestSettings`, `Fake`, `FreshStart` and `ValueSource`, and a test case checks its result with `Assert`. Write each marker (annotation) on its own line. Marker options use strict JSON. The compiler turns the markers into runtime code inside the same source file. It does not use a reflection scanner (code that inspects classes while the program runs). The markers are global, so no language needs to import them, and the old `tachyon:behaviors` import fails the build with `TY1308` (ADR 0046). Native services use typed adapters with no embedded JavaScript. Tac stays client-only, and Yon stays HTTP-only. Each adapter has one clear owner. Queries have limits and must be authorized. The cache changes only after a call succeeds. Data transfer object (DTO) validation is pure: it has no side effects. Configuration keys start with the prefix of their realm: `TAC_` or `tac.` for Tac, and `YON_` or `yon.` for Yon. You give this configuration yourself. Markers with no arguments can be written without parentheses, as in Spring: `@Service`, `@Setup`, `@Needs`, `@Converter`. A plain `@Service` can be a Tac role or a Yon role. The folder that holds the file decides which one (ADR 0038). The service below needs no network or storage adapter. Role types must be in plural folders, and their file names must match their type names exactly. Collaborators are classes that a service works with. Tac finds annotated collaborators in the same language under `client/services`, `client/stores`, `client/remotes`, `client/setups`, `client/entities`, `client/delegates` and `client/converters`. Yon uses matching folders under `server/`. Controllers go in `server/controllers`, and their route annotations give the path (ADR 0048). `Test` units go in `server/tests/<Name>Test.<ext>` or `client/tests/<Name>Test.<ext>`, and `ty test` runs them. On managed Yon roles, `Needs` finds the provider for each marked field. So you do not need to write a constructor by hand. `Named` chooses a provider when the field name does not identify it. A Tac store, client or converter that a service gets with `Needs` opens the context of its Setup itself. A service that puts a behavior annotation on its own method, like `page` below, creates its context in `OnStart` with `Behaviors.create`. A Python service writes its `OnStart` method with `async def` and awaits `Behaviors.create` (ADR 0093). A Lua service writes each marker as a comment, such as `-- @OnStart`, and puts a parameter marker such as `-- @PageDefaults` on its own line inside the parameter list. A C++ service opens its context in `OnStart` with `Behaviors::create<ApplicationSetup>(options)` and keeps it in a `BehaviorContext` field; the behavior annotations go on its synchronous and `Task` methods (ADR 0099).",
+  "group": "Tac views",
+  "files": [
+    {
+      "name": "client/pages/tac.html",
+      "code": {
+        "file": "client/pages/tac.html"
+      }
+    },
+    {
+      "name": "client/components/catalog/page/tac.html",
+      "code": {
+        "file": "client/components/catalog/page/tac.html"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.js",
+      "code": {
+        "file": "client/services/CatalogService.js"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.ts",
+      "code": {
+        "file": "client/services/CatalogService.ts"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.dart",
+      "code": {
+        "file": "client/services/CatalogService.dart"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.rs",
+      "code": {
+        "file": "client/services/CatalogService.rs"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.go",
+      "code": {
+        "file": "client/services/CatalogService.go"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.rb",
+      "code": {
+        "file": "client/services/CatalogService.rb"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.swift",
+      "code": {
+        "file": "client/services/CatalogService.swift"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.kt",
+      "code": {
+        "file": "client/services/CatalogService.kt"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.java",
+      "code": {
+        "file": "client/services/CatalogService.java"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.cs",
+      "code": {
+        "file": "client/services/CatalogService.cs"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.fs",
+      "code": {
+        "file": "client/services/CatalogService.fs"
+      }
+    },
+    {
+      "name": "client/setups/ApplicationSetup.js",
+      "code": {
+        "file": "client/setups/ApplicationSetup.js"
+      }
+    },
+    {
+      "name": "client/setups/ApplicationSetup.ts",
+      "code": {
+        "file": "client/setups/ApplicationSetup.ts"
+      }
+    },
+    {
+      "name": "client/setups/ApplicationSetup.dart",
+      "code": {
+        "file": "client/setups/ApplicationSetup.dart"
+      }
+    },
+    {
+      "name": "client/setups/ApplicationSetup.rs",
+      "code": {
+        "file": "client/setups/ApplicationSetup.rs"
+      }
+    },
+    {
+      "name": "client/setups/ApplicationSetup.go",
+      "code": {
+        "file": "client/setups/ApplicationSetup.go"
+      }
+    },
+    {
+      "name": "client/setups/ApplicationSetup.rb",
+      "code": {
+        "file": "client/setups/ApplicationSetup.rb"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.py",
+      "code": {
+        "file": "client/services/CatalogService.py"
+      }
+    },
+    {
+      "name": "client/setups/ApplicationSetup.py",
+      "code": {
+        "file": "client/setups/ApplicationSetup.py"
+      }
+    },
+    {
+      "name": "client/setups/ApplicationSetup.swift",
+      "code": {
+        "file": "client/setups/ApplicationSetup.swift"
+      }
+    },
+    {
+      "name": "client/setups/ApplicationSetup.kt",
+      "code": {
+        "file": "client/setups/ApplicationSetup.kt"
+      }
+    },
+    {
+      "name": "client/setups/ApplicationSetup.java",
+      "code": {
+        "file": "client/setups/ApplicationSetup.java"
+      }
+    },
+    {
+      "name": "client/setups/ApplicationSetup.cs",
+      "code": {
+        "file": "client/setups/ApplicationSetup.cs"
+      }
+    },
+    {
+      "name": "client/setups/ApplicationSetup.fs",
+      "code": {
+        "file": "client/setups/ApplicationSetup.fs"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.lua",
+      "code": {
+        "file": "client/services/CatalogService.lua"
+      }
+    },
+    {
+      "name": "client/setups/ApplicationSetup.lua",
+      "code": {
+        "file": "client/setups/ApplicationSetup.lua"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.hpp",
+      "code": {
+        "file": "client/services/CatalogService.hpp"
+      }
+    },
+    {
+      "name": "client/setups/ApplicationSetup.hpp",
+      "code": {
+        "file": "client/setups/ApplicationSetup.hpp"
+      }
+    },
+    {
+      "name": "adapter ownership",
+      "code": {
+        "file": "adapter-ownership.txt"
+      }
+    },
+    {
+      "name": "bounded query and cache policies",
+      "code": {
+        "file": "bounded-query-and-cache-policies.txt"
+      }
+    },
+    {
+      "name": "configuration and validation boundaries",
+      "code": {
+        "file": "configuration-and-validation-boundaries.txt"
+      }
+    },
+    {
+      "name": "optional feature-first layout",
+      "code": {
+        "file": "optional-feature-first-layout.txt"
+      }
+    }
+  ],
+  "verify": "tac"
+}

@@ -1,0 +1,6 @@
+<p aria-live="polite">The stream opens with this component and closes when it goes away.</p>
+<ul>
+  <loop :for="tick of stream.ticks">
+    <li>{tick.sku} · {tick.level}</li>
+  </loop>
+</ul>

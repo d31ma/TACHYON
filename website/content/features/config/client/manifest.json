@@ -1,0 +1,35 @@
+{
+  "name": "Catalog",
+  "start_url": "/",
+  "icons": [
+    {
+      "src": "/shared/assets/icon-512.png",
+      "sizes": "512x512"
+    }
+  ],
+  "tac": {
+    "origin": "https://example.com",
+    "application": {
+      "id": "com.example.catalog",
+      "version": "1.0.0"
+    },
+    "scripts": [
+      "/shared/scripts/imports.js"
+    ],
+    "styles": [
+      "/shared/styles/site.css"
+    ],
+    "metadata": {
+      "defaults": {
+        "siteName": "Catalog"
+      },
+      "routes": {
+        "/": {
+          "title": "Catalog",
+          "description": "Everything we sell.",
+          "canonical": "/"
+        }
+      }
+    }
+  }
+}

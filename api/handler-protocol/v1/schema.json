@@ -84,6 +84,11 @@
           "pattern": "^/",
           "maxLength": 2048
         },
+        "target": {
+          "type": "string",
+          "pattern": "^/",
+          "maxLength": 8192
+        },
         "method": {
           "enum": [
             "DELETE",
@@ -115,6 +120,28 @@
           },
           "propertyNames": {
             "pattern": "^[a-z][a-z0-9_]*$"
+          }
+        },
+        "arguments": {
+          "type": "array",
+          "maxItems": 64
+        },
+        "resources": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "endpoint",
+            "token"
+          ],
+          "properties": {
+            "endpoint": {
+              "type": "string",
+              "pattern": "^http://127\\.0\\.0\\.1:[0-9]{1,5}/$"
+            },
+            "token": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
           }
         }
       }
@@ -170,6 +197,25 @@
             },
             "retryable": {
               "type": "boolean"
+            },
+            "violations": {
+              "type": "array",
+              "maxItems": 1024,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["field", "rule"],
+                "properties": {
+                  "field": {
+                    "type": "string",
+                    "maxLength": 512,
+                    "pattern": "^(?:[A-Za-z_$][A-Za-z0-9_$]*(?:\\.[A-Za-z_$][A-Za-z0-9_$]*|\\[(?:0|[1-9][0-9]*)\\])*)?$"
+                  },
+                  "rule": {
+                    "enum": ["Checked", "Required", "NotEmpty", "Length", "Min", "Max"]
+                  }
+                }
+              }
             }
           }
         }

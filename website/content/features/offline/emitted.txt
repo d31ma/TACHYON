@@ -1,0 +1,2 @@
+/tachyon-sw.js          cache name carries the build digest
+/.tachyon/register-sw.js  skipped on a loopback host

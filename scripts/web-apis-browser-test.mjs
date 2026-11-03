@@ -1,0 +1,1168 @@
+#!/usr/bin/env node
+
+import { CargoArtifacts } from './cargo-artifacts.mjs'
+import { chromium, firefox, webkit } from 'playwright'
+import { createServer } from 'node:http'
+import { spawnSync } from 'node:child_process'
+import { createReadStream, existsSync, mkdtempSync, mkdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
+import process from 'node:process'
+import { fileURLToPath } from 'node:url'
+
+export class WebApiGate {
+  static binary = process.env.TAC_BIN ?? CargoArtifacts.path('release/ty')
+  static mimeTypes = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.wasm': 'application/wasm' }
+  static uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+  static withJava = Boolean(process.env.TAC_TEAVM_HOME) && existsSync(process.env.TAC_TEAVM_HOME)
+  static withFsharp = spawnSync('dotnet', ['--version'], { encoding: 'utf8' }).status === 0
+  static withCsharp = WebApiGate.withFsharp && spawnSync('dotnet', ['workload', 'list'], { encoding: 'utf8' }).stdout?.includes('wasm-tools')
+  static withKotlin = Boolean(process.env.TAC_KOTLIN_WASM_STDLIB) && existsSync(process.env.TAC_KOTLIN_WASM_STDLIB) && (process.platform === 'win32'
+    ? spawnSync('kotlinc-js -version', { encoding: 'utf8', shell: true })
+    : spawnSync('kotlinc-js', ['-version'], { encoding: 'utf8' })).status === 0
+  static languages = ['js', 'rust', 'go', 'swift', ...(WebApiGate.withJava ? ['java'] : []), ...(WebApiGate.withFsharp ? ['fs'] : []), ...(WebApiGate.withCsharp ? ['cs'] : []), ...(WebApiGate.withKotlin ? ['kt'] : [])]
+  static unitMethodLanguages = ['fs', 'cs', 'kt']
+  static optionalLanguages = ['java', 'fs', 'cs', 'kt']
+  static ownRuntimeLanguages = ['fs', 'cs']
+  static engines = { chromium, firefox, webkit }
+  static otherEngines = (process.env.TAC_WEB_APIS_BROWSERS ?? 'firefox,webkit').split(',').filter((name) => name !== 'chromium').map((name) => WebApiGate.engines[name])
+  static aotManifest = '{"tac":{"browserApis":["clipboard","share","notifications","geolocation"],"dotnet":{"aot":true},"names":{"words":["cs"]},"visibility":{"check":false}}}\n'
+  static aotNote = 'C#: .NET compiled ahead of time to WebAssembly'
+  static permissions = ['clipboard-read', 'clipboard-write', 'geolocation', 'notifications']
+  static position = { latitude: 48.85, longitude: 2.35 }
+  static settleTimeout = 5_000
+  static settleStep = 50
+  static activationLifespan = 6_000
+  static napMs = 20
+  static consoleLines = []
+
+  static csharpStamp = `[Service]
+public class CsStampService
+{
+    private readonly Clock clock = new();
+    private readonly SecureRandom secureRandom = new();
+    private readonly Preferences preferences = new();
+    private readonly Clipboard clipboard = new();
+    private readonly Share share = new();
+    private readonly Notifications notifications = new();
+    private readonly Geolocation geolocation = new();
+    public string Label = "cs";
+    public bool Online = false;
+    public string Scheme = "";
+    public string Pasted = "";
+    public string Permission = "";
+    public double Latitude = 0;
+    public string Failure = "";
+    public bool Shared = false;
+
+    public double Now() => clock.NowMs();
+
+    public string Zone() => clock.TimeZone();
+
+    public string Token() => secureRandom.Uuid();
+
+    public int Count() => secureRandom.Bytes(16).Length;
+
+    public string Motion() => preferences.Motion();
+
+    public string Locale() => preferences.Language();
+
+    public void Copy(string text) => clipboard.WriteText(text);
+
+    public string Attempt() => Refusal(() => clipboard.WriteText("without a click"));
+
+    public void Paste() => clipboard.ReadText();
+
+    public void Ask() => notifications.RequestPermission();
+
+    public void Tell() => share.Open("Tachyon", "Shared from a test", "https://example.com/");
+
+    public void Locate() => geolocation.CurrentPosition();
+
+    public void Forget()
+    {
+        Pasted = "";
+    }
+
+    public int Year() => System.DateTime.UtcNow.Year;
+
+    public int Roll() => new System.Random().Next(1, 7);
+
+    public void Say() => System.Console.WriteLine("cs prints to the console");
+
+    public void Nap() => System.Threading.Thread.Sleep(20);
+
+    [OnEvent({"replay":true})]
+    public void HearConnectivity(ConnectivityChanged changed)
+    {
+        Online = changed.Online;
+    }
+
+    [OnEvent({"replay":true})]
+    public void HearPreferences(PreferencesChanged changed)
+    {
+        Scheme = changed.Scheme;
+    }
+
+    [OnEvent]
+    public void HearClipboard(ClipboardTextRead read)
+    {
+        Pasted = read.Text;
+    }
+
+    [OnEvent]
+    public void HearPermission(NotificationPermissionChanged changed)
+    {
+        Permission = changed.Permission;
+    }
+
+    [OnEvent]
+    public void HearPosition(PositionFound found)
+    {
+        Latitude = found.Latitude;
+    }
+
+    [OnEvent]
+    public void HearShare(ShareFinished finished)
+    {
+        Shared = true;
+    }
+
+    [OnEvent]
+    public void HearFailure(BrowserCallFailed failed)
+    {
+        Failure = failed.Message;
+    }
+
+    private string Refusal(System.Action call)
+    {
+        try
+        {
+            call();
+            return "";
+        }
+        catch (System.InvalidOperationException refused)
+        {
+            return refused.Message;
+        }
+    }
+}
+`
+
+  static files = {
+    'client/manifest.json': '{"tac":{"browserApis":["clipboard","share","notifications","geolocation"],"names":{"words":["js","fs","cs","kt"]},"visibility":{"check":false}}}\n',
+    'client/pages/tac.html': '<stamp-index />\n',
+    'client/components/stamp/index/tac.html': '<main><h1>Browser APIs</h1></main>\n',
+    ...Object.fromEntries(WebApiGate.languages.flatMap((language) => [
+      [`client/pages/${language}/tac.html`, `<stamp-${language} />\n`],
+      [`client/components/stamp/${language}/tac.html`, `<main><p id="${language}">{${language}Stamp.label}</p>
+<button id="${language}-copy" on:click="${language}Stamp.copy('from ${language}')">Copy</button>
+<button id="${language}-paste" on:click="${language}Stamp.paste()">Paste</button>
+<button id="${language}-ask" on:click="${language}Stamp.ask()">Ask</button>
+<button id="${language}-tell" on:click="${language}Stamp.tell()">Share</button></main>\n`],
+    ])),
+    'client/services/JsStampService.js': `@Service
+export default class JsStampService {
+  @Needs
+  clock;
+  @Needs
+  secureRandom;
+  @Needs
+  preferences;
+  @Needs
+  clipboard;
+  @Needs
+  share;
+  @Needs
+  notifications;
+  @Needs
+  geolocation;
+  label = 'js';
+  online = false;
+  scheme = '';
+  pasted = '';
+  permission = '';
+  latitude = 0;
+  failure = '';
+  shared = false;
+
+  now() {
+    return this.clock.now();
+  }
+
+  zone() {
+    return this.clock.timeZone();
+  }
+
+  token() {
+    return this.secureRandom.uuid();
+  }
+
+  count() {
+    return this.secureRandom.bytes(16).length;
+  }
+
+  motion() {
+    return this.preferences.motion();
+  }
+
+  locale() {
+    return this.preferences.language();
+  }
+
+  copy(click, text) {
+    this.clipboard.writeText(text);
+  }
+
+  attempt() {
+    return this.#refusal();
+  }
+
+  #refusal() {
+    try {
+      this.clipboard.writeText('without a click');
+      return '';
+    } catch (error) {
+      return error.message;
+    }
+  }
+
+  paste() {
+    this.clipboard.readText();
+  }
+
+  ask() {
+    this.notifications.requestPermission();
+  }
+
+  tell() {
+    this.share.open('Tachyon', 'Shared from a test', 'https://example.com/');
+  }
+
+  locate() {
+    this.geolocation.currentPosition();
+  }
+
+  /** @param {ConnectivityChanged} changed */
+  @OnEvent({"replay":true})
+  hearConnectivity(changed) {
+    this.online = changed.online;
+  }
+
+  /** @param {PreferencesChanged} changed */
+  @OnEvent({"replay":true})
+  hearPreferences(changed) {
+    this.scheme = changed.scheme;
+  }
+
+  /** @param {ClipboardTextRead} read */
+  @OnEvent
+  hearClipboard(read) {
+    this.pasted = read.text;
+  }
+
+  /** @param {NotificationPermissionChanged} changed */
+  @OnEvent
+  hearPermission(changed) {
+    this.permission = changed.permission;
+  }
+
+  /** @param {PositionFound} found */
+  @OnEvent
+  hearPosition(found) {
+    this.latitude = found.latitude;
+  }
+
+  /** @param {ShareFinished} finished */
+  @OnEvent
+  hearShare(finished) {
+    this.shared = Object.keys(finished).length === 0;
+  }
+
+  /** @param {BrowserCallFailed} failed */
+  @OnEvent
+  hearFailure(failed) {
+    this.failure = failed.message;
+  }
+}
+`,
+    'client/services/RustStampService.rs': `#[Service]
+#[derive(Default)]
+struct RustStampService {
+    clock: Clock,
+    secure_random: SecureRandom,
+    preferences: Preferences,
+    clipboard: Clipboard,
+    share: Share,
+    notifications: Notifications,
+    geolocation: Geolocation,
+    label: String,
+    online: bool,
+    scheme: String,
+    pasted: String,
+    permission: String,
+    latitude: f64,
+    failure: String,
+    shared: bool,
+}
+
+impl RustStampService {
+    pub fn now(&self) -> f64 {
+        self.clock.now_ms()
+    }
+
+    pub fn zone(&self) -> String {
+        self.clock.time_zone().unwrap_or_default()
+    }
+
+    pub fn token(&self) -> String {
+        self.secure_random.uuid().unwrap_or_default()
+    }
+
+    pub fn count(&self) -> i64 {
+        self.secure_random.bytes(16).map_or(-1, |bytes| bytes.len() as i64)
+    }
+
+    pub fn motion(&self) -> String {
+        self.preferences.motion().unwrap_or_default()
+    }
+
+    pub fn locale(&self) -> String {
+        self.preferences.language().unwrap_or_default()
+    }
+
+    pub fn copy(&self, text: &str) {
+        let _ = self.clipboard.write_text(text);
+    }
+
+    pub fn attempt(&self) -> String {
+        self.clipboard.write_text("without a click").err().unwrap_or_default()
+    }
+
+    pub fn paste(&self) {
+        let _ = self.clipboard.read_text();
+    }
+
+    pub fn ask(&self) {
+        let _ = self.notifications.request_permission();
+    }
+
+    pub fn tell(&self) {
+        let _ = self.share.open("Tachyon", "Shared from a test", "https://example.com/");
+    }
+
+    pub fn locate(&self) {
+        let _ = self.geolocation.current_position();
+    }
+
+    #[OnEvent({"replay":true})]
+    fn hear_connectivity(&mut self, changed: ConnectivityChanged) {
+        self.online = changed.online;
+    }
+
+    #[OnEvent({"replay":true})]
+    fn hear_preferences(&mut self, changed: PreferencesChanged) {
+        self.scheme = changed.scheme;
+    }
+
+    #[OnEvent]
+    fn hear_clipboard(&mut self, read: ClipboardTextRead) {
+        self.pasted = read.text;
+    }
+
+    #[OnEvent]
+    fn hear_permission(&mut self, changed: NotificationPermissionChanged) {
+        self.permission = changed.permission;
+    }
+
+    #[OnEvent]
+    fn hear_position(&mut self, found: PositionFound) {
+        self.latitude = found.latitude;
+    }
+
+    #[OnEvent]
+    fn hear_share(&mut self, finished: ShareFinished) {
+        self.shared = finished == ShareFinished {};
+    }
+
+    #[OnEvent]
+    fn hear_failure(&mut self, failed: BrowserCallFailed) {
+        self.failure = failed.message;
+    }
+}
+`,
+    'client/services/GoStampService.go': `// @Service
+type GoStampService struct {
+	Label      string
+	Online     bool
+	Scheme     string
+	Pasted     string
+	Permission string
+	Latitude   float64
+	Failure    string
+	Shared     bool
+	// @Needs
+	clock Clock
+	// @Needs
+	secureRandom SecureRandom
+	// @Needs
+	preferences Preferences
+	// @Needs
+	clipboard Clipboard
+	// @Needs
+	share Share
+	// @Needs
+	notifications Notifications
+	// @Needs
+	geolocation Geolocation
+}
+
+func (stamp *GoStampService) Now() float64 {
+	value, _ := stamp.clock.NowMs()
+	return value
+}
+
+func (stamp *GoStampService) Zone() string {
+	value, _ := stamp.clock.TimeZone()
+	return value
+}
+
+func (stamp *GoStampService) Token() string {
+	value, _ := stamp.secureRandom.UUID()
+	return value
+}
+
+func (stamp *GoStampService) Count() int {
+	bytes, _ := stamp.secureRandom.Bytes(16)
+	return len(bytes)
+}
+
+func (stamp *GoStampService) Motion() string {
+	value, _ := stamp.preferences.Motion()
+	return value
+}
+
+func (stamp *GoStampService) Locale() string {
+	value, _ := stamp.preferences.Language()
+	return value
+}
+
+func (stamp *GoStampService) Copy(text string) {
+	_ = stamp.clipboard.WriteText(text)
+}
+
+func (stamp *GoStampService) Attempt() string {
+	return stamp.refusal(stamp.clipboard.WriteText("without a click"))
+}
+
+func (stamp *GoStampService) refusal(problem error) string {
+	if problem == nil {
+		return ""
+	}
+	return problem.Error()
+}
+
+func (stamp *GoStampService) Paste() {
+	_ = stamp.clipboard.ReadText()
+}
+
+func (stamp *GoStampService) Ask() {
+	_ = stamp.notifications.RequestPermission()
+}
+
+func (stamp *GoStampService) Tell() {
+	_ = stamp.share.Open("Tachyon", "Shared from a test", "https://example.com/")
+}
+
+func (stamp *GoStampService) Locate() {
+	_ = stamp.geolocation.CurrentPosition()
+}
+
+// @OnEvent({"replay":true})
+func (stamp *GoStampService) HearConnectivity(changed ConnectivityChanged) {
+	stamp.Online = changed.Online
+}
+
+// @OnEvent({"replay":true})
+func (stamp *GoStampService) HearPreferences(changed PreferencesChanged) {
+	stamp.Scheme = changed.Scheme
+}
+
+// @OnEvent
+func (stamp *GoStampService) HearClipboard(read ClipboardTextRead) {
+	stamp.Pasted = read.Text
+}
+
+// @OnEvent
+func (stamp *GoStampService) HearPermission(changed NotificationPermissionChanged) {
+	stamp.Permission = changed.Permission
+}
+
+// @OnEvent
+func (stamp *GoStampService) HearPosition(found PositionFound) {
+	stamp.Latitude = found.Latitude
+}
+
+// @OnEvent
+func (stamp *GoStampService) HearShare(finished ShareFinished) {
+	stamp.Shared = finished == ShareFinished{}
+}
+
+// @OnEvent
+func (stamp *GoStampService) HearFailure(failed BrowserCallFailed) {
+	stamp.Failure = failed.Message
+}
+`,
+    'client/services/SwiftStampService.swift': `@Service
+final class SwiftStampService {
+    private let clock = Clock()
+    private let secureRandom = SecureRandom()
+    private let preferences = Preferences()
+    private let clipboard = Clipboard()
+    private let share = Share()
+    private let notifications = Notifications()
+    private let geolocation = Geolocation()
+    var label: String = "swift"
+    var online: Bool = false
+    var scheme: String = ""
+    var pasted: String = ""
+    var permission: String = ""
+    var latitude: Double = 0
+    var failure: String = ""
+    var shared: Bool = false
+
+    func now() -> Double {
+        clock.nowMs()
+    }
+
+    func zone() throws -> String {
+        try clock.timeZone()
+    }
+
+    func token() throws -> String {
+        try secureRandom.uuid()
+    }
+
+    func count() throws -> Int {
+        try secureRandom.bytes(16).count
+    }
+
+    func motion() throws -> String {
+        try preferences.motion()
+    }
+
+    func locale() throws -> String {
+        try preferences.language()
+    }
+
+    func copy(_ text: String) throws {
+        try clipboard.writeText(text)
+    }
+
+    func attempt() -> String {
+        refusal { try clipboard.writeText("without a click") }
+    }
+
+    func paste() throws {
+        try clipboard.readText()
+    }
+
+    func ask() throws {
+        try notifications.requestPermission()
+    }
+
+    func tell() throws {
+        try share.open(title: "Tachyon", text: "Shared from a test", url: "https://example.com/")
+    }
+
+    func locate() throws {
+        try geolocation.currentPosition()
+    }
+
+    @OnEvent({"replay":true})
+    func hearConnectivity(_ changed: ConnectivityChanged) {
+        online = changed.online
+    }
+
+    @OnEvent({"replay":true})
+    func hearPreferences(_ changed: PreferencesChanged) {
+        scheme = changed.scheme
+    }
+
+    @OnEvent
+    func hearClipboard(_ read: ClipboardTextRead) {
+        pasted = read.text
+    }
+
+    @OnEvent
+    func hearPermission(_ changed: NotificationPermissionChanged) {
+        permission = changed.permission
+    }
+
+    @OnEvent
+    func hearPosition(_ found: PositionFound) {
+        latitude = found.latitude
+    }
+
+    @OnEvent
+    func hearShare(_ finished: ShareFinished) {
+        shared = true
+    }
+
+    @OnEvent
+    func hearFailure(_ failed: BrowserCallFailed) {
+        failure = failed.message
+    }
+
+    private func refusal(_ call: () throws -> Void) -> String {
+        do {
+            try call()
+            return ""
+        } catch {
+            return String(describing: error)
+        }
+    }
+}
+`,
+    ...(WebApiGate.withFsharp ? { 'client/services/FsStampService.fs': `[<Service>]
+type FsStampService() =
+    let clock = Clock()
+    let secureRandom = SecureRandom()
+    let preferences = Preferences()
+    let clipboard = Clipboard()
+    let share = Share()
+    let notifications = Notifications()
+    let geolocation = Geolocation()
+    member val Label : string = "fs" with get, set
+    member val Online : bool = false with get, set
+    member val Scheme : string = "" with get, set
+    member val Pasted : string = "" with get, set
+    member val Permission : string = "" with get, set
+    member val Latitude : float = 0.0 with get, set
+    member val Failure : string = "" with get, set
+    member val Shared : bool = false with get, set
+
+    member this.Now() : float = clock.NowMs()
+
+    member this.Zone() : string = clock.TimeZone()
+
+    member this.Token() : string = secureRandom.Uuid()
+
+    member this.Count() : int = secureRandom.Bytes(16).Length
+
+    member this.Motion() : string = preferences.Motion()
+
+    member this.Locale() : string = preferences.Language()
+
+    member this.Copy(text: string) : unit = clipboard.WriteText(text)
+
+    member this.Attempt() : string = this.Refusal()
+
+    member this.Paste() : unit = clipboard.ReadText()
+
+    member this.Ask() : unit = notifications.RequestPermission()
+
+    member this.Tell() : unit = share.Open("Tachyon", "Shared from a test", "https://example.com/")
+
+    member this.Locate() : unit = geolocation.CurrentPosition()
+
+    member this.Forget() =
+        this.Pasted <- ""
+
+    member this.Year() : int = System.DateTime.UtcNow.Year
+
+    member this.Roll() : int = System.Random().Next(1, 7)
+
+    member this.Say() : unit = printfn "fs prints to the console"
+
+    member this.Nap() : unit = System.Threading.Thread.Sleep(20)
+
+    [<OnEvent({"replay":true})>]
+    member this.HearConnectivity(changed: ConnectivityChanged) : unit =
+        this.Online <- changed.Online
+
+    [<OnEvent({"replay":true})>]
+    member this.HearPreferences(changed: PreferencesChanged) : unit =
+        this.Scheme <- changed.Scheme
+
+    [<OnEvent>]
+    member this.HearClipboard(read: ClipboardTextRead) : unit =
+        this.Pasted <- read.Text
+
+    [<OnEvent>]
+    member this.HearPermission(changed: NotificationPermissionChanged) : unit =
+        this.Permission <- changed.Permission
+
+    [<OnEvent>]
+    member this.HearPosition(found: PositionFound) : unit =
+        this.Latitude <- found.Latitude
+
+    [<OnEvent>]
+    member this.HearShare(finished: ShareFinished) : unit =
+        this.Shared <- not (isNull (box finished))
+
+    [<OnEvent>]
+    member this.HearFailure(failed: BrowserCallFailed) : unit =
+        this.Failure <- failed.Message
+
+    member private this.Refusal() : string =
+        try
+            clipboard.WriteText("without a click")
+            ""
+        with :? System.InvalidOperationException as refused -> refused.Message
+` } : {}),
+    ...(WebApiGate.withJava ? { 'client/services/JavaStampService.java': `@Service
+class JavaStampService {
+    private final Clock clock = new Clock();
+    private final SecureRandom secureRandom = new SecureRandom();
+    private final Preferences preferences = new Preferences();
+    private final Clipboard clipboard = new Clipboard();
+    private final Share share = new Share();
+    private final Notifications notifications = new Notifications();
+    private final Geolocation geolocation = new Geolocation();
+    String label = "java";
+    boolean online = false;
+    String scheme = "";
+    String pasted = "";
+    String permission = "";
+    double latitude = 0;
+    String failure = "";
+    boolean shared = false;
+
+    double now() {
+        return clock.nowMs();
+    }
+
+    String zone() {
+        return clock.timeZone();
+    }
+
+    String token() {
+        return secureRandom.uuid();
+    }
+
+    int count() {
+        return secureRandom.bytes(16).length;
+    }
+
+    String motion() {
+        return preferences.motion();
+    }
+
+    String locale() {
+        return preferences.language();
+    }
+
+    void copy(String text) {
+        clipboard.writeText(text);
+    }
+
+    String attempt() {
+        return refusal(() -> clipboard.writeText("without a click"));
+    }
+
+    void paste() {
+        clipboard.readText();
+    }
+
+    void ask() {
+        notifications.requestPermission();
+    }
+
+    void tell() {
+        share.open("Tachyon", "Shared from a test", "https://example.com/");
+    }
+
+    void locate() {
+        geolocation.currentPosition();
+    }
+
+    @OnEvent({"replay":true})
+    void hearConnectivity(ConnectivityChanged changed) {
+        online = changed.online();
+    }
+
+    @OnEvent({"replay":true})
+    void hearPreferences(PreferencesChanged changed) {
+        scheme = changed.scheme();
+    }
+
+    @OnEvent
+    void hearClipboard(ClipboardTextRead read) {
+        pasted = read.text();
+    }
+
+    @OnEvent
+    void hearPermission(NotificationPermissionChanged changed) {
+        permission = changed.permission();
+    }
+
+    @OnEvent
+    void hearPosition(PositionFound found) {
+        latitude = found.latitude();
+    }
+
+    @OnEvent
+    void hearShare(ShareFinished finished) {
+        shared = true;
+    }
+
+    @OnEvent
+    void hearFailure(BrowserCallFailed failed) {
+        failure = failed.message();
+    }
+
+    private String refusal(Runnable call) {
+        try {
+            call.run();
+            return "";
+        } catch (IllegalStateException refused) {
+            return refused.getMessage();
+        }
+    }
+}
+` } : {}),
+    ...(WebApiGate.withCsharp ? { 'client/services/CsStampService.cs': WebApiGate.csharpStamp } : {}),
+    ...(WebApiGate.withKotlin ? { 'client/services/KtStampService.kt': `@Service
+class KtStampService {
+    private val clock = Clock()
+    private val secureRandom = SecureRandom()
+    private val preferences = Preferences()
+    private val clipboard = Clipboard()
+    private val share = Share()
+    private val notifications = Notifications()
+    private val geolocation = Geolocation()
+    var label: String = "kt"
+    var online: Boolean = false
+    var scheme: String = ""
+    var pasted: String = ""
+    var permission: String = ""
+    var latitude: Double = 0.0
+    var failure: String = ""
+    var shared: Boolean = false
+
+    fun now(): Double = clock.nowMs()
+
+    fun zone(): String = clock.timeZone()
+
+    fun token(): String = secureRandom.uuid()
+
+    fun count(): Int = secureRandom.bytes(16).size
+
+    fun motion(): String = preferences.motion()
+
+    fun locale(): String = preferences.language()
+
+    fun copy(text: String) {
+        clipboard.writeText(text)
+    }
+
+    fun attempt(): String = refusal { clipboard.writeText("without a click") }
+
+    fun paste() {
+        clipboard.readText()
+    }
+
+    fun ask() {
+        notifications.requestPermission()
+    }
+
+    fun tell() {
+        share.open("Tachyon", "Shared from a test", "https://example.com/")
+    }
+
+    fun locate() {
+        geolocation.currentPosition()
+    }
+
+    fun forget() {
+        pasted = ""
+    }
+
+    @OnEvent({"replay":true})
+    fun hearConnectivity(changed: ConnectivityChanged) {
+        online = changed.online
+    }
+
+    @OnEvent({"replay":true})
+    fun hearPreferences(changed: PreferencesChanged) {
+        scheme = changed.scheme
+    }
+
+    @OnEvent
+    fun hearClipboard(read: ClipboardTextRead) {
+        pasted = read.text
+    }
+
+    @OnEvent
+    fun hearPermission(changed: NotificationPermissionChanged) {
+        permission = changed.permission
+    }
+
+    @OnEvent
+    fun hearPosition(found: PositionFound) {
+        latitude = found.latitude
+    }
+
+    @OnEvent
+    fun hearShare(finished: ShareFinished) {
+        shared = true
+    }
+
+    @OnEvent
+    fun hearFailure(failed: BrowserCallFailed) {
+        failure = failed.message
+    }
+
+    private fun refusal(call: () -> Unit): String {
+        try {
+            call()
+            return ""
+        } catch (refused: IllegalStateException) {
+            return refused.message.orEmpty()
+        }
+    }
+}
+` } : {}),
+  }
+
+  static aheadOfTimeFiles = {
+    'client/manifest.json': WebApiGate.aotManifest,
+    'client/pages/tac.html': WebApiGate.files['client/pages/tac.html'],
+    'client/components/stamp/index/tac.html': WebApiGate.files['client/components/stamp/index/tac.html'],
+    'client/pages/cs/tac.html': '<stamp-cs />\n',
+    'client/components/stamp/cs/tac.html': WebApiGate.files['client/components/stamp/cs/tac.html'],
+    'client/services/CsStampService.cs': WebApiGate.csharpStamp,
+  }
+
+  static write(project, files = WebApiGate.files) {
+    for (const [relative, contents] of Object.entries(files)) {
+      const file = path.join(project, relative)
+      mkdirSync(path.dirname(file), { recursive: true })
+      writeFileSync(file, contents)
+    }
+  }
+
+  static build(project) {
+    const built = spawnSync(WebApiGate.binary, ['build', project], {
+      encoding: 'utf8', timeout: 300_000, killSignal: 'SIGKILL', maxBuffer: 4 * 1024 * 1024,
+    })
+    if (built.status !== 0) throw new Error(`web API fixture build failed: ${built.error?.message || built.stderr || built.stdout}`)
+    return `${built.stdout ?? ''}${built.stderr ?? ''}`
+  }
+
+  static handler(project) {
+    const root = path.join(project, 'dist')
+    return (request, response) => {
+      const url = new URL(request.url, 'http://localhost')
+      let file = path.join(root, decodeURIComponent(url.pathname))
+      if (existsSync(file) && statSync(file).isDirectory()) file = path.join(file, 'index.html')
+      if (!existsSync(file)) {
+        response.writeHead(404).end()
+        return
+      }
+      response.writeHead(200, { 'content-type': WebApiGate.mimeTypes[path.extname(file)] ?? 'application/octet-stream' })
+      createReadStream(file).pipe(response)
+    }
+  }
+
+  static expect(actual, wanted, label) {
+    if (actual !== wanted) throw new Error(`${label}: expected ${JSON.stringify(wanted)}, got ${JSON.stringify(actual)}`)
+    console.log(`ok - ${label}`)
+  }
+
+  static async check(page, language, label = language) {
+    const report = await page.evaluate((name) => {
+      const service = __tachyonTac.service(`${name}Stamp`)
+      const before = Date.now()
+      const values = { now: service.now(), zone: service.zone(), token: service.token(), count: service.count() }
+      return { ...values, before, after: Date.now(), browserZone: Intl.DateTimeFormat().resolvedOptions().timeZone }
+    }, language)
+    WebApiGate.expect(report.now >= report.before && report.now <= report.after, true, `${label}: Clock gives the time of the browser`)
+    WebApiGate.expect(report.zone, report.browserZone, `${label}: Clock gives the time zone of the browser`)
+    WebApiGate.expect(WebApiGate.uuidPattern.test(report.token), true, `${label}: SecureRandom gives a version 4 UUID`)
+    WebApiGate.expect(report.count, 16, `${label}: SecureRandom gives the bytes it was asked for`)
+  }
+
+  static refusals(page, language) {
+    return page.evaluate(([name, lifespan]) => new Promise((resolve) => {
+      setTimeout(() => {
+        resolve({ active: navigator.userActivation.isActive, answer: __tachyonTac.service(`${name}Stamp`).attempt() })
+      }, lifespan)
+    }), [language, WebApiGate.activationLifespan])
+  }
+
+  static async open(page, origin, language) {
+    await page.goto(`${origin}/${language}/`, { waitUntil: 'networkidle' })
+  }
+
+  static read(page, language, member) {
+    return page.evaluate(([name, key]) => {
+      const service = __tachyonTac.service(`${name}Stamp`)
+      return typeof service[key] === 'function' ? service[key]() : service[key]
+    }, [language, member])
+  }
+
+  static async settled(page, language, member, wanted) {
+    const deadline = Date.now() + WebApiGate.settleTimeout
+    let value = await WebApiGate.read(page, language, member)
+    while (value !== wanted && Date.now() < deadline) {
+      await page.waitForTimeout(WebApiGate.settleStep)
+      value = await WebApiGate.read(page, language, member)
+    }
+    return value
+  }
+
+  static async checkPreferences(page, context, language) {
+    WebApiGate.expect(await WebApiGate.read(page, language, 'motion'), 'reduce', `${language}: Preferences gives the motion setting`)
+    WebApiGate.expect(await WebApiGate.read(page, language, 'locale'), 'fr-FR', `${language}: Preferences gives the language`)
+    WebApiGate.expect(await WebApiGate.settled(page, language, 'scheme', 'dark'), 'dark', `${language}: a replay listener hears the current color scheme`)
+    await page.emulateMedia({ colorScheme: 'light' })
+    WebApiGate.expect(await WebApiGate.settled(page, language, 'scheme', 'light'), 'light', `${language}: PreferencesChanged reaches the listener`)
+    await page.emulateMedia({ colorScheme: 'dark' })
+    await context.setOffline(true)
+    WebApiGate.expect(await WebApiGate.settled(page, language, 'online', false), false, `${language}: ConnectivityChanged reaches the listener when the browser goes offline`)
+    await context.setOffline(false)
+    WebApiGate.expect(await WebApiGate.settled(page, language, 'online', true), true, `${language}: ConnectivityChanged reaches the listener when the browser is online again`)
+  }
+
+  static async checkPrompts(page, language) {
+    await page.click(`#${language}-copy`)
+    const copied = await page.evaluate(() => navigator.clipboard.readText())
+    WebApiGate.expect(copied, `from ${language}`, `${language}: Clipboard writes text from a click, so the bridge keeps the user action`)
+    await page.click(`#${language}-paste`)
+    WebApiGate.expect(await WebApiGate.settled(page, language, 'pasted', `from ${language}`), `from ${language}`, `${language}: ClipboardTextRead reaches the calling service`)
+    await page.click(`#${language}-ask`)
+    WebApiGate.expect(await WebApiGate.settled(page, language, 'permission', 'granted'), 'granted', `${language}: NotificationPermissionChanged reaches the calling service`)
+    await page.evaluate((name) => __tachyonTac.service(`${name}Stamp`).locate(), language)
+    WebApiGate.expect(await WebApiGate.settled(page, language, 'latitude', WebApiGate.position.latitude), WebApiGate.position.latitude, `${language}: PositionFound reaches the calling service`)
+    await page.click(`#${language}-tell`)
+    const deadline = Date.now() + WebApiGate.settleTimeout
+    let answered = false
+    while (!answered && Date.now() < deadline) {
+      answered = (await WebApiGate.read(page, language, 'shared')) === true || (await WebApiGate.read(page, language, 'failure')) !== ''
+      if (!answered) await page.waitForTimeout(WebApiGate.settleStep)
+    }
+    WebApiGate.expect(answered, true, `${language}: Share answers the calling service with ShareFinished or BrowserCallFailed`)
+  }
+
+  static async checkUnitMethod(page, language, label = language) {
+    if (!WebApiGate.unitMethodLanguages.includes(language)) return
+    const answer = await page.evaluate((name) => __tachyonTac.service(`${name}Stamp`).forget() ?? null, language)
+    WebApiGate.expect(answer, null, `${label}: a method that returns nothing answers nothing`)
+    WebApiGate.expect(await WebApiGate.settled(page, language, 'pasted', ''), '', `${label}: a method that returns nothing still runs`)
+  }
+
+  static async checkOwnRuntime(page, language) {
+    if (!WebApiGate.ownRuntimeLanguages.includes(language)) return
+    const report = await page.evaluate((name) => {
+      const service = __tachyonTac.service(`${name}Stamp`)
+      service.say()
+      const before = Date.now()
+      service.nap()
+      return { year: service.year(), roll: service.roll(), napped: Date.now() - before, browserYear: new Date().getUTCFullYear() }
+    }, language)
+    WebApiGate.expect(report.year, report.browserYear, `${language}: the language's own clock gives the time`)
+    WebApiGate.expect(report.roll >= 1 && report.roll <= 6, true, `${language}: the language's own random numbers work`)
+    WebApiGate.expect(report.napped >= WebApiGate.napMs, true, `${language}: a sleep makes the page wait`)
+    const printed = `${language} prints to the console`
+    const deadline = Date.now() + WebApiGate.settleTimeout
+    while (!WebApiGate.consoleLines.includes(printed) && Date.now() < deadline) await page.waitForTimeout(WebApiGate.settleStep)
+    WebApiGate.expect(WebApiGate.consoleLines.includes(printed), true, `${language}: console output reaches the browser console`)
+  }
+
+  static async checkEngine(browserType, origin, languages = WebApiGate.languages, build = '') {
+    const browser = await browserType.launch({ timeout: 30_000 })
+    try {
+      const context = await browser.newContext({ locale: 'fr-FR', colorScheme: 'dark', reducedMotion: 'reduce' })
+      const page = await context.newPage()
+      for (const language of languages) {
+        const label = `${browserType.name()} ${language}${build}`
+        await WebApiGate.open(page, origin, language)
+        await WebApiGate.check(page, language, label)
+        WebApiGate.expect(await WebApiGate.read(page, language, 'motion'), 'reduce', `${label}: Preferences gives the motion setting`)
+        WebApiGate.expect(await WebApiGate.settled(page, language, 'scheme', 'dark'), 'dark', `${label}: a replay listener hears the current color scheme`)
+        await page.emulateMedia({ colorScheme: 'light' })
+        WebApiGate.expect(await WebApiGate.settled(page, language, 'scheme', 'light'), 'light', `${label}: PreferencesChanged reaches the listener`)
+        await page.emulateMedia({ colorScheme: 'dark' })
+        await context.setOffline(true)
+        WebApiGate.expect(await WebApiGate.settled(page, language, 'online', false), false, `${label}: ConnectivityChanged reaches the listener`)
+        await context.setOffline(false)
+        await WebApiGate.checkUnitMethod(page, language, label)
+      }
+    } finally {
+      await browser.close()
+    }
+  }
+
+  static async checkAheadOfTime() {
+    const project = mkdtempSync(path.join(tmpdir(), 'tachyon-web-apis-aot-'))
+    const server = createServer(WebApiGate.handler(project))
+    let browser
+    try {
+      WebApiGate.write(project, WebApiGate.aheadOfTimeFiles)
+      const output = WebApiGate.build(project)
+      WebApiGate.expect(output.includes(WebApiGate.aotNote), true, 'cs ahead of time: the release build compiles C# ahead of time to WebAssembly')
+      await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
+      const origin = `http://127.0.0.1:${server.address().port}`
+      browser = await chromium.launch({ timeout: 30_000 })
+      const context = await browser.newContext({ locale: 'fr-FR', colorScheme: 'dark', reducedMotion: 'reduce', geolocation: WebApiGate.position })
+      await context.grantPermissions(WebApiGate.permissions, { origin })
+      const page = await context.newPage()
+      page.on('console', (message) => WebApiGate.consoleLines.push(message.text()))
+      await WebApiGate.open(page, origin, 'cs')
+      await WebApiGate.check(page, 'cs', 'chromium cs ahead of time')
+      await WebApiGate.checkPreferences(page, context, 'cs')
+      await WebApiGate.checkPrompts(page, 'cs')
+      await WebApiGate.checkUnitMethod(page, 'cs', 'chromium cs ahead of time')
+      await WebApiGate.checkOwnRuntime(page, 'cs')
+      for (const browserType of WebApiGate.otherEngines) await WebApiGate.checkEngine(browserType, origin, ['cs'], ' ahead of time')
+    } finally {
+      await browser?.close()
+      server.close()
+      rmSync(project, { recursive: true, force: true })
+    }
+  }
+
+  static requireEveryLanguage() {
+    const missing = WebApiGate.optionalLanguages.filter((language) => !WebApiGate.languages.includes(language))
+    if (process.env.TAC_BROWSER_REQUIRE_TOOLCHAINS && missing.length) throw new Error(`TAC_BROWSER_REQUIRE_TOOLCHAINS is set, but the toolchains for ${missing.join(', ')} are missing`)
+  }
+
+  static async main() {
+    WebApiGate.requireEveryLanguage()
+    const project = mkdtempSync(path.join(tmpdir(), 'tachyon-web-apis-'))
+    const server = createServer(WebApiGate.handler(project))
+    let browser
+    try {
+      WebApiGate.write(project)
+      WebApiGate.build(project)
+      await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
+      browser = await chromium.launch({ timeout: 30_000 })
+      const origin = `http://127.0.0.1:${server.address().port}`
+      const context = await browser.newContext({ locale: 'fr-FR', colorScheme: 'dark', reducedMotion: 'reduce', geolocation: WebApiGate.position })
+      await context.grantPermissions(WebApiGate.permissions, { origin })
+      const page = await context.newPage()
+      page.on('console', (message) => WebApiGate.consoleLines.push(message.text()))
+      for (const language of WebApiGate.languages) {
+        await WebApiGate.open(page, origin, language)
+        const refusals = await WebApiGate.refusals(page, language)
+        WebApiGate.expect(refusals.active, false, `${language}: the page has no user action after the activation lifespan`)
+        WebApiGate.expect(refusals.answer, 'The clipboard browser API needs a user action. Call it from a click or key handler.', `${language}: Clipboard refuses a call without a user action`)
+        await WebApiGate.check(page, language)
+        await WebApiGate.checkPreferences(page, context, language)
+        await WebApiGate.checkPrompts(page, language)
+        await WebApiGate.checkUnitMethod(page, language)
+        await WebApiGate.checkOwnRuntime(page, language)
+      }
+      for (const browserType of WebApiGate.otherEngines) await WebApiGate.checkEngine(browserType, origin)
+    } finally {
+      await browser?.close()
+      server.close()
+      rmSync(project, { recursive: true, force: true })
+    }
+    if (WebApiGate.withCsharp) await WebApiGate.checkAheadOfTime()
+  }
+}
+
+if (process.argv[1] === fileURLToPath(import.meta.url)) await WebApiGate.main()

@@ -1,0 +1,20 @@
+@Service
+export default class HelloService {
+  /** @type {HelloClient} */
+  @Needs
+  helloClient
+  message = ''
+
+  async askServer() {
+    const hello = await this.helloClient.getHello()
+    this.message = this.#messageOf(hello)
+  }
+
+  /**
+   * @param {Hello | void} hello
+   * @returns {string}
+   */
+  #messageOf(hello) {
+    return hello ? hello.message : ''
+  }
+}

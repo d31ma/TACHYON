@@ -1,0 +1,7 @@
+@Test(OrdersTestSetup, {"partition":"tests"})
+export default class OrdersControllerTest {
+  async testGetOrderThrowsOrderNotFound(): Promise<void> {
+    const thrown = Assert.throws(() => this.construct(OrdersController).getOrder());
+    Assert.isTrue(thrown instanceof OrderNotFound, 'the error is OrderNotFound');
+  }
+}

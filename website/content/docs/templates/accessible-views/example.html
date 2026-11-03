@@ -1,0 +1,12 @@
+<section aria-labelledby="cart-title">
+  <h2 id="cart-title">Cart</h2>
+  <img src="/shared/assets/cart.svg" alt="" aria-hidden="true">
+  <label for="coupon">Coupon code</label>
+  <input id="coupon" :value="cart.coupon" on:input="cart.coupon = $event.target.value">
+  <button on:click="cart.apply()">Apply</button>
+  <button aria-label="Close the cart" on:click="cart.close()">×</button>
+  <h3>Items</h3>
+  <loop :for="item of cart.items">
+    <img :src="item.picture" :alt="item.name">
+  </loop>
+</section>

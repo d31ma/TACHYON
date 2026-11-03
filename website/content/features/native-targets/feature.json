@@ -1,0 +1,12 @@
+{
+  "id": "native-targets",
+  "title": "Native targets",
+  "summary": "The same client source can build a browser application. It can also build a desktop or mobile application that shows the bundle in the WebView of the platform. The bundle is the built web files. A WebView is a browser view inside an app. One command can build several targets: `ty bundle --target macos,ios`. Each native target needs its platform software development kit (SDK), compiler and WebView dependencies. This release is a release candidate: no target has the supported tier yet, and `docs/SUPPORT_TIERS.md` in the Tachyon repository records how far each target has been tested (buildable, simulator-tested or native-tested).",
+  "group": "Native",
+  "files": [
+    {
+      "name": "build",
+      "code": { "file": "build.txt" }
+    }
+  ]
+}

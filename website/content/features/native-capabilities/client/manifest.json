@@ -1,0 +1,8 @@
+{
+  "name": "Native File Picker",
+  "start_url": "/",
+  "tac": {
+    "nativeCapabilities": ["filePicker"],
+    "application": { "id": "com.example.nativepicker", "version": "1.0.0" }
+  }
+}

@@ -1,0 +1,8 @@
+@Test(DartGreetingTestSetup, {"partition":"tests"})
+class DartGreetingServiceTest {
+  Future<void> testGreetChangesTheMessage() async {
+    final greeting = DartGreetingService();
+    greeting.greet();
+    Assert.equals('Dart says hello again.', greeting.message);
+  }
+}

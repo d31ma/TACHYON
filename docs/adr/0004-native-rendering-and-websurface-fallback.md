@@ -5,58 +5,61 @@
 
 ## Context
 
-Tachyon targets web, macOS, iOS, Android, Windows, and Linux while requiring
-application developers to author HTML. Not every HTML element, Tac component,
-or web component will have a native adapter on every platform.
+Tachyon targets web, macOS, iOS, Android, Windows and Linux. Application
+developers write views in HTML. Some HTML elements, Tac components or web
+components will not have a native adapter on every platform.
 
-Falling back the entire application to a WebView because one subtree is
-unsupported defeats the native architecture. Pretending an unsupported tag is
-a native primitive produces broken behavior.
+One unsupported subtree must not switch the whole application to a WebView.
+That would defeat the native architecture. Treating an unsupported tag as a
+native primitive is also wrong: it produces broken behavior.
 
 ## Decision
 
-Plan native rendering per View IR subtree.
+Plan native rendering separately for each View IR subtree.
 
 - Standard elements and components with registered adapters render natively.
-- Control tags have already been lowered and never require adapters.
-- An unsupported safe subtree becomes a WebSurface containing a generated
-  local web bundle.
-- Supported parents, siblings, and unrelated descendants remain native.
+- Control tags are already lowered, so they never need adapters.
+- An unsupported safe subtree becomes a WebSurface. The WebSurface contains a
+  generated local web bundle.
+- Supported parents, siblings and unrelated descendants stay native.
 - The boundary serializes explicit properties and events through the portable
   controller contract.
 - Remote web content always uses `bridge: none`.
-- Local WebSurface capabilities must appear in a deny-by-default capability
-  manifest and are revalidated per call.
-- A fallback decision emits an inspectable build diagnostic and appears in the
-  native artifact manifest.
+- Every capability of a local WebSurface must appear in a capability manifest
+  that denies by default. Tachyon checks the capability again on every call.
+- Each fallback decision emits a build diagnostic that developers can inspect.
+  The decision also appears in the native artifact manifest.
 
-Fallback must select the smallest subtree that preserves semantic and lifecycle
-correctness. It may widen only when layout, state, or event boundaries cannot
-be safely separated.
+Fallback must select the smallest subtree that keeps semantics and lifecycle
+correct. It may select a larger subtree only when layout, state or event
+boundaries cannot be separated safely.
 
 ## Consequences
 
-- Applications remain predominantly native as adapter coverage grows.
-- Unknown custom content has predictable behavior.
-- Native and web lifecycle synchronization becomes a first-class contract.
-- Visual similarity alone is insufficient; accessibility and interaction
-  parity are required.
-- Local WebSurface bundle isolation and navigation policy become security
-  boundaries.
+- Applications stay mostly native, and more so as adapter coverage grows.
+- Unknown custom content behaves in a predictable way.
+- Keeping the native and web lifecycles in sync becomes a first-class
+  contract.
+- Looking the same is not enough. Accessibility and interaction must also
+  match.
+- Isolation of local WebSurface bundles and their navigation policy become
+  security boundaries.
 
 ## Rejected Alternatives
 
-- **Application-wide render mode flag**: makes one unsupported component
-  downgrade the entire application.
-- **Drop unsupported nodes**: silently loses behavior and accessibility.
-- **Render unknown tags as generic labels**: changes semantics.
-- **Give remote WebViews the native bridge**: unacceptable capability
-  escalation.
+- **Application-wide render mode flag**: one unsupported component would
+  downgrade the whole application.
+- **Drop unsupported nodes**: behavior and accessibility disappear without any
+  warning.
+- **Render unknown tags as generic labels**: this changes the meaning of the
+  content.
+- **Give remote WebViews the native bridge**: remote content would gain
+  capabilities it must not have. This is not acceptable.
 
 ## Acceptance Gate
 
-- Native UI v1 represents native elements, text, and WebSurface boundaries;
-- its invalid fixture proves remote content cannot receive a bridge;
+- Native UI v1 represents native elements, text and WebSurface boundaries;
+- its invalid fixture proves that remote content cannot receive a bridge;
 - capability manifest v1 proves default deny;
-- future platform tests compare semantics, events, accessibility, and visuals
+- future platform tests compare semantics, events, accessibility and visuals
   against the web reference.

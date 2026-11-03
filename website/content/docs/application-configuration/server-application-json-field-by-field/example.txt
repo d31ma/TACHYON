@@ -1,0 +1,83 @@
+server.host
+  The address ty serve and ty start bind; 127.0.0.1 unless set.
+  localhost or a name under .localhost (shop.localhost) binds
+  127.0.0.1 and prints the name. Anything but loopback also needs
+  --allow-non-loopback, and --host overrides it.
+
+server.hosts
+  Extra names that a loopback server answers, such as
+  ["preview.example.com", "*.tunnel.example"]: names without
+  scheme, port or path. Localhost names, IP addresses and the
+  tac.origin host always work; other names get 403 (TY1366).
+
+server.origins
+  App origins that may call Yon from another origin with CORS,
+  such as ["tachyon-app://bundle", "https://app.example.com"]:
+  scheme://host[:port], no path. *, null, paths, trailing slashes
+  and uppercase hosts are refused (TY2010). ty init and ty add
+  target write the native app origins (ADR 0103).
+
+server.proxies
+  The reverse proxies whose forwarding headers count, as IP
+  addresses or CIDR ranges: ["10.0.0.0/8", "192.0.2.10"]. Empty
+  unless set, so ty replaces Forwarded, X-Forwarded-* and X-Real-IP
+  from every other peer with the real client address (ADR 0096).
+
+server.environment
+  The variables of ty's environment that handlers may see, beyond
+  PATH, LANG, LC_ALL and TMPDIR: names or prefix patterns, such as
+  ["HOME", "AWS_*", "HD_*"]. Empty unless set. "*" and entries
+  that cover ty's own TAC_*, TACHYON_*, YON_* or proxy variables
+  are refused (TY2010).
+
+server.maxbody
+  The largest request body that a route reads, in bytes: 1 MiB
+  (1048576) unless set, at most 12 MiB (12582912). A larger body
+  gets 413. Tachyon reads the rest of a larger body, up to 16 MiB,
+  before it answers, so the sender sees the 413.
+
+server.port
+  The port, 0 to 65535. ty serve and ty start use 8080 unless
+  set, ty preview uses 3000, and ty preview --static ignores it.
+  0 picks a free port, and --port overrides it.
+
+datasource.driver
+  postgresql, mysql, mariadb, sqlserver, sqlite or fylo.
+
+datasource.url
+  Where the database is, without credentials:
+  postgresql://db:5432/catalog, sqlite:///var/lib/catalog.db,
+  sqlite::memory:, or fylo:///absolute/root for a FYLO store
+  whose root folder already exists (a page reads at most the
+  first 10,000 matching documents).
+
+datasource.username
+  The database user, usually YON_DATASOURCE_USERNAME in .env beside
+  YON_DATASOURCE_PASSWORD, which only .env may hold. SQLite and FYLO
+  take neither.
+
+datasource.tls.ca
+  Absolute path of a CA certificate to trust.
+
+redis.url
+  The Redis server: redis://, or rediss:// for TLS.
+
+redis.username
+  The Redis user, usually YON_REDIS_USERNAME in .env beside
+  YON_REDIS_PASSWORD, which only .env may hold.
+
+topics.directory
+  The folder of the topic logs; data/topics unless set. A plain
+  path inside the project or an absolute path with no symbolic
+  link. Never inside .tachyon, which holds only generated files.
+
+anything else
+  The application's own settings. catalog.page.size is
+  yon.catalog.page.size, and YON_CATALOG_PAGE_SIZE names it in
+  Settings.
+
+With any other member of server, the server does not start.
+
+Limits: keys are lowercase letters and digits; at most 128 keys,
+16 levels deep and 64 KiB per file. A tac section or a yon root key
+stops the build and says where it belongs.

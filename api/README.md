@@ -1,20 +1,25 @@
 # Tachyon Machine Contracts
 
-This directory is the canonical source for Tachyon's versioned machine
-contracts. Code, generated artifacts, documentation, and examples must agree
-with these schemas.
+This directory is the official source of Tachyon's versioned machine
+contracts. Code, generated artifacts, documentation and examples must match
+these schemas.
 
 Each contract has:
 
-- an immutable major-version directory;
+- a directory for its major version, which never changes;
 - a Draft 2020-12 JSON Schema with a stable `$id`;
-- one accepted example;
-- one rejected example proving that validation is active.
+- one example that the schema accepts;
+- one example that the schema rejects, which proves that validation works.
 
-Within a major version, changes must be backward-compatible and additive.
-Breaking changes require an accepted RFC, a migration path, a deprecation
-window, compatibility fixtures, and a new major-version directory.
+Inside one major version, a change must only add things and must stay
+backward-compatible. A breaking change needs all of these:
 
-The `tachyon-contracts` crate embeds this corpus. Its tests validate every
-schema against its meta-schema and prove both examples against the compiled
+- an accepted RFC (request for comments);
+- a migration path;
+- a deprecation period;
+- compatibility fixtures;
+- a new major-version directory.
+
+The `tachyon-contracts` crate embeds these files. Its tests check every schema
+against its meta-schema. They also run both examples through the compiled
 validator.

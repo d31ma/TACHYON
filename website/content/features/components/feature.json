@@ -1,0 +1,133 @@
+{
+  "id": "components",
+  "title": "Components and slots",
+  "summary": "A component is a reusable part of a page. Each directory under `client/components` defines one component. A page contains only component tags. Components can contain other components. A component that only shows the data it receives needs no service (a class that holds state and behavior). Slots (places where a parent component inserts its own content) are scoped. If components contain each other in a cycle, the build fails before publishing. A Python service also needs the `tac.python` runtime setting in `client/manifest.json`.",
+  "group": "Tac views",
+  "files": [
+    {
+      "name": "client/manifest.json",
+      "code": { "file": "client/manifest.json" }
+    },
+    {
+      "name": "client/components/product/card/tac.html",
+      "code": { "file": "client/components/product/card/tac.html" }
+    },
+    {
+      "name": "client/pages/tac.html",
+      "code": { "file": "client/pages/tac.html" }
+    },
+    {
+      "name": "client/components/catalog/grid/tac.html",
+      "code": { "file": "client/components/catalog/grid/tac.html" }
+    },
+    {
+      "name": "client/services/CatalogService.js",
+      "code": { "file": "client/services/CatalogService.js" }
+    },
+    {
+      "name": "client/services/CatalogService.ts",
+      "code": { "file": "client/services/CatalogService.ts" }
+    },
+    {
+      "name": "client/services/CatalogService.dart",
+      "code": { "file": "client/services/CatalogService.dart" }
+    },
+    {
+      "name": "client/services/CatalogService.rs",
+      "code": { "file": "client/services/CatalogService.rs" }
+    },
+    {
+      "name": "client/services/CatalogService.go",
+      "code": { "file": "client/services/CatalogService.go" }
+    },
+    {
+      "name": "client/services/CatalogService.rb",
+      "code": { "file": "client/services/CatalogService.rb" }
+    },
+    {
+      "name": "client/services/CatalogService.swift",
+      "code": { "file": "client/services/CatalogService.swift" }
+    },
+    {
+      "name": "client/services/CatalogService.kt",
+      "code": { "file": "client/services/CatalogService.kt" }
+    },
+    {
+      "name": "client/services/CatalogService.java",
+      "code": { "file": "client/services/CatalogService.java" }
+    },
+    {
+      "name": "client/services/CatalogService.cs",
+      "code": { "file": "client/services/CatalogService.cs" }
+    },
+    {
+      "name": "client/services/CatalogService.fs",
+      "code": { "file": "client/services/CatalogService.fs" }
+    },
+    {
+      "name": "client/models/Product.ts",
+      "code": { "file": "client/models/Product.ts" }
+    },
+    {
+      "name": "client/models/Product.dart",
+      "code": { "file": "client/models/Product.dart" }
+    },
+    {
+      "name": "client/models/Product.rs",
+      "code": { "file": "client/models/Product.rs" }
+    },
+    {
+      "name": "client/models/Product.go",
+      "code": { "file": "client/models/Product.go" }
+    },
+    {
+      "name": "client/models/Product.rb",
+      "code": { "file": "client/models/Product.rb" }
+    },
+    {
+      "name": "client/services/CatalogService.lua",
+      "code": { "file": "client/services/CatalogService.lua" }
+    },
+    {
+      "name": "client/models/Product.lua",
+      "code": { "file": "client/models/Product.lua" }
+    },
+    {
+      "name": "client/services/CatalogService.py",
+      "code": { "file": "client/services/CatalogService.py" }
+    },
+    {
+      "name": "client/models/Product.py",
+      "code": { "file": "client/models/Product.py" }
+    },
+    {
+      "name": "client/models/Product.swift",
+      "code": { "file": "client/models/Product.swift" }
+    },
+    {
+      "name": "client/models/Product.kt",
+      "code": { "file": "client/models/Product.kt" }
+    },
+    {
+      "name": "client/models/Product.java",
+      "code": { "file": "client/models/Product.java" }
+    },
+    {
+      "name": "client/models/Product.cs",
+      "code": { "file": "client/models/Product.cs" }
+    },
+    {
+      "name": "client/models/Product.fs",
+      "code": { "file": "client/models/Product.fs" }
+    },
+    {
+      "name": "client/models/Product.hpp",
+      "code": { "file": "client/models/Product.hpp" }
+    },
+    {
+      "name": "client/services/CatalogService.hpp",
+      "code": { "file": "client/services/CatalogService.hpp" }
+    }
+  ],
+  "verify": "tac-component"
+}

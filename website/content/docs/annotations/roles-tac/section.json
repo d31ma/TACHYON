@@ -1,0 +1,385 @@
+{
+  "heading": "Roles: Tac",
+  "body": "These are the same roles, in the browser and in a native companion. A native companion is an app that runs outside the browser, such as a phone or desktop app. An entry is the file that the compiler starts from. A Tac entry is the service itself, at client/services/<Name>Service.<ext>. The page places <billing-panel hydrate=\"load\" />. The view refers to the service instance as {billing.total} (ADR 0030). The service's role files live in the realm's shared client/ folders: stores, delegates, converters, setups and entities. The compiler finds only files in the same language as the entry. Every Tac service language runs in the browser: JavaScript and TypeScript as page JavaScript, and Dart, Rust, Go, C#, F#, Swift, Kotlin, Java, Ruby, Lua, Python and C++ as WebAssembly. Swift, Kotlin, C# and Rust can also be linked into a native companion. Dart compiles to WebAssembly with garbage collection (WasmGC), behind one JavaScript module per service (ADR 0033). A service written only in Rust, only in C# or in Go compiles to WebAssembly (ADR 0035, ADR 0037, ADR 0045). Service, Lifetime and Needs work in every Tac language; a Java service can ask for another Java service, and an F# service for another F# service (see A service that needs another service: Tac). Delegate works in every Tac language. In JavaScript, TypeScript, Dart, Rust and Python, Needs injects it. In Go, Needs gives each service its own Delegate, or the service creates one itself. In Swift, Kotlin and Java, each class that names a Delegate in a Needs field gets its own new Delegate. A Ruby service creates its Delegate the first time it uses it, and a Lua service builds its Delegate together with itself. In C# and F#, the caller builds it with `new` (see Injection: Tac). BillingService reads its total through the injected delegate. BillingStore shows the form of a Store: a contract with no implementation that names its Entity, and Tachyon generates each query. The Swift, Kotlin, Java, C#, F#, Rust, Go and Ruby tabs place Store, Setup and Entity next to a plain service type. That is why those services hold their own state. The Lua tab writes each role as a comment marker above its table, such as `-- @Store(...)` and `-- @Delegate`. HTTPClient works in every Tac language (see Outgoing HTTP: Tac). Controllers (RequestRoute) do not exist in Tac at all. C++ has the Setup, Service, HTTPClient, Delegate, Converter and Store roles. A C++ Store uses only the \"indexeddb\" adapter, and a C++ Setup is a class with a static configure method that returns its adapters (ADR 0099).",
+  "axis": "language",
+  "files": [
+    {
+      "name": "client/pages/tac.html",
+      "code": {
+        "file": "client/pages/tac.html"
+      }
+    },
+    {
+      "name": "client/components/billing/panel/tac.html",
+      "code": {
+        "file": "client/components/billing/panel/tac.html"
+      }
+    },
+    {
+      "name": "client/services/BillingService.js",
+      "code": {
+        "file": "client/services/BillingService.js"
+      }
+    },
+    {
+      "name": "client/stores/BillingStore.js",
+      "code": {
+        "file": "client/stores/BillingStore.js"
+      }
+    },
+    {
+      "name": "client/delegates/BillingDelegate.js",
+      "code": {
+        "file": "client/delegates/BillingDelegate.js"
+      }
+    },
+    {
+      "name": "client/setups/BillingSetup.js",
+      "code": {
+        "file": "client/setups/BillingSetup.js"
+      }
+    },
+    {
+      "name": "client/entities/BillingEntity.js",
+      "code": {
+        "file": "client/entities/BillingEntity.js"
+      }
+    },
+    {
+      "name": "client/services/BillingService.ts",
+      "code": {
+        "file": "client/services/BillingService.ts"
+      }
+    },
+    {
+      "name": "client/stores/BillingStore.ts",
+      "code": {
+        "file": "client/stores/BillingStore.ts"
+      }
+    },
+    {
+      "name": "client/delegates/BillingDelegate.ts",
+      "code": {
+        "file": "client/delegates/BillingDelegate.ts"
+      }
+    },
+    {
+      "name": "client/setups/BillingSetup.ts",
+      "code": {
+        "file": "client/setups/BillingSetup.ts"
+      }
+    },
+    {
+      "name": "client/entities/BillingEntity.ts",
+      "code": {
+        "file": "client/entities/BillingEntity.ts"
+      }
+    },
+    {
+      "name": "client/services/BillingService.swift",
+      "code": {
+        "file": "client/services/BillingService.swift"
+      }
+    },
+    {
+      "name": "client/stores/BillingStore.swift",
+      "code": {
+        "file": "client/stores/BillingStore.swift"
+      }
+    },
+    {
+      "name": "client/setups/BillingSetup.swift",
+      "code": {
+        "file": "client/setups/BillingSetup.swift"
+      }
+    },
+    {
+      "name": "client/entities/BillingEntity.swift",
+      "code": {
+        "file": "client/entities/BillingEntity.swift"
+      }
+    },
+    {
+      "name": "client/services/BillingService.kt",
+      "code": {
+        "file": "client/services/BillingService.kt"
+      }
+    },
+    {
+      "name": "client/stores/BillingStore.kt",
+      "code": {
+        "file": "client/stores/BillingStore.kt"
+      }
+    },
+    {
+      "name": "client/setups/BillingSetup.kt",
+      "code": {
+        "file": "client/setups/BillingSetup.kt"
+      }
+    },
+    {
+      "name": "client/entities/BillingEntity.kt",
+      "code": {
+        "file": "client/entities/BillingEntity.kt"
+      }
+    },
+    {
+      "name": "client/services/BillingService.cs",
+      "code": {
+        "file": "client/services/BillingService.cs"
+      }
+    },
+    {
+      "name": "client/stores/BillingStore.cs",
+      "code": {
+        "file": "client/stores/BillingStore.cs"
+      }
+    },
+    {
+      "name": "client/setups/BillingSetup.cs",
+      "code": {
+        "file": "client/setups/BillingSetup.cs"
+      }
+    },
+    {
+      "name": "client/entities/BillingEntity.cs",
+      "code": {
+        "file": "client/entities/BillingEntity.cs"
+      }
+    },
+    {
+      "name": "client/services/BillingService.rs",
+      "code": {
+        "file": "client/services/BillingService.rs"
+      }
+    },
+    {
+      "name": "client/stores/BillingStore.rs",
+      "code": {
+        "file": "client/stores/BillingStore.rs"
+      }
+    },
+    {
+      "name": "client/setups/BillingSetup.rs",
+      "code": {
+        "file": "client/setups/BillingSetup.rs"
+      }
+    },
+    {
+      "name": "client/entities/BillingEntity.rs",
+      "code": {
+        "file": "client/entities/BillingEntity.rs"
+      }
+    },
+    {
+      "name": "client/services/BillingService.go",
+      "code": {
+        "file": "client/services/BillingService.go"
+      }
+    },
+    {
+      "name": "client/stores/BillingStore.go",
+      "code": {
+        "file": "client/stores/BillingStore.go"
+      }
+    },
+    {
+      "name": "client/setups/BillingSetup.go",
+      "code": {
+        "file": "client/setups/BillingSetup.go"
+      }
+    },
+    {
+      "name": "client/entities/BillingEntity.go",
+      "code": {
+        "file": "client/entities/BillingEntity.go"
+      }
+    },
+    {
+      "name": "client/services/BillingService.dart",
+      "code": {
+        "file": "client/services/BillingService.dart"
+      }
+    },
+    {
+      "name": "client/stores/BillingStore.dart",
+      "code": {
+        "file": "client/stores/BillingStore.dart"
+      }
+    },
+    {
+      "name": "client/delegates/BillingDelegate.dart",
+      "code": {
+        "file": "client/delegates/BillingDelegate.dart"
+      }
+    },
+    {
+      "name": "client/setups/BillingSetup.dart",
+      "code": {
+        "file": "client/setups/BillingSetup.dart"
+      }
+    },
+    {
+      "name": "client/entities/BillingEntity.dart",
+      "code": {
+        "file": "client/entities/BillingEntity.dart"
+      }
+    },
+    {
+      "name": "client/services/BillingService.rb",
+      "code": {
+        "file": "client/services/BillingService.rb"
+      }
+    },
+    {
+      "name": "client/stores/BillingStore.rb",
+      "code": {
+        "file": "client/stores/BillingStore.rb"
+      }
+    },
+    {
+      "name": "client/setups/BillingSetup.rb",
+      "code": {
+        "file": "client/setups/BillingSetup.rb"
+      }
+    },
+    {
+      "name": "client/entities/BillingEntity.rb",
+      "code": {
+        "file": "client/entities/BillingEntity.rb"
+      }
+    },
+    {
+      "name": "client/services/BillingService.py",
+      "code": {
+        "file": "client/services/BillingService.py"
+      }
+    },
+    {
+      "name": "client/stores/BillingStore.py",
+      "code": {
+        "file": "client/stores/BillingStore.py"
+      }
+    },
+    {
+      "name": "client/delegates/BillingDelegate.py",
+      "code": {
+        "file": "client/delegates/BillingDelegate.py"
+      }
+    },
+    {
+      "name": "client/setups/BillingSetup.py",
+      "code": {
+        "file": "client/setups/BillingSetup.py"
+      }
+    },
+    {
+      "name": "client/entities/BillingEntity.py",
+      "code": {
+        "file": "client/entities/BillingEntity.py"
+      }
+    },
+    {
+      "name": "client/services/BillingService.lua",
+      "code": {
+        "file": "client/services/BillingService.lua"
+      }
+    },
+    {
+      "name": "client/stores/BillingStore.lua",
+      "code": {
+        "file": "client/stores/BillingStore.lua"
+      }
+    },
+    {
+      "name": "client/delegates/BillingDelegate.lua",
+      "code": {
+        "file": "client/delegates/BillingDelegate.lua"
+      }
+    },
+    {
+      "name": "client/setups/BillingSetup.lua",
+      "code": {
+        "file": "client/setups/BillingSetup.lua"
+      }
+    },
+    {
+      "name": "client/entities/BillingEntity.lua",
+      "code": {
+        "file": "client/entities/BillingEntity.lua"
+      }
+    },
+    {
+      "name": "client/services/BillingService.java",
+      "code": {
+        "file": "client/services/BillingService.java"
+      }
+    },
+    {
+      "name": "client/stores/BillingStore.java",
+      "code": {
+        "file": "client/stores/BillingStore.java"
+      }
+    },
+    {
+      "name": "client/setups/BillingSetup.java",
+      "code": {
+        "file": "client/setups/BillingSetup.java"
+      }
+    },
+    {
+      "name": "client/entities/BillingEntity.java",
+      "code": {
+        "file": "client/entities/BillingEntity.java"
+      }
+    },
+    {
+      "name": "client/services/BillingService.fs",
+      "code": {
+        "file": "client/services/BillingService.fs"
+      }
+    },
+    {
+      "name": "client/stores/BillingStore.fs",
+      "code": {
+        "file": "client/stores/BillingStore.fs"
+      }
+    },
+    {
+      "name": "client/setups/BillingSetup.fs",
+      "code": {
+        "file": "client/setups/BillingSetup.fs"
+      }
+    },
+    {
+      "name": "client/entities/BillingEntity.fs",
+      "code": {
+        "file": "client/entities/BillingEntity.fs"
+      }
+    },
+    {
+      "name": "client/setups/BillingSetup.hpp",
+      "code": {
+        "file": "client/setups/BillingSetup.hpp"
+      }
+    },
+    {
+      "name": "client/entities/BillingEntity.hpp",
+      "code": {
+        "file": "client/entities/BillingEntity.hpp"
+      }
+    },
+    {
+      "name": "client/stores/BillingStore.hpp",
+      "code": {
+        "file": "client/stores/BillingStore.hpp"
+      }
+    },
+    {
+      "name": "client/services/BillingService.hpp",
+      "code": {
+        "file": "client/services/BillingService.hpp"
+      }
+    }
+  ]
+}

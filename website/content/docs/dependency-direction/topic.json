@@ -1,0 +1,12 @@
+{
+  "title": "Dependencies point down",
+  "summary": "A class needs only the classes below it, and no chain of classes loops back. The build checks this with TY1327.",
+  "before": [
+    "utilities"
+  ],
+  "sections": [
+    {
+      "include": "dependencies-point-down/section.json"
+    }
+  ]
+}

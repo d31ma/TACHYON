@@ -1,0 +1,13 @@
+@Test(HelloTestSetup, {"partition":"tests"})
+export default class HelloServiceTest {
+  /** @type {HelloClient} */
+  @Fake
+  helloClient
+
+  async testAskServerSavesTheMessage() {
+    this.helloClient = { getHello: async () => ({ message: 'Hi' }) }
+    const hello = this.construct(HelloService)
+    await hello.askServer()
+    Assert.equals('Hi', hello.message)
+  }
+}

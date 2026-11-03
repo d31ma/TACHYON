@@ -1,0 +1,5 @@
+{
+  "workers": {
+    "server/workers/legacy.js": { "every_seconds": 300 }
+  }
+}

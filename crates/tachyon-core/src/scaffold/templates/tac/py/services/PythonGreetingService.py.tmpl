@@ -1,0 +1,7 @@
+@service
+class PythonGreetingService:
+    message: str = "Hello from Python"
+
+    def greet(self) -> str:
+        self.message = "Python says hello again."
+        return self.message

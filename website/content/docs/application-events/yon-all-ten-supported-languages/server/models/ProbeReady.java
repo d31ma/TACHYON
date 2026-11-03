@@ -1,0 +1,1 @@
+record ProbeReady(long value) {}

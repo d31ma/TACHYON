@@ -1,7 +1,6 @@
 use super::Scope;
 use serde_json::Value;
 
-/// Built-in browser context for a client-rendered Tac route.
 pub(crate) fn client_route_context() -> Scope {
     Scope::from([
         (

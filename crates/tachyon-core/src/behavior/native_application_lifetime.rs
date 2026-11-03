@@ -1,0 +1,95 @@
+use crate::Failure;
+use std::path::Path;
+use tachyon_contracts::NativeTarget;
+
+pub(crate) struct NativeApplicationLifetime;
+
+impl NativeApplicationLifetime {
+    const NATIVE_TARGETS: [NativeTarget; 5] = [
+        NativeTarget::Macos,
+        NativeTarget::Linux,
+        NativeTarget::Windows,
+        NativeTarget::Ios,
+        NativeTarget::Android,
+    ];
+
+    pub(crate) fn supported(path: &Path, value: &str) -> bool {
+        Self::value(path, value)
+    }
+
+    pub(crate) fn advice(value: &str) -> &'static str {
+        Self::message(value)
+    }
+
+    pub(crate) fn unsupported(path: &Path, at: usize, value: &str) -> Option<Failure> {
+        (value == "application").then(|| {
+            Failure::one(crate::failure::diagnostic(
+                1406,
+                Self::message(value),
+                None,
+                crate::failure::source_span(&path.to_string_lossy(), at, at + "Lifetime".len()),
+            ))
+        })
+    }
+
+    pub(crate) fn target(
+        path: &Path,
+        application: Option<usize>,
+        target: Option<NativeTarget>,
+    ) -> Result<(), Failure> {
+        application
+            .map(|at| Self::target_at(path, at, target))
+            .transpose()
+            .map(|_| ())
+    }
+
+    fn value(path: &Path, value: &str) -> bool {
+        [
+            ["singleton", "prototype"].contains(&value),
+            (value, Self::rust_service(path)) == ("application", true),
+        ]
+        .contains(&true)
+    }
+
+    fn rust_service(path: &Path) -> bool {
+        let extension = path.extension().and_then(|value| value.to_str());
+        let realm = crate::annotation_rules::Realm::of(path);
+        let folder = Self::client_folder(path);
+        (extension, realm, folder)
+            == (
+                Some("rs"),
+                Some(crate::annotation_rules::Realm::Tac),
+                Some(std::ffi::OsStr::new("services")),
+            )
+    }
+
+    fn client_folder(path: &Path) -> Option<&std::ffi::OsStr> {
+        path.components()
+            .skip_while(|part| part.as_os_str() != "client")
+            .nth(1)
+            .map(std::path::Component::as_os_str)
+    }
+
+    fn message(value: &str) -> &'static str {
+        match value {
+            "application" => {
+                "Application lifetime requires a client Rust Service and a native macOS, Linux, Windows, iOS or Android build; other languages, roles and realms are unsupported."
+            }
+            _ => "Lifetime.value must be singleton or prototype",
+        }
+    }
+
+    fn target_at(path: &Path, at: usize, target: Option<NativeTarget>) -> Result<(), Failure> {
+        target
+            .filter(|target| Self::NATIVE_TARGETS.contains(target))
+            .map(|_| ())
+            .ok_or_else(|| {
+                Failure::one(crate::failure::diagnostic(
+                    1406,
+                    "Application lifetime is supported only by native builds with Rust; a browser page has no application lifetime, so use a page or singleton Service there.",
+                    None,
+                    crate::failure::source_span(&path.to_string_lossy(), at, at + "Lifetime".len()),
+                ))
+            })
+    }
+}

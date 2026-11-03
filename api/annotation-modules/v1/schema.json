@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tachyon.del.ma/schema/annotation-modules/v1",
+  "title": "Tachyon Annotation Modules v1",
+  "description": "Explicit project-relative same-language source lists. Runtime additionally enforces duplicate-key rejection, a 16 KiB sidecar and 128 total modules, path components and symlink safety, client/server separation, owner language support and 1 MiB assembled source.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "js": {
+      "type": "array",
+      "maxItems": 128,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(client|server)/(?!.*(?:^|/)[.]{1,2}/)[^\\\\\\u0000:]+\\.js$"
+      }
+    },
+    "ts": {
+      "type": "array",
+      "maxItems": 128,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(client|server)/(?!.*(?:^|/)[.]{1,2}/)[^\\\\\\u0000:]+\\.ts$"
+      }
+    },
+    "py": {
+      "type": "array",
+      "maxItems": 128,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(client|server)/(?!.*(?:^|/)[.]{1,2}/)[^\\\\\\u0000:]+\\.py$"
+      }
+    },
+    "php": {
+      "type": "array",
+      "maxItems": 128,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(client|server)/(?!.*(?:^|/)[.]{1,2}/)[^\\\\\\u0000:]+\\.php$"
+      }
+    },
+    "java": {
+      "type": "array",
+      "maxItems": 128,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(client|server)/(?!.*(?:^|/)[.]{1,2}/)[^\\\\\\u0000:]+\\.java$"
+      }
+    },
+    "kt": {
+      "type": "array",
+      "maxItems": 128,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(client|server)/(?!.*(?:^|/)[.]{1,2}/)[^\\\\\\u0000:]+\\.kt$"
+      }
+    },
+    "cs": {
+      "type": "array",
+      "maxItems": 128,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(client|server)/(?!.*(?:^|/)[.]{1,2}/)[^\\\\\\u0000:]+\\.cs$"
+      }
+    },
+    "rs": {
+      "type": "array",
+      "maxItems": 128,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(client|server)/(?!.*(?:^|/)[.]{1,2}/)[^\\\\\\u0000:]+\\.rs$"
+      }
+    },
+    "swift": {
+      "type": "array",
+      "maxItems": 128,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(client|server)/(?!.*(?:^|/)[.]{1,2}/)[^\\\\\\u0000:]+\\.swift$"
+      }
+    }
+  }
+}

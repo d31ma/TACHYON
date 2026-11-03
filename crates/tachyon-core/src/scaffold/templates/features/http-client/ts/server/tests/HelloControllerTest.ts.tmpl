@@ -1,0 +1,7 @@
+@Test(HelloTestSetup, {"partition":"tests"})
+export default class HelloControllerTest {
+  async testGetHelloSaysHello(): Promise<void> {
+    const hello = this.construct(HelloController).getHello();
+    Assert.equals('Hello from Yon', hello.message);
+  }
+}

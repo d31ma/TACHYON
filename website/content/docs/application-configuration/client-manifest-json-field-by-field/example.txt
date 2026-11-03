@@ -1,0 +1,180 @@
+name                                          browser, native
+  The application's name. A native build names the app and its
+  executable after it (short_name when name is absent). 1 to 64
+  printable characters.
+
+short_name                                    browser, native
+  The label a launcher shows where name is too long.
+
+start_url                                     browser, native
+  The route the application opens at, and the entry route of a
+  native build. A canonical local route, such as "/".
+
+icons                                         browser, native
+  [{ "src": "/icon-512.png", "sizes": "512x512" }], local bundle
+  paths. A native build uses the largest raster icon; an SVG-only
+  manifest gets no native icon rather than a blurry one.
+
+theme_color                            browser, build, native
+  Published as written. Text that is not blank also becomes
+  <meta name="theme-color" content="..."> in every page head,
+  HTML-escaped. One color: there is no light and dark pair.
+  On Windows 11, #rgb or #rrggbb also colors the title bar.
+
+display                                       browser, native
+  fullscreen, standalone, minimal-ui or browser; anything else
+  stops the build. "fullscreen" opens a Windows app borderless
+  and full screen.
+
+background_color, ...                                 browser
+  Standard members for a browser's install, published as written.
+
+tac                                              Tac services
+  Tac's public configuration (ADR 0034): any nested object, bound
+  with TAC_ names and tac. paths, so tac.api.url is TAC_API_URL.
+  Lowercase keys, and no secret-shaped names such as password.
+
+tac.application.id                                     native
+  Reverse-DNS bundle identifier, such as com.example.catalog.
+  Derived from the project folder when absent.
+
+tac.application.version                                native
+  The version people see, such as 1.4.0 (1.0.0 when absent). It is
+  CFBundleShortVersionString on Apple targets, versionName on
+  Android, the Windows file and product version, and
+  X-Tachyon-Version on Linux. macOS, iOS and Windows need one to
+  three numbers, such as 1.4.0 (each at most 65535 on Windows),
+  or the build for them stops (TY1601).
+
+tac.application.build                                  native
+  The build number, a whole number from 1 (1 when absent). It is
+  CFBundleVersion on Apple targets, versionCode on Android (at
+  most 2100000000), the fourth Windows file version number (at
+  most 65535: 1.4.0 with build 12 is 1.4.0.12) and
+  X-Tachyon-Build on Linux.
+
+tac.application.window                                 native
+  width and height the window opens at (1024 by 768 unless set,
+  each 64 to 16384; macOS and Windows), minWidth and minHeight
+  (the smallest size the user can drag it to), and controls: which
+  window controls a service may use through WindowControls (close,
+  fullscreen, maximize, minimize, resize, title). None are granted
+  unless listed. titleBar "integrated" lets a macOS page reach the
+  top edge under the real window buttons ("standard" unless set;
+  other targets keep the standard bar and the build prints a
+  note), and titleBarButtonInset { "leading", "top" }, 0 to 200
+  points each, moves those buttons (see Window controls).
+
+tac.application.permissions                            native
+  The reason the app shows when it asks the user: { "geolocation":
+  "Shows stores near you", "notifications": "Order updates" }.
+  Each must also be in tac.browserApis; 1 to 200 characters. iOS,
+  macOS and Android builds that grant geolocation need one, and
+  Android builds that grant notifications need one (TY1601).
+
+tac.application.menus                           native desktop
+  Your items in the File, View and Help menus of a macOS, Linux
+  or Windows app: { "help": [{ "id": "guide", "label": "Guide",
+  "route": "/guide", "shortcut": { "key": "g", "modifiers":
+  ["command"] } }] }. Each item has a route (a static page) or an
+  action { "service", "method", "event" } on a Rust application
+  service. At most 64 items; iOS and Android refuse them (see
+  Native menus).
+
+tac.application.rust                            native desktop, iOS
+  Rust companion crates and helpers. dependencies lists exact
+  versions, or { "version", "features", "defaultFeatures" }.
+  platformDependencies has ios, macos, linux and windows tables.
+  iOS refuses executables.
+  executables maps up to 8 names, such as "catalog-event", to
+  client class paths, such as "/shared/native/EventEmitterMain.rs".
+  Each class has pub fn run() -> i32. Crates come from vendor/rust
+  at the project root; packaged builds run Cargo offline. Delegates
+  go beside the app executable (see Rust crates and helper
+  executables). These settings require a native Rust service.
+
+tac.application.minimumSystem                          native
+  The oldest system each app runs on: { "ios": "18.2", "macos":
+  "15.2", "android": 28, "windows": "119.0", "linux": "2.46" }.
+  windows is the WebView2 Runtime and linux is WebKitGTK. Unset
+  targets use the host floor, raised for Dart, Kotlin and Java
+  services (WebAssembly garbage collection; Dart also imports
+  WebAssembly.JSTag, so 18.4, 15.4 and 2.48; Java also needs
+  exception references, so 18.4, 15.4, 137.0 and 2.48) with one
+  note. A value below the floor stops the build (TY1601).
+  Windows and Linux check the web view at startup and explain an
+  old one.
+
+tac.application.links                            build, native
+  { "schemes": ["myapp"], "hosts": ["example.com"] }: the links that
+  open the app at the route of their path, or at start_url when the
+  route is unknown. Schemes are lowercase and not http, https, mailto
+  or file; hosts are verified web links. With hosts, the web build
+  writes the .well-known association files from TAC_APPLE_TEAM_ID,
+  TAC_ANDROID_CERT_SHA256 and TAC_WINDOWS_CERTIFICATE_PUBLISHER
+  (never the manifest), or prints a note.
+
+tac.nativeCapabilities                                 native
+  ["filePicker"]: native capabilities a native service may use.
+  The only name today; without it the picker answers denied.
+
+tac.origin                                              build
+  The public address, such as https://example.com, without a path.
+  It turns on the built-in sitemap.xml and robots.txt.
+
+tac.scripts, tac.styles                                 build
+  Up to 8 local paths each, linked into every page. A style is
+  foundation CSS (colors, fonts, resets) unless styleSources says
+  it is a pinned vendor file (TY1403). Each script is a deferred
+  module that runs after the Tac runtime.
+
+tac.blockingScripts                                     build
+  Up to 8 local paths, each linked as a classic script before the
+  Tac runtime, such as "/shared/scripts/ThemeDefault.js". It runs
+  before the first paint, so it can apply a saved theme. The page
+  waits for it: keep it small, with no import or export.
+
+tac.styleSources, tac.scriptSources                     build
+  Where each listed file comes from, keyed by its path:
+  { "kind": "foundation" } for your own style, or a pinned vendor
+  file with package, version, license and sha256 (styleSources
+  adds "kind": "vendor"). A vendor script must also be in
+  tac.scripts (TY1365). Tachyon publishes vendor files unchanged.
+
+tac.outgoing.hosts                                      build
+  Other hosts that page code may send requests to, such as
+  ["api.example.com", "*.cdn.example"]. The page's connect-src
+  allows only these; any other request host stops the build
+  (TY1326).
+
+tac.yon.origin                         build, browser, native
+  The Yon server the pages call, such as https://api.example.com:
+  https and a lowercase host, no path or trailing slash. http only
+  for a local Yon (http://localhost:8080); others stop the build
+  (TY1601). Route paths go there over CORS, without cookies, and
+  connect-src allows it. A native app needs it to reach Yon; list
+  the app origin in server.origins (ADR 0103).
+
+tac.python                                              build
+  Exactly { "runtime": "pyodide-314.0.7", "profile": "offline" }
+  to run Python services; other values are refused. The build
+  copies the pinned Pyodide files from the Tachyon cache.
+
+tac.elements                                            build
+  Components to export as custom elements, such as
+  ["shop-counter"]: one module each in .tachyon/elements/.
+
+tac.cache                                               build
+  Service-worker rules: [{ "path": "/api/*", "policy":
+  "network-first" }]; cache-first, network-first or no-store.
+  They answer navigations, assets and Cached HTTPClient GETs.
+
+tac.metadata                                            build
+  defaults, and routes keyed by route: title, description,
+  canonical, image, siteName, lang, noindex.
+
+tac.sitemap                                             build
+  Values for a dynamic page route, read from a shared data file:
+  { "/docs/_topic": { "data": "/shared/data/docs.json",
+  "values": "/order" } }.
+

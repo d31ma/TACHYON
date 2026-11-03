@@ -1,0 +1,3 @@
+Close Window (Command-W)   page services stop; application services keep running
+Click the Dock icon         new window at the start page, fresh page services and menu items
+Quit (Command-Q)            application services stop once

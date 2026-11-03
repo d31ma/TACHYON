@@ -1,0 +1,21 @@
+{
+  "name": "Catalog",
+  "short_name": "Catalog",
+  "start_url": "/",
+  "display": "standalone",
+  "tac": {
+    "python": {
+      "runtime": "pyodide-314.0.7",
+      "profile": "offline"
+    },
+    "catalog": {
+      "title": "Catalog",
+      "page": {
+        "size": 20
+      },
+      "cache": {
+        "enabled": true
+      }
+    }
+  }
+}

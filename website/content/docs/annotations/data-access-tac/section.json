@@ -1,0 +1,350 @@
+{
+  "heading": "Data access: Tac",
+  "axis": "language",
+  "summary": "The same five annotations in the browser and on native targets. A view addresses a service, the service owns the behavior context, and the store carries the query plan.",
+  "body": "Select a language tab and copy the page, the component view and the four role files. JavaScript, TypeScript, Dart and Ruby bundle for the web, and Lua bundles for the web as WebAssembly. Swift, Kotlin, C# and Rust stage their native hosts. Go and Java bundle for the web as WebAssembly. The view reads {product.summary} from the service. A view reads its services and the built-in `data` and `page` roots, nothing else (ADR 0036). The store is the same contract as in Yon: it has no implementation, and Tachyon generates each query. It extends Repository<ProductEntity, Id> in the same form as in Yon, so a service can also call findById, findAll, save and deleteById, and a derived deleteBy method removes the matching rows from IndexedDB. The service asks for the store with Needs, as a Yon service does, and never builds it. A service asks for a Converter the same way; the converter opens no context (see Mapping: Tac). The store creates its own context from the Setup that its setup option names, here CatalogSetup. Without a setup option, a store uses the Setup with its own stem: ProductStore would use ProductSetup. Tachyon configures a Setup once per page, so this context shares the Setup's adapters with every other context built from the same Setup (see Declarative HTTP clients for the compiled languages that do not share them yet). In JavaScript and TypeScript the service's owner creates that context before the service starts, because a browser creates a context asynchronously. Dart builds the store with the service. A Kotlin, Swift, Java or C# service that marks a store field with Needs gets a new store in that field, a Rust service fills it with Default, a Go service gets it before it starts, and a Ruby attr_reader documented with # @return [ProductStore] builds it the first time it runs. A Lua service marks a field with `-- @Needs` and `---@type ProductStore`, and Tachyon builds the store with the service. An F# service takes the store as a `[<Needs>]` property, such as `[<Needs>] member val Products : ProductStore = Unchecked.defaultof<ProductStore> with get, set`, or as a primary constructor parameter, type ProductService(products: ProductStore) =, which Tachyon turns into a let binding that builds the store. The Swift, Kotlin, C# and Rust services below carry the Service marker, like every class in client/services (TY1363). The compiler finds their annotated entity, store and setup files and adds them to the same compile unit. A native companion (Android Kotlin, or a native Swift, Rust or C# app) has no page storage, so its Setup must name the entity adapter: its native build stops when a Store uses an entity adapter that no Setup in the service names (ADR 0059).\n\nThe annotations and their options are the same as in Yon. The previous section runs them in a full example. Only the realm is different. The role folders are client/entities, client/stores, client/setups and client/services (ADR 0031). Table is a modifier (an extra annotation on the entity). It does not change the entity's path. Declaring an entity does not open a database. The adapter named by Entity.adapter is usually application code. In JavaScript, TypeScript, Dart and Ruby, and in Go, Rust, C# and Kotlin services that run as WebAssembly, the name \"indexeddb\" needs no adapter code: Tachyon keeps one IndexedDB object store per Table, keyed by the Id field. A Dart, Ruby or WebAssembly service answers the page synchronously, so Tachyon loads its Tables into memory before the services start (at most 10,000 rows per Table), reads from that copy and saves changes to IndexedDB in the background. It builds an index for every field that a Store query compares or orders by, and it adds new indexes by upgrading the database version. It never deletes stored rows: if the Id field changes, it stops with a message. A query that has no usable index reads at most 10,000 rows. AllOrNothing collects the writes and saves them in one IndexedDB transaction. A Store that uses \"indexeddb\" needs no authorizeEntity, because the data never leaves the browser. It handles the transport, the query parameters and tenancy (keeping the data of each customer apart). authorizeEntity must approve every query. Tac stays client-rendered (the browser builds the page). It uses only public TAC_ configuration, never private Yon credentials. The C++ example uses the built-in \"indexeddb\" adapter, which keeps the rows in the browser and needs no Setup. A C++ Store of another adapter gets it from its Setup, `ProductSetup` for `ProductStore` unless the Store names another with `\"setup\"`, which gives `adapters.entities` and `adapters.authorizeEntity` (ADR 0099).",
+  "files": [
+    {
+      "name": "client/pages/tac.html",
+      "code": {
+        "file": "client/pages/tac.html"
+      }
+    },
+    {
+      "name": "client/components/product/panel/tac.html",
+      "code": {
+        "file": "client/components/product/panel/tac.html"
+      }
+    },
+    {
+      "name": "client/services/ProductService.js",
+      "code": {
+        "file": "client/services/ProductService.js"
+      }
+    },
+    {
+      "name": "client/entities/ProductEntity.js",
+      "code": {
+        "file": "client/entities/ProductEntity.js"
+      }
+    },
+    {
+      "name": "client/stores/ProductStore.js",
+      "code": {
+        "file": "client/stores/ProductStore.js"
+      }
+    },
+    {
+      "name": "client/setups/CatalogSetup.js",
+      "code": {
+        "file": "client/setups/CatalogSetup.js"
+      }
+    },
+    {
+      "name": "client/services/ProductService.ts",
+      "code": {
+        "file": "client/services/ProductService.ts"
+      }
+    },
+    {
+      "name": "client/entities/ProductEntity.ts",
+      "code": {
+        "file": "client/entities/ProductEntity.ts"
+      }
+    },
+    {
+      "name": "client/stores/ProductStore.ts",
+      "code": {
+        "file": "client/stores/ProductStore.ts"
+      }
+    },
+    {
+      "name": "client/setups/CatalogSetup.ts",
+      "code": {
+        "file": "client/setups/CatalogSetup.ts"
+      }
+    },
+    {
+      "name": "client/services/ProductService.swift",
+      "code": {
+        "file": "client/services/ProductService.swift"
+      }
+    },
+    {
+      "name": "client/entities/ProductEntity.swift",
+      "code": {
+        "file": "client/entities/ProductEntity.swift"
+      }
+    },
+    {
+      "name": "client/stores/ProductStore.swift",
+      "code": {
+        "file": "client/stores/ProductStore.swift"
+      }
+    },
+    {
+      "name": "client/setups/CatalogSetup.swift",
+      "code": {
+        "file": "client/setups/CatalogSetup.swift"
+      }
+    },
+    {
+      "name": "client/services/ProductService.kt",
+      "code": {
+        "file": "client/services/ProductService.kt"
+      }
+    },
+    {
+      "name": "client/entities/ProductEntity.kt",
+      "code": {
+        "file": "client/entities/ProductEntity.kt"
+      }
+    },
+    {
+      "name": "client/stores/ProductStore.kt",
+      "code": {
+        "file": "client/stores/ProductStore.kt"
+      }
+    },
+    {
+      "name": "client/setups/CatalogSetup.kt",
+      "code": {
+        "file": "client/setups/CatalogSetup.kt"
+      }
+    },
+    {
+      "name": "client/services/ProductService.cs",
+      "code": {
+        "file": "client/services/ProductService.cs"
+      }
+    },
+    {
+      "name": "client/services/ProductService.fs",
+      "code": {
+        "file": "client/services/ProductService.fs"
+      }
+    },
+    {
+      "name": "client/entities/ProductEntity.cs",
+      "code": {
+        "file": "client/entities/ProductEntity.cs"
+      }
+    },
+    {
+      "name": "client/entities/ProductEntity.fs",
+      "code": {
+        "file": "client/entities/ProductEntity.fs"
+      }
+    },
+    {
+      "name": "client/stores/ProductStore.cs",
+      "code": {
+        "file": "client/stores/ProductStore.cs"
+      }
+    },
+    {
+      "name": "client/stores/ProductStore.fs",
+      "code": {
+        "file": "client/stores/ProductStore.fs"
+      }
+    },
+    {
+      "name": "client/setups/CatalogSetup.cs",
+      "code": {
+        "file": "client/setups/CatalogSetup.cs"
+      }
+    },
+    {
+      "name": "client/setups/CatalogSetup.fs",
+      "code": {
+        "file": "client/setups/CatalogSetup.fs"
+      }
+    },
+    {
+      "name": "client/services/ProductService.rs",
+      "code": {
+        "file": "client/services/ProductService.rs"
+      }
+    },
+    {
+      "name": "client/entities/ProductEntity.rs",
+      "code": {
+        "file": "client/entities/ProductEntity.rs"
+      }
+    },
+    {
+      "name": "client/stores/ProductStore.rs",
+      "code": {
+        "file": "client/stores/ProductStore.rs"
+      }
+    },
+    {
+      "name": "client/setups/CatalogSetup.rs",
+      "code": {
+        "file": "client/setups/CatalogSetup.rs"
+      }
+    },
+    {
+      "name": "client/services/ProductService.go",
+      "code": {
+        "file": "client/services/ProductService.go"
+      }
+    },
+    {
+      "name": "client/entities/ProductEntity.go",
+      "code": {
+        "file": "client/entities/ProductEntity.go"
+      }
+    },
+    {
+      "name": "client/stores/ProductStore.go",
+      "code": {
+        "file": "client/stores/ProductStore.go"
+      }
+    },
+    {
+      "name": "client/setups/CatalogSetup.go",
+      "code": {
+        "file": "client/setups/CatalogSetup.go"
+      }
+    },
+    {
+      "name": "client/services/ProductService.dart",
+      "code": {
+        "file": "client/services/ProductService.dart"
+      }
+    },
+    {
+      "name": "client/entities/ProductEntity.dart",
+      "code": {
+        "file": "client/entities/ProductEntity.dart"
+      }
+    },
+    {
+      "name": "client/stores/ProductStore.dart",
+      "code": {
+        "file": "client/stores/ProductStore.dart"
+      }
+    },
+    {
+      "name": "client/setups/CatalogSetup.dart",
+      "code": {
+        "file": "client/setups/CatalogSetup.dart"
+      }
+    },
+    {
+      "name": "client/services/ProductService.rb",
+      "code": {
+        "file": "client/services/ProductService.rb"
+      }
+    },
+    {
+      "name": "client/entities/ProductEntity.rb",
+      "code": {
+        "file": "client/entities/ProductEntity.rb"
+      }
+    },
+    {
+      "name": "client/stores/ProductStore.rb",
+      "code": {
+        "file": "client/stores/ProductStore.rb"
+      }
+    },
+    {
+      "name": "client/setups/CatalogSetup.rb",
+      "code": {
+        "file": "client/setups/CatalogSetup.rb"
+      }
+    },
+    {
+      "name": "client/services/ProductService.py",
+      "code": {
+        "file": "client/services/ProductService.py"
+      }
+    },
+    {
+      "name": "client/entities/ProductEntity.py",
+      "code": {
+        "file": "client/entities/ProductEntity.py"
+      }
+    },
+    {
+      "name": "client/stores/ProductStore.py",
+      "code": {
+        "file": "client/stores/ProductStore.py"
+      }
+    },
+    {
+      "name": "client/setups/CatalogSetup.py",
+      "code": {
+        "file": "client/setups/CatalogSetup.py"
+      }
+    },
+    {
+      "name": "client/services/ProductService.lua",
+      "code": {
+        "file": "client/services/ProductService.lua"
+      }
+    },
+    {
+      "name": "client/entities/ProductEntity.lua",
+      "code": {
+        "file": "client/entities/ProductEntity.lua"
+      }
+    },
+    {
+      "name": "client/stores/ProductStore.lua",
+      "code": {
+        "file": "client/stores/ProductStore.lua"
+      }
+    },
+    {
+      "name": "client/setups/CatalogSetup.lua",
+      "code": {
+        "file": "client/setups/CatalogSetup.lua"
+      }
+    },
+    {
+      "name": "client/services/ProductService.java",
+      "code": {
+        "file": "client/services/ProductService.java"
+      }
+    },
+    {
+      "name": "client/entities/ProductEntity.java",
+      "code": {
+        "file": "client/entities/ProductEntity.java"
+      }
+    },
+    {
+      "name": "client/stores/ProductStore.java",
+      "code": {
+        "file": "client/stores/ProductStore.java"
+      }
+    },
+    {
+      "name": "client/setups/CatalogSetup.java",
+      "code": {
+        "file": "client/setups/CatalogSetup.java"
+      }
+    },
+    {
+      "name": "client/entities/ProductEntity.hpp",
+      "code": {
+        "file": "client/entities/ProductEntity.hpp"
+      }
+    },
+    {
+      "name": "client/stores/ProductStore.hpp",
+      "code": {
+        "file": "client/stores/ProductStore.hpp"
+      }
+    },
+    {
+      "name": "client/services/ProductService.hpp",
+      "code": {
+        "file": "client/services/ProductService.hpp"
+      }
+    }
+  ]
+}

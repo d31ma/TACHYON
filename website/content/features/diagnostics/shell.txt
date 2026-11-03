@@ -1,0 +1,10 @@
+error[TY1306]: Retired Tac lifecycle and signal decorators are no longer supported.
+  --> client/services/CatalogService.js:0..0
+  help: Use @OnStart/@OnStop for lifecycle, an injected applicationEventPublisher with OnEvent for local events, and @Needs fields named after the owner-bound browser resources.
+
+error[TY1310]: 'server/routes/orders/yon.py' is inside server/routes, which Tachyon no longer reads
+  --> server/routes/orders/yon.py:0..0
+  help: Routes now come from annotations (ADR 0048): put each controller in server/controllers/ and mark it with @RequestRoute("/path"), which gives the path its routes start with. `ty migrate fix --write` moves route files there.
+
+error[TY2112]: Required Yon JavaScript runtime 'node' was not found.
+  help: Install Node.js or Bun, or configure YON_JAVASCRIPT_RUNTIME.

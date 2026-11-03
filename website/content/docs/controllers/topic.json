@@ -1,0 +1,24 @@
+{
+  "title": "Controllers",
+  "summary": "A controller is a class in `server/controllers` that answers HTTP requests. Each method with a route annotation, such as `GetRoute`, answers one kind of request on one path. An argument marked `FromPath`, `FromQuery` or `FromBody` gets its value from the request. Every route also says who may call it with `Public`, `SignedIn` or `Allow(Role)`; the build stops without it.",
+  "before": [
+    "first-app"
+  ],
+  "sections": [
+    {
+      "include": "../yon/what-a-controller-method-is/section.json"
+    },
+    {
+      "include": "../routing/backend-routes/section.json"
+    },
+    {
+      "include": "../yon/route-convention/section.json"
+    },
+    {
+      "include": "../yon/annotated-controllers-and-providers/section.json"
+    },
+    {
+      "include": "../yon/native-requests-and-responses/section.json"
+    }
+  ]
+}

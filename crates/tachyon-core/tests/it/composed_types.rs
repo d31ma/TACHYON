@@ -1,0 +1,511 @@
+#![allow(clippy::expect_used)]
+
+use std::fs;
+use std::path::Path;
+use tachyon_core::ComposedTypes;
+
+fn write(root: &Path, name: &str, source: &str) {
+    let path = root.join(name);
+    fs::create_dir_all(path.parent().expect("parent")).expect("directory");
+    fs::write(path, source).expect("source");
+}
+
+fn generated(root: &Path, realm: &str) -> String {
+    ComposedTypes::write(root).expect("composed types");
+    fs::read_to_string(
+        root.join(".tachyon/types")
+            .join(realm)
+            .join("composed.d.ts"),
+    )
+    .expect("generated file")
+}
+
+fn declares(text: &str, name: &str, module: &str, member: &str) -> bool {
+    let target = format!("import(\"../../../{module}\").{member}");
+    text.contains(&format!("  type {name} = {target};\n"))
+        && text.contains(&format!("  const {name}: typeof {target};\n"))
+}
+
+fn names(text: &str) -> Vec<&str> {
+    let mut found = Vec::new();
+    for line in text.lines() {
+        if let Some(rest) = line.strip_prefix("  const ") {
+            found.push(rest.split(':').next().unwrap_or(""));
+        }
+    }
+    found
+}
+
+#[test]
+fn client_roles_become_globals_with_their_source_types() {
+    let root = tempfile::tempdir().expect("project");
+    write(
+        root.path(),
+        "client/services/TopicService.ts",
+        "import type { Guide } from '/models/Guide.ts'\n\n@Service\nexport default class TopicService {\n  entry(): Guide | null { return null }\n}\n",
+    );
+    write(
+        root.path(),
+        "client/stores/CartStore.js",
+        "@Store\nexport class CartStore {\n  count() { return 1 }\n}\n",
+    );
+    write(
+        root.path(),
+        "client/delegates/PricingDelegate.ts",
+        "@Delegate\nexport default class PricingDelegate {}\n",
+    );
+    let text = generated(root.path(), "client");
+    assert!(
+        text.starts_with("export {};\n\ndeclare global {\n"),
+        "{text}"
+    );
+    assert!(declares(
+        &text,
+        "TopicService",
+        "client/services/TopicService.ts",
+        "default"
+    ));
+    assert!(declares(
+        &text,
+        "CartStore",
+        "client/stores/CartStore.js",
+        "CartStore"
+    ));
+    assert!(declares(
+        &text,
+        "PricingDelegate",
+        "client/delegates/PricingDelegate.ts",
+        "default"
+    ));
+    assert_eq!(
+        names(&text),
+        ["CartStore", "PricingDelegate", "TopicService"]
+    );
+}
+
+#[test]
+fn only_exported_annotated_role_classes_are_declared() {
+    let root = tempfile::tempdir().expect("project");
+    let files = [
+        (
+            "client/services/ScriptService.js",
+            "@Service\nclass ScriptService {}\n",
+        ),
+        (
+            "client/services/Delegate.js",
+            "export default class Delegate {}\n",
+        ),
+        (
+            "client/services/notes.md",
+            "export default class Notes {}\n",
+        ),
+        (
+            "client/services/CheckService.py",
+            "@Service\nclass CheckService: pass\n",
+        ),
+        ("client/models/Guide.ts", "export class Guide {}\n"),
+        (
+            "client/tests/ShellServiceTest.js",
+            "@Test(ShellTestSetup)\nexport default class ShellServiceTest {}\n",
+        ),
+        (
+            "client/components/app/tac.js",
+            "export default class Shell {}\n",
+        ),
+        ("client/services/nested/tac.html", "<p>entry</p>\n"),
+        (
+            "client/services/nested/HiddenService.js",
+            "@Service\nexport default class HiddenService {}\n",
+        ),
+        (
+            "client/services/RealService.js",
+            "@Service\nexport default class RealService {}\n",
+        ),
+    ];
+    for (name, source) in files {
+        write(root.path(), name, source);
+    }
+    let text = generated(root.path(), "client");
+    assert_eq!(names(&text), ["RealService"], "{text}");
+}
+
+#[test]
+fn server_globals_include_errors_error_handlers_and_route_controllers_for_test_units() {
+    let root = tempfile::tempdir().expect("project");
+    let files = [
+        (
+            "server/services/OrdersService.js",
+            "@Service\nexport default class OrdersService {}\n",
+        ),
+        (
+            "server/controllers/OrdersController.js",
+            "@RequestRoute(\"/orders\")\n@Public\nexport class OrdersController {\n  @GetRoute\n  get() {}\n}\n",
+        ),
+        (
+            "server/controllers/OrdersErrorHandler.js",
+            "@ErrorHandler\nexport class OrdersErrorHandler {}\n",
+        ),
+        (
+            "server/errors/OrderNotFound.js",
+            "export class OrderNotFound extends Error {}\n",
+        ),
+    ];
+    for (name, source) in files {
+        write(root.path(), name, source);
+    }
+    let text = generated(root.path(), "server");
+    assert_eq!(
+        names(&text),
+        [
+            "OrderNotFound",
+            "OrdersController",
+            "OrdersErrorHandler",
+            "OrdersService"
+        ],
+        "{text}"
+    );
+    assert!(declares(
+        &text,
+        "OrderNotFound",
+        "server/errors/OrderNotFound.js",
+        "OrderNotFound"
+    ));
+}
+
+#[test]
+fn client_and_server_realms_are_kept_apart() {
+    let root = tempfile::tempdir().expect("project");
+    write(
+        root.path(),
+        "client/entities/ProductEntity.ts",
+        "@Entity({\"adapter\":\"data\"})\nexport default class ProductEntity {\n  @Id\n  id = ''\n}\n",
+    );
+    write(
+        root.path(),
+        "server/services/PriceService.ts",
+        "@Service\nexport default class PriceService {}\n",
+    );
+    let client = generated(root.path(), "client");
+    let server = generated(root.path(), "server");
+    assert_eq!(names(&client), ["ProductEntity"], "{client}");
+    assert_eq!(names(&server), ["PriceService"], "{server}");
+    assert!(!client.contains("server/"), "{client}");
+    assert!(!server.contains("client/"), "{server}");
+}
+
+#[test]
+fn exported_test_setups_are_declared_in_their_realm_for_test_units() {
+    let root = tempfile::tempdir().expect("project");
+    let files = [
+        (
+            "client/tests/SiteTestSetup.ts",
+            "@TestSetup\nexport default class SiteTestSetup {\n  static configure() { return {} }\n}\n",
+        ),
+        (
+            "client/tests/TopicServiceTest.ts",
+            "@Test(SiteTestSetup)\nexport default class TopicServiceTest {}\n",
+        ),
+        (
+            "client/tests/HiddenTestSetup.ts",
+            "@TestSetup\nclass HiddenTestSetup {}\n",
+        ),
+        (
+            "server/tests/OrdersTestSetup.js",
+            "@TestSetup\nexport default class OrdersTestSetup {}\n",
+        ),
+    ];
+    for (name, source) in files {
+        write(root.path(), name, source);
+    }
+    let client = generated(root.path(), "client");
+    let server = generated(root.path(), "server");
+    assert_eq!(names(&client), ["SiteTestSetup"], "{client}");
+    assert!(
+        declares(
+            &client,
+            "SiteTestSetup",
+            "client/tests/SiteTestSetup.ts",
+            "default"
+        ),
+        "{client}"
+    );
+    assert_eq!(names(&server), ["OrdersTestSetup"], "{server}");
+}
+
+#[test]
+fn a_deleted_class_leaves_no_stale_declaration() {
+    let root = tempfile::tempdir().expect("project");
+    write(
+        root.path(),
+        "client/services/KeptService.js",
+        "@Service\nexport default class KeptService {}\n",
+    );
+    write(
+        root.path(),
+        "client/services/GoneService.js",
+        "@Service\nexport default class GoneService {}\n",
+    );
+    assert_eq!(
+        names(&generated(root.path(), "client")),
+        ["GoneService", "KeptService"]
+    );
+    fs::remove_file(root.path().join("client/services/GoneService.js")).expect("delete");
+    assert_eq!(names(&generated(root.path(), "client")), ["KeptService"]);
+    fs::remove_file(root.path().join("client/services/KeptService.js")).expect("delete");
+    assert_eq!(generated(root.path(), "client"), "export {};\n");
+}
+
+#[test]
+fn a_project_without_classes_gets_empty_declaration_files() {
+    let root = tempfile::tempdir().expect("project");
+    assert_eq!(generated(root.path(), "client"), "export {};\n");
+    assert_eq!(generated(root.path(), "server"), "export {};\n");
+}
+
+#[test]
+fn the_build_writes_the_composed_types() {
+    let root = tempfile::tempdir().expect("project");
+    write(root.path(), "client/pages/tac.html", "<home-view />\n");
+    write(
+        root.path(),
+        "client/components/home/view/tac.html",
+        "<main>Home</main>\n",
+    );
+    write(
+        root.path(),
+        "client/services/HomeService.js",
+        "@Service\nexport default class HomeService {}\n",
+    );
+    let options = tachyon_core::BuildOptions::default();
+    tachyon_core::WebCompiler::build(root.path(), &options).expect("build");
+    let text = fs::read_to_string(root.path().join(".tachyon/types/client/composed.d.ts"))
+        .expect("generated by the build");
+    assert_eq!(names(&text), ["HomeService"]);
+}
+
+#[cfg(unix)]
+#[test]
+fn a_symlinked_types_folder_fails_without_writing_outside() {
+    use std::os::unix::fs::symlink;
+
+    let root = tempfile::tempdir().expect("project");
+    let outside = tempfile::tempdir().expect("outside");
+    fs::create_dir(root.path().join(".tachyon")).expect("tachyon");
+    symlink(outside.path(), root.path().join(".tachyon/types")).expect("types link");
+    let failure = ComposedTypes::write(root.path()).expect_err("symlink refused");
+    assert!(failure.to_string().contains("TY1410"), "{failure}");
+    assert_eq!(fs::read_dir(outside.path()).expect("outside").count(), 0);
+}
+
+#[test]
+fn utility_classes_are_declared_in_their_own_realm() {
+    let root = tempfile::tempdir().expect("project");
+    write(
+        root.path(),
+        "client/shared/utils/PriceUtils.js",
+        "export default class PriceUtils {\n  static label(cents) { return String(cents) }\n}\n",
+    );
+    let client = generated(root.path(), "client");
+    assert!(declares(
+        &client,
+        "PriceUtils",
+        "client/shared/utils/PriceUtils.js",
+        "default"
+    ));
+    let server = generated(root.path(), "server");
+    assert!(!server.contains("PriceUtils"), "{server}");
+}
+
+#[test]
+fn helper_classes_are_declared_in_their_own_realm() {
+    let root = tempfile::tempdir().expect("project");
+    write(
+        root.path(),
+        "client/delegates/PriceDelegate.js",
+        "@Delegate\nexport default class PriceDelegate {\n  /**\n   * @param {number} cents\n   * @returns {string}\n   */\n  label(cents) { return String(cents) }\n}\n",
+    );
+    let client = generated(root.path(), "client");
+    assert!(declares(
+        &client,
+        "PriceDelegate",
+        "client/delegates/PriceDelegate.js",
+        "default"
+    ));
+    let server = generated(root.path(), "server");
+    assert!(!server.contains("PriceDelegate"), "{server}");
+}
+
+#[test]
+fn a_delegate_type_takes_on_the_public_methods_of_its_base_service() {
+    let root = tempfile::tempdir().expect("project");
+    write(
+        root.path(),
+        "server/services/TaxService.ts",
+        "@Service\nexport default class TaxService {\n  rate(region: string): number {\n    return 2;\n  }\n\n  total(count: number): number {\n    return count * 10;\n  }\n\n  private secret(): number {\n    return 1;\n  }\n}\n",
+    );
+    write(
+        root.path(),
+        "server/delegates/TaxDelegate.ts",
+        "@Delegate\nexport default class TaxDelegate {\n  @Needs\n  taxService!: TaxService;\n\n  total(count: number, extra: number): number {\n    return this.taxService.total(count) + extra;\n  }\n}\n",
+    );
+    write(
+        root.path(),
+        "server/delegates/RoundDelegate.ts",
+        "@Delegate\nexport default class RoundDelegate {\n  round(value: number): number {\n    return value;\n  }\n}\n",
+    );
+    let server = generated(root.path(), "server");
+    let module = "declare module \"../../../server/delegates/TaxDelegate.ts\" {\n  export default interface TaxDelegate {\n";
+    let rate =
+        "    rate(...args: Parameters<TaxService[\"rate\"]>): ReturnType<TaxService[\"rate\"]>;\n";
+    let total = "    total(...args: Parameters<TaxService[\"total\"]>): ReturnType<TaxService[\"total\"]>;\n";
+    assert!(
+        server.contains(&format!("{module}{rate}{total}  }}\n}}\n")),
+        "{server}"
+    );
+    assert!(!server.contains("secret"), "{server}");
+    assert!(!server.contains("interface RoundDelegate"), "{server}");
+    let client = generated(root.path(), "client");
+    assert!(!client.contains("TaxDelegate"), "{client}");
+}
+
+fn assert_utility_source_declaration(realm: &str, path: &str, source: &str, member: &str) {
+    let root = tempfile::tempdir().expect("project");
+    write(root.path(), path, source);
+    let declared = generated(root.path(), realm);
+    assert!(
+        declares(&declared, "PriceUtils", path, member),
+        "{declared}"
+    );
+    assert_eq!(names(&declared), ["PriceUtils"]);
+    assert_eq!(
+        fs::read_to_string(root.path().join(path)).expect("authored source"),
+        source
+    );
+    let other = other_utility_realm(realm);
+    assert!(!generated(root.path(), other).contains("PriceUtils"));
+}
+
+fn other_utility_realm(realm: &str) -> &'static str {
+    if realm == "client" {
+        return "server";
+    }
+    "client"
+}
+
+#[test]
+fn utility_declarations_preserve_default_javascript_source_exports() {
+    assert_utility_source_declaration(
+        "client",
+        "client/shared/utils/prices/PriceUtils.js",
+        "export default class PriceUtils {\n  /**\n   * @param {number} cents\n   * @returns {string}\n   */\n  static label(cents) { return String(cents) }\n}\n",
+        "default",
+    );
+}
+
+#[test]
+fn utility_declarations_preserve_named_javascript_source_exports() {
+    assert_utility_source_declaration(
+        "client",
+        "client/shared/utils/prices/PriceUtils.js",
+        "export class PriceUtils {\n  /**\n   * @param {number} cents\n   * @returns {string}\n   */\n  static label(cents) { return String(cents) }\n}\n",
+        "PriceUtils",
+    );
+}
+
+#[test]
+fn utility_declarations_preserve_default_typescript_source_exports() {
+    assert_utility_source_declaration(
+        "client",
+        "client/shared/utils/prices/PriceUtils.ts",
+        "export default class PriceUtils {\n  static label(cents: number): string { return String(cents) }\n}\n",
+        "default",
+    );
+}
+
+#[test]
+fn utility_declarations_preserve_named_typescript_source_exports() {
+    assert_utility_source_declaration(
+        "client",
+        "client/shared/utils/prices/PriceUtils.ts",
+        "export class PriceUtils {\n  static label(cents: number): string { return String(cents) }\n}\n",
+        "PriceUtils",
+    );
+}
+
+#[test]
+fn utility_declarations_preserve_default_yon_source_exports() {
+    assert_utility_source_declaration(
+        "server",
+        "server/utils/PriceUtils.js",
+        "export default class PriceUtils {\n  /**\n   * @param {number} cents\n   * @returns {string}\n   */\n  static label(cents) { return String(cents) }\n}\n",
+        "default",
+    );
+}
+
+#[test]
+fn utility_declarations_preserve_named_yon_source_exports() {
+    assert_utility_source_declaration(
+        "server",
+        "server/utils/PriceUtils.ts",
+        "export class PriceUtils {\n  static label(cents: number): string { return String(cents) }\n}\n",
+        "PriceUtils",
+    );
+}
+
+#[test]
+fn utility_declarations_do_not_publish_instance_method_sources() {
+    let root = tempfile::tempdir().expect("project");
+    write(
+        root.path(),
+        "client/shared/utils/PriceUtils.js",
+        "export default class PriceUtils {\n  label(cents) { return String(cents) }\n}\n",
+    );
+    assert_eq!(generated(root.path(), "client"), "export {};\n");
+}
+
+#[test]
+fn utility_declarations_do_not_publish_annotated_source_classes() {
+    let root = tempfile::tempdir().expect("project");
+    write(
+        root.path(),
+        "client/shared/utils/PriceUtils.js",
+        "@Service\nexport default class PriceUtils {\n  static label(cents) { return String(cents) }\n}\n",
+    );
+    assert_eq!(generated(root.path(), "client"), "export {};\n");
+}
+
+#[test]
+fn javascript_models_become_global_types_in_their_realm() {
+    let root = tempfile::tempdir().expect("project");
+    write(
+        root.path(),
+        "client/models/CartTotal.js",
+        "/**\n * @typedef {Object} CartTotal\n * @property {number} total\n */\nexport {}\n",
+    );
+    write(
+        root.path(),
+        "server/models/orders/Order.js",
+        "/**\n * @typedef {Object} Order\n * @property {string} sku\n */\nexport {}\n",
+    );
+    write(
+        root.path(),
+        "client/models/Guide.ts",
+        "export interface Guide {\n  title: string\n}\n",
+    );
+    let client = generated(root.path(), "client");
+    assert!(
+        client.contains(
+            "  type CartTotal = import(\"../../../client/models/CartTotal.js\").CartTotal;\n"
+        ),
+        "{client}"
+    );
+    assert!(!client.contains("const CartTotal"), "{client}");
+    assert!(!client.contains("Guide"), "{client}");
+    assert!(!client.contains("Order"), "{client}");
+    let server = generated(root.path(), "server");
+    assert!(
+        server
+            .contains("  type Order = import(\"../../../server/models/orders/Order.js\").Order;\n"),
+        "{server}"
+    );
+}

@@ -1,6 +1,24 @@
-//! The `ty` command-line interface.
-
+mod add_command;
+mod add_options;
+mod add_what;
+mod advice_report;
+mod architecture_choice;
+mod coverage_gate;
+mod device_choice;
+mod init_choices;
+mod init_command;
+mod native_app_keeper;
+mod native_build_report;
+mod native_preview;
+mod package_architectures;
+mod package_plan;
+mod release_choice;
+mod resilient_serve;
+mod restart;
 mod shutdown;
+mod start_step;
+mod test_output;
+mod tool_step;
 
 use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
 use std::hash::{Hash as _, Hasher as _};
@@ -10,17 +28,32 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::time::Duration;
 use tachyon_contracts::{
-    HandlerBody, HandlerBodyEncoding, HandlerRequest, HttpMethod, NativeTarget,
+    HandlerBody, HandlerBodyEncoding, HandlerProtocolError, HandlerRequest, HandlerResponse,
+    HttpMethod, NativeTarget,
 };
 use tachyon_core::{
-    BuildOptions, DevServer, DevServerOptions, EnvironmentPolicy, Failure, HandlerCancellation,
-    HandlerRuntimePrograms, HandlerSource, HandlerSupervisor, HandlerSupervisorOptions,
-    MigrationAnalysis, NativeBuildOptions, NativeCompiler, PreviewServer, PreviewServerOptions,
-    Scaffold, WebCompiler, native_target_directory,
+    ApiBaselineCheck, AppTarget, ApplicationConfig, BuildOptions, ComposedTypes, DevServer,
+    DevServerOptions, EnvironmentPolicy, Failure, HandlerCancellation, HandlerRuntimePrograms,
+    HandlerSource, HandlerSupervisor, HandlerSupervisorOptions, MigrationAnalysis, MigrationFix,
+    NativeBuildOptions, NativeCompiler, PreviewServer, PreviewServerOptions, RouteInvocation,
+    ServerHost, TargetSupport, WebCompiler, method_coverage::RecordedCalls,
 };
 use tachyon_diagnostics::{Diagnostic, DiagnosticCode, Severity};
 
+use add_command::AddCommand;
+use add_what::AddWhat;
+use advice_report::AdviceReport;
+use architecture_choice::ArchitectureChoice;
+use coverage_gate::CoverageGate;
+use device_choice::DeviceChoice;
+use init_choices::InitChoices;
+use init_command::InitCommand;
+use package_architectures::PackageArchitectures;
+use package_plan::PackagePlan;
+use release_choice::ReleaseChoice;
+use resilient_serve::ResilientServe;
 use shutdown::{LongRunningCommand, ShutdownSignals};
+use test_output::TestOutput;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
 enum DiagnosticFormat {
@@ -43,7 +76,18 @@ enum BuildTarget {
 }
 
 impl BuildTarget {
-    /// Returns the Native UI target, or `None` for the web target.
+    const fn app_target(self) -> Option<AppTarget> {
+        match self {
+            Self::All => None,
+            Self::Web => Some(AppTarget::Web),
+            Self::Macos => Some(AppTarget::Macos),
+            Self::Ios => Some(AppTarget::Ios),
+            Self::Linux => Some(AppTarget::Linux),
+            Self::Windows => Some(AppTarget::Windows),
+            Self::Android => Some(AppTarget::Android),
+        }
+    }
+
     const fn native(self) -> Option<NativeTarget> {
         match self {
             Self::Web | Self::All => None,
@@ -63,13 +107,11 @@ impl BuildTarget {
     about = "Tachyon CLI",
     disable_version_flag = true,
     disable_help_subcommand = true,
-    help_template = "ty {version} — Tachyon CLI\n\nUsage: ty <command> [options]\n\nCommands:\n  init [name]        Scaffold a new Tachyon app\n  preview            Development server: Tac, Yon, or both\n  start              Serve a built bundle with Yon in production\n  bundle             Build client + native artifacts\n  bundle --native    Stage the native host without packaging\n  serve              Compatibility development-server command\n  cache [status|clean] Inspect or clear standalone runtime cache\n\nRun 'ty <command> --help' for command-specific options.\n"
+    help_template = "ty {version} — Tachyon CLI\n\nUsage: ty <command> [options]\n\nCommands:\n  init [name]        Create a new Tachyon app (asks questions in a terminal)\n  add                Add a language, a target or an example to an app\n  preview            Development server: Tac, Yon, or both\n  start              Serve a built bundle with Yon in production\n  bundle             Build client + native artifacts\n  bundle --native    Stage the native host without packaging\n  serve              Compatibility development-server command\n  cache [status|clean] Inspect or clear standalone runtime cache\n  test               Run the project's Test units\n  types              Write TypeScript globals for composed classes\n  doctor             Check this machine's toolchains for a project\n  api freeze         Save the API baseline that later builds compare against\n  migrate [check|fix] Find and fix what a project must change for this release\n\nRun 'ty <command> --help' for command-specific options.\n"
 )]
 struct Cli {
-    /// Print the Tachyon product version.
     #[arg(short = 'v', long = "version", global = true)]
     version: bool,
-    /// Compatibility alias for the former Clap version flag.
     #[arg(short = 'V', global = true, hide = true)]
     version_upper: bool,
     #[arg(long, global = true, value_enum, default_value_t = DiagnosticFormat::Human)]
@@ -81,265 +123,428 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Command {
-    /// Create a minimal HTML-only Tachyon project.
-    #[command(display_order = 1)]
+    #[command(
+        about = "Create a new Tachyon app. In a terminal it asks questions; every answer is also an option",
+        display_order = 1
+    )]
     Init {
-        /// Missing or empty target directory.
-        #[arg(default_value = ".")]
+        #[arg(help = "Missing or empty target directory", default_value = ".")]
         target: PathBuf,
-        /// Human-readable application name.
-        #[arg(long, visible_alias = "app-name")]
+        #[arg(
+            help = "Human-readable application name",
+            long,
+            visible_alias = "app-name"
+        )]
         name: Option<String>,
+        #[command(flatten)]
+        choices: InitChoices,
     },
-    /// Build client and native artifacts.
-    #[command(display_order = 3)]
+    #[command(
+        about = "Add a language, a target or an example to an existing app",
+        display_order = 2
+    )]
+    Add {
+        #[command(subcommand)]
+        what: AddWhat,
+    },
+    #[command(about = "Build client and native artifacts", display_order = 3)]
     Bundle {
-        /// Tachyon project root.
-        #[arg(default_value = ".")]
+        #[arg(help = "Tachyon project root", default_value = ".")]
         project: PathBuf,
-        /// Project-relative output directory. Defaults to dist/web for web and
-        /// dist for native targets.
-        #[arg(long)]
+        #[arg(
+            help = "Project-relative output directory. Defaults to dist/web for web and dist for native targets",
+            long
+        )]
         out_dir: Option<PathBuf>,
-        /// Disable verified incremental route reuse.
-        #[arg(long)]
+        #[arg(help = "Disable verified incremental route reuse", long)]
         no_incremental: bool,
-        /// Rebuild when project sources change.
-        #[arg(long, visible_alias = "bundle-watch")]
+        #[arg(
+            help = "Rebuild when project sources change",
+            long,
+            visible_alias = "bundle-watch"
+        )]
         watch: bool,
-        /// Packaging target; native targets host the client-rendered bundle.
-        #[arg(long, visible_alias = "targets", value_enum, value_delimiter = ',', num_args = 1..)]
+        #[arg(help = "Packaging target; native targets host the client-rendered bundle", long, visible_alias = "targets", value_enum, value_delimiter = ',', num_args = 1..)]
         target: Vec<BuildTarget>,
-        /// Stage one native host without invoking the platform packager.
-        #[arg(long)]
+        #[arg(
+            help = "Stage one native host without invoking the platform packager",
+            long
+        )]
         native: bool,
-        /// Compatibility switch; native hosts are always generated now.
-        #[arg(long, hide = true)]
+        #[arg(
+            help = "Native app architecture: x64 or arm64 for Windows, macOS and Android, or universal for macOS and Android. Defaults to the build machine's architecture, and to universal (arm64-v8a and x86_64) for Android",
+            long,
+            value_enum
+        )]
+        arch: Option<ArchitectureChoice>,
+        #[arg(
+            help = "Build release packages. Android builds an APK and an AAB signed with the keystore in TAC_ANDROID_KEYSTORE; macOS builds a Developer ID-signed, notarized .dmg for the team in TAC_APPLE_TEAM_ID; Linux builds an AppImage and a .deb; Windows builds an MSIX package signed with the certificate in TAC_WINDOWS_CERTIFICATE or TAC_WINDOWS_CERTIFICATE_THUMBPRINT; iOS builds an .ipa for App Store Connect signed with the App Store profile in TAC_IOS_PROVISIONING_PROFILE",
+            long
+        )]
+        release: bool,
+        #[arg(
+            help = "Build the iOS app for a physical iPhone or iPad instead of the simulator, signed with the development or ad hoc profile in TAC_IOS_PROVISIONING_PROFILE",
+            long
+        )]
+        device: bool,
+        #[arg(
+            help = "Compatibility switch; native hosts are always generated now",
+            long,
+            hide = true
+        )]
         skip_native_host: bool,
-        /// Start a watcher without performing its initial build.
-        #[arg(long, hide = true)]
+        #[arg(
+            help = "Start a watcher without performing its initial build",
+            long,
+            hide = true
+        )]
         skip_initial_build: bool,
-        /// Compatibility switch; strict-CSP safety is always enforced.
-        #[arg(long, hide = true)]
+        #[arg(
+            help = "Compatibility switch; strict-CSP safety is always enforced",
+            long,
+            hide = true
+        )]
         csp_check: bool,
-        /// Compatibility switch; packaging is already enabled by default.
-        #[arg(long, hide = true)]
+        #[arg(
+            help = "Compatibility switch; packaging is already enabled by default",
+            long,
+            hide = true
+        )]
         package: bool,
-        /// Stage native source and resources without invoking the platform packager.
-        #[arg(long, hide = true)]
+        #[arg(
+            help = "Stage native source and resources without invoking the platform packager",
+            long,
+            hide = true
+        )]
         skip_package: bool,
-        /// Deprecated render-mode switch; rendering is fixed by the target contract.
-        #[arg(long, hide = true)]
+        #[arg(
+            help = "Deprecated render-mode switch; rendering is fixed by the target contract",
+            long,
+            hide = true
+        )]
         render_mode: Option<String>,
+        #[arg(
+            help = "Print what each client/manifest.json member does on each target, then stop. Without --target, prints every target",
+            long
+        )]
+        explain_targets: bool,
     },
-    /// Rewrite-internal deterministic build command.
-    #[command(hide = true)]
+    #[command(about = "Rewrite-internal deterministic build command", hide = true)]
     Build {
-        /// Tachyon project root.
-        #[arg(default_value = ".")]
+        #[arg(help = "Tachyon project root", default_value = ".")]
         project: PathBuf,
-        /// Project-relative output directory.
-        #[arg(long, default_value = "dist")]
+        #[arg(
+            help = "Project-relative output directory",
+            long,
+            default_value = "dist"
+        )]
         out_dir: PathBuf,
-        /// Disable verified incremental route reuse.
-        #[arg(long)]
+        #[arg(help = "Disable verified incremental route reuse", long)]
         no_incremental: bool,
-        /// Packaging target; native targets host the client-rendered bundle.
-        #[arg(long, value_enum, default_value_t = BuildTarget::Web)]
+        #[arg(help = "Packaging target; native targets host the client-rendered bundle", long, value_enum, default_value_t = BuildTarget::Web)]
         target: BuildTarget,
     },
-    /// Generate a native host application.
-    #[command(display_order = 4)]
+    #[command(about = "Generate a native host application", display_order = 4)]
     NativeBundle {
-        /// Tachyon project root.
-        #[arg(default_value = ".")]
+        #[arg(help = "Tachyon project root", default_value = ".")]
         project: PathBuf,
-        /// Project-relative output directory.
-        #[arg(long)]
+        #[arg(help = "Project-relative output directory", long)]
         out_dir: Option<PathBuf>,
-        /// Disable verified incremental route reuse.
-        #[arg(long)]
+        #[arg(help = "Disable verified incremental route reuse", long)]
         no_incremental: bool,
-        /// Native packaging target.
-        #[arg(long, visible_alias = "targets", value_enum, value_delimiter = ',', num_args = 1..)]
+        #[arg(help = "Native packaging target", long, visible_alias = "targets", value_enum, value_delimiter = ',', num_args = 1..)]
         target: Vec<BuildTarget>,
-        /// Deprecated render-mode switch; rendering is fixed by the target contract.
-        #[arg(long, hide = true)]
+        #[arg(
+            help = "Native app architecture: x64 or arm64 for Windows, macOS and Android, or universal for macOS and Android. Defaults to the build machine's architecture, and to universal (arm64-v8a and x86_64) for Android",
+            long,
+            value_enum
+        )]
+        arch: Option<ArchitectureChoice>,
+        #[arg(
+            help = "Deprecated render-mode switch; rendering is fixed by the target contract",
+            long,
+            hide = true
+        )]
         render_mode: Option<String>,
     },
-    /// Run the Tachyon server.
-    #[command(name = "serve", alias = "dev", display_order = 2)]
+    #[command(
+        about = "Run the Tachyon server",
+        name = "serve",
+        alias = "dev",
+        display_order = 2
+    )]
     Dev {
-        /// Tachyon project root.
-        #[arg(default_value = ".")]
+        #[arg(help = "Tachyon project root", default_value = ".")]
         project: PathBuf,
-        /// Interface address.
-        #[arg(long, visible_alias = "hostname")]
+        #[arg(help = "Interface address", long, visible_alias = "hostname")]
         host: Option<String>,
-        /// TCP port; zero requests an ephemeral port.
-        #[arg(long)]
+        #[arg(help = "TCP port; zero requests an ephemeral port", long)]
         port: Option<u16>,
-        /// Explicitly permit exposure beyond the local machine.
-        #[arg(long)]
+        #[arg(help = "Explicitly permit exposure beyond the local machine", long)]
         allow_non_loopback: bool,
-        /// Project-relative output directory.
-        #[arg(long)]
+        #[arg(help = "Project-relative output directory", long)]
         out_dir: Option<PathBuf>,
-        /// Do not rebuild when sources change.
-        #[arg(long)]
+        #[arg(help = "Do not rebuild when sources change", long)]
         no_watch: bool,
-        /// Serve the existing bundle without compiling it first.
-        #[arg(long)]
-        no_bundle: bool,
-        /// Compatibility alias; source watching is already enabled by default.
+        #[arg(
+            help = "Keep running the old ty after the ty file on disk changes",
+            long
+        )]
+        no_self_restart: bool,
         #[arg(long, hide = true)]
+        check_project: bool,
+        #[arg(help = "Serve the existing bundle without compiling it first", long)]
+        no_bundle: bool,
+        #[arg(
+            help = "Compatibility alias; source watching is already enabled by default",
+            long,
+            hide = true
+        )]
         bundle_watch: bool,
     },
-    /// Serve an existing bundle and supervised Yon handlers without rebuilding.
+    #[command(about = "Serve an existing bundle and supervised Yon handlers without rebuilding")]
     Start {
-        /// Tachyon project root.
-        #[arg(default_value = ".")]
+        #[arg(help = "Tachyon project root", default_value = ".")]
         project: PathBuf,
-        /// Interface address.
-        #[arg(long, visible_alias = "hostname")]
+        #[arg(help = "Interface address", long, visible_alias = "hostname")]
         host: Option<String>,
-        /// TCP port; zero requests an ephemeral port.
-        #[arg(long)]
+        #[arg(help = "TCP port; zero requests an ephemeral port", long)]
         port: Option<u16>,
-        /// Explicitly permit exposure beyond the local machine.
-        #[arg(long)]
+        #[arg(help = "Explicitly permit exposure beyond the local machine", long)]
         allow_non_loopback: bool,
-        /// Project-relative existing output directory.
-        #[arg(long)]
+        #[arg(help = "Project-relative existing output directory", long)]
         out_dir: Option<PathBuf>,
     },
-    /// Run the Tac/Yon development server, or preview an existing static bundle.
-    #[command(display_order = 5)]
+    #[command(
+        about = "Run the Tac/Yon development server, or preview an existing static bundle",
+        display_order = 5
+    )]
     Preview {
-        /// Tachyon project root.
-        #[arg(default_value = ".")]
+        #[arg(help = "Tachyon project root", default_value = ".")]
         project: PathBuf,
-        /// Interface address.
-        #[arg(long, visible_alias = "hostname")]
+        #[arg(help = "Interface address", long, visible_alias = "hostname")]
         host: Option<String>,
-        /// TCP port; zero requests an ephemeral port.
-        #[arg(long)]
+        #[arg(help = "TCP port; zero requests an ephemeral port", long)]
         port: Option<u16>,
-        /// Explicitly permit exposure beyond the local machine.
-        #[arg(long)]
+        #[arg(help = "Explicitly permit exposure beyond the local machine", long)]
         allow_non_loopback: bool,
-        /// Project-relative output directory.
-        #[arg(long, default_value = "dist")]
+        #[arg(
+            help = "Project-relative output directory",
+            long,
+            default_value = "dist"
+        )]
         out_dir: PathBuf,
-        /// Preview existing static files only, without building or running Yon.
-        #[arg(long = "static")]
+        #[arg(
+            help = "Preview existing static files only, without building or running Yon",
+            long = "static"
+        )]
         static_only: bool,
-        /// Rebuild the selected target when sources change.
-        #[arg(long, visible_alias = "bundle-watch")]
+        #[arg(
+            help = "Rebuild the selected target when sources change",
+            long,
+            visible_alias = "bundle-watch"
+        )]
         watch: bool,
-        /// Built target whose embedded web bundle should be served.
-        #[arg(long, value_enum)]
-        target: Option<BuildTarget>,
-        /// Compatibility switch; the rewrite preview does not require native toolchains.
+        #[arg(
+            help = "Keep running the old ty after the ty file on disk changes",
+            long
+        )]
+        no_self_restart: bool,
         #[arg(long, hide = true)]
+        check_project: bool,
+        #[arg(
+            help = "Target to preview. A native target builds the app, opens it against the development server and sends it hot updates; with --static, serves the built app's web bundle instead",
+            long,
+            value_enum
+        )]
+        target: Option<BuildTarget>,
+        #[arg(
+            help = "Compatibility switch; the rewrite preview does not require native toolchains",
+            long,
+            hide = true
+        )]
         skip_native_checks: bool,
     },
-    /// Report whether this machine has the toolchains a project needs.
-    #[command(hide = true)]
+    #[command(
+        about = "Report whether this machine has the toolchains a project needs",
+        after_help = "Exit status:\n  0  every toolchain the project needs to build and serve is ready\n  1  a needed toolchain is missing or too old, or the project cannot be read\n\nToolchains needed only to bundle or release a native target are reported as info and do not change the exit status. With --release, those of the targets this machine can build are needed too."
+    )]
     Doctor {
-        /// Tachyon project root.
-        #[arg(default_value = ".")]
+        #[arg(help = "Tachyon project root", default_value = ".")]
         project: PathBuf,
-        /// Emit the machine-readable report instead of the human summary.
-        #[arg(long)]
+        #[arg(
+            help = "Emit the machine-readable report instead of the human summary",
+            long
+        )]
         json: bool,
+        #[arg(
+            help = "Offer to install each missing tool that Tachyon can install, then report",
+            long,
+            conflicts_with = "json"
+        )]
+        install: bool,
+        #[arg(
+            help = "With --install, install every missing tool without asking",
+            long,
+            requires = "install"
+        )]
+        yes: bool,
+        #[arg(
+            help = "Also need the tools that build and sign a release of each declared native target that this machine can build",
+            long
+        )]
+        release: bool,
     },
-    /// Inspect or clear the installation cache.
-    #[command(display_order = 6)]
+    #[command(about = "Inspect or clear the installation cache", display_order = 6)]
     Cache {
         #[command(subcommand)]
         command: Option<CacheCommand>,
     },
-    /// Invoke and inspect supervised Yon handlers.
-    #[command(hide = true)]
+    #[command(about = "Run the project's `Test` units")]
+    Test {
+        #[arg(help = "Project root holding server/tests", default_value = ".")]
+        project: PathBuf,
+        #[arg(
+            help = "Fail when a public method of an annotated class no case names",
+            long
+        )]
+        coverage: bool,
+    },
+    #[command(
+        about = "Write TypeScript globals for the JavaScript and TypeScript classes Tachyon composes"
+    )]
+    Types {
+        #[arg(help = "Tachyon project root", default_value = ".")]
+        project: PathBuf,
+    },
+    #[command(about = "Save the API baseline that later builds compare against")]
+    Api {
+        #[command(subcommand)]
+        command: ApiCommand,
+    },
+    #[command(about = "Invoke and inspect supervised Yon handlers", hide = true)]
     Handler {
         #[command(subcommand)]
         command: HandlerCommand,
     },
-    /// Analyze a legacy project for migration to this implementation.
-    #[command(hide = true)]
+    #[command(
+        about = "Find what a project must change for this release, and apply the automatic fixes",
+        after_help = "`ty migrate check` lists the constructs this release does not support. `ty migrate fix` prints the automatic fixes for Tachyon's breaking changes and the manual steps; `ty migrate fix --write` applies the fixes."
+    )]
     Migrate {
         #[command(subcommand)]
         command: MigrateCommand,
     },
-    /// Print command help.
-    #[command(hide = true)]
+    #[command(about = "Print command help", hide = true)]
     Help {
-        /// Optional command whose help should be printed.
+        #[arg(help = "Optional command whose help should be printed")]
         command: Option<String>,
     },
 }
 
 #[derive(Debug, Subcommand)]
 enum CacheCommand {
-    /// Report where the cache lives and what it holds.
+    #[command(about = "Report where the cache lives and what it holds")]
     Status,
-    /// Remove the cache directory.
+    #[command(about = "Remove the runtime and build caches")]
     Clean,
 }
 
 #[derive(Debug, Subcommand)]
-enum MigrateCommand {
-    /// Report every construct that this implementation does not yet support.
-    Check {
-        /// Tachyon project root.
-        #[arg(default_value = ".")]
+enum ApiCommand {
+    #[command(
+        about = "Save the current API as the baseline in server/api-baseline.json",
+        long_about = "Save the current API as the baseline in server/api-baseline.json.\n\nRun it after a release and commit the file. Every later build compares its API with this baseline and fails when a route, method, field or model is removed, a type is narrowed, a new required field appears or a status changes, unless the major number of tac.application.version is higher than the baseline's (ADR 0074)."
+    )]
+    Freeze {
+        #[arg(help = "Tachyon project root", default_value = ".")]
         project: PathBuf,
-        /// Emit the machine-readable report instead of the human summary.
-        #[arg(long)]
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum MigrateCommand {
+    #[command(about = "Report every construct that this implementation does not yet support")]
+    Check {
+        #[arg(help = "Tachyon project root", default_value = ".")]
+        project: PathBuf,
+        #[arg(
+            help = "Emit the machine-readable report instead of the human summary",
+            long
+        )]
         json: bool,
-        /// Exit successfully even when unsupported constructs are found.
-        #[arg(long)]
+        #[arg(
+            help = "Exit successfully even when unsupported constructs are found",
+            long
+        )]
         allow_unsupported: bool,
+    },
+    #[command(
+        about = "Print the automatic fixes for Tachyon's breaking changes and the manual steps",
+        long_about = "Print the automatic fixes for Tachyon's breaking changes and the manual steps.\n\nThe fixes delete imports from 'tachyon:behaviors' (ADR 0046) and turn an old root middleware class Handler, whose HTTP method functions all hold the same code, into class Middleware with before(request) and after(request) (ADR 0044). They rename old annotations to their plain English names in every language, move files from the renamed role folders repositories/, configurations/ and mappers/ to stores/, setups/ and converters/, and rename the moved role types and test setups everywhere they are named (ADR 0047). They rename a class file after its one class, or the class after its file when other files use the file name, and split a models file with several models into one file per model, next to the old file (ADR 0067). Files that break the one-class rule, and imports, middleware or moves that cannot be changed safely, are listed as manual steps. Nothing is written without --write. Files are only moved inside client/ and server/, never deleted, and symbolic links are never followed."
+    )]
+    Fix {
+        #[arg(help = "Tachyon project root", default_value = ".")]
+        project: PathBuf,
+        #[arg(help = "Write the printed changes to the project files", long)]
+        write: bool,
     },
 }
 
 #[derive(Debug, Subcommand)]
 enum HandlerCommand {
-    /// Invoke one JavaScript or Python Yon handler through Handler Protocol v1.
+    #[command(
+        about = "Invoke one Yon handler through Handler Protocol v1",
+        long_about = "Invoke one Yon handler through Handler Protocol v1.\n\nFor an annotated controller, the command binds @FromPath, @FromQuery, @FromHeader, @FromCookie and @FromBody arguments with the same code as the server, from --target (or --route when there is no --target), --header and --body. A value that does not match its model gets the same 400 answer as the server, and the controller does not run. A plain Handler gets the request without arguments.\n\nThis is a local operator tool. It does not run the identity provider, the route access rules (@Public, @SignedIn, @Allow) or the root middleware, so it can call routes that the server would refuse."
+    )]
     Invoke {
-        /// Project-relative `server/routes/**/yon.js` or `yon.py`.
+        #[arg(help = "Project-relative controller or worker source file")]
         source: PathBuf,
-        /// Tachyon project root.
-        #[arg(long, default_value = ".")]
+        #[arg(help = "Tachyon project root", long, default_value = ".")]
         project: PathBuf,
-        /// Canonical route supplied to the handler.
-        #[arg(long, default_value = "/")]
+        #[arg(
+            help = "Canonical route supplied to the handler",
+            long,
+            default_value = "/"
+        )]
         route: String,
-        /// Uppercase HTTP method.
-        #[arg(long, value_enum, ignore_case = true, default_value_t = CliHttpMethod::Get)]
+        #[arg(
+            help = "Concrete request target with an optional query, for example /items/42?limit=3; the matching route is found from it",
+            long,
+            conflicts_with = "route"
+        )]
+        target: Option<String>,
+        #[arg(help = "Uppercase HTTP method", long, value_enum, ignore_case = true, default_value_t = CliHttpMethod::Get)]
         method: CliHttpMethod,
-        /// Stable request correlation identifier.
-        #[arg(long, default_value = "cli_request")]
+        #[arg(
+            help = "Stable request correlation identifier",
+            long,
+            default_value = "cli_request"
+        )]
         request_id: String,
-        /// Optional UTF-8 request body.
-        #[arg(long)]
+        #[arg(help = "Optional UTF-8 request body", long)]
         body: Option<String>,
-        /// Repeated Handler Protocol header in `name=value` form.
-        #[arg(long = "header")]
+        #[arg(
+            help = "Repeated Handler Protocol header in `name=value` form",
+            long = "header"
+        )]
         headers: Vec<HeaderArgument>,
-        /// Complete invocation deadline in milliseconds.
-        #[arg(long, default_value_t = 30_000, value_parser = clap::value_parser!(u64).range(1..=300_000))]
+        #[arg(help = "Complete invocation deadline in milliseconds", long, default_value_t = 30_000, value_parser = clap::value_parser!(u64).range(1..=300_000))]
         timeout_ms: u64,
-        /// Explicit environment variable name to inherit.
-        #[arg(long = "allow-env")]
+        #[arg(
+            help = "Environment variable the handler may inherit; ty's own TAC_*, TACHYON_*, YON_* and proxy variables are refused",
+            long = "allow-env"
+        )]
         allow_environment: Vec<String>,
-        /// Decorator-capable JavaScript executable name or path.
-        #[arg(long, default_value = "bun")]
-        javascript_runtime: PathBuf,
-        /// `CPython` executable name or path.
-        #[arg(long)]
+        #[arg(
+            help = "Decorator-capable JavaScript executable name or path (node, or bun when only Bun is installed)",
+            long
+        )]
+        javascript_runtime: Option<PathBuf>,
+        #[arg(help = "`CPython` executable name or path", long)]
         python_runtime: Option<PathBuf>,
+        #[arg(help = "Ruby executable name or path", long)]
+        ruby_runtime: Option<PathBuf>,
     },
 }
 
@@ -393,6 +598,7 @@ impl FromStr for HeaderArgument {
 
 #[tokio::main]
 async fn main() {
+    tachyon_core::EgressLaunch::run_if_requested();
     let cli = Cli::parse();
     if cli.version || cli.version_upper {
         println!("{}", tachyon_contracts::PRODUCT_VERSION);
@@ -413,47 +619,79 @@ async fn main() {
 
 async fn execute(command: &Command) -> Result<(), Failure> {
     match command {
-        Command::Init { target, name } => {
-            let environment_name = std::env::var("TAC_APP_NAME").ok();
-            let name = name.as_deref().or(environment_name.as_deref());
-            let result = Scaffold::create(target, name)?;
-            println!(
-                "Initialized '{}' in {}",
-                result.app_name(),
-                result.root().display()
-            );
-            println!("Next: ty bundle {}", result.root().display());
-            Ok(())
-        }
+        Command::Init {
+            target,
+            name,
+            choices,
+        } => InitCommand::run(target, name.as_deref(), choices),
+        Command::Add { what } => AddCommand::run(what),
         Command::Bundle { .. } => execute_bundle_command(command).await,
         Command::Build {
             project,
             out_dir,
             no_incremental,
             target,
-        } => execute_build(project, out_dir, *no_incremental, *target).await,
+        } => {
+            print_simpler_forms(project);
+            execute_build(project, out_dir, *no_incremental, *target).await
+        }
         Command::NativeBundle { .. } => execute_native_bundle_command(command).await,
         Command::Dev { .. } => execute_dev_command(command).await,
         Command::Start { .. } => execute_start_command(command).await,
         Command::Preview { .. } => execute_preview_command(command).await,
-        Command::Doctor { project, json } => execute_doctor(project, *json),
+        Command::Doctor {
+            project,
+            json,
+            install,
+            yes,
+            release,
+        } => {
+            if *install {
+                tool_step::ToolStep::install_for_project(project, *yes)?;
+            }
+            execute_doctor(project, *json, *release)
+        }
         Command::Cache { command } => execute_cache(command.as_ref()),
+        Command::Test { project, coverage } => execute_test(project, *coverage).await,
+        Command::Types { project } => execute_types(project),
+        Command::Api {
+            command: ApiCommand::Freeze { project },
+        } => execute_api_freeze(project),
         Command::Handler { command } => execute_handler(command).await,
         Command::Migrate { command } => execute_migrate(command),
         Command::Help { command } => {
-            let mut root = Cli::command();
-            if let Some(name) = command
-                && let Some(subcommand) = root.find_subcommand_mut(name)
-            {
-                let _ = subcommand.print_long_help();
-                println!();
-                return Ok(());
-            }
-            let _ = root.print_long_help();
-            println!();
+            execute_help(command.as_deref());
             Ok(())
         }
     }
+}
+
+fn execute_api_freeze(project: &Path) -> Result<(), Failure> {
+    let path = ApiBaselineCheck::freeze(project)?;
+    println!("Wrote the API baseline {}", path.display());
+    Ok(())
+}
+
+fn execute_types(project: &Path) -> Result<(), Failure> {
+    ComposedTypes::write(project)?;
+    println!(
+        "Wrote .tachyon/types/client/composed.d.ts and .tachyon/types/server/composed.d.ts in {}",
+        project.display()
+    );
+    Ok(())
+}
+
+fn execute_help(command: Option<&str>) {
+    let mut root = Cli::command();
+    if let Some(name) = command
+        && let Some(subcommand) = root.find_subcommand_mut(name)
+    {
+        let _ = subcommand.print_long_help();
+        println!();
+        return;
+    }
+    let _ = root.print_long_help();
+    println!();
 }
 
 async fn execute_bundle_command(command: &Command) -> Result<(), Failure> {
@@ -464,15 +702,28 @@ async fn execute_bundle_command(command: &Command) -> Result<(), Failure> {
         watch,
         target,
         native,
+        arch,
+        release,
+        device,
         skip_initial_build,
         render_mode,
         skip_package,
+        explain_targets,
         ..
     } = command
     else {
         unreachable!();
     };
     reject_render_mode(render_mode.as_deref())?;
+    if *explain_targets {
+        let requested = resolve_targets(target, &[], Some(BuildTarget::All))?;
+        let chosen: Vec<AppTarget> = requested
+            .iter()
+            .filter_map(|requested| requested.app_target())
+            .collect();
+        print!("{}", TargetSupport::explain(project, &chosen)?);
+        return Ok(());
+    }
     let targets = resolve_targets(
         target,
         &["TAC_BUNDLE_TARGET", "TAC_TARGET"],
@@ -485,6 +736,11 @@ async fn execute_bundle_command(command: &Command) -> Result<(), Failure> {
     if *native {
         require_one_native_target(&targets, "bundle --native")?;
     }
+    let architectures = ArchitectureChoice::for_targets(*arch, &targets)?;
+    print_architecture_notes(*arch, &targets)?;
+    let release = ReleaseChoice::for_targets(*release, *native || *skip_package, &targets)?;
+    let device = DeviceChoice::for_targets(*device, *native || *skip_package, &targets)?;
+    DeviceChoice::print_note(device, &targets);
     let output = bundle_output(out_dir.as_deref(), &targets);
     let options = BundleExecution {
         no_incremental: *no_incremental,
@@ -494,9 +750,24 @@ async fn execute_bundle_command(command: &Command) -> Result<(), Failure> {
         } else {
             InitialBuild::Run
         },
-        package: !*skip_package && !*native,
+        plan: PackagePlan {
+            package: !*skip_package && !*native,
+            release,
+            device,
+            architectures,
+        },
     };
     execute_bundle(project, &output, &targets, options).await
+}
+
+fn print_architecture_notes(
+    choice: Option<ArchitectureChoice>,
+    targets: &[BuildTarget],
+) -> Result<(), Failure> {
+    for note in ArchitectureChoice::notes(choice, targets)? {
+        println!("{note}");
+    }
+    Ok(())
 }
 
 async fn execute_native_bundle_command(command: &Command) -> Result<(), Failure> {
@@ -505,6 +776,7 @@ async fn execute_native_bundle_command(command: &Command) -> Result<(), Failure>
         out_dir,
         no_incremental,
         target,
+        arch,
         render_mode,
     } = command
     else {
@@ -513,11 +785,19 @@ async fn execute_native_bundle_command(command: &Command) -> Result<(), Failure>
     reject_render_mode(render_mode.as_deref())?;
     let targets = resolve_targets(target, &["TAC_BUNDLE_TARGET", "TAC_TARGET"], None)?;
     let target = require_one_native_target(&targets, "native-bundle")?;
+    let architectures = ArchitectureChoice::for_targets(*arch, &targets)?;
+    print_architecture_notes(*arch, &targets)?;
     let output = out_dir
         .clone()
         .or_else(|| environment_path("TAC_DIST_PATH"))
         .unwrap_or_else(|| PathBuf::from("dist"));
-    execute_build_with_package(project, &output, *no_incremental, target, false).await
+    let plan = PackagePlan {
+        package: false,
+        release: false,
+        device: false,
+        architectures,
+    };
+    execute_build_with_package(project, &output, *no_incremental, target, plan).await
 }
 
 async fn execute_dev_command(command: &Command) -> Result<(), Failure> {
@@ -529,29 +809,55 @@ async fn execute_dev_command(command: &Command) -> Result<(), Failure> {
         out_dir,
         no_watch,
         no_bundle,
+        no_self_restart,
+        check_project,
         ..
     } = command
     else {
         unreachable!();
     };
-    let host = resolve_host(host.as_deref(), &["YON_HOST", "YON_HOSTNAME", "HOST"])?;
-    let port = resolve_port(*port, &["YON_PORT", "PORT"], 8080)?;
+    if *check_project {
+        return application_for_server(project, host.as_deref(), *port, *allow_non_loopback)
+            .map(|_| ());
+    }
     let output = out_dir
         .clone()
         .or_else(|| environment_path("TAC_DIST_PATH"))
         .unwrap_or_else(|| PathBuf::from("dist/web"));
     let production = std::env::var("NODE_ENV").is_ok_and(|value| value == "production");
+    let policy = ServingPolicy {
+        watch: !(*no_watch || production),
+        build: !(*no_bundle || truthy_environment("YON_SKIP_BUNDLE") || production),
+        self_restart: !no_self_restart,
+        command: LongRunningCommand::Serve,
+    };
+    if policy.watch {
+        return ResilientServe {
+            project: project.clone(),
+            host: host.clone(),
+            port: *port,
+            allow_non_loopback: *allow_non_loopback,
+            output,
+            policy,
+            default_port: 8080,
+            advice: AdviceReport::none(),
+            native: None,
+        }
+        .run()
+        .await;
+    }
+    let (project, application) =
+        application_for_server(project, host.as_deref(), *port, *allow_non_loopback)?;
+    let host = application.host().unwrap_or(IpAddr::from([127, 0, 0, 1]));
+    let port = application.port().unwrap_or(8080);
     execute_serve(
-        project,
+        &project,
         host,
         port,
         *allow_non_loopback,
         &output,
-        ServingPolicy {
-            watch: !(*no_watch || production),
-            build: !(*no_bundle || truthy_environment("YON_SKIP_BUNDLE") || production),
-            command: LongRunningCommand::Serve,
-        },
+        policy,
+        application,
     )
     .await
 }
@@ -567,14 +873,16 @@ async fn execute_start_command(command: &Command) -> Result<(), Failure> {
     else {
         unreachable!();
     };
-    let host = resolve_host(host.as_deref(), &["YON_HOST", "YON_HOSTNAME", "HOST"])?;
-    let port = resolve_port(*port, &["YON_PORT", "PORT"], 8080)?;
+    let (project, application) =
+        application_for_server(project, host.as_deref(), *port, *allow_non_loopback)?;
+    let host = application.host().unwrap_or(IpAddr::from([127, 0, 0, 1]));
+    let port = application.port().unwrap_or(8080);
     let output = out_dir
         .clone()
         .or_else(|| environment_path("TAC_DIST_PATH"))
         .unwrap_or_else(|| PathBuf::from("dist/web"));
     execute_serve(
-        project,
+        &project,
         host,
         port,
         *allow_non_loopback,
@@ -582,8 +890,10 @@ async fn execute_start_command(command: &Command) -> Result<(), Failure> {
         ServingPolicy {
             watch: false,
             build: false,
+            self_restart: false,
             command: LongRunningCommand::Start,
         },
+        application,
     )
     .await
 }
@@ -597,14 +907,18 @@ async fn execute_preview_command(command: &Command) -> Result<(), Failure> {
         out_dir,
         static_only,
         watch,
+        no_self_restart,
+        check_project,
         target,
         ..
     } = command
     else {
         unreachable!();
     };
-    let host = resolve_host(host.as_deref(), &[])?;
-    let port = resolve_port(*port, &[], 3000)?;
+    if *check_project {
+        return application_for_server(project, host.as_deref(), *port, *allow_non_loopback)
+            .map(|_| ());
+    }
     let explicit_targets: Vec<_> = target.iter().copied().collect();
     let targets = resolve_targets(
         &explicit_targets,
@@ -612,30 +926,49 @@ async fn execute_preview_command(command: &Command) -> Result<(), Failure> {
         Some(BuildTarget::Web),
     )?;
     let target = require_one_target(&targets, "preview")?;
+    let advice = AdviceReport::simpler_forms(project);
+    if let Some(native) = target.native().filter(|_| !*static_only) {
+        return native_preview::NativePreview {
+            project: project.clone(),
+            host: host.clone(),
+            port: *port,
+            allow_non_loopback: *allow_non_loopback,
+            target: native,
+            advice,
+        }
+        .run()
+        .await;
+    }
     if target == BuildTarget::Web && !static_only {
         let output = if out_dir == Path::new("dist") {
             environment_path("TAC_DIST_PATH").unwrap_or_else(|| PathBuf::from("dist/web"))
         } else {
             out_dir.clone()
         };
-        return execute_serve(
-            project,
-            host,
-            port,
-            *allow_non_loopback,
-            &output,
-            ServingPolicy {
+        return ResilientServe {
+            project: project.clone(),
+            host: host.clone(),
+            port: *port,
+            allow_non_loopback: *allow_non_loopback,
+            output,
+            policy: ServingPolicy {
                 watch: true,
                 build: true,
+                self_restart: !no_self_restart,
                 command: LongRunningCommand::Preview,
             },
-        )
+            default_port: 3000,
+            advice,
+            native: None,
+        }
+        .run()
         .await;
     }
+    advice.start_once();
     execute_preview(
         project,
-        host,
-        port,
+        resolve_host(host.as_deref(), &[])?,
+        resolve_port(*port, &[], 3000)?,
         *allow_non_loopback,
         out_dir,
         *watch,
@@ -649,7 +982,7 @@ struct BundleExecution {
     no_incremental: bool,
     watch: bool,
     initial_build: InitialBuild,
-    package: bool,
+    plan: PackagePlan,
 }
 
 #[derive(Clone, Copy, Eq, PartialEq)]
@@ -658,51 +991,169 @@ enum InitialBuild {
     Skip,
 }
 
+async fn require_tested_methods(
+    project: &Path,
+    command: LongRunningCommand,
+) -> Result<(), Failure> {
+    if command != LongRunningCommand::Preview
+        || std::env::var("TAC_ALLOW_UNTESTED").is_ok_and(|value| value == "1")
+    {
+        return Ok(());
+    }
+    let calls = match RecordedCalls::read_current(project) {
+        Some(calls) => calls,
+        None => record_test_calls(project).await?,
+    };
+    CoverageGate::refuse_untested(project, calls)
+}
+
+async fn record_test_calls(project: &Path) -> Result<RecordedCalls, Failure> {
+    ComposedTypes::write(project)?;
+    RecordedCalls::invalidate(project)?;
+    let mut calls = match run_test_units(project, TestOutput::Quiet).await? {
+        Some(results) => results.preview_calls()?,
+        None => RecordedCalls::default(),
+    };
+    calls.set_successful(true);
+    calls.write(project)?;
+    Ok(calls)
+}
+
 #[derive(Clone, Copy)]
 struct ServingPolicy {
     watch: bool,
     build: bool,
+    self_restart: bool,
     command: LongRunningCommand,
 }
 
-async fn execute_serve(
+fn application_for_server(
     project: &Path,
+    host: Option<&str>,
+    port: Option<u16>,
+    allow_non_loopback: bool,
+) -> Result<(tachyon_core::Project, ApplicationConfig), Failure> {
+    let host = host
+        .map(|value| resolve_host(Some(value), &[]))
+        .transpose()?;
+    if !allow_non_loopback
+        && host
+            .as_ref()
+            .is_some_and(|host| !host.address().is_loopback())
+    {
+        return Err(cli_failure(
+            1301,
+            "Refusing to expose the server without explicit permission.",
+            "Use a loopback host or pass --allow-non-loopback.",
+        ));
+    }
+    let project = tachyon_core::ProjectDiscovery::discover(project)?;
+    let application = ApplicationConfig::load_project_for_server(&project, host, port)?;
+    Ok((project, application))
+}
+
+async fn execute_serve(
+    project: &tachyon_core::Project,
     host: IpAddr,
     port: u16,
     allow_non_loopback: bool,
     out_dir: &Path,
     policy: ServingPolicy,
+    application: ApplicationConfig,
 ) -> Result<(), Failure> {
     tachyon_core::cache::ensure_runtime()?;
-    let server = DevServer::bind(
-        project,
-        &DevServerOptions {
-            host,
-            port,
-            allow_non_loopback,
-            output_directory: out_dir.to_path_buf(),
-            watch: policy.watch,
-            build: policy.build,
-        },
-    )
-    .await?;
+    let options = dev_server_options(host, port, allow_non_loopback, out_dir, policy);
+    let server = DevServer::bind_project_with_application(project, &options, application).await?;
     let shutdown = ShutdownSignals::install(policy.command);
-    let label = match policy.command {
+    serve_dev_server(server, policy, shutdown.wait()).await
+}
+
+fn dev_server_options(
+    host: IpAddr,
+    port: u16,
+    allow_non_loopback: bool,
+    out_dir: &Path,
+    policy: ServingPolicy,
+) -> DevServerOptions {
+    DevServerOptions {
+        host,
+        port,
+        allow_non_loopback,
+        output_directory: out_dir.to_path_buf(),
+        watch: policy.watch,
+        build: policy.build,
+        restart_executable: policy
+            .self_restart
+            .then(std::env::current_exe)
+            .and_then(Result::ok),
+        native: None,
+        restart_check_arguments: std::env::args_os()
+            .skip(1)
+            .chain([std::ffi::OsString::from("--check-project")])
+            .collect(),
+        kind: [
+            tachyon_core::ServerKind::Development,
+            tachyon_core::ServerKind::Production,
+        ][usize::from(policy.command == LongRunningCommand::Start)],
+    }
+}
+
+const fn ready_label(command: LongRunningCommand) -> &'static str {
+    match command {
         LongRunningCommand::Preview => "Tachyon preview ready",
         LongRunningCommand::Start => "Tachyon production server ready",
         _ => "Tachyon server ready",
-    };
-    println!("{label} at http://{}/", server.address());
+    }
+}
+
+async fn serve_dev_server(
+    server: DevServer,
+    policy: ServingPolicy,
+    shutdown: impl std::future::Future<Output = ()> + Send + 'static,
+) -> Result<(), Failure> {
+    println!("{} at {}", ready_label(policy.command), server.url());
+    let mut stdout = std::io::stdout();
+    if let Some(build) = server.build() {
+        let _ = writeln!(stdout, "{}", build.timings_line());
+    } else if policy.build {
+        let _ = writeln!(
+            stdout,
+            "Serving the last build while the sources rebuild in the background."
+        );
+    }
     if policy.watch {
-        println!("Watching sources; open pages receive semantic hot updates.");
+        let _ = writeln!(
+            stdout,
+            "Watching sources; open pages receive semantic hot updates."
+        );
     }
     let _flush_result = std::io::stdout().flush();
-    server.run_until(shutdown.wait()).await
+    let tool_restart = server.tool_restart();
+    let restart_requested = tool_restart.clone();
+    let run_result = server
+        .run_until(async move {
+            let Some(restart_requested) = restart_requested else {
+                shutdown.await;
+                return;
+            };
+            tokio::select! {
+                () = shutdown => {}
+                () = restart_requested.requested() => {}
+            }
+        })
+        .await;
+    match tool_restart {
+        Some(tool_restart) if tool_restart.is_requested() => {
+            run_result?;
+            Err(restart::SelfRestart::replace_process(&tool_restart))
+        }
+        _ => run_result,
+    }
 }
 
 async fn execute_preview(
     project: &Path,
-    host: IpAddr,
+    host: ServerHost,
     port: u16,
     allow_non_loopback: bool,
     out_dir: &Path,
@@ -721,9 +1172,12 @@ async fn execute_preview(
     let server = PreviewServer::bind(
         &root,
         &PreviewServerOptions {
-            host,
+            host: host.address(),
             port,
             allow_non_loopback,
+            hosts: ApplicationConfig::load(project)
+                .map(|application| application.hosts().to_vec())
+                .unwrap_or_default(),
         },
     )
     .await?;
@@ -735,12 +1189,15 @@ async fn execute_preview(
         .as_ref()
         .map(PreviewBundleWatcher::cancellation_handle);
     println!(
-        "Tachyon preview ready at http://{}/ ({})",
-        server.address(),
+        "Tachyon preview ready at {} ({})",
+        host.url(server.address()),
         server.root().display()
     );
     if watch {
-        println!("Watching sources and rebuilding the preview.");
+        let _ = writeln!(
+            std::io::stdout(),
+            "Watching sources and rebuilding the preview."
+        );
     }
     let _flush_result = std::io::stdout().flush();
     let server_result = server
@@ -768,14 +1225,7 @@ async fn execute_bundle(
 ) -> Result<(), Failure> {
     tachyon_core::cache::ensure_runtime()?;
     if !options.watch || options.initial_build == InitialBuild::Run {
-        execute_build_targets(
-            project,
-            out_dir,
-            options.no_incremental,
-            targets,
-            options.package,
-        )
-        .await?;
+        execute_build_targets(project, out_dir, targets, options).await?;
     }
     if !options.watch {
         return Ok(());
@@ -795,7 +1245,7 @@ async fn execute_bundle(
                     continue;
                 }
                 fingerprint = next;
-                if let Err(failure) = execute_build_targets(project, out_dir, options.no_incremental, targets, options.package).await {
+                if let Err(failure) = execute_build_targets(project, out_dir, targets, options).await {
                     eprint!("{failure}");
                 }
             }
@@ -806,10 +1256,10 @@ async fn execute_bundle(
 async fn execute_build_targets(
     project: &Path,
     out_dir: &Path,
-    no_incremental: bool,
     targets: &[BuildTarget],
-    package: bool,
+    options: BundleExecution,
 ) -> Result<(), Failure> {
+    let plan = options.plan;
     let multiple = targets.len() > 1;
     for target in targets {
         let output = if multiple && *target == BuildTarget::Web {
@@ -817,7 +1267,7 @@ async fn execute_build_targets(
         } else {
             out_dir.to_path_buf()
         };
-        execute_build_with_package(project, &output, no_incremental, *target, package).await?;
+        execute_build_with_package(project, &output, options.no_incremental, *target, plan).await?;
     }
     Ok(())
 }
@@ -965,7 +1415,7 @@ fn reject_render_mode(explicit: Option<&str>) -> Result<(), Failure> {
     Ok(())
 }
 
-fn resolve_host(explicit: Option<&str>, environment_names: &[&str]) -> Result<IpAddr, Failure> {
+fn resolve_host(explicit: Option<&str>, environment_names: &[&str]) -> Result<ServerHost, Failure> {
     let value = explicit.map(String::from).or_else(|| {
         environment_names.iter().find_map(|name| {
             std::env::var(name)
@@ -974,16 +1424,13 @@ fn resolve_host(explicit: Option<&str>, environment_names: &[&str]) -> Result<Ip
         })
     });
     let Some(value) = value else {
-        return Ok(IpAddr::from([127, 0, 0, 1]));
+        return Ok(ServerHost::from(IpAddr::from([127, 0, 0, 1])));
     };
-    if value.eq_ignore_ascii_case("localhost") {
-        return Ok(IpAddr::from([127, 0, 0, 1]));
-    }
-    value.parse().map_err(|_| {
+    ServerHost::parse(&value).ok_or_else(|| {
         cli_failure(
             1302,
             format!("Invalid host address '{value}'."),
-            "Use an IPv4 or IPv6 address, or localhost.",
+            "Use an IPv4 or IPv6 address, localhost, or a name under .localhost.",
         )
     })
 }
@@ -1105,14 +1552,7 @@ async fn preview_watcher_cancelled(cancelled: &mut tokio::sync::watch::Receiver<
 fn source_fingerprint(project: &Path) -> u64 {
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     let mut pending = vec![project.join("client"), project.join("server")];
-    pending.extend([
-        project.join("tachyon.json"),
-        project.join("tac.config.js"),
-        project.join("tac.config.mjs"),
-        project.join("tac.config.ts"),
-        project.join("manifest.json"),
-        project.join("package.json"),
-    ]);
+    pending.push(project.join("package.json"));
     while let Some(current) = pending.pop() {
         let Ok(metadata) = std::fs::symlink_metadata(&current) else {
             continue;
@@ -1193,7 +1633,13 @@ async fn execute_build(
     no_incremental: bool,
     target: BuildTarget,
 ) -> Result<(), Failure> {
-    execute_build_with_package(project, out_dir, no_incremental, target, true).await
+    let plan = PackagePlan {
+        package: true,
+        release: false,
+        device: false,
+        architectures: PackageArchitectures::default(),
+    };
+    execute_build_with_package(project, out_dir, no_incremental, target, plan).await
 }
 
 async fn execute_build_with_package(
@@ -1201,7 +1647,7 @@ async fn execute_build_with_package(
     out_dir: &Path,
     no_incremental: bool,
     target: BuildTarget,
-    package: bool,
+    plan: PackagePlan,
 ) -> Result<(), Failure> {
     if target == BuildTarget::All {
         execute_web_build(project, &out_dir.join("web"), no_incremental).await?;
@@ -1212,12 +1658,12 @@ async fn execute_build_with_package(
             NativeTarget::Android,
             NativeTarget::Ios,
         ] {
-            execute_native_build(project, out_dir, native, package).await?;
+            execute_native_build(project, out_dir, native, plan, no_incremental).await?;
         }
         return Ok(());
     }
     if let Some(native) = target.native() {
-        return execute_native_build(project, out_dir, native, package).await;
+        return execute_native_build(project, out_dir, native, plan, no_incremental).await;
     }
 
     execute_web_build(project, out_dir, no_incremental).await
@@ -1233,6 +1679,7 @@ async fn execute_web_build(
         &BuildOptions {
             output_directory: out_dir.to_path_buf(),
             incremental: !no_incremental,
+            ..BuildOptions::default()
         },
     )
     .await?;
@@ -1249,6 +1696,15 @@ async fn execute_web_build(
         result.compiled_routes(),
         result.reused_routes()
     );
+    if let Some(line) = result.compression().line() {
+        println!("{line}");
+    }
+    for note in result.service_notes() {
+        println!("{note}");
+    }
+    for note in TargetSupport::notes(project, AppTarget::Web)? {
+        println!("{note}");
+    }
     Ok(())
 }
 
@@ -1256,29 +1712,31 @@ async fn execute_native_build(
     project: &Path,
     out_dir: &Path,
     native: NativeTarget,
-    package: bool,
+    plan: PackagePlan,
+    no_incremental: bool,
 ) -> Result<(), Failure> {
     let result = NativeCompiler::build_async(
         project,
         &NativeBuildOptions {
             output_directory: out_dir.to_path_buf(),
             target: native,
-            package,
+            package: plan.package,
+            release: plan.release,
+            device: plan.device,
+            windows_architecture: plan.architectures.windows,
+            macos_architecture: plan.architectures.macos,
+            android_architecture: plan.architectures.android,
+            incremental: !no_incremental,
+            development_origin: None,
         },
     )
     .await?;
-    println!(
-        "Built {} app hosting {} routes to {} ({})",
-        native_target_directory(native),
-        result.route_count(),
-        result.application_bundle().display(),
-        result.sha256()
-    );
+    native_build_report::NativeBuildReport::print(native, &result);
     Ok(())
 }
 
-fn execute_doctor(project: &PathBuf, json: bool) -> Result<(), Failure> {
-    let report = tachyon_core::doctor::check(project)?;
+fn execute_doctor(project: &PathBuf, json: bool, release: bool) -> Result<(), Failure> {
+    let report = tachyon_core::doctor::DoctorReport::check_for_release(project, release)?;
     if json {
         println!(
             "{}",
@@ -1287,18 +1745,19 @@ fn execute_doctor(project: &PathBuf, json: bool) -> Result<(), Failure> {
     } else {
         print!("{}", report.to_text());
     }
-    // A missing toolchain is a fact about the machine, not a failed command,
-    // so the report is the answer either way.
+    if !report.is_ready() {
+        let _ = std::io::stdout().flush();
+        std::process::exit(1);
+    }
     Ok(())
 }
 
 fn execute_cache(command: Option<&CacheCommand>) -> Result<(), Failure> {
     if matches!(command, Some(CacheCommand::Clean)) {
-        // Report what was removed, not what is there, since nothing is.
         let removed = tachyon_core::cache::clean()?;
         println!(
-            "Cleared Tachyon runtime cache: {}",
-            removed.root.join("runtime").display()
+            "Cleared Tachyon runtime and build caches under {}",
+            removed.root.display()
         );
         return Ok(());
     }
@@ -1309,17 +1768,39 @@ fn execute_cache(command: Option<&CacheCommand>) -> Result<(), Failure> {
         status.root.display(),
         status.runtime_entries
     );
+    for (folder, entries) in &status.build_entries {
+        println!("  Build cache {folder}: {entries} entries");
+    }
     Ok(())
 }
 
 fn execute_migrate(command: &MigrateCommand) -> Result<(), Failure> {
-    let MigrateCommand::Check {
-        project,
-        json,
-        allow_unsupported,
-    } = command;
+    match command {
+        MigrateCommand::Check {
+            project,
+            json,
+            allow_unsupported,
+        } => execute_migrate_check(project, *json, *allow_unsupported),
+        MigrateCommand::Fix { project, write } => execute_migrate_fix(project, *write),
+    }
+}
+
+fn execute_migrate_fix(project: &Path, write: bool) -> Result<(), Failure> {
+    let plan = MigrationFix::plan(project)?;
+    if write {
+        plan.write(project)?;
+    }
+    print!("{}", plan.to_text(write));
+    Ok(())
+}
+
+fn execute_migrate_check(
+    project: &Path,
+    json: bool,
+    allow_unsupported: bool,
+) -> Result<(), Failure> {
     let report = MigrationAnalysis::check(project)?;
-    if *json {
+    if json {
         let stdout = std::io::stdout();
         let mut lock = stdout.lock();
         if serde_json::to_writer_pretty(&mut lock, &report).is_ok() {
@@ -1328,79 +1809,349 @@ fn execute_migrate(command: &MigrateCommand) -> Result<(), Failure> {
     } else {
         print!("{}", report.to_text());
     }
-    if *allow_unsupported {
+    if allow_unsupported {
         return Ok(());
     }
     report.unsupported_failure().map_or(Ok(()), Err)
 }
 
+async fn execute_test(project: &Path, coverage: bool) -> Result<(), Failure> {
+    let resolved = project.canonicalize().map_err(|error| {
+        cli_failure(
+            2021,
+            format!("Cannot resolve the project directory: {error}"),
+            "Pass a directory that exists, or run the command inside the project.",
+        )
+    })?;
+    let project = resolved.as_path();
+    print_simpler_forms(project);
+    ComposedTypes::write(project)?;
+    RecordedCalls::invalidate(project)?;
+    let Some(results) = run_test_units(project, TestOutput::Terminal).await? else {
+        println!("No test units found. Place <Name>Test.<ext> under server/tests or client/tests.");
+        return Ok(());
+    };
+    results.finish(project, coverage)
+}
+
+async fn run_test_units(
+    project: &Path,
+    output: TestOutput,
+) -> Result<Option<TestResults>, Failure> {
+    let units = test_units(project);
+    let client = tachyon_core::client_tests::units(project, "client");
+    if units.is_empty() && client.is_empty() {
+        return Ok(None);
+    }
+    let supervisor = HandlerSupervisor::new(HandlerSupervisorOptions {
+        application: ApplicationConfig::load(project)?,
+        ..HandlerSupervisorOptions::from_environment()?
+    })?;
+    let extensions = units
+        .iter()
+        .filter_map(|relative| relative.extension().and_then(|value| value.to_str()))
+        .map(str::to_owned)
+        .collect::<std::collections::BTreeSet<_>>();
+    supervisor
+        .preflight_languages(extensions.iter().map(String::as_str))
+        .await?;
+    let mut sources = Vec::new();
+    for relative in &units {
+        sources.push(HandlerSource::discover(project, relative)?);
+    }
+    supervisor.preflight_gateways(&sources).await?;
+    let mut results = TestResults::new(output);
+    for (relative, source) in units.iter().zip(&sources) {
+        results.run_server_unit(relative, source, &supervisor).await;
+    }
+    for relative in client {
+        results.run_client_unit(project, &relative);
+    }
+    Ok(Some(results))
+}
+
+struct TestResults {
+    passed: usize,
+    failed: usize,
+    calls: RecordedCalls,
+    output: TestOutput,
+}
+
+impl TestResults {
+    fn new(output: TestOutput) -> Self {
+        Self {
+            passed: 0,
+            failed: 0,
+            calls: RecordedCalls::default(),
+            output,
+        }
+    }
+
+    async fn run_server_unit(
+        &mut self,
+        relative: &Path,
+        source: &HandlerSource,
+        supervisor: &HandlerSupervisor,
+    ) {
+        let portable = relative.to_string_lossy().replace('\\', "/");
+        let response = supervisor
+            .invoke(
+                source,
+                &HandlerRequest::route("ty-test", "/", HttpMethod::Post),
+                &HandlerCancellation::default(),
+            )
+            .await
+            .unwrap_or_else(|failure| Self::unit_did_not_answer(&failure));
+        let language = relative
+            .extension()
+            .and_then(|value| value.to_str())
+            .unwrap_or_default();
+        self.calls
+            .add_unit("server", language, response.error.is_none());
+        if let Some(error) = response.error {
+            self.failed += 1;
+            self.output
+                .failure(&format!("FAIL {portable}: {}", error.message));
+            return;
+        }
+        let report = response
+            .body
+            .and_then(|body| serde_json::from_str::<serde_json::Value>(&body.data).ok())
+            .unwrap_or_default();
+        let unit = report["unit"].as_str().unwrap_or(&portable);
+        for case in report["cases"].as_array().into_iter().flatten() {
+            let name = case["name"].as_str().unwrap_or("<case>");
+            self.record(
+                unit,
+                name,
+                case["passed"] == serde_json::Value::Bool(true),
+                case["error"].as_str(),
+            );
+            let called: Vec<String> = case["called"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter_map(|key| key.as_str().map(str::to_owned))
+                .collect();
+            self.calls.add("server", &format!("{unit}.{name}"), &called);
+        }
+    }
+
+    fn unit_did_not_answer(failure: &Failure) -> HandlerResponse {
+        let diagnostic = &failure.diagnostics()[0];
+        HandlerResponse::error(
+            "ty-test",
+            500,
+            HandlerProtocolError::new(
+                diagnostic.code.to_string(),
+                format!("{}: {}", diagnostic.code, diagnostic.message),
+            ),
+        )
+    }
+
+    fn run_client_unit(&mut self, project: &Path, relative: &Path) {
+        let portable = relative.to_string_lossy().replace('\\', "/");
+        let language = relative
+            .extension()
+            .and_then(|value| value.to_str())
+            .unwrap_or_default();
+        let outcome = tachyon_core::client_tests::run(project, relative);
+        self.calls.add_unit("client", language, outcome.is_ok());
+        let report = match outcome {
+            Ok(report) => report,
+            Err(failure) => {
+                self.failed += 1;
+                self.output.failure(&format!(
+                    "FAIL {portable}: {}",
+                    failure.diagnostics()[0].message
+                ));
+                return;
+            }
+        };
+        for case in report.cases {
+            self.record(&report.unit, &case.name, case.passed, case.error.as_deref());
+            let first_case = format!("{}.{}", report.unit, case.name);
+            self.calls.add("client", &first_case, &case.called);
+        }
+    }
+
+    fn record(&mut self, unit: &str, name: &str, passed: bool, error: Option<&str>) {
+        if passed {
+            self.passed += 1;
+            self.output.line(&format!("  ok  {unit}.{name}"));
+            return;
+        }
+        self.failed += 1;
+        let reason = error.unwrap_or("failed");
+        self.output
+            .failure(&format!("FAIL {unit}.{name}: {reason}"));
+    }
+
+    fn preview_calls(self) -> Result<RecordedCalls, Failure> {
+        if self.failed == 0 {
+            return Ok(self.calls);
+        }
+        Err(Self::failed_cases())
+    }
+
+    fn finish(&self, project: &Path, coverage: bool) -> Result<(), Failure> {
+        println!("{} passed, {} failed.", self.passed, self.failed);
+        let mut calls = self.calls.clone();
+        calls.set_successful(self.failed == 0);
+        calls.write(project)?;
+        let uncovered = CoverageGate::print_test_report(project, self.calls.clone(), coverage)?;
+        if self.failed == 0 && !uncovered {
+            return Ok(());
+        }
+        if self.failed == 0 {
+            return Err(cli_failure(
+                2022,
+                "One or more public methods of an annotated class were not called by a test case.",
+                "Call each listed method from a test* case, or drop the class-level annotation.",
+            ));
+        }
+        Err(Self::failed_cases())
+    }
+
+    fn failed_cases() -> Failure {
+        cli_failure(
+            2020,
+            "One or more test cases failed.",
+            "Fix the reported cases, or run one unit with ty handler invoke for its full output.",
+        )
+    }
+}
+
+fn test_units(project: &Path) -> Vec<PathBuf> {
+    let mut units = Vec::new();
+    let mut pending = vec![PathBuf::from("server/tests")];
+    while let Some(relative) = pending.pop() {
+        let Ok(entries) = std::fs::read_dir(project.join(&relative)) else {
+            continue;
+        };
+        for entry in entries.flatten() {
+            let name = entry.file_name();
+            let Some(name) = name.to_str() else { continue };
+            let child = relative.join(name);
+            if entry.path().is_dir() {
+                pending.push(child);
+                continue;
+            }
+            let stem = Path::new(name).file_stem().and_then(|value| value.to_str());
+            if stem.is_some_and(|stem| stem.ends_with("Test")) {
+                units.push(child);
+            }
+        }
+    }
+    units.sort();
+    units
+}
+
 async fn execute_handler(command: &HandlerCommand) -> Result<(), Failure> {
-    match command {
-        HandlerCommand::Invoke {
-            source,
-            project,
-            route,
-            method,
-            request_id,
-            body,
-            headers,
-            timeout_ms,
+    let HandlerCommand::Invoke {
+        source,
+        project,
+        method,
+        ..
+    } = command;
+    let (source, application) = HandlerSource::discover_with_application(project, source)?;
+    if source.streams_method(HttpMethod::from(*method)) {
+        return Err(cli_failure(
+            2006,
+            "handler invoke cannot represent a multi-frame generator response.",
+            "Use ty preview or ty start and request this method over HTTP/SSE.",
+        ));
+    }
+    let supervisor = command.supervisor(application)?;
+    let request = command.request();
+    let cancellation = handler_cancellation();
+    let response = RouteInvocation::new(&source, &supervisor)
+        .invoke(request, command.target(), &cancellation)
+        .await?;
+    let stdout = std::io::stdout();
+    let mut lock = stdout.lock();
+    if serde_json::to_writer_pretty(&mut lock, &response).is_err() {
+        return Ok(());
+    }
+    let _newline_result = writeln!(lock);
+    Ok(())
+}
+
+impl HandlerCommand {
+    fn supervisor(&self, application: ApplicationConfig) -> Result<HandlerSupervisor, Failure> {
+        let Self::Invoke {
             allow_environment,
             javascript_runtime,
             python_runtime,
-        } => {
-            let source = HandlerSource::discover(project, source)?;
-            if source.streams_method(HttpMethod::from(*method)) {
-                return Err(cli_failure(
-                    2006,
-                    "handler invoke cannot represent a multi-frame @Stream response.",
-                    "Use ty preview or ty start and request this method over HTTP/SSE.",
-                ));
-            }
-            let environment = EnvironmentPolicy::from_names(allow_environment.clone())?;
-            let mut runtimes = HandlerRuntimePrograms {
-                javascript: javascript_runtime.clone(),
-                ..HandlerRuntimePrograms::default()
-            };
-            if let Some(python_runtime) = python_runtime {
-                runtimes.python.clone_from(python_runtime);
-            }
-            let mut options = HandlerSupervisorOptions::from_environment()?;
-            options.default_timeout = Duration::from_millis(*timeout_ms);
-            options.runtimes = runtimes;
-            options.environment = environment;
-            let supervisor = HandlerSupervisor::new(options)?;
-            let mut request =
-                HandlerRequest::route(request_id.clone(), route.clone(), HttpMethod::from(*method));
-            request.deadline_ms = Some(*timeout_ms);
-            for header in headers {
-                request
-                    .headers
-                    .entry(header.name.clone())
-                    .or_default()
-                    .push(header.value.clone());
-            }
-            request.body = body.as_ref().map(|data| HandlerBody {
-                encoding: HandlerBodyEncoding::Utf8,
-                data: data.clone(),
-            });
-            let cancellation = HandlerCancellation::default();
-            let signal = cancellation.clone();
-            tokio::spawn(async move {
-                if tokio::signal::ctrl_c().await.is_ok() {
-                    signal.cancel();
-                }
-            });
-            let response = supervisor.invoke(&source, &request, &cancellation).await?;
-            let stdout = std::io::stdout();
-            let mut lock = stdout.lock();
-            if serde_json::to_writer_pretty(&mut lock, &response).is_err() {
-                return Ok(());
-            }
-            let _newline_result = writeln!(lock);
-            Ok(())
+            ruby_runtime,
+            timeout_ms,
+            ..
+        } = self;
+        let environment = EnvironmentPolicy::from_operator_names(allow_environment.clone())?;
+        let mut runtimes = HandlerRuntimePrograms::default();
+        if let Some(javascript_runtime) = javascript_runtime {
+            runtimes.javascript.clone_from(javascript_runtime);
         }
+        if let Some(python_runtime) = python_runtime {
+            runtimes.python.clone_from(python_runtime);
+        }
+        if let Some(ruby_runtime) = ruby_runtime {
+            runtimes.ruby.clone_from(ruby_runtime);
+        }
+        let mut options = HandlerSupervisorOptions::from_environment()?;
+        options.default_timeout = Duration::from_millis(*timeout_ms);
+        options.runtimes = runtimes;
+        options.environment = environment;
+        options.application = application;
+        HandlerSupervisor::new(options)
     }
+
+    fn target(&self) -> Option<&str> {
+        let Self::Invoke { target, .. } = self;
+        target.as_deref()
+    }
+
+    fn request(&self) -> HandlerRequest {
+        let Self::Invoke {
+            request_id,
+            route,
+            method,
+            timeout_ms,
+            headers,
+            body,
+            ..
+        } = self;
+        let mut request =
+            HandlerRequest::route(request_id.clone(), route.clone(), HttpMethod::from(*method));
+        request.deadline_ms = Some(*timeout_ms);
+        for header in headers {
+            request
+                .headers
+                .entry(header.name.clone())
+                .or_default()
+                .push(header.value.clone());
+        }
+        request.body = body.as_ref().map(|data| HandlerBody {
+            encoding: HandlerBodyEncoding::Utf8,
+            data: data.clone(),
+        });
+        request
+    }
+}
+
+fn handler_cancellation() -> HandlerCancellation {
+    let cancellation = HandlerCancellation::default();
+    let signal = cancellation.clone();
+    tokio::spawn(async move {
+        if tokio::signal::ctrl_c().await.is_ok() {
+            signal.cancel();
+        }
+    });
+    cancellation
+}
+
+fn print_simpler_forms(project: &Path) {
+    eprint!("{}", tachyon_core::SimplerForms::report(project));
 }
 
 fn print_failure(failure: &Failure, format: DiagnosticFormat) {

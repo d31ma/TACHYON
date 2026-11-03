@@ -1,0 +1,16 @@
+// @Test(GoGreetingTestSetup, {"partition":"tests"})
+type GoGreetingServiceTest struct {
+	behaviors *BehaviorContext
+}
+
+func (test *GoGreetingServiceTest) TestStartSetsTheMessage() {
+	greeting := &GoGreetingService{}
+	greeting.Start()
+	Assert.Equals("Hello from Go", greeting.Message)
+}
+
+func (test *GoGreetingServiceTest) TestGreetChangesTheMessage() {
+	greeting := &GoGreetingService{}
+	greeting.Greet()
+	Assert.Equals("Go says hello again.", greeting.Message)
+}

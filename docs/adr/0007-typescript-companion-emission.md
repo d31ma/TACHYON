@@ -5,14 +5,14 @@
 
 ## Context
 
-`tac.ts` is a legacy source convention. Emitting it requires turning
-TypeScript into JavaScript, because a browser cannot consume type
-annotations. Type *checking* is a separate concern that `ty` does not claim to
-perform and that this repository already covers with its own typecheck step.
+`tac.ts` is a legacy source convention. To emit it, Tachyon must turn
+TypeScript into JavaScript, because a browser cannot read type annotations.
+Type *checking* is a separate problem. `ty` does not claim to check types.
+This repository already checks types with its own typecheck step.
 
-Four options were measured rather than estimated. The workspace has 194
-crates today, so either in-process transpiler roughly doubles the dependency
-tree and its audit surface for one file type.
+We measured four options instead of estimating them. The workspace has 194
+crates today. Either in-process transpiler would roughly double the dependency
+tree, and the code to audit, for one file type.
 
 | Option | New Rust crates | Licensing change |
 | --- | --- | --- |
@@ -21,53 +21,67 @@ tree and its audit surface for one file type.
 | Node `stripTypeScriptTypes` | 0 | none |
 | The TypeScript compiler | 0 | none |
 
-Deno separates the two problems: it transpiles with `SWC` in Rust and type
-checks by embedding the real `tsc` in a V8 snapshot. Only the transpilation
-half applies here.
+Deno keeps the two problems apart. It transpiles with `SWC` in Rust. It checks
+types by embedding the real `tsc` in a V8 snapshot. Only the transpilation part
+applies here.
 
 ## Decision
 
-Emit `tac.ts` by invoking the TypeScript compiler, version 6 or newer, as a
+Emit `tac.ts` by running the TypeScript compiler, version 6 or newer, as a
 bounded external process.
 
-The compiler is located project-first, so `node_modules/.bin/tsc` wins over
-`PATH` and a pinned project dependency is authoritative. Emission is hermetic:
-`--ignoreConfig` with an explicit `--target es2022 --module esnext` means a
-project's `tsconfig.json` cannot alter the output. `--noCheck` is passed,
-because emission must not depend on a project type checking cleanly. The
-subprocess runs in the project root and never through a shell, and its major
-version is verified before use.
+`ty` looks for the compiler in the project first. So `node_modules/.bin/tsc`
+wins over `PATH`, and a pinned project dependency decides the version.
+
+Emission is hermetic: nothing outside the command changes the output.
+
+- `--ignoreConfig` with an explicit `--target es2022 --module esnext` means a
+  project's `tsconfig.json` cannot change the output.
+- `ty` passes `--noCheck`, because emission must not depend on whether a
+  project passes type checking.
+- The subprocess runs in the project root and never through a shell.
+- `ty` checks the compiler's major version before it uses the compiler.
 
 ## Consequences
 
-No new Rust dependency and no licensing change. Zero semantic divergence: the
-reference implementation defines the semantics, so enums, parameter
-properties, and future syntax are correct by construction rather than by our
-reimplementation of them. The decision is consistent with the existing
-architecture, which already supervises `node`, `python3`, `swiftc`, `cc`,
-`gradle`, and `mingw`. TypeScript 6 and 7 are the Go-native compiler, so one
-file emits in roughly 70 ms.
+Benefits:
 
-Against that, building a project that uses `tac.ts` now requires TypeScript 6
-or newer present — the version that first accepts `--ignoreConfig`, verified
-against 5.6, 5.9, 6.0.3, and 7.0.2. That is a new build-time toolchain requirement, though only for
-projects using the convention, and it fails closed with `TY1009` naming the
-remedy. Emission costs one process per TypeScript companion.
+- There is no new Rust dependency and no licensing change.
+- The semantics do not differ at all. The reference implementation defines the
+  semantics. So enums, parameter properties and future syntax are correct by
+  design. We do not reimplement them.
+- The decision fits the existing architecture. It already supervises `node`,
+  `python3`, `swiftc`, `cc`, `gradle` and `mingw`.
+- TypeScript 6 and 7 are the Go-native compiler, so one file emits in about
+  70 ms.
+
+Costs:
+
+- To build a project that uses `tac.ts`, TypeScript 6 or newer must now be
+  installed. Version 6 is the first version that accepts `--ignoreConfig`. We
+  checked this against 5.6, 5.9, 6.0.3 and 7.0.2.
+- This is a new toolchain requirement at build time. It applies only to
+  projects that use the convention.
+- Without the compiler, the build fails closed: it stops with `TY1009`, and
+  the message names the fix.
+- Emission starts one process per TypeScript companion.
 
 ## Rejected Alternatives
 
-`SWC` or `OXC` in process would avoid the external toolchain and run faster
-still, but each roughly doubles the dependency tree for one file type and each
-is a reimplementation that can diverge from the reference compiler. Revisit if
-the external requirement becomes a real obstacle.
+`SWC` or `OXC` in process would avoid the external toolchain and would run
+even faster. But each one roughly doubles the dependency tree for one file
+type. Each one is also a reimplementation, so it can behave differently from
+the reference compiler. Look at this option again if the external requirement
+becomes a real problem.
 
-Node's `stripTypeScriptTypes` costs nothing and Node is already required for
-`yon.js`, but the API is explicitly experimental and its strip-only mode
-rejects `enum` and parameter properties outright.
+Node's `stripTypeScriptTypes` costs nothing, and `yon.js` already requires
+Node. But the API is explicitly experimental. Its strip-only mode also rejects
+`enum` and parameter properties completely.
 
-A hand-written type stripper was rejected outright. TypeScript syntax is large
-enough that a bespoke stripper would be subtly wrong, and being subtly wrong
-while claiming correctness is the failure mode this project can least afford.
+We rejected a hand-written type stripper completely. TypeScript syntax is
+large, so a custom stripper would be wrong in small, hard-to-see ways. This
+project can least afford to be wrong in that way while it claims to be
+correct.
 
 ## Acceptance Gate
 

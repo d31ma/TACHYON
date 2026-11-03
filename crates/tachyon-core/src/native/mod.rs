@@ -1,24 +1,408 @@
 mod android;
+mod android_architecture;
+mod android_browser_apis;
+mod android_file_picker;
+mod android_gradle_build;
+mod android_gradle_cache;
+mod android_ndk;
+mod android_release;
+mod android_rust_libraries;
+#[cfg(test)]
+mod android_rust_library_tests;
+mod android_shrinking;
+mod android_signing_certificate;
+mod android_window_settings;
+#[cfg(test)]
+mod android_yon_http_tests;
+mod android_yon_reach;
+mod apple_browser_apis;
+mod apple_icons;
+mod apple_team;
+#[cfg(test)]
+mod application_state_tests;
+mod browser_api_bridge;
+mod browser_api_grants;
+#[cfg(test)]
+mod browser_api_permission_build_tests;
+mod browser_api_permissions;
+#[cfg(test)]
+mod browser_task_tests;
 mod compiler;
 mod config;
+mod cpp_web_services;
+mod csharp_web_apis;
+mod desktop_host_source;
+mod desktop_menu_items;
+mod desktop_tray_source;
+mod development_origin;
+mod development_pages;
+mod dotnet_web_environment;
+mod dotnet_web_release;
+mod events;
+mod file_picker_sources;
+mod fsharp_behaviors_project;
+mod fsharp_delegate_base;
+mod fsharp_delegate_bases;
+mod fsharp_service;
+mod fsharp_service_events;
+mod fsharp_service_needs;
+mod fsharp_task_results;
+mod fsharp_web_project;
+mod go;
+mod go_compiled_with;
+mod go_compiler;
+mod go_compiler_choice;
+mod go_events;
+mod go_needs;
+mod go_web_build;
+mod held_service;
 mod host;
 mod ios;
+mod ios_app_icon;
+mod ios_destination;
+mod ios_device_build;
+mod ios_entitlements;
+mod ios_launch_screen;
+mod ios_provisioning_profile;
+mod ios_rust_library;
+#[cfg(test)]
+mod ios_rust_link_tests;
+mod ios_signing;
+mod ios_signing_identity;
+mod ios_toolchain_facts;
+mod ios_window_controls;
+mod ios_window_settings;
+mod java_web_services;
+#[cfg(test)]
+mod kotlin_held_client_tests;
+mod kotlin_held_streams;
+#[cfg(test)]
+mod kotlin_held_streams_tests;
+#[cfg(test)]
+mod kotlin_helper_tests;
+mod kotlin_model_order;
+mod kotlin_web_services;
+
+#[cfg(test)]
+mod kotlin_document_title_tests;
+
+mod fsharp_part;
+#[cfg(test)]
+mod kotlin_document_title_scope_tests;
+#[cfg(test)]
+mod kotlin_page_graph_tests;
+#[cfg(test)]
+mod linked_page_program_tests;
 mod linux;
+mod linux_app_image_runtime;
+#[cfg(test)]
+mod linux_browser_api_tests;
+mod linux_browser_apis;
+mod linux_file_picker;
+#[cfg(test)]
+mod linux_file_picker_tests;
+#[cfg(test)]
+mod linux_host_tests;
+mod linux_package_files;
+mod linux_package_names;
+mod linux_package_sources;
+#[cfg(test)]
+mod linux_package_tests;
+mod linux_packages;
+#[cfg(test)]
+mod linux_page_call_tests;
+#[cfg(test)]
+mod linux_storage_tests;
+mod linux_title_bar;
+#[cfg(test)]
+mod linux_title_bar_tests;
+mod linux_web_engine_check;
+mod linux_window_appearance;
+#[cfg(test)]
+mod linux_window_appearance_tests;
+#[cfg(test)]
+mod linux_window_control_tests;
+mod linux_window_controls;
+mod mac_os_architecture;
+mod mac_os_associated_domains;
+mod mac_os_built_slice;
+mod mac_os_disk_image;
+mod mac_os_entitlements;
+mod mac_os_executable;
+mod mac_os_keychain_identity;
+mod mac_os_menu_action_source;
+mod mac_os_menu_source;
+mod mac_os_notarization;
+mod mac_os_release;
+mod mac_os_signing;
+mod mac_os_slice;
+mod mac_os_title_bar_source;
+mod mac_os_tray_source;
+mod mac_os_window_appearance;
 mod macos;
+#[cfg(test)]
+mod macos_menu_tests;
+#[cfg(test)]
+mod managed_capability_tests;
+mod managed_native_capabilities;
+mod manifest_setting;
+mod minimum_system;
+#[cfg(test)]
+mod mobile_menu_host_tests;
+mod mobile_menu_source;
+#[cfg(test)]
+mod model_tests;
+mod native_app_launch;
+mod native_app_sources;
+mod native_application_capture;
+#[cfg(all(test, target_os = "macos"))]
+mod native_application_host_tests;
+mod native_application_inputs;
+#[cfg(test)]
+mod native_application_tests;
+#[cfg(test)]
+mod native_browser_api_host_tests;
+mod native_build_folders;
+mod native_capabilities;
+#[cfg(test)]
+mod native_capability_tests;
+#[cfg(test)]
+mod native_cfg_impl_tests;
+#[cfg(test)]
+mod native_content_security_policy_tests;
+mod native_deep_link;
+#[cfg(test)]
+mod native_deep_link_tests;
+#[cfg(test)]
+mod native_development_preview_tests;
+mod native_display;
+mod native_external_link;
+#[cfg(test)]
+mod native_external_link_tests;
+#[cfg(all(test, target_os = "macos"))]
+mod native_file_picker_limit_tests;
+#[cfg(all(test, target_os = "macos"))]
+mod native_file_picker_permission_tests;
+#[cfg(test)]
+mod native_helper_tests;
+mod native_icon_note;
+mod native_links;
+mod native_menu_action;
+mod native_menu_action_check;
+#[cfg(test)]
+mod native_menu_action_tests;
+mod native_menu_config;
+#[cfg(test)]
+mod native_menu_config_tests;
+mod native_menu_entry;
+#[cfg(test)]
+mod native_menu_host_tests;
+mod native_menu_shortcut;
+mod native_orientation;
+mod native_outgoing_hosts;
+#[cfg(test)]
+mod native_packaged_utility_tests;
+#[cfg(test)]
+mod native_page_call_contract_tests;
+#[cfg(test)]
+mod native_page_graph_tests;
+mod native_release_version;
+mod native_reproducibility;
+#[cfg(test)]
+mod native_reproducible_build_tests;
+mod native_running_app;
+#[cfg(test)]
+mod native_rust_apple_host_tests;
+#[cfg(test)]
+mod native_rust_capability_tests;
+#[cfg(test)]
+mod native_rust_crate_tests;
+#[cfg(test)]
+mod native_rust_linux_http_tests;
+mod native_rust_project;
+#[cfg(test)]
+mod native_rust_task_tests;
+mod native_service_roots;
+#[cfg(test)]
+mod native_swift_page_lifetime_tests;
+#[cfg(test)]
+mod native_swift_yon_http_tests;
+#[cfg(test)]
+mod native_system_back_tests;
+mod native_theme_color;
+mod native_title_bar;
+mod native_title_bar_button_inset;
+#[cfg(all(test, target_os = "macos"))]
+mod native_title_bar_host_tests;
+mod native_tray;
+mod native_tray_icon;
+#[cfg(test)]
+mod native_tray_tests;
+mod native_type_program;
+mod native_ui_artifact;
+#[cfg(test)]
+mod native_ui_artifact_tests;
+mod native_ui_asset;
+mod native_ui_bounds;
+mod native_ui_capture;
+mod native_ui_change;
+mod native_ui_contract;
+mod native_ui_descriptor;
+mod native_ui_generation;
+#[cfg(test)]
+mod native_ui_generation_tests;
+#[cfg(all(test, target_os = "macos"))]
+mod native_ui_host_sources;
+#[cfg(all(test, target_os = "macos"))]
+mod native_ui_host_tests;
+mod native_ui_problem;
+mod native_ui_profile;
+#[cfg(test)]
+mod native_ui_profile_tests;
+#[cfg(all(test, target_os = "macos"))]
+mod native_ui_runtime_tests;
+#[cfg(all(test, target_os = "macos"))]
+mod native_ui_styles_sources;
+#[cfg(all(test, target_os = "macos"))]
+mod native_ui_styles_tests;
+#[cfg(test)]
+mod native_web_api_tests;
+mod native_web_stage;
+#[cfg(all(test, target_os = "macos"))]
+mod native_window_appearance_host_tests;
+#[cfg(test)]
+mod native_window_control_tests;
+mod native_window_controls;
+#[cfg(all(test, target_os = "macos"))]
+mod native_window_example_tests;
+mod page_program;
+mod placeholder_fill;
 mod registry;
+mod release_packaging;
 mod routes;
 mod rust;
+mod rust_companion_crate;
+mod rust_companion_output;
+mod rust_crate_build;
+mod rust_dependency;
+#[cfg(test)]
+mod rust_filename_tests;
+#[cfg(test)]
+mod rust_held_stream_tests;
+mod rust_held_streams;
+mod rust_imports;
+mod rust_local_paths;
+mod rust_native_libraries;
+mod rust_page_graph;
+mod rust_service_plan;
+mod rust_service_scopes;
+mod rust_standard_library;
+pub(crate) mod rust_wasm_cache;
+mod rust_web_module;
+mod service_companions;
+mod site;
+mod site_association;
+mod site_map;
+#[cfg(test)]
+mod site_tests;
+#[cfg(test)]
+mod storage_tests;
+mod style_source;
+mod swift_compile_inputs;
+#[cfg(test)]
+mod swift_held_client_tests;
+#[cfg(test)]
+mod swift_listener_tests;
+mod swift_streams;
+mod swift_web_services;
+mod swift_yon_http;
+mod system_floor;
+mod system_version;
+mod target_floor;
+mod target_reach;
+mod target_support;
+mod target_support_entry;
+#[cfg(test)]
+mod target_support_tests;
+mod vendor_provenance;
+mod web_delegate_bases;
+#[cfg(test)]
+mod web_delegate_bases_tests;
+mod web_program_build;
+mod web_service_needs;
+#[cfg(test)]
+mod web_service_needs_tests;
 mod windows;
+mod windows_architecture;
+#[cfg(test)]
+mod windows_browser_api_tests;
+mod windows_browser_apis;
+mod windows_compiler_plan;
+#[cfg(test)]
+mod windows_file_picker_tests;
+#[cfg(test)]
+mod windows_host_tests;
+mod windows_package_family;
+mod windows_package_manifest;
+#[cfg(test)]
+mod windows_package_tests;
+mod windows_package_tiles;
+mod windows_release;
+#[cfg(test)]
+mod windows_task_resume_tests;
+mod windows_title_bar;
+#[cfg(test)]
+mod windows_title_bar_tests;
+mod windows_version_resource;
+mod windows_web_engine_check;
+mod windows_window_background;
+#[cfg(test)]
+mod windows_window_background_tests;
+mod windows_window_frame;
+#[cfg(test)]
+mod windows_window_frame_tests;
+mod yon_member;
+mod yon_reach;
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod yon_reach_tests;
 
+pub use android_architecture::AndroidArchitecture;
+pub(crate) use android_ndk::AndroidNdk;
+pub(crate) use browser_api_grants::BrowserApiGrants;
 pub use compiler::{
     NativeBuildOptions, NativeBuildResult, NativeCompiler, native_target_directory,
 };
-pub(crate) use config::{
-    MANIFEST_NAME, MANIFEST_OUTPUT, PageMetadata, browser_scripts, browser_styles, cache_rules,
-    config_module_path, manifest_head, page_metadata,
+pub(crate) use config::{TacMember, WebAppManifest};
+pub(crate) use cpp_web_services::CppWebServices;
+pub(crate) use csharp_web_apis::CsharpWebApis;
+pub use development_origin::DevelopmentOrigin;
+pub(crate) use go::{
+    in_package as go_in_package, module_file as go_module_file,
+    publisher_alias as go_publisher_alias, runtime_files as go_runtime_files, web_go,
 };
+pub(crate) use java_web_services::JavaWebServices;
+pub(crate) use kotlin_web_services::KotlinWebServices;
+pub use mac_os_architecture::MacOsArchitecture;
+pub use native_app_launch::NativeAppLaunch;
+pub use native_app_sources::NativeAppSources;
+pub use native_ui_change::NativeUiChange;
+pub use native_ui_contract::NativeUiContract;
+pub use native_ui_generation::NativeUiGeneration;
+pub use release_packaging::ReleasePackaging;
+#[cfg(test)]
+pub(crate) use rust::companion_prelude;
+pub(crate) use rust::{RustCompanion, tac_value_source, web_assembly};
+pub(crate) use site::{CacheRule, PageMetadata, SiteSettings};
+pub(crate) use site_association::SiteAssociation;
+pub(crate) use site_map::SiteMap;
+pub(crate) use style_source::StyleSource;
+pub(crate) use swift_web_services::SwiftWebServices;
+pub use target_support::TargetSupport;
+pub(crate) use windows::web_dotnet;
+pub use windows_architecture::WindowsArchitecture;
+pub(crate) use yon_member::YonMember;
 
-/// Uses the same bounded frontend all native bundle builds consume.
 #[cfg(feature = "fuzzing")]
 pub(crate) fn plan_for_fuzzing(
     _target: tachyon_contracts::NativeTarget,
@@ -31,3 +415,19 @@ pub(crate) fn plan_for_fuzzing(
     )
     .map(|_| ())
 }
+
+mod csharp_browser_bindings;
+#[cfg(test)]
+mod csharp_browser_client_tests;
+mod csharp_browser_factory;
+#[cfg(test)]
+mod csharp_held_client_tests;
+#[cfg(test)]
+mod csharp_native_task_tests;
+#[cfg(test)]
+mod csharp_page_lifetime_tests;
+mod csharp_stream_clients;
+mod csharp_task_inventory;
+
+#[cfg(test)]
+mod csharp_browser_bindings_tests;

@@ -1,0 +1,6 @@
+{
+  "server": { "host": "127.0.0.1", "port": 8080 },
+  "datasource": { "url": "${YON_DATASOURCE_URL}" },
+  "redis": { "url": "${YON_REDIS_URL:redis://127.0.0.1:6379}" },
+  "properties": { "YON_CATALOG_SIZE": "20" }
+}

@@ -1,0 +1,7 @@
+<section aria-label="Counter">
+  <h2>{label}</h2>
+  <p class="count">{counter.count}</p>
+  <button type="button" on:click="counter.add()">Add one</button>
+  <footer><slot name="note"></slot></footer>
+  <slot></slot>
+</section>

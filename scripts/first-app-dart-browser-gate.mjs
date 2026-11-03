@@ -1,0 +1,201 @@
+#!/usr/bin/env node
+import assert from 'node:assert/strict'
+import { spawnSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { chromium, firefox, webkit } from 'playwright'
+import { withServer } from './release/server-probe.mjs'
+import { RunInputs } from './run-inputs.mjs'
+
+/**
+ * @typedef {{name: string, code: string}} FirstAppCodeFile
+ * @typedef {{heading: string, files: FirstAppCodeFile[]}} FirstAppSection
+ * @typedef {{topics: Record<string, {sections: FirstAppSection[]}>}} FirstAppDocs
+ * @typedef {{path: string, method: string, cookie: string | null}} FirstAppRequestReceipt
+ * @typedef {{name: string, errors: string[], requests: FirstAppRequestReceipt[], requestCount: number, rendered?: string[], status?: 'pass'}} FirstAppBrowserReceipt
+ * @typedef {{status: 'starting' | 'pass' | 'fail', sourceCommit: string, compilerSha256: string, browsers: FirstAppBrowserReceipt[], error?: string, elapsedMilliseconds?: number}} FirstAppReceipt
+ */
+
+class FirstAppDartBrowserGate {
+  /** @type {string} */
+  static repository = fileURLToPath(new URL('../', import.meta.url))
+  /** @type {Record<string, import('playwright').BrowserType>} */
+  static launchers = { chromium, firefox, webkit }
+
+  /** @returns {Promise<void>} */
+  static async run() {
+    await FirstAppDartBrowserGate.#dispatch()
+  }
+
+  /** @returns {Promise<void>} */
+  static async #dispatch() {
+    const staged = process.env.TAC_FIRST_APP_DART_PROJECT
+    const project = await RunInputs.folder('TAC_FIRST_APP_DART_PROJECT', 'tac-first-app-dart-')
+    if (process.argv.includes('--stage-only')) return FirstAppDartBrowserGate.stage(project)
+    if (!staged) {
+      await FirstAppDartBrowserGate.stage(project)
+      FirstAppDartBrowserGate.#bundle(project)
+    }
+    return FirstAppDartBrowserGate.probe(project)
+  }
+
+  /**
+   * @param {string} project
+   * @returns {void}
+   */
+  static #bundle(project) {
+    const bundle = spawnSync(RunInputs.binary(), ['bundle', project, '--no-incremental'], { encoding: 'utf8', stdio: ['ignore', 'inherit', 'inherit'] })
+    assert.equal(bundle.status, 0, 'the staged first app bundles')
+  }
+
+  /**
+   * @param {string} project
+   * @returns {Promise<void>}
+   */
+  static async stage(project) {
+    /** @type {FirstAppDocs} */
+    const docs = JSON.parse(await readFile(path.join(FirstAppDartBrowserGate.repository, 'website/client/shared/data/docs.json'), 'utf8'))
+    const sections = docs.topics['first-app'].sections
+    const step4 = /** @type {FirstAppSection} */ (sections.find(section => section.heading.startsWith('Step 4:')))
+    const step3 = /** @type {FirstAppSection} */ (sections.find(section => section.heading.startsWith('Step 3:')))
+    const clients = step4.files.filter(file => file.name.endsWith('.dart') || file.name.endsWith('.html'))
+    const server = step3.files.filter(file => file.name === 'server/controllers/GreetingController.js' || file.name === 'server/models/Greeting.ts')
+    const tests = FirstAppDartBrowserGate.#tests(sections)
+    assert.equal(clients.length, 6, 'the published Dart slice has exactly its four native role/model files and two views')
+    assert.equal(server.length, 2, 'the exact preceding tutorial Yon endpoint/model is retained')
+    await FirstAppDartBrowserGate.#write(project, [...clients, ...server, ...tests])
+  }
+
+  /**
+   * @param {FirstAppSection[]} sections
+   * @returns {FirstAppCodeFile[]}
+   */
+  static #tests(sections) {
+    if (!process.argv.includes('--with-tests')) return []
+    const step5 = /** @type {FirstAppSection} */ (sections.find(section => section.heading.startsWith('Step 5:')))
+    const names = ['client/tests/HelloTestSetup.dart', 'client/tests/CounterServiceTest.dart', 'server/tests/GreetingTestSetup.js', 'server/tests/GreetingControllerTest.js']
+    const tests = step5.files.filter(file => names.includes(file.name))
+    assert.equal(tests.length, 4, 'the cumulative project contains the actual published Dart and matching Yon tests')
+    return tests
+  }
+
+  /**
+   * @param {string} project
+   * @param {FirstAppCodeFile[]} files
+   * @returns {Promise<void>}
+   */
+  static async #write(project, files) {
+    for (const file of files) {
+      const target = path.join(project, file.name)
+      await mkdir(path.dirname(target), { recursive: true })
+      await writeFile(target, file.code)
+    }
+  }
+
+  /**
+   * @param {string} project
+   * @returns {Promise<void>}
+   */
+  static async probe(project) {
+    const binary = RunInputs.binary()
+    const sourceCommit = RunInputs.sourceCommit('TAC_FIRST_APP_DART_SOURCE_COMMIT')
+    const compilerSha256 = createHash('sha256').update(await readFile(binary)).digest('hex')
+    /** @type {FirstAppReceipt} */
+    const receipt = { status: 'starting', sourceCommit, compilerSha256, browsers: [] }
+    const started = performance.now()
+    try {
+      await withServer(binary, ['serve', project, '--host', '127.0.0.1', '--port', '0', '--no-watch', '--no-self-restart', '--no-bundle'], async request => {
+        const origin = new URL((await request('/hello/')).url).origin
+        await FirstAppDartBrowserGate.#browsers(origin, receipt)
+      })
+      receipt.status = 'pass'
+    } catch (error) {
+      receipt.status = 'fail'
+      receipt.error = String(error).slice(0, 2000)
+      throw error
+    } finally {
+      receipt.elapsedMilliseconds = performance.now() - started
+      await writeFile(path.join(project, 'first-app-dart-browser.json'), JSON.stringify(receipt, null, 2) + '\n')
+    }
+  }
+
+  /**
+   * @param {string} origin
+   * @param {FirstAppReceipt} receipt
+   * @returns {Promise<void>}
+   */
+  static async #browsers(origin, receipt) {
+    for (const [name, launcher] of Object.entries(FirstAppDartBrowserGate.launchers)) {
+      /** @type {FirstAppBrowserReceipt} */
+      const result = { name, errors: [], requests: [], requestCount: 0 }
+      receipt.browsers.push(result)
+      await FirstAppDartBrowserGate.check(launcher, origin, result)
+    }
+  }
+
+  /**
+   * @param {import('playwright').BrowserType} launcher
+   * @param {string} origin
+   * @param {FirstAppBrowserReceipt} result
+   * @returns {Promise<void>}
+   */
+  static async check(launcher, origin, result) {
+    const browser = await launcher.launch({ timeout: 10_000 })
+    const deadline = setTimeout(() => browser.close(), 30_000)
+    try {
+      const context = await browser.newContext()
+      await context.addCookies([{ name: 'private_session', value: 'must-not-travel', url: origin }])
+      const page = await context.newPage()
+      page.setDefaultTimeout(10_000)
+      FirstAppDartBrowserGate.#observe(page, result)
+      const response = await page.goto(`${origin}/hello/`)
+      assert.equal(response.status(), 200)
+      await page.getByRole('button', { name: 'Click me', exact: true }).click()
+      await page.waitForFunction(() => document.querySelector('section')?.textContent.includes('You clicked 1 times.'))
+      const answer = page.waitForResponse(response => new URL(response.url()).pathname === '/api/greeting')
+      await page.getByRole('button', { name: 'Ask the server', exact: true }).click()
+      const remote = await answer
+      const headers = await remote.request().allHeaders()
+      result.requests.push({ path: '/api/greeting', method: remote.request().method(), cookie: headers.cookie ?? null })
+      assert.equal(remote.status(), 200)
+      await page.waitForFunction(() => [...document.querySelectorAll('section > p')].some(paragraph => paragraph.textContent === 'Hello from Yon'))
+      await page.getByRole('button', { name: 'Click me', exact: true }).click()
+      await page.waitForFunction(() => document.querySelector('section')?.textContent.includes('You clicked 2 times.'))
+      assert.deepEqual(result.requests, [{ path: '/api/greeting', method: 'GET', cookie: null }], 'real Yon GET, no same-origin cookie')
+      assert.equal(result.requestCount, 1, 'one click causes exactly one actual endpoint request')
+      assert.deepEqual(result.errors, [])
+      result.rendered = await page.locator('section > p').allTextContents()
+      result.status = 'pass'
+      await context.close()
+    } finally {
+      clearTimeout(deadline)
+      await browser.close()
+    }
+  }
+
+  /**
+   * @param {import('playwright').Page} page
+   * @param {FirstAppBrowserReceipt} result
+   * @returns {void}
+   */
+  static #observe(page, result) {
+    page.on('request', request => {
+      if (new URL(request.url()).pathname === '/api/greeting') result.requestCount += 1
+    })
+    page.on('pageerror', error => FirstAppDartBrowserGate.#record(result.errors, error.message))
+    page.on('requestfailed', request => FirstAppDartBrowserGate.#record(result.errors, `${new URL(request.url()).pathname}: ${request.failure()?.errorText}`))
+  }
+
+  /**
+   * @param {string[]} errors
+   * @param {string} message
+   * @returns {void}
+   */
+  static #record(errors, message) {
+    if (errors.length < 12) errors.push(message.slice(0, 2000))
+  }
+}
+
+await FirstAppDartBrowserGate.run()

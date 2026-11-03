@@ -4,11 +4,11 @@ import { fyloOptions } from '../../../../../src/server/fylo-options.js';
 import YonRealtime from '../../../../../src/server/realtime/realtime.js';
 import TopicLog from '../../../../../src/server/realtime/topic-log.js';
 
-const CLIENT_ID_PATTERN = /^[0-9A-Z]{11}$/;
-const CLIENTS_COLLECTION = 'demo-realtime-clients';
-const MESSAGES_COLLECTION = 'demo-realtime-messages';
-
 export default class RealtimeRepository {
+    static clientIdPattern = /^[0-9A-Z]{11}$/;
+    static clientsCollection = 'demo-realtime-clients';
+    static messagesCollection = 'demo-realtime-messages';
+
     /** @param {{ root?: string }} [options] */
     constructor(options = {}) {
         this.root = options.root || YonRealtime.root();
@@ -17,8 +17,6 @@ export default class RealtimeRepository {
     }
 
     /**
-     * FYLO exposes collections as dynamic proxy properties; give them a
-     * typed doorway so checkJs knows the accessor shape.
      * @param {string} name
      * @returns {{ create(): Promise<void>, put(data: object): Promise<string>, find(query: object): Promise<Record<string, unknown>> }}
      */
@@ -31,7 +29,7 @@ export default class RealtimeRepository {
      * @returns {Promise<{ clientId: string, nickname: string, streamUrl: string, registeredAt: string }>}
      */
     async registerClient(input) {
-        await this.collection(CLIENTS_COLLECTION).create();
+        await this.collection(RealtimeRepository.clientsCollection).create();
         const clientId = YonRealtime.generateClientId();
         const registeredAt = new Date().toISOString();
         const client = {
@@ -40,7 +38,7 @@ export default class RealtimeRepository {
             streamUrl: `${this.realtimePath()}/stream?clientId=${clientId}`,
             registeredAt,
         };
-        await this.collection(CLIENTS_COLLECTION).put(client);
+        await this.collection(RealtimeRepository.clientsCollection).put(client);
         return client;
     }
 
@@ -51,18 +49,18 @@ export default class RealtimeRepository {
         /** @type {Array<{ clientId: string, nickname: string, streamUrl: string, registeredAt: string }>} */
         const clients = [];
         try {
-            // The Node shim's find() resolves to an `{ id: doc }` map (not the
-            // old chainable `.collect()` iterable); collectClients recurses into
-            // the map's values.
-            const found = await this.collection(CLIENTS_COLLECTION).find({});
+            const found = await this.collection(RealtimeRepository.clientsCollection).find({});
             RealtimeRepository.collectClients(found ?? {}, clients);
         }
         catch {
-            // No clients registered yet — the collection does not exist until
-            // the first registration creates it.
         }
-        const unique = new Map(clients.map((client) => [client.clientId, client]));
-        return [...unique.values()].sort((a, b) => a.nickname.localeCompare(b.nickname));
+        /** @type {Map<string, { clientId: string, nickname: string, streamUrl: string, registeredAt: string }>} */
+        const clientsById = new Map();
+        for (const client of clients) {
+            clientsById.set(client.clientId, client);
+        }
+        const uniqueClients = [...clientsById.values()];
+        return uniqueClients.sort((left, right) => left.nickname.localeCompare(right.nickname));
     }
 
     /**
@@ -86,8 +84,8 @@ export default class RealtimeRepository {
             data: message,
             sentAt: message.sentAt,
         });
-        await this.collection(MESSAGES_COLLECTION).create();
-        await this.collection(MESSAGES_COLLECTION).put({
+        await this.collection(RealtimeRepository.messagesCollection).create();
+        await this.collection(RealtimeRepository.messagesCollection).put({
             queueMessageId: id,
             event,
             ...message,
@@ -111,7 +109,9 @@ export default class RealtimeRepository {
      * @param {string} field
      */
     assertClientId(value, field) {
-        if (!CLIENT_ID_PATTERN.test(value)) throw new Error(`${field} must be an 11-character FYLO TTID`);
+        if (!RealtimeRepository.clientIdPattern.test(value)) {
+            throw new Error(`${field} must be an 11-character FYLO TTID`);
+        }
     }
 
     /**

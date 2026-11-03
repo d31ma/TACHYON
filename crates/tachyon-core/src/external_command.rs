@@ -1,15 +1,17 @@
-//! Bounded, process-tree-owned execution for framework toolchains.
-
 use command_group::{AsyncCommandGroup, AsyncGroupChild};
 use std::io;
 use std::process::{ExitStatus, Stdio};
 use std::time::Duration;
 use tokio::io::{AsyncRead, AsyncReadExt};
-use tokio::process::Command;
+use tokio::process::{ChildStderr, ChildStdout, Command};
 use tokio::time::{Instant, timeout_at};
 
-const MAX_CLEANUP_RESERVE: Duration = Duration::from_millis(250);
-const MAX_SYNC_JOIN_RESERVE: Duration = Duration::from_millis(100);
+struct ReserveLimits;
+
+impl ReserveLimits {
+    const MAXIMUM_CLEANUP: Duration = Duration::from_millis(250);
+    const MAXIMUM_SYNC_JOIN: Duration = Duration::from_millis(100);
+}
 
 #[derive(Clone, Default)]
 struct LifecycleTracker {
@@ -44,11 +46,27 @@ pub(crate) struct ToolOutput {
     pub(crate) stderr: Vec<u8>,
 }
 
+#[derive(Default)]
+pub(crate) struct PartialOutput {
+    pub(crate) stdout: Vec<u8>,
+    pub(crate) stderr: Vec<u8>,
+}
+
+impl std::fmt::Debug for PartialOutput {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("PartialOutput")
+            .field("stdout", &String::from_utf8_lossy(&self.stdout))
+            .field("stderr", &String::from_utf8_lossy(&self.stderr))
+            .finish()
+    }
+}
+
 #[derive(Debug)]
 pub(crate) enum ToolError {
     Spawn(io::Error),
     Wait(io::Error),
-    TimedOut,
+    TimedOut(#[cfg_attr(not(test), allow(dead_code))] PartialOutput),
     Pipe(io::Error),
 }
 
@@ -57,30 +75,23 @@ impl std::fmt::Display for ToolError {
         match self {
             Self::Spawn(error) => write!(formatter, "cannot spawn tool: {error}"),
             Self::Wait(error) => write!(formatter, "cannot wait for tool: {error}"),
-            Self::TimedOut => formatter.write_str("tool exceeded its deadline"),
+            Self::TimedOut(_) => formatter.write_str("tool exceeded its deadline"),
             Self::Pipe(error) => write!(formatter, "cannot drain tool output: {error}"),
         }
     }
 }
 
-/// Runs a tool inside an owned process group with an absolute wall-clock bound.
-///
-/// Both pipes are drained concurrently while the process runs. Only `cap`
-/// bytes are retained from each pipe, but excess output is still consumed so a
-/// noisy tool cannot deadlock on a full OS pipe. The group is terminated and
-/// reaped even after a successful leader exit, because descendants may retain
-/// inherited pipe handles or continue mutating build output.
 pub(crate) fn run<'command>(
     command: &'command mut Command,
     timeout: Duration,
-    cap: usize,
+    output_limit: usize,
 ) -> std::pin::Pin<
     Box<dyn std::future::Future<Output = Result<ToolOutput, ToolError>> + Send + 'command>,
 > {
     Box::pin(run_owned(
         command,
         timeout,
-        cap,
+        output_limit,
         LifecycleTracker::default(),
     ))
 }
@@ -88,32 +99,17 @@ pub(crate) fn run<'command>(
 async fn run_owned(
     command: &mut Command,
     timeout: Duration,
-    cap: usize,
+    output_limit: usize,
     tracker: LifecycleTracker,
 ) -> Result<ToolOutput, ToolError> {
     let deadline = Instant::now() + timeout;
     let cleanup = cleanup_reserve(timeout);
     let leader_deadline = deadline - cleanup;
     let tree_deadline = deadline - cleanup / 2;
-    command
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .kill_on_drop(true);
-    let mut child = command
-        .group()
-        .kill_on_drop(true)
-        .spawn()
-        .map_err(ToolError::Spawn)?;
-    let stdout =
-        child.inner().stdout.take().ok_or_else(|| {
-            ToolError::Pipe(io::Error::other("tool stdout pipe was not available"))
-        })?;
-    let stderr =
-        child.inner().stderr.take().ok_or_else(|| {
-            ToolError::Pipe(io::Error::other("tool stderr pipe was not available"))
-        })?;
-    let stdout_drain = drain(stdout, cap, tracker.clone());
-    let stderr_drain = drain(stderr, cap, tracker);
+    let mut child = spawn_group(command)?;
+    let (stdout, stderr) = take_output_pipes(&mut child)?;
+    let stdout_drain = drain(stdout, output_limit, tracker.clone());
+    let stderr_drain = drain(stderr, output_limit, tracker);
     tokio::pin!(stdout_drain, stderr_drain);
     let mut stdout_result = None;
     let mut stderr_result = None;
@@ -131,14 +127,13 @@ async fn run_owned(
                     stderr_result = Some(result);
                 }
                 () = tokio::time::sleep_until(leader_deadline) => {
-                    break Err(ToolError::TimedOut);
+                    break Err(ToolError::TimedOut(PartialOutput::default()));
                 }
             }
         }
     };
-    // A successful parent is not proof that its descendants exited.
     if !settle_tree_until(&mut child, tree_deadline).await {
-        return Err(ToolError::TimedOut);
+        return Err(ToolError::TimedOut(PartialOutput::default()));
     }
 
     while stdout_result.is_none() || stderr_result.is_none() {
@@ -150,16 +145,25 @@ async fn run_owned(
             result = &mut stderr_drain, if stderr_result.is_none() => {
                 stderr_result = Some(result);
             }
-            () = tokio::time::sleep_until(deadline) => return Err(ToolError::TimedOut),
+            () = tokio::time::sleep_until(deadline) => {
+                return Err(ToolError::TimedOut(PartialOutput::default()));
+            }
         }
     }
-    let status = leader_outcome?;
-    let (stdout, _) = stdout_result
-        .ok_or_else(|| ToolError::Pipe(io::Error::other("stdout drain did not settle")))?
-        .map_err(ToolError::Pipe)?;
-    let (stderr, _) = stderr_result
-        .ok_or_else(|| ToolError::Pipe(io::Error::other("stderr drain did not settle")))?
-        .map_err(ToolError::Pipe)?;
+    let stdout = drained_bytes(stdout_result, "stdout drain did not settle");
+    let stderr = drained_bytes(stderr_result, "stderr drain did not settle");
+    let status = match leader_outcome {
+        Ok(status) => status,
+        Err(ToolError::TimedOut(_)) => {
+            return Err(ToolError::TimedOut(PartialOutput {
+                stdout: stdout.unwrap_or_default(),
+                stderr: stderr.unwrap_or_default(),
+            }));
+        }
+        Err(error) => return Err(error),
+    };
+    let stdout = stdout?;
+    let stderr = stderr?;
     Ok(ToolOutput {
         status,
         stdout,
@@ -167,16 +171,53 @@ async fn run_owned(
     })
 }
 
+fn spawn_group(command: &mut Command) -> Result<AsyncGroupChild, ToolError> {
+    command
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .kill_on_drop(true);
+    command
+        .group()
+        .kill_on_drop(true)
+        .spawn()
+        .map_err(ToolError::Spawn)
+}
+
+fn take_output_pipes(child: &mut AsyncGroupChild) -> Result<(ChildStdout, ChildStderr), ToolError> {
+    let Some(stdout) = child.inner().stdout.take() else {
+        return Err(ToolError::Pipe(io::Error::other(
+            "tool stdout pipe was not available",
+        )));
+    };
+    let Some(stderr) = child.inner().stderr.take() else {
+        return Err(ToolError::Pipe(io::Error::other(
+            "tool stderr pipe was not available",
+        )));
+    };
+    Ok((stdout, stderr))
+}
+
+fn drained_bytes(
+    drain_result: Option<io::Result<(Vec<u8>, bool)>>,
+    unsettled_message: &'static str,
+) -> Result<Vec<u8>, ToolError> {
+    let Some(drain_result) = drain_result else {
+        return Err(ToolError::Pipe(io::Error::other(unsettled_message)));
+    };
+    let (bytes, _truncated) = drain_result.map_err(ToolError::Pipe)?;
+    Ok(bytes)
+}
+
 async fn drain(
     mut pipe: impl AsyncRead + Unpin,
-    cap: usize,
+    output_limit: usize,
     tracker: LifecycleTracker,
 ) -> io::Result<(Vec<u8>, bool)> {
     #[cfg(test)]
     let _active = ActiveGuard::new(tracker.active_drains);
     #[cfg(not(test))]
     let _ = tracker;
-    let mut retained = Vec::with_capacity(cap.min(8 * 1_024));
+    let mut retained = Vec::with_capacity(output_limit.min(8 * 1_024));
     let mut buffer = [0_u8; 8 * 1_024];
     let mut truncated = false;
     loop {
@@ -184,7 +225,7 @@ async fn drain(
         if read == 0 {
             return Ok((retained, truncated));
         }
-        let remaining = cap.saturating_sub(retained.len());
+        let remaining = output_limit.saturating_sub(retained.len());
         retained.extend_from_slice(&buffer[..read.min(remaining)]);
         truncated |= read > remaining;
     }
@@ -195,25 +236,22 @@ async fn settle_tree_until(child: &mut AsyncGroupChild, deadline: Instant) -> bo
     matches!(timeout_at(deadline, child.wait()).await, Ok(Ok(_)))
 }
 
-/// Synchronous facade for discovery/probe call sites that cannot enter Tokio.
-/// It uses the same process-group/job-object and bounded-pipe contract as
-/// [`run`], without constructing or nesting an async runtime.
 pub(crate) fn run_sync(
     command: &mut std::process::Command,
     timeout: Duration,
-    cap: usize,
+    output_limit: usize,
 ) -> Result<ToolOutput, ToolError> {
-    run_sync_owned(command, timeout, cap, LifecycleTracker::default())
+    run_sync_owned(command, timeout, output_limit, LifecycleTracker::default())
 }
 
 fn run_sync_owned(
     command: &mut std::process::Command,
     timeout: Duration,
-    cap: usize,
+    output_limit: usize,
     tracker: LifecycleTracker,
 ) -> Result<ToolOutput, ToolError> {
     let deadline = std::time::Instant::now() + timeout;
-    let join_reserve = (timeout / 4).min(MAX_SYNC_JOIN_RESERVE);
+    let join_reserve = (timeout / 4).min(ReserveLimits::MAXIMUM_SYNC_JOIN);
     let inner_deadline = deadline.checked_sub(join_reserve).unwrap_or(deadline);
     let owned = std::mem::replace(
         command,
@@ -225,21 +263,12 @@ fn run_sync_owned(
         .spawn(move || {
             #[cfg(test)]
             let _active = ActiveGuard::new(tracker.active_sync_supervisors.clone());
-            let result = tokio::runtime::Builder::new_current_thread()
-                .enable_all()
-                .build()
-                .map_err(ToolError::Spawn)
-                .and_then(|runtime| {
-                    let remaining =
-                        inner_deadline.saturating_duration_since(std::time::Instant::now());
-                    let mut command = Command::from(owned);
-                    runtime.block_on(run_owned(&mut command, remaining, cap, tracker))
-                });
+            let result = run_on_new_runtime(owned, inner_deadline, output_limit, tracker);
             let _ = sender.send(result);
         })
         .map_err(ToolError::Spawn)?;
-    let message =
-        receiver.recv_timeout(inner_deadline.saturating_duration_since(std::time::Instant::now()));
+    let wait_time = inner_deadline.saturating_duration_since(std::time::Instant::now());
+    let message = receiver.recv_timeout(wait_time);
     while !supervisor.is_finished() && std::time::Instant::now() < deadline {
         std::thread::sleep(Duration::from_millis(1));
     }
@@ -248,12 +277,29 @@ fn run_sync_owned(
         .map_err(|_| ToolError::Pipe(io::Error::other("tool supervisor panicked")))?;
     match message {
         Ok(result) => result,
-        Err(_) => receiver.try_recv().unwrap_or(Err(ToolError::TimedOut)),
+        Err(_) => receiver
+            .try_recv()
+            .unwrap_or(Err(ToolError::TimedOut(PartialOutput::default()))),
     }
 }
 
+fn run_on_new_runtime(
+    command: std::process::Command,
+    deadline: std::time::Instant,
+    output_limit: usize,
+    tracker: LifecycleTracker,
+) -> Result<ToolOutput, ToolError> {
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .map_err(ToolError::Spawn)?;
+    let remaining = deadline.saturating_duration_since(std::time::Instant::now());
+    let mut command = Command::from(command);
+    runtime.block_on(run_owned(&mut command, remaining, output_limit, tracker))
+}
+
 fn cleanup_reserve(timeout: Duration) -> Duration {
-    (timeout / 4).min(MAX_CLEANUP_RESERVE)
+    (timeout / 4).min(ReserveLimits::MAXIMUM_CLEANUP)
 }
 
 #[cfg(all(test, unix))]
@@ -264,7 +310,10 @@ mod tests {
     use std::time::Duration;
     use tokio::process::Command;
 
-    static TEST_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+    fn test_lock() -> &'static tokio::sync::Mutex<()> {
+        static TEST_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+        &TEST_LOCK
+    }
 
     fn process_exists(pid: u32) -> bool {
         std::process::Command::new("kill")
@@ -286,9 +335,22 @@ mod tests {
         panic!("descendant {pid} survived parent exit");
     }
 
+    fn first_line_pid(stdout: &[u8]) -> u32 {
+        String::from_utf8_lossy(stdout)
+            .lines()
+            .next()
+            .expect("child pid")
+            .parse::<u32>()
+            .expect("numeric pid")
+    }
+
+    fn active_count(counter: &std::sync::atomic::AtomicUsize) -> usize {
+        counter.load(std::sync::atomic::Ordering::Acquire)
+    }
+
     #[tokio::test]
     async fn successful_parent_cannot_leave_a_descendant_or_unbounded_output() {
-        let _serial = TEST_LOCK.lock().await;
+        let _serial = test_lock().lock().await;
         let mut command = Command::new("sh");
         command.args(["-c", "sleep 30 & echo $!; yes x | head -c 131072"]);
         let output = run(&mut command, Duration::from_secs(2), 1_024)
@@ -296,36 +358,32 @@ mod tests {
             .expect("supervised output");
         assert!(output.status.success());
         assert_eq!(output.stdout.len(), 1_024);
-        let pid = String::from_utf8_lossy(&output.stdout)
-            .lines()
-            .next()
-            .expect("child pid")
-            .parse::<u32>()
-            .expect("numeric pid");
+        let pid = first_line_pid(&output.stdout);
         assert_process_gone(pid).await;
     }
 
     #[tokio::test]
     async fn deadline_kills_and_reaps_the_process_group() {
-        let _serial = TEST_LOCK.lock().await;
+        let _serial = test_lock().lock().await;
         let started = std::time::Instant::now();
         let mut command = Command::new("sh");
         command.args(["-c", "sleep 30 & echo $!; wait"]);
         let tracker = LifecycleTracker::default();
         let error = Box::pin(run_owned(
             &mut command,
-            Duration::from_millis(100),
+            Duration::from_secs(1),
             1_024,
             tracker.clone(),
         ))
         .await
         .expect_err("deadline");
-        assert!(matches!(error, ToolError::TimedOut));
-        assert!(started.elapsed() < Duration::from_secs(1));
+        let ToolError::TimedOut(partial) = error else {
+            panic!("expected a deadline failure, got {error:?}");
+        };
+        assert!(started.elapsed() < Duration::from_secs(5));
+        assert_process_gone(first_line_pid(&partial.stdout)).await;
         assert_eq!(
-            tracker
-                .active_drains
-                .load(std::sync::atomic::Ordering::Acquire),
+            active_count(&tracker.active_drains),
             0,
             "drain futures survived async return"
         );
@@ -333,7 +391,7 @@ mod tests {
 
     #[test]
     fn synchronous_deadline_and_success_cleanup_are_bounded() {
-        let _serial = TEST_LOCK.blocking_lock();
+        let _serial = test_lock().blocking_lock();
         let tracker = LifecycleTracker::default();
         let mut success = std::process::Command::new("sh");
         success.args(["-c", "sleep 30 & echo $!; yes x | head -c 131072"]);
@@ -341,12 +399,7 @@ mod tests {
             .expect("synchronous supervised output");
         assert!(output.status.success());
         assert_eq!(output.stdout.len(), 1_024);
-        let pid = String::from_utf8_lossy(&output.stdout)
-            .lines()
-            .next()
-            .expect("child pid")
-            .parse::<u32>()
-            .expect("numeric pid");
+        let pid = first_line_pid(&output.stdout);
         assert!(!process_exists(pid), "descendant {pid} survived cleanup");
 
         let started = std::time::Instant::now();
@@ -359,20 +412,16 @@ mod tests {
                 1_024,
                 tracker.clone(),
             ),
-            Err(ToolError::TimedOut)
+            Err(ToolError::TimedOut(_))
         ));
         assert!(started.elapsed() < Duration::from_secs(1));
         assert_eq!(
-            tracker
-                .active_drains
-                .load(std::sync::atomic::Ordering::Acquire),
+            active_count(&tracker.active_drains),
             0,
             "sync drain futures survived return"
         );
         assert_eq!(
-            tracker
-                .active_sync_supervisors
-                .load(std::sync::atomic::Ordering::Acquire),
+            active_count(&tracker.active_sync_supervisors),
             0,
             "sync supervisor thread survived return"
         );

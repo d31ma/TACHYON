@@ -2,8 +2,9 @@
 
 Status: **complete — local acceptance passed on 2026-07-26**
 
-Native Linux and Windows results remain CI evidence and are not inferred from
-the macOS run recorded here.
+This file records a run on macOS only. The native Linux and Windows results
+come from CI (continuous integration). This file does not assume them from the
+macOS run.
 
 ## Baseline
 
@@ -27,42 +28,47 @@ the macOS run recorded here.
 - `RUSTDOCFLAGS="-D warnings" cargo doc --workspace --all-features --no-deps
   --locked`: passed.
 - `cargo llvm-cov --workspace --all-features --locked --fail-under-lines 95
-  --fail-under-functions 90 --fail-under-regions 90`: passed with 95.09% line,
-  92.00% function, and 91.23% region coverage.
+  --fail-under-functions 90 --fail-under-regions 90`: passed. Coverage was
+  95.09% of lines, 92.00% of functions, and 91.23% of regions.
 - `git diff --check`: passed.
 
-The host also has a Homebrew Cargo earlier on `PATH`. Local evidence was
-collected with the Rustup `1.97.1` toolchain directory prepended, not with the
-older Homebrew binary.
+The host also has a Homebrew Cargo that comes earlier on `PATH`. We added the
+Rustup `1.97.1` toolchain directory to the front of `PATH` to collect the local
+evidence. We did not use the older Homebrew binary.
 
 ## Contract Gate
 
-- Seven canonical Draft 2020-12 schemas were meta-validated.
+- We checked seven canonical Draft 2020-12 schemas against the meta-schema.
 - Each schema accepted its valid example and rejected its invalid example.
-- The embedded Rust registry exactly matched the on-disk schema corpus.
-- Repository policy tests verified required foundation documents, five accepted
-  ADRs, immutable GitHub Action pins, resolvable relative links, and one exact
-  Rust version across the workspace, toolchain, and CI.
+- The Rust registry that is embedded in the code matched the schema files on
+  disk exactly.
+- Repository policy tests checked these things:
+  - the required foundation documents exist;
+  - there are five accepted ADRs (architecture decision records);
+  - GitHub Actions are pinned to fixed versions that cannot change;
+  - relative links point to files that exist;
+  - the workspace, the toolchain, and CI use one exact Rust version.
 
 ## Supply-Chain Gate
 
 - `cargo deny check advisories bans licenses sources`: passed with
   `cargo-deny 0.19.7`.
-- `cargo install --locked cargo-llvm-cov --version 0.8.6` supplied the pinned
-  coverage runner used locally and in CI.
-- All GitHub workflow and issue-form YAML parsed successfully, and
+- `cargo install --locked cargo-llvm-cov --version 0.8.6` installed the pinned
+  coverage runner. Both the local run and CI use it.
+- All GitHub workflow and issue-form YAML files parsed without errors.
   `actionlint 1.7.7` accepted every workflow.
-- Legacy compatibility guard: Bun `1.3.11` installed the existing lockfile,
-  type checking passed, and the legacy suite passed 637 tests across 62 files
-  with zero failures.
+- Legacy compatibility check: Bun `1.3.11` installed the existing lockfile.
+  Type checking passed. The legacy suite passed 637 tests in 62 files, with
+  zero failures.
 
 ## Native Matrix
 
 | Target | Evidence |
 | --- | --- |
-| macOS arm64 | buildable; complete local gate above |
-| Linux x86_64 | pending GitHub Actions |
-| Windows x86_64 | pending GitHub Actions |
+| macOS arm64 | builds; the full local gate above passed |
+| Linux x86_64 | waiting for GitHub Actions |
+| Windows x86_64 | waiting for GitHub Actions |
 
-Phase 0 completion means the foundation is complete and locally validated. It
-does not claim that unexecuted remote CI jobs passed.
+"Phase 0 complete" means the foundation is complete and it passed the local
+checks. It does not claim that remote CI jobs passed, because they have not
+run yet.

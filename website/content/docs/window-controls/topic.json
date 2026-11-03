@@ -1,0 +1,15 @@
+{
+  "title": "Window controls",
+  "summary": "In a desktop or mobile app, `client/manifest.json` describes the window that the app opens. It lists the window controls that a page may ask for; by default, a page may ask for none. On macOS, it can also let the page reach the top edge of the window, with an integrated title bar.",
+  "before": [
+    "native-hosts"
+  ],
+  "sections": [
+    {
+      "include": "../platform-apis/window-controls-need-permission/section.json"
+    },
+    {
+      "include": "integrated-title-bar/section.json"
+    }
+  ]
+}

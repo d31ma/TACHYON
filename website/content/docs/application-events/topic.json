@@ -1,0 +1,30 @@
+{
+  "title": "Events between services",
+  "summary": "An event is a message that one service publishes and other services receive. The publisher does not need to know who listens. This page also shows the start and stop methods of a service (lifecycle hooks), in the browser and on the server.",
+  "before": [
+    "services"
+  ],
+  "sections": [
+    {
+      "include": "../storage/signals-between-components/section.json"
+    },
+    {
+      "include": "based-on-spring-owned-by-tachyon/section.json"
+    },
+    {
+      "include": "browser-services-javascript-and-typescript/section.json"
+    },
+    {
+      "include": "listener-options-condition-order-and-inbackground/section.json"
+    },
+    {
+      "include": "compiled-services-swift-kotlin-c-rust-go-and-dart/section.json"
+    },
+    {
+      "include": "yon-all-ten-supported-languages/section.json"
+    },
+    {
+      "include": "delivery-and-migration/section.json"
+    }
+  ]
+}

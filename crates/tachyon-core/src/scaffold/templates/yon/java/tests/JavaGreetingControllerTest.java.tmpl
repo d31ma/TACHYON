@@ -1,0 +1,6 @@
+@Test(JavaGreetingTestSetup.class, {"partition":"tests"})
+class JavaGreetingControllerTest {
+    void testGetGreetingSaysHello() {
+        Assert.equals("Hello from Java", new JavaGreetingController().getGreeting());
+    }
+}

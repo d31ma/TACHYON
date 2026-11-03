@@ -1,0 +1,34 @@
+Relaying to a language Yon does not run
+
+Yon owns its controller languages. Everything else remains callable
+as a program through the explicit relay(command, request) helper.
+The helper is supplied by Yon and needs no package or import.
+request is the route method parameter without a marker. It is the
+request in the language's own type, and relay answers with the
+language's own response. PHP has no request object, so
+Yon::relay(command) forwards the current request.
+
+  JavaScript  return relay(['perl', 'server/relays/report.pl'], request)
+  TypeScript  return relay(['perl', 'server/relays/report.pl'], request)
+  Python      return relay(('perl', 'server/relays/report.pl'), request)
+  PHP         Yon::relay(['perl', 'server/relays/report.pl']);
+  Java        Yon.relay(java.util.List.of("perl", "server/relays/report.pl"), exchange);
+  Groovy      Yon.relay(java.util.List.of("perl", "server/relays/report.pl"), exchange)
+  Kotlin      Yon.relay(listOf("perl", "server/relays/report.pl"), exchange)
+  C#          return Yon.Relay(new[] { "perl", "server/relays/report.pl" }, request);
+  F#          Yon.Relay([| "perl"; "server/relays/report.pl" |], request)
+  Rust        relay(&["perl", "server/relays/report.pl"], request)
+  Dart        return relay(['perl', 'server/relays/report.pl'], request)
+  Go          return Relay([]string{"perl", "server/relays/report.pl"}, request)
+  Ruby        relay(["perl", "server/relays/report.pl"], request)
+  C++         return relay({"perl", "server/relays/report.pl"}, request);
+
+Lua refuses relay (TY2015).
+
+The program reads the request as JSON on its standard input: route
+(the path and query), method, headers and body. It answers with JSON
+on its standard output: status, headers and body.
+
+The command bypasses a shell. Yon drains bounded stdout and stderr,
+inherits the request deadline, validates protocol frames, and reaps
+the process group. A start or protocol failure becomes a sanitized 502.

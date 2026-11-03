@@ -1,0 +1,4 @@
+{
+  "heading": "Next steps",
+  "body": "Your app has a page, a component, a service, a controller, a model and a client. Project folders and roles explains where every kind of file goes. Test units explains test units, fakes and the test check of `ty preview`. Templates, Services, Controllers and Calling the server from a page explain each part in more detail."
+}

@@ -1,0 +1,5 @@
+<main>
+  <h1>Monitor</h1>
+  <input aria-label="Search" :value="section.query" on:input="section.search($event.target.value)" />
+  <p>Section: {section.section}</p>
+</main>

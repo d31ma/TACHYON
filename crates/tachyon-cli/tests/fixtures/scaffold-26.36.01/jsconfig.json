@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "allowJs": true,
+    "checkJs": true,
+    "target": "ESNext",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "types": [
+      "bun-types",
+      "@types/node"
+    ]
+  },
+  "include": [
+    "tachyon-env.d.ts",
+    "client/**/*.js",
+    "client/**/*.ts",
+    "server/**/*.js",
+    "server/**/*.ts"
+  ]
+}

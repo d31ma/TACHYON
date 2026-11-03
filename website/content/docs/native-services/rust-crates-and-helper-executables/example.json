@@ -1,0 +1,37 @@
+{
+  "name": "Catalog",
+  "start_url": "/",
+  "tac": {
+    "application": {
+      "id": "com.example.catalog",
+      "version": "1.0.0",
+      "rust": {
+        "dependencies": {
+          "serde_json": "=1.0.151",
+          "serde": {
+            "version": "=1.0.229",
+            "features": [
+              "derive"
+            ]
+          }
+        },
+        "platformDependencies": {
+          "windows": {
+            "windows-sys": {
+              "version": "=0.61.2",
+              "features": [
+                "Win32_Foundation"
+              ]
+            }
+          },
+          "linux": {
+            "libc": "=0.2.189"
+          }
+        },
+        "executables": {
+          "catalog-event": "/shared/native/EventEmitterMain.rs"
+        }
+      }
+    }
+  }
+}

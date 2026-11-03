@@ -1,0 +1,15 @@
+<main>
+  <p id="result-summary">{result.summary}</p>
+  <button id="result-shelf" on:click="result.shelf()">Read nested shelf</button>
+  <button id="result-items" on:click="result.items()">Read list of records</button>
+  <button id="result-array" on:click="result.array()">Read array of records</button>
+  <button id="result-count" on:click="result.count()">Read whole number</button>
+  <button id="result-label" on:click="result.label()">Read text</button>
+  <button id="result-ready" on:click="result.ready()">Read true or false</button>
+  <button id="result-ratio" on:click="result.ratio()">Read decimal number</button>
+  <button id="result-numbers" on:click="result.numbers()">Read list of numbers</button>
+  <button id="result-first" on:click="result.first()">Read with ValueTask</button>
+  <button id="result-wrong-items" on:click="result.wrongItems()">Reject object for list</button>
+  <button id="result-wrong-count" on:click="result.wrongCount()">Reject text for number</button>
+  <button id="result-wrong-shelf" on:click="result.wrongShelf()">Reject incomplete nested record</button>
+</main>

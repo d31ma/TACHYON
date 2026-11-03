@@ -19,8 +19,9 @@ export class Handler {
    */
   static async GET(request) {
     const code = Handler.#statusCode(request);
-    if (code && Handler.#statusResponses[code])
+    if (code && Handler.#statusResponses[code]) {
       return Handler.#statusResponses[code];
+    }
     return Handler.#service.diagnostics(request);
   }
 
@@ -45,8 +46,9 @@ export class Handler {
    * @returns {string}
    */
   static #statusCode(request) {
-    const raw = request.query?.code;
-    if (typeof raw === 'number') return String(Math.floor(raw));
-    return typeof raw === 'string' ? raw : '';
+    const requestedCode = request.query?.code;
+    if (typeof requestedCode === 'number') return String(Math.floor(requestedCode));
+    if (typeof requestedCode === 'string') return requestedCode;
+    return '';
   }
 }

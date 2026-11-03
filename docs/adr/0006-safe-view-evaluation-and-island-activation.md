@@ -5,28 +5,41 @@
 
 ## Context
 
-Phase 3 must render handler data into HTML, lower structural controls, expand
-components, and activate browser islands. Treating template expressions as
-JavaScript would make builds runtime-dependent, permit arbitrary code during
-rendering, complicate native portability, and enlarge the injection surface.
+Phase 3 must:
 
-Island hydration also needs an explicit browser boundary. Replacing
-server-rendered DOM during startup would discard useful HTML and make deferred
-activation visibly unstable.
+- render handler data into HTML;
+- lower structural controls;
+- expand components;
+- activate browser islands.
+
+Tachyon could treat template expressions as JavaScript. That would have four
+problems:
+
+- builds would depend on a runtime;
+- arbitrary code could run during rendering;
+- native portability would be harder;
+- there would be more places for injection attacks.
+
+Island hydration also needs an explicit boundary in the browser. If startup
+replaced the DOM that the server rendered, it would throw away useful HTML.
+Deferred activation would also be visibly unstable.
 
 ## Decision
 
-Parse expressions into a bounded Tachyon grammar evaluated only over JSON
-values. The grammar provides paths, indexes, literals, boolean operators, and
-comparisons; it has no calls, assignment, construction, prototype access, or
-raw HTML primitive. Render text and attributes with context-appropriate
-escaping.
+Parse expressions into a bounded Tachyon grammar. Evaluate them only over JSON
+values. The grammar provides paths, indexes, literals, boolean operators and
+comparisons. It has no calls, assignment, construction, prototype access or
+raw HTML primitive. Escape text and attributes in the way that fits their
+context.
 
-Render every Tac component on the server. A component's optional `tac.js`
-exports a default class whose constructor receives public JSON properties and
-whose `hydrate(root, signal)` method adopts the existing DOM. A generated
-external runtime schedules `load`, `idle`, `visible`, and `interaction`
-activation; `never` ships no module or properties.
+Render every Tac component on the server. A component may have a `tac.js`
+file. It exports a default class:
+
+- its constructor receives public JSON properties;
+- its `hydrate(root, signal)` method adopts the existing DOM.
+
+A generated external runtime schedules activation for `load`, `idle`,
+`visible` and `interaction`. `never` ships no module and no properties.
 
 The compiler emits View IR before evaluation and source maps after rendering.
 Neither artifact contains route-context values or serialized island
@@ -34,34 +47,38 @@ properties.
 
 ## Consequences
 
-- Builds are deterministic across JavaScript and Python handler languages.
-- Expression errors are source-located and cannot execute application code.
-- The future native backend consumes the same View IR expression structure.
-- Island DOM remains useful before and after an activation failure.
-- The Phase 3 expression language is intentionally smaller than the legacy
-  JavaScript-compatible renderer and requires later compatibility decisions.
-- Browser companions have a small class-oriented lifecycle surface that can be
-  extended additively.
+- Builds are deterministic across the JavaScript and Python handler languages.
+- Expression errors point to a source location, and they cannot run
+  application code.
+- The future native backend reads the same View IR expression structure.
+- The island DOM stays useful before and after an activation failure.
+- The Phase 3 expression language is on purpose smaller than the legacy
+  renderer, which is compatible with JavaScript. Later decisions must handle
+  compatibility.
+- Browser companions have a small class-based lifecycle API. It can be
+  extended by adding things.
 
 ## Rejected Alternatives
 
-- **JavaScript `eval` or generated functions**: violates deterministic,
-  portable, and injection-resistant compilation.
-- **Execute expressions independently in each handler language**: creates
-  cross-language semantic drift.
-- **Client-only components**: harms first render, accessibility, and
+- **JavaScript `eval` or generated functions**: compilation would no longer be
+  deterministic, portable and resistant to injection.
+- **Execute expressions independently in each handler language**: each
+  language could interpret them differently.
+- **Client-only components**: they hurt the first render, accessibility and
   failure recovery.
-- **Replace SSR markup during hydration**: introduces visual churn and loses
-  useful content on module failure.
-- **Inline executable hydration code**: weakens CSP and complicates auditing.
+- **Replace SSR markup during hydration**: replacing the server-side rendered
+  (SSR) markup makes the page visibly change. It also loses useful content
+  when a module fails.
+- **Inline executable hydration code**: it weakens the CSP (Content Security
+  Policy) and makes auditing harder.
 
 ## Acceptance Gate
 
-- expression parsing and evaluation have positive, negative, depth, and size
+- expression parsing and evaluation have positive, negative, depth and size
   tests;
-- text, attribute, JSON-script, and URL contexts have adversarial escaping
+- text, attribute, JSON-script and URL contexts have adversarial escaping
   tests;
-- every control lowers out of View IR element output;
+- every control is lowered, so none remains in the View IR element output;
 - browser tests prove SSR adoption and failure preservation;
 - source maps point generated ranges to page and component inputs;
 - the threat model documents public island properties and handler execution.

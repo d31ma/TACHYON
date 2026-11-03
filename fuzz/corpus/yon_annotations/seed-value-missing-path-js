@@ -1,0 +1,4 @@
+Zclass Settings {
+    @Setting({})
+    port;
+}

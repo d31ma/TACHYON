@@ -1,0 +1,278 @@
+{
+  "id": "dynamic-segments",
+  "title": "Path variables",
+  "summary": "A route path can hold a path variable, such as `{id}` in `GetRoute(\"/{id}\")`. A path variable is a part of the URL that can change, such as an ID. `FromPath` puts its value into the method parameter with the same name. The parameter type is checked first. When `id` is a number, `/items/abc` gets 400. On the Tac side, a page folder whose name starts with an underscore, such as `client/pages/items/_id/`, matches any value. The view passes `page.path` to a service method, which reads the last segment. So every service language can use the value: a service in a language other than JavaScript or TypeScript has no DOM, but its methods take arguments from the view. A Python service also needs the `tac.python` runtime setting in `client/manifest.json`.",
+  "group": "Routing",
+  "files": [
+    {
+      "name": "client/manifest.json",
+      "code": { "file": "client/manifest.json" }
+    },
+    {
+      "name": "client/pages/items/_id/tac.html",
+      "code": {
+        "file": "client/pages/items/_id/tac.html"
+      }
+    },
+    {
+      "name": "client/components/item/page/tac.html",
+      "code": {
+        "file": "client/components/item/page/tac.html"
+      }
+    },
+    {
+      "name": "client/services/ItemService.js",
+      "code": {
+        "file": "client/services/ItemService.js"
+      }
+    },
+    {
+      "name": "client/services/ItemService.ts",
+      "code": {
+        "file": "client/services/ItemService.ts"
+      }
+    },
+    {
+      "name": "client/services/ItemService.dart",
+      "code": {
+        "file": "client/services/ItemService.dart"
+      }
+    },
+    {
+      "name": "client/services/ItemService.rs",
+      "code": {
+        "file": "client/services/ItemService.rs"
+      }
+    },
+    {
+      "name": "client/services/ItemService.go",
+      "code": {
+        "file": "client/services/ItemService.go"
+      }
+    },
+    {
+      "name": "client/services/ItemService.rb",
+      "code": {
+        "file": "client/services/ItemService.rb"
+      }
+    },
+    {
+      "name": "client/services/ItemService.lua",
+      "code": { "file": "client/services/ItemService.lua" }
+    },
+    {
+      "name": "client/services/ItemService.hpp",
+      "code": { "file": "client/services/ItemService.hpp" }
+    },
+    {
+      "name": "client/services/ItemService.py",
+      "code": { "file": "client/services/ItemService.py" }
+    },
+    {
+      "name": "client/services/ItemService.swift",
+      "code": {
+        "file": "client/services/ItemService.swift"
+      }
+    },
+    {
+      "name": "client/services/ItemService.kt",
+      "code": {
+        "file": "client/services/ItemService.kt"
+      }
+    },
+    {
+      "name": "client/services/ItemService.java",
+      "code": {
+        "file": "client/services/ItemService.java"
+      }
+    },
+    {
+      "name": "client/services/ItemService.cs",
+      "code": {
+        "file": "client/services/ItemService.cs"
+      }
+    },
+    {
+      "name": "client/services/ItemService.fs",
+      "code": {
+        "file": "client/services/ItemService.fs"
+      }
+    },
+    {
+      "name": "server/controllers/ItemsController.js",
+      "code": {
+        "file": "server/controllers/ItemsController.js"
+      }
+    },
+    {
+      "name": "server/models/Item.ts",
+      "code": {
+        "file": "server/models/Item.ts"
+      }
+    },
+    {
+      "name": "server/controllers/ItemsController.ts",
+      "code": {
+        "file": "server/controllers/ItemsController.ts"
+      }
+    },
+    {
+      "name": "server/models/Item.py",
+      "code": {
+        "file": "server/models/Item.py"
+      }
+    },
+    {
+      "name": "server/controllers/ItemsController.py",
+      "code": {
+        "file": "server/controllers/ItemsController.py"
+      }
+    },
+    {
+      "name": "server/models/Item.php",
+      "code": {
+        "file": "server/models/Item.php"
+      }
+    },
+    {
+      "name": "server/controllers/ItemsController.php",
+      "code": {
+        "file": "server/controllers/ItemsController.php"
+      }
+    },
+    {
+      "name": "server/models/Item.java",
+      "code": {
+        "file": "server/models/Item.java"
+      }
+    },
+    {
+      "name": "server/models/Item.groovy",
+      "code": {
+        "file": "server/models/Item.groovy"
+      }
+    },
+    {
+      "name": "server/controllers/ItemsController.java",
+      "code": {
+        "file": "server/controllers/ItemsController.java"
+      }
+    },
+    {
+      "name": "server/controllers/ItemsController.groovy",
+      "code": {
+        "file": "server/controllers/ItemsController.groovy"
+      }
+    },
+    {
+      "name": "server/models/Item.kt",
+      "code": {
+        "file": "server/models/Item.kt"
+      }
+    },
+    {
+      "name": "server/controllers/ItemsController.kt",
+      "code": {
+        "file": "server/controllers/ItemsController.kt"
+      }
+    },
+    {
+      "name": "server/models/Item.cs",
+      "code": {
+        "file": "server/models/Item.cs"
+      }
+    },
+    {
+      "name": "server/models/Item.fs",
+      "code": {
+        "file": "server/models/Item.fs"
+      }
+    },
+    {
+      "name": "server/controllers/ItemsController.cs",
+      "code": {
+        "file": "server/controllers/ItemsController.cs"
+      }
+    },
+    {
+      "name": "server/controllers/ItemsController.fs",
+      "code": {
+        "file": "server/controllers/ItemsController.fs"
+      }
+    },
+    {
+      "name": "server/models/Item.rs",
+      "code": {
+        "file": "server/models/Item.rs"
+      }
+    },
+    {
+      "name": "server/controllers/ItemsController.rs",
+      "code": {
+        "file": "server/controllers/ItemsController.rs"
+      }
+    },
+    {
+      "name": "server/models/Item.go",
+      "code": {
+        "file": "server/models/Item.go"
+      }
+    },
+    {
+      "name": "server/controllers/ItemsController.go",
+      "code": {
+        "file": "server/controllers/ItemsController.go"
+      }
+    },
+    {
+      "name": "server/models/Item.dart",
+      "code": {
+        "file": "server/models/Item.dart"
+      }
+    },
+    {
+      "name": "server/controllers/ItemsController.dart",
+      "code": {
+        "file": "server/controllers/ItemsController.dart"
+      }
+    },
+    {
+      "name": "server/models/Item.rb",
+      "code": {
+        "file": "server/models/Item.rb"
+      }
+    },
+    {
+      "name": "server/controllers/ItemsController.rb",
+      "code": {
+        "file": "server/controllers/ItemsController.rb"
+      }
+    },
+    {
+      "name": "server/models/Item.lua",
+      "code": {
+        "file": "server/models/Item.lua"
+      }
+    },
+    {
+      "name": "server/controllers/ItemsController.lua",
+      "code": {
+        "file": "server/controllers/ItemsController.lua"
+      }
+    },
+    {
+      "name": "server/models/Item.hpp",
+      "code": {
+        "file": "server/models/Item.hpp"
+      }
+    },
+    {
+      "name": "server/controllers/ItemsController.hpp",
+      "code": {
+        "file": "server/controllers/ItemsController.hpp"
+      }
+    }
+  ],
+  "verify": "yon",
+  "target": "web"
+}

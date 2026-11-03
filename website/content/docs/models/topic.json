@@ -1,0 +1,18 @@
+{
+  "title": "Models and JSON answers",
+  "summary": "A model is a data type in `server/models`. A controller method takes models and returns them. Yon turns the value that a method returns into a JSON answer.",
+  "before": [
+    "controllers"
+  ],
+  "sections": [
+    {
+      "include": "../yon/how-return-values-become-responses/section.json"
+    },
+    {
+      "include": "../yon/json-in-every-language/section.json"
+    },
+    {
+      "include": "../yon/route-contracts/section.json"
+    }
+  ]
+}

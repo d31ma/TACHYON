@@ -1,0 +1,14 @@
+import type { NewsItem } from '/models/NewsItem.ts'
+
+@RequestRoute("/api/news")
+@Public
+export class NewsController {
+  @Needs
+  readonly applicationEventPublisher!: ApplicationEventPublisher;
+
+  @PostRoute
+  postNews(@FromBody item: NewsItem): NewsItem {
+    this.applicationEventPublisher.publishEvent(item);
+    return item;
+  }
+}

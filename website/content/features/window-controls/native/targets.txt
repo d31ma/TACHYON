@@ -1,0 +1,48 @@
+Choose one native ReportService alternative for the target.
+
+  Swift     macOS, iOS
+  C#        Windows
+  Kotlin    Android
+
+Rust needs no alternative: client/services/ReportService.rs works in the
+page and when a macOS, Linux, Windows or Android app links it, because
+Rust fills the WindowControls field with Default.
+
+The native/ folder here separates documentation alternatives. It is not
+an additional application discovery root. Put the chosen file in your
+application's client/services/ReportService.<extension>, replacing that
+language's browser example. Keep the same page and component HTML.
+
+Each native alternative is Service + NeedsAll. Its typed WindowControls
+field is filled by Tachyon's native activation provider. The service does
+not construct the provider or import a platform API. The native host
+registers its window adapter and checks the manifest grants again.
+
+The manifest grants minimize, resize and title. It does not grant close,
+maximize or fullscreen. Browser tabs have no native window and refuse
+these calls. The macOS host runs the controls on the app's own window,
+and a macOS test checks this on a real app window. The Linux (GTK) host
+has the controls too. A Linux test runs the generated app under Xvfb with
+a window manager: a Rust page service sets the title, resizes and
+minimizes the app's window, and a close without its grant is refused. A
+JavaScript page caller reaches the same GTK controls, and when the host
+refuses a call, the service hears a BrowserCallFailed event with the
+host's answer. An iOS app has no window controls, because the system owns
+the window: only title applies there, as the scene title, granted()
+answers false for the other controls, and the build prints a note. On
+Windows, a test that needs MSVC drives the host's control code against a
+real Win32 window, and on a signed-in desktop the full app ran page window
+controls, and linked Rust and C# callers and WebAssembly Kotlin and Swift
+callers, inside WebView2. On macOS, WebAssembly C# and Kotlin callers and
+linked Swift and Rust callers renamed and resized the app window. On Android, close
+finishes the activity, minimize moves the app to the back, maximize makes
+the window fill its area, fullscreen hides or shows the status and
+navigation bars, resize sets the window size in density-independent
+pixels, and title sets the activity title. A test runs the Kotlin file in
+the real app on an Android 15 emulator: the granted minimize, resize and
+title calls act, and maximize, fullscreen and close, which the manifest
+does not grant, are refused. A second app grants all six: a linked Kotlin
+service's maximize and fullscreen act, and close from the page finishes the
+activity. WebAssembly Swift and C# callers set the title, resized and
+minimized the app on the emulator too. It has not run on a physical
+device.

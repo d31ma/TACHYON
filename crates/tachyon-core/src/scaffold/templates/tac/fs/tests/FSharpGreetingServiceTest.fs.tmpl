@@ -1,0 +1,6 @@
+[<Test(typeof<FSharpGreetingTestSetup>)>]
+type FSharpGreetingServiceTest() =
+    member this.testGreetChangesTheMessage() : unit =
+        let greeting = FSharpGreetingService()
+        greeting.Greet()
+        Assert.equals("F# says hello again.", greeting.Message)

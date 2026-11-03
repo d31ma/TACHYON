@@ -1,0 +1,20 @@
+/** @import { ChatMessage } from '/models/ChatMessage.ts' */
+@Service
+export default class ChatService {
+  /** @type {ChatClient & { send: SocketSend<ChatMessage> }} */
+  @Needs
+  chatClient;
+  /** @type {ChatMessage[]} */
+  messages = []
+
+  /** @param {ChatMessage} message */
+  @OnEvent
+  addMessage(message) {
+    this.messages = [...this.messages.slice(-49), message]
+  }
+
+  /** @returns {Promise<void>} */
+  sayHello() {
+    return this.chatClient.send({ text: 'Hello from a tab' })
+  }
+}

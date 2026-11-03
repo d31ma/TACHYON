@@ -1,43 +1,292 @@
-const planElement = document.getElementById('tachyon-view')
-if (!planElement) throw new Error('Tac client view plan is missing.')
-const plan = JSON.parse(planElement.textContent || '{}')
-const instances = new Map()
-const componentRecords = new Map()
-const lifecycleStarted = new Set()
-const controllers = new Map()
-const mountSchedules = new Map()
-const cancelMount = (key) => mountSchedules.get(key)?.cancel()
-let pageModule = {}
-let pageOwner = Object.create(null)
-let rendering = null
-let renderAgain = false
-let renderedNodes = 0
-let renderedIterations = 0
-let renderedInstances = new Set()
-let renderedElements = new Map()
-let renderedMounts = []
-const elementRecords = new WeakMap()
-const eventListeners = new WeakMap()
-let nativeWrites = Promise.resolve()
-let nativeWriteCount = 0
-const nativeMethods = new WeakSet()
+const readViewPlan = () => {
+  const planElement = document.getElementById('tachyon-view')
+  return planElement ? JSON.parse(planElement.textContent || '{}') : null
+}
 
-// Interpret the compiler's bounded expression AST. Authored expression source
-// never reaches the browser and is never passed to eval or Function.
+class ClientView {
+  static page = readViewPlan()
+  static plan = ClientView.page ?? { nodes: [], services: {}, state: {} }
+}
+
+class Components {
+  static instances = new Map()
+  static records = new Map()
+  static mountSchedules = new Map()
+  static activations = new WeakMap()
+  static activating = new Set()
+}
+
+const cancelMount = (key) => Components.mountSchedules.get(key)?.cancel()
+
+class Page {
+  static owner = Object.assign(Object.create(null), ClientView.plan.state)
+}
+
+class Rendering {
+  static current = null
+  static renderAgain = false
+  static nodeCount = 0
+  static iterationCount = 0
+  static instanceKeys = new Set()
+  static elements = new Map()
+  static mounts = []
+  static loopContents = new WeakMap()
+}
+
+/** @typedef {{nodes: object[], named: Record<string, object[]>, environment: object}} RenderSlot */
+/** @typedef {{slot: RenderSlot | null, namespace: string}} RenderContext */
+
+class Elements {
+  static records = new WeakMap()
+  static listeners = new WeakMap()
+  static #scopeProperty = '--_tac-owner'
+  /** @type {string} */
+  static #htmlNamespace = 'http://www.w3.org/1999/xhtml'
+  /** @type {string} */
+  static #svgNamespace = 'http://www.w3.org/2000/svg'
+  /** @type {string} */
+  static #svgTag = 'svg'
+  /** @type {string} */
+  static #foreignObjectTag = 'foreignObject'
+  /** @type {string} */
+  static #xlinkNamespace = 'http://www.w3.org/1999/xlink'
+  /** @type {string} */
+  static #xmlNamespace = 'http://www.w3.org/XML/1998/namespace'
+  /** @type {string} */
+  static #xmlnsNamespace = 'http://www.w3.org/2000/xmlns/'
+  /** @type {RenderContext} */
+  static rootContext = { slot: null, namespace: Elements.#htmlNamespace }
+  /** @type {string[]} */
+  static #htmlIntegrationPoints = [Elements.#foreignObjectTag, 'desc', 'title']
+  /** @type {Map<string, string>} */
+  static #svgTags = new Map([
+    'altGlyph', 'altGlyphDef', 'altGlyphItem', 'animateColor', 'animateMotion',
+    'animateTransform', 'clipPath', 'feBlend', 'feColorMatrix', 'feComponentTransfer',
+    'feComposite', 'feConvolveMatrix', 'feDiffuseLighting', 'feDisplacementMap',
+    'feDistantLight', 'feDropShadow', 'feFlood', 'feFuncA', 'feFuncB', 'feFuncG',
+    'feFuncR', 'feGaussianBlur', 'feImage', 'feMerge', 'feMergeNode', 'feMorphology',
+    'feOffset', 'fePointLight', 'feSpecularLighting', 'feSpotLight', 'feTile',
+    'feTurbulence', Elements.#foreignObjectTag, 'glyphRef', 'linearGradient', 'radialGradient',
+    'textPath',
+  ].map(name => /** @type {[string, string]} */ ([name.toLowerCase(), name])))
+  /** @type {Map<string, string>} */
+  static #svgAttributes = new Map([
+    'attributeName', 'attributeType', 'baseFrequency', 'baseProfile', 'calcMode',
+    'clipPathUnits', 'diffuseConstant', 'edgeMode', 'filterUnits', 'glyphRef',
+    'gradientTransform', 'gradientUnits', 'kernelMatrix', 'kernelUnitLength',
+    'keyPoints', 'keySplines', 'keyTimes', 'lengthAdjust', 'limitingConeAngle',
+    'markerHeight', 'markerUnits', 'markerWidth', 'maskContentUnits', 'maskUnits',
+    'numOctaves', 'pathLength', 'patternContentUnits', 'patternTransform',
+    'patternUnits', 'pointsAtX', 'pointsAtY', 'pointsAtZ', 'preserveAlpha',
+    'preserveAspectRatio', 'primitiveUnits', 'refX', 'refY', 'repeatCount',
+    'repeatDur', 'requiredExtensions', 'requiredFeatures', 'specularConstant',
+    'specularExponent', 'spreadMethod', 'startOffset', 'stdDeviation', 'stitchTiles',
+    'surfaceScale', 'systemLanguage', 'tableValues', 'targetX', 'targetY',
+    'textLength', 'viewBox', 'viewTarget', 'xChannelSelector', 'yChannelSelector',
+    'zoomAndPan',
+  ].map(name => /** @type {[string, string]} */ ([`${Elements.#svgNamespace}:${name.toLowerCase()}`, name])))
+  /** @type {Map<string, string>} */
+  static #foreignAttributes = new Map([
+    ['xlink:actuate', Elements.#xlinkNamespace],
+    ['xlink:arcrole', Elements.#xlinkNamespace],
+    ['xlink:href', Elements.#xlinkNamespace],
+    ['xlink:role', Elements.#xlinkNamespace],
+    ['xlink:show', Elements.#xlinkNamespace],
+    ['xlink:title', Elements.#xlinkNamespace],
+    ['xlink:type', Elements.#xlinkNamespace],
+    ['xml:lang', Elements.#xmlNamespace],
+    ['xml:space', Elements.#xmlNamespace],
+    ['xmlns', Elements.#xmlnsNamespace],
+    ['xmlns:xlink', Elements.#xmlnsNamespace],
+  ].map(([name, namespace]) => /** @type {[string, string]} */ ([`${Elements.#svgNamespace}:${name}`, namespace])))
+
+  /** @param {string} tag @param {string} namespace @returns {Element} */
+  static create(tag, namespace) {
+    const svg = Elements.#usesSvg(tag, namespace)
+    const adjusted = Elements.#adjustedTag(tag)
+    return Elements.#createElement(tag, adjusted, svg)
+  }
+
+  /** @param {Element} element @param {RenderContext} context @returns {RenderContext} */
+  static childContext(element, context) {
+    const namespace = Elements.#childNamespace(element)
+    return { slot: context.slot, namespace }
+  }
+
+  /** @param {Element} element @param {string} name @param {string} value @returns {void} */
+  static setAttribute(element, name, value) {
+    const namespace = Elements.#attributeNamespace(element, name)
+    const adjusted = Elements.#adjustedAttribute(element, name)
+    Elements.#writeAttribute(element, namespace, adjusted, value)
+  }
+
+  /** @param {Element} element @param {string} name @returns {void} */
+  static removeAttribute(element, name) {
+    const namespace = Elements.#attributeNamespace(element, name)
+    const adjusted = Elements.#adjustedAttribute(element, name)
+    const local = name.slice(name.indexOf(':') + 1)
+    Elements.#deleteAttribute(element, namespace, adjusted, local)
+  }
+
+  /** @param {string} tag @param {string} namespace @returns {boolean} */
+  static #usesSvg(tag, namespace) {
+    return namespace === Elements.#svgNamespace || tag === Elements.#svgTag
+  }
+
+  /** @param {string} tag @returns {string} */
+  static #adjustedTag(tag) {
+    return Elements.#svgTags.get(tag) ?? tag
+  }
+
+  /** @param {string} tag @param {string} adjusted @param {boolean} svg @returns {Element} */
+  static #createElement(tag, adjusted, svg) {
+    if (svg) return document.createElementNS(Elements.#svgNamespace, adjusted)
+    return document.createElement(tag)
+  }
+
+  /** @param {Element} element @returns {string} */
+  static #childNamespace(element) {
+    if (element.namespaceURI === Elements.#svgNamespace && !Elements.#htmlIntegrationPoints.includes(element.localName)) return Elements.#svgNamespace
+    return Elements.#htmlNamespace
+  }
+
+  /** @param {Element} element @param {string} name @returns {string | null} */
+  static #attributeNamespace(element, name) {
+    return Elements.#foreignAttributes.get(`${element.namespaceURI}:${name}`) ?? null
+  }
+
+  /** @param {Element} element @param {string} name @returns {string} */
+  static #adjustedAttribute(element, name) {
+    return Elements.#svgAttributes.get(`${element.namespaceURI}:${name}`) ?? name
+  }
+
+  /** @param {Element} element @param {string | null} namespace @param {string} name @param {string} value @returns {void} */
+  static #writeAttribute(element, namespace, name, value) {
+    if (namespace) {
+      element.setAttributeNS(namespace, name, value)
+      return
+    }
+    element.setAttribute(name, value)
+  }
+
+  /** @param {Element} element @param {string | null} namespace @param {string} name @param {string} local @returns {void} */
+  static #deleteAttribute(element, namespace, name, local) {
+    if (namespace) {
+      element.removeAttributeNS(namespace, local)
+      return
+    }
+    element.removeAttribute(name)
+  }
+
+  /** @param {HTMLElement} host @param {string} name @returns {void} */
+  static markScope(host, name) {
+    host.setAttribute('data-tac-scope', name)
+    host.style.setProperty(Elements.#scopeProperty, name)
+  }
+}
+
+class NativeState {
+  static writes = Promise.resolve()
+  static writeCount = 0
+  static methods = new WeakSet()
+  static owners = new Map()
+  static startUpRequestLimit = 1048576
+  static memberRequestLimit = 65536
+  static busyWait = 10
+  static busyDeadline = 10000
+  static callTimeout = 10000
+  static filePickerCallTimeout = 40000
+
+  static timeout(request) {
+    const picking = request.op !== 'init' && globalThis.__tachyonNativeGrants?.includes('filePicker') === true
+    return picking ? NativeState.filePickerCallTimeout : NativeState.callTimeout
+  }
+
+  static tooLarge(request, service, payload, limit) {
+    const subject = request.op === 'init' ? 'start-up request' : `request to ${request.name ?? request.op}`
+    const size = new TextEncoder().encode(payload).byteLength
+    return `Native service ${service}: The ${subject} is ${size} bytes. The limit is ${limit} bytes. Pass less data to the service.`
+  }
+}
+
+class NativeTasks {
+  static waiting = new Map()
+  static early = new Map()
+  static mostWaiting = 256
+
+  static key(owner, task) { return `${owner}:${task}` }
+
+  static async settle(owner, answer) {
+    if (!Number.isSafeInteger(answer?.task)) return answer
+    return JSON.parse(await NativeTasks.wait(owner, answer.task))
+  }
+
+  static wait(owner, task) {
+    const key = NativeTasks.key(owner, task)
+    const early = NativeTasks.early.get(key)
+    NativeTasks.early.delete(key)
+    if (early !== undefined) return Promise.resolve(early)
+    if (NativeTasks.waiting.size >= NativeTasks.mostWaiting) return Promise.reject(new RangeError('Tac native tasks exceed 256 at once.'))
+    return new Promise((resolve, reject) => { NativeTasks.waiting.set(key, { owner, resolve, reject }) })
+  }
+
+  static done(signal) {
+    if (!Number.isSafeInteger(signal.task) || typeof signal.answer !== 'string') return
+    const key = NativeTasks.key(signal.owner, signal.task)
+    const waiting = NativeTasks.waiting.get(key)
+    NativeTasks.waiting.delete(key)
+    if (waiting) waiting.resolve(signal.answer)
+    else if (NativeTasks.early.size < NativeTasks.mostWaiting) NativeTasks.early.set(key, signal.answer)
+  }
+
+  static cancel(owner) {
+    for (const [key, waiting] of NativeTasks.waiting) {
+      if (waiting.owner !== owner) continue
+      NativeTasks.waiting.delete(key)
+      waiting.reject(new Error('Tac native owner disposed.'))
+    }
+    for (const key of NativeTasks.early.keys()) {
+      if (key.startsWith(`${owner}:`)) NativeTasks.early.delete(key)
+    }
+  }
+}
+
+class SharedData {
+  static root = Object.freeze(Object.create(null))
+  static modules = new Map()
+}
+
+const readSharedData = (name) => {
+  if (!/^[A-Za-z_][A-Za-z0-9_]{0,127}$/.test(name)) return undefined
+  if (!SharedData.modules.has(name)) {
+    const url = new URL(`../shared/data/${name}.json`, import.meta.url)
+    SharedData.modules.set(name, import(url.href, { with: { type: 'json' } }).then((module) => module.default))
+  }
+  return SharedData.modules.get(name)
+}
+
+const markDocument = (name, value) => {
+  document.documentElement.dataset[name] = value
+}
+
+const pageContext = () => Object.freeze({
+  path: location.pathname.replace(/(.)\/+$/, '$1'),
+  development: document.body?.dataset.tachyonEnvironment === 'development',
+})
+
 const evaluate = async (node, environment) => {
   if (!node || typeof node !== 'object') return undefined
   switch (node.k) {
     case 'await': return await evaluate(node.e, environment)
     case 'lit': return node.v
-    case 'id': {
-      if (node.n in environment.locals) {
-        return environment.locals[node.n]
-      }
-      if (environment.owner && node.n in environment.owner) return environment.owner[node.n]
-      return pageModule[node.n]
-    }
+    case 'id':
+      if (node.n in environment.locals) return environment.locals[node.n]
+      if (node.n === 'data') return SharedData.root
+      if (node.n === 'page') return pageContext()
+      return environment.owner?.[node.n]
     case 'get': {
       const target = await evaluate(node.o, environment)
+      if (target === SharedData.root) return await readSharedData(node.p)
       return target === null || target === undefined ? undefined : target[node.p]
     }
     case 'idx': {
@@ -86,16 +335,21 @@ const evaluate = async (node, environment) => {
   }
 }
 
-const truthy = (value) => Boolean(value)
 const display = (value) => {
   if (value === null || value === undefined || typeof value === 'object') return ''
   return String(value)
 }
-const childEnvironment = (environment, locals, owner = environment.owner) => ({
-  owner,
+const childEnvironment = (environment, locals) => ({
+  owner: environment.owner,
   locals: Object.assign(Object.create(environment.locals), locals),
 })
-const ownedEnvironment = (owner, locals = {}) => ({ owner, locals: Object.assign(Object.create(null), locals) })
+const memberTarget = (owner, path) => {
+  const dot = typeof path === 'string' ? path.indexOf('.') : -1
+  if (dot < 0) return [owner, path]
+  return [owner?.[path.slice(0, dot)], path.slice(dot + 1)]
+}
+
+const ownedEnvironment = (owner) => ({ owner, locals: Object.create(null) })
 
 const resolveEventArgument = async (argument, event, environment) => {
   if ('value' in argument) return argument.value
@@ -117,38 +371,35 @@ const bindEvent = (element, type, binding, environment) => {
       )
       if (binding.assign) {
         const { target, operator } = binding.assign
-        const current = environment.owner?.[target]
+        const [holder, field] = memberTarget(environment.owner, target)
+        const current = holder?.[field]
         const value = arguments_[0]
-        environment.owner[target] =
+        holder[field] =
           operator === '+=' ? current + value
           : operator === '-=' ? current - value
           : operator === '*=' ? current * value
           : operator === '/=' ? current / value
           : value
-        await render()
       } else {
-        const ownerHandler = environment.owner?.[binding.handler]
-        const handler = ownerHandler ?? pageModule[binding.handler]
-        if (typeof handler !== 'function') {
-          throw new TypeError(`Tac handler '${binding.handler}' is not available.`)
-        }
-        // Browser handlers keep their implicit DOM event. A native ABI call
-        // receives only authored JSON arguments, never an implicit DOM object.
-        await handler.call(environment.owner, ...(nativeMethods.has(handler) ? arguments_ : [event, ...arguments_]))
-        if (ownerHandler) await render()
+        const [holder, name] = memberTarget(environment.owner, binding.handler)
+        const handler = holder?.[name]
+        if (typeof handler !== 'function') throw new TypeError(`Tac handler '${binding.handler}' is not available.`)
+        await handler.call(holder, ...(NativeState.methods.has(handler) ? arguments_ : [event, ...arguments_]))
       }
-      document.documentElement.dataset.tachyonEvents = 'handled'
+      await render()
+      markDocument('tachyonEvents', 'handled')
     } catch {
-      document.documentElement.dataset.tachyonEventError = 'handler_failed'
+      markDocument('tachyonEventError', 'handler_failed')
     }
   }
   element.addEventListener(type, listener)
-  const listeners = eventListeners.get(element) || []
+  const listeners = Elements.listeners.get(element) || []
   listeners.push({ type, listener })
-  eventListeners.set(element, listeners)
+  Elements.listeners.set(element, listeners)
 }
 
 const applyAttributes = async (element, attributes, environment) => {
+  let safeHtml
   for (const attribute of attributes || []) {
     if (attribute.event) {
       bindEvent(element, attribute.eventType, attribute.event, environment)
@@ -157,48 +408,43 @@ const applyAttributes = async (element, attributes, environment) => {
     const value = 'expression' in attribute
       ? await evaluate(attribute.expression, environment)
       : attribute.value
+    if (attribute.name === 'safe-html') {
+      safeHtml = value === false || value === null || value === undefined ? '' : String(value)
+      continue
+    }
     if (value === false || value === null || value === undefined) {
-      element.removeAttribute(attribute.name)
+      Elements.removeAttribute(element, attribute.name)
       continue
     }
     const rendered = value === true ? '' : display(value)
-    element.setAttribute(attribute.name, rendered)
+    Elements.setAttribute(element, attribute.name, rendered)
     if (['checked', 'disabled', 'selected'].includes(attribute.name)) element[attribute.name] = Boolean(value)
     else if (attribute.name === 'value' && 'value' in element) {
-      // A custom element may expose `value` as a getter only, and assigning to
-      // one throws hard enough to abort the whole render. The attribute is
-      // already set above, which is what such an element actually reads.
-      try { element.value = rendered } catch { /* read-only property */ }
+      try { element.value = rendered } catch {}
     }
   }
+  return safeHtml
 }
 
-// ── Browser storage ───────────────────────────────────────────────────────
-// Three caches, each used for what the platform built it for: CacheStorage
-// holds Request/Response pairs for static assets, IndexedDB holds structured
-// API responses, and Web Storage holds small persisted view fields. Every one
-// of them is optional at runtime — a browser in private mode, with storage
-// denied, or out of quota must degrade to plain network behavior, never throw
-// into a render.
+class StaticCache {
+  static namePrefix = 'tachyon-static-'
+}
 
-const STATIC_CACHE_PREFIX = 'tachyon-static-'
-
-// The offline cache belongs to the service worker, whose name carries the
-// build digest. That digest is computed over the emitted output, so it cannot
-// be embedded here without making the digest depend on itself; the live name
-// is discovered instead. Before the worker's first activation there is nothing
-// to warm, and it caches on demand anyway.
 const openStaticCache = async () => {
   try {
     if (!globalThis.caches) return null
-    const name = (await caches.keys()).find((value) => value.startsWith(STATIC_CACHE_PREFIX))
+    const name = (await caches.keys()).find((value) => value.startsWith(StaticCache.namePrefix))
     return name ? await caches.open(name) : null
   } catch { return null }
 }
 
-// Warms the offline cache with assets this view can still reach. A component
-// mounted on visibility or interaction is never fetched until it is needed, so
-// without this it is missing from the cache exactly when the network is gone.
+const variesOnlyByEncoding = (response) => (response.headers.get('vary') || '').split(',')
+  .every((name) => !name.trim() || name.trim().toLowerCase() === 'accept-encoding')
+
+const storableResponse = (response) => response.ok && response.type === 'basic'
+  && !/(?:no-store|private)/i.test(response.headers.get('cache-control') || '')
+  && variesOnlyByEncoding(response)
+
 const precacheAssets = async (urls) => {
   const cache = await openStaticCache()
   if (!cache) return
@@ -212,16 +458,12 @@ const precacheAssets = async (urls) => {
       if (url.origin !== location.origin || !['http:', 'https:'].includes(url.protocol)) continue
       if (await cache.match(url)) continue
       const response = await fetch(url, { credentials: 'omit', signal: AbortSignal.timeout(5000) })
-      if (response.ok && response.type === 'basic'
-        && !/(?:no-store|private)/i.test(response.headers.get('cache-control') || '')
-        && !response.headers.get('vary')) {
-        const body = await responseBody(response, 4194304)
-        if (body === null) continue
-        if (warmedBytes + body.byteLength > 33554432) break
-        warmedBytes += body.byteLength
-        await cache.put(url, new Response(body, { status: response.status, statusText: response.statusText, headers: response.headers }))
-      }
-    } catch { /* the worker will fetch it on demand */ }
+      const body = await responseBody(response, 4194304)
+      if (body === null || !storableResponse(response)) continue
+      if (warmedBytes + body.byteLength > 33554432) break
+      warmedBytes += body.byteLength
+      await cache.put(url, new Response(body, { status: response.status, statusText: response.statusText, headers: response.headers }))
+    } catch {}
   }
 }
 
@@ -229,108 +471,26 @@ const clearStaticCache = async () => {
   try {
     if (!globalThis.caches) return
     for (const name of await caches.keys()) {
-      if (name.startsWith(STATIC_CACHE_PREFIX)) await caches.delete(name)
+      if (name.startsWith(StaticCache.namePrefix)) await caches.delete(name)
     }
-  } catch { /* best effort */ }
+  } catch {}
 }
 
 const planAssets = (nodes, found = []) => {
   for (const node of nodes || []) {
     if (found.length >= 512) break
     if (node.k === 'component') {
-      if (node.module) found.push(node.module)
+      for (const service of node.services || []) if (service.module) found.push(service.module)
       planAssets(node.template, found)
       planAssets(node.slot, found)
+      for (const nodes of Object.values(node.slots || {})) planAssets(nodes, found)
     }
     planAssets(node.children, found)
   }
   return found
 }
 
-const FETCH_DATABASE = 'tachyon-fetch-cache'
-// Discard caches created before anonymous-only persistence was enforced.
-const FETCH_DATABASE_VERSION = 2
-const FETCH_STORE = 'responses'
-const CACHE_POLICIES = new Set(['cache-first', 'network-first', 'reload', 'no-store'])
-const MAX_RESPONSE_BYTES = 262144
-const MAX_CACHE_ENTRIES = 128
-const MAX_CACHE_AGE = 86400000
-let fetchDatabase
-
-const openFetchDatabase = () => {
-  if (fetchDatabase !== undefined) return fetchDatabase
-  fetchDatabase = new Promise((resolve) => {
-    let settled = false
-    const finish = (value) => {
-      if (settled) { value?.close(); return }
-      settled = true
-      clearTimeout(timer)
-      resolve(value)
-    }
-    const timer = setTimeout(() => finish(null), 2000)
-    let request
-    try {
-      if (typeof indexedDB === 'undefined') { finish(null); return }
-      request = indexedDB.open(FETCH_DATABASE, FETCH_DATABASE_VERSION)
-    }
-    catch { finish(null); return }
-    request.onupgradeneeded = () => {
-      if (request.result.objectStoreNames.contains(FETCH_STORE)) request.result.deleteObjectStore(FETCH_STORE)
-      if (!request.result.objectStoreNames.contains(FETCH_STORE)) {
-        request.result.createObjectStore(FETCH_STORE, { keyPath: 'key' })
-      }
-    }
-    request.onsuccess = () => {
-      request.result.onversionchange = () => request.result.close()
-      finish(request.result)
-    }
-    request.onerror = () => finish(null)
-    request.onblocked = () => finish(null)
-  })
-  return fetchDatabase
-}
-
-const fetchStore = async (mode) => {
-  const database = await openFetchDatabase()
-  if (!database) return null
-  try { return database.transaction(FETCH_STORE, mode).objectStore(FETCH_STORE) }
-  catch { return null }
-}
-
-const cacheHeadersAllowed = (headers) => !headers.has('vary') && !headers.has('content-range')
-  && !/(?:^|,)\s*(?:private|no-store)\b/i.test(headers.get('cache-control') || '')
-
-const readCachedResponse = async (key) => {
-  const store = await fetchStore('readonly')
-  if (!store) return null
-  return new Promise((resolve) => {
-    const timer = setTimeout(() => resolve(null), 2000)
-    const finish = (value) => { clearTimeout(timer); resolve(value) }
-    let request
-    try { request = store.get(key) } catch { finish(null); return }
-    request.onsuccess = () => {
-      const entry = request.result
-      if (!entry || entry.status === 206 || !Number.isFinite(entry.updatedAt) || Date.now() - entry.updatedAt > MAX_CACHE_AGE
-        || entry.body?.byteLength > MAX_RESPONSE_BYTES) { finish(null); return }
-      try {
-        const headers = new Headers(entry.headers)
-        if (!cacheHeadersAllowed(headers)) { finish(null); return }
-      } catch { finish(null); return }
-      // A 204 or 304 rejects any body at all, so an empty one stays null.
-      const body = entry.body?.byteLength ? new Uint8Array(entry.body) : null
-      try {
-        finish(new Response(body, {
-          status: entry.status,
-          statusText: entry.statusText,
-          headers: entry.headers,
-        }))
-      } catch { finish(null) }
-    }
-    request.onerror = () => finish(null)
-  })
-}
-
-const responseBody = async (response, limit = MAX_RESPONSE_BYTES) => {
+const responseBody = async (response, limit) => {
   if (!response.body) return new ArrayBuffer(0)
   const reader = response.body.getReader()
   const chunks = []
@@ -353,160 +513,94 @@ const responseBody = async (response, limit = MAX_RESPONSE_BYTES) => {
   } finally { clearTimeout(timer) }
 }
 
-const mutateCache = async (change) => {
-  const store = await fetchStore('readwrite')
-  if (!store) return
-  await new Promise((resolve) => {
-    const timer = setTimeout(() => { try { store.transaction.abort() } catch {} resolve() }, 2000)
-    const finish = () => { clearTimeout(timer); resolve() }
-    store.transaction.oncomplete = finish
-    store.transaction.onabort = finish
-    store.transaction.onerror = finish
-    try { change(store) } catch { finish() }
-  })
-}
-
-const writeCachedResponse = async (key, response) => {
-  let body
-  try { body = await responseBody(response) } catch { return }
-  if (body === null) return
-  await mutateCache((store) => {
-    const count = store.count()
-    count.onsuccess = () => {
-      // Clear a full cache atomically; no unbounded cursor scan or eviction queue.
-      if (count.result >= MAX_CACHE_ENTRIES) store.clear()
-    store.put({
-      key,
-      status: response.status,
-      statusText: response.statusText,
-      headers: Object.fromEntries(response.headers.entries()),
-      body,
-      updatedAt: Date.now(),
-    })
-    }
-  })
-}
-
-const deleteCachedResponse = async (key) => {
-  await mutateCache((store) => store.delete(key))
-}
-
-const deleteCachedPrefix = async (prefix) => {
-  if (typeof IDBKeyRange === 'undefined') return
-  await mutateCache((store) => store.delete(IDBKeyRange.bound(prefix, `${prefix}\uffff`)))
-}
-
-const invalidateCache = async (keys = [], prefixes = []) => {
-  if (!Array.isArray(keys) || !Array.isArray(prefixes)
-    || [...keys, ...prefixes].some((key) => typeof key !== 'string' || key.length > 4096)) {
-    throw new TypeError('Tac invalidation keys must be bounded strings.')
-  }
-  if (keys.length + prefixes.length > 128) throw new RangeError('Tac invalidation exceeds 128 keys.')
-  await Promise.all([
-    ...[...keys].map((key) => deleteCachedResponse(key)),
-    ...[...prefixes].map((prefix) => deleteCachedPrefix(prefix)),
-  ])
-}
-
-const fetchRequestCanPersist = (request, policy) => {
-  const method = request.method.toUpperCase()
-  // Only a read is addressed by its URL alone, so only a read is cacheable.
-  // Ranges name a different representation and never share this full-response key.
-  // Never persist ambient cookies, authorization, caller no-store, or cross-origin
-  // responses. Caching authenticated reads requires an application-owned policy.
-  return (method === 'GET' || method === 'HEAD') && policy !== 'no-store'
-    && request.credentials === 'omit' && !request.headers.has('authorization')
-    && !request.headers.has('range') && !request.headers.has('if-range')
-    && new URL(request.url).origin === location.origin && request.cache !== 'no-store'
-}
-
-const fetchCacheKey = (request, policy, configuredKey) => {
-  const key = fetchRequestCanPersist(request, policy) ? configuredKey ?? `fetch:${request.method.toUpperCase()}:${request.url}` : null
-  if (key !== null && (typeof key !== 'string' || key.length > 4096)) throw new TypeError('Invalid Tac cache key.')
-  return key
-}
-
-const responseCanPersist = (response) => response.ok && response.status !== 206
-  && !response.redirected && response.type !== 'opaque' && cacheHeadersAllowed(response.headers)
-
-const fetchCacheFallback = async (key, request, policy, error) => {
-  // 'reload' and 'no-store' asked for the network specifically, so its
-  // failure is theirs to see. The rest fall back to what was stored.
-  if (key && policy !== 'reload' && !request.signal.aborted) {
-    const cached = await readCachedResponse(key)
-    if (cached) return cached
-  }
-  throw error
-}
-
-// Fetch with an explicit caching policy. The default is network-first: a view
-// asking for data means current data, and the cache is what answers when the
-// network cannot. Only a caller that knows its resource is immutable should
-// ask for cache-first.
-const tacFetch = async (input, init = {}, options = {}) => {
-  const policy = options.cache ?? 'network-first'
-  if (!CACHE_POLICIES.has(policy)) throw new TypeError(`Unknown Tac cache policy '${policy}'.`)
+const clientRequest = (input, init = {}, options = {}) => {
   const request = new Request(typeof input === 'string' ? new URL(input, location.href) : input, init)
-  request.signal.throwIfAborted()
-  const key = fetchCacheKey(request, policy, options.key)
-
-  if (key && policy === 'cache-first') {
-    const cached = await readCachedResponse(key)
-    request.signal.throwIfAborted()
-    if (cached) return cached
-  }
-  try {
-    // The IndexedDB policy owns this cache decision; the browser HTTP cache
-    // must not turn network-first, reload, or no-store into an implicit hit.
-    const response = await fetch(new Request(request, { cache: 'no-store' }))
-    if (key && responseCanPersist(response)) await writeCachedResponse(key, response.clone())
-    else if (key) await deleteCachedResponse(key)
-    // A write that succeeded is what makes a read stale, so this is where
-    // the caller's invalidation runs.
-    if (!key && response.ok) await invalidateCache(options.invalidateKeys, options.invalidatePrefixes)
-    return response
-  } catch (error) {
-    return fetchCacheFallback(key, request, policy, error)
-  }
+  const send = globalThis[Symbol.for('tachyon.tac.yon-reads')]?.fetch ?? fetch
+  return send(new Request(request, { cache: options.publicRead !== true ? 'no-store' : options.revalidate === true ? 'no-cache' : 'default' }))
 }
 
-// A `$`-prefixed field persists for the tab, `$$` persists across sessions.
-// Reading storage can throw outright in a sandboxed frame, so even acquiring
-// it is guarded.
 const webStorage = (persistent) => {
   try { return persistent ? localStorage : sessionStorage } catch { return null }
 }
 
+const fitsStorage = (raw) => raw.length <= 65536 && new TextEncoder().encode(raw).byteLength <= 65536
+
 const readStoredField = (store, key, fallback) => {
   try {
     const raw = store.getItem(key)
-    return raw === null || raw.length > 65536 || new TextEncoder().encode(raw).byteLength > 65536 ? fallback : JSON.parse(raw)
+    if (raw === null || !fitsStorage(raw)) return fallback
+    return JSON.parse(raw)
   } catch { return fallback }
 }
 
 const writeStoredField = (store, key, value) => {
   try {
-    if (value === undefined) store.removeItem(key)
-    else {
-      const raw = JSON.stringify(value)
-      if (raw?.length <= 65536 && new TextEncoder().encode(raw).byteLength <= 65536) store.setItem(key, raw)
-    }
-  } catch { /* private mode, or over quota */ }
+    if (value === undefined) { store.removeItem(key); return }
+    const raw = JSON.stringify(value)
+    if (raw !== undefined && fitsStorage(raw)) store.setItem(key, raw)
+  } catch {}
 }
 
-const boundOwners = new WeakSet()
+class Owners {
+  static bound = new WeakSet()
+  static managed = new WeakMap()
+  static modules = new WeakMap()
+  static stored = new WeakMap()
+  static adoptLegacyField(store, key, legacy) {
+    try {
+      const raw = store.getItem(legacy)
+      if (raw === null) return
+      store.removeItem(legacy)
+      if (store.getItem(key) === null) store.setItem(key, raw)
+    } catch {}
+  }
+}
 
-// The stored value wins over the declared one, which is what makes it a
-// default rather than a reset. Nothing is written until a field is assigned,
-// so changing a default in source still reaches a returning visitor.
+class StoredAccessor {
+  constructor(owner, read, store, key) {
+    this.owner = owner
+    this.read = read
+    this.store = store
+    this.key = key
+    this.saved = JSON.stringify(read.call(owner))
+  }
+  save() {
+    try {
+      const value = this.read.call(this.owner)
+      const raw = JSON.stringify(value)
+      if (raw === this.saved) return
+      this.saved = raw
+      writeStoredField(this.store, this.key, value)
+    } catch {}
+  }
+}
+
 const bindPersistentFields = (owner, scope) => {
-  if (boundOwners.has(owner)) return owner
-  boundOwners.add(owner)
+  if (Owners.bound.has(owner)) return owner
+  Owners.bound.add(owner)
+  const stored = Owners.stored.get(owner) || {}
+  const accessors = []
   for (const name of Object.keys(owner)) {
-    if (!name.startsWith('$') || !Object.getOwnPropertyDescriptor(owner, name)?.configurable) continue
-    const store = webStorage(name.startsWith('$$'))
+    if (!Object.hasOwn(stored, name) || !Object.getOwnPropertyDescriptor(owner, name)?.configurable) continue
+    const local = stored[name] === 'local'
+    const store = webStorage(local)
     if (!store) continue
     const key = `tac:${scope}:${name}`
+    Owners.adoptLegacyField(store, key, `tac:${scope}:${local ? '$$' : '$'}${name}`)
+    const { get, set } = Object.getOwnPropertyDescriptor(owner, name)
+    if (get && set) {
+      const restored = readStoredField(store, key, undefined)
+      if (restored !== undefined) set.call(owner, restored)
+      const accessor = new StoredAccessor(owner, get, store, key)
+      accessors.push(accessor)
+      Object.defineProperty(owner, name, {
+        configurable: true,
+        enumerable: true,
+        get,
+        set: (value) => { set.call(owner, value); accessor.save() },
+      })
+      continue
+    }
     let current = readStoredField(store, key, owner[name])
     Object.defineProperty(owner, name, {
       configurable: true,
@@ -515,35 +609,158 @@ const bindPersistentFields = (owner, scope) => {
       set: (value) => { current = value; writeStoredField(store, key, value) },
     })
   }
+  if (accessors.length) {
+    Object.defineProperty(owner, '__tachyonStoredChanged', {
+      configurable: true,
+      value: () => { for (const accessor of accessors) accessor.save() },
+    })
+  }
   return owner
 }
 
-// Two instances of one component on one page share a scope unless they are
-// told apart, which is what `persist-id` is for.
+const storedPath = () => location.pathname.replace(/\/index\.html$/, '/')
 const persistScope = (id, properties) =>
-  `${id}:${properties?.persistId ?? properties?.['persist-id'] ?? location.pathname}`
+  `${id}:${properties?.persistId ?? properties?.['persist-id'] ?? storedPath()}`
 
 const importAsset = (raw) => {
   const url = new URL(raw, location.href)
-  const web = url.origin === location.origin && url.pathname.startsWith('/.tachyon/components/')
-  const native = url.origin === location.origin && url.pathname.includes('/WebBundle/tachyon-runtime/components/')
-  if (!web && !native) throw new TypeError('Tac component asset is not a generated same-origin URL.')
+  const sameOrigin = url.origin === location.origin
+  const web = sameOrigin && url.pathname.startsWith('/.tachyon/services/')
+  const native = sameOrigin && url.pathname.includes('/WebBundle/tachyon-runtime/services/')
+  if (!web && !native) throw new TypeError('Tac service asset is not a generated same-origin URL.')
   return import(url.href)
 }
 
+const createOwner = async (module, properties) => {
+  const controller = new AbortController()
+  try {
+    let owner
+    if (typeof module.__tachyon_create_owner__ !== 'function') {
+      const required = module.__tachyon_required_args__
+      owner = Array.isArray(required)
+        ? new module.default(...required.map((name) => properties?.[name]))
+        : new module.default(properties)
+    } else {
+      owner = await module.__tachyon_create_owner__(properties, controller.signal, clientRequest)
+    }
+    if (typeof module.__tachyon_own_context__ === 'function') module.__tachyon_own_context__(owner, controller.signal)
+    Owners.managed.set(owner, controller)
+    Owners.modules.set(owner, module)
+    return owner
+  } catch (error) { controller.abort(); throw error }
+}
+const releaseOwner = (owner) => {
+  Owners.managed.get(owner)?.abort()
+  Owners.managed.delete(owner)
+  disposeNativeInstance(owner)
+}
+const disposeManagedOwner = (owner) => {
+  for (const entry of Services.byOwner.get(owner) || []) if (!entry.shared) disposeManagedOwner(entry.instance)
+  releaseOwner(owner)
+}
+
+class Services {
+  static catalog = ClientView.plan.services || {}
+  static singletons = new Map()
+  static resolved = new Map()
+  static creating = new Set()
+  static byOwner = new WeakMap()
+  static shared = new WeakSet()
+  static given(service, properties) {
+    if (!Array.isArray(service.required)) return properties
+    return Object.fromEntries(service.required.map((field) => [field, properties?.[field]]))
+  }
+}
+
+const requireProperties = (name, service, properties) => {
+  for (const field of service.required || []) {
+    if (properties?.[field] !== undefined && properties?.[field] !== null) continue
+    throw new TypeError(`Tac service '${name}' needs '${field}'; pass :${field}="..." to the component that uses it.`)
+  }
+}
+
+const createServiceInstance = async (name, service, properties, scope) => {
+  requireProperties(name, service, properties)
+  const given = Services.given(service, properties)
+  let instance
+  if (service.module) {
+    const module = await importAsset(service.module)
+    if (typeof module.default !== 'function') throw new TypeError(`Tac service '${name}' must default-export its class.`)
+    instance = await createOwner(module, given)
+  } else if (service.native && nativeHost()) {
+    instance = {}
+  } else {
+    throw new TypeError(`Tac service '${name}' has no browser module.`)
+  }
+  if (service.native && nativeHost()) await bindNativeInstance(instance, name, given)
+  Owners.stored.set(instance, service.stored || {})
+  attachRuntime(instance, scope)
+  if (service.native && nativeHost()) drainCompanionQueue()
+  for (const member of Runtime.graphs.get(instance) || [instance]) {
+    for (const key of Object.getOwnPropertyNames(member)) {
+      if (key === name || !Object.hasOwn(Services.catalog, key) || member[key] !== undefined) continue
+      member[key] = await serviceSingleton(key)
+    }
+  }
+  return instance
+}
+const registerSingleton = (name, instance) => {
+  Services.shared.add(instance)
+  for (const member of Runtime.graphs.get(instance) || [instance]) Services.shared.add(member)
+  Services.resolved.set(name, instance)
+}
+const disposeSharedInstance = (instance) => {
+  disposeRuntime(instance, true)
+  releaseOwner(instance)
+}
+const serviceSingleton = (name) => {
+  if (Services.creating.has(name)) throw new Error(`Tac services '${name}' depend on each other in a cycle.`)
+  if (Services.singletons.has(name)) return Services.singletons.get(name)
+  const service = Services.catalog[name]
+  if (!service) throw new TypeError(`Tac service '${name}' is not declared.`)
+  Services.creating.add(name)
+  const promise = createServiceInstance(name, service, {}, `service:${name}:${storedPath()}`)
+    .then((instance) => {
+      registerSingleton(name, instance)
+      return instance
+    })
+    .finally(() => Services.creating.delete(name))
+  Services.singletons.set(name, promise)
+  promise.catch(() => Services.singletons.delete(name))
+  return promise
+}
+const disposeSharedServices = () => {
+  for (const [name, instance] of Services.resolved) {
+    disposeSharedInstance(instance)
+    Services.resolved.delete(name)
+    Services.singletons.delete(name)
+  }
+}
+
+const composeOwner = (name, properties, entries) => {
+  const owner = { ...properties }
+  for (const entry of entries) {
+    Object.defineProperty(owner, entry.name, { value: entry.instance, enumerable: false, configurable: true, writable: true })
+  }
+  Services.byOwner.set(owner, entries)
+  attachRuntime(owner, persistScope(name, properties))
+  return owner
+}
 
 const componentOwner = async (node, properties, path) => {
-  renderedInstances.add(path)
-  if (instances.has(path)) return instances.get(path)
-  let owner = properties
-  if (node.module) {
-    const module = await importAsset(node.module)
-    if (typeof module.default !== 'function') throw new TypeError(`Tac component '${node.name}' must export a default class.`)
-    owner = new module.default(properties)
+  Rendering.instanceKeys.add(path)
+  if (Components.instances.has(path)) return Components.instances.get(path)
+  const entries = []
+  for (const service of node.services || []) {
+    const shared = service.scope !== 'prototype'
+    const instance = shared
+      ? await serviceSingleton(service.name)
+      : await createServiceInstance(service.name, service, properties, persistScope(`${node.name}.${service.name}`, properties))
+    entries.push({ name: service.name, service, instance, shared })
   }
-  attachRuntime(owner, persistScope(node.name, properties))
-  instances.set(path, owner)
-  componentRecords.set(path, { node, properties, owner })
+  const owner = composeOwner(node.name, properties, entries)
+  Components.instances.set(path, owner)
+  Components.records.set(path, { node, properties, owner })
   return owner
 }
 
@@ -555,12 +772,13 @@ const snapshotState = (owner) => {
   try { return structuredClone(state) } catch { return {} }
 }
 
+const isTextControl = (element) => element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement
 const snapshotMutableDom = () => ({
   active: document.activeElement?.id || null,
   elements: [...document.querySelectorAll('[id]')].slice(0, 2048).map((element) => ({
     id: element.id,
     open: element instanceof HTMLDetailsElement ? element.open : undefined,
-    value: element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement ? element.value : undefined,
+    value: isTextControl(element) ? element.value : undefined,
     checked: element instanceof HTMLInputElement ? element.checked : undefined,
     scroll: element.scrollLeft || element.scrollTop ? [element.scrollLeft, element.scrollTop] : undefined,
   })),
@@ -570,49 +788,128 @@ const restoreMutableDom = (state) => {
     const element = document.getElementById(saved.id)
     if (!element) continue
     if (saved.open !== undefined && element instanceof HTMLDetailsElement) element.open = saved.open
-    if (saved.value !== undefined && (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement)) element.value = saved.value
+    if (saved.value !== undefined && isTextControl(element)) element.value = saved.value
     if (saved.checked !== undefined && element instanceof HTMLInputElement) element.checked = saved.checked
     if (saved.scroll) element.scrollTo(saved.scroll[0], saved.scroll[1])
   }
   if (state.active) document.getElementById(state.active)?.focus({ preventScroll: true })
 }
 
+const carryHotState = async (stale, fresh) => {
+  const state = typeof stale.hotState === 'function' ? structuredClone(await stale.hotState()) : snapshotState(stale)
+  if (typeof stale.hotDispose === 'function') await stale.hotDispose()
+  if (typeof fresh.restoreHotState === 'function') await fresh.restoreHotState(state)
+  else Object.assign(fresh, state)
+}
+
+const hotService = (service, version) => {
+  const url = new URL(service.module, location.href)
+  url.searchParams.set('tachyon_hot', version || String(Date.now()))
+  return { ...service, module: url.href }
+}
+
+const serviceBoundary = (service) => {
+  const fileName = new URL(service.module, location.href).pathname.split('/').pop()
+  return `service:${fileName.replace(/\.js$/, '')}`
+}
+
+const replaceSharedService = async (entry, version) => {
+  const next = await createServiceInstance(entry.name, hotService(entry.service, version), {}, `service:${entry.name}:${storedPath()}`)
+  await carryHotState(entry.instance, next)
+  disposeSharedInstance(entry.instance)
+  registerSingleton(entry.name, next)
+  Services.singletons.set(entry.name, Promise.resolve(next))
+  return next
+}
+
+const replaceOwnedService = async (entry, record, version) => {
+  const scope = persistScope(`${record.node.name}.${entry.name}`, record.properties)
+  const instance = await createServiceInstance(entry.name, hotService(entry.service, version), record.properties, scope)
+  try { await carryHotState(entry.instance, instance) } catch (error) { disposeManagedOwner(instance); throw error }
+  return instance
+}
+
 const hotUpdate = async (boundaries, version) => {
   const selected = new Set(boundaries || [])
   const domState = snapshotMutableDom()
-  // The replaced modules are about to be re-imported under a new query, but a
-  // cached copy of the old bytes would outlive them under the original URL.
   await clearStaticCache()
-  for (const [path, record] of componentRecords) {
-    if (!selected.has(record.node.name)) continue
-    const state = typeof record.owner.hotState === 'function'
-      ? structuredClone(await record.owner.hotState())
-      : snapshotState(record.owner)
-    const asset = record.node.module
-    if (!asset) continue
-    const url = new URL(asset, location.href)
-    url.searchParams.set('tachyon_hot', version || String(Date.now()))
-    const module = await importAsset(url.href)
-    if (typeof module.default !== 'function') throw new TypeError(`Tac component '${record.node.name}' must export a default class.`)
-    const owner = new module.default(record.properties)
-    if (typeof record.owner.hotDispose === 'function') await record.owner.hotDispose()
-    disposeRuntime(record.owner)
-    if (typeof owner.restoreHotState === 'function') await owner.restoreHotState(state)
-    else Object.assign(owner, state)
-    attachRuntime(owner, persistScope(record.node.name, record.properties))
-    controllers.get(path)?.abort()
+  const replaced = new Map()
+  const affected = (service) => service.module && selected.has(serviceBoundary(service))
+  for (const [path, record] of Components.records) {
+    const entries = Services.byOwner.get(record.owner) || []
+    if (!entries.some((entry) => affected(entry.service))) continue
+    const fresh = []
+    for (const entry of entries) {
+      let instance = entry.instance
+      if (affected(entry.service) && entry.shared) {
+        if (!replaced.has(entry.name)) replaced.set(entry.name, await replaceSharedService(entry, version))
+        instance = replaced.get(entry.name)
+      } else if (affected(entry.service)) {
+        instance = await replaceOwnedService(entry, record, version)
+      }
+      fresh.push({ ...entry, instance })
+    }
+    const owner = composeOwner(record.node.name, record.properties, fresh)
+    disposeOwner(record.owner)
     cancelMount(path)
-    controllers.delete(path)
-    lifecycleStarted.delete(path)
     record.owner = owner
-    instances.set(path, owner)
+    record.host = undefined
+    Components.instances.set(path, owner)
   }
   await render()
+  while (Components.activating.size) await Promise.allSettled([...Components.activating])
+  if (Rendering.current) await Rendering.current.catch(() => {})
   restoreMutableDom(domState)
 }
 
+const trackActivation = (promise) => {
+  Components.activating.add(promise)
+  promise.finally(() => Components.activating.delete(promise)).catch(() => {})
+  return promise
+}
+
+const activateOnInteraction = (host, pending, activate) => {
+  const stopListening = () => {
+    host.removeEventListener('pointerdown', listener, true)
+    host.removeEventListener('keydown', listener, true)
+  }
+  const listener = async (event) => {
+    if (event.cancelable) event.preventDefault()
+    event.stopImmediatePropagation()
+    stopListening()
+    const target = event.target
+    if (await activate()) {
+      target.dispatchEvent(new Event(event.type, { bubbles: true, cancelable: true }))
+    }
+  }
+  host.addEventListener('pointerdown', listener, true)
+  host.addEventListener('keydown', listener, true)
+  pending.cleanup = stopListening
+}
+
+const scheduleActivation = (host, policy, pending, activate) => {
+  if (policy === 'idle' && globalThis.requestIdleCallback) {
+    const id = requestIdleCallback(activate)
+    pending.cleanup = () => globalThis.cancelIdleCallback?.(id)
+  } else if (policy === 'idle') {
+    const id = setTimeout(activate, 1)
+    pending.cleanup = () => clearTimeout(id)
+  } else if (policy === 'visible' && globalThis.IntersectionObserver) {
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) { observer.disconnect(); void activate() }
+    }, { rootMargin: '100px' })
+    pending.cleanup = () => observer.disconnect()
+    observer.observe(host)
+  } else if (policy === 'interaction') {
+    activateOnInteraction(host, pending, activate)
+  } else queueMicrotask(activate)
+}
+
 const mountComponent = (host, owner, policy, key) => {
-  const previous = mountSchedules.get(key)
+  const schedules = Components.mountSchedules
+  const activations = Components.activations
+  if (activations.has(owner)) return
+  const previous = schedules.get(key)
   if (previous?.host === host && previous.owner === owner && previous.policy === policy) return
   cancelMount(key)
   if (!policy || policy === 'never') return
@@ -620,72 +917,36 @@ const mountComponent = (host, owner, policy, key) => {
   const release = () => {
     pending.cleanup()
     pending.cleanup = () => {}
-    if (mountSchedules.get(key) === pending) mountSchedules.delete(key)
+    if (schedules.get(key) === pending) schedules.delete(key)
   }
   pending.cancel = () => { pending.cancelled = true; release() }
-  mountSchedules.set(key, pending)
-  const stillOwned = () => host.isConnected && componentRecords.get(key)?.owner === owner
-  const activate = async () => {
+  schedules.set(key, pending)
+  const stillOwned = () => host.isConnected && Components.records.get(key)?.owner === owner
+  const activate = () => trackActivation(activateNow())
+  const activateNow = async () => {
     if (pending.cancelled || !stillOwned()) { pending.cancel(); return false }
+    if (activations.has(owner)) { release(); return false }
+    activations.set(owner, 'initializing')
     release()
     try {
-      controllers.get(key)?.abort()
-      const controller = new AbortController()
-      controllers.set(key, controller)
-      host.tachyonComponent = { instance: owner, refresh: render, controller }
-      if (typeof owner.mount === 'function') await owner.mount(host, controller.signal)
-      // Compatibility only: this runs after browser rendering and adopts no SSR.
-      else if (typeof owner.hydrate === 'function') await owner.hydrate(host, controller.signal)
-      if (controller.signal.aborted || !stillOwned()) return false
-      if (!lifecycleStarted.has(key)) {
-        lifecycleStarted.add(key)
-        for (const method of mountMethods(owner)) {
-          if (typeof owner[method] === 'function') await owner[method]()
-          if (controller.signal.aborted || !stillOwned()) return false
-        }
-      }
+      attachRuntime(owner, key, host)
+      await initializeRuntime(owner)
+      if (!stillOwned()) return false
+      activations.set(owner, 'active')
       host.dataset.tachyonActive = 'true'
       host.removeAttribute('data-tachyon-mount-error')
+      trackActivation(render())
       return true
     } catch {
+      activations.set(owner, 'failed')
+      disposeOwner(owner)
+      if (!stillOwned()) return false
       host.dataset.tachyonActive = 'false'
       host.dataset.tachyonMountError = 'activation_failed'
       return false
     }
   }
-  if (policy === 'idle') {
-    if (globalThis.requestIdleCallback) {
-      const id = requestIdleCallback(activate)
-      pending.cleanup = () => globalThis.cancelIdleCallback?.(id)
-    } else {
-      const id = setTimeout(activate, 1)
-      pending.cleanup = () => clearTimeout(id)
-    }
-  }
-  else if (policy === 'visible' && globalThis.IntersectionObserver) {
-    const observer = new IntersectionObserver((entries) => {
-      if (entries.some((entry) => entry.isIntersecting)) { observer.disconnect(); void activate() }
-    }, { rootMargin: '100px' })
-    pending.cleanup = () => observer.disconnect()
-    observer.observe(host)
-  } else if (policy === 'interaction') {
-    const listener = async (event) => {
-      if (event.cancelable) event.preventDefault()
-      event.stopImmediatePropagation()
-      host.removeEventListener('pointerdown', listener, true)
-      host.removeEventListener('keydown', listener, true)
-      const target = event.target
-      if (await activate()) {
-        target.dispatchEvent(new Event(event.type, { bubbles: true, cancelable: true }))
-      }
-    }
-    host.addEventListener('pointerdown', listener, true)
-    host.addEventListener('keydown', listener, true)
-    pending.cleanup = () => {
-      host.removeEventListener('pointerdown', listener, true)
-      host.removeEventListener('keydown', listener, true)
-    }
-  } else queueMicrotask(activate)
+  scheduleActivation(host, policy, pending, activate)
 }
 
 const renderText = async (parts, environment) => {
@@ -699,49 +960,71 @@ const renderText = async (parts, environment) => {
 const recordElement = (element, node, environment, path) => {
   const locals = []
   for (const name in environment.locals) locals.push([name, environment.locals[name]])
-  elementRecords.set(element, { node, owner: environment.owner, path,
+  Elements.records.set(element, { node, owner: environment.owner, path,
     locals, children: [...element.childNodes],
     attributes: new Map(element.getAttributeNames().map((name) => [name, element.getAttribute(name)])) })
-  renderedElements.set(path, element)
+  Rendering.elements.set(path, element)
   return element
 }
 
+const plainLoopData = (_key, value) => {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return value
+  const prototype = Object.getPrototypeOf(value)
+  if (prototype === Object.prototype || prototype === null) return value
+  throw new TypeError('Tac loop item is not plain data.')
+}
+
+const loopContent = (value) => {
+  if (value === null || typeof value !== 'object') return undefined
+  if (!Rendering.loopContents.has(value)) {
+    let content
+    try { content = JSON.stringify(value, plainLoopData) } catch {}
+    Rendering.loopContents.set(value, content)
+  }
+  return Rendering.loopContents.get(value)
+}
+
+const sameLocal = (previous, next) => {
+  if (Object.is(previous, next)) return true
+  const content = loopContent(previous)
+  return content !== undefined && content === loopContent(next)
+}
+
 const sameLocals = (previous, next) => previous.length === next.length
-  && previous.every(([name, value], index) => next[index][0] === name && Object.is(next[index][1], value))
+  && previous.every(([name, value], index) => next[index][0] === name && sameLocal(value, next[index][1]))
 
 const retainedPair = (old, freshChild) => {
-  const previous = elementRecords.get(old)
-  const fresh = previous && renderedElements.get(previous.path)
-  const next = fresh && elementRecords.get(fresh)
+  const previous = Elements.records.get(old)
+  const fresh = previous && Rendering.elements.get(previous.path)
+  const next = fresh && Elements.records.get(fresh)
   if (!next || previous.node !== next.node || previous.owner !== next.owner) return null
-  if (old.tagName !== fresh.tagName || !sameLocals(previous.locals, next.locals)) return null
+  if (old.tagName !== fresh.tagName || old.namespaceURI !== fresh.namespaceURI || !sameLocals(previous.locals, next.locals)) return null
   if (freshChild && freshChild.parentNode !== fresh) return null
   return { old, fresh, previous }
 }
 
-const focusChain = (active, fragment) => {
+const focusChain = (active, fragment, container) => {
   const chain = []
   let old = active
   let freshChild = null
-  while (old && old !== document.body) {
-    // Third-party light-DOM wrappers are checked separately during preflight.
-    if (!elementRecords.has(old) && chain.length) {
-      old = old.parentElement
+  while (old && old !== container) {
+    if (!Elements.records.has(old) && chain.length) {
+      old = old.parentNode
       continue
     }
     const pair = retainedPair(old, freshChild)
     if (!pair) return []
     chain.unshift(pair)
     freshChild = pair.fresh
-    old = old.parentElement
+    old = old.parentNode
   }
-  if (old !== document.body || chain[0]?.fresh.parentNode !== fragment) return []
+  if (old !== container || chain[0]?.fresh.parentNode !== fragment) return []
   return chain
 }
 
 const ownedSlots = (parent) => [...parent.querySelectorAll('slot')].filter((slot) => {
   for (let node = slot.parentElement; node && node !== parent; node = node.parentElement) {
-    if (elementRecords.has(node)) return false
+    if (Elements.records.has(node)) return false
   }
   return true
 })
@@ -764,19 +1047,17 @@ const changesObservedAttribute = ({ old, fresh, previous }) => {
   try {
     const observed = old.constructor.observedAttributes || []
     if (!Array.isArray(observed) || observed.length > 256) return true
-    const attributes = elementRecords.get(fresh).attributes
+    const attributes = Elements.records.get(fresh).attributes
     return observed.some((name) => previous.attributes.get(name) !== attributes.get(name))
   } catch { return true }
 }
 
-// Finish every compatibility check before changing any connected node. Custom
-// observed-attribute setters may replace their entire implementation subtree.
-const preflightFocus = (chain, fragment) => {
+const preflightFocus = (chain, fragment, container) => {
   const distributions = new Map()
   for (let depth = 0; depth < chain.length; depth += 1) {
     const pair = chain[depth]
     if (changesObservedAttribute(pair)) return null
-    const parent = depth ? chain[depth - 1].old : document.body
+    const parent = depth ? chain[depth - 1].old : container
     if (pair.old.parentNode === parent) continue
     const source = depth ? chain[depth - 1].fresh : fragment
     const groups = depth ? distributionGroups(parent, source, pair.old) : null
@@ -786,22 +1067,21 @@ const preflightFocus = (chain, fragment) => {
   return distributions
 }
 
-const replaceAndRefocus = (fragment, active, replacement) => {
+const commitAndRefocus = (authored, active, replacement) => {
   const selection = [active.selectionStart, active.selectionEnd, active.selectionDirection]
-  document.body.replaceChildren(fragment)
+  authored.commit()
   replacement.focus({ preventScroll: true })
   if (selection[0] !== null && selection[0] !== undefined) {
-    try { replacement.setSelectionRange(...selection) } catch { /* non-text control */ }
+    try { replacement.setSelectionRange(...selection) } catch {}
   }
 }
 
 const syncAuthoredAttributes = (element, previous, next) => {
   for (const [name] of previous.attributes) {
-    if (!next.attributes.has(name)) element.removeAttribute(name)
+    if (!next.attributes.has(name)) Elements.removeAttribute(element, name)
   }
   for (const [name, value] of next.attributes) {
-    // Preserve classes/attributes added by a custom element implementation.
-    if (previous.attributes.get(name) !== value) element.setAttribute(name, value)
+    if (previous.attributes.get(name) !== value) Elements.setAttribute(element, name, value)
   }
 }
 
@@ -811,7 +1091,7 @@ const changedDuringRender = (element, active, editingAtStart) => element === act
 const syncControlValue = (element, fresh, next, active, editingAtStart) => {
   if (!next.attributes.has('value') || !('value' in element)) return
   if (changedDuringRender(element, active, editingAtStart) || element.value === fresh.value) return
-  try { element.value = fresh.value } catch { /* custom read-only value */ }
+  try { element.value = fresh.value } catch {}
 }
 
 const syncControlFlags = (element, fresh, previous, next) => {
@@ -821,32 +1101,31 @@ const syncControlFlags = (element, fresh, previous, next) => {
 }
 
 const transferEventListeners = (element, fresh) => {
-  for (const { type, listener } of eventListeners.get(element) || []) element.removeEventListener(type, listener)
-  const listeners = eventListeners.get(fresh) || []
+  for (const { type, listener } of Elements.listeners.get(element) || []) element.removeEventListener(type, listener)
+  const listeners = Elements.listeners.get(fresh) || []
   for (const { type, listener } of listeners) element.addEventListener(type, listener)
-  eventListeners.set(element, listeners)
+  Elements.listeners.set(element, listeners)
 }
 
-class FocusedBodyUpdate {
+class FocusedRootUpdate {
   constructor(chain, distributions, active, editingAtStart) {
     Object.assign(this, { chain, distributions, active, editingAtStart })
   }
 
   syncElement(element, fresh) {
-    const previous = elementRecords.get(element)
-    const next = elementRecords.get(fresh)
+    const previous = Elements.records.get(element)
+    const next = Elements.records.get(fresh)
     syncAuthoredAttributes(element, previous, next)
     syncControlValue(element, fresh, next, this.active, this.editingAtStart)
     syncControlFlags(element, fresh, previous, next)
     transferEventListeners(element, fresh)
-    elementRecords.set(element, next)
+    Elements.records.set(element, next)
     if (fresh.tachyonComponent) element.tachyonComponent = fresh.tachyonComponent
   }
 
   commit(parent, source, depth) {
     const pair = this.chain[depth]
     if (!pair) {
-      // Do not replace an active editing buffer or its composition text.
       if (!parent.matches('input, textarea, [contenteditable]')) parent.replaceChildren(...source.childNodes)
       return
     }
@@ -886,24 +1165,64 @@ class FocusedBodyUpdate {
   finalize() {
     const retained = new Map(this.chain.map((pair) => [pair.fresh, pair.old]))
     for (const { old, fresh } of this.chain) {
-      const record = elementRecords.get(old)
-      record.children = elementRecords.get(fresh).children.map((child) => retained.get(child) || child)
+      const record = Elements.records.get(old)
+      record.children = Elements.records.get(fresh).children.map((child) => retained.get(child) || child)
     }
-    renderedMounts = renderedMounts.map(([host, ...arguments_]) => [retained.get(host) || host, ...arguments_])
+    Rendering.mounts = Rendering.mounts.map(([host, ...arguments_]) => [retained.get(host) || host, ...arguments_])
   }
 }
 
-// Retain the connected editing chain only after a read-only preflight. A
-// different lexical row/branch never inherits the old row's focus or state.
-const commitBody = (fragment, editingAtStart) => {
-  const active = document.activeElement
-  const chain = focusChain(active, fragment)
-  if (!chain.length) { document.body.replaceChildren(fragment); return }
-  const distributions = preflightFocus(chain, fragment)
-  if (!distributions) { replaceAndRefocus(fragment, active, chain.at(-1).fresh); return }
-  const update = new FocusedBodyUpdate(chain, distributions, active, editingAtStart)
-  update.commit(document.body, fragment, 0)
+const focusedElement = () => {
+  let active = document.activeElement
+  while (active?.shadowRoot?.activeElement) active = active.shadowRoot.activeElement
+  return active
+}
+
+const commitRoot = (container, fragment, editingAtStart) => {
+  const active = container.getRootNode().activeElement
+  const chain = focusChain(active, fragment, container)
+  const authored = new AuthoredRootUpdate(container, fragment, active, editingAtStart).prepare()
+  if (!chain.length || authored.retains(active)) { authored.commit(); return }
+  const distributions = preflightFocus(chain, fragment, container)
+  if (!distributions || authored.refuses(chain)) { commitAndRefocus(authored, active, chain.at(-1).fresh); return }
+  const update = new FocusedRootUpdate(chain, distributions, active, editingAtStart)
+  update.commit(container, fragment, 0)
   update.finalize()
+}
+
+const retainComponentRoots = () => {
+  const retained = new Map()
+  Rendering.mounts = Rendering.mounts.map(([fresh, owner, policy, key]) => {
+    const record = Components.records.get(key)
+    const previous = record?.host
+    if (!record || !previous || previous === fresh) {
+      if (record) record.host = fresh
+      return [fresh, owner, policy, key]
+    }
+    syncAuthoredAttributes(previous, Elements.records.get(previous), Elements.records.get(fresh))
+    const active = focusedElement()
+    const editing = active && fresh.contains(active) ? active : null
+    const selection = editing && typeof editing.selectionStart === 'number'
+      ? [editing.selectionStart, editing.selectionEnd, editing.selectionDirection] : null
+    new AuthoredRootUpdate(previous, fresh, active, null).prepare().commit()
+    Elements.records.set(previous, { ...Elements.records.get(fresh), children: [...previous.childNodes] })
+    previous.tachyonComponent = fresh.tachyonComponent
+    fresh.replaceWith(previous)
+    if (editing && document.activeElement !== editing) {
+      editing.focus({ preventScroll: true })
+      if (selection && typeof editing.setSelectionRange === 'function') {
+        try { editing.setSelectionRange(selection[0], selection[1], selection[2] || 'none') } catch {}
+      }
+    }
+    retained.set(fresh, previous)
+    return [previous, owner, policy, key]
+  })
+  for (const [path, fresh] of Rendering.elements) {
+    const element = retained.get(fresh) || fresh
+    Rendering.elements.set(path, element)
+    const record = Elements.records.get(element)
+    if (record) record.children = record.children.map(child => retained.get(child) || child)
+  }
 }
 
 const renderComponent = async (node, environment, path) => {
@@ -917,92 +1236,112 @@ const renderComponent = async (node, environment, path) => {
   const componentKey = `${path}:${node.name}`
   const owner = await componentOwner(node, properties, componentKey)
   for (const [name, value] of Object.entries(properties)) {
-    if (!(name in owner)) owner[name] = value
+    if (node.exported || !(name in owner)) owner[name] = value
   }
   const host = document.createElement('tachyon-component')
   host.dataset.tachyonComponent = node.name
   host.dataset.tachyonMount = node.mount || 'none'
-  if (node.scope) host.setAttribute('data-tac-scope', node.name)
-  const componentEnvironment = ownedEnvironment(owner)
-  host.append(await renderNodes(node.template || [], componentEnvironment, `${path}.template`, {
-    nodes: node.slot || [],
-    environment,
+  if (node.scope) Elements.markScope(host, node.name)
+  host.append(await renderNodes(node.template || [], ownedEnvironment(owner), `${path}.template`, {
+    namespace: Elements.rootContext.namespace,
+    slot: { nodes: node.slot || [], named: node.slots || {}, environment },
   }))
   host.tachyonComponent = { instance: owner, refresh: render }
-  renderedMounts.push([host, owner, node.mount, componentKey])
+  Rendering.mounts.push([host, owner, node.mount, componentKey])
   return recordElement(host, node, environment, path)
 }
 
-const renderNode = async (node, environment, path, slot) => {
-  renderedNodes += 1
-  if (renderedNodes > 100000) throw new RangeError('Tac client view exceeds 100,000 nodes.')
+const countIteration = () => {
+  if (++Rendering.iterationCount > 100000) throw new RangeError('Tac client view exceeds 100,000 iterations.')
+}
+
+/** @param {RenderContext} context */
+const renderIteration = async (node, environment, path, context) => {
+  const fragment = document.createDocumentFragment()
+  const values = await evaluate(node.iterable, environment)
+  if (!Array.isArray(values)) return fragment
+  if (values.length > 10000) throw new RangeError('Tac iteration exceeds 10,000 items.')
+  for (let index = 0; index < values.length; index += 1) {
+    countIteration()
+    const local = childEnvironment(environment, { [node.binding]: values[index], $index: index })
+    fragment.append(await renderNodes(node.children || [], local, `${path}.${index}`, context))
+  }
+  return fragment
+}
+
+const countedLoopContinues = (comparison, counter, to) => {
+  if (comparison === 'lt') return counter < to
+  if (comparison === 'le') return counter <= to
+  if (comparison === 'gt') return counter > to
+  return counter >= to
+}
+
+/** @param {RenderContext} context */
+const renderCounted = async (node, environment, path, context) => {
+  const fragment = document.createDocumentFragment()
+  const from = Number(await evaluate(node.from, environment))
+  const to = Number(await evaluate(node.to, environment))
+  const magnitude = Number(await evaluate(node.step, environment))
+  const ascending = node.comparison === 'lt' || node.comparison === 'le'
+  const step = ascending ? magnitude : -magnitude
+  if (!Number.isFinite(from) || !Number.isFinite(to) || !Number.isFinite(step) || magnitude <= 0) return fragment
+  let index = 0
+  for (let counter = from; countedLoopContinues(node.comparison, counter, to); counter += step) {
+    countIteration()
+    if (index >= 10000) throw new RangeError('Tac iteration exceeds 10,000 items.')
+    const local = childEnvironment(environment, { [node.binding]: counter, $index: index })
+    fragment.append(await renderNodes(node.children || [], local, `${path}.${index}`, context))
+    index += 1
+    if (counter + step === counter) throw new RangeError('Tac iteration step makes no progress.')
+  }
+  return fragment
+}
+
+/** @param {RenderContext} context */
+const renderSwitch = async (node, environment, path, context) => {
+  const value = await evaluate(node.value, environment)
+  let fallback
+  for (const candidate of node.children || []) {
+    if (candidate.k !== 'case') continue
+    if (!candidate.when) fallback = candidate
+    else if (value === await evaluate(candidate.when, environment)) {
+      return renderNodes(candidate.children || [], environment, `${path}.case`, context)
+    }
+  }
+  if (!fallback) return document.createDocumentFragment()
+  return renderNodes(fallback.children || [], environment, `${path}.default`, context)
+}
+
+/** @param {RenderContext} context */
+const renderNode = async (node, environment, path, context) => {
+  Rendering.nodeCount += 1
+  if (Rendering.nodeCount > 100000) throw new RangeError('Tac client view exceeds 100,000 nodes.')
   if (node.k === 'text') return renderText(node.parts, environment)
   if (node.k === 'comment') return document.createComment(node.value || '')
   if (node.k === 'slot') {
-    return slot ? renderNodes(slot.nodes, slot.environment, `${path}.slot`, null) : document.createDocumentFragment()
+    const slot = context.slot
+    const nodes = node.name ? slot?.named[node.name] : slot?.nodes
+    return nodes ? renderNodes(nodes, slot.environment, `${path}.slot`, { slot: null, namespace: context.namespace }) : document.createDocumentFragment()
   }
-  if (node.k === 'iteration') {
-    const fragment = document.createDocumentFragment()
-    const values = await evaluate(node.iterable, environment)
-    if (!Array.isArray(values)) return fragment
-    if (values.length > 10000) throw new RangeError('Tac iteration exceeds 10,000 items.')
-    for (let index = 0; index < values.length; index += 1) {
-      if (++renderedIterations > 100000) throw new RangeError('Tac client view exceeds 100,000 iterations.')
-      const local = childEnvironment(environment, { [node.binding]: values[index], $index: index })
-      fragment.append(await renderNodes(node.children || [], local, `${path}.${index}`, slot))
-    }
-    return fragment
-  }
-  if (node.k === 'counted') {
-    const fragment = document.createDocumentFragment()
-    const from = Number(await evaluate(node.from, environment))
-    const to = Number(await evaluate(node.to, environment))
-    // The step is a magnitude and the comparison carries the direction, so the
-    // two cannot disagree. The compiler already rejected a loop stepping away
-    // from its limit; this guard is for what only goes wrong at run time — a
-    // step of zero, or a NaN from a field that was not set.
-    const magnitude = Number(await evaluate(node.step, environment))
-    const ascending = node.comparison === 'lt' || node.comparison === 'le'
-    const step = ascending ? magnitude : -magnitude
-    if (!Number.isFinite(from) || !Number.isFinite(to) || !Number.isFinite(step) || magnitude <= 0) return fragment
-    const passes = node.comparison === 'lt' ? (i) => i < to
-      : node.comparison === 'le' ? (i) => i <= to
-      : node.comparison === 'gt' ? (i) => i > to
-      : (i) => i >= to
-    let index = 0
-    for (let counter = from; passes(counter); counter += step) {
-      if (++renderedIterations > 100000) throw new RangeError('Tac client view exceeds 100,000 iterations.')
-      if (index >= 10000) throw new RangeError('Tac iteration exceeds 10,000 items.')
-      const local = childEnvironment(environment, { [node.binding]: counter, $index: index })
-      fragment.append(await renderNodes(node.children || [], local, `${path}.${index}`, slot))
-      index += 1
-      if (counter + step === counter) throw new RangeError('Tac iteration step makes no progress.')
-    }
-    return fragment
-  }
-  if (node.k === 'switch') {
-    const value = await evaluate(node.value, environment)
-    let fallback
-    for (const candidate of node.children || []) {
-      if (candidate.k !== 'case') continue
-      if (!candidate.when) fallback = candidate
-      else if (value === await evaluate(candidate.when, environment)) {
-        return renderNodes(candidate.children || [], environment, `${path}.case`, slot)
-      }
-    }
-    return fallback
-      ? renderNodes(fallback.children || [], environment, `${path}.default`, slot)
-      : document.createDocumentFragment()
-  }
+  if (node.k === 'iteration') return renderIteration(node, environment, path, context)
+  if (node.k === 'counted') return renderCounted(node, environment, path, context)
+  if (node.k === 'switch') return renderSwitch(node, environment, path, context)
   if (node.k === 'component') return renderComponent(node, environment, path)
   if (node.k !== 'element') return document.createDocumentFragment()
-  const element = document.createElement(node.tag)
-  await applyAttributes(element, node.attributes, environment)
-  if (!node.void) element.append(await renderNodes(node.children || [], environment, `${path}.children`, slot))
+  const element = Elements.create(node.tag, context.namespace)
+  const safeHtml = await applyAttributes(element, node.attributes, environment)
+  if (!node.void && safeHtml !== undefined) element.append(TacSafeHtml.fill(element, safeHtml))
+  else if (!node.void) {
+    const children = node.children || []
+    const childContext = Elements.childContext(element, context)
+    element.append(await renderNodes(children, environment, `${path}.children`, childContext))
+  }
+  if (element instanceof HTMLSelectElement && element.hasAttribute('value')) element.value = element.getAttribute('value')
   return recordElement(element, node, environment, path)
 }
 
-const renderNodes = async (nodes, environment, path, slot) => {
+/** @param {RenderContext} [context] @returns {Promise<DocumentFragment>} */
+const renderNodes = async (nodes, environment, path, context = Elements.rootContext) => {
   const fragment = document.createDocumentFragment()
   for (let index = 0; index < nodes.length; index += 1) {
     const node = nodes[index]
@@ -1018,274 +1357,265 @@ const renderNodes = async (nodes, environment, path, slot) => {
           continue
         }
         if (candidate.k !== 'conditional') break
-        if (!candidate.condition || truthy(await evaluate(candidate.condition, environment))) {
+        if (!candidate.condition || await evaluate(candidate.condition, environment)) {
           selected = candidate
           cursor += 1
           break
         }
         cursor += 1
       }
-      if (selected) fragment.append(await renderNodes(selected.children || [], environment, `${path}.${index}.branch`, slot))
+      if (selected) fragment.append(await renderNodes(selected.children || [], environment, `${path}.${index}.branch`, context))
       index = cursor - 1
       continue
     }
-    fragment.append(await renderNode(node, environment, `${path}.${index}`, slot))
+    fragment.append(await renderNode(node, environment, `${path}.${index}`, context))
   }
   return fragment
 }
 
-const planElementByTag = (nodes, tag) => nodes.find((node) => node.k === 'element' && node.tag === tag)
-const renderDocument = async (environment) => {
-  renderedNodes = 0
-  renderedIterations = 0
-  renderedInstances = new Set()
-  renderedElements = new Map()
-  renderedMounts = []
-  const editingAtStart = { element: document.activeElement, value: document.activeElement?.value }
-  const htmlPlan = planElementByTag(plan.nodes || [], 'html')
-  const headPlan = htmlPlan && planElementByTag(htmlPlan.children || [], 'head')
-  const bodyPlan = htmlPlan && planElementByTag(htmlPlan.children || [], 'body')
-  const runtimeAssets = [...document.head.querySelectorAll('[data-tachyon-runtime]')]
-  if (htmlPlan) await applyAttributes(document.documentElement, htmlPlan.attributes, environment)
-  if (headPlan) {
-    const head = await renderNodes(headPlan.children || [], environment, 'head', null)
-    document.head.replaceChildren(head, ...runtimeAssets)
+class TacElements {
+  static connected = new Set()
+  static created = 0
+  static stylesheet = null
+
+  static define(definition) {
+    for (const [name, service] of Object.entries(definition.services || {})) {
+      if (!Object.hasOwn(Services.catalog, name)) Services.catalog[name] = service
+    }
+    if (!customElements.get(definition.node.name)) customElements.define(definition.node.name, TacElements.elementClass(definition))
   }
-  const bodyNodes = bodyPlan ? bodyPlan.children || [] : (htmlPlan ? [] : plan.nodes || [])
-  commitBody(await renderNodes(bodyNodes, environment, 'body', null), editingAtStart)
-  for (const arguments_ of renderedMounts) mountComponent(...arguments_)
-  for (const [key, record] of componentRecords) {
-    if (renderedInstances.has(key)) continue
+
+  static elementClass(definition) {
+    const attributes = new Map(definition.props.map((name) => [TacElements.kebab(name), name]))
+    const element = class extends HTMLElement {
+      static observedAttributes = [...attributes.keys()]
+      constructor() {
+        super()
+        this.attachShadow({ mode: 'open' })
+        this._tacDefinition = definition
+        this._tacPath = `element.${TacElements.created += 1}`
+        this._tacNode = { ...definition.node, properties: [] }
+        this._tacProperties = Object.create(null)
+        for (const name of definition.props) TacElements.upgradeProperty(this, name)
+      }
+      connectedCallback() { TacElements.connected.add(this); TacElements.refresh() }
+      disconnectedCallback() { TacElements.connected.delete(this); TacElements.refresh() }
+      attributeChangedCallback(attribute, _previous, value) { TacElements.change(this, attributes.get(attribute), value) }
+    }
+    for (const name of definition.props) {
+      Object.defineProperty(element.prototype, name, {
+        configurable: true,
+        enumerable: true,
+        get() { return this._tacProperties[name] },
+        set(value) { TacElements.change(this, name, value) },
+      })
+    }
+    return element
+  }
+
+  static upgradeProperty(element, name) {
+    if (!Object.hasOwn(element, name)) return
+    const value = element[name]
+    delete element[name]
+    element[name] = value
+  }
+
+  static kebab(name) {
+    return name.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase()
+  }
+
+  static change(element, name, value) {
+    element._tacProperties[name] = value
+    element._tacNode.properties = Object.entries(element._tacProperties).map(([key, given]) => ({ name: key, value: given }))
+    if (element.isConnected) TacElements.refresh()
+  }
+
+  static refresh() {
+    void render().catch(signalFailure)
+  }
+
+  static loadStylesheet() {
+    TacElements.stylesheet ??= fetch(new URL('components.css', import.meta.url))
+      .then((response) => response.ok ? response.text() : '')
+      .then((text) => {
+        const sheet = new CSSStyleSheet()
+        sheet.replaceSync(text)
+        return sheet
+      })
+    return TacElements.stylesheet
+  }
+
+  static async renderInto(element, environment, editingAtStart) {
+    try {
+      const root = element.shadowRoot
+      if (element._tacDefinition.styles && !root.adoptedStyleSheets.length) root.adoptedStyleSheets = [await TacElements.loadStylesheet()]
+      commitRoot(root, await renderNodes([element._tacNode], environment, element._tacPath), editingAtStart)
+      delete element.dataset.tachyonRenderError
+    } catch (error) {
+      element.dataset.tachyonRenderError = 'render_failed'
+      globalThis.reportError?.(error)
+    }
+  }
+
+  static announce(view, name, value) {
+    const root = view?.getRootNode?.()
+    if (!(root instanceof ShadowRoot) || !TacElements.connected.has(root.host)) return
+    const detail = JSON.parse(JSON.stringify(value))
+    view.dispatchEvent(new CustomEvent(TacElements.kebab(name), { detail, bubbles: true, composed: true }))
+  }
+}
+
+const renderDocument = async (environment) => {
+  Rendering.nodeCount = 0
+  Rendering.iterationCount = 0
+  Rendering.instanceKeys = new Set()
+  Rendering.elements = new Map()
+  Rendering.mounts = []
+  Rendering.loopContents = new WeakMap()
+  const focused = focusedElement()
+  const editingAtStart = { element: focused, value: focused?.value }
+  if (ClientView.page) commitRoot(document.body, await renderNodes(ClientView.plan.nodes || [], environment, 'body'), editingAtStart)
+  for (const element of TacElements.connected) await TacElements.renderInto(element, environment, editingAtStart)
+  retainComponentRoots()
+  for (const arguments_ of Rendering.mounts) mountComponent(...arguments_)
+  for (const [key, record] of Components.records) {
+    if (Rendering.instanceKeys.has(key)) continue
     cancelMount(key)
-    disposeRuntime(record.owner)
-    controllers.get(key)?.abort()
-    controllers.delete(key)
-    lifecycleStarted.delete(key)
-    componentRecords.delete(key)
-    instances.delete(key)
+    disposeOwner(record.owner)
+    Components.records.delete(key)
+    Components.instances.delete(key)
   }
 }
 
 const render = async () => {
-  if (rendering) { renderAgain = true; return rendering }
-  rendering = (async () => {
+  if (Rendering.current) { Rendering.renderAgain = true; return Rendering.current }
+  Rendering.current = (async () => {
     do {
-      renderAgain = false
-      await nativeWrites
+      Rendering.renderAgain = false
+      await NativeState.writes
       const scroll = { x: scrollX, y: scrollY }
-      await renderDocument(ownedEnvironment(pageOwner))
+      await renderDocument(ownedEnvironment(Page.owner))
       scrollTo(scroll.x, scroll.y)
-    } while (renderAgain)
-    document.documentElement.dataset.tachyonRendered = 'client'
+    } while (Rendering.renderAgain)
+    markDocument('tachyonRendered', 'client')
     delete document.documentElement.dataset.tachyonRenderError
   })().catch((error) => {
-    document.documentElement.dataset.tachyonRenderError = 'render_failed'
+    markDocument('tachyonRenderError', 'render_failed')
     throw error
-  }).finally(() => { rendering = null })
-  return rendering
+  }).finally(() => { Rendering.current = null })
+  return Rendering.current
 }
 
-/// The methods `@onMount` named, recorded by the compiler on the class.
-const mountMethods = (owner) => owner?.constructor?.__tachyonOnMount || []
-
-// A retained publish/subscribe bus, scoped to the document.
-//
-// Retained because a component that mounts later still needs the value: the
-// alternative is every subscriber racing every publisher, which is the bug
-// this exists to avoid rather than a thing to leave to the application.
-const tacSignalHandlers = new Map()
-const tacRetained = new Map()
-const ownerSubscriptions = new WeakMap()
-let signalDepth = 0
-let signalHandlerCount = 0
-
-const signalName = (name) => {
-  if (typeof name !== 'string' || !/^[A-Za-z0-9_$][A-Za-z0-9_.$-]{0,127}$/.test(name)) {
-    throw new TypeError('Invalid Tac signal name.')
-  }
-  return name
-}
 const signalFailure = () => {
-  document.documentElement.dataset.tachyonSignalError = 'subscriber_failed'
+  markDocument('tachyonSignalError', 'listener_failed')
 }
-const deliverSignal = (handler, value) => {
-  try { Promise.resolve(handler(value)).catch(signalFailure) } catch { signalFailure() }
+class Runtime {
+  static events = new TacApplicationEvents({
+    changed: () => { void render().catch(signalFailure) },
+    failed: signalFailure,
+    calling: (owner, work) => TacWebApis.calling(owner, work),
+    announced: (view, name, value) => TacElements.announce(view, name, value),
+  })
+  static graphs = new WeakMap()
+  static watching = TacWebApis.watch({
+    publish: (name, value) => {
+      try { Runtime.events.publish(name, value, { retain: true }) } catch { signalFailure() }
+    },
+    send: (owner, name, value) => {
+      try { Runtime.events.send(owner, name, value) } catch { signalFailure() }
+    },
+  })
 }
-const disposeRuntime = (owner) => {
-  for (const unsubscribe of ownerSubscriptions.get(owner) || []) unsubscribe()
-  ownerSubscriptions.delete(owner)
-}
-
-const tacPublish = (name, value, options = {}) => {
-  signalName(name)
-  if (signalDepth >= 32) throw new RangeError('Tac signal recursion exceeds 32 deliveries.')
-  if (options.retain !== false) {
-    const snapshot = structuredClone(value)
-    const encoded = JSON.stringify(snapshot)
-    if ((encoded?.length || 0) > 65536 || new TextEncoder().encode(encoded || '').byteLength > 65536) throw new RangeError('Tac retained value exceeds 64 KiB.')
-    if (tacRetained.size >= 128 && !tacRetained.has(name)) tacRetained.delete(tacRetained.keys().next().value)
-    tacRetained.set(name, snapshot)
-  }
-  signalDepth += 1
-  try {
-    for (const handler of [...(tacSignalHandlers.get(name) || [])]) deliverSignal(handler, value)
-  } finally { signalDepth -= 1 }
-}
-
-const tacSubscribe = (name, handler, options = {}) => {
-  signalName(name)
-  if (typeof handler !== 'function') throw new TypeError('Tac subscriber must be a function.')
-  if (options.signal?.aborted) return () => {}
-  if (signalHandlerCount >= 1024 || (tacSignalHandlers.size >= 128 && !tacSignalHandlers.has(name))) {
-    throw new RangeError('Tac subscription limit reached.')
-  }
-  const handlers = tacSignalHandlers.get(name) || new Set()
-  const deliver = (value) => handler(value)
-  handlers.add(deliver)
-  signalHandlerCount += 1
-  tacSignalHandlers.set(name, handlers)
-  if (options.immediate && tacRetained.has(name)) deliverSignal(deliver, structuredClone(tacRetained.get(name)))
-  const unsubscribe = () => {
-    if (handlers.delete(deliver)) signalHandlerCount -= 1
-    if (!handlers.size) tacSignalHandlers.delete(name)
-    options.signal?.removeEventListener('abort', unsubscribe)
-  }
-  if (options.signal?.aborted) unsubscribe()
-  else options.signal?.addEventListener('abort', unsubscribe, { once: true })
-  return unsubscribe
-}
-
-// The storage surface a page or component companion reaches through `this.tac`.
-const tacRuntime = Object.freeze({
-  fetch: tacFetch,
-  invalidate: invalidateCache,
-  precache: precacheAssets,
-  clearAssetCache: clearStaticCache,
-  publish: tacPublish,
-  subscribe: tacSubscribe,
-  retained: (name) => structuredClone(tacRetained.get(signalName(name))),
-  render,
+const ownerResources = (element, signal) => ({
+  view: element, lifecycle: null, applicationEventPublisher: null,
+  resourceLoader: Object.freeze({ precache: precacheAssets, clearAssetCache: clearStaticCache }),
+  taskScheduler: Object.freeze({ render }),
+  clock: TacWebApis.clock,
+  secureRandom: TacWebApis.secureRandom,
+  connectivity: TacWebApis.connectivity,
+  pageVisibility: TacWebApis.pageVisibility,
+  preferences: TacWebApis.preferences,
+  preferenceStrings: TacWebApis.preferenceStrings,
+  documentTitle: TacDocumentTitle.owned(signal),
+  clipboard: TacWebApis.clipboard,
+  share: TacWebApis.share,
+  notifications: TacWebApis.notifications,
+  geolocation: TacWebApis.geolocation,
+  windowControls: TacWebApis.windowControls,
+  filePicker: TacNativeCapabilities.filePicker(signal),
 })
-
-// `tac` is deliberately not enumerable: a hot update snapshots owner state with
-// structuredClone, which throws on a function and would drop the whole snapshot.
-/// Applies what `@publish` and `@subscribe` declared.
-///
-/// The decorators are compiled away — no browser implements the proposal, so
-/// shipping one would be shipping a syntax error — and what reaches here is
-/// the list the compiler recorded instead. The behaviour is the decorator's
-/// either way; only the delivery differs.
-const bindSignals = (owner) => {
-  for (const [member, signal, kind] of owner.constructor?.__tachyonPublish || []) {
-    if (kind === 'method') {
-      // A method publishes what it returns, and an async one what it resolves
-      // to. A rejection publishes nothing: there is no value to publish.
-      const original = owner[member]
-      if (typeof original !== 'function') continue
-      Object.defineProperty(owner, member, { configurable: true, value: function published(...args) {
-        const result = original.apply(this, args)
-        if (result && typeof result.then === 'function') {
-          return result.then((detail) => {
-            tacPublish(signal, detail)
-            return detail
-          })
-        }
-        tacPublish(signal, result)
-        return result
-      } })
-      continue
-    }
-    // A field publishes what it holds, now and on every assignment.
-    const descriptor = Object.getOwnPropertyDescriptor(owner, member)
-    if (descriptor && !descriptor.configurable) continue
-    let current = owner[member]
-    Object.defineProperty(owner, member, {
-      configurable: true,
-      enumerable: true,
-      get: () => descriptor?.get ? descriptor.get.call(owner) : current,
-      set: (value) => {
-        if (descriptor?.set) descriptor.set.call(owner, value)
-        else current = value
-        tacPublish(signal, value)
-      },
-    })
-    tacPublish(signal, current)
-  }
-
-  for (const [member, signal, kind] of owner.constructor?.__tachyonSubscribe || []) {
-    if (kind === 'method') {
-      // Not called with the retained value: a handler firing for something
-      // published before it existed is a surprise, where a field reading it is
-      // the point of retaining it at all.
-      owner.tac.subscribe(signal, async (value) => {
-        if (typeof owner[member] === 'function') await owner[member](value)
-        await render()
-      })
-      continue
-    }
-    owner.tac.subscribe(
-      signal,
-      (value) => {
-        owner[member] = value
-        queueMicrotask(() => { void render().catch(signalFailure) })
-      },
-      { immediate: true },
-    )
-  }
-  return owner
-}
-
-const attachRuntime = (owner, scope) => {
+const attachRuntime = (owner, scope, element) => {
   if (!owner || typeof owner !== 'object') return owner
-  if (ownerSubscriptions.has(owner)) return owner
-  const subscriptions = new Set()
-  ownerSubscriptions.set(owner, subscriptions)
-  const subscribe = (...args) => {
-    const stop = tacSubscribe(...args)
-    const unsubscribe = () => { stop(); subscriptions.delete(unsubscribe) }
-    subscriptions.add(unsubscribe)
-    return unsubscribe
+  const composed = Services.byOwner.get(owner)
+  if (composed) {
+    const graph = []
+    for (const entry of composed) {
+      attachRuntime(entry.instance, entry.shared ? `service:${entry.name}:${storedPath()}` : scope, element)
+      graph.push(...(Runtime.graphs.get(entry.instance) || [entry.instance]))
+    }
+    Runtime.graphs.set(owner, graph)
+    return bindPersistentFields(owner, scope)
   }
-  Object.defineProperty(owner, 'tac', { configurable: true, value: Object.freeze({ ...tacRuntime, subscribe }) })
-  return bindSignals(bindPersistentFields(owner, scope))
+  const module = Owners.modules.get(owner)
+  const graph = Runtime.graphs.get(owner) || module?.__tachyon_event_owners__?.(owner) || [owner]
+  Runtime.graphs.set(owner, graph)
+  const resources = ownerResources(element, Owners.managed.get(owner)?.signal)
+  for (const instance of graph) {
+    const metadata = TacNativeEvents.planned(instance, module?.__tachyon_event_plan__?.types?.find((type) => type.name === instance.constructor?.name) || {})
+    Runtime.events.attach(instance, metadata, resources)
+  }
+  return bindPersistentFields(owner, scope)
+}
+const initializeRuntime = async (owner) => {
+  for (const instance of Runtime.graphs.get(owner) || [owner]) await Runtime.events.initialize(instance)
+}
+const disposeRuntime = (owner, shared = false) => {
+  for (const instance of [...(Runtime.graphs.get(owner) || [owner])].reverse()) {
+    if (!shared && Services.shared.has(instance)) continue
+    Runtime.events.dispose(instance)
+  }
+}
+const disposeOwner = (owner) => {
+  disposeRuntime(owner)
+  disposeManagedOwner(owner)
 }
 
-if (plan.module) {
-  pageModule = await import(new URL(plan.module, location.href).href)
-  if (typeof pageModule.default === 'function') pageOwner = new pageModule.default()
+const nativeHost = () => typeof globalThis.__tachyonNativeHostCall === 'function'
+const nativeCall = async (request, ownerId, service) => {
+  const deadline = Date.now() + NativeState.busyDeadline
+  let answer = await nativeAnswer(request, ownerId, service)
+  while (answer?.code === 'BUSY' && Date.now() < deadline) {
+    await new Promise((resolve) => { setTimeout(resolve, NativeState.busyWait) })
+    answer = await nativeAnswer(request, ownerId, service)
+  }
+  if (!answer || answer.error || answer.ok === false) throw new Error('Tac native call failed.')
+  return answer.value
 }
-for (const [name, value] of Object.entries(plan.state || {})) {
-  if (!(name in pageOwner)) pageOwner[name] = value
-}
-
-// Native method discovery never executes methods. Every call crosses the host
-// bridge only when an authored event or expression explicitly requests it.
-const nativeCall = async (request) => {
-  const payload = JSON.stringify({ ...request, route: plan.route })
-  if (payload.length > 65536) throw new RangeError('Tac native request exceeds 64 KiB.')
+const nativeAnswer = async (request, ownerId, service) => {
+  const payload = JSON.stringify({ ...request, route: ClientView.plan.route, service, owner: ownerId })
+  const limit = request.op === 'init' ? NativeState.startUpRequestLimit : NativeState.memberRequestLimit
+  if (payload.length > limit || new TextEncoder().encode(payload).byteLength > limit) throw new RangeError(NativeState.tooLarge(request, service, payload, limit))
   let timer
+  let raw
   try {
-    const raw = await Promise.race([
+    raw = await Promise.race([
       Promise.resolve(globalThis.__tachyonNativeHostCall('companion.invoke', payload)),
-      new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('Tac native call timed out.')), 10000) }),
+      new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('Tac native call timed out.')), NativeState.timeout(request)) }),
     ])
-    if (typeof raw === 'string' && raw.length > 65536) throw new RangeError('Tac native response exceeds 64 KiB.')
-    const answer = typeof raw === 'string' ? JSON.parse(raw) : raw
-    if (!answer || answer.error || answer.ok === false) throw new Error('Tac native call failed.')
-    return answer.value
   } finally { clearTimeout(timer) }
+  if (typeof raw === 'string' && (raw.length > 65536 || new TextEncoder().encode(raw).byteLength > 65536)) throw new RangeError('Tac native response exceeds 64 KiB.')
+  return NativeTasks.settle(ownerId, typeof raw === 'string' ? JSON.parse(raw) : raw)
 }
 const nativeMember = (name) => typeof name === 'string'
   && /^[A-Za-z_$][A-Za-z0-9_$]{0,127}$/.test(name)
   && !['__proto__', 'prototype', 'constructor', 'tac'].includes(name)
 
-const bindNativeFields = (names) => {
+const bindNativeFields = (owner, names, call) => {
   const state = new Map()
   const revisions = new Map()
   const pending = new Map()
   const readField = async (name, revision = revisions.get(name) ?? 0) => {
-    const value = await nativeCall({ op: 'get', name })
-    // A delayed acknowledgement must not replace a newer optimistic edit.
+    const value = await call({ op: 'get', name })
     if ((revisions.get(name) ?? 0) === revision) state.set(name, value)
   }
   const refresh = async () => {
@@ -1294,75 +1624,105 @@ const bindNativeFields = (names) => {
     }
   }
   for (const name of names) {
-    Object.defineProperty(pageOwner, name, {
+    Object.defineProperty(owner, name, {
       configurable: true,
       enumerable: true,
       get: () => state.get(name),
       set: (value) => {
-        if (nativeWriteCount >= 128) throw new RangeError('Tac native assignment queue exceeds 128 writes.')
-        nativeWriteCount += 1
+        if (NativeState.writeCount >= 128) throw new RangeError('Tac native assignment queue exceeds 128 writes.')
+        NativeState.writeCount += 1
         const revision = (revisions.get(name) ?? 0) + 1
         revisions.set(name, revision)
         pending.set(name, revision)
         state.set(name, value)
-        nativeWrites = nativeWrites.catch(() => {}).then(async () => {
-          await nativeCall({ op: 'set', name, value })
+        NativeState.writes = NativeState.writes.catch(() => {}).then(async () => {
+          await call({ op: 'set', name, value })
           await readField(name, revision)
         }).finally(() => {
-          nativeWriteCount -= 1
+          NativeState.writeCount -= 1
           if (pending.get(name) === revision) pending.delete(name)
         })
-        void nativeWrites.catch(() => { document.documentElement.dataset.tachyonNativeError = 'assignment_failed' })
+        void NativeState.writes.catch(() => { markDocument('tachyonNativeError', 'assignment_failed') })
       },
     })
   }
   return refresh
 }
 
-if (typeof globalThis.__tachyonNativeHostCall === 'function') {
-  const declared = await nativeCall({ op: 'init', props: {} })
+const drainCompanionQueue = () => {
+  const queue = globalThis.__tachyonCompanionQueue
+  const queued = Array.isArray(queue) ? queue.splice(0).slice(-128) : []
+  for (const signal of queued) globalThis.__tachyonCompanionPublish?.(signal)
+}
+const bindNativeInstance = async (owner, service, properties) => {
+  const ownerId = crypto.randomUUID()
+  const record = { ownerId, service, disposed: false }
+  const call = (request) => {
+    if (record.disposed && request.op !== 'dispose') throw new Error('Tac native owner disposed.')
+    return nativeCall(request, ownerId, service)
+  }
+  let props = {}
+  try { props = JSON.parse(JSON.stringify(properties ?? {})) ?? {} } catch {}
+  const declared = await call({ op: 'init', props })
   const fields = (Array.isArray(declared?.fields) ? declared.fields : []).slice(0, 128).filter(nativeMember)
-  const refreshNativeFields = bindNativeFields(fields)
+  const refreshNativeFields = bindNativeFields(owner, fields, call)
   await refreshNativeFields()
+  TacNativeEvents.bind(owner, declared, call, refreshNativeFields, Services.catalog[service]?.topics)
   for (const name of (Array.isArray(declared?.methods) ? declared.methods : []).slice(0, 128)) {
-    if (nativeMember(name)) {
-      const method = async (...args) => {
-        await nativeWrites
-        const answer = await nativeCall({ op: 'call', name, args })
-        await refreshNativeFields()
-        return answer
-      }
-      nativeMethods.add(method)
-      pageOwner[name] = method
+    if (!nativeMember(name)) continue
+    const method = async (...args) => {
+      await NativeState.writes
+      const answer = await call({ op: 'call', name, args })
+      await refreshNativeFields()
+      owner.__tachyonStoredChanged?.()
+      return answer
     }
+    NativeState.methods.add(method)
+    owner[name] = method
   }
-  const queued = Array.isArray(globalThis.__tachyonCompanionQueue) ? globalThis.__tachyonCompanionQueue.slice(-128) : []
+  NativeState.owners.set(owner, record)
+}
+const disposeNativeInstance = (owner) => {
+  const record = NativeState.owners.get(owner)
+  if (!record || record.disposed) return
+  record.disposed = true
+  NativeState.owners.delete(owner)
+  NativeTasks.cancel(record.ownerId)
+  void nativeCall({ op: 'dispose' }, record.ownerId, record.service).catch(signalFailure)
+}
+if (nativeHost()) {
   globalThis.__tachyonCompanionPublish = (signal) => {
-    try { tacPublish(signal?.name, signal?.value) } catch { signalFailure() }
+    if (signal?.route !== ClientView.plan.route) return
+    const live = [...NativeState.owners].find(([, record]) => !record.disposed && record.ownerId === signal?.owner && record.service === signal?.service)
+    if (!live) return
+    if (signal.task !== undefined) return NativeTasks.done(signal)
+    if (signal.changed === true) { TacNativeEvents.changed(live[0]).then(() => render()).catch(signalFailure); return }
+    if (typeof signal.send === 'string') { Promise.resolve().then(() => TacNativeEvents.send(live[0], signal)).catch(signalFailure); return }
+    try { TacNativeEvents.publish(live[0], () => Runtime.events.publish(signal.name, signal.value, { retain: signal.retain === true })) } catch { signalFailure() }
   }
-  globalThis.__tachyonCompanionQueue = []
-  for (const signal of queued) globalThis.__tachyonCompanionPublish(signal)
+  drainCompanionQueue()
 }
-// Declared state is in place, so persisted fields can now override it. This
-// runs before the mount hooks, which must observe the restored values.
-attachRuntime(pageOwner, persistScope(plan.module || 'page'))
-for (const method of mountMethods(pageOwner)) {
-  if (typeof pageOwner[method] === 'function') await pageOwner[method]()
-}
+
+addEventListener('pagehide', (event) => {
+  if (event.persisted) return
+  for (const record of Components.records.values()) disposeOwner(record.owner)
+  disposeSharedServices()
+})
 Object.defineProperty(globalThis, '__tachyonTac', {
   configurable: true,
-  value: Object.freeze({ render, hotUpdate, instance: pageOwner, instances, tac: tacRuntime }),
+  value: Object.freeze({ render, hotUpdate, instance: Page.owner, instances: Components.instances, service: (name) => Services.resolved.get(name) }),
 })
 globalThis.__tc_rerender = render
 addEventListener('tachyon:rerender', render)
+await TacStorage.ready()
+await render()
 await render()
 
-// Components mounted on visibility or interaction are still unfetched, so the
-// offline cache is warmed once the page is idle rather than during the render
-// that the user is waiting on.
-const whenIdle = globalThis.requestIdleCallback || ((task) => setTimeout(task, 1))
+const whenIdle = (task) => globalThis.requestIdleCallback ? requestIdleCallback(task) : setTimeout(task, 1)
 whenIdle(() => {
-  void precacheAssets(planAssets(plan.nodes).map((asset) => new URL(asset, location.href).href)).catch(() => {
-    document.documentElement.dataset.tachyonCacheError = 'precache_failed'
+  void precacheAssets(planAssets(ClientView.plan.nodes).map((asset) => new URL(asset, location.href).href)).catch(() => {
+    markDocument('tachyonCacheError', 'precache_failed')
   })
 })
+
+export { TacElements }

@@ -1,0 +1,20 @@
+client/pages/products/tac.html                        <products-page hydrate="load" />
+client/components/products/page/tac.html              {products.offset}
+client/services/ProductsService.ts
+client/setups/ApplicationSetup.ts
+server/controllers/ProductsController.ts
+server/services/ProductsService.ts
+
+A role annotation needs a type suffix, a file name that matches the
+type exactly, and a plural role folder right above the file. Each file
+holds one class. Modifiers (CacheSettings, Setting, Table,
+CatalogSettings, etc.) do not rename the type.
+Tachyon finds role files in the shared role folders of their realm:
+client/<role>s for Tac and server/<role>s for Yon. Controllers are
+role files too: they live in server/controllers, and RequestRoute and
+the verb annotations give their paths, so a route has no folder of its
+own (ADR 0048). Every class in a role folder carries its role marker
+(TY1363). A class without a role, such as a model in models/ or a
+utility in client/shared/utils/, is ordinary code: Tachyon does not
+register it, and there is no global container.
+See the Strict annotation layout guide for all supported languages.

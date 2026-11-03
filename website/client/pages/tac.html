@@ -1,15 +1,5 @@
 <site-layout>
-  <!-- Development only: it proves the companion ran, which is worth
-       seeing while working on the site and nothing to a reader. -->
-  <logic :if="development">
-    <p class="runtime-note">Rendered by: {runtime}</p>
-  </logic>
   <home-hero hydrate="load" />
-  <w-container aria-label="Pages" size="xl">
-    <home-pillars />
-    <home-languages hydrate="load" />
-    <home-quickstart />
-    <home-faq />
-  </w-container>
+  <home-body />
   <site-cta />
 </site-layout>

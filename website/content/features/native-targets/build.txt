@@ -1,0 +1,61 @@
+ty bundle --target macos     ->  dist/macos/     AppKit host + WKWebView
+ty bundle --target windows   ->  dist/windows/   Win32 host + WebView2
+ty bundle --target linux     ->  dist/linux/     GTK host + WebKitGTK
+ty bundle --target android   ->  dist/android/   Android host + WebView
+ty bundle --target ios       ->  dist/ios/       UIKit host + WKWebView
+
+The WebView renders the application's HTML, CSS and JavaScript.
+Tac elements are not translated into platform-native widgets.
+
+A native host serves each bundle file of at most 16 MiB. A bigger
+file stops the build with TY1605; make it smaller or split it.
+
+The Windows host needs the WebView2 SDK: restore the
+Microsoft.Web.WebView2 package and set TAC_WEBVIEW2_SDK to the
+extracted folder (it holds build/native/include/WebView2.h).
+Without it the Windows build stops with TY1605.
+
+--arch x64 or --arch arm64 chooses the Windows architecture. Without
+it, an ARM64 build machine builds for ARM64 and other machines build
+for x64. Run the Windows build from the Visual Studio developer
+prompt for that architecture (on Windows on Arm: arm64 for ARM64,
+arm64_amd64 for x64). The host compiles with warnings as errors
+(/W4 /WX).
+
+ty bundle --target android --release builds a signed APK and an
+Android App Bundle (.aab) for Google Play. Set TAC_ANDROID_KEYSTORE
+to the keystore file, TAC_ANDROID_KEYSTORE_PASSWORD to its password
+and TAC_ANDROID_KEYSTORE_ALIAS to the upload key's alias. A missing
+one stops the build with TY1605 before Gradle runs. R8 shrinks the
+release; its keep rules keep the host, bridge and service classes.
+--arch arm64 or --arch x64 builds an Android app for one ABI
+(arm64-v8a or x86_64); without --arch it holds both. Once Gradle's
+cache holds the pinned Android Gradle plugin and libraries, Gradle
+runs with --offline; until then a note says what it downloads.
+
+ty bundle --target macos --release builds a .dmg for Macs outside
+the App Store. The app gets the hardened runtime and a Developer ID
+signature, then the .dmg is notarized and stapled. Set
+TAC_APPLE_TEAM_ID to your team ID and TAC_APPLE_NOTARY_PROFILE to a
+notarytool keychain profile, and keep the Developer ID Application
+certificate in the keychain. TAC_MACOS_SIGNING_IDENTITY=- signs ad
+hoc for a test on the build Mac.
+
+ty bundle --target linux --release builds an AppImage and a .deb in
+dist/linux/. Both install the app, its command, a desktop file,
+AppStream metainfo and the manifest icons, and use the system's
+GTK 4 and WebKitGTK 6. The build needs dpkg-deb and mksquashfs
+(squashfs-tools).
+
+ty bundle --target windows --release builds an MSIX package signed
+with signtool. Set TAC_WINDOWS_CERTIFICATE to a .pfx file (and
+TAC_WINDOWS_CERTIFICATE_PASSWORD), or TAC_WINDOWS_CERTIFICATE_THUMBPRINT
+to a certificate in your store, and TAC_WINDOWS_CERTIFICATE_PUBLISHER
+to the certificate's subject.
+
+ty bundle --target ios --release builds an .ipa for App Store
+Connect and TestFlight, and --device builds one for a registered
+iPhone or iPad. Both run on a Mac with Xcode: set TAC_APPLE_TEAM_ID
+to your team ID and TAC_IOS_PROVISIONING_PROFILE to the profile (an
+App Store profile for --release, a development or ad hoc one for
+--device). The certificate comes from the keychain.

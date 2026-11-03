@@ -3,15 +3,12 @@ resolver = "3"
 exclude = ["fuzz"]
 members = [
   "crates/tachyon-cli",
+  "crates/tachyon-compression",
   "crates/tachyon-contracts",
   "crates/tachyon-core",
   "crates/tachyon-diagnostics",
-]
-default-members = [
-  "crates/tachyon-cli",
-  "crates/tachyon-contracts",
-  "crates/tachyon-core",
-  "crates/tachyon-diagnostics",
+  "crates/tachyon-duplication",
+  "tools/cohesion-scan",
 ]
 
 [workspace.package]
@@ -20,24 +17,26 @@ edition = "2024"
 rust-version = "1.97.1"
 authors = ["Tachyon Contributors"]
 license = "MIT"
-repository = "https://github.com/d31ma/Tachyon"
+repository = "https://github.com/d31ma/TACHYON"
 
 [workspace.dependencies]
 cap-fs-ext = "4.0.2"
+cohesion-scan = { path = "tools/cohesion-scan", version = "=0.0.0-phase4" }
 cap-std = "4.0.2"
 notify = "8.2.0"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
 sha2 = "0.11.0"
+tachyon-compression = { path = "crates/tachyon-compression", version = "=0.0.0-phase4" }
 tachyon-contracts = { path = "crates/tachyon-contracts", version = "=0.0.0-phase4" }
 tachyon-core = { path = "crates/tachyon-core", version = "=0.0.0-phase4" }
 tachyon-diagnostics = { path = "crates/tachyon-diagnostics", version = "=0.0.0-phase4" }
+tachyon-duplication = { path = "crates/tachyon-duplication", version = "=0.0.0-phase4" }
 tempfile = "3.27.0"
 tokio = "1.53.1"
 tokio-util = "0.7.19"
 
 [workspace.lints.rust]
-missing_docs = "deny"
 unsafe_code = "forbid"
 unexpected_cfgs = { level = "warn", check-cfg = ["cfg(coverage)"] }
 
@@ -45,6 +44,8 @@ unexpected_cfgs = { level = "warn", check-cfg = ["cfg(coverage)"] }
 all = { level = "deny", priority = -1 }
 pedantic = { level = "deny", priority = -1 }
 dbg_macro = "deny"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
 expect_used = "deny"
 todo = "deny"
 unimplemented = "deny"
@@ -57,4 +58,37 @@ panic = "abort"
 strip = "symbols"
 
 [profile.dev]
-debug = 1
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+debug = false
+
+[profile.dev.package.brotli]
+opt-level = 3
+
+[profile.dev.package.tachyon-compression]
+opt-level = 3
+
+[profile.dev.package.brotli-decompressor]
+opt-level = 3
+
+[profile.dev.package.flate2]
+opt-level = 3
+
+[profile.dev.package.sha2]
+opt-level = 3
+
+[profile.dev.package.alloc-no-stdlib]
+opt-level = 3
+
+[profile.dev.package.alloc-stdlib]
+opt-level = 3
+
+[profile.dev.package.miniz_oxide]
+opt-level = 3
+
+[profile.dev.package.adler2]
+opt-level = 3
+
+[profile.dev.package.crc32fast]
+opt-level = 3

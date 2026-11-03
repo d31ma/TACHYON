@@ -1,0 +1,8 @@
+<section class="news">
+  <p aria-live="polite">News that anyone posts to /api/news appears here.</p>
+  <ul>
+    <loop :for="item of news.items">
+      <li>{item.text}</li>
+    </loop>
+  </ul>
+</section>

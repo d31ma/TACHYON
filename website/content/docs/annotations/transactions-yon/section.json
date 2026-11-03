@@ -1,0 +1,614 @@
+{
+  "heading": "Transactions: Yon",
+  "axis": "language",
+  "summary": "AllOrNothing runs one service method inside a transaction on the entity adapter it names. The adapter decides: it answers begin, commit and rollback. The managed Yon datasource already does this.",
+  "body": "A transaction is a group of changes that either all happen or all do not happen. AllOrNothing goes on a service method, like Spring's @Transactional. LedgerService opens the transaction, and it injects EntryStore with Needs. EntryStore is a contract with no implementation (TY1308): Tachyon builds its behavior context from LedgerSetup. A store call made inside the method joins the open transaction when the store's entity uses the same entity adapter. Spring calls this propagation REQUIRED. So if the second query fails, the runtime rolls back the first one too. A call on another entity adapter does not join, and its commands carry no transaction. The open transaction follows the call, not the object. Each runtime keeps it in storage that belongs to one call: AsyncLocalStorage in JavaScript and TypeScript on the server, ThreadLocal in Java, Kotlin and Groovy, AsyncLocal in C# and F#, a context variable in Python, fiber storage in Ruby, a zone in Dart, a thread local in Rust, one entry for each goroutine in Go, the request in PHP, and one entry for each entity adapter name in C++, whose process serves one request. In Go, each behavior context has its own LedgerAdapterDelegate, so the Go report lists the service's commands, and each row that the store reads shows the transaction it ran in. AllOrNothing takes one key, adapter, which names an entry in configuration.entities. Before the method body runs, the runtime sends {\"operation\":\"transaction\",\"action\":\"begin\"}. The adapter answers with an identifier of limited size, and the runtime reads it. The runtime adds this identifier to every Store and Query command that the body sends. In JavaScript and TypeScript, execute takes a BehaviorEntityCommand | BehaviorTransactionCommand: check operation first, because only Store and Query commands carry entity, table and query. When the method returns, the runtime commits (it saves all the changes). When the method raises an error, the runtime rolls back (it undoes all the changes). The caller sees the original failure, never a rollback error. Rust and Go do not use this command shape. Their entity command is a typed struct, so they control transactions through a separate method. In Rust, it is a trait method, and its default implementation refuses. In Go, it is a Transaction method, and an adapter without that method also refuses. So an adapter without transactions tells you so. An AllOrNothing inside another one joins the open transaction. It does not start a nested one, because there are no savepoints. A savepoint is a point inside a transaction that you can roll back to. A Retry method opens a new transaction for each attempt. So a failed attempt is undone before the next one starts. The managed datasource (the database connection that Tachyon manages) sets limits on both sides. At most four transactions are open at once. Each one holds one connection. If the connection does nothing for ten seconds, the transaction is rolled back. So a controller that crashes during a transaction cannot keep a connection. SQL that you write still cannot contain BEGIN, COMMIT or ROLLBACK. The FYLO datasource has no transactions. It refuses to open one, and it does not pretend to. In Lua the store is a class table marked `-- @Store(...)`, and a store call inside the service's `-- @AllOrNothing` method joins the open transaction in the same way.\n\nIn C++, LedgerService keeps its own `BehaviorContext behaviors;` field and opens it from LedgerSetup in an `[[OnStart]]` method, and Tachyon opens the context of EntryStore from the same Setup. The C++ entity adapter is one function in the Setup. It receives the shared entity command, answers the begin command with the transaction identifier as a JSON string, and here adds each command to a list that the controller returns (ADR 0099).",
+  "files": [
+    {
+      "name": "server/entities/EntryEntity.js",
+      "code": {
+        "file": "server/entities/EntryEntity.js"
+      }
+    },
+    {
+      "name": "server/stores/EntryStore.js",
+      "code": {
+        "file": "server/stores/EntryStore.js"
+      }
+    },
+    {
+      "name": "server/services/LedgerService.js",
+      "code": {
+        "file": "server/services/LedgerService.js"
+      }
+    },
+    {
+      "name": "server/setups/LedgerSetup.js",
+      "code": {
+        "file": "server/setups/LedgerSetup.js"
+      }
+    },
+    {
+      "name": "server/controllers/LedgerController.js",
+      "code": {
+        "file": "server/controllers/LedgerController.js"
+      }
+    },
+    {
+      "name": "server/models/LedgerReport.ts",
+      "code": {
+        "file": "server/models/LedgerReport.ts"
+      }
+    },
+    {
+      "name": "server/entities/EntryEntity.ts",
+      "code": {
+        "file": "server/entities/EntryEntity.ts"
+      }
+    },
+    {
+      "name": "server/stores/EntryStore.ts",
+      "code": {
+        "file": "server/stores/EntryStore.ts"
+      }
+    },
+    {
+      "name": "server/services/LedgerService.ts",
+      "code": {
+        "file": "server/services/LedgerService.ts"
+      }
+    },
+    {
+      "name": "server/setups/LedgerSetup.ts",
+      "code": {
+        "file": "server/setups/LedgerSetup.ts"
+      }
+    },
+    {
+      "name": "server/controllers/LedgerController.ts",
+      "code": {
+        "file": "server/controllers/LedgerController.ts"
+      }
+    },
+    {
+      "name": "server/models/LedgerReport.py",
+      "code": {
+        "file": "server/models/LedgerReport.py"
+      }
+    },
+    {
+      "name": "server/entities/EntryEntity.py",
+      "code": {
+        "file": "server/entities/EntryEntity.py"
+      }
+    },
+    {
+      "name": "server/stores/EntryStore.py",
+      "code": {
+        "file": "server/stores/EntryStore.py"
+      }
+    },
+    {
+      "name": "server/services/LedgerService.py",
+      "code": {
+        "file": "server/services/LedgerService.py"
+      }
+    },
+    {
+      "name": "server/setups/LedgerSetup.py",
+      "code": {
+        "file": "server/setups/LedgerSetup.py"
+      }
+    },
+    {
+      "name": "server/controllers/LedgerController.py",
+      "code": {
+        "file": "server/controllers/LedgerController.py"
+      }
+    },
+    {
+      "name": "server/models/LedgerReport.php",
+      "code": {
+        "file": "server/models/LedgerReport.php"
+      }
+    },
+    {
+      "name": "server/entities/EntryEntity.php",
+      "code": {
+        "file": "server/entities/EntryEntity.php"
+      }
+    },
+    {
+      "name": "server/stores/EntryStore.php",
+      "code": {
+        "file": "server/stores/EntryStore.php"
+      }
+    },
+    {
+      "name": "server/services/LedgerService.php",
+      "code": {
+        "file": "server/services/LedgerService.php"
+      }
+    },
+    {
+      "name": "server/setups/LedgerSetup.php",
+      "code": {
+        "file": "server/setups/LedgerSetup.php"
+      }
+    },
+    {
+      "name": "server/controllers/LedgerController.php",
+      "code": {
+        "file": "server/controllers/LedgerController.php"
+      }
+    },
+    {
+      "name": "server/models/LedgerReport.java",
+      "code": {
+        "file": "server/models/LedgerReport.java"
+      }
+    },
+    {
+      "name": "server/models/LedgerReport.groovy",
+      "code": {
+        "file": "server/models/LedgerReport.groovy"
+      }
+    },
+    {
+      "name": "server/entities/EntryEntity.java",
+      "code": {
+        "file": "server/entities/EntryEntity.java"
+      }
+    },
+    {
+      "name": "server/entities/EntryEntity.groovy",
+      "code": {
+        "file": "server/entities/EntryEntity.groovy"
+      }
+    },
+    {
+      "name": "server/stores/EntryStore.java",
+      "code": {
+        "file": "server/stores/EntryStore.java"
+      }
+    },
+    {
+      "name": "server/services/LedgerService.java",
+      "code": {
+        "file": "server/services/LedgerService.java"
+      }
+    },
+    {
+      "name": "server/stores/EntryStore.groovy",
+      "code": {
+        "file": "server/stores/EntryStore.groovy"
+      }
+    },
+    {
+      "name": "server/services/LedgerService.groovy",
+      "code": {
+        "file": "server/services/LedgerService.groovy"
+      }
+    },
+    {
+      "name": "server/setups/LedgerSetup.java",
+      "code": {
+        "file": "server/setups/LedgerSetup.java"
+      }
+    },
+    {
+      "name": "server/setups/LedgerSetup.groovy",
+      "code": {
+        "file": "server/setups/LedgerSetup.groovy"
+      }
+    },
+    {
+      "name": "server/controllers/LedgerController.java",
+      "code": {
+        "file": "server/controllers/LedgerController.java"
+      }
+    },
+    {
+      "name": "server/controllers/LedgerController.groovy",
+      "code": {
+        "file": "server/controllers/LedgerController.groovy"
+      }
+    },
+    {
+      "name": "server/models/LedgerReport.kt",
+      "code": {
+        "file": "server/models/LedgerReport.kt"
+      }
+    },
+    {
+      "name": "server/entities/EntryEntity.kt",
+      "code": {
+        "file": "server/entities/EntryEntity.kt"
+      }
+    },
+    {
+      "name": "server/stores/EntryStore.kt",
+      "code": {
+        "file": "server/stores/EntryStore.kt"
+      }
+    },
+    {
+      "name": "server/services/LedgerService.kt",
+      "code": {
+        "file": "server/services/LedgerService.kt"
+      }
+    },
+    {
+      "name": "server/setups/LedgerSetup.kt",
+      "code": {
+        "file": "server/setups/LedgerSetup.kt"
+      }
+    },
+    {
+      "name": "server/controllers/LedgerController.kt",
+      "code": {
+        "file": "server/controllers/LedgerController.kt"
+      }
+    },
+    {
+      "name": "server/models/LedgerReport.cs",
+      "code": {
+        "file": "server/models/LedgerReport.cs"
+      }
+    },
+    {
+      "name": "server/models/LedgerReport.fs",
+      "code": {
+        "file": "server/models/LedgerReport.fs"
+      }
+    },
+    {
+      "name": "server/entities/EntryEntity.cs",
+      "code": {
+        "file": "server/entities/EntryEntity.cs"
+      }
+    },
+    {
+      "name": "server/entities/EntryEntity.fs",
+      "code": {
+        "file": "server/entities/EntryEntity.fs"
+      }
+    },
+    {
+      "name": "server/stores/EntryStore.cs",
+      "code": {
+        "file": "server/stores/EntryStore.cs"
+      }
+    },
+    {
+      "name": "server/services/LedgerService.cs",
+      "code": {
+        "file": "server/services/LedgerService.cs"
+      }
+    },
+    {
+      "name": "server/stores/EntryStore.fs",
+      "code": {
+        "file": "server/stores/EntryStore.fs"
+      }
+    },
+    {
+      "name": "server/services/LedgerService.fs",
+      "code": {
+        "file": "server/services/LedgerService.fs"
+      }
+    },
+    {
+      "name": "server/setups/LedgerSetup.cs",
+      "code": {
+        "file": "server/setups/LedgerSetup.cs"
+      }
+    },
+    {
+      "name": "server/setups/LedgerSetup.fs",
+      "code": {
+        "file": "server/setups/LedgerSetup.fs"
+      }
+    },
+    {
+      "name": "server/controllers/LedgerController.cs",
+      "code": {
+        "file": "server/controllers/LedgerController.cs"
+      }
+    },
+    {
+      "name": "server/controllers/LedgerController.fs",
+      "code": {
+        "file": "server/controllers/LedgerController.fs"
+      }
+    },
+    {
+      "name": "server/models/LedgerReport.rs",
+      "code": {
+        "file": "server/models/LedgerReport.rs"
+      }
+    },
+    {
+      "name": "server/entities/EntryEntity.rs",
+      "code": {
+        "file": "server/entities/EntryEntity.rs"
+      }
+    },
+    {
+      "name": "server/stores/EntryStore.rs",
+      "code": {
+        "file": "server/stores/EntryStore.rs"
+      }
+    },
+    {
+      "name": "server/services/LedgerService.rs",
+      "code": {
+        "file": "server/services/LedgerService.rs"
+      }
+    },
+    {
+      "name": "server/setups/LedgerSetup.rs",
+      "code": {
+        "file": "server/setups/LedgerSetup.rs"
+      }
+    },
+    {
+      "name": "server/controllers/LedgerController.rs",
+      "code": {
+        "file": "server/controllers/LedgerController.rs"
+      }
+    },
+    {
+      "name": "server/models/LedgerReport.dart",
+      "code": {
+        "file": "server/models/LedgerReport.dart"
+      }
+    },
+    {
+      "name": "server/entities/EntryEntity.dart",
+      "code": {
+        "file": "server/entities/EntryEntity.dart"
+      }
+    },
+    {
+      "name": "server/stores/EntryStore.dart",
+      "code": {
+        "file": "server/stores/EntryStore.dart"
+      }
+    },
+    {
+      "name": "server/services/LedgerService.dart",
+      "code": {
+        "file": "server/services/LedgerService.dart"
+      }
+    },
+    {
+      "name": "server/setups/LedgerSetup.dart",
+      "code": {
+        "file": "server/setups/LedgerSetup.dart"
+      }
+    },
+    {
+      "name": "server/controllers/LedgerController.dart",
+      "code": {
+        "file": "server/controllers/LedgerController.dart"
+      }
+    },
+    {
+      "name": "server/delegates/LedgerAdapterDelegate.py",
+      "code": {
+        "file": "server/delegates/LedgerAdapterDelegate.py"
+      }
+    },
+    {
+      "name": "server/delegates/LedgerAdapterDelegate.php",
+      "code": {
+        "file": "server/delegates/LedgerAdapterDelegate.php"
+      }
+    },
+    {
+      "name": "server/delegates/LedgerAdapterDelegate.java",
+      "code": {
+        "file": "server/delegates/LedgerAdapterDelegate.java"
+      }
+    },
+    {
+      "name": "server/delegates/LedgerAdapterDelegate.groovy",
+      "code": {
+        "file": "server/delegates/LedgerAdapterDelegate.groovy"
+      }
+    },
+    {
+      "name": "server/delegates/LedgerAdapterDelegate.kt",
+      "code": {
+        "file": "server/delegates/LedgerAdapterDelegate.kt"
+      }
+    },
+    {
+      "name": "server/delegates/LedgerAdapterDelegate.cs",
+      "code": {
+        "file": "server/delegates/LedgerAdapterDelegate.cs"
+      }
+    },
+    {
+      "name": "server/delegates/LedgerAdapterDelegate.fs",
+      "code": {
+        "file": "server/delegates/LedgerAdapterDelegate.fs"
+      }
+    },
+    {
+      "name": "server/delegates/LedgerAdapterDelegate.rs",
+      "code": {
+        "file": "server/delegates/LedgerAdapterDelegate.rs"
+      }
+    },
+    {
+      "name": "server/models/LedgerReport.go",
+      "code": {
+        "file": "server/models/LedgerReport.go"
+      }
+    },
+    {
+      "name": "server/entities/EntryEntity.go",
+      "code": {
+        "file": "server/entities/EntryEntity.go"
+      }
+    },
+    {
+      "name": "server/stores/EntryStore.go",
+      "code": {
+        "file": "server/stores/EntryStore.go"
+      }
+    },
+    {
+      "name": "server/services/LedgerService.go",
+      "code": {
+        "file": "server/services/LedgerService.go"
+      }
+    },
+    {
+      "name": "server/setups/LedgerSetup.go",
+      "code": {
+        "file": "server/setups/LedgerSetup.go"
+      }
+    },
+    {
+      "name": "server/controllers/LedgerController.go",
+      "code": {
+        "file": "server/controllers/LedgerController.go"
+      }
+    },
+    {
+      "name": "server/delegates/LedgerAdapterDelegate.go",
+      "code": {
+        "file": "server/delegates/LedgerAdapterDelegate.go"
+      }
+    },
+    {
+      "name": "server/delegates/LedgerAdapterDelegate.dart",
+      "code": {
+        "file": "server/delegates/LedgerAdapterDelegate.dart"
+      }
+    },
+    {
+      "name": "server/models/LedgerReport.rb",
+      "code": {
+        "file": "server/models/LedgerReport.rb"
+      }
+    },
+    {
+      "name": "server/entities/EntryEntity.rb",
+      "code": {
+        "file": "server/entities/EntryEntity.rb"
+      }
+    },
+    {
+      "name": "server/stores/EntryStore.rb",
+      "code": {
+        "file": "server/stores/EntryStore.rb"
+      }
+    },
+    {
+      "name": "server/services/LedgerService.rb",
+      "code": {
+        "file": "server/services/LedgerService.rb"
+      }
+    },
+    {
+      "name": "server/setups/LedgerSetup.rb",
+      "code": {
+        "file": "server/setups/LedgerSetup.rb"
+      }
+    },
+    {
+      "name": "server/controllers/LedgerController.rb",
+      "code": {
+        "file": "server/controllers/LedgerController.rb"
+      }
+    },
+    {
+      "name": "server/delegates/LedgerAdapterDelegate.rb",
+      "code": {
+        "file": "server/delegates/LedgerAdapterDelegate.rb"
+      }
+    },
+    {
+      "name": "server/entities/EntryEntity.lua",
+      "code": {
+        "file": "server/entities/EntryEntity.lua"
+      }
+    },
+    {
+      "name": "server/stores/EntryStore.lua",
+      "code": {
+        "file": "server/stores/EntryStore.lua"
+      }
+    },
+    {
+      "name": "server/setups/LedgerSetup.lua",
+      "code": {
+        "file": "server/setups/LedgerSetup.lua"
+      }
+    },
+    {
+      "name": "server/delegates/LedgerAdapterDelegate.lua",
+      "code": {
+        "file": "server/delegates/LedgerAdapterDelegate.lua"
+      }
+    },
+    {
+      "name": "server/services/LedgerService.lua",
+      "code": {
+        "file": "server/services/LedgerService.lua"
+      }
+    },
+    {
+      "name": "server/models/LedgerReport.lua",
+      "code": {
+        "file": "server/models/LedgerReport.lua"
+      }
+    },
+    {
+      "name": "server/controllers/LedgerController.lua",
+      "code": {
+        "file": "server/controllers/LedgerController.lua"
+      }
+    },
+    {
+      "name": "server/entities/EntryEntity.hpp",
+      "code": {
+        "file": "server/entities/EntryEntity.hpp"
+      }
+    },
+    {
+      "name": "server/stores/EntryStore.hpp",
+      "code": {
+        "file": "server/stores/EntryStore.hpp"
+      }
+    },
+    {
+      "name": "server/setups/LedgerSetup.hpp",
+      "code": {
+        "file": "server/setups/LedgerSetup.hpp"
+      }
+    },
+    {
+      "name": "server/models/LedgerReport.hpp",
+      "code": {
+        "file": "server/models/LedgerReport.hpp"
+      }
+    },
+    {
+      "name": "server/services/LedgerService.hpp",
+      "code": {
+        "file": "server/services/LedgerService.hpp"
+      }
+    },
+    {
+      "name": "server/controllers/LedgerController.hpp",
+      "code": {
+        "file": "server/controllers/LedgerController.hpp"
+      }
+    }
+  ]
+}

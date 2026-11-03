@@ -1,0 +1,6 @@
+@Test(DartGreetingTestSetup, {"partition":"tests"})
+class DartGreetingControllerTest {
+  Future<void> testGetGreetingSaysHello() async {
+    Assert.equals('Hello from Dart', DartGreetingController().getGreeting());
+  }
+}

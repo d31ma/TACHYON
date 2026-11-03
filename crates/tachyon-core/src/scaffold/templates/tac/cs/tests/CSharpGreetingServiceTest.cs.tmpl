@@ -1,0 +1,8 @@
+[Test(typeof(CSharpGreetingTestSetup), {"partition":"tests"})]
+sealed class CSharpGreetingServiceTest {
+    void testGreetChangesTheMessage() {
+        var greeting = new CSharpGreetingService();
+        greeting.Greet();
+        Assert.equals("C# says hello again.", greeting.Message);
+    }
+}

@@ -1,0 +1,20 @@
+A mutable field needs a declared type: the generated setter has to
+convert an incoming value into something, and only the declaration
+says what. A read-only field needs none.
+
+Rust reads its state from the struct and its behaviour from the
+inherent impl. "fn new() -> Self" is the constructor and is not a
+member; "impl Default" is accepted in its place.
+
+Swift, from the class shown here:
+
+    let tacInstance = BasketService()
+    return [
+        "count": .field({ tacInstance.count },
+                        { tacInstance.count = $0 as? Int ?? tacInstance.count }),
+        "label": .field({ tacInstance.label }, nil),
+        "doubled": .method({ _ in tacInstance.doubled() }),
+    ]
+
+The table is keyed by the service's instance name — basket — so the
+browser reaches it exactly as it reaches BasketService.js.

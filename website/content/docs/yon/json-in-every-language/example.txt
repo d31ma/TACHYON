@@ -1,0 +1,8 @@
+// Rust
+Json::map([("products", Json::list(["anvil"]))])
+
+// Java
+return java.util.Map.of("products", java.util.List.of("anvil"));
+
+// C#
+return new { products = new[] { "anvil" } };

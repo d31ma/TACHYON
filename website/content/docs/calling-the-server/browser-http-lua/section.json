@@ -1,0 +1,94 @@
+{
+  "heading": "Lua waits for a real Yon endpoint",
+  "notApplicable": [
+    "ts",
+    "py",
+    "php",
+    "java",
+    "groovy",
+    "cs",
+    "fs",
+    "kt",
+    "rs",
+    "go",
+    "dart",
+    "rb",
+    "lua",
+    "hpp"
+  ],
+  "summary": "A Lua HTTPClient is a table in `client/remotes` marked with `-- @HTTPClient(\"/api\")`, whose methods have empty bodies, such as `function GreetingClient:read()` with `end` on the next line. Tachyon writes each method, and the method returns the answer as a Lua table, so `greeting.message` reads its field. The `---@return Greeting` line names the model of `client/models/Greeting.lua` for readers and editors; Lua does not check it. A failed request raises a `BehaviorError` whose code is the code of the browser transport, such as `HTTP_STATUS`. A service gets the client with `-- @Needs` and `---@type GreetingClient` above the field `greeting_client = nil`, and calls it as `self.greeting_client:read()`. Lua has no async keyword, so Tachyon runs each call of a service method in its own coroutine. When the method does not wait, the page gets its answer at once. When it waits for the server, the coroutine pauses, the page keeps working, other calls to the service run, and the page gets a promise that settles when the method returns. `GreetingSetup` adds no adapter, so the request goes to the server of the page: the same origin, without cookies. `-- @Cached` lets the browser cache answer a read, and after a successful `-- @ClearCache` the next read asks the server again; a failed `-- @ClearCache` keeps the cached answer. `OverrideSetup` gives `OverrideClient` its own adapter, and that adapter answers instead of the network. Removing the component cancels the request, and the promise is rejected with the code `CANCELLED`. A Lua test unit runs in the `lua` interpreter and has no browser transport: there a client without an adapter fails with the code `HTTP_REQUEST`. The server half of this example is a plain JavaScript controller. A controller in TypeScript, Python, PHP, Java, Groovy, C#, F#, Kotlin, Rust, Go, Dart, Ruby, Lua or C++ answers in the same way (see Controllers), so this section shows only the browser side in other languages.",
+  "files": [
+    {
+      "name": "client/components/greeting/panel/tac.html",
+      "code": {
+        "file": "client/components/greeting/panel/tac.html"
+      }
+    },
+    {
+      "name": "client/manifest.json",
+      "code": {
+        "file": "client/manifest.json"
+      }
+    },
+    {
+      "name": "client/models/Greeting.lua",
+      "code": {
+        "file": "client/models/Greeting.lua"
+      }
+    },
+    {
+      "name": "client/pages/tac.html",
+      "code": {
+        "file": "client/pages/tac.html"
+      }
+    },
+    {
+      "name": "client/remotes/GreetingClient.lua",
+      "code": {
+        "file": "client/remotes/GreetingClient.lua"
+      }
+    },
+    {
+      "name": "client/remotes/OverrideClient.lua",
+      "code": {
+        "file": "client/remotes/OverrideClient.lua"
+      }
+    },
+    {
+      "name": "client/services/GreetingService.lua",
+      "code": {
+        "file": "client/services/GreetingService.lua"
+      }
+    },
+    {
+      "name": "client/setups/GreetingSetup.lua",
+      "code": {
+        "file": "client/setups/GreetingSetup.lua"
+      }
+    },
+    {
+      "name": "client/setups/OverrideSetup.lua",
+      "code": {
+        "file": "client/setups/OverrideSetup.lua"
+      }
+    },
+    {
+      "name": "server/controllers/ClearController.js",
+      "code": {
+        "file": "server/controllers/ClearController.js"
+      }
+    },
+    {
+      "name": "server/controllers/GreetingController.js",
+      "code": {
+        "file": "server/controllers/GreetingController.js"
+      }
+    },
+    {
+      "name": "server/models/Greeting.ts",
+      "code": {
+        "file": "server/models/Greeting.ts"
+      }
+    }
+  ]
+}

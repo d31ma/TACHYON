@@ -1,12 +1,57 @@
-/* The bar stays one row at every width.
- *
- * Wrapping is the wrong failure for an app bar: a second row pushes the page
- * down and leaves the brand stranded above a stray button. Instead the nav is
- * the one part allowed to shrink, and it scrolls when it runs out of room, so
- * the wordmark and the two actions keep their positions from 320px up.
- */
+@layer brand {
+:scope {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+}
+
+.w-btn {
+font-size: var(--step-sm);
+  line-height: 1.5;
+}
+
+w-container {
+max-width: min(94vw, 84rem);
+  padding-inline: var(--gutter);
+}
+
+:scope {
+display: block;
+  position: sticky;
+  top: 0;
+  z-index: 40;
+}
+
+w-app-bar {
+background: color-mix(in srgb, var(--w-surface) 82%, transparent);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--w-border);
+}
+
+.w-app-bar {
+padding-left: max(var(--w-space-4), env(safe-area-inset-left));
+  padding-right: max(var(--w-space-4), env(safe-area-inset-right));
+}
+
+@media (pointer: coarse) {
+.w-btn,
+  w-btn > .w-btn,
+  nav a,
+  footer a {
+min-height: 44px;
+}
+
+nav a,
+  footer a {
+display: inline-flex;
+    align-items: center;
+}
+}
+}
+
 .site-bar {
   flex-wrap: nowrap;
+  gap: var(--w-space-2);
 }
 
 .site-bar__nav {
@@ -14,25 +59,161 @@
   overflow-x: auto;
   scrollbar-width: none;
   flex-wrap: nowrap;
+  gap: 0;
+}
+
+.site-bar__nav .w-btn {
+  font-size: var(--step-nav);
+  min-width: 44px;
+  padding-inline: var(--w-space-1);
 }
 
 .site-bar__nav::-webkit-scrollbar {
   display: none;
 }
 
-/* Neither the brand nor the actions may be the thing that gets squeezed. */
 .site-bar__brand,
 .site-bar__actions {
   flex-shrink: 0;
 }
 
-/* Hidden only where the bar genuinely cannot spare the width. */
+.site-bar__actions {
+  gap: 0;
+}
+
 .site-bar__wordmark {
   display: none;
+}
+
+.site-bar__github-icon {
+  display: block;
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.site-bar__github-name {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.site-bar__start {
+  display: none;
+}
+
+.site-bar__theme > .w-btn {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.site-bar__theme-icon::before {
+  content: var(--theme-icon);
+}
+
+.site-bar__theme-name::before {
+  content: var(--theme-name);
+}
+
+@media (pointer: coarse) {
+  .site-bar__brand {
+    min-width: 44px;
+    min-height: 44px;
+    justify-content: center;
+    margin-inline-start: -9px;
+  }
+}
+
+@media (min-width: 22.5rem) {
+  .site-bar__start {
+    display: revert-layer;
+  }
 }
 
 @media (min-width: 30rem) {
   .site-bar__wordmark {
     display: inline;
   }
+
+  .site-bar__brand {
+    margin-inline-start: 0;
+  }
 }
+
+@media (min-width: 33rem) {
+  .site-bar,
+  .site-bar__nav,
+  .site-bar__actions {
+    gap: revert-layer;
+  }
+
+  .site-bar__nav .w-btn {
+    padding-inline: revert-layer;
+  }
+
+  .site-bar__github-icon {
+    display: none;
+  }
+
+  .site-bar__github-name {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip-path: none;
+  }
+}
+
+/* @tachyon-generated-tailwind:start */
+/*! tailwindcss v4.3.3 | MIT License | https://tailwindcss.com */
+@layer properties;
+@layer utilities {
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border-width: 0;
+  }
+  .sticky {
+    position: sticky;
+  }
+  .mr-auto {
+    margin-right: auto;
+  }
+  .block {
+    display: block;
+  }
+  .px-0 {
+    padding-inline: 0px;
+  }
+  .text-sm {
+    font-size: var(--text-sm, var(--step-sm));
+    line-height: var(--tw-leading, var(--text-sm--line-height, 1.5));
+  }
+  .font-bold {
+    --tw-font-weight: var(--font-weight-bold, 700);
+    font-weight: var(--font-weight-bold, 700);
+  }
+  .tracking-widest {
+    --tw-tracking: var(--tracking-widest, 0.1em);
+    letter-spacing: var(--tracking-widest, 0.1em);
+  }
+}
+
+
+@layer properties {
+  @supports ((-webkit-hyphens: none) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color:rgb(from red r g b)))) {
+    *, ::before, ::after, ::backdrop {
+      --tw-font-weight: initial;
+      --tw-tracking: initial;
+    }
+  }
+}
+/* @tachyon-generated-tailwind:end */
