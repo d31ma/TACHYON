@@ -1037,6 +1037,10 @@ jobs:
         if: matrix.part == 'gates'
         run: bun run test:phase4-macos
 
+      - name: Install the Rust standard library for the iOS simulator, for the iOS host's Rust service
+        if: matrix.part == 'gates'
+        run: rustup target add aarch64-apple-ios-sim --toolchain 1.97.1
+
       - name: Execute Swift and WKWebView behavior in an isolated iOS simulator
         if: matrix.part == 'gates'
         run: node scripts/ios/native-test.mjs
