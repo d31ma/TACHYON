@@ -18,6 +18,8 @@ class AndroidBrowserApisGate {
   ];
   static locationProviders = ['fused', 'network', 'gps'];
   static position = '37.422,-122.084';
+  static locationRefusal = 'User denied Geolocation';
+  static screenFile = '/sdcard/tachyon-permission.xml';
   static allowButtons = [
     'com.android.permissioncontroller:id/permission_allow_foreground_only_button',
     'com.android.permissioncontroller:id/permission_allow_button',
@@ -201,9 +203,8 @@ export default class ProbeService {
   }
 
   static screen() {
-    const { adbShell } = AndroidBrowserApisGate;
-    adbShell('uiautomator', 'dump', '/sdcard/tachyon-permission.xml');
-    return adbShell('cat', '/sdcard/tachyon-permission.xml');
+    const { adbShell, screenFile } = AndroidBrowserApisGate;
+    return adbShell(`rm -f ${screenFile}; uiautomator dump ${screenFile} > /dev/null 2>&1; cat ${screenFile} 2> /dev/null; true`);
   }
 
   static async tapScreenButton(ids, message) {
@@ -271,7 +272,7 @@ export default class ProbeService {
   }
 
   static async checkGeolocation(page) {
-    const { output, waitFor, adbShell, allowPermissionPrompt, denyPermissionPrompt, acceptRationale, locationProviders, setTestPosition } = AndroidBrowserApisGate;
+    const { output, waitFor, adbShell, allowPermissionPrompt, denyPermissionPrompt, acceptRationale, locationProviders, setTestPosition, locationRefusal, packageName } = AndroidBrowserApisGate;
     adbShell('appops', 'set', 'com.android.shell', 'android:mock_location', 'allow');
     try {
       for (const provider of locationProviders) {
@@ -279,11 +280,11 @@ export default class ProbeService {
         adbShell('cmd', 'location', 'providers', 'set-test-provider-enabled', provider, 'true');
       }
       setTestPosition();
-      const earlier = await output(page, 'Problem');
       await page.getByRole('button', { name: 'Locate' }).click();
       await denyPermissionPrompt();
-      await waitFor(async () => await output(page, 'Problem') !== earlier, 'currentPosition reports the refused location question');
+      await waitFor(async () => await output(page, 'Problem') === locationRefusal, async () => `currentPosition reports the refused location question: ${await output(page, 'Problem')}`);
       const refused = await output(page, 'Problem');
+      assert.match(adbShell('dumpsys', 'package', packageName), /ACCESS_FINE_LOCATION: granted=false, flags=\[[^\]]*USER_SET/, 'Android records Don\'t allow as the user\'s answer');
       await page.getByRole('button', { name: 'Locate' }).click();
       const reason = await acceptRationale();
       assert.match(reason, /text="Shows stores near you"/, `Before the second location question the app shows tac.application.permissions.geolocation: ${reason}`);
