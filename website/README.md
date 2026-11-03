@@ -50,6 +50,7 @@ relative dependency imports. Empty controller-owned Yon markers contain no impor
 | `bun run verify:snippets --suite=tsc` | Type-checks every JavaScript and TypeScript example project with `bun check`, using the `jsconfig.json` files that `ty init` writes. The suite keeps the name `tsc`; `bun check` reports the same diagnostics. |
 | `bun run verify:snippets --feature=<id>` | Checks one feature, such as `--feature=iteration`. It runs only the features suite. |
 | `bun run verify:snippets --section="<heading>"` | Checks one docs section, such as `--section="Security"`. It runs only the guides suite. Add `--suite=` to choose another suite, for example `--suite=tsc`. |
+| `bun run verify:snippets --shard=<index>/<count>` | Runs one share of the steps, such as `--shard=2/3`, so several machines can split a run. Shard 1 also runs the checks that are not split. The shards of one count together run every step once. |
 | `bun run verify:snippets --no-cache` | Builds every example again, even one that passed before with the same inputs. Use it for a scheduled full run. |
 | `bun run coverage:languages` | Lists, for each docs section and feature, which Tac and Yon languages have a tab and why each other language has none: a missing example, a build error that refuses it (with its `TY` code), or not applicable. A section or feature marks a language as not applicable with `"notApplicable": ["js", "ts"]`, and it counts only when its text names the language and says why. Add `--json` for a report that tools read, or `--strict` to fail on a gap that has no example and no stated reason. |
 | `bun run styles` | Refreshes each component's generated Tailwind region. Run it after you change a template. |
@@ -69,8 +70,12 @@ A skipped step shows `(cached)`. HTTP and browser checks always run. A step that
 is never remembered. The cache lives in `.step-cache` inside the staging
 folder (`TAC_SNIPPETS_SCRATCH`, or `tachyon-snippets` in the system temporary
 folder), never in the repository.
-Nothing prunes that folder or its `.runtime-cache`, and a full run adds
-gigabytes to it. Delete the folder after a large run.
+Nothing prunes that folder, and a full run adds gigabytes to it. Delete the
+folder after a large run.
+
+The examples use the same Tachyon cache as `ty` itself: `TAC_CACHE_DIR`, or
+the platform's default cache folder that `ty doctor` shows. A runtime that a
+setup step installed there, such as Pyodide, is the one the examples use.
 
 Tac Rust, Swift, Kotlin and C# examples are compiled for the web, the way the
 site ships them. When a language's web toolchain is missing, the verifier
