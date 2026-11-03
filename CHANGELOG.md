@@ -744,6 +744,11 @@ and the migration step.
 - A rebuilt `ty` of the same version no longer reuses the old one's routes.
 - `ty migrate check` reports a source file that is not UTF-8 text and checks
   the rest of the project instead of stopping.
+- A parameter annotation such as `@CacheKey` in JavaScript or TypeScript no
+  longer crashes `ty build`, `serve` or `bundle` when its parameter list opens
+  before the class, as in a class passed as an argument; the build reports
+  the annotation instead. A parameter annotation in a one-line class now
+  works like one in a multi-line class.
 
 ### Security
 
