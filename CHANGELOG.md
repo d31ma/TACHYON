@@ -702,6 +702,9 @@ and the migration step.
   `[Threading.Thread]::Sleep`. `Start-Sleep` took 12 to 23 s to start in a
   handler's environment, so two retries passed the 30 s handler deadline
   (ADR 0085).
+- On macOS 26, Java, Kotlin and Groovy handlers start with IPv4 sockets, so
+  the sandbox lets them reach the egress guard. They failed with
+  `java.net.ConnectException: Operation not permitted`.
 - `ty serve`, `ty dev` and `ty start` drain on `SIGTERM`, `SIGINT` or
   Ctrl-C: they stop accepting connections, close streams and WebSockets
   (`1001`), and let running requests finish within
