@@ -18,6 +18,7 @@ import { SnippetRequest } from './snippet-request.mjs'
 import { SnippetScope } from './snippet-scope.mjs'
 import { SocketProbe } from './socket-probe.mjs'
 import { PythonWebRuntime } from './python-web-runtime.mjs'
+import { SnippetShard } from './snippet-shard.mjs'
 import { ToolchainFingerprint } from './toolchain-fingerprint.mjs'
 import { TypeCheckProjects } from './type-check-projects.mjs'
 
@@ -43,6 +44,7 @@ class Settings {
   static onlyLanguage = readOption('--language=')
   static onlySection = readOption('--section=')
   static onlyFeature = readOption('--feature=')
+  static shard = SnippetShard.parse(readOption('--shard='))
   static scratchRoot = prepareScratchRoot()
   static cache = new SnippetCache(path.join(Settings.scratchRoot, SnippetCache.folderName), !process.argv.includes('--no-cache'), '')
   static concurrency = chooseConcurrency()
@@ -213,7 +215,6 @@ function removeOldStagingDirectories(scratchRoot) {
 function prepareScratchRoot() {
   const scratchRoot = chooseScratchRoot()
   mkdirSync(scratchRoot, { recursive: true })
-  process.env.TAC_CACHE_DIR ??= path.join(scratchRoot, '.runtime-cache')
   removeOldStagingDirectories(scratchRoot)
   return scratchRoot
 }
@@ -398,6 +399,11 @@ function fail(label, error) {
 
 /** @param {(() => Promise<void>)[]} steps */
 async function runInParallel(steps) {
+  await runEachStep(Settings.shard.select(steps))
+}
+
+/** @param {(() => Promise<void>)[]} steps */
+async function runEachStep(steps) {
   if (Settings.concurrency === 1 || steps.length < 2) {
     for (const step of steps) await step()
     return
@@ -1314,7 +1320,7 @@ async function verifyYonLanguageEntry(entry) {
 async function verifyLanguageSnippets() {
   console.log('== language snippets')
   const basketPage = { name: 'client/pages/tac.html', code: '<basket-tally hydrate="load" />\n' }
-  await bundleProject('tac / basket-tally', [basketPage, ...SiteData.languages.tac.files])
+  if (Settings.shard.ownsSingleChecks()) await bundleProject('tac / basket-tally', [basketPage, ...SiteData.languages.tac.files])
   await runInParallel(SiteData.languages.yon.entries.map(entry => () => verifyYonLanguageEntry(entry)))
 }
 
@@ -1614,7 +1620,7 @@ async function verifyGuideSnippets() {
   }
   assert.ok(!Settings.onlySection || steps.length > 0, `No section matched: ${Settings.onlySection}`)
   await runInParallel(steps)
-  if (!Settings.onlySection) await verifyConfigurationWorkedExample()
+  if (!Settings.onlySection && Settings.shard.ownsSingleChecks()) await verifyConfigurationWorkedExample()
 }
 
 /** @param {number} milliseconds */
@@ -1788,18 +1794,28 @@ async function verifyTypeChecks() {
   await runInParallel(projects.map(project => () => typeCheckProject(project, scaffolds.get(project.extension) ?? [])))
 }
 
+/**
+ * @param {string} scope
+ * @param {string} suite
+ * @returns {boolean}
+ */
+function runsSingleCheck(scope, suite) {
+  return Settings.shard.ownsSingleChecks() && ['all', suite].includes(scope)
+}
+
 async function main() {
   const scope = Settings.scope
   console.log(`Selected CLI: ${Settings.binary}`)
   console.log(`Staging: ${Settings.scratchRoot} (compiled handlers are cached here between runs)`)
   console.log(`Concurrency: ${Settings.concurrency} of ${cpus().length} cores, load ${loadavg()[0].toFixed(1)}`)
+  console.log(`Shard: ${Settings.shard.describe()} (--shard=<index>/<count> splits the steps between runs)`)
   console.log((await runCommand(Settings.binary, ['--version'], { timeout: 10_000 })).trim())
   Settings.cache.fingerprint = await ToolchainFingerprint.read(Settings.repo, Settings.binary)
   Settings.cache.removeOldEntries()
   console.log(`Cache: ${Settings.cache.reads ? Settings.cache.folder : 'off (--no-cache); passes are still written'}`)
-  if (scope === 'all' || scope === 'gofmt') await verifyGoFormatting()
-  if (scope === 'all' || scope === 'ruby') await verifyRubySyntax()
-  if (scope === 'all' || scope === 'python') await verifyPythonSyntax()
+  if (runsSingleCheck(scope, 'gofmt')) await verifyGoFormatting()
+  if (runsSingleCheck(scope, 'ruby')) await verifyRubySyntax()
+  if (runsSingleCheck(scope, 'python')) await verifyPythonSyntax()
   if (scope === 'all' || scope === 'tsc') await verifyTypeChecks()
   if (scope === 'all' || scope === 'features') await verifyFeatureSnippets()
   if (scope === 'all' || scope === 'languages') await verifyLanguageSnippets()

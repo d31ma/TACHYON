@@ -90,6 +90,21 @@ class ProbeController {
     }
 }
 "#;
+    const CSHARP: &str = r#"[RequestRoute("/probe")]
+[Public]
+class ProbeController {
+    [GetRoute]
+    public string Get([FromQuery("target")] string target) {
+        try {
+            using var client = new System.Net.Http.HttpClient();
+            var answer = client.GetAsync(target).GetAwaiter().GetResult();
+            return (int)answer.StatusCode + " " + answer.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+        } catch (Exception error) {
+            return "failed " + error;
+        }
+    }
+}
+"#;
     const PHP: &str = r#"<?php
 #[RequestRoute("/probe")]
 #[Public]
@@ -328,6 +343,12 @@ async fn a_kotlin_handler_goes_through_the_guard_and_reaches_localhost_names() {
         LoopbackProbe::KOTLIN,
     )
     .await;
+}
+
+#[tokio::test]
+async fn a_csharp_handler_goes_through_the_guard_and_reaches_localhost_names() {
+    LoopbackProbe::check_language("C#", "dotnet", "ProbeController.cs", LoopbackProbe::CSHARP)
+        .await;
 }
 
 #[tokio::test]
