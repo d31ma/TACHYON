@@ -1593,6 +1593,7 @@ export class Handler {
 ",
             available("node"),
         ),
+        ("php", RelayFixtures::COMPILED[0].1, available("php-cgi")),
     ];
     let supervisor = supervisor(HandlerSupervisorOptions::default());
     for (extension, contents, supported) in cases {

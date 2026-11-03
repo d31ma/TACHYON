@@ -504,6 +504,16 @@ program that runs as the same user can still read its parent's environment
 and the project's files. Every relay failure reaches the handler as HTTP 502
 with the one fixed message `Component invocation failed.`
 
+On Windows, a PHP relay writes the whole request to the program before it
+reads the answer, which comes back through a pipe. A short-lived PowerShell
+watchdog ends the program's process tree at the deadline, because PHP cannot
+read a Windows pipe without waiting. So a Windows PHP relay program that
+writes more than one pipe buffer of output before it has read all of its
+input waits until the deadline and answers 502. Read the whole request first.
+The watchdog needs PowerShell to start (about 0.2 s on x64, about 1 s on a
+Windows ARM64 VM), so a deadline shorter than that ends the program when the
+watchdog has started.
+
 ## Who may call a route
 
 Every route says who may call it (ADR 0068). Tachyon refuses every route by

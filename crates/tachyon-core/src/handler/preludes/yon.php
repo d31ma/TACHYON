@@ -709,6 +709,16 @@ final class YonRelayExchange
         return false;
     }
 
+    public function finishedThroughPipe(): bool
+    {
+        if (!$this->inputWritten()) {
+            return false;
+        }
+        stream_set_blocking($this->pipes[1], true);
+        $this->keepStdout((string) stream_get_contents($this->pipes[1], self::MAX_STDOUT_BYTES + 1));
+        return YonRelayContext::timeLeftNanoseconds() > 0;
+    }
+
     public function closePipes(): void
     {
         foreach ($this->pipes as $pipe) {
@@ -716,6 +726,23 @@ final class YonRelayExchange
                 fclose($pipe);
             }
         }
+    }
+
+    private function inputWritten(): bool
+    {
+        while (YonRelayContext::timeLeftNanoseconds() > 0) {
+            $write = $this->pendingInput();
+            if ($write === []) {
+                return true;
+            }
+            $read = [];
+            $except = [];
+            if (@stream_select($read, $write, $except, 0, $this->waitMicroseconds()) === false) {
+                return false;
+            }
+            $this->writeInput($write);
+        }
+        return false;
     }
 
     private function openOutputs(): array
@@ -796,6 +823,19 @@ final class Yon
 {
     private const FAILURE_MESSAGE = 'Component invocation failed.';
     private const FALLBACK_HIGHEST_DESCRIPTOR = 255;
+    private const WATCHDOG_SNAPSHOT_MILLISECONDS = 500;
+    private const WATCHDOG = [
+        '[void][Reflection.Assembly]::LoadWithPartialName(\'System.Management\')',
+        '$children = { param($id) foreach ($found in [Management.ManagementObjectSearcher]::new(\'SELECT ProcessId FROM Win32_Process WHERE ParentProcessId=\' + $id).Get()) { [int]$found[\'ProcessId\'] } }',
+        '$tree = { param($roots) $held = [Collections.Generic.List[Diagnostics.Process]]::new(); $pending = [Collections.Generic.Queue[int]]::new(); foreach ($root in $roots) { $pending.Enqueue($root) }; while ($pending.Count -gt 0) { $id = $pending.Dequeue(); try { $process = [Diagnostics.Process]::GetProcessById($id); [void]$process.Handle; $held.Add($process) } catch {}; foreach ($child in (& $children $id)) { $pending.Enqueue($child) } }; ,$held }',
+        '[void](& $children 0)',
+        '$wait = %1$d - %3$d - [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds(); if ($wait -gt 0) { [Threading.Thread]::Sleep($wait) }',
+        '$held = & $tree @(%2$d)',
+        '$wait = %1$d - [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds(); if ($wait -gt 0) { [Threading.Thread]::Sleep($wait) }',
+        'foreach ($process in $held) { try { $process.Kill() } catch {} }',
+        '$ids = foreach ($process in $held) { $process.Id }',
+        'foreach ($process in (& $tree @($ids))) { try { $process.Kill() } catch {} }',
+    ];
 
     public static function relay(array $command): void
     {
@@ -816,10 +856,18 @@ final class Yon
             return self::relayFailed('start');
         }
         $exchange = new YonRelayExchange($pipes, json_encode(YonNativeHttp::message()) ?: '{}');
-        $finished = $exchange->finishedInTime($process);
-        if (!$finished) {
+        $watchdog = self::watchdog($process);
+        if ($watchdog === false) {
+            @proc_terminate($process, 9);
+            $exchange->closePipes();
+            @proc_close($process);
+            return self::relayFailed('start');
+        }
+        $finished = self::finished($exchange, $process, $watchdog);
+        if (!$finished || $exchange->stdoutOverflow) {
             @proc_terminate($process, 9);
         }
+        self::stopWatchdog($watchdog);
         $exchange->closePipes();
         $status = @proc_close($process);
         if (!$finished) {
@@ -834,10 +882,38 @@ final class Yon
         return self::responseFromOutput($exchange->stdout);
     }
 
+    private static function finished(YonRelayExchange $exchange, mixed $process, mixed $watchdog): bool
+    {
+        if ($watchdog === null) {
+            return $exchange->finishedInTime($process);
+        }
+        return $exchange->finishedThroughPipe();
+    }
+
+    private static function watchdog(mixed $process): mixed
+    {
+        if (PHP_OS_FAMILY !== 'Windows') {
+            return null;
+        }
+        $deadline = (int) floor(microtime(true) * 1000) + intdiv(YonRelayContext::timeLeftNanoseconds(), 1_000_000);
+        $command = sprintf(implode('; ', self::WATCHDOG), $deadline, proc_get_status($process)['pid'], self::WATCHDOG_SNAPSHOT_MILLISECONDS);
+        $quiet = [0 => ['file', 'NUL', 'r'], 1 => ['file', 'NUL', 'a'], 2 => ['file', 'NUL', 'a']];
+        $watchdog = @proc_open(['powershell', '-NoProfile', '-NonInteractive', '-Command', $command], $quiet, $unused, null, YonRelayContext::environment());
+        return is_resource($watchdog) ? $watchdog : false;
+    }
+
+    private static function stopWatchdog(mixed $watchdog): void
+    {
+        if (is_resource($watchdog)) {
+            @proc_terminate($watchdog, 9);
+            @proc_close($watchdog);
+        }
+    }
+
     private static function descriptors(): array
     {
         if (PHP_OS_FAMILY === 'Windows') {
-            return [0 => ['socket'], 1 => ['socket'], 2 => ['file', 'NUL', 'a']];
+            return [0 => ['socket'], 1 => ['pipe', 'w'], 2 => ['file', 'NUL', 'a']];
         }
         $descriptors = [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']];
         foreach (self::openDescriptorsAboveStandard() as $number) {
