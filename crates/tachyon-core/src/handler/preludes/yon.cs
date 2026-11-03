@@ -1001,6 +1001,7 @@ static class Yon
 
     internal static async Task Run(Type entry)
     {
+        AppContext.SetSwitch("System.Net.DisableIPv6", true);
         entryType = entry;
         CaptureStart();
         if (!Warm)
