@@ -1383,7 +1383,7 @@ fn apply_parameter(
             "Behavior methods require a named non-inheriting class",
         ));
     }
-    let parameter = parameters::marked_parameter(input, marker)?;
+    let parameter = parameters::marked_parameter(input, marker, registration.open + 1)?;
     let method = method(input, registration, parameter.declaration)?;
     if method.is_static {
         return Err(input.failure(
@@ -1791,8 +1791,8 @@ impl Method {
 }
 
 fn method(input: &Input<'_>, registration: &Registration, start: usize) -> Result<Method, Failure> {
-    let text_before_method = &input.code[registration.open + 1..start];
-    if nesting_depth(text_before_method, b'{', b'}') != 0 {
+    let text_before_method = input.code.get(registration.open + 1..start);
+    if text_before_method.is_none_or(|text| nesting_depth(text, b'{', b'}') != 0) {
         return Err(input.failure(
             start,
             "Behavior methods must be declared directly in their class",
@@ -3150,6 +3150,42 @@ mod tests {
         ] {
             assert!(rejected("tac.js", source, "tac"), "{source}");
         }
+    }
+
+    #[test]
+    fn a_parameter_marker_whose_parameter_list_opens_before_its_class_is_rejected() {
+        for source in [
+            "describe(\nclass Product {\n@CacheKey id\n}\n)",
+            "describe(class Product {\n@CacheKey id\n})",
+        ] {
+            for environment in ["tac", "yon"] {
+                let path = format!("{environment}.js");
+                let error = lower(Path::new(&path), source, environment)
+                    .expect_err("a parameter list outside the class body is rejected");
+                assert!(
+                    error
+                        .to_string()
+                        .contains("marks one parameter of a method"),
+                    "{source}: {error}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn a_parameter_marker_in_a_one_line_class_lowers_like_a_multi_line_class() {
+        let one_line = "class Product { find(@PageDefaults({\"defaultSize\":1,\"maxSize\":1,\"sort\":[]}) page) {} }";
+        let multi_line = "class Product {\nfind(@PageDefaults({\"defaultSize\":1,\"maxSize\":1,\"sort\":[]}) page) {}\n}";
+        let one_line_output = lowered("tac.js", one_line, "tac");
+        let multi_line_output = lowered("tac.js", multi_line, "tac");
+        assert!(
+            one_line_output.contains("\"defaultSize\":1"),
+            "{one_line_output}"
+        );
+        assert_eq!(
+            one_line_output.replace('\n', " "),
+            multi_line_output.replace('\n', " ")
+        );
     }
 
     #[test]

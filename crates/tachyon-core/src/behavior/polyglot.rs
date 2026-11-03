@@ -1063,7 +1063,7 @@ fn apply_parameter_marker(
     types: &mut [Type],
     marker: &Marker,
 ) -> Result<(), Failure> {
-    let parameter = super::parameters::marked_parameter(input, marker)?;
+    let parameter = super::parameters::marked_parameter(input, marker, 0)?;
     let owner = method_owner(input, language, types, parameter.declaration).ok_or_else(|| {
         input.failure(
             marker.span.start,

@@ -86,6 +86,7 @@ pub(super) fn read(
 pub(super) fn marked_parameter(
     input: &Input<'_>,
     marker: &Marker,
+    body_start: usize,
 ) -> Result<MarkedParameter, Failure> {
     let code = &input.code;
     let not_a_parameter = || {
@@ -94,30 +95,36 @@ pub(super) fn marked_parameter(
             format!("@{} marks one parameter of a method", marker.name),
         )
     };
-    let open = open_parenthesis(code, marker.span.start).ok_or_else(not_a_parameter)?;
+    let open = open_parenthesis(code, body_start..marker.span.start).ok_or_else(not_a_parameter)?;
     let close = super::matching(code, open, b'(', b')').ok_or_else(not_a_parameter)?;
     let index =
         parameter_index(code, open + 1..close, marker.target).ok_or_else(not_a_parameter)?;
-    let line_start = code[..open].rfind('\n').map_or(0, |end| end + 1);
+    let line_start = line_start(code, body_start..open);
     let line = &code[line_start..open];
     let declaration = line_start + line.len() - line.trim_start().len();
     Ok(MarkedParameter { declaration, index })
 }
 
-fn open_parenthesis(code: &str, at: usize) -> Option<usize> {
+fn open_parenthesis(code: &str, searched: Range<usize>) -> Option<usize> {
     let mut depth = 0_u32;
-    for (position, byte) in code[..at].bytes().enumerate().rev() {
+    for (position, byte) in code.get(searched.clone())?.bytes().enumerate().rev() {
         if byte == b')' {
             depth += 1;
         }
         if byte == b'(' {
             if depth == 0 {
-                return Some(position);
+                return Some(searched.start + position);
             }
             depth -= 1;
         }
     }
     None
+}
+
+fn line_start(code: &str, searched: Range<usize>) -> usize {
+    code[searched.clone()]
+        .rfind('\n')
+        .map_or(searched.start, |end| searched.start + end + 1)
 }
 
 fn parameter_index(code: &str, list: Range<usize>, at: usize) -> Option<usize> {
