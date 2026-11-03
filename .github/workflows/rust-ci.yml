@@ -413,6 +413,9 @@ jobs:
       - name: Build the Phase 3 CLI
         run: cargo build --locked --bin ty
 
+      - name: Build the Tac Lua runtime once, outside the browser gates' 120 s build limit
+        run: node scripts/ci/build-lua-runtime.mjs target/debug/ty
+
       - name: Type-check the migrated website and browser harnesses
         run: |
           ./target/debug/ty types website
@@ -715,6 +718,9 @@ jobs:
 
       - name: Build the release CLI
         run: cargo build --release --locked --bin ty
+
+      - name: Build the Tac Lua runtime once, outside the browser gates' build limits
+        run: node scripts/ci/build-lua-runtime.mjs target/release/ty
 
       - name: Run the ${{ matrix.gate }} gate in Chromium, Firefox and WebKit
         run: bun run test:${{ matrix.gate }}

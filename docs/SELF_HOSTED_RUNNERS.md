@@ -69,7 +69,7 @@ other workflow names a self-hosted runner.
 | `supply-chain` | `ubuntu-latest` | `self-hosted, tachyon, linux` | WSL |
 | `browser` | `ubuntu-latest` | `self-hosted, tachyon, linux` | WSL |
 | `browser-languages` (one entry per browser gate) | `ubuntu-latest` | `self-hosted, tachyon, linux` | WSL |
-| `macos-native` | `macos-latest` | `self-hosted, tachyon, macos` | Mac |
+| `macos-native` (one entry for the gates and one for each third of the published snippets) | `macos-latest` | `self-hosted, tachyon, macos` | Mac |
 | `linux-native` | `ubuntu-latest` | `self-hosted, tachyon, linux` | WSL (Docker) |
 | `windows-native` | `windows-latest` | `self-hosted, tachyon, windows` | Windows (interactive desktop) |
 | `android-native` | `ubuntu-latest` | `self-hosted, tachyon, linux` only with `TACHYON_SELF_HOSTED_ANDROID` | WSL (`/dev/kvm`) |
