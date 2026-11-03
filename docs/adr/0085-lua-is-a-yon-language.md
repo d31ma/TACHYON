@@ -641,3 +641,14 @@ Delegate fields of the service it constructs
 (`tac_lua::helper_tests::a_lua_test_unit_fills_the_delegate_fields_of_its_service`).
 A Delegate with `-- @OnStart`, `-- @OnStop` or `-- @OnEvent` that a test unit
 reaches now fails with `TY1605`, as the page build already did.
+
+## Amendment (2026-11-02): the Windows Retry wait
+
+This amendment replaces "PowerShell `Start-Sleep` on Windows" above. Yon Lua
+waits on Windows with `powershell -NoProfile -NonInteractive -Command
+[Threading.Thread]::Sleep(<ms>)`. A handler's environment has no
+`PSModulePath`, so `Start-Sleep` made PowerShell search for the cmdlet's
+module: on a Windows Server 2025 x64 runner each wait took 12 to 23 s to
+start, and two Retry delays passed the 30 s handler deadline. The .NET call
+needs no module and started in 0.13 s in the same environment. The wait still
+uses no processor and the handler environment is unchanged.

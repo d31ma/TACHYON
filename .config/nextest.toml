@@ -32,6 +32,12 @@ test-group = 'heavy'
 retries = 1
 slow-timeout = { period = "60s", terminate-after = 15 }
 
+# Each Kotlin section case compiles its handlers with kotlinc, one JVM per compile. Four at once on a 4-core Windows x64
+# runner pushed single compiles past the 60 s handler compile deadline.
+[[profile.default.overrides]]
+filter = 'test(/^published_sections::kotlin_runs_its_published_yon_sections::/)'
+test-group = 'heavy'
+
 # Each init wizard case scaffolds, tests and builds a project in several languages at once.
 [[profile.default.overrides]]
 filter = 'test(every_generated_combination_passes_its_tests_with_coverage_and_builds)'

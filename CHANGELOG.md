@@ -689,6 +689,19 @@ and the migration step.
 
 **Yon**
 
+- On Windows, a PHP handler's relay reads the program's answer through a
+  pipe, and a watchdog process ends the program's process tree at the relay
+  deadline. The answer used to come back over a loopback socket, which
+  Windows resets when the program exits, dropping any answer the relay had
+  not read yet; on a busy machine the relay answered `502` "Component
+  invocation failed.".
+  A Windows PHP relay program must now read its whole request before it
+  writes more than one pipe buffer of output, or it waits until the deadline
+  (docs/YON_ANNOTATIONS.md).
+- On Windows, a Yon Lua Retry delay waits with PowerShell's
+  `[Threading.Thread]::Sleep`. `Start-Sleep` took 12 to 23 s to start in a
+  handler's environment, so two retries passed the 30 s handler deadline
+  (ADR 0085).
 - `ty serve`, `ty dev` and `ty start` drain on `SIGTERM`, `SIGINT` or
   Ctrl-C: they stop accepting connections, close streams and WebSockets
   (`1001`), and let running requests finish within

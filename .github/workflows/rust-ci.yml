@@ -182,6 +182,9 @@ jobs:
       - name: Run Clippy without the optional storage drivers
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
 
+      - name: Build the Tac Ruby runtime once, outside nextest's per-test time limit
+        run: cargo test --all-features --locked -p tachyon-core --lib -- --exact tac_ruby::tests::the_runtime_is_built_once_into_the_user_cache_and_never_into_the_project
+
       - name: Run unit and Phase 4 real-process acceptance tests in the nextest groups
         run: cargo nextest run --workspace --all-targets --all-features --locked --no-tests=fail
 

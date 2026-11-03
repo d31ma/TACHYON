@@ -21,7 +21,7 @@ function ClockContract:check_sleep_commands()
   self:expect(BehaviorClock.sleep_command(1500, "/") == "sleep 1.500", "POSIX sleep command")
   self:expect(BehaviorClock.sleep_command(7, "/") == "sleep 0.007", "short POSIX sleep command")
   self:expect(
-    BehaviorClock.sleep_command(250, "\\") == "powershell -NoProfile -NonInteractive -Command Start-Sleep -Milliseconds 250",
+    BehaviorClock.sleep_command(250, "\\") == "powershell -NoProfile -NonInteractive -Command [Threading.Thread]::Sleep(250)",
     "Windows sleep command"
   )
 end

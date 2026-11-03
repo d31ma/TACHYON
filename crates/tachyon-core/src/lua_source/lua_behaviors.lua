@@ -29,7 +29,7 @@ end
 
 BehaviorClock = {
   POSIX_SLEEP = "sleep %d.%03d",
-  WINDOWS_SLEEP = "powershell -NoProfile -NonInteractive -Command Start-Sleep -Milliseconds %d",
+  WINDOWS_SLEEP = "powershell -NoProfile -NonInteractive -Command [Threading.Thread]::Sleep(%d)",
   WINDOWS_SEPARATOR = "\\",
   host = BehaviorHostClock,
   started_seconds = os and os.time(),
