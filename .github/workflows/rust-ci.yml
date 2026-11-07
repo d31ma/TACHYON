@@ -370,6 +370,15 @@ jobs:
             ~/AppData/Local/Tachyon/Cache/ruby-web
           key: tachyon-ruby-web-${{ runner.os }}-${{ hashFiles('runtimes/ruby-web/**') }}
 
+      - name: Restore the Tac Lua runtime built from runtimes/lua-web
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: |
+            ~/.cache/tachyon/lua-web
+            ~/Library/Caches/Tachyon/lua-web
+            ~/AppData/Local/Tachyon/Cache/lua-web
+          key: tachyon-lua-web-${{ runner.os }}-${{ hashFiles('runtimes/lua-web/**') }}
+
       - name: Install checksum-pinned Kotlin, the Kotlin/Wasm stdlib and TeaVM for the website's services
         run: node scripts/ci/install-toolchains.mjs "${RUNNER_TEMP}/tachyon-toolchains" kotlin kotlin-wasm teavm
 
@@ -678,6 +687,15 @@ jobs:
             ~/AppData/Local/Tachyon/Cache/ruby-web
           key: tachyon-ruby-web-${{ runner.os }}-${{ hashFiles('runtimes/ruby-web/**') }}
 
+      - name: Restore the Tac Lua runtime built from runtimes/lua-web
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: |
+            ~/.cache/tachyon/lua-web
+            ~/Library/Caches/Tachyon/lua-web
+            ~/AppData/Local/Tachyon/Cache/lua-web
+          key: tachyon-lua-web-${{ runner.os }}-${{ hashFiles('runtimes/lua-web/**') }}
+
       - name: Install checksum-pinned Kotlin, the Kotlin/Wasm stdlib, Dart and TeaVM
         run: node scripts/ci/install-toolchains.mjs "${RUNNER_TEMP}/tachyon-toolchains" kotlin kotlin-wasm dart teavm
 
@@ -800,6 +818,15 @@ jobs:
             ~/AppData/Local/Tachyon/Cache/ruby-web
           key: tachyon-ruby-web-${{ runner.os }}-${{ hashFiles('runtimes/ruby-web/**') }}
 
+      - name: Restore the Tac Lua runtime built from runtimes/lua-web
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: |
+            ~/.cache/tachyon/lua-web
+            ~/Library/Caches/Tachyon/lua-web
+            ~/AppData/Local/Tachyon/Cache/lua-web
+          key: tachyon-lua-web-${{ runner.os }}-${{ hashFiles('runtimes/lua-web/**') }}
+
       - name: Install Lua from the checksum-pinned source in runtimes/lua-web/sources.txt
         run: |
           set -euo pipefail
@@ -855,6 +882,9 @@ jobs:
 
       - name: Install checksum-pinned Groovy for Groovy behavior annotations and Pyodide for Python snippets
         run: node scripts/ci/install-toolchains.mjs "${RUNNER_TEMP}/tachyon-toolchains" groovy pyodide
+
+      - name: Install checksum-pinned FYLO for the FYLO documents and queue snippets
+        run: node scripts/ci/install-fylo.mjs "${{ runner.temp }}/tachyon-fylo"
 
       - name: Install checksum-pinned Dart SDK for Dart services and published examples
         run: |
