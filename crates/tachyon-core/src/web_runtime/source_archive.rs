@@ -15,6 +15,11 @@ pub(crate) struct SourceArchive {
 
 impl SourceArchive {
     const DOWNLOAD_LIMIT: Duration = Duration::from_mins(10);
+    const CONNECT_SECONDS: &'static str = "30";
+    const STALLED_BYTES_PER_SECOND: &'static str = "1024";
+    const STALLED_SECONDS: &'static str = "60";
+    const RETRIES: &'static str = "4";
+    const RETRY_DELAY_SECONDS: &'static str = "2";
     const UNPACK_LIMIT: Duration = Duration::from_mins(5);
 
     pub(crate) fn pinned(step: WebRuntimeStep, sources: &str, name: &str) -> Result<Self, Failure> {
@@ -48,6 +53,11 @@ impl SourceArchive {
         let mut command = Command::new("curl");
         command
             .args(["--fail", "--location", "--silent", "--show-error"])
+            .args(["--connect-timeout", Self::CONNECT_SECONDS])
+            .args(["--speed-limit", Self::STALLED_BYTES_PER_SECOND])
+            .args(["--speed-time", Self::STALLED_SECONDS])
+            .args(["--retry", Self::RETRIES, "--retry-all-errors"])
+            .args(["--retry-delay", Self::RETRY_DELAY_SECONDS])
             .args(["--proto-redir", "=https", "--output"])
             .arg(archive)
             .arg(&self.url);
@@ -99,6 +109,10 @@ mod tests {
     use super::{SourceArchive, WebRuntimeStep};
     use sha2::{Digest, Sha256};
     use std::path::Path;
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::net::TcpListener;
 
     fn tools_available() -> bool {
         ["curl", "tar"].iter().all(|tool| {
@@ -170,6 +184,57 @@ mod tests {
         );
         assert!(!work.path().join("demo.tar.gz").exists());
         assert!(!work.path().join("unpacked").exists());
+    }
+
+    async fn refuse_once_then_serve(bytes: Vec<u8>) -> (String, Arc<AtomicUsize>) {
+        let listener = TcpListener::bind("127.0.0.1:0").await.expect("listener");
+        let port = listener.local_addr().expect("address").port();
+        let requests = Arc::new(AtomicUsize::new(0));
+        let counted = Arc::clone(&requests);
+        tokio::spawn(async move {
+            while let Ok((mut stream, _)) = listener.accept().await {
+                let mut request = vec![0_u8; 4096];
+                let _read = stream.read(&mut request).await;
+                let answer = if counted.fetch_add(1, Ordering::SeqCst) == 0 {
+                    b"HTTP/1.1 503 Service Unavailable\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".to_vec()
+                } else {
+                    let mut answer = format!(
+                        "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                        bytes.len()
+                    )
+                    .into_bytes();
+                    answer.extend_from_slice(&bytes);
+                    answer
+                };
+                let _written = stream.write_all(&answer).await;
+            }
+        });
+        (format!("http://127.0.0.1:{port}/demo.tar.gz"), requests)
+    }
+
+    #[tokio::test]
+    async fn a_download_the_server_refuses_once_is_retried() {
+        if !tools_available() {
+            eprintln!("skipping: curl or tar is unavailable");
+            return;
+        }
+        let work = tempfile::tempdir().expect("work");
+        let bytes = std::fs::read(packed_folder(work.path())).expect("archive");
+        let checksum = crate::compiler::hex_digest(Sha256::digest(&bytes));
+        let (url, requests) = refuse_once_then_serve(bytes).await;
+        SourceArchive::pinned(
+            WebRuntimeStep::new("Demo"),
+            &format!("demo 1 {checksum} {url}\n"),
+            "demo",
+        )
+        .expect("pinned")
+        .unpack_into(work.path(), "unpacked/demo")
+        .await
+        .expect("unpacked after one retry");
+        let text =
+            std::fs::read_to_string(work.path().join("unpacked/demo/hello.txt")).expect("file");
+        assert_eq!(text, "hello");
+        assert_eq!(requests.load(Ordering::SeqCst), 2);
     }
 
     #[test]
