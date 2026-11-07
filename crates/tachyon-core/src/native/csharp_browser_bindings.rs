@@ -1,0 +1,79 @@
+use std::fmt::Write as _;
+
+pub(super) struct CsharpBrowserBindings;
+
+impl CsharpBrowserBindings {
+    const HTTP: &'static str = "internal static class BehaviorBrowserHttp";
+    const SOCKET: &'static str = "internal static class BehaviorBrowserSocket";
+    const STORAGE: &'static str = "public static class BehaviorStorage";
+
+    #[cfg(test)]
+    pub(super) fn read(authored: &str) -> String {
+        Self::read_with_runtime(authored, "")
+    }
+
+    pub(super) fn read_with_runtime(authored: &str, runtime: &str) -> String {
+        let http = Self::declaring(authored, runtime, Self::HTTP);
+        let socket = Self::declaring(authored, runtime, Self::SOCKET);
+        Self::render(&http, &socket)
+    }
+
+    pub(super) fn storage_namespaces(authored: &str) -> Vec<String> {
+        Self::namespaces(authored, Self::STORAGE)
+    }
+
+    fn declaring(authored: &str, runtime: &str, class: &str) -> Vec<String> {
+        let mut namespaces = Self::namespaces(authored, class);
+        namespaces.extend(Self::namespaces(runtime, class));
+        namespaces.sort_unstable();
+        namespaces.dedup();
+        namespaces
+    }
+
+    fn namespaces(authored: &str, class: &str) -> Vec<String> {
+        authored
+            .split("namespace TachyonService")
+            .skip(1)
+            .filter(|source| source.contains(class))
+            .filter_map(Self::namespace_suffix)
+            .collect()
+    }
+
+    fn namespace_suffix(source: &str) -> Option<String> {
+        let end = source.find(|character: char| !character.is_ascii_alphanumeric())?;
+        source[end..]
+            .trim_start()
+            .starts_with('{')
+            .then(|| source[..end].to_owned())
+    }
+
+    fn socket_bindings(sockets: &[String]) -> String {
+        sockets
+            .iter()
+            .map(|index| {
+                format!(
+                    "\n        TachyonService{index}.BehaviorBrowserSocket.Host ??= Tac.SendSocket;"
+                )
+            })
+            .collect::<Vec<_>>()
+            .concat()
+    }
+
+    fn render(namespaces: &[String], sockets: &[String]) -> String {
+        let mut bindings = Self::socket_bindings(sockets);
+        let mut patterns = String::new();
+        for index in namespaces {
+            let _ = write!(
+                bindings,
+                "\n        TachyonService{index}.BehaviorBrowserHttp.Capture ??= Tac.CaptureHttpTransport;"
+            );
+            let _ = write!(
+                patterns,
+                "TachyonService{index}.BehaviorError failure{index} => failure{index}.Code, "
+            );
+        }
+        format!(
+            "{bindings}\n        TacTaskAnswer.FailureCode ??= error => error switch {{ {patterns}_ => null }};"
+        )
+    }
+}

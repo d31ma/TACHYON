@@ -1,0 +1,248 @@
+{
+  "id": "companions",
+  "title": "Service classes",
+  "summary": "A service is a class that holds the state and behavior of a view. A view refers to a service by its instance name: `BasketService` is `basket`. `{basket.count}` reads a field, and `on:click=\"basket.add()\"` calls a method. Fields hold the state of the view. Methods give its behavior. By default, a service is a page singleton (one shared instance for the whole page). Every component that names it shares that one instance. `NeedsAll` creates one service instance for each component instance. It uses the properties of that component. `Lifetime({\"value\":\"prototype\"})` also gives other services one instance for each component. `OnStart` runs after injection (the framework gives the service the objects it needs). It also waits until the component is attached to the DOM (the tree of elements on the page). `OnStop` cleans up work that the service owns. A declared `applicationEventPublisher` field and `OnEvent` replace local publish and subscribe code that you would write by hand. A `Needs` field named after a browser resource receives that resource. There is no general framework object on the instance. Ordinary imports and helper functions still work. Constants are static class fields. A Python service writes `@on_start` above a plain or `async def` method and `@on_stop` and `@on_event` above plain methods, and its `application_event_publisher: ApplicationEventPublisher` field is the publisher. A C++ service writes `[[OnStart]]` and `[[OnEvent]]`, and its `ApplicationEventPublisher applicationEventPublisher;` field is the publisher.",
+  "group": "Tac views",
+  "files": [
+    {
+      "name": "client/pages/tac.html",
+      "code": { "file": "client/pages/tac.html" }
+    },
+    {
+      "name": "client/components/basket/summary/tac.html",
+      "code": { "file": "client/components/basket/summary/tac.html" }
+    },
+    {
+      "name": "client/services/BasketService.js",
+      "code": { "file": "client/services/BasketService.js" }
+    },
+    {
+      "name": "client/services/BasketService.ts",
+      "code": { "file": "client/services/BasketService.ts" }
+    },
+    {
+      "name": "client/services/BasketService.dart",
+      "code": { "file": "client/services/BasketService.dart" }
+    },
+    {
+      "name": "client/services/BasketService.rs",
+      "code": { "file": "client/services/BasketService.rs" }
+    },
+    {
+      "name": "client/services/BasketService.go",
+      "code": { "file": "client/services/BasketService.go" }
+    },
+    {
+      "name": "client/services/BasketService.rb",
+      "code": { "file": "client/services/BasketService.rb" }
+    },
+    {
+      "name": "client/services/BasketService.swift",
+      "code": { "file": "client/services/BasketService.swift" }
+    },
+    {
+      "name": "client/services/BasketService.kt",
+      "code": { "file": "client/services/BasketService.kt" }
+    },
+    {
+      "name": "client/services/BasketService.java",
+      "code": { "file": "client/services/BasketService.java" }
+    },
+    {
+      "name": "client/services/BasketService.cs",
+      "code": { "file": "client/services/BasketService.cs" }
+    },
+    {
+      "name": "client/services/BasketService.fs",
+      "code": { "file": "client/services/BasketService.fs" }
+    },
+    {
+      "name": "conventions",
+      "code": { "file": "conventions.txt" }
+    },
+    {
+      "name": "client/components/cart/summary/tac.html",
+      "code": { "file": "client/components/cart/summary/tac.html" }
+    },
+    {
+      "name": "client/services/CartService.js",
+      "code": { "file": "client/services/CartService.js" }
+    },
+    {
+      "name": "client/services/CartService.ts",
+      "code": { "file": "client/services/CartService.ts" }
+    },
+    {
+      "name": "client/services/CartService.dart",
+      "code": { "file": "client/services/CartService.dart" }
+    },
+    {
+      "name": "client/services/CartService.rs",
+      "code": { "file": "client/services/CartService.rs" }
+    },
+    {
+      "name": "client/services/CartService.go",
+      "code": { "file": "client/services/CartService.go" }
+    },
+    {
+      "name": "client/services/CartService.rb",
+      "code": { "file": "client/services/CartService.rb" }
+    },
+    {
+      "name": "client/services/CartService.swift",
+      "code": { "file": "client/services/CartService.swift" }
+    },
+    {
+      "name": "client/services/CartService.kt",
+      "code": { "file": "client/services/CartService.kt" }
+    },
+    {
+      "name": "client/services/CartService.java",
+      "code": { "file": "client/services/CartService.java" }
+    },
+    {
+      "name": "client/services/CartService.cs",
+      "code": { "file": "client/services/CartService.cs" }
+    },
+    {
+      "name": "client/services/CartService.fs",
+      "code": { "file": "client/services/CartService.fs" }
+    },
+    {
+      "name": "client/components/live-total/tac.html",
+      "code": { "file": "client/components/live-total/tac.html" }
+    },
+    {
+      "name": "client/services/LiveTotalService.js",
+      "code": { "file": "client/services/LiveTotalService.js" }
+    },
+    {
+      "name": "client/services/LiveTotalService.ts",
+      "code": { "file": "client/services/LiveTotalService.ts" }
+    },
+    {
+      "name": "client/services/LiveTotalService.dart",
+      "code": { "file": "client/services/LiveTotalService.dart" }
+    },
+    {
+      "name": "client/services/LiveTotalService.rs",
+      "code": { "file": "client/services/LiveTotalService.rs" }
+    },
+    {
+      "name": "client/services/LiveTotalService.go",
+      "code": { "file": "client/services/LiveTotalService.go" }
+    },
+    {
+      "name": "client/services/LiveTotalService.rb",
+      "code": { "file": "client/services/LiveTotalService.rb" }
+    },
+    {
+      "name": "client/services/LiveTotalService.swift",
+      "code": { "file": "client/services/LiveTotalService.swift" }
+    },
+    {
+      "name": "client/services/LiveTotalService.kt",
+      "code": { "file": "client/services/LiveTotalService.kt" }
+    },
+    {
+      "name": "client/services/LiveTotalService.java",
+      "code": { "file": "client/services/LiveTotalService.java" }
+    },
+    {
+      "name": "client/services/LiveTotalService.cs",
+      "code": { "file": "client/services/LiveTotalService.cs" }
+    },
+    {
+      "name": "client/services/LiveTotalService.fs",
+      "code": { "file": "client/services/LiveTotalService.fs" }
+    },
+    {
+      "name": "client/models/CartTotal.ts",
+      "code": { "file": "client/models/CartTotal.ts" }
+    },
+    {
+      "name": "client/models/CartTotal.dart",
+      "code": { "file": "client/models/CartTotal.dart" }
+    },
+    {
+      "name": "client/models/CartTotal.rs",
+      "code": { "file": "client/models/CartTotal.rs" }
+    },
+    {
+      "name": "client/models/CartTotal.go",
+      "code": { "file": "client/models/CartTotal.go" }
+    },
+    {
+      "name": "client/models/CartTotal.rb",
+      "code": { "file": "client/models/CartTotal.rb" }
+    },
+    {
+      "name": "client/services/BasketService.lua",
+      "code": { "file": "client/services/BasketService.lua" }
+    },
+    {
+      "name": "client/services/CartService.lua",
+      "code": { "file": "client/services/CartService.lua" }
+    },
+    {
+      "name": "client/services/LiveTotalService.lua",
+      "code": { "file": "client/services/LiveTotalService.lua" }
+    },
+    {
+      "name": "client/models/CartTotal.lua",
+      "code": { "file": "client/models/CartTotal.lua" }
+    },
+    {
+      "name": "client/models/CartTotal.swift",
+      "code": { "file": "client/models/CartTotal.swift" }
+    },
+    {
+      "name": "client/models/CartTotal.kt",
+      "code": { "file": "client/models/CartTotal.kt" }
+    },
+    {
+      "name": "client/models/CartTotal.java",
+      "code": { "file": "client/models/CartTotal.java" }
+    },
+    {
+      "name": "client/models/CartTotal.cs",
+      "code": { "file": "client/models/CartTotal.cs" }
+    },
+    {
+      "name": "client/models/CartTotal.fs",
+      "code": { "file": "client/models/CartTotal.fs" }
+    },
+    {
+      "name": "client/services/BasketService.py",
+      "code": { "file": "client/services/BasketService.py" }
+    },
+    {
+      "name": "client/services/CartService.py",
+      "code": { "file": "client/services/CartService.py" }
+    },
+    {
+      "name": "client/services/LiveTotalService.py",
+      "code": { "file": "client/services/LiveTotalService.py" }
+    },
+    {
+      "name": "client/models/CartTotal.py",
+      "code": { "file": "client/models/CartTotal.py" }
+    },
+    {
+      "name": "client/services/BasketService.hpp",
+      "code": { "file": "client/services/BasketService.hpp" }
+    },
+    {
+      "name": "client/services/CartService.hpp",
+      "code": { "file": "client/services/CartService.hpp" }
+    },
+    {
+      "name": "client/services/LiveTotalService.hpp",
+      "code": { "file": "client/services/LiveTotalService.hpp" }
+    },
+    {
+      "name": "client/models/CartTotal.hpp",
+      "code": { "file": "client/models/CartTotal.hpp" }
+    }
+  ]
+}

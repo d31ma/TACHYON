@@ -1,0 +1,9 @@
+@Service
+export default class NoteService {
+  @Needs
+  readonly dataSource!: DataSource;
+
+  countNotes(): Promise<unknown[]> {
+    return this.dataSource.query('SELECT 3 AS notes', []);
+  }
+}

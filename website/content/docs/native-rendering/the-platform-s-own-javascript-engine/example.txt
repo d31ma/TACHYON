@@ -1,0 +1,4 @@
+macOS, iOS   WKWebView      system WebKit and JavaScriptCore
+Linux        WebKitGTK      system WebKit and JavaScriptCore dependencies
+Windows      WebView2       requires the WebView2 runtime
+Android      WebView        uses the installed system WebView provider

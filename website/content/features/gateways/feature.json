@@ -1,0 +1,209 @@
+{
+  "id": "gateways",
+  "title": "Calling a method in another language",
+  "summary": "`@Gateway` declares a method that code in another language answers. The target is a class in another Yon language, such as `server/services/ReportService.java`. It can also be a program, such as `python3 server/helpers/forecast.py`. The arguments are sent as JSON, within fixed limits. The answer becomes the result of the method. A failure becomes a `BehaviorError` with a fixed message. The build checks every target. Only one hop (one call from one language to another) is allowed. In the example, JavaScript and TypeScript call the Java class `ReportService.java`, and Python calls it too. Java, Groovy and every other language, C++ included, call the Python class `LedgerService.py`, and every language also runs the program `forecast.py`. Lua calls them too, with `-- @Gateway` on a `-- @HTTPClient` method. Its call travels over the handler's own standard input and output, because stock Lua cannot open a socket (ADR 0085). A C++ class can call a gateway and can be the target of one: its target method takes and returns `tachyon::json::JsonNode` (ADR 0099).",
+  "group": "Polyglot",
+  "files": [
+    {
+      "name": "server/services/ReportService.java",
+      "code": { "file": "server/services/ReportService.java" }
+    },
+    {
+      "name": "server/services/ReportService.groovy",
+      "code": { "file": "server/services/ReportService.groovy" }
+    },
+    {
+      "name": "server/services/LedgerService.py",
+      "code": { "file": "server/services/LedgerService.py" }
+    },
+    {
+      "name": "server/helpers/forecast.py",
+      "code": { "file": "server/helpers/forecast.py" }
+    },
+    {
+      "name": "spellings",
+      "code": { "file": "spellings.txt" }
+    },
+    {
+      "name": "server/remotes/ReportClient.js",
+      "code": { "file": "server/remotes/ReportClient.js" }
+    },
+    {
+      "name": "server/models/Report.js",
+      "code": { "file": "server/models/Report.js" }
+    },
+    {
+      "name": "server/controllers/ReportController.js",
+      "code": { "file": "server/controllers/ReportController.js" }
+    },
+    {
+      "name": "server/models/Forecast.py",
+      "code": { "file": "server/models/Forecast.py" }
+    },
+    {
+      "name": "server/remotes/ForecastClient.py",
+      "code": { "file": "server/remotes/ForecastClient.py" }
+    },
+    {
+      "name": "server/controllers/ForecastController.py",
+      "code": { "file": "server/controllers/ForecastController.py" }
+    },
+    {
+      "name": "server/models/Balance.java",
+      "code": { "file": "server/models/Balance.java" }
+    },
+    {
+      "name": "server/models/Balance.groovy",
+      "code": { "file": "server/models/Balance.groovy" }
+    },
+    {
+      "name": "server/remotes/LedgerClient.java",
+      "code": { "file": "server/remotes/LedgerClient.java" }
+    },
+    {
+      "name": "server/remotes/LedgerClient.groovy",
+      "code": { "file": "server/remotes/LedgerClient.groovy" }
+    },
+    {
+      "name": "server/controllers/LedgerController.java",
+      "code": { "file": "server/controllers/LedgerController.java" }
+    },
+    {
+      "name": "server/controllers/LedgerController.groovy",
+      "code": { "file": "server/controllers/LedgerController.groovy" }
+    },
+    {
+      "name": "server/remotes/ReportClient.ts",
+      "code": { "file": "server/remotes/ReportClient.ts" }
+    },
+    {
+      "name": "server/controllers/ReportController.ts",
+      "code": { "file": "server/controllers/ReportController.ts" }
+    },
+    {
+      "name": "server/models/Report.ts",
+      "code": { "file": "server/models/Report.ts" }
+    },
+    {
+      "name": "server/remotes/LedgerClient.php",
+      "code": { "file": "server/remotes/LedgerClient.php" }
+    },
+    {
+      "name": "server/controllers/LedgerController.php",
+      "code": { "file": "server/controllers/LedgerController.php" }
+    },
+    {
+      "name": "server/models/Balance.php",
+      "code": { "file": "server/models/Balance.php" }
+    },
+    {
+      "name": "server/remotes/LedgerClient.cs",
+      "code": { "file": "server/remotes/LedgerClient.cs" }
+    },
+    {
+      "name": "server/controllers/LedgerController.cs",
+      "code": { "file": "server/controllers/LedgerController.cs" }
+    },
+    {
+      "name": "server/models/Ledger.cs",
+      "code": { "file": "server/models/Ledger.cs" }
+    },
+    {
+      "name": "server/remotes/LedgerClient.fs",
+      "code": { "file": "server/remotes/LedgerClient.fs" }
+    },
+    {
+      "name": "server/controllers/LedgerController.fs",
+      "code": { "file": "server/controllers/LedgerController.fs" }
+    },
+    {
+      "name": "server/models/Balance.fs",
+      "code": { "file": "server/models/Balance.fs" }
+    },
+    {
+      "name": "server/remotes/LedgerClient.kt",
+      "code": { "file": "server/remotes/LedgerClient.kt" }
+    },
+    {
+      "name": "server/controllers/LedgerController.kt",
+      "code": { "file": "server/controllers/LedgerController.kt" }
+    },
+    {
+      "name": "server/models/Balance.kt",
+      "code": { "file": "server/models/Balance.kt" }
+    },
+    {
+      "name": "server/remotes/LedgerClient.rs",
+      "code": { "file": "server/remotes/LedgerClient.rs" }
+    },
+    {
+      "name": "server/controllers/LedgerController.rs",
+      "code": { "file": "server/controllers/LedgerController.rs" }
+    },
+    {
+      "name": "server/models/Balance.rs",
+      "code": { "file": "server/models/Balance.rs" }
+    },
+    {
+      "name": "server/remotes/LedgerClient.go",
+      "code": { "file": "server/remotes/LedgerClient.go" }
+    },
+    {
+      "name": "server/controllers/LedgerController.go",
+      "code": { "file": "server/controllers/LedgerController.go" }
+    },
+    {
+      "name": "server/models/Balance.go",
+      "code": { "file": "server/models/Balance.go" }
+    },
+    {
+      "name": "server/remotes/LedgerClient.dart",
+      "code": { "file": "server/remotes/LedgerClient.dart" }
+    },
+    {
+      "name": "server/controllers/LedgerController.dart",
+      "code": { "file": "server/controllers/LedgerController.dart" }
+    },
+    {
+      "name": "server/models/Balance.dart",
+      "code": { "file": "server/models/Balance.dart" }
+    },
+    {
+      "name": "server/remotes/LedgerClient.rb",
+      "code": { "file": "server/remotes/LedgerClient.rb" }
+    },
+    {
+      "name": "server/controllers/LedgerController.rb",
+      "code": { "file": "server/controllers/LedgerController.rb" }
+    },
+    {
+      "name": "server/models/Balance.rb",
+      "code": { "file": "server/models/Balance.rb" }
+    },
+    {
+      "name": "server/remotes/LedgerClient.lua",
+      "code": { "file": "server/remotes/LedgerClient.lua" }
+    },
+    {
+      "name": "server/controllers/LedgerController.lua",
+      "code": { "file": "server/controllers/LedgerController.lua" }
+    },
+    {
+      "name": "server/models/Balance.lua",
+      "code": { "file": "server/models/Balance.lua" }
+    },
+    {
+      "name": "server/remotes/LedgerClient.hpp",
+      "code": { "file": "server/remotes/LedgerClient.hpp" }
+    },
+    {
+      "name": "server/controllers/LedgerController.hpp",
+      "code": { "file": "server/controllers/LedgerController.hpp" }
+    },
+    {
+      "name": "server/models/Balance.hpp",
+      "code": { "file": "server/models/Balance.hpp" }
+    }
+  ],
+  "verify": "yon-gateway"
+}

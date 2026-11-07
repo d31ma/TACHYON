@@ -1,0 +1,5 @@
+{
+  "heading": "When a component starts",
+  "body": "Tac has no server-side rendering mode (the server does not build the HTML of a view). The browser renderer creates the first DOM (the tree of elements on the page) and does every rerender. The document that a route serves contains no rendered view subtree. So `hydrate` does not say when the browser takes control of HTML from the server. It says when a component activates. A component activates when the services that its view names are initialised.\n\n`load` activates at once. `idle` waits until the browser is free. `visible` waits until the component is in the viewport (the visible part of the page). `interaction` waits for the first event. `never` keeps the component inactive. A component that only displays the values it received names no service at all.",
+  "code": { "file": "example.html" }
+}

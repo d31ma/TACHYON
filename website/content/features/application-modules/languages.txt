@@ -1,0 +1,3 @@
+Yon shared modules: JavaScript, TypeScript, Python, PHP, Java, Groovy, Kotlin, C#, F#, Rust, Go, Dart, Ruby and Lua.
+
+A plain class in server/shared/ is reachable from controllers and services in its language. Shared classes register no routes and are not injectable framework providers.

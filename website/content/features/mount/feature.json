@@ -1,0 +1,77 @@
+{
+  "id": "mount",
+  "title": "When a component activates",
+  "summary": "A component activates when it starts to run in the browser. This can happen when the page loads, when the browser is idle, or when the component becomes visible. It can also happen when the user interacts with it, or never. The services that its view names start at the same time. The page itself has no activation schedule. It only places components, and each component follows its own schedule. A Python service also needs the `tac.python` runtime setting in `client/manifest.json`.",
+  "group": "Tac views",
+  "files": [
+    {
+      "name": "client/manifest.json",
+      "code": { "file": "client/manifest.json" }
+    },
+    {
+      "name": "client/pages/tac.html",
+      "code": { "file": "client/pages/tac.html" }
+    },
+    {
+      "name": "client/components/product/card/tac.html",
+      "code": { "file": "client/components/product/card/tac.html" }
+    },
+    {
+      "name": "client/services/CardService.js",
+      "code": { "file": "client/services/CardService.js" }
+    },
+    {
+      "name": "client/services/CardService.ts",
+      "code": { "file": "client/services/CardService.ts" }
+    },
+    {
+      "name": "client/services/CardService.dart",
+      "code": { "file": "client/services/CardService.dart" }
+    },
+    {
+      "name": "client/services/CardService.rs",
+      "code": { "file": "client/services/CardService.rs" }
+    },
+    {
+      "name": "client/services/CardService.go",
+      "code": { "file": "client/services/CardService.go" }
+    },
+    {
+      "name": "client/services/CardService.rb",
+      "code": { "file": "client/services/CardService.rb" }
+    },
+    {
+      "name": "client/services/CardService.lua",
+      "code": { "file": "client/services/CardService.lua" }
+    },
+    {
+      "name": "client/services/CardService.py",
+      "code": { "file": "client/services/CardService.py" }
+    },
+    {
+      "name": "client/services/CardService.swift",
+      "code": { "file": "client/services/CardService.swift" }
+    },
+    {
+      "name": "client/services/CardService.kt",
+      "code": { "file": "client/services/CardService.kt" }
+    },
+    {
+      "name": "client/services/CardService.java",
+      "code": { "file": "client/services/CardService.java" }
+    },
+    {
+      "name": "client/services/CardService.cs",
+      "code": { "file": "client/services/CardService.cs" }
+    },
+    {
+      "name": "client/services/CardService.fs",
+      "code": { "file": "client/services/CardService.fs" }
+    },
+    {
+      "name": "client/services/CardService.hpp",
+      "code": { "file": "client/services/CardService.hpp" }
+    }
+  ],
+  "verify": "tac-component"
+}

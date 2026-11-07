@@ -1,0 +1,6 @@
+from typing import Protocol
+
+@store(EntryEntity, {"fields":["id","status"],"defaultSize":20,"maxSize":100,"setup":"LedgerSetup"})
+class EntryStore(Protocol):
+    async def find_by_status(self, status: str) -> None: ...
+    async def count_by_status(self, status: str) -> None: ...

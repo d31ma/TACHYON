@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tachyon.del.ma/schema/application-config/v2",
+  "title": "Tachyon Namespaced Application Configuration v2",
+  "description": "Non-secret authoring only. Runtime additionally rejects duplicate keys, credential-bearing URLs, nested private/signing/api/access.key credentials, more than 128 total keys, depth over 16 and byte-limit violations. Secrets are literal project-root .env YON_ entries, never JSON placeholders.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "tac": { "$ref": "#/$defs/object" },
+    "yon": {
+      "allOf": [
+        { "$ref": "#/$defs/object" },
+        {
+          "properties": {
+            "server": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "host": { "type": "string" },
+                "port": { "oneOf": [
+                  { "type": "integer", "minimum": 0, "maximum": 65535 },
+                  { "type": "string", "pattern": "^[0-9]+$" }
+                ] }
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "object": {
+      "type": "object",
+      "maxProperties": 128,
+      "propertyNames": {
+        "pattern": "^[a-z][a-z0-9]*$",
+        "maxLength": 128,
+        "not": { "enum": ["prototype", "constructor", "password", "passwd", "secret", "secrets", "token", "tokens", "credential", "credentials", "privatekey", "signingkey", "apikey", "accesskey", "clientsecret"] }
+      },
+      "additionalProperties": { "$ref": "#/$defs/value" }
+    },
+    "value": {
+      "oneOf": [
+        { "$ref": "#/$defs/object" },
+        { "type": "array", "maxItems": 128, "items": { "$ref": "#/$defs/value" } },
+        { "type": ["number", "boolean", "null"] },
+        { "type": "string", "maxLength": 16384, "pattern": "^[^\u0000-\u001f\u007f-\u009f]*$", "not": { "pattern": "\\$\\{" } }
+      ]
+    }
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "title": "Utilities",
+  "summary": "Tachyon refuses a block of code that repeats (TY1315). Move it into a static method of a utility class in client/shared/utils (Tac) or server/utils (Yon), and call it from both places.",
+  "before": [
+    "cohesive-services"
+  ],
+  "sections": [
+    {
+      "include": "one-place-for-repeated-code/section.json"
+    }
+  ]
+}

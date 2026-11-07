@@ -1,0 +1,1 @@
+record ReleaseChanged(String release) {}

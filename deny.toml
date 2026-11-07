@@ -15,6 +15,11 @@ allow = [
   "MIT",
   "Unicode-3.0",
 ]
+exceptions = [
+  { name = "foldhash", allow = ["Zlib"] },
+  { name = "xxhash-rust", allow = ["BSL-1.0"] },
+  { name = "webpki-roots", allow = ["CDLA-Permissive-2.0"] },
+]
 
 [bans]
 multiple-versions = "warn"

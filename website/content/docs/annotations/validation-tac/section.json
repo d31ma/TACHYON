@@ -1,0 +1,188 @@
+{
+  "heading": "Validation: Tac",
+  "axis": "language",
+  "summary": "The same seven markers work in Tac, on a service instead of a controller. The data transfer object (DTO) that `Check` names is a model: a data class in its own file, `client/models/OrderInput.<ext>` (ADR 0092). Discovery composes its rules into the service that it protects (ADR 0044), and the model itself compiles once, without its markers. A service reaches it the way the language reaches any model: C# and F# open `Models`, Rust uses `crate::models::OrderInput`, Kotlin imports `models.OrderInput`, Dart imports `models/OrderInput.dart` and Python writes `from models import OrderInput`; Swift, Go, Ruby and Lua need no import. A Swift model is a struct, and a Rust model and its fields are `pub`. JavaScript, TypeScript and Dart keep Service without an import, as their Yon services do. The compiled languages mark the service with Service too: the build refuses a service in client/services without its marker with TY1363. Swift and C# take checked parameters as BehaviorJSON, Rust and Go take them as BehaviorValue, and Java takes them as Object, as its Yon service does; Check names the class, as in Yon. Tac validation protects only the user experience (UX). It is not authorization, so Yon must validate the same payload again.",
+  "body": "Lua writes each marker as a comment: `-- @Checked` above the model table, the field markers above each field, and `-- @Check(OrderInput)` on its own line inside the parameter list. Python writes them in snake case inside `Annotated[...]`: `@checked` on the model class, `not_empty`, `length(...)`, `required`, `min(...)` and `max(...)` on its fields, and `Annotated[OrderInput, check]` on the parameter. Python, like Lua and Ruby, receives the checked argument as a plain dict.",
+  "files": [
+    {
+      "name": "client/pages/tac.html",
+      "code": {
+        "file": "client/pages/tac.html"
+      }
+    },
+    {
+      "name": "client/components/order/form/tac.html",
+      "code": {
+        "file": "client/components/order/form/tac.html"
+      }
+    },
+    {
+      "name": "client/services/OrderService.js",
+      "code": {
+        "file": "client/services/OrderService.js"
+      }
+    },
+    {
+      "name": "client/services/OrderService.ts",
+      "code": {
+        "file": "client/services/OrderService.ts"
+      }
+    },
+    {
+      "name": "client/services/OrderService.swift",
+      "code": {
+        "file": "client/services/OrderService.swift"
+      }
+    },
+    {
+      "name": "client/services/OrderService.java",
+      "code": {
+        "file": "client/services/OrderService.java"
+      }
+    },
+    {
+      "name": "client/services/OrderService.kt",
+      "code": {
+        "file": "client/services/OrderService.kt"
+      }
+    },
+    {
+      "name": "client/services/OrderService.cs",
+      "code": {
+        "file": "client/services/OrderService.cs"
+      }
+    },
+    {
+      "name": "client/services/OrderService.fs",
+      "code": {
+        "file": "client/services/OrderService.fs"
+      }
+    },
+    {
+      "name": "client/services/OrderService.rs",
+      "code": {
+        "file": "client/services/OrderService.rs"
+      }
+    },
+    {
+      "name": "client/services/OrderService.dart",
+      "code": {
+        "file": "client/services/OrderService.dart"
+      }
+    },
+    {
+      "name": "client/models/OrderInput.js",
+      "code": {
+        "file": "client/models/OrderInput.js"
+      }
+    },
+    {
+      "name": "client/models/OrderInput.ts",
+      "code": {
+        "file": "client/models/OrderInput.ts"
+      }
+    },
+    {
+      "name": "client/models/OrderInput.swift",
+      "code": {
+        "file": "client/models/OrderInput.swift"
+      }
+    },
+    {
+      "name": "client/models/OrderInput.java",
+      "code": {
+        "file": "client/models/OrderInput.java"
+      }
+    },
+    {
+      "name": "client/models/OrderInput.kt",
+      "code": {
+        "file": "client/models/OrderInput.kt"
+      }
+    },
+    {
+      "name": "client/models/OrderInput.cs",
+      "code": {
+        "file": "client/models/OrderInput.cs"
+      }
+    },
+    {
+      "name": "client/models/OrderInput.fs",
+      "code": {
+        "file": "client/models/OrderInput.fs"
+      }
+    },
+    {
+      "name": "client/models/OrderInput.rs",
+      "code": {
+        "file": "client/models/OrderInput.rs"
+      }
+    },
+    {
+      "name": "client/services/OrderService.go",
+      "code": {
+        "file": "client/services/OrderService.go"
+      }
+    },
+    {
+      "name": "client/models/OrderInput.go",
+      "code": {
+        "file": "client/models/OrderInput.go"
+      }
+    },
+    {
+      "name": "client/models/OrderInput.dart",
+      "code": {
+        "file": "client/models/OrderInput.dart"
+      }
+    },
+    {
+      "name": "client/services/OrderService.rb",
+      "code": {
+        "file": "client/services/OrderService.rb"
+      }
+    },
+    {
+      "name": "client/models/OrderInput.rb",
+      "code": {
+        "file": "client/models/OrderInput.rb"
+      }
+    },
+    {
+      "name": "client/services/OrderService.lua",
+      "code": {
+        "file": "client/services/OrderService.lua"
+      }
+    },
+    {
+      "name": "client/models/OrderInput.lua",
+      "code": {
+        "file": "client/models/OrderInput.lua"
+      }
+    },
+    {
+      "name": "client/services/OrderService.hpp",
+      "code": {
+        "file": "client/services/OrderService.hpp"
+      }
+    },
+    {
+      "name": "client/models/OrderInput.hpp",
+      "code": {
+        "file": "client/models/OrderInput.hpp"
+      }
+    },
+    {
+      "name": "client/services/OrderService.py",
+      "code": {
+        "file": "client/services/OrderService.py"
+      }
+    },
+    {
+      "name": "client/models/OrderInput.py",
+      "code": {
+        "file": "client/models/OrderInput.py"
+      }
+    }
+  ]
+}

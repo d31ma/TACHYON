@@ -1,0 +1,1 @@
+type Ledger = { Total: int }

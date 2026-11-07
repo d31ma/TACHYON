@@ -1,0 +1,6 @@
+@HTTPClient('/chat')
+export default class ChatClient {
+  /** @param {ChatMessage} message */
+  @SocketRequest
+  receive(message) {}
+}

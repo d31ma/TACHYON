@@ -1,0 +1,10 @@
+{
+  "name": "Quarterly report",
+  "start_url": "/",
+  "tac": {
+    "application": {
+      "id": "com.example.report",
+      "version": "1.0.0"
+    }
+  }
+}

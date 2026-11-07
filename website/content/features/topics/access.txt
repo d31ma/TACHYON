@@ -1,0 +1,30 @@
+Who may read a server topic: one access marker next to Topic
+
+  Java        @Public   @SignedIn   @Allow(Admin.class)
+  Kotlin      @Public   @SignedIn   @Allow(Admin::class)
+  Groovy      @Public   @SignedIn   @Allow(Admin)
+  Dart        @Public   @SignedIn   @Allow(Admin)
+  Python      @public   @signed_in  @allow(Admin)
+  JavaScript   * @Public  * @SignedIn  * @Allow(Admin)   (in the @typedef block)
+  TypeScript  /** @Public */  /** @SignedIn */  /** @Allow(Admin) */
+  Go          // @Public  // @SignedIn  // @Allow(Admin)
+  Lua         -- @Public  -- @SignedIn  -- @Allow(Admin)
+  Rust, Ruby  #[Public]  #[SignedIn]  #[Allow(Admin)]
+  PHP         #[Public]  #[SignedIn]  #[Allow(Admin::class)]
+  C#          [Public]   [SignedIn]   [Allow(typeof(Admin))]
+  F#          [<Public>] [<SignedIn>] [<Allow(typeof<Admin>)>]
+  C++         struct [[Topic]] [[SignedIn]] OrderPlaced   ([[Allow(Admin)]])
+
+What the server answers
+
+  404   no server model declares the topic
+  401   SignedIn or Allow, and nobody is signed in
+  403   the user has none of the allowed roles
+  503   a client address already holds 16 topic streams
+
+Build errors
+
+  TY1322   a server Topic without an access marker, an unknown role, or
+           two languages that write different rules for one topic
+  TY1323   SignedIn or Allow without an identity provider
+  TY1308   an access marker on a client topic model

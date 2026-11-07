@@ -1,0 +1,12 @@
+@ErrorHandler
+export class OrdersErrorHandler {
+  /**
+   * @param {OrderNotFound} error
+   * @returns {Problem}
+   */
+  @HandlesError
+  @ResponseStatus(404)
+  missing(error) {
+    return { code: 'order-not-found' }
+  }
+}

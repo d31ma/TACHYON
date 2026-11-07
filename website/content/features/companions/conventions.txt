@@ -1,0 +1,18 @@
+Service                         one class per client/services/<Name>Service file
+Lifetime({"value":"prototype"}) one instance per component instead of per page
+OnStart                         initialized owner and DOM
+OnStop                          owned cleanup
+applicationEventPublisher       declared field; publishEvent(model[, retain])
+OnEvent({replay,condition,id})  listener for the model type of its parameter
+Order(n) / InBackground         listener order; detached delivery
+Needs <name>                    view, lifecycle, resourceLoader, taskScheduler,
+                                applicationEventPublisher
+Needs / Named("Name")           injected field; named provider when it differs
+SessionState / LocalState       field kept for this tab / across visits
+
+Spring has the same ideas: Service, Scope, lifecycle, ApplicationEventPublisher
+and named resources, through Jakarta annotations. Tachyon uses plain English
+names for them (ADR 0047). The browser resource contracts are Tachyon-specific.
+An OnEvent listener for a Topic model opens the topic stream itself;
+StreamRequest on an HTTPClient method (JavaScript, TypeScript, Go, Kotlin, Java, C#, Python, F# and C++) reads
+any other stream.

@@ -1,0 +1,6 @@
+@Test(PythonGreetingTestSetup, {"partition":"tests"})
+class PythonGreetingServiceTest:
+    async def test_greet_changes_the_message(self):
+        greeting = PythonGreetingService()
+        greeting.greet()
+        Assert.equals("Python says hello again.", greeting.message)

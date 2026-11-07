@@ -1,0 +1,177 @@
+#!/usr/bin/env node
+import assert from 'node:assert/strict'
+import { spawnSync } from 'node:child_process'
+import { existsSync, mkdtempSync, readdirSync, statSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { CargoArtifacts } from '../cargo-artifacts.mjs'
+import { SupervisedCommand } from '../supervised-command.mjs'
+import { PageServicesFixture } from '../native/page-services-fixture.mjs'
+import { LinuxDisplaySession } from './linux-display-session.mjs'
+
+class LinuxPageServicesTest {
+  static repository = fileURLToPath(new URL('../..', import.meta.url))
+  static binary = process.env.TAC_BIN ?? CargoArtifacts.path('debug/ty')
+  static root = mkdtempSync(path.join(process.env.TAC_PROBE_DIR ?? tmpdir(), 'linux-page-services-'))
+  static serviceLanguages = PageServicesFixture.list('TAC_LINUX_SERVICE_LANGUAGES', 'go,cs,fs,swift,kt,java,dart,rb,lua,hpp,py')
+  static windowCallers = PageServicesFixture.list('TAC_LINUX_WINDOW_CALLERS', 'swift,cs,kt')
+  static pickerCallers = PageServicesFixture.list('TAC_LINUX_PICKER_CALLERS', 'swift,cs,kt')
+  static aheadOfTimeLanguages = PageServicesFixture.list('TAC_LINUX_AOT_LANGUAGES', 'cs')
+  static storedField = process.env.TAC_LINUX_STORED_FIELD !== 'false'
+  static webAssemblySizes = {}
+  static tallySteps = PageServicesFixture.tallySteps
+  static reportSteps = PageServicesFixture.reportSteps
+  static display = process.env.TAC_LINUX_DISPLAY ?? 'x11'
+  static screen = '1600x1200'
+
+  /** @param {string} command @param {string[]} args @param {import('../supervised-command.mjs').CommandOptions} options */
+  static async run(command, args, options) {
+    const result = await SupervisedCommand.run(command, args, { cwd: this.repository, ...options })
+    assert.ok(result.status === 0 && result.cleanupConfirmed, `${command} ${args.join(' ')}\n${result.error?.message ?? ''}\n${result.stdout}${result.stderr}`)
+    return result.stdout
+  }
+
+  /** @param {string} project @param {string} application @param {Array<[string, unknown]>} steps @param {Record<string, string>} settings */
+  static async drive(project, application, steps, settings = {}) {
+    const app = path.join(project, 'dist/linux', application, 'bin', application)
+    const script = `set -euo pipefail
+if [[ -n "\${WINDOW_MANAGER:-}" ]]; then xfwm4 --compositor=off --sm-client-disable >/dev/null 2>&1 & sleep 1; fi
+"$APP" &
+host=$!
+trap 'kill "$host" 2>/dev/null || true; wait "$host" 2>/dev/null || true' EXIT
+timeout 300s python3 "$PROBE" "$STEPS"
+tree=$host
+pending=$host
+while [[ -n "$pending" ]]; do
+  pending=$(for parent in $pending; do pgrep -P "$parent" || true; done | tr '\\n' ' ')
+  tree="$tree $pending"
+done
+echo "MEMORY: $(ps -o rss= -p "$(echo $tree | tr ' ' ',')" | awk '{ total += $1 } END { printf "%.0f", total / 1024 }') MiB resident in the app and its web processes"`
+    const session = LinuxDisplaySession.of(this.display, script, this.screen, project)
+    const env = {
+      ...process.env,
+      APP: app,
+      PROBE: path.join(this.repository, 'scripts/linux/page-steps-probe.py'),
+      STEPS: JSON.stringify(steps),
+      TAC_PROBE_APPLICATION: application,
+      XDG_STATE_HOME: path.join(project, 'state'),
+      XDG_DATA_HOME: path.join(project, 'data'),
+      XDG_CACHE_HOME: path.join(project, 'cache'),
+      GTK_A11Y: 'atspi',
+      LIBGL_ALWAYS_SOFTWARE: '1',
+      WEBKIT_DMABUF_RENDERER_FORCE_SHM: '1',
+      ...settings,
+      ...session.env,
+    }
+    const output = await this.run(session.command, session.args, { env, timeoutMilliseconds: 360000 })
+    return output.split('\n').filter(line => /^(OK|LOADED|MEMORY|PASS)/.test(line)).join('\n')
+  }
+
+  /** @param {string} project */
+  static async build(project) {
+    return await this.run(this.binary, ['build', project, '--target', 'linux'], { timeoutMilliseconds: 1800000 })
+  }
+
+  /** @param {string} project @param {string} application */
+  static dotnetRuntimeBytes(project, application) {
+    const framework = path.join(project, 'dist/linux', application, 'resources/WebBundle/.tachyon/services/dotnet/_framework')
+    const runtime = readdirSync(framework).find(name => /^dotnet\.native\..*\.wasm$/.test(name))
+    return runtime ? statSync(path.join(framework, runtime)).size : 0
+  }
+
+  static webKitVersion() {
+    const script = "import gi; gi.require_version('WebKit', '6.0'); from gi.repository import WebKit; print(f'{WebKit.get_major_version()}.{WebKit.get_minor_version()}.{WebKit.get_micro_version()}')"
+    const found = spawnSync('python3', ['-c', script], { encoding: 'utf8' })
+    assert.equal(found.status, 0, `python3 could not read the WebKitGTK version: ${found.stderr}`)
+    return found.stdout.trim()
+  }
+
+  static async checkScopedStyle() {
+    const project = path.join(this.root, 'scoped-style')
+    const application = PageServicesFixture.stageScopedStyle(project)
+    const built = await this.build(project)
+    assert.match(built, /component styles use CSS @scope, which WebKitGTK 2\.44 or newer runs/, 'the Linux build notes the WebKitGTK that runs @scope')
+    const version = this.webKitVersion()
+    const [major, minor] = version.split('.').map(Number)
+    const verdict = major * 1000 + minor >= 2044 ? 'Style stays inside its component' : 'Style dropped'
+    const output = await this.drive(project, application, [['wait', [verdict]]])
+    console.log(`==> WebKitGTK ${version}: ${verdict} (a component tac.css rule against its own paragraph, a nested component's and a sibling component's)\n${output}`)
+  }
+
+  /** @param {string} language */
+  static async checkService(language) {
+    const project = path.join(this.root, `tally-${language}`)
+    const application = PageServicesFixture.stageTally(project, language)
+    const started = Date.now()
+    await this.build(project)
+    const built = ((Date.now() - started) / 1000).toFixed(0)
+    if (this.aheadOfTimeLanguages.includes(language)) this.webAssemblySizes[language] = this.dotnetRuntimeBytes(project, application)
+    const output = await this.drive(project, application, this.tallySteps)
+    console.log(`==> ${language} WebAssembly page service (built in ${built} s)\n${output}`)
+  }
+
+  /** @param {string} language */
+  static async checkAheadOfTime(language) {
+    const project = path.join(this.root, `tally-${language}-aot`)
+    const application = PageServicesFixture.stageTally(project, language, { dotnet: { aot: true } })
+    const started = Date.now()
+    await this.build(project)
+    const built = ((Date.now() - started) / 1000).toFixed(0)
+    const bytes = this.dotnetRuntimeBytes(project, application)
+    const interpreted = this.webAssemblySizes[language] ?? 0
+    assert.ok(interpreted > 0 && bytes > interpreted, `${language}: dotnet.native.wasm compiled ahead of time (${bytes} bytes) must be larger than the interpreter's (${interpreted} bytes); run the ${language} service first`)
+    const output = await this.drive(project, application, this.tallySteps)
+    const megabytes = (size) => (size / 1000000).toFixed(2)
+    console.log(`==> ${language} WebAssembly page service compiled ahead of time (built in ${built} s, dotnet.native.wasm ${megabytes(bytes)} MB against ${megabytes(interpreted)} MB without AOT)\n${output}`)
+  }
+
+  static async checkStoredField() {
+    const project = path.join(this.root, 'stored-field')
+    const application = PageServicesFixture.stageStoredField(project)
+    await this.build(project)
+    assert.ok(existsSync(path.join(project, 'dist/linux', application, 'bin/libtachyoncompanion.so')), 'the Rust service is not linked into the Linux app')
+    const output = await this.drive(project, application, PageServicesFixture.storedFieldSteps)
+    console.log(`==> a linked Rust service's @LocalState field, set by its own method, after a page reload\n${output}`)
+  }
+
+  /** @param {string} language */
+  static async checkWindowCaller(language) {
+    const project = path.join(this.root, `window-${language}`)
+    const application = PageServicesFixture.stageWindowCaller(project, language)
+    await this.build(project)
+    const output = await this.drive(project, application, this.reportSteps)
+    console.log(`==> ${language} WebAssembly WindowControls caller\n${output}`)
+  }
+
+  /** @param {string} language */
+  static async checkPickerCaller(language) {
+    const project = path.join(this.root, `picker-${language}`)
+    const { application, notes } = PageServicesFixture.stagePicker(project, language)
+    await this.build(project)
+    const [read, cancelled] = PageServicesFixture.pickerStatuses[language]
+    const steps = [
+      ['wait', ['Choose a text file', 'Ready']],
+      // The keys of linux_file_picker_fixture.c: select the location entry's text, paste the path, and press Delete
+      // to drop any inline completion before Return. Typing the path races GTK 4.18's inline completion.
+      ['pick', { control: 'Choose file', keys: ['ctrl+l', 'ctrl+a', { paste: notes }, 'Delete', 'Return'] }],
+      ['wait', [read]],
+      ['pick', { control: 'Choose file', keys: ['Escape'] }],
+      ['wait', [cancelled]],
+    ]
+    const output = await this.drive(project, application, steps, this.display === 'x11' ? { WINDOW_MANAGER: '1' } : {})
+    console.log(`==> ${language} WebAssembly FilePicker caller\n${output}`)
+  }
+
+  static async main() {
+    if (process.env.TAC_LINUX_SCOPED_STYLE !== 'false') await this.checkScopedStyle()
+    for (const language of this.serviceLanguages) await this.checkService(language)
+    for (const language of this.windowCallers) await this.checkWindowCaller(language)
+    for (const language of this.pickerCallers) await this.checkPickerCaller(language)
+    for (const language of this.aheadOfTimeLanguages) await this.checkAheadOfTime(language)
+    if (this.storedField) await this.checkStoredField()
+    console.log(`PASS: WebAssembly page services (${this.serviceLanguages.join(', ')}) answered in the packaged Linux app, WindowControls callers (${this.windowCallers.join(', ')}) renamed and resized its window, FilePicker callers (${this.pickerCallers.join(', ')}) chose, read and cancelled through the file dialog, ahead-of-time services (${this.aheadOfTimeLanguages.join(', ') || 'none'}) answered, and ${this.storedField ? 'a Rust-set @LocalState field survived a reload' : 'the stored field check was skipped'} (display: ${this.display}).`)
+  }
+}
+
+await LinuxPageServicesTest.main()

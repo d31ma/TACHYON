@@ -1,0 +1,81 @@
+{
+  "id": "views",
+  "title": "A view is not a document",
+  "group": "Tac views",
+  "summary": "Each page and each component has a view (an HTML template). The `tac.html` of a page places components. The `tac.html` of each component defines its content. The compiler creates the document around them. If a view contains a doctype, `<html>`, `<head>` or `<body>`, the build fails with `TY1307`. Tachyon cannot merge a head that you write with the head that it generates. A Python service also needs the `tac.python` runtime setting in `client/manifest.json`.",
+  "files": [
+    {
+      "name": "client/manifest.json",
+      "code": { "file": "client/manifest.json" }
+    },
+    {
+      "name": "client/pages/tac.html",
+      "code": { "file": "client/pages/tac.html" }
+    },
+    {
+      "name": "client/components/catalog/view/tac.html",
+      "code": { "file": "client/components/catalog/view/tac.html" }
+    },
+    {
+      "name": "client/services/CatalogService.js",
+      "code": { "file": "client/services/CatalogService.js" }
+    },
+    {
+      "name": "client/services/CatalogService.ts",
+      "code": { "file": "client/services/CatalogService.ts" }
+    },
+    {
+      "name": "client/services/CatalogService.dart",
+      "code": { "file": "client/services/CatalogService.dart" }
+    },
+    {
+      "name": "client/services/CatalogService.rs",
+      "code": { "file": "client/services/CatalogService.rs" }
+    },
+    {
+      "name": "client/services/CatalogService.go",
+      "code": { "file": "client/services/CatalogService.go" }
+    },
+    {
+      "name": "client/services/CatalogService.rb",
+      "code": { "file": "client/services/CatalogService.rb" }
+    },
+    {
+      "name": "client/services/CatalogService.lua",
+      "code": { "file": "client/services/CatalogService.lua" }
+    },
+    {
+      "name": "client/services/CatalogService.py",
+      "code": { "file": "client/services/CatalogService.py" }
+    },
+    {
+      "name": "client/services/CatalogService.swift",
+      "code": { "file": "client/services/CatalogService.swift" }
+    },
+    {
+      "name": "client/services/CatalogService.kt",
+      "code": { "file": "client/services/CatalogService.kt" }
+    },
+    {
+      "name": "client/services/CatalogService.java",
+      "code": { "file": "client/services/CatalogService.java" }
+    },
+    {
+      "name": "client/services/CatalogService.cs",
+      "code": { "file": "client/services/CatalogService.cs" }
+    },
+    {
+      "name": "client/services/CatalogService.fs",
+      "code": { "file": "client/services/CatalogService.fs" }
+    },
+    {
+      "name": "emitted",
+      "code": { "file": "emitted.html" }
+    },
+    {
+      "name": "client/services/CatalogService.hpp",
+      "code": { "file": "client/services/CatalogService.hpp" }
+    }
+  ],
+  "verify": "tac"
+}

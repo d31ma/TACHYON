@@ -1,0 +1,183 @@
+{
+  "id": "companion-publish",
+  "title": "Compiled services publish to the page",
+  "summary": "Native services, WebAssembly services and JavaScript, TypeScript or Dart browser services inject an `ApplicationEventPublisher` for local events. `OnEvent` receives the events, and `OnStart`/`OnStop` run when the service starts and stops. Call the publisher to publish an event. A listener that is not `InBackground` can also return a model value. The runtime then publishes it as the model named by the return type of the listener. Each activation gets a new ID. The runtime rejects callbacks from an old activation. Each example publishes a `CatalogCount` model when it starts and updates its count in a listener for that model. Ruby names the model of a listener in a YARD tag, # @param value [CatalogCount]. Lua names it in a LuaCATS tag, ---@param value CatalogCount, and publishes a model table, setmetatable({ count = 5 }, CatalogCount), through its application_event_publisher field. F# takes the publisher as a constructor parameter, `type CatalogService(applicationEventPublisher: ApplicationEventPublisher)`. Python declares an `application_event_publisher: ApplicationEventPublisher` field, names the model of a listener in its type hint, `value: CatalogCount`, and publishes a dataclass, `CatalogCount(5)`. C++ declares an `ApplicationEventPublisher applicationEventPublisher;` field, takes the model as `const CatalogCount& value` in its `[[OnEvent]]` method, and publishes `CatalogCount{5}`. The JavaScript `CatalogService` only listens, to events published by its native or WebAssembly counterpart.",
+  "group": "Native",
+  "files": [
+    {
+      "name": "client/services/CatalogService.js",
+      "code": {
+        "file": "client/services/CatalogService.js"
+      }
+    },
+    {
+      "name": "client/pages/tac.html",
+      "code": {
+        "file": "client/pages/tac.html"
+      }
+    },
+    {
+      "name": "client/components/catalog/count/tac.html",
+      "code": {
+        "file": "client/components/catalog/count/tac.html"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.swift",
+      "code": {
+        "file": "client/services/CatalogService.swift"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.kt",
+      "code": {
+        "file": "client/services/CatalogService.kt"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.cs",
+      "code": {
+        "file": "client/services/CatalogService.cs"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.rs",
+      "code": {
+        "file": "client/services/CatalogService.rs"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.go",
+      "code": {
+        "file": "client/services/CatalogService.go"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.ts",
+      "code": {
+        "file": "client/services/CatalogService.ts"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.dart",
+      "code": {
+        "file": "client/services/CatalogService.dart"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.rb",
+      "code": {
+        "file": "client/services/CatalogService.rb"
+      }
+    },
+    {
+      "name": "client/models/CatalogCount.swift",
+      "code": {
+        "file": "client/models/CatalogCount.swift"
+      }
+    },
+    {
+      "name": "client/models/CatalogCount.kt",
+      "code": {
+        "file": "client/models/CatalogCount.kt"
+      }
+    },
+    {
+      "name": "client/models/CatalogCount.cs",
+      "code": {
+        "file": "client/models/CatalogCount.cs"
+      }
+    },
+    {
+      "name": "client/models/CatalogCount.rs",
+      "code": {
+        "file": "client/models/CatalogCount.rs"
+      }
+    },
+    {
+      "name": "client/models/CatalogCount.go",
+      "code": {
+        "file": "client/models/CatalogCount.go"
+      }
+    },
+    {
+      "name": "client/models/CatalogCount.ts",
+      "code": {
+        "file": "client/models/CatalogCount.ts"
+      }
+    },
+    {
+      "name": "client/models/CatalogCount.dart",
+      "code": {
+        "file": "client/models/CatalogCount.dart"
+      }
+    },
+    {
+      "name": "client/models/CatalogCount.rb",
+      "code": {
+        "file": "client/models/CatalogCount.rb"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.java",
+      "code": {
+        "file": "client/services/CatalogService.java"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.fs",
+      "code": {
+        "file": "client/services/CatalogService.fs"
+      }
+    },
+    {
+      "name": "client/models/CatalogCount.java",
+      "code": {
+        "file": "client/models/CatalogCount.java"
+      }
+    },
+    {
+      "name": "client/models/CatalogCount.fs",
+      "code": {
+        "file": "client/models/CatalogCount.fs"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.lua",
+      "code": {
+        "file": "client/services/CatalogService.lua"
+      }
+    },
+    {
+      "name": "client/models/CatalogCount.lua",
+      "code": {
+        "file": "client/models/CatalogCount.lua"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.py",
+      "code": {
+        "file": "client/services/CatalogService.py"
+      }
+    },
+    {
+      "name": "client/models/CatalogCount.py",
+      "code": {
+        "file": "client/models/CatalogCount.py"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.hpp",
+      "code": {
+        "file": "client/services/CatalogService.hpp"
+      }
+    },
+    {
+      "name": "client/models/CatalogCount.hpp",
+      "code": {
+        "file": "client/models/CatalogCount.hpp"
+      }
+    }
+  ],
+  "axis": "language"
+}

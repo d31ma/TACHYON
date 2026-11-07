@@ -1,0 +1,96 @@
+use super::build_stage::BuildStage;
+use super::component_script::ComponentScript;
+use super::portable_path::PortablePath;
+use super::setup_sharing::SetupSharing;
+use super::typescript_compiler::TypeScriptCompiler;
+use crate::Failure;
+use std::fs;
+use std::path::{Path, PathBuf};
+
+pub(super) struct ServiceScript {
+    pub(super) bytes: Vec<u8>,
+    pub(super) behavior_runtime: bool,
+}
+
+impl ServiceScript {
+    const RUNTIME: &'static str = include_str!("../behavior/runtime.js");
+    const RUNTIME_PATH: &'static str = ".tachyon/behavior-runtime.js";
+    const RUNTIME_FACTORY: &'static str = "__tachyon_create_behaviors__";
+
+    pub(super) async fn module(
+        tools_root: &Path,
+        snapshot_root: &Path,
+        source: &Path,
+    ) -> Result<Self, Failure> {
+        let portable = PortablePath::of(source.strip_prefix(snapshot_root).unwrap_or(source));
+        let authored = ComponentScript::prepare_captured(
+            snapshot_root,
+            BuildStage::output_io(fs::read(source), source)?,
+            &portable,
+        )?;
+        let mut module = Self::separated(authored);
+        module.bytes =
+            Self::compiled(tools_root, snapshot_root, source, &portable, module.bytes).await?;
+        Ok(module)
+    }
+
+    fn separated(mut bytes: Vec<u8>) -> Self {
+        let offset = String::from_utf8_lossy(&bytes).rfind(Self::RUNTIME);
+        if let Some(offset) = offset {
+            bytes.drain(offset..offset + Self::RUNTIME.len());
+        }
+        Self {
+            bytes,
+            behavior_runtime: offset.is_some(),
+        }
+    }
+
+    pub(super) fn linked(bytes: Vec<u8>, shared: bool, setups: &SetupSharing) -> Vec<u8> {
+        Self::linked_bytes(bytes, shared, setups)
+    }
+
+    fn linked_bytes(bytes: Vec<u8>, shared: bool, setups: &SetupSharing) -> Vec<u8> {
+        if !shared {
+            return bytes;
+        }
+        let (bytes, setup_names) = setups.without_setups(&bytes);
+        let mut output = Self::runtime_import(setup_names);
+        output.extend(bytes);
+        output
+    }
+
+    fn runtime_import(setup_names: Vec<String>) -> Vec<u8> {
+        let mut names = vec![String::from(Self::RUNTIME_FACTORY)];
+        names.extend(setup_names);
+        let names = names.join(", ");
+        format!("import {{ {names} }} from '../behavior-runtime.js';\n").into_bytes()
+    }
+
+    pub(super) fn runtime(enabled: bool, setups: &SetupSharing) -> Option<(PathBuf, Vec<u8>)> {
+        enabled.then(|| {
+            let mut source = b"export ".to_vec();
+            source.extend_from_slice(
+                crate::template::ShippedScript::compact(Self::RUNTIME).as_bytes(),
+            );
+            source.extend(setups.exports());
+            (PathBuf::from(Self::RUNTIME_PATH), source)
+        })
+    }
+
+    pub(super) fn has_extension(path: &Path, extension: &str) -> bool {
+        path.extension().is_some_and(|value| value == extension)
+    }
+
+    async fn compiled(
+        tools_root: &Path,
+        snapshot_root: &Path,
+        source: &Path,
+        portable: &str,
+        authored: Vec<u8>,
+    ) -> Result<Vec<u8>, Failure> {
+        if !Self::has_extension(source, "ts") {
+            return Ok(authored);
+        }
+        TypeScriptCompiler::transpile(tools_root, snapshot_root, source, portable, &authored).await
+    }
+}

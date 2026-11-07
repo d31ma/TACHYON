@@ -1,0 +1,5 @@
+{
+  "heading": "Shared data and the page",
+  "body": "Content that is only data needs no service. A view reads client/shared/data/<name>.json as data.<name>. The file loads once per page as a JSON module. If no file exists for a name, the build fails with TY1311. page.path is the page's own path. page.development is true while ty preview serves the page. A view passes these values to a service as properties. So a service does not need to read location or the document itself. Every view has data and page built in. So no service can use either name as its instance name (ADR 0036; an ADR is an architecture decision record).",
+  "code": { "file": "example.html" }
+}

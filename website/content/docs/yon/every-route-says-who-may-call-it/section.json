@@ -1,0 +1,7 @@
+{
+  "heading": "Every route says who may call it",
+  "body": "Tachyon refuses every route until you say who may call it, like Spring Security when it denies by default. Write `Public`, `SignedIn` or `Allow` on the controller class or on a route method. `Public` means anyone may call the route. `SignedIn` means any signed-in user may call it. `Allow(Admin)` means only a signed-in user with the role `Admin` may call it; name more roles with commas. The rule on a method wins over the rule on its class. A route without a rule stops the build with `TY1322`, and no setting turns this check off.",
+  "code": {
+    "file": "example.txt"
+  }
+}

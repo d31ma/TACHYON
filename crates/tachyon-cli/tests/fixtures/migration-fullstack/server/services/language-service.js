@@ -27,15 +27,12 @@ export default class LanguageService {
     }
 
     /**
-     * Drives the full FYLO machine interface from a dedicated route. Heavy
-     * (≈25 subprocess spawns) and only meant to be invoked deliberately —
-     * it is intentionally NOT part of the lightweight diagnostics response.
-     *
      * @param {Record<string, any>} request
      * @returns {Promise<Record<string, unknown>>}
      */
     async fyloDemo(request) {
-        return await this.fyloRepository.demonstrateAll(String(request.context?.requestId ?? 'unknown'));
+        const requestId = String(request.context?.requestId ?? 'unknown');
+        return await this.fyloRepository.demonstrateAll(requestId);
     }
 
     /**
@@ -61,5 +58,4 @@ export default class LanguageService {
             snapshot: this.repository.snapshot({ requestId: request.context?.requestId }),
         };
     }
-
 }

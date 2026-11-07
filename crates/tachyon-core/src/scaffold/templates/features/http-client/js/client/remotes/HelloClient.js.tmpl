@@ -1,0 +1,6 @@
+@HTTPClient
+export default class HelloClient {
+  /** @returns {Promise<Hello | void>} */
+  @GetRequest("/api/hello")
+  async getHello() {}
+}

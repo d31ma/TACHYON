@@ -1,0 +1,6 @@
+{
+  "ts": [
+    "server/features/money/services/MoneyService.ts",
+    "server/features/money/controllers/MoneyController.ts"
+  ]
+}

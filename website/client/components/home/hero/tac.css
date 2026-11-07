@@ -1,0 +1,165 @@
+@layer brand {
+.w-btn {
+font-size: var(--step-sm);
+  line-height: 1.5;
+}
+
+w-container {
+max-width: min(94vw, 84rem);
+  padding-inline: var(--gutter);
+}
+
+.text-gradient {
+background: var(--tachyon-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.section {
+padding-block: var(--section-space);
+}
+
+.eyebrow {
+display: block;
+  font-size: var(--step-xs);
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--w-primary);
+}
+
+.section-lede {
+margin: 1rem auto 0;
+  max-width: 62ch;
+  font-size: var(--step-md);
+  line-height: 1.6;
+  color: var(--w-text-subtle);
+  text-wrap: pretty;
+}
+
+.docs-article :is(p, li, h1, h2, h3) {
+max-width: var(--text-measure);
+  overflow-wrap: break-word;
+}
+
+.hero-glow {
+position: relative;
+  isolation: isolate;
+  overflow: clip;
+}
+
+.hero-glow::before {
+content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(ellipse 55% 55% at 50% 12%,
+    color-mix(in srgb, var(--tachyon-from) 15%, transparent), transparent 70%);
+}
+
+.command {
+margin-block: 1em;
+  display: flex;
+  max-width: 100%;
+  align-items: center;
+  gap: clamp(.4rem, .2rem + .8vw, .75rem);
+  padding: .7rem .7rem .7rem clamp(.8rem, .6rem + .6vw, 1.1rem);
+  background: var(--w-surface-container-low);
+  border: 1px solid var(--w-border);
+  border-radius: 999px;
+  font-family: var(--tachyon-mono);
+  font-size: var(--step-sm);
+  text-align: left;
+}
+
+.command__prompt {
+color: var(--w-primary);
+  user-select: none;
+}
+
+.command__text {
+overflow-x: auto;
+  white-space: nowrap;
+  scrollbar-width: none;
+}
+
+.hero-title {
+line-height: 1.02;
+  font-size: var(--step-hero);
+}
+
+.hero-promise {
+max-width: 26ch;
+  font-size: var(--step-lg);
+  font-weight: 500;
+}
+
+@media (pointer: coarse) {
+.w-btn,
+  w-btn > .w-btn,
+  nav a,
+  footer a {
+min-height: 44px;
+}
+}
+
+@media (prefers-contrast: more) {
+.section-lede {
+color: var(--w-text);
+}
+}
+}
+
+/* @tachyon-generated-tailwind:start */
+/*! tailwindcss v4.3.3 | MIT License | https://tailwindcss.com */
+@layer properties;
+@layer utilities {
+  .mx-auto {
+    margin-inline: auto;
+  }
+  .mt-3 {
+    margin-top: calc(var(--spacing, 0.25rem) * 3);
+  }
+  .mt-4 {
+    margin-top: calc(var(--spacing, 0.25rem) * 4);
+  }
+  .mt-6 {
+    margin-top: calc(var(--spacing, 0.25rem) * 6);
+  }
+  .mt-8 {
+    margin-top: calc(var(--spacing, 0.25rem) * 8);
+  }
+  .flex-wrap {
+    flex-wrap: wrap;
+  }
+  .justify-center {
+    justify-content: center;
+  }
+  .text-center {
+    text-align: center;
+  }
+  .font-bold {
+    --tw-font-weight: var(--font-weight-bold, 700);
+    font-weight: var(--font-weight-bold, 700);
+  }
+  .tracking-tight {
+    --tw-tracking: var(--tracking-tight, -0.025em);
+    letter-spacing: var(--tracking-tight, -0.025em);
+  }
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+
+@layer properties {
+  @supports ((-webkit-hyphens: none) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color:rgb(from red r g b)))) {
+    *, ::before, ::after, ::backdrop {
+      --tw-font-weight: initial;
+      --tw-tracking: initial;
+    }
+  }
+}
+/* @tachyon-generated-tailwind:end */

@@ -1,24 +1,96 @@
 # Tachyon Rust Rewrite Threat Model
 
-Toolchains and project hooks are untrusted child process trees. Tachyon bounds
-their wall time and retained output and terminates the complete POSIX process
-group or Windows Job Object on completion, cancellation, or timeout. Topic log
-subscriptions accept only bounded slugs, reject symlink/non-regular or
-identity-raced inputs, cap cumulative reads at 16 MiB, and evict lagging or
-over-capacity subscribers without exposing filesystem details. Topic errors
-use a named `topic-error` SSE event with canonical sanitized JSON; they never
-reuse the handler-stream `error`/`TY2107` contract or include raw log content.
+Tachyon treats toolchains and project hooks as untrusted child process trees.
+For each of them, Tachyon:
+
+- limits the wall-clock time and the amount of output it keeps;
+- ends the whole POSIX process group or Windows Job Object on completion,
+  cancellation or timeout.
+
+Topic log subscriptions have these controls:
+
+- They follow the access rule of the topic's server model (`@Public`,
+  `@SignedIn` or `@Allow(Role)`, ADR 0061 amended 2026-10-31). A server
+  topic without a rule fails the build (`TY1322`). The server runs the same
+  `RouteGuard` as for a route before it opens a topic: 401 without an
+  identity, 403 without one of the roles, 500 when the identity provider
+  fails. A refused caller reads no log line and takes no subscriber slot.
+- They open only topics that a server model declares. Any other slug answers
+  404, so made-up names cannot use up the 32 active topics.
+- One client address holds at most 16 of the 128 subscriber slots, so one
+  client cannot lock out every other subscriber.
+- They accept only bounded slugs (short, URL-safe names).
+- They reject inputs that are symlinks, that are not regular files, or whose
+  identity changes during the check (a race).
+- They read at most 16 MiB in total.
+- They remove subscribers that fall behind or go over capacity, without
+  showing filesystem details.
+- Topic errors use a named `topic-error` SSE (server-sent events) event with
+  canonical, sanitized JSON. They never reuse the handler-stream
+  `error`/`TY2107` contract, and they never include raw log content.
 
 ## Scope
 
-This model covers project discovery, HTML and companion parsing, compiler
-inputs and outputs, route manifests, handler processes, development and
-production servers, generated web artifacts, native web-view hosts,
-capability bridges, caches, installers, update channels, release
-artifacts, and CI.
+This model covers:
 
-It is a living model. Every vertical slice updates concrete data flows,
-trust boundaries, abuse cases, and validation evidence.
+- project discovery;
+- HTML and companion parsing;
+- compiler inputs and outputs;
+- route manifests;
+- handler processes;
+- development and production servers;
+- generated web artifacts;
+- native web-view hosts;
+- capability bridges;
+- caches;
+- installers;
+- update channels;
+- release artifacts;
+- CI.
+
+This model is updated continuously. Every vertical slice (each end-to-end
+feature) updates its concrete data flows, trust boundaries, abuse cases and
+validation evidence.
+
+### Yon annotation frontend
+
+Controller and provider markers are untrusted source syntax. They never give
+authority:
+
+- `Service`, `Repository`, `Client` and `Delegate` do not grant network,
+  filesystem or process capabilities.
+- The bounded frontend produces direct constructor calls. It does not evaluate
+  annotation expressions, and it does not import application code.
+- It rejects unresolved tokens, cycles, capture of a request-lifetime value by
+  a singleton, duplicate registration and unsupported declaration shapes.
+
+Limits:
+
+| Item | Limit |
+| --- | --- |
+| Source size | 1 MiB |
+| Providers | 128 |
+| Dependency edges per provider | 32 |
+| Identifier length | 128 bytes |
+| Instance constructions per invocation graph | 4,096 |
+
+The last limit stops transient providers from growing exponentially before any
+provider runs.
+
+Generated entries for interpreted languages:
+
+- Each generated entry has a digest-based name and sits next to the authored
+  file inside the project snapshot that Tachyon owns. So captured relative
+  imports still work.
+- Tachyon does not overwrite captured authored files.
+- When annotations are present, both process dispatch and Firecracker dispatch
+  use the generated entry. Neither opens the authored project path again.
+- Discovery captures streaming metadata once. Tachyon does not parse it again
+  from changeable source on each request.
+
+New parser and fuzz tests, and real dependency injection (DI) tests for all
+eight adapters, cover this boundary. These guarantees do not make an
+operator-owned Firecracker driver qualify as production isolation.
 
 ## Assets
 
@@ -63,57 +135,101 @@ trust boundaries, abuse cases, and validation evidence.
 | Handler denial of service | bounded frames, deadlines, cancellation, concurrency limits, process memory/CPU policy, forced termination |
 | Handler protocol desynchronization | four-byte length framing, maximum frame, strict schema, request IDs, stderr separation |
 | Isolation downgrade by application source | parent-environment-only selection; no project or request override; invalid and partial policy fails closed |
-| False Firecracker assurance | absolute regular non-symlinked and non-group/world-writable control-program path; bounded policy arguments; hardware-isolation claims require separate driver and host evidence |
-| Environment secret disclosure | allowlisted environment, redacted diagnostics, secret-canary tests |
-| SSRF and unrestricted egress | deny-by-default network capability, normalized origin allowlists, DNS/redirect revalidation, response limits |
+| False Firecracker assurance | control-program path must be absolute, a regular file, not a symlink, and not writable by group or others; bounded policy arguments; hardware-isolation claims require separate driver and host evidence |
+| Environment secret disclosure | allowlisted environment that configuration, not code, decides (`server.environment` names and `PREFIX_*` patterns; `*` and `ty`'s own `TAC_*`, `TACHYON_*`, `YON_*` and proxy variables are refused), redacted diagnostics that name variables but never values, secret-canary tests; relay programs and Gateway commands never receive `YON_APPLICATION_JSON` or `YON_RESOURCE_*`. This scrubbing stops accidental inheritance only. It is not a sandbox: a program that runs as the same operating-system user can still read its parent's environment (for example `/proc/<parent>/environ` on Linux) and the project's files |
+| Cross-language call confusion (`@Gateway`) | build-declared keys only, per-invocation bearer capability on a loopback endpoint, bounded JSON (1 MiB, depth 32, 10,000 values, 32 arguments), 64 calls and 4 concurrent calls per invocation, separate process pool, one hop, fixed error kinds with no target messages, refusal under Firecracker |
+| Client address spoofing through forwarding headers | `ty` is the first proxy: it removes `Forwarded`, `X-Forwarded-*` and `X-Real-IP` from any peer that is not in `server.proxies` (empty by default, loopback included) and writes the peer address itself; from a trusted proxy it appends its own hop and resolves `X-Real-IP` to the nearest untrusted address; native peer fields (Go `RemoteAddr`, `HttpExchange.getRemoteAddress()`, PHP `REMOTE_ADDR`) come from that value (ADR 0096) |
+| SSRF and unrestricted egress | deny-by-default network capability, normalized origin allowlists, DNS/redirect revalidation, response limits; the operating system confines every handler, relay and Gateway command to its server's outgoing guard and resource door (Seatbelt on macOS, Landlock and seccomp on Linux), and `ty start` refuses to start with `TY2113` when it cannot confine them (development servers warn) unless the operator sets `YON_EGRESS_ENFORCEMENT=proxy` (ADR 0113) |
 | Native bridge escalation | declared capabilities; bounded per-route registry; operation/member/payload checks; trusted main-frame local origin only |
 | Native origin confusion | canonical bundle resource mapping; frame and navigation guards; no remote bridge; no arbitrary file URLs |
-| Cache poisoning or path replacement | versioned cache keys include compiler, contract, target, config, and source digests; non-following directory capabilities; identity-checked cleanup; verified atomic writes; private runtime copies |
+| Cache poisoning or path replacement | versioned cache keys include compiler, contract, target, config, and source digests; directory capabilities that do not follow links; cleanup that checks identity; verified atomic writes; private runtime copies |
 | Malicious archive | bounded extraction, path and symlink validation, explicit manifest, digest verification |
 | Supply-chain compromise | locked dependencies, advisory/license/source policy, pinned actions, minimal release permissions, SBOM, provenance, signatures |
+| Application Go module download or substitution | Go handlers build offline with `GOPROXY=off` and `GOFLAGS=-mod=vendor`, so modules come only from the committed `server/packages/vendor/`; a missing or inconsistent vendor folder fails with `TY1368`; every vendored file is in the handler digest. Vendored code is not scanned and not verified against `go.sum` (ADR 0095 amendment) |
 | Compromised release job | protected environments, tag/version verification, native builders, attestations, post-upload verification |
 | Diagnostic data leakage | allowlisted structured fields, bounded snippets, no secrets or full environment dumps |
 | Development hot-update injection or stale execution | versioned typed messages, JSON serialization, text-only diagnostic rendering, same-origin generated modules, compiler-owned island boundaries, last-good output, and reload on ambiguity |
 
+In this table, "fails closed" means that the system refuses the action when it
+is not sure. SSRF means server-side request forgery. SBOM means software bill of
+materials.
+
 ## Reconciled request and browser boundaries
 
-The following describes implemented controls. These documentation updates
-are not a new assessment or signoff; the separate cybersecurity review for
-this reconciliation was waived by the user.
+This section describes controls that are implemented. These documentation
+updates are not a new security assessment or sign-off. The user waived the
+separate cybersecurity review for this reconciliation.
 
-- CHEX validates immutable captured schemas against private request files;
-  request bodies and authorization headers never enter argv or public errors.
-  Admission and execution share a deadline, concurrency is capped, and invalid
-  schema/tool startup fails before publication or socket readiness.
-- Browser response persistence is opt-in for same-origin credential-omitted
-  GET/HEAD requests. Authorization, cookie-bearing requests, private/no-store
-  responses, oversized bodies, and unsupported Vary responses bypass storage.
-  `Range`/`If-Range` requests bypass both cache lookup and persistence, including
-  offline fallback. `206` responses and responses with `Content-Range` are
-  excluded on both writes and reads of existing cache records.
-  Browser storage is not a secret store; $/$$ fields must not contain secrets.
-- Pub/sub and retained messages are bounded, detached on abort/unmount/HMR,
-  and do not acquire native authority merely by sharing a topic name.
-- Native companions are application-trusted code with host privileges, not
-  sandboxed plugins. Origin and route checks constrain who can invoke them;
-  they cannot make malicious compiled application code safe.
-- Android pins AndroidX WebKit `1.14.0` and uses its frame-aware asynchronous
-  message listener and document-bound reply proxy. There is no legacy
-  JavaScript-interface fallback; unsupported WebView runtimes report bridge
-  unavailability. Document calls are capped at 128 with ten-second deadlines;
-  one worker admits at most 128 queued requests. Navigation retires pending
-  replies and stale queued work; destruction shuts down the worker.
-- Apple hosts and Swift companions share Foundation JSON decoding and
-  canonical request serialization instead of the handwritten value scanner.
-  A byte-level guard enforces 64 KiB and 64-level limits and rejects duplicate
-  root keys before decoding. Dispatch uses the same canonical payload that
-  the host validated.
-- Native field snapshots use per-field revisions so delayed replies cannot
-  overwrite newer edits. Native-call timeout limits browser waiting, not
-  preemption or rollback of already-running companion code. Companions must
-  remain responsive; recovery from hung native work may require relaunch.
-- Historical native and WASM evidence later in this document is superseded
-  by ADRs 0018/0019 and must be requalified for this release.
+- **Request validation.** The server checks path, query, header and cookie
+  values and the JSON body against the model types of the controller method
+  before the handler runs (ADR 0048). The check runs inside the server
+  process, so request data never reaches an external program or its argv.
+  Model records refuse undeclared fields at every depth. Values nested more
+  than 32 levels deep are refused, and bodies larger than `yon.server.maxbody`
+  get 413. A refusal is a 400 answer that names the part and the declared
+  field path. It never repeats a request value, an undeclared field name or an
+  authorization header. A route type that names a missing or unreadable model
+  fails the build, before publication and before the socket is ready.
+- **Access to every entry point.** Every route, socket, topic stream and
+  `OPTIONS` answer goes through `RouteGuard`, which is deny by default
+  (ADR 0068). The only paths without a rule are the framework's own: static
+  files, the live-reload script, and the hot-update, live and diagnostics
+  endpoints that exist only in watch mode. `OPTIONS` shows the verbs and the
+  schema of the routes that the caller may call, and nothing to a caller who
+  may call none of them. A CORS preflight still answers first, without
+  credentials, as browsers require. The repository policy test
+  `every_dispatch_path_reaches_the_route_guard_or_is_declared_public` keeps
+  this so.
+- **Published API reference.** `/api.json` and `/api-docs/` are static files,
+  so every caller gets the same copy. They list only the routes that
+  `RouteGuard` lets a caller without an identity call (`@Public`), and only
+  the models those routes name. A guarded route and a model that only
+  guarded routes use are left out. A signed-in caller reads a guarded
+  route's schema from `OPTIONS`, after the guard. A project whose routes are
+  all guarded publishes neither file. `ty api freeze` and the `TY1338` check
+  still compare every route, guarded or not, in `server/api-baseline.json`,
+  which is not published. The repository policy test
+  `the_published_api_reference_shows_only_what_the_route_guard_allows_anonymously`
+  keeps this so.
+- **Browser response storage.** Storing responses is opt-in, and only for
+  same-origin GET or HEAD requests without credentials. These skip storage:
+  requests with Authorization, requests with cookies, private or no-store
+  responses, bodies that are too large, and unsupported Vary responses.
+  `Range`/`If-Range` requests skip both cache lookup and storage, including the
+  offline fallback. The cache excludes `206` responses and responses with
+  `Content-Range`, both when writing and when reading existing cache records.
+  Browser storage is not a secret store. `@SessionState` and `@LocalState`
+  fields, built-in Cache API caches and IndexedDB Stores must not contain
+  secrets.
+- **Pub/sub.** Published and retained messages are bounded. They are detached
+  on abort, unmount and HMR (hot module replacement). Sharing a topic name does
+  not give them native authority.
+- **Native services.** Native services are trusted application code with host
+  privileges. They are not sandboxed plugins. Checks on origin, route, service
+  and owner limit who can call them. These checks cannot make malicious
+  compiled application code safe.
+- **Android.** Android pins AndroidX WebKit `1.14.0`. It uses that library's
+  frame-aware asynchronous message listener and its reply proxy that is bound
+  to the document. There is no fallback to the legacy JavaScript interface,
+  because that interface answers every frame. A WebView runtime without the
+  listener gets a refusal page at startup that names the installed WebView,
+  and the app loads no page.
+  Limits: at most 128 calls per document, each with a ten-second deadline. One
+  worker accepts at most 128 queued requests. Navigation drops pending replies
+  and stale queued work. Destruction shuts down the worker.
+- **Apple.** Apple hosts and Swift services share Foundation JSON decoding and
+  canonical request serialization. They do not use the old handwritten value
+  scanner. Before decoding, a byte-level guard enforces a 64 KiB limit and a
+  64-level depth limit, and rejects duplicate root keys. Dispatch uses the same
+  canonical payload that the host validated.
+- **Native field snapshots.** Each field has its own revision number, so a late
+  reply cannot overwrite a newer edit. The native-call timeout limits how long
+  the browser waits. It does not stop or roll back native service code that is
+  already running. Services must stay responsive. Recovering from hung native
+  work may require restarting the application.
+- **Old evidence.** ADRs 0018 and 0019 replace the historical native and WASM
+  (WebAssembly) evidence later in this document. That evidence must be
+  qualified again for this release.
 
 ## Invariants enforced across both architectures
 
@@ -129,270 +245,500 @@ this reconciliation was waived by the user.
 ## Phase 0 Evidence
 
 - `unsafe_code = "forbid"` at workspace scope.
-- canonical contracts include rejected adversarial examples;
-- dependency licenses, sources, and advisories are policy-gated;
-- GitHub Actions are pinned to immutable commits;
-- release permissions are least-privilege and job-scoped;
-- public limitations are recorded in `docs/SUPPORT_TIERS.md`.
+- Canonical contracts include rejected adversarial examples.
+- A policy checks dependency licenses, sources and advisories.
+- GitHub Actions are pinned to fixed commits.
+- Release permissions are the smallest possible and are set per job.
+- `docs/SUPPORT_TIERS.md` records the public limitations.
 
 ## Phase 1 Evidence
 
-- Discovery opens one project capability, rejects symlinks at every traversed
-  component, and builds routes and layer diagnostics from bytes read through
-  that retained handle. Ambient root replacements cannot redirect views,
-  routes, components, shared assets, build/native configuration, or any of the
-  five layer roots during the pass. Web and native compilers consume the same
-  owned snapshot; native compilation does not perform a second discovery. The
-  development server likewise consumes one Project for its initial build,
-  routes, selected root middleware, captured worker schedules, and worker
-  HandlerSources. A root swap cannot mix those startup inputs. The server owns
-  the watcher and worker task set, cancels them with HTTP shutdown, boundedly
-  awaits settlement, and aborts any remainder on drop; no worker or rebuild
-  task is detached. Handler-stream bridges, hot-update SSE, and topic SSE are
-  tracked under the same cancellation token. Cancellation precedes Axum's
-  graceful connection wait and one global deadline bounds HTTP and task
-  settlement. Its final slice is reserved for aborting and join-draining both
-  task registries, preventing an infinite response from retaining a handler
-  child or blocking watcher/worker cleanup. Completed producer records are
-periodically reaped before shutdown, bounding registry retention by live
-work rather than historical request count. Worker schedule changes take effect on
-server restart, not during a web-only hot rebuild.
-An infinite handler stream is signalled and then fail-fast dropped through its
-supervised process-group guard; shutdown never polls cancellation-uncooperative
-producer work again. Task-registry draining yields at a bounded cadence so an
-immediately-ready backlog cannot starve the hard deadline.
-- HTML input is limited to 1 MiB, UTF-8, and NUL-free content; scripts, inline
-  event handlers, compiler control tags, and unresolved bare components fail
-  closed.
-- Builds write to a sibling staging directory and replace published output
-  only after every route and the manifest succeed; failures retain the previous
-  output.
-- The development server builds before binding, defaults to loopback, requires
-  explicit opt-in for non-loopback addresses, serves only generated files, and
-  emits CSP, frame, MIME-sniffing, referrer, and cache controls. Each watched
-  rebuild performs a fresh discovery and passes that Project to the compiler;
-  shutdown cancels and settles the owned watcher before returning.
-- Before the build or `--no-bundle` output check and before socket binding, the
-  development server runs deadline- and output-bounded synthetic capability
-  probes for the deduplicated runtime requirements of routes, root middleware,
-  and configured workers. Static-only projects probe nothing. Firecracker
-  readiness fails closed for unsupported discovered languages or an invalid
-  driver; it does not claim that a remote microVM pool is healthy. The C# probe
-  builds framework-owned source in a private temporary project with no package
-  sources, proving SDK/build capability instead of trusting a runtime list.
-- Real-binary tests cover missing routes and a raw traversal request in
-  addition to successful GET and HEAD behavior.
+- **One project capability.** Discovery opens one project capability (a handle
+  to the project directory). It rejects symlinks at every component it
+  traverses. It builds routes and layer diagnostics from bytes read through
+  that kept handle. So if something replaces the root during the pass, it
+  cannot redirect views, routes, components, shared assets, build or native
+  configuration, or any of the five layer roots.
+- **One snapshot.** Web and native compilers use the same owned snapshot.
+  Native compilation does not run discovery a second time.
+- **Development server startup.** The development server also uses one Project
+  for its initial build, its routes, the selected root middleware, the
+  captured worker schedules and the worker HandlerSources. A root swap cannot
+  mix those startup inputs.
+- **Task ownership.** The server owns the watcher and the set of worker tasks.
+  It cancels them with HTTP shutdown, waits a bounded time for them to finish,
+  and aborts anything left when it is dropped. No worker or rebuild task runs
+  detached. Handler-stream bridges, hot-update SSE and topic SSE use the same
+  cancellation token.
+- **Shutdown order.** Cancellation happens before Axum's graceful wait for
+  connections. One global deadline limits both HTTP and task settlement. The
+  last part of that deadline is kept for aborting and draining both task
+  registries. So an infinite response cannot keep a handler child alive or
+  block watcher and worker cleanup.
+- **Registry size.** The server regularly removes records of finished
+  producers before shutdown. So registry size depends on live work, not on the
+  total number of past requests.
+- **Worker schedules.** A change to worker schedules takes effect when the
+  server restarts, not during a web-only hot rebuild.
+- **Infinite handler streams.** Shutdown signals an infinite handler stream and
+  then drops it at once through its supervised process-group guard. Shutdown
+  never polls producer work that ignores cancellation again. Draining the task
+  registry yields at a bounded rate, so a backlog of tasks that are all ready
+  cannot delay the hard deadline.
+- **HTML input.** HTML input is limited to 1 MiB, must be UTF-8 and must not
+  contain NUL. Scripts, inline event handlers, compiler control tags and
+  unresolved bare components fail closed.
+- **Atomic builds.** Builds write to a staging directory next to the output.
+  They replace the published output only after every route and the manifest
+  succeed. A failure keeps the previous output.
+- **Development server defaults.** The development server builds before it
+  binds a socket. It uses loopback by default and requires an explicit opt-in
+  for other addresses. It serves only generated files. It sends CSP, frame,
+  MIME-sniffing, referrer and cache headers. A server bound to a loopback
+  address answers only a request whose `Host` name is a localhost name
+  (`localhost` or a name under `.localhost`), an IP address, the host of
+  `tac.origin`, or a name in `server.hosts`; any other name gets `403` with
+  `TY1366`, and a `Host` that cannot be read gets `400` (ADR 0094). This
+  closes DNS rebinding: a page on an attacker's name that re-points the name
+  to `127.0.0.1` sends its own name as `Host`, so it cannot read pages, call
+  Yon routes, open the hot-update stream or upgrade a WebSocket. The check
+  runs before routing in the development, production (`ty start`), preview
+  and error-page servers, and it does not depend on the browser. A server
+  opened to the network with `--allow-non-loopback` checks `Host` only when
+  `server.hosts` is set, so a reverse proxy keeps working. The same edge
+  treats forwarding headers as untrusted: from a peer that is not listed in
+  `server.proxies`, `ty` removes `Forwarded`, `X-Forwarded-For`,
+  `X-Forwarded-Host`, `X-Forwarded-Proto`, `X-Forwarded-Port`,
+  `X-Forwarded-Prefix` and `X-Real-IP` and writes the TCP peer address, so a
+  browser cannot make a handler, or a back end for front end that relays the
+  headers, believe a false client address. A listed proxy keeps its headers,
+  `ty` appends its own hop, and `X-Real-IP` names the nearest address that is
+  not a listed proxy. Tests send spoofed headers over a real connection and
+  check what JavaScript and Go handlers receive (ADR 0096). Each watched
+  rebuild runs a fresh discovery and passes that Project to the compiler.
+  Shutdown cancels the owned watcher and waits for it to finish before
+  returning.
+- **Capability probes.** Before the build (or the `--no-bundle` output check)
+  and before binding the socket, the development server runs synthetic
+  capability probes. The probes have a deadline and an output limit. They
+  cover the deduplicated runtime requirements of routes, root middleware and
+  configured workers. Static-only projects probe nothing. Firecracker
+  readiness fails closed for an unsupported discovered language or an invalid
+  driver. It does not claim that a remote microVM pool is healthy. The C# probe
+  builds source owned by the framework in a private temporary project with no
+  package sources. This proves that the SDK can build, instead of trusting a
+  list of runtimes.
+- **Tests.** Tests with the real binary cover missing routes and a raw
+  traversal request, in addition to successful GET and HEAD behavior.
 
 ## Phase 2 Evidence
 
-- Handler sources are project-contained, regular, non-symlinked files in the
-  eight owned Yon languages, with UTF-8, NUL, and 1 MiB validation. Sources in
-  the five server layer roots must declare the matching stereotype and class
-  suffix before runtime selection.
-- The validated bytes are copied into an owned project-shaped source snapshot.
-  Process adapters and the JavaScript/Python Firecracker source contract use
-  that immutable copy; the authored absolute path remains diagnostic metadata
-  and is never reopened as the handler program or working directory.
-  Standalone handler discovery captures the complete bounded, non-following
-  `server/**` tree so relative imports and relay programs resolve only from the
-  owned snapshot.
-- Runtime programs are spawned directly with fixed argument boundaries and no
-  shell. Embedded adapters are selected from the discovered source language;
-  arbitrary interpreter registration, shebang execution, executable-handler
-  fallback, and class-name inference are rejected.
-- A missing runtime is `TY2112` both during startup preflight and if it
-  disappears in the later spawn race. Terminal and JSON diagnostics identify
-  only the logical runtime or the relevant configuration variable. Structured
-  failure events add only the runtime family and `not_found` category; raw
-  override paths, OS errors, environment values, authored source, request
-  bodies, and child output are excluded.
-- Programs outside the owned language set cross only an explicit `@Delegate`
-  plus `@Relay` boundary. Delegate stdout and stderr are drained concurrently
-  under fixed bounds, public failures are redacted, and the supervisor retains
-  the absolute deadline and complete process-group cleanup boundary.
-- The child environment is cleared, then rebuilt from a small platform runtime
-  baseline and explicitly named allowlist entries. Tests prove a host value is
-  absent by default and present only when allowed.
-- Protocol stdout accepts one UTF-8 JSON response frame with a four-byte
-  big-endian length and 16 MiB maximum, or a declared stream of at most 100,000
-  events, 256 KiB per event, and 64 MiB total. Request IDs, kinds, versions,
-  fields, bodies, headers, statuses, and adapter error shapes are validated.
-- stderr is drained concurrently and capped at 64 KiB. Adapter console output,
-  exceptions, and syntax/load errors produce bounded public messages without
-  tracebacks or environment values.
-- One deadline covers semaphore admission, spawn, execution, response, pipe
-  settlement, and exit. Each invocation owns a POSIX process group or Windows
-  kill-on-close Job Object. Cancellation sends a typed frame before a 100 ms
-  default grace period; success, timeout, and cancellation terminate and
-  boundedly reap the complete process tree.
-- One process serves one request. Tests prove crash isolation and successful
-  recovery through a fresh child, plus forced termination of an infinite loop.
-- Real-process adversarial tests cover trailing-output smuggling, oversized
-  output, mismatched request IDs, stderr floods, missing methods and classes,
-  syntax errors, exceptions, non-serializable results, concurrency queue
-  expiry, Unicode paths and payloads, absent runtimes, and descendants that
-  inherit protocol pipes. HTTP dispatch returns only a request reference for
-  supervisor failures; a secret-canary test proves process diagnostics do not
-  cross the network boundary.
-- Stream failure sends one terminal, sanitized SSE `error` event containing a
-  stable code and request ID, whether failure occurs before the first value or
-  after partial delivery. Subscriber disconnect and deadline expiry terminate
-  and reap the complete process group.
-- Compiled handler artifacts are published atomically into a capability-confined
-  `.tachyon/handlers` cache whose recursively accounted inactive entries are
-  pruned to 256 entries and 512 MiB. Cache hits are copied into private runtime
-  workspaces before execution. Lock recovery verifies process liveness,
-  identity, and ownership token; a ten-minute lease bounds PID reuse.
+- **Handler sources.** Handler sources must be regular files inside the
+  project, not symlinks, in one of the ten owned Yon languages. Tachyon
+  checks UTF-8, NUL and a 1 MiB limit. Entry points must declare the fixed
+  plain `Handler` type before runtime selection. Application modules carry no
+  interpreted framework markers.
+- **Source snapshot.** Tachyon copies the validated bytes into an owned source
+  snapshot with the same shape as the project. Process adapters and the
+  JavaScript/Python Firecracker source contract use that fixed copy. The
+  authored absolute path stays only as diagnostic metadata. Tachyon never
+  opens it again as the handler program or working directory. Standalone
+  handler discovery captures the whole bounded `server/**` tree without
+  following links. So relative imports and relay programs resolve only from
+  the owned snapshot.
+- **Process start.** Tachyon starts runtime programs directly, with fixed
+  argument boundaries and no shell. It selects embedded adapters from the
+  language of the discovered source. It rejects arbitrary interpreter
+  registration, shebang execution, executable-handler fallback and guessing
+  from class names.
+- **Missing runtime.** A missing runtime is `TY2112`, both during startup
+  preflight and if the runtime disappears later, just before spawn (a race).
+  Terminal and JSON diagnostics name only the logical runtime or the relevant
+  configuration variable. Structured failure events add only the runtime
+  family and the `not_found` category. They exclude raw override paths, OS
+  errors, environment values, authored source, request bodies and child
+  output.
+- **Other languages.** Programs outside the owned language set run only
+  through an explicit `relay(command, request)` boundary or a `@Gateway`
+  command. Tachyon reads child stdout and stderr at the same time, under fixed
+  limits. Public failures are redacted. The supervisor keeps the absolute
+  deadline and the full process-group cleanup boundary. The supervisor writes
+  the time left into the request just before it writes the frame, so queue and
+  start-up time count. Each runner measures that budget from its own start and
+  keeps it private, so a changed request or a second relay cannot extend it.
+  A Gateway command gets only the baseline environment and the explicit
+  allowlist. A relay program gets the same, plus `YON_HANDLER_PROTOCOL` and
+  the `NO_PROXY` and `no_proxy` values of its handler. The baseline is `PATH`,
+  `LANG`, `LC_ALL` and `TMPDIR` on Unix, and `PATH`, `PATHEXT`, `SYSTEMROOT`,
+  `WINDIR`, `COMSPEC`, `TEMP` and `TMP` on Windows. `YON_APPLICATION_JSON`
+  and every `YON_RESOURCE_*` name are removed even when allowlisted (names
+  compared case-insensitively). This scrubbing prevents accidental
+  inheritance. It does not contain a hostile program: an outside program runs
+  as the same operating-system user, so it can read its parent's environment
+  (for example `/proc/<parent pid>/environ` on Linux) and every file the
+  project can read. Run a program you do not trust under separate isolation.
+  On Unix, a PHP relay maps every inherited descriptor above 2 to
+  `/dev/null`, so a relay program cannot write into the handler's response
+  stream. PHP sends its own warnings to stderr, never to protocol stdout.
+- **Resource endpoint clients.** Every runner connects directly to the
+  loopback endpoint and ignores `HTTP_PROXY`, `HTTPS_PROXY` and `ALL_PROXY`,
+  so the bearer token never reaches a proxy. As a second guard, the supervisor
+  adds `127.0.0.1` to `NO_PROXY` and `no_proxy` for a handler that has an
+  endpoint. When the outgoing request guard is active (the servers started by
+  `ty serve`, `ty start` and `ty preview`), the supervisor removes `NO_PROXY`
+  and `no_proxy` instead; the runners still reach their endpoint directly.
+  In that mode every endpoint names the server's one resource door, which
+  forwards a request to its invocation's own listener by bearer token, and
+  answers `401` to a token it does not know (ADR 0113). Node.js follows the proxy variables only from version
+  24.5, with `NODE_USE_ENV_PROXY=1`; an older Node.js connects directly. While
+  the guard is active, the supervisor therefore refuses every JavaScript
+  runtime that is not Bun or Node.js 24.5 or newer, with `TY2101`, at startup
+  and before it starts a JavaScript handler (ADR 0068 amendment). Go's
+  standard client never sends loopback addresses to a proxy, so the Go
+  prelude points `http.DefaultTransport` at the guard
+  (`YON_OUTGOING_PROXY`), and the PHP prelude sets the default stream context
+  to it. These keep ordinary clients working; they are not the control. A
+  client that builds its own transport, a raw socket in any language, UDP,
+  DNS and a Unix socket to a local daemon are refused by the operating system
+  (ADR 0113).
+- **Operating-system egress confinement (ADR 0113).** While the guard is
+  active, every handler process (cold, warm and streaming), every program it
+  starts (relays) and every Gateway command can connect only to its server's
+  guard port and resource door port on loopback. On macOS the process starts
+  through `/usr/bin/sandbox-exec` with a profile that denies all network
+  access except those two `localhost` ports. On Linux `ty __yon-egress`
+  applies Landlock (ABI 4, Linux 6.7 or newer: TCP `connect` only to the two
+  ports, no TCP `bind`) and a seccomp filter (no socket except IPv4 and IPv6
+  TCP and netlink, no `io_uring`, no TCP Fast Open send) to itself and then runs the program in its
+  place. Both are inherited by every child. When the platform layer cannot be
+  applied (Windows, an older Linux kernel, gVisor, no working `sandbox-exec`,
+  no `ty` launcher),
+  `ty start` refuses to start with `TY2113`, and `ty serve` and `ty preview`
+  start with a `handler.egress_unenforced` warning. `YON_EGRESS_ENFORCEMENT=proxy`, an
+  environment variable of `ty` only, keeps the advisory guard for a platform
+  that enforces egress itself and logs `handler.egress_unenforced`. The
+  Firecracker control program is not wrapped: its own policy is deny-only.
+  Limits: Landlock filters by port, not address, so code written to attack
+  can reach a remote host on one of the two port numbers; on macOS, Mach and
+  XPC services other than LaunchServices, background URL sessions and Apple
+  Events are not restricted; `ty handler invoke` runs no guard and no
+  confinement.
+- **Outgoing request guard.** The guard (ADR 0068) checks the target name
+  against `outgoing.hosts`, resolves it once and connects to the address it
+  resolved, so a second DNS answer cannot change the target. It drops
+  loopback, private (RFC 1918 and unique local), link-local (including the
+  cloud metadata address `169.254.169.254`), shared (`100.64.0.0/10`) and
+  unspecified addresses from the answer, and a name left with no address gets
+  `403`. So a wildcard such as `*.example.com` cannot be turned against an
+  internal service by a name that points to one. Only an IP address listed in
+  `outgoing.hosts`, or a localhost name, reaches those addresses (ADR 0094). A
+  listed localhost name is never resolved: the guard connects it to `[::1]`
+  and then `127.0.0.1`, so an `/etc/hosts` entry cannot point it elsewhere. A
+  redirect is a new request through the guard, so its host is checked again.
+  The address filter also drops NAT64, 6to4, Teredo, IPv4-compatible,
+  discard, documentation, benchmarking, IETF protocol, reserved and multicast
+  ranges. The guard and the resource door each serve at most 256 connections
+  and answer `503` beyond that, close a tunnel idle for 5 minutes, and keep
+  accepting after an accept error.
+- **Gateways (ADR 0042).** A caller reaches another language only through its
+  invocation's resource endpoint, with a key that the build declared and
+  checked (`TY1312`). A class target runs as a generated unit under
+  `server/gateways/` inside the owned snapshot (authored files there fail with
+  `TY1310`). The unit is project code: it runs like a route, with its own
+  storage capability and no Gateway table, so only one hop is possible. A
+  command target runs without a shell, with the arguments on stdin and never
+  on the command line, and files only from `server/delegates/`. It gets the
+  outgoing guard's variables and the operating-system egress confinement like
+  a handler. The caller
+  sees only `invalid`, `timeout`, `capacity` or `adapter`; the supervisor logs
+  only `handler.gateway_failed` with that category. Closing an invocation
+  cancels its calls and waits for their processes to be reaped.
+- **Environment.** Tachyon clears the child environment. Then it rebuilds it
+  from a small platform runtime baseline and explicitly named allowlist
+  entries. Tests prove that a host value is absent by default and present only
+  when allowed. The application's allowlist is `server.environment` in
+  `server/application.json`: exact names and prefix patterns such as `HD_*`.
+  Configuration, not code, decides what a handler sees: a handler cannot widen
+  the list, and every Yon language, Gateway command and relay program gets
+  the same one. The list is empty by default. Validation refuses `*` and any
+  entry that names or covers `ty`'s own variables (`TAC_*`, `TACHYON_*`,
+  `YON_*`, and `HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY`, `NO_PROXY`,
+  `NODE_USE_ENV_PROXY`, which the outgoing request guard sets), so a list
+  cannot hand a handler the resource capability or a way around the guard. The
+  guard still removes `NO_PROXY` and `no_proxy` after the list is applied. The
+  configuration holds names only; values stay in the environment of `ty`, and
+  a refused entry is reported by its name, never with a value. An allowed
+  variable is a secret given to every handler of the application, so list
+  only what the handlers need.
+- **Protocol stdout.** Protocol stdout accepts either one UTF-8 JSON response
+  frame, or a declared stream. A response frame has a four-byte big-endian
+  length and is at most 16 MiB. A stream has at most 100,000 events, at most
+  256 KiB per event and at most 64 MiB in total. Tachyon validates request IDs,
+  kinds, versions, fields, bodies, headers, statuses and adapter error shapes.
+- **stderr.** Tachyon reads stderr at the same time and keeps at most 64 KiB.
+  Adapter console output, exceptions and syntax or load errors produce bounded
+  public messages without tracebacks or environment values.
+- **Deadline and cleanup.** One deadline covers semaphore admission, spawn,
+  execution, response, pipe settlement and exit. Each call owns a POSIX process
+  group or a Windows Job Object that kills its processes on close.
+  Cancellation sends a typed frame, then waits a default grace period of
+  100 ms. On success, timeout and cancellation, Tachyon ends and reaps the
+  whole process tree within a bound.
+- **Bounded process reuse.** By default a warm process serves many requests
+  of one handler, one at a time (ADR 0111). A crash, a protocol error, stray
+  stdout between requests, a timeout, a cancellation, a stderr overflow or the
+  request limit replaces it, and an idle limit stops it. Module-level state can
+  cross from one request to a later request of the same handler in the same
+  process; it never crosses handlers. An operator who needs a fresh process
+  for every request sets `YON_ISOLATION=process`. Tests prove crash isolation,
+  successful recovery through a new child, and forced termination of an
+  infinite loop in both modes.
+- **Adversarial tests.** Tests with real processes cover:
+  - output smuggled after the response;
+  - oversized output;
+  - mismatched request IDs;
+  - floods of stderr;
+  - missing methods and classes;
+  - syntax errors;
+  - exceptions;
+  - results that cannot be serialized;
+  - concurrency queue expiry;
+  - Unicode paths and payloads;
+  - missing runtimes;
+  - descendants that inherit the protocol pipes.
 
-Process mode is supervision, not a security sandbox. Application handlers
-retain the invoking developer account's ambient filesystem and network access,
-and the operating system does not enforce CPU or memory quotas there.
-Application dependency imports and process pooling remain out of scope; no
-documentation may imply those controls exist.
+  For supervisor failures, HTTP dispatch returns only a request reference. A
+  secret-canary test proves that process diagnostics do not cross the network
+  boundary.
+- **Stream failure.** A stream failure sends one final, sanitized SSE `error`
+  event with a stable code and the request ID. This is the same whether the
+  failure happens before the first value or after some values were sent.
+  Subscriber disconnect and deadline expiry end and reap the whole process
+  group.
+- **Handler cache.** Compiled handler artifacts are published atomically into
+  a capability-confined `.tachyon/handlers` cache. Tachyon counts the size of
+  inactive entries recursively and prunes them to 256 entries and 512 MiB.
+  Kotlin, Rust, Dart, Go and Groovy artifacts are also shared by digest name
+  through `runtime/handlers-v1` in the user cache (ADR 0037 amendment,
+  2026-10-03). Only regular, non-empty files are restored, without following
+  symbolic links, so the user
+  cache must stay private to the developer account, as it already must for
+  the cached web builds.
+  Before execution, Tachyon copies a cache hit into a private runtime
+  workspace. Lock recovery checks process liveness, identity and the ownership
+  token. A ten-minute lease limits the risk of PID reuse.
+
+Process mode is supervision, not a security sandbox. Application handlers keep
+the ambient filesystem access of the developer account that runs them. Their
+network access is confined to the outgoing guard only while the guard is
+active, the platform layer applies and `YON_EGRESS_ENFORCEMENT` is not
+`proxy`; otherwise (for example `ty serve` on Windows) they keep the account's
+network access (ADR 0113). The operating system does not enforce CPU or memory quotas in this mode.
+Application dependency imports and process pooling are still out of scope. No
+documentation may suggest that those controls exist.
+
+Go handlers may import third-party modules that the app vendors in
+`server/packages/vendor/` (ADR 0095 amendment, 2026-10-03). `ty` never
+downloads them: builds set `GOPROXY=off` and `GOFLAGS=-mod=vendor`, Go checks
+`vendor/modules.txt` against `go.mod`, and a missing or stale vendor folder
+fails with `TY1368`. Vendored code runs with the handler's full privileges.
+Tachyon skips it in the secret and code safety checks, because the author
+cannot edit it and SDKs carry example keys and their own service addresses.
+Tachyon also cannot prove that `vendor/` matches upstream: `go.sum` hashes
+cover whole module archives and Go does not compare vendored files with them.
+The app's dependency review is the control: read every `vendor/` diff, and
+run `go mod vendor` with `git diff --exit-code`, `go mod verify` and
+`govulncheck` in CI where a module cache exists.
 
 ## Environment-Selected Isolation Evidence
 
-- `process` remains the compatibility default. `firecracker` requires a
-  complete environment policy and a directly executed absolute control-program
-  path; invalid mode, path, pool, CPU, memory, or egress fails as `TY2010`.
+- `process` stays the default, for compatibility. `firecracker` requires a
+  complete environment policy and an absolute control-program path that
+  Tachyon runs directly. An invalid mode, path, pool, CPU, memory or egress
+  setting fails as `TY2010`.
 - The control program receives a length-prefixed Handler Protocol v1 request,
-  bounded non-secret policy arguments, a cleared environment, and the existing
-  deadline/cancellation supervision.
+  bounded policy arguments that are not secret, a cleared environment, and the
+  existing deadline and cancellation supervision.
 - Only JavaScript and Python source reach the current driver contract.
   TypeScript and the prepared direct-language paths fail with `TY2010` before
-  driver spawn; private runtime-workspace paths are not treated as transferable
-  artifacts.
-- Egress is deny-only. An allowlist cannot be requested until origin, DNS,
-  redirect, and response-limit enforcement has its own acceptance evidence.
+  the driver starts. Tachyon does not treat private runtime-workspace paths as
+  artifacts that can be transferred.
+- Egress (outgoing network traffic) is deny-only. An allowlist cannot be
+  requested until origin, DNS, redirect and response-limit enforcement has its
+  own acceptance evidence.
 - This boundary does not qualify a Firecracker deployment. The control program
-  and Linux host remain trusted components and must separately prove jailer,
-  cgroup, namespace, seccomp, image, snapshot, credential, and network policy.
+  and the Linux host stay trusted components. They must separately prove their
+  jailer, cgroup, namespace, seccomp, image, snapshot, credential and network
+  policy.
 
 ## Phase 3 Evidence
 
-- Template expressions use a bounded JSON-only parser with no calls,
-  assignment, construction, prototype access, raw HTML, shell, or `eval`.
-- Text and attributes are escaped by output context. Component templates see
-  only evaluated properties; slotted children retain their parent scope.
-- Yon handlers never execute during builds and never contribute view context.
-  Route Manifest v1 retains only a deprecated empty context member for wire
-  compatibility; it contains no values or executable declaration.
-- View IR, source maps, manifests, diagnostics, and build state contain no
-  handler response or server-derived view values.
-- Component props are explicit public client input. Modules use
-  compiler-generated same-origin paths, mount against browser-created Tac DOM,
-  mark bounded failures, and never expose a native or server capability bridge.
-- Incremental state is disposable and untrusted. Reuse requires a supported
-  state version, contained regular paths, and matching SHA-256 for every route
-  artifact; handler-backed routes are never reused.
-- Source, expression, template depth, component count, iteration,
-  expanded-node, rendered-output, diagnostic, process, and protocol limits are
-  enforced by tests.
+- Template expressions use a bounded parser that accepts only JSON-like data.
+  It allows no calls, assignment, construction, prototype access, raw HTML,
+  shell or `eval`.
+- Text and attributes are escaped for their output context. Component
+  templates see only evaluated properties. Slotted children keep their parent
+  scope.
+- Yon handlers never run during builds and never add view context. Route
+  Manifest v1 keeps only a deprecated empty context member for wire
+  compatibility. It contains no values and no executable declaration.
+- View IR, source maps, manifests, diagnostics and build state contain no
+  handler response and no values that come from the server.
+- Component props are explicit public client input. Modules use same-origin
+  paths that the compiler generates. They mount against Tac DOM that the
+  browser creates. They mark bounded failures. They never expose a native or
+  server capability bridge.
+- Incremental state can be thrown away and is not trusted. Reuse requires a
+  supported state version, contained regular paths, and a matching SHA-256 for
+  every route artifact. Routes backed by handlers are never reused.
+- Tests enforce limits on source, expressions, template depth, component
+  count, iteration, expanded nodes, rendered output, diagnostics, processes and
+  protocol.
 - Real Chromium evidence covers client-owned rendering, automatic activation,
-  interaction replay, bounded failure marking, and static `never` components.
+  interaction replay, bounded failure marking and static `never` components.
 
 ## Phase 4 Evidence
 
 - Native planning expands validated Tac component declarations without server
-  rendering, uses a fixed adapter
-  allowlist, assigns deterministic identifiers, and emits the smallest
-  unsupported custom-element or island subtree as a WebSurface.
-- `tachyon.json` is UTF-8, regular, non-symlinked, limited to 64 KiB, strict
-  about unknown keys, and validated before native publication.
-- Controller names, scalar values, state entries, action verbs, numeric
-  increments, node depth/count, surface count, fallback bytes, Swift source,
-  tool output, and lifecycle log fields are bounded. Invalid declarations fail
-  before Swift compilation.
-- Local WebSurfaces receive generated deny-by-default CSP, bundle-contained
-  navigation, a non-persistent store, and no script message handler. Remote
-  WebSurfaces require a strict HTTPS host, disable content JavaScript, restrict
-  redirects to that host, and always use `bridge: none`.
-- Capability Manifest v1 declares `default_policy: deny`, no capabilities, and
+  rendering. It uses a fixed allowlist of adapters and assigns deterministic
+  identifiers. It emits the smallest unsupported custom-element or island
+  subtree as a WebSurface.
+- `client/manifest.json` must be UTF-8, a regular file and not a symlink. It
+  is limited to 1 MiB, and its `tac.application` member rejects unknown keys.
+  Tachyon validates it before native publication. The manifest is published
+  to every browser, so the application id, version and window settings in it
+  are public by design; it must never hold a secret.
+- These are bounded: controller names, scalar values, state entries, action
+  verbs, numeric increments, node depth and count, surface count, fallback
+  bytes, Swift source, tool output and lifecycle log fields. Invalid
+  declarations fail before Swift compilation.
+- Local WebSurfaces get a generated deny-by-default CSP, navigation limited to
+  the bundle, a non-persistent store and no script message handler. Remote
+  WebSurfaces require a strict HTTPS host, turn off content JavaScript, allow
+  redirects only to that host, and always use `bridge: none`.
+- Capability Manifest v1 declares `default_policy: deny`, no capabilities and
   `remote_content_bridge: false`. Artifact Manifest v1 records toolchains,
-  contract versions, every output path, size, and SHA-256 digest.
-- Native builds use contained staging directories, reject generated symlinks,
-  and atomically replace only `dist/macos`; a failed build preserves the prior
-  complete application.
+  contract versions, and every output path, size and SHA-256 digest.
+- Native builds use contained staging directories and reject generated
+  symlinks. They atomically replace only `dist/macos`. A failed build keeps the
+  previous complete application.
 - Real macOS evidence proves named Accessibility controls, keyboard input,
-  action/disclosure state, lifecycle termination, isolated WebKit content, and
-  parity with required mobile-web roles and names.
+  action and disclosure state, lifecycle termination, isolated WebKit content,
+  and parity with the required mobile-web roles and names.
 
 ## Phase 5 Evidence
 
-- Every generated native host runs its `WebSurface` with an ephemeral,
-  non-persistent data store, enables scripting only for local-bundle content,
-  and cancels any navigation outside the bundle root or the declared HTTPS
-  host.
-- No generated host exposes a script message handler, a JavaScript interface,
-  or any other bridge to web content. Unit tests assert the absence of each
-  platform's bridge API by name.
-- Linux local WebSurfaces use a private resource scheme rather than `file://`;
-  decoded paths must resolve as regular, non-symlinked files beneath the
-  initiating surface or generated WebBundle root. Remote surfaces on every
-  platform compare HTTPS scheme, host, and effective port.
+- Every generated native host runs its `WebSurface` with a temporary,
+  non-persistent data store. It turns on scripting only for local-bundle
+  content. It cancels any navigation outside the bundle root or the declared
+  HTTPS host.
+- No generated host exposes a script message handler, a JavaScript interface
+  or any other bridge to web content. Unit tests check, by name, that each
+  platform's bridge API is absent.
+- Linux local WebSurfaces use a private resource scheme instead of `file://`.
+  Decoded paths must resolve to regular files, not symlinks, under the root of
+  the surface that started the request or under the generated WebBundle root.
+  On every platform, remote surfaces compare the HTTPS scheme, host and
+  effective port.
 - Capability Manifest v1 is emitted deny-by-default for every target, with
   `remote_content_bridge` false.
-- Every platform toolchain is invoked directly, never through a shell.
-- Generated output containing a symlink is rejected before publication.
+- Tachyon runs every platform toolchain directly, never through a shell.
+- Tachyon rejects generated output that contains a symlink before publication.
 
 ## Phase 7 Evidence
 
-- Four fuzz targets cover the trust boundaries named below. 7,197,692 total
-  executions under `AddressSanitizer` produced zero crashes, timeouts, or
-  out-of-memory conditions. Details in `PHASE_7_EVIDENCE.md`.
-  - `handler_frame` decodes frames written by an untrusted child process —
+- Four fuzz targets cover the trust boundaries named below. They ran
+  7,197,692 executions in total under `AddressSanitizer`, with zero crashes,
+  timeouts or out-of-memory conditions. Details are in `PHASE_7_EVIDENCE.md`.
+  - `handler_frame` decodes frames written by an untrusted child process:
     4,482,194 executions.
-  - `html_frontend` and `template_frontend` parse application source.
-  - `native_planner` lowers resolved HTML and asserts that all five native
-    targets agree on validity, so platform selection cannot widen what is
-    accepted.
-- The library suite passes under `AddressSanitizer`. `LeakSanitizer` and
+  - `template_frontend` parses application source. The `html_frontend`
+    target was removed on 2026-10-18 with the static HTML parser it fuzzed.
+  - `native_planner` lowers resolved HTML and checks that all five native
+    targets agree on what is valid. So the choice of platform cannot widen
+    what Tachyon accepts.
+- The library test suite passes under `AddressSanitizer`. `LeakSanitizer` and
   `ThreadSanitizer` run in CI on Linux.
-- Recovery drills assert that publication is atomic: an interrupted, failed,
-  or concurrent build never leaves partial or torn output, and a corrupted
-  incremental cache is detected rather than trusted.
-- A CycloneDX bill of materials is generated, and the release binary embeds
+- Recovery drills check that publication is atomic. An interrupted, failed or
+  concurrent build never leaves partial or broken output. Tachyon detects a
+  corrupted incremental cache instead of trusting it.
+- The build generates a CycloneDX bill of materials. The release binary embeds
   its dependency list through `cargo auditable`.
 - The `fuzzing` feature exposes crate-private parsers to fuzz targets only. It
-  carries no compatibility guarantee and must never be enabled in a released
-  artifact.
+  has no compatibility guarantee. A released artifact must never enable it.
 
 ## Semantic Hot-Update Evidence
 
-- Hot Update Protocol v1 permits only `css`, `island`, `reload`, and
-  `diagnostics`; it cannot carry source text or an instruction to evaluate
+- Hot Update Protocol v1 allows only `css`, `island`, `reload` and
+  `diagnostics`. It cannot carry source text or an instruction to evaluate
   code.
-- The development endpoint is disabled with `--no-watch`, is same-origin, uses
-  a bounded broadcast queue, disables proxy buffering, and widens missed or
-  lagged events to a full reload.
-- The browser writes diagnostics with `textContent`, retains the last-good DOM
-  on compiler failure, and reloads when an island boundary count or stable
-  identity changes.
-- Island replacement imports only compiler-generated same-origin module URLs.
-  The old instance receives an abort signal and a disposal callback before its
-  boundary is replaced. State transfer uses `structuredClone` on either the
-  explicit `hotState()` result or the default enumerable non-function fields;
-  a failed default clone retains an empty object. No JSON or depth bound is
-  claimed.
-- Browser-owned DOM state transfer snapshots at most the first 2,048 elements
-  with an `id`. It preserves input and textarea values, input checked state,
-  `<details>` disclosure, nonzero scroll offsets, and the focused element by
-  id. It does not preserve text selection or selected `<option>` state, and it
-  cannot transfer markup, attributes, listeners, arbitrary DOM properties, or
-  contenteditable HTML.
-- A real Chromium gate exercises CSS retention, island replacement, disposal,
-  component and native DOM state retention, failed-build diagnostics,
-  recovery, and structural reload without browser console errors.
+- `--no-watch` turns off the development endpoint. The endpoint is
+  same-origin, uses a bounded broadcast queue, and turns off proxy buffering.
+  When events are missed or late, it sends a full reload instead.
+- The browser writes diagnostics with `textContent`. It keeps the last good
+  DOM when the compiler fails. It reloads when the number of island boundaries
+  or a stable identity changes.
+- Island replacement imports only same-origin module URLs that the compiler
+  generated. Before its boundary is replaced, the old instance receives an
+  abort signal and a disposal callback. State transfer uses `structuredClone`
+  on either the explicit `hotState()` result or, by default, the enumerable
+  fields that are not functions. If the default clone fails, the transferred
+  state is an empty object. Tachyon claims no JSON or depth limit here.
+- State transfer for browser-owned DOM saves at most the first 2,048 elements
+  that have an `id`. It keeps input and textarea values, the checked state of
+  inputs, `<details>` disclosure, nonzero scroll offsets, and the focused
+  element by id. It does not keep text selection or the selected `<option>`.
+  It cannot transfer markup, attributes, listeners, arbitrary DOM properties
+  or contenteditable HTML.
+- A real Chromium gate tests CSS retention, island replacement, disposal,
+  retention of component and native DOM state, failed-build diagnostics,
+  recovery and structural reload, with no browser console errors.
+
+## Known limits of this release candidate
+
+These are accepted for this release candidate. Each names where a later
+release addresses it.
+
+- **Any port on a declared host (SEC-6, partial).** The outgoing guard
+  checks the host of a request, not its port, so a handler reaches every port
+  of a host listed in `outgoing.hosts`. The guard also takes no per-run
+  credential: any process that can reach its `localhost` port can use it.
+  A confined handler reaches only its own server's guard, and an unconfined
+  local process can already reach the declared hosts itself. Later: a
+  `host:port` form in `outgoing.hosts`, the follow-up that
+  [ADR 0113](adr/0113-the-operating-system-confines-handler-egress.md) names
+  under "The guard itself", where a later release also revisits the per-run
+  credential.
+- **`ty test` units run unconfined (NEW-2).** `ty test` runs Yon test units
+  without the outgoing guard, so the operating system does not confine their
+  network access, as for `ty handler invoke`. Both are development tools that
+  run the developer's own code. Later: `ty test` starts the guard and the
+  confinement as `ty start` does, the follow-up that ADR 0113 names under
+  "Consequences".
+- **Topic stream caps (SEC-1 residual).** The server holds at most 128 topic
+  streams, 32 per topic and 16 per client address. Two client addresses can
+  therefore fill one public topic, and eight the whole server, for as long as
+  they hold their streams open. Guarded topics refuse callers without an identity
+  before they take a slot. Later: limits per identity and caps the operator
+  sets, the follow-up that
+  [ADR 0061](adr/0061-topic-events-cross-languages.md) names under "The
+  server checks every subscription".
 
 ## Remaining Security Gates
 
-- Automated security gates remain mandatory for every release. An independent
-  human assessment is recommended for major trust-boundary changes but is not
-  a publication prerequisite; any accepted residual risk must be recorded in
-  the release review package.
-- enforce handler filesystem, network, CPU, and memory capabilities before
-  production routing;
-- run live remote-origin/DNS/redirect `WebSurface` adversarial tests;
-- run secret-canary logging tests;
-- complete platform sandbox and production signing reviews;
-- run scheduled long-form fuzz campaigns with a corpus carried between runs.
+- Automated security gates stay required for every release. An independent
+  human assessment is recommended for major changes to trust boundaries, but
+  it is not required before publication. Any accepted remaining risk must be
+  recorded in the release review package.
+- Enforce handler filesystem, CPU and memory capabilities before production
+  routing. Network egress is enforced by the operating system on macOS and on
+  Linux 6.7 or newer (ADR 0113); Windows, older Linux kernels and gVisor need
+  a Windows Filtering Platform or network-namespace layer; until then
+  `ty start` runs there only with `YON_EGRESS_ENFORCEMENT=proxy` and the
+  platform's own egress policy.
+- Run live adversarial tests of `WebSurface` against remote origins, DNS and
+  redirects.
+- Run secret-canary logging tests.
+- Complete the platform sandbox and production signing reviews.
+- Run scheduled long fuzz campaigns that carry the corpus from one run to the
+  next.

@@ -5,103 +5,131 @@
 
 ## Context
 
-The Rust development server rebuilt changed source but exposed only live
-reload. It sampled every source tree every 400 milliseconds, published an
-integer generation, and made each open page poll every 500 milliseconds before
-calling `location.reload()`. Incremental compilation reduced compiler work but
-did not preserve browser state.
+The Rust development server rebuilt changed source, but it offered only live
+reload:
 
-Vite solves the general JavaScript case through native ESM, module graphs, and
-framework-owned acceptance boundaries. Tachyon owns more specific semantic
-information: styles, HTML templates, Tac islands, Yon routes, and View IR. A
-Tachyon update can therefore name the framework boundary that is safe to
-replace instead of presenting every source as an arbitrary JavaScript module.
+- It sampled every source tree every 400 milliseconds.
+- It published an integer generation number.
+- Each open page polled every 500 milliseconds and then called
+  `location.reload()`.
 
-ADR 0009 rejects a production client renderer. Hot updates must not quietly
-reverse that decision or make application correctness depend on a development
-reconciler.
+Incremental compilation reduced the compiler's work. It did not keep browser
+state.
+
+Vite solves the general JavaScript case with native ESM (ECMAScript modules),
+module graphs and acceptance boundaries that the framework owns. Tachyon has
+more specific semantic information: styles, HTML templates, Tac islands, Yon
+routes and View IR. A Tachyon update can therefore name the framework boundary
+that is safe to replace. It does not have to treat every source file as an
+arbitrary JavaScript module.
+
+ADR 0009 rejects a production client renderer. Hot updates must not reverse
+that decision without saying so. They must also not make application
+correctness depend on a development reconciler.
 
 ## Decision
 
-Introduce Hot Update Protocol v1 as a development-only, server-to-client
-contract. The development server uses operating-system filesystem events, a
-bounded 1,024-event queue, and a 75 millisecond quiet period. One editor save
-produces one deterministic, canonically ordered change set. Queue overflow,
-watcher uncertainty, mixed change kinds, and unknown paths widen to a reload;
-they never guess at a narrower boundary.
+Introduce Hot Update Protocol v1. It is a contract from the server to the
+client, and it exists only in development.
 
-Successful builds publish one of three actions over a same-origin
-server-sent-event stream:
+The development server uses:
 
-- `css` replaces generated same-origin stylesheets after their new bytes load;
-- `island` replaces only named hydrated Tac component boundaries, imports the
-  digest-addressed companion, and restores compatible declared state; or
-- `reload` performs an ordinary document reload when structure, routing, Yon
-  context, configuration, or another unsupported boundary changed.
+- file system events from the operating system;
+- a bounded queue of 1,024 events;
+- a quiet period of 75 milliseconds.
 
-A failed build publishes `diagnostics`, leaves the last-good artifacts and DOM
-running, and presents Diagnostics v1 in a bounded text-only overlay. The next
-successful action clears the overlay. The client does not evaluate source and
-never receives authored executable text in a protocol message.
+One save in the editor produces one deterministic change set in canonical
+order. Some cases widen the update to a full reload: queue overflow, watcher
+uncertainty, mixed change kinds and unknown paths. In these cases the server
+never guesses a narrower boundary.
 
-An island may implement `hotState()`, `restoreHotState(state)`, and
-`hotDispose()` for an explicit state and cleanup contract. Without those
-methods the runtime uses `structuredClone` on enumerable non-function fields;
-a failed default clone retains an empty object. An explicit `hotState()` result
-is also cloned before restore. The client claims no JSON or depth bound for
-component state. The existing hydration `AbortSignal` is aborted before
-replacement so listeners and asynchronous work can terminate.
+A successful build publishes one of three actions over a same-origin SSE
+(server-sent events) stream:
 
-The replacement client also snapshots at most the first 2,048 elements with an
-`id` for browser-owned mutable state: input and textarea values, input checked
-state, `<details>` disclosure, nonzero scroll offsets, and focus by element id.
-It does not retain text selection or selected `<option>` state. It restores
-properties only after the new companion has activated and never transfers
-markup, attributes, event listeners, arbitrary DOM properties, or
+- `css` replaces the generated same-origin stylesheets after their new bytes
+  load.
+- `island` replaces only the named hydrated Tac component boundaries. It
+  imports the companion by its digest address and restores compatible
+  declared state.
+- `reload` performs an ordinary document reload. It is used when structure,
+  routing, Yon context, configuration or another unsupported boundary changed.
+
+A failed build publishes `diagnostics`. The last good artifacts and DOM keep
+running. The client shows Diagnostics v1 in a bounded, text-only overlay. The
+next successful action clears the overlay. The client does not evaluate
+source. A protocol message never carries executable text that a developer
+wrote.
+
+An island may implement `hotState()`, `restoreHotState(state)` and
+`hotDispose()`. These methods give it an explicit contract for state and
+cleanup. Without them, the runtime uses `structuredClone` on the enumerable
+fields that are not functions. If that default clone fails, the runtime keeps
+an empty object. The runtime also clones the result of an explicit
+`hotState()` before it restores it. The client claims no JSON limit and no
+depth limit for component state. Before replacement, the runtime aborts the
+existing hydration `AbortSignal`. Listeners and asynchronous work can then
+stop.
+
+The replacement client also saves state that the browser owns. It takes a
+snapshot of at most the first 2,048 elements that have an `id`. It saves:
+
+- input and textarea values;
+- the checked state of inputs;
+- whether each `<details>` element is open;
+- scroll offsets that are not zero;
+- focus, by element id.
+
+It does not keep text selection or the selected `<option>` state. It restores
+these properties only after the new companion has activated. It never
+transfers markup, attributes, event listeners, arbitrary DOM properties or
 contenteditable HTML.
 
-The server sends `X-Accel-Buffering: no`; no WebSocket upgrade is required.
-The existing `/.tachyon/live` integer endpoint and
-`/.tachyon/live-reload.js` asset path remain compatibility surfaces, but the
-client uses `/.tachyon/hot` and no longer polls.
+The server sends `X-Accel-Buffering: no`. No WebSocket upgrade is required.
+The existing `/.tachyon/live` integer endpoint and the
+`/.tachyon/live-reload.js` asset path stay available for compatibility. The
+client uses `/.tachyon/hot` instead and no longer polls.
 
-The hot-update client is injected only while `ty dev` watches. It is never
-written by `ty build`, bundled into production output, or used for navigation.
-Static HTML/template changes deliberately reload until a future compiler-owned
-fragment contract can prove stable identities. Native View IR updates require
-a separately accepted host transport and are not claimed by this decision.
+The server injects the hot-update client only while `ty dev` watches source.
+`ty build` never writes it. It is never bundled into production output and
+never used for navigation. Changes to static HTML and templates deliberately
+cause a reload. They will keep doing so until a future fragment contract,
+owned by the compiler, can prove stable identities. Native View IR updates need
+a host transport that a separate decision accepts. This decision does not
+claim them.
 
 ## Consequences
 
 CSS and hydrated component behavior update without destroying unrelated page
-or island state. Native form, disclosure, scroll, and focus state inside the
-replaced boundary also survives a companion-only edit. Compiler errors no
-longer force a broken document or hide in the terminal. Server-side and
-structural changes retain an explicit, correct reload fallback.
+or island state. A companion-only edit also keeps native form, disclosure,
+scroll and focus state inside the replaced boundary. Compiler errors no longer
+break the document or stay hidden in the terminal. Server-side and structural
+changes keep an explicit and correct reload fallback.
 
-The development runtime now owns a small island replacement path and state
-lifecycle. It does not own general DOM reconciliation, import-graph emulation,
-or arbitrary side-effect preservation. Applications with non-JSON state must
-declare their hot-state methods if they want that state retained.
+The development runtime now owns a small island replacement path and a state
+lifecycle. It does not own general DOM reconciliation, emulation of the import
+graph or preservation of arbitrary side effects. An application with state
+that is not JSON must declare its hot-state methods if it wants to keep that
+state.
 
-The event watcher adds the permissively licensed `notify` dependency and its
-platform-specific CC0-1.0 and ISC transitive dependencies. Source
-queues, protocol collections, diagnostic text, and SSE broadcast history are
-bounded. A disconnected client that misses an update receives a reload on
-reconnection rather than a partial replay.
+The event watcher adds the `notify` dependency, which has a permissive
+license. It also adds platform-specific transitive dependencies under the
+CC0-1.0 and ISC licenses. Source queues, protocol collections, diagnostic
+text and SSE broadcast history are bounded. A client that
+disconnects and misses an update receives a reload when it reconnects. It does
+not receive a partial replay.
 
 ## Rejected Alternatives
 
-- Porting the legacy SPA renderer would reverse ADR 0009 and ship development
-  complexity in production.
-- Reproducing Vite's general ESM graph would duplicate a mature tool without
-  using Tachyon's HTML and island semantics.
-- Applying arbitrary HTML diffs would risk losing custom-element state,
-  duplicating listeners, and desynchronising the server document.
-- WebSockets add bidirectional protocol and reverse-proxy configuration that
-  this one-way update stream does not need.
-- Treating every successful build as hot-updatable would hide unsafe widening
-  and make state retention nondeterministic.
+- Porting the legacy SPA (single-page application) renderer would reverse ADR
+  0009 and ship development complexity in production.
+- Reproducing Vite's general ESM graph would duplicate a mature tool. It would
+  also not use Tachyon's HTML and island semantics.
+- Applying arbitrary HTML diffs could lose custom-element state, duplicate
+  listeners and get out of sync with the server document.
+- WebSockets add a two-way protocol and reverse-proxy configuration. This
+  one-way update stream does not need them.
+- Treating every successful build as able to hot-update would hide unsafe
+  widening. It would also make state retention nondeterministic.
 
 ## Acceptance Gate
 

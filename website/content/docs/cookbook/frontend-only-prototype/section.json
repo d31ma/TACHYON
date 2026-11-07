@@ -1,0 +1,5 @@
+{
+  "heading": "Frontend-only prototype",
+  "body": "Start with only client/. Tac renders pages and components. Services provide the reactive presentation model (the data that the page shows, which updates the page when it changes). Later you can add controllers in server/controllers, and the UI can keep the same contract (the data and actions it expects).",
+  "code": { "file": "example.txt" }
+}

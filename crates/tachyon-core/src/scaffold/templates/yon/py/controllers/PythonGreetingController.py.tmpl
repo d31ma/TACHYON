@@ -1,0 +1,6 @@
+@request_route("/api/python")
+@public
+class PythonGreetingController:
+    @get_route
+    def get_greeting(self) -> str:
+        return "Hello from Python"

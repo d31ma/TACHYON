@@ -1,0 +1,6 @@
+@scope (tachyon-component[data-tac-scope="product-card"]) to (tachyon-component[data-tac-scope]) {
+.card {
+  padding: 1rem;
+  border: 1px solid var(--w-border);
+}
+}

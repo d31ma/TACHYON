@@ -1,0 +1,52 @@
+{
+  "title": "Calling the server from a page",
+  "summary": "A page gets data from the server through a client class. Mark the class with `HTTPClient` and its methods with `GetRequest`, `PostRequest` and the other request annotations. A service gets the client with `Needs` and calls its methods. In JavaScript, TypeScript, Dart, C#, F#, Rust, Go, Kotlin, Swift, Java, Ruby, Python, Lua and C++, a client whose Setup gives it no adapter sends its request through the browser to the server of the page, without cookies. This browser transport refuses every other origin. A request to another host goes through a Setup adapter, and that host must be listed in `tac.outgoing.hosts`.",
+  "before": [
+    "services",
+    "controllers"
+  ],
+  "sections": [
+    {
+      "include": "../storage/declarative-http-clients/section.json"
+    },
+    {
+      "include": "browser-http-dart/section.json"
+    },
+    {
+      "include": "browser-http-rust/section.json"
+    },
+    {
+      "include": "browser-http-go/section.json"
+    },
+    {
+      "include": "browser-http-kotlin/section.json"
+    },
+    {
+      "include": "browser-http-swift/section.json"
+    },
+    {
+      "include": "browser-http-java/section.json"
+    },
+    {
+      "include": "browser-http-ruby/section.json"
+    },
+    {
+      "include": "browser-http-python/section.json"
+    },
+    {
+      "include": "browser-http-lua/section.json"
+    },
+    {
+      "include": "browser-http-csharp/section.json"
+    },
+    {
+      "include": "browser-http-fsharp/section.json"
+    },
+    {
+      "include": "browser-http-cpp/section.json"
+    },
+    {
+      "include": "what-the-browser-transport-allows/section.json"
+    }
+  ]
+}

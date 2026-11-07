@@ -1,19 +1,14 @@
-//! Stable, serializable diagnostics shared by Tachyon's compiler and runtimes.
-
 use core::fmt;
 use core::str::FromStr;
 use serde::{Deserialize, Serialize};
 
-/// The fixed prefix used by all public Tachyon diagnostic codes.
-pub const DIAGNOSTIC_PREFIX: &str = "TY";
-
-/// A stable public diagnostic code in the form `TY` followed by four digits.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct DiagnosticCode([u8; 4]);
 
 impl DiagnosticCode {
-    /// Creates a diagnostic code from its numeric portion.
+    pub const PREFIX: &str = "TY";
+
     #[must_use]
     pub const fn from_number(number: u16) -> Option<Self> {
         if number > 9_999 {
@@ -28,7 +23,6 @@ impl DiagnosticCode {
         ]))
     }
 
-    /// Returns the numeric portion of this code.
     #[must_use]
     pub const fn number(self) -> u16 {
         ((self.0[0] - b'0') as u16 * 1_000)
@@ -41,7 +35,7 @@ impl DiagnosticCode {
 impl fmt::Display for DiagnosticCode {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         let digits = core::str::from_utf8(&self.0).map_err(|_| fmt::Error)?;
-        write!(formatter, "{DIAGNOSTIC_PREFIX}{digits}")
+        write!(formatter, "{}{digits}", Self::PREFIX)
     }
 }
 
@@ -50,7 +44,7 @@ impl FromStr for DiagnosticCode {
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         let bytes = value.as_bytes();
-        if bytes.len() != 6 || &bytes[..2] != DIAGNOSTIC_PREFIX.as_bytes() {
+        if bytes.len() != 6 || &bytes[..2] != Self::PREFIX.as_bytes() {
             return Err(InvalidDiagnosticCode);
         }
 
@@ -77,7 +71,6 @@ impl TryFrom<String> for DiagnosticCode {
     }
 }
 
-/// Returned when text does not match Tachyon's stable diagnostic-code format.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct InvalidDiagnosticCode;
 
@@ -89,36 +82,22 @@ impl fmt::Display for InvalidDiagnosticCode {
 
 impl std::error::Error for InvalidDiagnosticCode {}
 
-/// The impact of a diagnostic.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Severity {
-    /// Compilation or execution cannot continue.
     Error,
-    /// The operation can continue, but the result deserves attention.
     Warning,
-    /// Context that does not indicate a fault.
     Information,
 }
 
-/// A half-open UTF-8 byte range within a source file.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct SourceSpan {
-    /// Project-relative source path using forward slashes.
     pub file: String,
-    /// Inclusive UTF-8 byte offset.
     pub start: u64,
-    /// Exclusive UTF-8 byte offset.
     pub end: u64,
 }
 
 impl SourceSpan {
-    /// Creates a validated source span.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`InvalidSourceSpan`] when the path is empty, absolute, uses
-    /// backslashes, or the start offset exceeds the end offset.
     pub fn new(file: impl Into<String>, start: u64, end: u64) -> Result<Self, InvalidSourceSpan> {
         let file = file.into();
         if file.is_empty() || file.starts_with('/') || file.contains('\\') || start > end {
@@ -129,7 +108,6 @@ impl SourceSpan {
     }
 }
 
-/// Returned when a source span is absolute, empty, platform-specific, or reversed.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct InvalidSourceSpan;
 
@@ -142,33 +120,23 @@ impl fmt::Display for InvalidSourceSpan {
 
 impl std::error::Error for InvalidSourceSpan {}
 
-/// A stable diagnostic suitable for human display and machine processing.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Diagnostic {
-    /// Stable machine-readable code.
     pub code: DiagnosticCode,
-    /// Diagnostic severity.
     pub severity: Severity,
-    /// Safe human-readable summary.
     pub message: String,
-    /// Optional recovery guidance.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub help: Option<String>,
-    /// Relevant source locations.
     pub spans: Vec<SourceSpan>,
 }
 
-/// A versioned collection of diagnostics suitable for machine output.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct DiagnosticReport {
-    /// Diagnostics contract major version.
     pub contract_version: u8,
-    /// Diagnostics emitted by one operation in deterministic order.
     pub diagnostics: Vec<Diagnostic>,
 }
 
 impl DiagnosticReport {
-    /// Creates a Diagnostics v1 report.
     #[must_use]
     pub const fn v1(diagnostics: Vec<Diagnostic>) -> Self {
         Self {

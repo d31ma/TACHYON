@@ -1,0 +1,6 @@
+@Test(KotlinGreetingTestSetup::class, {"partition":"tests"})
+class KotlinGreetingControllerTest {
+    fun testGetGreetingSaysHello() {
+        Assert.equals("Hello from Kotlin", KotlinGreetingController().getGreeting())
+    }
+}

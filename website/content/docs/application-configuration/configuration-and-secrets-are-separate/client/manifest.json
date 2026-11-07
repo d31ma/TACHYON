@@ -1,0 +1,11 @@
+{
+  "name": "Catalog",
+  "short_name": "Catalog",
+  "start_url": "/",
+  "display": "standalone",
+  "tac": {
+    "api": {
+      "url": "/api"
+    }
+  }
+}

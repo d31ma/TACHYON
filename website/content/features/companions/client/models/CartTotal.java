@@ -1,0 +1,1 @@
+record CartTotal(int total) {}

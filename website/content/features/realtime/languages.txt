@@ -1,0 +1,86 @@
+Which languages a stream is written in
+
+  .js, .ts   an async generator
+  .py        a generator
+  .php       a generator, framed by the prelude
+  .kt        a Sequence, framed by the prelude
+  .java      a Stream or an Iterator, framed by the prelude
+  .groovy    a Stream or an Iterator, framed by the Java
+             prelude
+  .cs        an IEnumerable or IAsyncEnumerable, framed
+             by the prelude
+  .fs        a seq or IAsyncEnumerable, framed by the prelude
+  .dart      an async* Stream, framed by the prelude
+  .rb        a method that yields, framed by the runner
+  .lua       a method that calls coroutine.yield, framed by
+             the runner
+  .go        an iter.Seq or iter.Seq2 iterator, framed by
+             the prelude
+  .rs        an impl Iterator, framed by the prelude
+  .hpp       a tachyon::Generator coroutine that calls co_yield,
+             framed by the prelude
+
+Every Yon language with a generator streams. A stream is a route method that answers more
+than once, and native generator syntax produces it.
+Each language adapter or protocol prelude keeps that generator open
+and emits one bounded frame per value.
+
+Java, Groovy and Rust have no native generator, so a stream
+method returns a Stream, an Iterator or an impl Iterator, which
+gives its values one at a time.
+
+C++20 has coroutines but no generator type, so a C++ stream
+method returns tachyon::Generator<Model>, which Tachyon provides,
+and sends each value with co_yield. A thrown exception ends the
+stream, and the browser gets event: error without the exception
+text.
+
+In one controller, either every GET route is a StreamRoute or none is.
+
+A Go stream that can fail returns iter.Seq2[Model, error]; the
+first error ends the stream, and the browser gets event: error
+without the error text. A stream has the request
+time limit: at the limit the server stops it and sends
+event: error, and the browser opens the stream again.
+
+In the browser, @StreamRequest is JavaScript, TypeScript, Go, Ruby,
+Rust, Dart, Swift, Kotlin, Java, C#, Lua, Python, F# or C++. A Go client is an interface method such as Receive(tick Tick);
+the page holds the stream for the Go service that keeps the client
+in a // @Needs field, and that service receives each message with
+// @OnEvent. A Rust client is a trait method such as
+fn receive(&self, tick: Tick); the page holds the stream for the
+Rust service that keeps the client in a #[Needs] field, and that
+service receives each message with #[OnEvent]. A Dart client is a
+method of an abstract interface class such as
+void receive(Tick tick);, held the same way for the Dart service
+that keeps it in a @Needs field and receives with @OnEvent. A Swift
+client is a protocol method such as func receive(_ tick: Tick), held
+the same way for the Swift web service that keeps the client in a
+@Needs field.
+A Ruby client is an empty method of a #[HTTPClient] class such as
+def receive(tick), held the same way for the Ruby service that keeps
+the client in a #[Needs] field and receives with #[OnEvent].
+A Kotlin client is an interface method such as
+fun receive(tick: Tick), held the same way for the Kotlin web service
+that keeps the client in a @Needs field.
+A C# client is an interface method such as
+void Receive(Models.Tick tick); held by a browser C# service through
+a [Needs] field and received with [OnEvent].
+An F# client is an abstract member such as
+abstract Receive: Tick -> unit, held by a browser F# service through
+a [<Needs>] property and received with [<OnEvent>].
+A Lua client is an empty method such as
+function TicksClient:receive(tick), held the same way for the Lua
+service that keeps it in a -- @Needs field and receives with
+-- @OnEvent.
+A Python client is a Protocol method such as
+def receive(self, tick: Tick) -> None: ..., held the same way for
+the Python service that keeps the client in a Needs field and
+received with @on_event.
+A Java client is an interface method such as
+void receive(Tick tick);, held the same way for the Java service
+that keeps the client in a @Needs field and received with @OnEvent.
+
+JavaScript and TypeScript require a runtime supporting the authored
+stream syntax; Node is the default. Other languages still require
+their supported interpreter or compiler toolchain.

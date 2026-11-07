@@ -1,0 +1,7 @@
+@Test(TicksTestSetup, {"partition":"tests"})
+export default class TicksControllerTest {
+  async testStreamTicksCountsDown() {
+    const ticks = await Array.fromAsync(this.construct(TicksController).streamTicks())
+    Assert.equals([3, 2, 1], ticks.map((tick) => tick.level))
+  }
+}

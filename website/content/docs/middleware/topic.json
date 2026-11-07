@@ -1,0 +1,12 @@
+{
+  "title": "Middleware",
+  "summary": "Middleware is code that runs before every request and after every response. Put it in a `middleware.<ext>` file at the project root. Who may call a route is not middleware work: routes say it with `Public`, `SignedIn` or `Allow(Role)`.",
+  "before": [
+    "controllers"
+  ],
+  "sections": [
+    {
+      "include": "../yon/middleware/section.json"
+    }
+  ]
+}

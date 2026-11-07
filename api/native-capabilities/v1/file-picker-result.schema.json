@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Native FilePicker result v1",
+  "type": "object",
+  "required": ["status"],
+  "additionalProperties": false,
+  "properties": {
+    "status": { "enum": ["available", "selected", "cancelled", "read", "released", "denied", "unsupported", "unavailable", "invalid", "disposed", "tooLarge"] },
+    "handle": { "type": "string", "format": "uuid" },
+    "name": { "type": "string", "maxLength": 255 },
+    "text": { "type": "string", "maxLength": 65536 }
+  },
+  "allOf": [
+    { "if": { "properties": { "status": { "const": "selected" } } }, "then": { "required": ["handle", "name"] } },
+    { "if": { "properties": { "status": { "const": "read" } } }, "then": { "required": ["text"] } }
+  ]
+}

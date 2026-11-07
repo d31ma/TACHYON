@@ -1,0 +1,1 @@
+record Greeting(String message) {}

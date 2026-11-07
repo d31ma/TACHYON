@@ -1,0 +1,16 @@
+{
+  "id": "document-assets",
+  "title": "Shared browser assets",
+  "group": "Tooling",
+  "summary": "A browser entry script is the script the browser loads first. A browser entry script that registers a component library belongs to the project, not to one page. A shared stylesheet also belongs to the project. Declare each one once. Then you do not need to add a script and a stylesheet to every route only to repeat imports.",
+  "files": [
+    {
+      "name": "client/manifest.json",
+      "code": { "file": "client/manifest.json" }
+    },
+    {
+      "name": "emitted",
+      "code": { "file": "emitted.txt" }
+    }
+  ]
+}

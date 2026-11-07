@@ -1,0 +1,5 @@
+{
+  "tac": {
+    "metadata": { "routes": { "/": { "title": "Hot update fixture" } } }
+  }
+}

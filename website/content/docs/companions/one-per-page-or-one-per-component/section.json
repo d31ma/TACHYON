@@ -1,0 +1,110 @@
+{
+  "heading": "One per page, or one per component",
+  "target": "web",
+  "body": "By default, a service is a page singleton: the page has one instance of it. Tachyon creates it when the first view that names it renders. Tachyon initialises it once, and every component that names it shares it. Tachyon disposes of it (cleans it up) when the user leaves the page. A service built from its component's properties is different. It has one instance for each component instance. Tachyon constructs it with those properties and disposes of it with the component. You write no constructor for it. @NeedsAll takes no arguments, and a class with it has no constructor. It takes every field that has no initial value, like Lombok's @RequiredArgsConstructor, and the properties with the same names fill those fields. Each such field is required: the build refuses a component tag that does not pass it (`TY1407`), and the page refuses a missing or `null` value. A field with an initial value is plain state. This works the same in every Tac language. A Go field that a property fills is marked // @Required. A Python field is a typed class attribute with no value, such as `files: list[str]`, under `@needs_all`. In Lua, every field in the class table has a value, such as files = {}, and the property with the same name replaces it. A field can hold text, a number, a list, or a model from client/models (a list of models and nested models too). In F#, @NeedsAll marks the primary constructor, so its parameters are the properties (ADR 0073). No Lifetime is needed, because a page singleton is constructed with no properties at all (ADR 0039; an ADR is an architecture decision record). Use Lifetime({\"value\":\"prototype\"}) for a service that keeps state for each component but takes no properties. A view reads those fields directly, not through a method that returns them. Tachyon injects collaborators (other services that this service uses). It does not pass them as constructor arguments. In the view, properties from a parent and loop bindings have no service name in front of them. A service field can be declared, left undefined and named after another service. That field receives that singleton, in the same way a Yon service receives its collaborators.",
+  "files": [
+    {
+      "name": "client/pages/tac.html",
+      "code": {
+        "file": "client/pages/tac.html"
+      }
+    },
+    {
+      "name": "client/shared/data/snippet.json",
+      "code": {
+        "file": "client/shared/data/snippet.json"
+      }
+    },
+    {
+      "name": "client/components/snippet/list/tac.html",
+      "code": {
+        "file": "client/components/snippet/list/tac.html"
+      }
+    },
+    {
+      "name": "client/services/SnippetService.js",
+      "code": {
+        "file": "client/services/SnippetService.js"
+      }
+    },
+    {
+      "name": "client/services/SnippetService.ts",
+      "code": {
+        "file": "client/services/SnippetService.ts"
+      }
+    },
+    {
+      "name": "client/services/SnippetService.dart",
+      "code": {
+        "file": "client/services/SnippetService.dart"
+      }
+    },
+    {
+      "name": "client/services/SnippetService.rs",
+      "code": {
+        "file": "client/services/SnippetService.rs"
+      }
+    },
+    {
+      "name": "client/services/SnippetService.go",
+      "code": {
+        "file": "client/services/SnippetService.go"
+      }
+    },
+    {
+      "name": "client/services/SnippetService.rb",
+      "code": {
+        "file": "client/services/SnippetService.rb"
+      }
+    },
+    {
+      "name": "client/services/SnippetService.swift",
+      "code": {
+        "file": "client/services/SnippetService.swift"
+      }
+    },
+    {
+      "name": "client/services/SnippetService.kt",
+      "code": {
+        "file": "client/services/SnippetService.kt"
+      }
+    },
+    {
+      "name": "client/services/SnippetService.cs",
+      "code": {
+        "file": "client/services/SnippetService.cs"
+      }
+    },
+    {
+      "name": "client/services/SnippetService.java",
+      "code": {
+        "file": "client/services/SnippetService.java"
+      }
+    },
+    {
+      "name": "client/services/SnippetService.fs",
+      "code": {
+        "file": "client/services/SnippetService.fs"
+      }
+    },
+    {
+      "name": "client/services/SnippetService.lua",
+      "code": {
+        "file": "client/services/SnippetService.lua"
+      }
+    },
+    {
+      "name": "client/services/SnippetService.py",
+      "code": {
+        "file": "client/services/SnippetService.py"
+      }
+    },
+    {
+      "name": "client/services/SnippetService.hpp",
+      "code": {
+        "file": "client/services/SnippetService.hpp"
+      }
+    }
+  ],
+  "axis": "language"
+}

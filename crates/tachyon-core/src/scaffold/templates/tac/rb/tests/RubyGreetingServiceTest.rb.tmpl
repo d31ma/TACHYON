@@ -1,0 +1,8 @@
+#[Test(RubyGreetingTestSetup, {"partition":"tests"})]
+class RubyGreetingServiceTest
+  def test_greet_changes_the_message
+    greeting = RubyGreetingService.new
+    greeting.greet
+    Assert.equals("Ruby says hello again.", greeting.message)
+  end
+end

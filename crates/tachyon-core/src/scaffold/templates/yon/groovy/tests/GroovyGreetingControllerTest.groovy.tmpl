@@ -1,0 +1,6 @@
+@Test(GroovyGreetingTestSetup.class, {"partition":"tests"})
+class GroovyGreetingControllerTest {
+    void testGetGreetingSaysHello() {
+        Assert.equals('Hello from Groovy', new GroovyGreetingController().getGreeting())
+    }
+}

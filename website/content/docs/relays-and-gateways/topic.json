@@ -1,0 +1,16 @@
+{
+  "title": "Relays and gateways",
+  "summary": "A gateway lets a method in one language call a class that is written in another language. A relay sends a request to a program that Yon does not run itself.",
+  "before": [
+    "controllers",
+    "yon-languages"
+  ],
+  "sections": [
+    {
+      "include": "../yon/calling-a-method-in-another-language/section.json"
+    },
+    {
+      "include": "../yon/relaying-to-other-languages/section.json"
+    }
+  ]
+}

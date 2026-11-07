@@ -1,0 +1,11 @@
+@Service
+export default class NewsService {
+  /** @type {NewsItem[]} */
+  items = []
+
+  /** @param {NewsItem} item */
+  @OnEvent
+  addItem(item) {
+    this.items = [...this.items.slice(-63), item]
+  }
+}

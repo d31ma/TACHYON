@@ -1,0 +1,368 @@
+{
+  "heading": "Signal-driven UI",
+  "notApplicable": ["ts", "py", "php", "java", "groovy", "cs", "fs", "kt", "rs", "go", "dart", "rb", "lua", "hpp"],
+  "body": "Signals (events that a service publishes) replace event code that you connect by hand between services. The form saves a name through UsersClient and publishes the answer, a UserSaved model from client/models, through its applicationEventPublisher. The list registers a listener for UserSaved with OnEvent and adds the name to its list. The two services do not know each other, and you can add more listeners without changing the form. In most tabs the listener only changes a field. It does not call the server, because the event already carries the saved name. This keeps the listener a short synchronous method. An OnEvent method may also be async in every language that has async methods (ADR 0105), but an async lifecycle method stops the build with TY1405. The server half is one small JavaScript controller in server/controllers: POST /users answers the saved user. A Yon handler keeps nothing in memory between requests, so a real app stores the name first, for example in a database. A controller in TypeScript, Python, PHP, Java, Groovy, C#, F#, Kotlin, Rust, Go, Dart, Ruby, Lua or C++ answers in the same way (see Controllers), so this section shows the server half only in JavaScript. JavaScript, TypeScript, Go, Ruby and C++ send the request through Tachyon's browser transport to the server of the page. In Go, UsersSetup gives the client no adapter; C++ needs no Setup, because a C++ client without one sends through the page. The Java, Kotlin, C#, F#, Rust and Swift UsersSetup classes give the client an HTTP adapter that answers in the page with the same shape, so those tabs work before the server exists; a UsersSetup without the adapter would use the browser transport instead, and the server would then need a GET /users route too. The Java services of a page share one UsersSetup, so in the Java tab the list needs UsersClient as well: its OnStart method loads the names that the same adapter has already saved. The C# and F# services of one page also share one UsersSetup, and its users adapter keeps each saved user in the page. Their list listener returns a Task, so it reloads every user through its own UsersClient. An F# listener needs its return type, Task<unit>, written out, or it stays synchronous. The Rust and Swift services of one page share one UsersSetup too, and its users adapter keeps each saved user in the page. Their list listener is an async method, which a Rust or Swift service in the browser may have (ADR 0105), so it reloads every user through its own UsersClient, as in the Dart tab. Every Dart browser service of the site is built into one program with one copy of UsersSetup, so in the Dart tab the form and the list share its users adapter. The adapter keeps each saved user in the page, and the list's listener, an async method that Dart accepts, reloads every user through its own UsersClient. The Kotlin services of a page also share one UsersSetup. The Kotlin list listener is a suspend function, so it reloads every user through all, a suspend UsersClient read that the in-page adapter answers. Lua has no example here yet. Python has no example here yet.",
+  "axis": "language",
+  "files": [
+    {
+      "name": "client/pages/tac.html",
+      "code": {
+        "file": "client/pages/tac.html"
+      }
+    },
+    {
+      "name": "client/components/users/form/tac.html",
+      "code": {
+        "file": "client/components/users/form/tac.html"
+      }
+    },
+    {
+      "name": "client/components/users/list/tac.html",
+      "code": {
+        "file": "client/components/users/list/tac.html"
+      }
+    },
+    {
+      "name": "server/controllers/UsersController.js",
+      "code": {
+        "file": "server/controllers/UsersController.js"
+      }
+    },
+    {
+      "name": "client/remotes/UsersClient.js",
+      "code": {
+        "file": "client/remotes/UsersClient.js"
+      }
+    },
+    {
+      "name": "client/services/UserFormService.js",
+      "code": {
+        "file": "client/services/UserFormService.js"
+      }
+    },
+    {
+      "name": "client/services/UserListService.js",
+      "code": {
+        "file": "client/services/UserListService.js"
+      }
+    },
+    {
+      "name": "client/remotes/UsersClient.ts",
+      "code": {
+        "file": "client/remotes/UsersClient.ts"
+      }
+    },
+    {
+      "name": "client/services/UserFormService.ts",
+      "code": {
+        "file": "client/services/UserFormService.ts"
+      }
+    },
+    {
+      "name": "client/services/UserListService.ts",
+      "code": {
+        "file": "client/services/UserListService.ts"
+      }
+    },
+    {
+      "name": "client/models/UserSaved.ts",
+      "code": {
+        "file": "client/models/UserSaved.ts"
+      }
+    },
+    {
+      "name": "client/remotes/UsersClient.dart",
+      "code": {
+        "file": "client/remotes/UsersClient.dart"
+      }
+    },
+    {
+      "name": "client/services/UserFormService.dart",
+      "code": {
+        "file": "client/services/UserFormService.dart"
+      }
+    },
+    {
+      "name": "client/services/UserListService.dart",
+      "code": {
+        "file": "client/services/UserListService.dart"
+      }
+    },
+    {
+      "name": "client/models/UserSaved.dart",
+      "code": {
+        "file": "client/models/UserSaved.dart"
+      }
+    },
+    {
+      "name": "client/setups/UsersSetup.dart",
+      "code": {
+        "file": "client/setups/UsersSetup.dart"
+      }
+    },
+    {
+      "name": "client/remotes/UsersClient.rs",
+      "code": {
+        "file": "client/remotes/UsersClient.rs"
+      }
+    },
+    {
+      "name": "client/services/UserFormService.rs",
+      "code": {
+        "file": "client/services/UserFormService.rs"
+      }
+    },
+    {
+      "name": "client/services/UserListService.rs",
+      "code": {
+        "file": "client/services/UserListService.rs"
+      }
+    },
+    {
+      "name": "client/models/UserSaved.rs",
+      "code": {
+        "file": "client/models/UserSaved.rs"
+      }
+    },
+    {
+      "name": "client/setups/UsersSetup.rs",
+      "code": {
+        "file": "client/setups/UsersSetup.rs"
+      }
+    },
+    {
+      "name": "client/remotes/UsersClient.go",
+      "code": {
+        "file": "client/remotes/UsersClient.go"
+      }
+    },
+    {
+      "name": "client/services/UserFormService.go",
+      "code": {
+        "file": "client/services/UserFormService.go"
+      }
+    },
+    {
+      "name": "client/services/UserListService.go",
+      "code": {
+        "file": "client/services/UserListService.go"
+      }
+    },
+    {
+      "name": "client/models/UserSaved.go",
+      "code": {
+        "file": "client/models/UserSaved.go"
+      }
+    },
+    {
+      "name": "client/setups/UsersSetup.go",
+      "code": {
+        "file": "client/setups/UsersSetup.go"
+      }
+    },
+    {
+      "name": "client/remotes/UsersClient.kt",
+      "code": {
+        "file": "client/remotes/UsersClient.kt"
+      }
+    },
+    {
+      "name": "client/services/UserFormService.kt",
+      "code": {
+        "file": "client/services/UserFormService.kt"
+      }
+    },
+    {
+      "name": "client/services/UserListService.kt",
+      "code": {
+        "file": "client/services/UserListService.kt"
+      }
+    },
+    {
+      "name": "client/models/UserSaved.kt",
+      "code": {
+        "file": "client/models/UserSaved.kt"
+      }
+    },
+    {
+      "name": "client/setups/UsersSetup.kt",
+      "code": {
+        "file": "client/setups/UsersSetup.kt"
+      }
+    },
+    {
+      "name": "client/remotes/UsersClient.cs",
+      "code": {
+        "file": "client/remotes/UsersClient.cs"
+      }
+    },
+    {
+      "name": "client/services/UserFormService.cs",
+      "code": {
+        "file": "client/services/UserFormService.cs"
+      }
+    },
+    {
+      "name": "client/services/UserListService.cs",
+      "code": {
+        "file": "client/services/UserListService.cs"
+      }
+    },
+    {
+      "name": "client/models/UserSaved.cs",
+      "code": {
+        "file": "client/models/UserSaved.cs"
+      }
+    },
+    {
+      "name": "client/setups/UsersSetup.cs",
+      "code": {
+        "file": "client/setups/UsersSetup.cs"
+      }
+    },
+    {
+      "name": "client/remotes/UsersClient.fs",
+      "code": {
+        "file": "client/remotes/UsersClient.fs"
+      }
+    },
+    {
+      "name": "client/services/UserFormService.fs",
+      "code": {
+        "file": "client/services/UserFormService.fs"
+      }
+    },
+    {
+      "name": "client/services/UserListService.fs",
+      "code": {
+        "file": "client/services/UserListService.fs"
+      }
+    },
+    {
+      "name": "client/models/UserSaved.fs",
+      "code": {
+        "file": "client/models/UserSaved.fs"
+      }
+    },
+    {
+      "name": "client/setups/UsersSetup.fs",
+      "code": {
+        "file": "client/setups/UsersSetup.fs"
+      }
+    },
+    {
+      "name": "client/remotes/UsersClient.swift",
+      "code": {
+        "file": "client/remotes/UsersClient.swift"
+      }
+    },
+    {
+      "name": "client/services/UserFormService.swift",
+      "code": {
+        "file": "client/services/UserFormService.swift"
+      }
+    },
+    {
+      "name": "client/services/UserListService.swift",
+      "code": {
+        "file": "client/services/UserListService.swift"
+      }
+    },
+    {
+      "name": "client/models/UserSaved.swift",
+      "code": {
+        "file": "client/models/UserSaved.swift"
+      }
+    },
+    {
+      "name": "client/setups/UsersSetup.swift",
+      "code": {
+        "file": "client/setups/UsersSetup.swift"
+      }
+    },
+    {
+      "name": "client/remotes/UsersClient.java",
+      "code": {
+        "file": "client/remotes/UsersClient.java"
+      }
+    },
+    {
+      "name": "client/services/UserFormService.java",
+      "code": {
+        "file": "client/services/UserFormService.java"
+      }
+    },
+    {
+      "name": "client/services/UserListService.java",
+      "code": {
+        "file": "client/services/UserListService.java"
+      }
+    },
+    {
+      "name": "client/models/UserSaved.java",
+      "code": {
+        "file": "client/models/UserSaved.java"
+      }
+    },
+    {
+      "name": "client/setups/UsersSetup.java",
+      "code": {
+        "file": "client/setups/UsersSetup.java"
+      }
+    },
+    {
+      "name": "client/remotes/UsersClient.rb",
+      "code": {
+        "file": "client/remotes/UsersClient.rb"
+      }
+    },
+    {
+      "name": "client/services/UserFormService.rb",
+      "code": {
+        "file": "client/services/UserFormService.rb"
+      }
+    },
+    {
+      "name": "client/services/UserListService.rb",
+      "code": {
+        "file": "client/services/UserListService.rb"
+      }
+    },
+    {
+      "name": "client/models/UserSaved.rb",
+      "code": {
+        "file": "client/models/UserSaved.rb"
+      }
+    },
+    {
+      "name": "client/setups/UsersSetup.rb",
+      "code": {
+        "file": "client/setups/UsersSetup.rb"
+      }
+    },
+    {
+      "name": "client/remotes/UsersClient.hpp",
+      "code": {
+        "file": "client/remotes/UsersClient.hpp"
+      }
+    },
+    {
+      "name": "client/services/UserFormService.hpp",
+      "code": {
+        "file": "client/services/UserFormService.hpp"
+      }
+    },
+    {
+      "name": "client/services/UserListService.hpp",
+      "code": {
+        "file": "client/services/UserListService.hpp"
+      }
+    },
+    {
+      "name": "client/models/UserSaved.hpp",
+      "code": {
+        "file": "client/models/UserSaved.hpp"
+      }
+    }
+  ]
+}

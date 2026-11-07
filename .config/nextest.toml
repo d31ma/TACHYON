@@ -1,0 +1,68 @@
+[profile.default]
+fail-fast = false
+retries = 1
+slow-timeout = { period = "60s", terminate-after = 5 }
+
+[test-groups]
+serial = { max-threads = 1 }
+heavy = { max-threads = 2 }
+dotnet-web = { max-threads = 2 }
+
+[[profile.default.overrides]]
+filter = 'test(/reads_the_clock_and_secure_random_from_the_page$/) | test(simultaneous_gateway_and_endpoint_deadlines_reap_processes) | test(go_handler_code_cannot_reach_its_relay_deadline) | test(inheriting_descendants_are_bounded_and_reaped_for_every_outcome) | test(compiled_relay_bounds_sideband_redacts_errors_and_reaps_descendants) | test(a_go_log_follow_ends_cleanly_at_the_request_time_limit)'
+test-group = 'serial'
+retries = 2
+
+# Twelve FYLO patches queue for one FYLO process under the 5 second storage deadline.
+[[profile.default.overrides]]
+filter = 'test(concurrent_fylo_patches_never_lose_an_update)'
+test-group = 'serial'
+
+# Relay boundary tests measure deadlines against wall-clock time, so a loaded machine can push them over.
+[[profile.default.overrides]]
+filter = 'binary(it) & test(/^relay_boundaries::/)'
+test-group = 'serial'
+# These run one at a time for about 200 s on an M4, so they start first instead of ending the run.
+priority = 90
+retries = 2
+
+[[profile.default.overrides]]
+filter = 'test(a_csharp_service_is_webassembly_on_targets_that_do_not_link_it) | test(controller_errors::kotlin::error_handlers_answer_every_scenario)'
+test-group = 'heavy'
+retries = 1
+slow-timeout = { period = "60s", terminate-after = 15 }
+
+# Each Kotlin section case compiles its handlers with kotlinc, one JVM per compile. Four at once on a 4-core Windows x64
+# runner pushed single compiles past the 60 s handler compile deadline.
+[[profile.default.overrides]]
+filter = 'test(/^published_sections::kotlin_runs_its_published_yon_sections::/)'
+test-group = 'heavy'
+
+# Each init wizard case scaffolds, tests and builds a project in several languages at once.
+[[profile.default.overrides]]
+filter = 'test(every_generated_combination_passes_its_tests_with_coverage_and_builds)'
+test-group = 'heavy'
+slow-timeout = { period = "60s", terminate-after = 15 }
+
+# One test per language, unit or section: each compiles and runs a few programs in one language (Kotlin, C# or F# for
+# the slowest), over 300 s on a loaded Linux ARM64 VM.
+[[profile.default.overrides]]
+filter = 'test(a_tac_http_client_sends_its_write_verbs_and_headers_in_every_language) | test(a_method_a_case_only_names_fails_coverage_and_a_called_method_passes) | test(every_language_answers_the_same_problem_for_the_same_invalid_input) | test(/^test_marker_proofs::(tac|yon)_test_settings_profiles_fresh_start_and_inputs_run_in_every_language::/) | test(kotlin_test_settings_reach_the_setup_gate_as_tac_settings) | test(/^published_sections::(csharp|fsharp)_runs_its_published_yon_sections::/)'
+slow-timeout = { period = "60s", terminate-after = 15 }
+
+[[profile.default.overrides]]
+filter = 'test(/tac_web::.*(csharp|fsharp|dotnet)|tac_web::fsharp_tests::|model_sources::tests::a_csharp_web|tac_implicit_mapping_(cs|fs)_|tac_model_binding::(a_csharp|an_fsharp)/)'
+test-group = 'dotnet-web'
+# Each .NET WebAssembly build takes about 95 s alone; on a loaded Windows ARM64 machine two of them passed 300 s.
+slow-timeout = { period = "60s", terminate-after = 15 }
+
+# The Python Tac browser test starts Pyodide four times in each of Chromium, Firefox and WebKit.
+[[profile.default.overrides]]
+filter = 'test(pinned_python_tac_services_async_models_and_offline_reload_use_the_real_compiler)'
+slow-timeout = { period = "60s", terminate-after = 16 }
+
+
+# The longest tests start first, so none of them starts late and runs alone at the end of the run.
+[[profile.default.overrides]]
+filter = 'test(three_supervised_servers_remain_healthy_for_sixty_seconds) | test(/_test_settings_profiles_fresh_start_and_inputs_run_in_every_language::(kotlin|fsharp|csharp)$/) | test(/^phase[45]_cli::/) | test(/^executed_coverage::a_method_a_case_only_names_fails_coverage_and_a_called_method_passes::/) | test(fylo_scroll_pages_past_ten_thousand_documents_with_a_cursor) | test(two_linked_kotlin_services_share_one_setup_configuration) | test(every_generated_combination_passes_its_tests_with_coverage_and_builds)'
+priority = 80

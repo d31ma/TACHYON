@@ -27,5 +27,7 @@ class Handler:
     @staticmethod
     def __status_code(request):
         query = request.get("query") or {}
-        raw = query.get("code")
-        return str(int(raw)) if isinstance(raw, (int, float)) else str(raw or "")
+        requested_code = query.get("code")
+        if isinstance(requested_code, (int, float)):
+            return str(int(requested_code))
+        return str(requested_code or "")

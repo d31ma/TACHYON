@@ -1,0 +1,105 @@
+{
+  "id": "application-modules",
+  "title": "Ordinary application modules",
+  "notApplicable": ["hpp"],
+  "summary": "Controllers and services call plain helper classes in server/shared/. The helpers need no annotation, registration or required role name. JavaScript and TypeScript use ordinary imports. Go shares package main with the controller, and imports its own native packages from the Go module in server/packages/ by module path (ADR 0095). Tachyon composes same-language shared classes before the managed roles and controller in the other Yon languages. Shared files contain one class and its imports, with no file-level variables. Annotated controllers and providers follow their role suffixes, exact file names and plural folders. Discovery uses a captured, bounded source snapshot and never scans at run time. Each invocation keeps its own provider scope. C++ has no tab here, but a C++ controller reads plain helper classes from `server/shared/` too, one class per header file (ADR 0099).",
+  "group": "Yon server",
+  "files": [
+    {
+      "name": "server/shared/orders.js",
+      "code": {
+        "file": "server/shared/orders.js"
+      }
+    },
+    {
+      "name": "server/shared/orders.ts",
+      "code": {
+        "file": "server/shared/orders.ts"
+      }
+    },
+    {
+      "name": "server/shared/orders.py",
+      "code": {
+        "file": "server/shared/orders.py"
+      }
+    },
+    {
+      "name": "server/shared/orders.php",
+      "code": {
+        "file": "server/shared/orders.php"
+      }
+    },
+    {
+      "name": "server/shared/orders.java",
+      "code": {
+        "file": "server/shared/orders.java"
+      }
+    },
+    {
+      "name": "server/shared/orders.groovy",
+      "code": {
+        "file": "server/shared/orders.groovy"
+      }
+    },
+    {
+      "name": "server/shared/orders.kt",
+      "code": {
+        "file": "server/shared/orders.kt"
+      }
+    },
+    {
+      "name": "server/shared/orders.cs",
+      "code": {
+        "file": "server/shared/orders.cs"
+      }
+    },
+    {
+      "name": "server/shared/orders.rs",
+      "code": {
+        "file": "server/shared/orders.rs"
+      }
+    },
+    {
+      "name": "server/shared/orders.go",
+      "code": {
+        "file": "server/shared/orders.go"
+      }
+    },
+    {
+      "name": "server/shared/orders.dart",
+      "code": {
+        "file": "server/shared/orders.dart"
+      }
+    },
+    {
+      "name": "refused",
+      "code": {
+        "file": "refused.txt"
+      }
+    },
+    {
+      "name": "languages",
+      "code": {
+        "file": "languages.txt"
+      }
+    },
+    {
+      "name": "server/shared/orders.rb",
+      "code": {
+        "file": "server/shared/orders.rb"
+      }
+    },
+    {
+      "name": "server/shared/orders.fs",
+      "code": {
+        "file": "server/shared/orders.fs"
+      }
+    },
+    {
+      "name": "server/shared/orders.lua",
+      "code": {
+        "file": "server/shared/orders.lua"
+      }
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+[
+  {
+    "question": "Is this another JavaScript framework?",
+    "answer": "No. Tac is the frontend part of Tachyon. A Tac view is standard HTML with control tags (if, else, for and loop). Its service can be JavaScript, TypeScript, Dart, Rust, C#, Go or Ruby for the browser. On a native target, a JavaScript, TypeScript, Dart, Go or Ruby service runs in the platform's web view. A Rust, Swift, Kotlin or C# service is compiled by that language's own toolchain and linked into the host on the targets that language supports. On the other targets, a Rust or C# service runs in the web view as WebAssembly. This site splits its services evenly across the seven browser languages."
+  },
+  {
+    "question": "What do I have to install?",
+    "answer": "The `ty` binary (one program file). It creates new projects, compiles, bundles and packages your app. `ty preview` is the development server for both Tac and Yon. You also need the toolchain (the compiler and tools) for each language you use, and only for those languages. `ty doctor` shows which of those toolchains your machine already has."
+  },
+  {
+    "question": "How does the same source become a native application?",
+    "answer": "A native build packages the application's web bundle and shows it in the platform's web view. The web view is a browser view built into the operating system. All targets use the same bundle. But the rendering can differ between WebViews. A service compiled for the platform links into the host process. It can use the platform's software development kit (SDK). Examples are AppKit, the Android SDK or the .NET base class library. You create windows and tray icons with those APIs. Tachyon adds no extra commands for them."
+  },
+  {
+    "question": "How does Tachyon define a route?",
+    "answer": "A page's folder defines its URL. A folder under `client/pages` that has a `tac.html` file is a page. A folder whose name starts with an underscore is a dynamic segment. A dynamic segment matches any value in that part of the URL. A REST endpoint (a URL that the server answers) is a method of a controller class in `server/controllers`. `@RequestRoute(\"/orders\")` on the class and `@GetRoute(\"/{id}\")` on the method give its path. You do not need to update a separate route table."
+  },
+  {
+    "question": "Can I write a controller in a language that Tachyon does not support?",
+    "answer": "Yes. Yon is the backend part of Tachyon. It supports JavaScript, TypeScript, Python, Java, C#, Kotlin, PHP, Rust, Dart, Go and Ruby. A service in one of these languages calls a class in another one with `@Gateway`. For any other language, you have two choices. First, a controller can call `relay(command, request)`. This runs another program that speaks Handler Protocol v1. Second, you can name a program in a `@Gateway` command. Yon then calls it with JSON arguments. Yon never guesses which program to run from a shebang line. A shebang line is the first line of a script, which starts with #!."
+  },
+  {
+    "question": "Is there a configuration file?",
+    "answer": "Tac and Yon each have a configuration file. `client/manifest.json` is the web app manifest used to install the browser app. Its `tac` field holds public Tac settings. `server/application.json` holds Yon configuration. Only Yon reads it, and it is never sent to the browser. Do not put secrets in it. Secrets go in `.env`. Build settings, such as page metadata, shared scripts and styles and the sitemap, are data in the same manifest's `tac` member (ADR 0052). So the whole Tac configuration is one file."
+  }
+]

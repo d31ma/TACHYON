@@ -1,0 +1,23 @@
+{
+  "name": "Catalog",
+  "start_url": "/",
+  "tac": {
+    "application": {
+      "id": "com.example.catalog",
+      "version": "1.0.0",
+      "menus": {
+        "file": [
+          {
+            "id": "home",
+            "label": "Open Catalog",
+            "route": "/",
+            "shortcut": { "key": "0", "modifiers": ["command"] }
+          }
+        ],
+        "help": [
+          { "id": "help", "label": "Catalog Help", "route": "/help" }
+        ]
+      }
+    }
+  }
+}

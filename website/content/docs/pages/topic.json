@@ -1,0 +1,12 @@
+{
+  "title": "Pages and URLs",
+  "summary": "Each folder under `client/pages` is one part of a URL. The `tac.html` file in a folder is the page for that URL. A folder whose name starts with `_`, such as `_topic`, matches any value in that part of the URL.",
+  "before": [
+    "first-app"
+  ],
+  "sections": [
+    {
+      "include": "../routing/frontend-pages/section.json"
+    }
+  ]
+}

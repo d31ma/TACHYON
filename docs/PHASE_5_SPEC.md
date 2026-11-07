@@ -1,12 +1,16 @@
 # Phase 5 Specification: Platform Expansion
 
-This document is normative for Phase 5. It defines how one resolved Native UI
-v1 document becomes an application on each supported platform, what each
-platform host must guarantee, and what evidence promotes a platform from
-*buildable* to a higher tier in [`SUPPORT_TIERS.md`](SUPPORT_TIERS.md).
+This document is normative for Phase 5: it states the rules that Phase 5 must
+follow. It defines three things:
 
-Phase 5 adds no new view syntax, no new adapter, and no new capability. It
-adds platform hosts and the evidence that proves them.
+- how one resolved Native UI v1 document becomes an application on each
+  supported platform;
+- what each platform host must guarantee;
+- what evidence moves a platform from *buildable* to a higher tier in
+  [`SUPPORT_TIERS.md`](SUPPORT_TIERS.md).
+
+Phase 5 adds no new view syntax, no new adapter and no new capability. It adds
+platform hosts and the evidence that proves they work.
 
 ## 1. Target Model
 
@@ -23,26 +27,26 @@ A native build selects exactly one target:
 ### 1.1 Target Isolation
 
 - Each target publishes only under its own directory.
-- A failed build for one target never modifies another target's output.
-- A failed build publishes nothing under its own directory and preserves the
+- A failed build for one target never changes the output of another target.
+- A failed build publishes nothing under its own directory. It keeps the
   previous complete application.
 
 ### 1.2 Shared Lowering
 
-Every target consumes the same fully resolved Phase 3 web output and the same
-`NativePlanner`. Two builds of one project for two targets must produce
-byte-identical Native UI v1 documents apart from:
+Every target uses the same fully resolved Phase 3 web output and the same
+`NativePlanner`. Build one project for two targets. The two Native UI v1
+documents must be identical byte for byte, except for:
 
 1. the `target` discriminator, and
 2. the human-readable `reason` on a `web_surface`, which names its platform.
 
-No other divergence is permitted. Adapter selection, node identities,
-accessible names, roles, properties, events, and initial state are
-platform-neutral.
+No other difference is allowed. These parts do not depend on the platform:
+adapter selection, node identities, accessible names, roles, properties,
+events and initial state.
 
 ## 2. Platform-Neutral Staging
 
-Before any toolchain runs, every target stages an identical resource tree:
+Before any toolchain runs, every target stages the same resource tree:
 
 ```text
 <stage>/native-index.json          inspectable route index
@@ -53,7 +57,7 @@ Before any toolchain runs, every target stages an identical resource tree:
 <stage>/project/                   generated host source
 ```
 
-and mirrors it into the platform bundle under fixed names:
+Each target then copies this tree into the platform bundle under fixed names:
 
 ```text
 NativeIndex.json
@@ -63,36 +67,40 @@ WebBundle/
 CapabilityManifest.json
 ```
 
-Artifact Manifest v1 is written last, covers every other published file, and
-records the real platform toolchain name and version.
+The build writes Artifact Manifest v1 last. It covers every other published
+file. It records the name and version of the real platform toolchain.
 
 ## 3. Host Requirements
 
 Every generated host must:
 
-1. reject a Native UI v1 document whose `contract_version` is not `1` or whose
-   `target` is not the host's own platform;
+1. reject a Native UI v1 document when its `contract_version` is not `1` or
+   its `target` is not the platform of the host;
 2. render every adapter listed in §4 with the platform's own control for that
-   adapter, never an emulated or web-drawn substitute;
-3. carry each node's accessible name to the platform accessibility API;
-4. carry each node's identity to the platform's testing identifier where the
-   platform has one;
-5. apply `increment`, `toggle`, text input, and disclosure state exactly as the
-   Phase 4 declarative ABI defines them;
-6. record `controller.created`, `controller.mounted`, `controller.active`,
+   adapter, never with an emulated or web-drawn substitute;
+3. pass the accessible name of each node to the platform accessibility API;
+4. pass the identity of each node to the testing identifier of the platform,
+   when the platform has one;
+5. apply `increment`, `toggle`, text input and disclosure state exactly as the
+   Phase 4 declarative ABI (application binary interface) defines them;
+6. record these events to a bounded log for each application:
+   `controller.created`, `controller.mounted`, `controller.active`,
    `controller.suspended`, `controller.destroyed`, `route.opened`,
-   `route.failed`, and the `state.*` and `websurface.*` events to a bounded
-   per-application log;
+   `route.failed`, and the `state.*` and `websurface.*` events;
 7. expose **no** bridge of any kind to `WebSurface` content;
-8. fail closed to a visible error state rather than render a partial view.
+8. fail closed: show a visible error state instead of a partial view.
 
 ### 3.1 Lifecycle Delivery
 
-A host records a lifecycle event only when its platform actually delivers the
-corresponding notification. `controller.destroyed` is recorded on graceful
-termination. Platforms that terminate applications without a graceful
-notification — notably iOS and Android under system-initiated kill — are not
-required to record it, and the absence of that record is not a defect.
+A host records a lifecycle event only when its platform really delivers the
+matching notification.
+
+- The host records `controller.destroyed` when the application ends
+  gracefully.
+- Some platforms end applications without a graceful notification. The main
+  examples are iOS and Android when the system kills the application. These
+  platforms do not have to record `controller.destroyed`. A missing record is
+  not a defect.
 
 ## 4. Adapter Coverage
 
@@ -117,41 +125,43 @@ required to record it, and the absence of that record is not a defect.
 
 On every platform that embeds a web view:
 
-- the surface uses an ephemeral, non-persistent data store;
-- scripting is enabled only for a `local_bundle` surface, never for
-  `remote_url`;
-- navigation is restricted to the bundle root for `local_bundle` and to the
-  declared HTTPS host for `remote_url`; every other navigation is cancelled;
-- no script message handler, JavaScript interface, or native object is exposed.
+- the surface uses a temporary data store that is not saved;
+- scripting is on only for a `local_bundle` surface, never for `remote_url`;
+- a `local_bundle` surface can navigate only inside the bundle root;
+- a `remote_url` surface can navigate only to the declared HTTPS host;
+- the host cancels every other navigation;
+- the host exposes no script message handler, no JavaScript interface and no
+  native object.
 
 ## 6. Declared Platform Reductions
 
-Each reduction below is deliberate, has a named viability gate, and is
-reflected in `SUPPORT_TIERS.md`. None may be silently widened.
+Each reduction below is deliberate. Each has a named viability gate: the
+condition that must be met before the reduction can be removed. Each is also
+listed in `SUPPORT_TIERS.md`. No reduction may be widened silently.
 
 | Reduction | Platform | Gate |
 | --- | --- | --- |
 | `WebSurface` renders an accessible placeholder that opens its content in the default browser instead of embedding a web view. | Windows | `WebView2` redistributable, COM binding, and offline-build viability. |
-| Native UI v1 is lowered to a generated control table at build time rather than parsed at run time. | Windows | Retained until a Windows JSON dependency is justified; the published `NativeUI/*.json` remains the contract. |
+| Native UI v1 is lowered to a generated control table at build time. It is not parsed at run time. | Windows | Kept until a Windows JSON dependency is justified. The published `NativeUI/*.json` remains the contract. |
 | The application is built for the simulator SDK, not for a device. | iOS | Device provisioning profiles and distribution signing. |
-| Accessible roles come from the widget's implicit role; only names and hidden state are set explicitly. | Linux | GTK4 does not permit post-construction role assignment. |
+| Accessible roles come from the implicit role of the widget. Only names and hidden state are set explicitly. | Linux | GTK4 does not allow a role to be assigned after construction. |
 | A control's accessible name is its window text. A declared `aria-label` that differs from the visible text is not separately exposed. | Windows | A UI Automation provider implementation for the generated controls. |
 | The APK is a debug build signed with the debug key. | Android | Release keystore management and Play signing. |
 
 ## 7. Promotion Evidence
 
-A platform advances one tier at a time. Each tier requires the evidence below
-recorded in [`PHASE_5_EVIDENCE.md`](PHASE_5_EVIDENCE.md) with reproduction
-commands.
+A platform moves up one tier at a time. Each tier requires the evidence
+below. Record it in [`PHASE_5_EVIDENCE.md`](PHASE_5_EVIDENCE.md), together with
+the commands that reproduce it.
 
 | Tier | Required evidence |
 | --- | --- |
-| `buildable` | The generated host compiles for the platform with warnings denied. |
+| `buildable` | The generated host compiles for the platform, with warnings treated as errors. |
 | `simulator-tested` | The application installs and launches on a first-party simulator or emulator, renders its native view, and records its lifecycle. |
-| `native-tested` | Every §4 adapter renders, every interaction in §3.5 succeeds, accessible names are readable through the platform accessibility API, and the `WebSurface` subtree stays isolated. |
-| `supported` | `native-tested` plus install, upgrade, rollback, and uninstall exercises on real hardware, plus a published support window. |
+| `native-tested` | Every §4 adapter renders. Every interaction in §3.5 succeeds. Accessible names are readable through the platform accessibility API. The `WebSurface` subtree stays isolated. |
+| `supported` | `native-tested`, plus install, upgrade, rollback and uninstall tests on real hardware, plus a published support window. |
 
-Cross-compilation proves `buildable` and nothing more.
+Cross-compilation proves only `buildable`.
 
 ## 8. Failure Behavior
 
@@ -163,5 +173,5 @@ Cross-compilation proves `buildable` and nothing more.
 | `TY1604` | A `WebSurface` boundary is invalid or exceeds its budget. |
 | `TY1605` | Staging, host generation, toolchain execution, or publication failed. |
 
-Every failure preserves the previous published application for that target and
-leaves no partial output.
+Every failure keeps the previous published application for that target. No
+failure leaves partial output.

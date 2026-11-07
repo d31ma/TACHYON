@@ -1,0 +1,225 @@
+{
+  "heading": "Injection: Tac",
+  "body": "Tac accepts the same annotations in its browser services, with two differences. First, Lifetime is a literal object, not a string. {\"value\":\"prototype\"} gives every component instance its own service. {\"value\":\"singleton\"} is the default and shares one service. {\"value\":\"application\"} works only for a client Rust service in a native macOS, Linux or Windows app (not in the browser, iOS or Android): one instance starts with the app and stops when it quits, and page services and menu actions reach it (see Native menus). In the browser and on other native targets the build refuses it with TY1406.\n\nA service with NeedsAll already has one instance for each component, because it takes its component's properties. NeedsAll follows Lombok's RequiredArgsConstructor: every field without an initial value is required, and a field with an initial value is plain state. NeedsAll takes no field list, and its class declares no constructor; the build refuses both (ADR 0056). A required collaborator is injected, and every other required field must come from the component's props. A collaborator is a field marked Needs or Named, a field that names a service or provider, or, in every language except JavaScript and TypeScript, a field whose type is a browser resource such as Clock, PreferenceStrings or DocumentTitle. JavaScript and TypeScript mark a browser resource field with Needs. PreferenceStrings has `read(key)` and `write(key, value)` for plain string preferences, in JavaScript, TypeScript and Java services. DocumentTitle has `set(text)` for the page title, in JavaScript, TypeScript and Kotlin services. The build refuses both in other languages and in linked native services. Setting, LocalState and SessionState fields are filled by Tachyon as well. Any other annotation on a field, such as JsonProperty in Java or Published in Swift, leaves it a prop.\n\nThe build refuses a page that does not pass a prop, and the browser refuses a missing or null value. So a required field and a Needs field are never null when a method runs, and the build refuses one that is declared nullable with TY1331. Write the language's non-null form: `open!: boolean` in TypeScript, `late final String path;` in Dart, `val path: String` or `lateinit var path: String` in Kotlin, `let path: String` in Swift (or `var store: Store!` for a Needs field), `public required string Path;` in C#, and `path: String` in Rust instead of `Option<String>`. A field that may stay empty is plain state: give it a starting value, such as `note: string | null = null`. `ty migrate fix --write` rewrites the simple cases. A required field in a Swift or Kotlin service can be a let or val with no value. Tachyon writes the constructor for it and fills the field from the props.\n\nA required field whose name is the instance name of a service, such as documentation next to DocumentationService, is that service and never a prop. So the build also refuses a page that passes :documentation to that component, with TY1407: rename the field, for example to documents, to receive the value, or mark it Needs and stop passing it if you meant the service. Lifetime is for a service like CartService, which keeps state for each component without those properties.\n\nSecond, Needs finds a Tac provider from the field name in lowerCamel case, or in snake_case in Rust and Python. So CartService declares cartPricesDelegate and cartDelegate. A field that copies the class name, such as `CartPricesDelegate`, stops the build with TY1332, because an injected field uses the language's variable case. The service writes no constructor at all. AuditService calls its field ledger, so it gives the provider's name with Named(\"CartDelegate\") instead. Python writes both markers inside the field's type: `ledger: Annotated[CartDelegate, needs, named(\"CartDelegate\")]`. Dart marks each injected field final, and it also writes no constructor.\n\nDelegate works in every Tac language. In JavaScript, TypeScript, Dart, Rust and Python, Needs injects it. In Swift, Kotlin, Java, C# and F#, a Needs field builds a new Delegate. The C# build writes `[Needs] private readonly CartDelegate _cart;` as `private readonly CartDelegate _cart = new CartDelegate();`. In F#, a primary constructor parameter such as `cart: CartDelegate` becomes `let cart = new CartDelegate()`, and a `[<Needs>]` property becomes a private property set to `new CartDelegate()`, as the F# tabs show. So each C# or F# class that needs a Delegate owns its own new one, and the field names need not match the Delegate. A C# or F# caller may still build a Delegate with `new`. On a C# or F# Delegate the build refuses NeedsAll, Lifetime, OnStart, OnStop and OnEvent with TY1308, and an F# Delegate's `[<Needs>]` property must name another Delegate. A C++ web service has a graph of injected services too: `[[Needs]] CounterService& counter;` injects another C++ service or a C++ HTTP client of the same page program, and every C++ service is one shared instance (ADR 0099). A Go web service needs another Go service the same way, with `// @Needs` above a field such as `counter *CounterService`, and the field holds the instance that the page uses (see A service that needs another service: Tac, below). An F# web service needs another F# service with a `[<Needs>]` property, and `[<Named(\"LoudGreeterService\")>]` picks the F# service that fills a property whose type is a base service it inherits. A Java web service does the same with `@Needs` above `private final CounterService counter;`, and `@Named(\"LoudGreeterService\")` on its own line under `@Needs` names the Java service class to use, for example the subclass LoudGreeterService for a field typed with its base service GreeterService (ADR 0083). Swift, Kotlin and Java have no tab because this example also uses Named. In these languages, each class that names a Delegate in a `@Needs` field builds its own new Delegate of the field's type, so Named does not pick a shared one. A Swift `@Needs private let cartDelegate: CartDelegate` field builds its own CartDelegate, so the delegate needs an `init()` without arguments. A Java `@Needs private final CartDelegate cartDelegate;` field becomes `private final CartDelegate cartDelegate = new CartDelegate();`. Go, Ruby and Lua have no tab because their delegates belong to one service: a Go delegate belongs to the service that needs or creates it, a Ruby service creates its delegate the first time it uses it, and a Lua service builds its delegate together with itself (see Delegates, utilities and private methods). Their services use the other roles instead.\n\nAn entity Store is the exception: it has no dependencies and opens the context of its own Setup, so a service in every Tac language that has a Store asks for one with Needs, and an F# service takes it as a constructor parameter (see Data access: Tac). A Converter is the other exception: it has no dependencies and needs no context, so a service asks for it the same way (see Mapping: Tac). Roles: Tac above shows where native roles go. client/manifest.json turns on the pinned Python runtime that the Python tab needs (ADR 0093).",
+  "axis": "language",
+  "files": [
+    {
+      "name": "client/pages/tac.html",
+      "code": {
+        "file": "client/pages/tac.html"
+      }
+    },
+    {
+      "name": "client/components/cart/panel/tac.html",
+      "code": {
+        "file": "client/components/cart/panel/tac.html"
+      }
+    },
+    {
+      "name": "client/manifest.json",
+      "code": {
+        "file": "client/manifest.json"
+      }
+    },
+    {
+      "name": "client/delegates/CartPricesDelegate.js",
+      "code": {
+        "file": "client/delegates/CartPricesDelegate.js"
+      }
+    },
+    {
+      "name": "client/delegates/CartDelegate.js",
+      "code": {
+        "file": "client/delegates/CartDelegate.js"
+      }
+    },
+    {
+      "name": "client/services/CartService.js",
+      "code": {
+        "file": "client/services/CartService.js"
+      }
+    },
+    {
+      "name": "client/services/AuditService.js",
+      "code": {
+        "file": "client/services/AuditService.js"
+      }
+    },
+    {
+      "name": "client/delegates/CartPricesDelegate.ts",
+      "code": {
+        "file": "client/delegates/CartPricesDelegate.ts"
+      }
+    },
+    {
+      "name": "client/delegates/CartDelegate.ts",
+      "code": {
+        "file": "client/delegates/CartDelegate.ts"
+      }
+    },
+    {
+      "name": "client/services/CartService.ts",
+      "code": {
+        "file": "client/services/CartService.ts"
+      }
+    },
+    {
+      "name": "client/services/AuditService.ts",
+      "code": {
+        "file": "client/services/AuditService.ts"
+      }
+    },
+    {
+      "name": "client/delegates/CartPricesDelegate.dart",
+      "code": {
+        "file": "client/delegates/CartPricesDelegate.dart"
+      }
+    },
+    {
+      "name": "client/delegates/CartDelegate.dart",
+      "code": {
+        "file": "client/delegates/CartDelegate.dart"
+      }
+    },
+    {
+      "name": "client/services/CartService.dart",
+      "code": {
+        "file": "client/services/CartService.dart"
+      }
+    },
+    {
+      "name": "client/services/AuditService.dart",
+      "code": {
+        "file": "client/services/AuditService.dart"
+      }
+    },
+    {
+      "name": "client/delegates/CartPricesDelegate.rs",
+      "code": {
+        "file": "client/delegates/CartPricesDelegate.rs"
+      }
+    },
+    {
+      "name": "client/delegates/CartDelegate.rs",
+      "code": {
+        "file": "client/delegates/CartDelegate.rs"
+      }
+    },
+    {
+      "name": "client/services/CartService.rs",
+      "code": {
+        "file": "client/services/CartService.rs"
+      }
+    },
+    {
+      "name": "client/services/AuditService.rs",
+      "code": {
+        "file": "client/services/AuditService.rs"
+      }
+    },
+    {
+      "name": "client/delegates/CartPricesDelegate.py",
+      "code": {
+        "file": "client/delegates/CartPricesDelegate.py"
+      }
+    },
+    {
+      "name": "client/delegates/CartDelegate.py",
+      "code": {
+        "file": "client/delegates/CartDelegate.py"
+      }
+    },
+    {
+      "name": "client/services/CartService.py",
+      "code": {
+        "file": "client/services/CartService.py"
+      }
+    },
+    {
+      "name": "client/services/AuditService.py",
+      "code": {
+        "file": "client/services/AuditService.py"
+      }
+    },
+    {
+      "name": "client/delegates/CartPricesDelegate.cs",
+      "code": {
+        "file": "client/delegates/CartPricesDelegate.cs"
+      }
+    },
+    {
+      "name": "client/delegates/CartDelegate.cs",
+      "code": {
+        "file": "client/delegates/CartDelegate.cs"
+      }
+    },
+    {
+      "name": "client/services/CartService.cs",
+      "code": {
+        "file": "client/services/CartService.cs"
+      }
+    },
+    {
+      "name": "client/services/AuditService.cs",
+      "code": {
+        "file": "client/services/AuditService.cs"
+      }
+    },
+    {
+      "name": "client/delegates/CartPricesDelegate.fs",
+      "code": {
+        "file": "client/delegates/CartPricesDelegate.fs"
+      }
+    },
+    {
+      "name": "client/delegates/CartDelegate.fs",
+      "code": {
+        "file": "client/delegates/CartDelegate.fs"
+      }
+    },
+    {
+      "name": "client/services/CartService.fs",
+      "code": {
+        "file": "client/services/CartService.fs"
+      }
+    },
+    {
+      "name": "client/services/AuditService.fs",
+      "code": {
+        "file": "client/services/AuditService.fs"
+      }
+    },
+    {
+      "name": "client/delegates/CartPricesDelegate.hpp",
+      "code": {
+        "file": "client/delegates/CartPricesDelegate.hpp"
+      }
+    },
+    {
+      "name": "client/delegates/CartDelegate.hpp",
+      "code": {
+        "file": "client/delegates/CartDelegate.hpp"
+      }
+    },
+    {
+      "name": "client/services/CartService.hpp",
+      "code": {
+        "file": "client/services/CartService.hpp"
+      }
+    },
+    {
+      "name": "client/services/AuditService.hpp",
+      "code": {
+        "file": "client/services/AuditService.hpp"
+      }
+    }
+  ],
+  "notApplicable": [
+    "go",
+    "rb",
+    "lua",
+    "swift",
+    "kt",
+    "java"
+  ]
+}

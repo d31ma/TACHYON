@@ -1,0 +1,16 @@
+import type { Tick } from '/models/Tick.ts'
+
+@RequestRoute("/ticks")
+@Public
+export class TicksController {
+  @StreamRoute
+  async *streamTicks(): AsyncGenerator<Tick> {
+    yield* this.countdown(3);
+  }
+
+  private async *countdown(start: number): AsyncGenerator<Tick> {
+    for (let level = start; level > 0; level -= 1) {
+      yield { level };
+    }
+  }
+}

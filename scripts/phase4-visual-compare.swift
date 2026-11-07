@@ -39,8 +39,10 @@ private enum ComparisonError: Error, CustomStringConvertible {
     }
 }
 
-private let sampleWidth = 84
-private let sampleHeight = 156
+private enum SampleSize {
+    static let width = 84
+    static let height = 156
+}
 
 private func load(_ path: String) throws -> (CGImage, Int, Int) {
     let url = URL(fileURLWithPath: path) as CFURL
@@ -55,14 +57,14 @@ private func load(_ path: String) throws -> (CGImage, Int, Int) {
 }
 
 private func pixels(_ image: CGImage) -> [UInt8] {
-    var bytes = [UInt8](repeating: 0, count: sampleWidth * sampleHeight * 4)
+    var bytes = [UInt8](repeating: 0, count: SampleSize.width * SampleSize.height * 4)
     bytes.withUnsafeMutableBytes { buffer in
         guard let context = CGContext(
             data: buffer.baseAddress,
-            width: sampleWidth,
-            height: sampleHeight,
+            width: SampleSize.width,
+            height: SampleSize.height,
             bitsPerComponent: 8,
-            bytesPerRow: sampleWidth * 4,
+            bytesPerRow: SampleSize.width * 4,
             space: CGColorSpaceCreateDeviceRGB(),
             bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
         ) else {
@@ -71,7 +73,7 @@ private func pixels(_ image: CGImage) -> [UInt8] {
         context.interpolationQuality = .medium
         context.draw(
             image,
-            in: CGRect(x: 0, y: 0, width: sampleWidth, height: sampleHeight)
+            in: CGRect(x: 0, y: 0, width: SampleSize.width, height: SampleSize.height)
         )
     }
     return bytes
@@ -88,7 +90,7 @@ private func luminance(_ bytes: [UInt8], _ index: Int) -> Double {
 
 private func dominantLuminance(_ bytes: [UInt8]) -> Double {
     var bins = [Int](repeating: 0, count: 32)
-    for index in 0..<(sampleWidth * sampleHeight) {
+    for index in 0..<(SampleSize.width * SampleSize.height) {
         let bin = min(31, Int(luminance(bytes, index) * 32.0))
         bins[bin] += 1
     }
@@ -106,26 +108,26 @@ private func metrics(_ path: String) throws -> ImageMetrics {
     var edges = 0
     var rowCounts = [Int](repeating: 0, count: 12)
 
-    for y in 0..<sampleHeight {
-        for x in 0..<sampleWidth {
-            let index = y * sampleWidth + x
+    for y in 0..<SampleSize.height {
+        for x in 0..<SampleSize.width {
+            let index = y * SampleSize.width + x
             let value = luminance(bytes, index)
             if abs(value - background) > 0.14 {
                 foreground += 1
-                sumX += Double(x) / Double(sampleWidth - 1)
-                sumY += Double(y) / Double(sampleHeight - 1)
-                rowCounts[min(11, y * 12 / sampleHeight)] += 1
+                sumX += Double(x) / Double(SampleSize.width - 1)
+                sumY += Double(y) / Double(SampleSize.height - 1)
+                rowCounts[min(11, y * 12 / SampleSize.height)] += 1
             }
-            if x + 1 < sampleWidth, y + 1 < sampleHeight {
+            if x + 1 < SampleSize.width, y + 1 < SampleSize.height {
                 let horizontal = abs(value - luminance(bytes, index + 1))
-                let vertical = abs(value - luminance(bytes, index + sampleWidth))
+                let vertical = abs(value - luminance(bytes, index + SampleSize.width))
                 if max(horizontal, vertical) > 0.16 { edges += 1 }
             }
         }
     }
-    let total = Double(sampleWidth * sampleHeight)
+    let total = Double(SampleSize.width * SampleSize.height)
     let count = Double(max(1, foreground))
-    let rowArea = Double(sampleWidth * sampleHeight / 12)
+    let rowArea = Double(SampleSize.width * SampleSize.height / 12)
     return ImageMetrics(
         width: width,
         height: height,

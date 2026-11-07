@@ -1,0 +1,16 @@
+{
+  "name": "Observatory",
+  "start_url": "/",
+  "tac": {
+    "application": {
+      "id": "com.example.observatory",
+      "version": "1.0.0",
+      "window": {
+        "width": 1240,
+        "height": 850,
+        "titleBar": "integrated",
+        "titleBarButtonInset": { "leading": 20, "top": 35 }
+      }
+    }
+  }
+}

@@ -1,0 +1,185 @@
+use super::Toolchain;
+use super::release_toolchains::ReleaseToolchains;
+use super::target_probe::TargetProbe;
+use super::target_toolchain::TargetToolchain;
+use crate::AppTarget;
+use std::path::Path;
+
+pub(crate) struct TargetToolchains;
+
+impl TargetToolchains {
+    const APPS: &'static str = "apps";
+    const RELEASES: &'static str = "releases";
+    const LINKED_RUST: &'static str = "Rust services";
+    const PACKAGE_CHECKS: &'static str = "package checks";
+    const LINKED_RUST_ROWS: [TargetToolchain; 1] = [TargetToolchain {
+        target: AppTarget::Android,
+        command: "Android NDK",
+        probe: TargetProbe::AndroidNdk,
+        install: "Rust services in an Android app are linked with the Android NDK. Install it with `sdkmanager \"ndk;30.0.14904198\"` (or Android Studio > SDK Manager > SDK Tools > NDK), or set ANDROID_NDK_HOME to the NDK folder. Add the Rust targets with `rustup target add aarch64-linux-android x86_64-linux-android`.",
+    }];
+    const PACKAGE_CHECK_ROWS: [TargetToolchain; 2] = [
+        TargetToolchain {
+            target: AppTarget::Windows,
+            command: "TAC_MAKEMSIX",
+            probe: TargetProbe::NamedFile("TAC_MAKEMSIX"),
+            install: "Optional away from Windows: ty does not run it. Tachyon's MSIX package test packs and validates a Windows package on Linux or macOS with makemsix from Microsoft's MSIX SDK (https://github.com/microsoft/msix-packaging). Build it, then set TAC_MAKEMSIX to the makemsix file.",
+        },
+        TargetToolchain {
+            target: AppTarget::Windows,
+            command: "osslsigncode",
+            probe: TargetProbe::Version("osslsigncode", &["--version"]),
+            install: "Optional away from Windows: ty does not run it. Tachyon's MSIX package test signs and verifies a Windows package on Linux or macOS with osslsigncode, for example: sudo apt-get install -y osslsigncode (brew install osslsigncode on macOS).",
+        },
+    ];
+    const BUILDS_HERE: [bool; 6] = [
+        true,
+        cfg!(target_os = "macos"),
+        cfg!(windows),
+        cfg!(target_os = "linux"),
+        cfg!(target_os = "macos"),
+        true,
+    ];
+    const ROWS: [TargetToolchain; 12] = [
+        TargetToolchain {
+            target: AppTarget::Macos,
+            command: "xcrun",
+            probe: TargetProbe::Version("xcrun", &["swiftc", "--version"]),
+            install: "Install Xcode, or only its command-line tools with `xcode-select --install`. macOS apps build only on a Mac.",
+        },
+        TargetToolchain {
+            target: AppTarget::Ios,
+            command: "xcodebuild",
+            probe: TargetProbe::Version("xcodebuild", &["-version"]),
+            install: "Install Xcode from the App Store (https://apps.apple.com/app/xcode/id497799835) and open it once to accept the license. iOS apps build only on a Mac.",
+        },
+        TargetToolchain {
+            target: AppTarget::Ios,
+            command: "xcrun --sdk iphonesimulator",
+            probe: TargetProbe::Version(
+                "xcrun",
+                &["--sdk", "iphonesimulator", "--show-sdk-version"],
+            ),
+            install: "Open Xcode, go to Settings > Components, and install the iOS platform. It holds the simulator SDK that iOS apps build against.",
+        },
+        TargetToolchain {
+            target: AppTarget::Android,
+            command: "ANDROID_HOME",
+            probe: TargetProbe::Folder {
+                variables: &["ANDROID_HOME", "ANDROID_SDK_ROOT"],
+                marker: "platforms",
+            },
+            install: "Install Android Studio or its command-line tools from https://developer.android.com/studio, install one Android SDK platform in the SDK Manager, and set ANDROID_HOME to the SDK folder.",
+        },
+        TargetToolchain {
+            target: AppTarget::Android,
+            command: "gradle",
+            probe: TargetProbe::Version("gradle", &["--version"]),
+            install: "Run `ty doctor --install`, which installs Gradle 8.14.5, or put Gradle 8.14 or newer on PATH.",
+        },
+        TargetToolchain {
+            target: AppTarget::Android,
+            command: "javac",
+            probe: TargetProbe::Version("javac", &["-version"]),
+            install: "Run `ty doctor --install`, which installs the Temurin 21 JDK, or put a JDK 17 or newer on PATH. The Android Gradle plugin needs JDK 17 or newer.",
+        },
+        TargetToolchain {
+            target: AppTarget::Windows,
+            command: "cl",
+            probe: TargetProbe::OnPath("cl"),
+            install: "Install the Visual Studio Build Tools with the \"Desktop development with C++\" workload, then run ty from a Visual Studio developer prompt so that cl is on PATH. Windows apps build only on Windows.",
+        },
+        TargetToolchain {
+            target: AppTarget::Windows,
+            command: "rc.exe",
+            probe: TargetProbe::OnPath("rc.exe"),
+            install: "rc.exe comes with the Windows SDK in the \"Desktop development with C++\" workload. Run ty from a Visual Studio developer prompt so that rc.exe is on PATH.",
+        },
+        TargetToolchain {
+            target: AppTarget::Windows,
+            command: "TAC_WEBVIEW2_SDK",
+            probe: TargetProbe::Folder {
+                variables: &["TAC_WEBVIEW2_SDK"],
+                marker: "build/native/include/WebView2.h",
+            },
+            install: "Download the Microsoft.Web.WebView2 package from https://www.nuget.org/packages/Microsoft.Web.WebView2, unzip the .nupkg file, and set TAC_WEBVIEW2_SDK to that folder.",
+        },
+        TargetToolchain {
+            target: AppTarget::Linux,
+            command: "cc",
+            probe: TargetProbe::Version("cc", &["--version"]),
+            install: "Install a C compiler, for example: sudo apt-get install -y build-essential. Linux apps build only on Linux.",
+        },
+        TargetToolchain {
+            target: AppTarget::Linux,
+            command: "pkg-config gtk4",
+            probe: TargetProbe::Version("pkg-config", &["--modversion", "gtk4"]),
+            install: "Install pkg-config and GTK 4, for example: sudo apt-get install -y pkg-config libgtk-4-dev. Run `ty doctor --install` for Fedora and Arch.",
+        },
+        TargetToolchain {
+            target: AppTarget::Linux,
+            command: "pkg-config webkitgtk-6.0",
+            probe: TargetProbe::Version("pkg-config", &["--modversion", "webkitgtk-6.0"]),
+            install: "Install WebKitGTK 6.0, for example: sudo apt-get install -y libwebkitgtk-6.0-dev. Run `ty doctor --install` for Fedora and Arch.",
+        },
+    ];
+
+    pub(crate) fn for_targets(targets: &[AppTarget]) -> Vec<Toolchain> {
+        Self::listed(&Self::ROWS, targets, Self::APPS, false)
+    }
+
+    pub(super) fn for_project(root: &Path, release: bool, links_rust: bool) -> Vec<Toolchain> {
+        let targets = crate::scaffold::ProjectState::bundle_targets(root);
+        let mut toolchains = Self::listed(&Self::ROWS, &targets, Self::APPS, release);
+        toolchains.extend(
+            links_rust
+                .then(|| {
+                    Self::listed(
+                        &Self::LINKED_RUST_ROWS,
+                        &targets,
+                        Self::LINKED_RUST,
+                        release,
+                    )
+                })
+                .into_iter()
+                .flatten(),
+        );
+        toolchains.extend(Self::listed(
+            &ReleaseToolchains::ROWS,
+            &targets,
+            Self::RELEASES,
+            release,
+        ));
+        toolchains.extend(
+            (!cfg!(windows))
+                .then(|| {
+                    Self::listed(
+                        &Self::PACKAGE_CHECK_ROWS,
+                        &targets,
+                        Self::PACKAGE_CHECKS,
+                        false,
+                    )
+                })
+                .into_iter()
+                .flatten(),
+        );
+        toolchains
+    }
+
+    fn listed(
+        rows: &[TargetToolchain],
+        targets: &[AppTarget],
+        purpose: &str,
+        required: bool,
+    ) -> Vec<Toolchain> {
+        targets
+            .iter()
+            .flat_map(|target| rows.iter().filter(|row| row.is_for(*target)))
+            .map(|row| row.toolchain(purpose, Self::needed_here(row.target, required)))
+            .collect()
+    }
+
+    fn needed_here(target: AppTarget, required: bool) -> bool {
+        [required, Self::BUILDS_HERE[target as usize]] == [true, true]
+    }
+}

@@ -1,4 +1,6 @@
 // @ts-check
+import { SiteArtifacts } from '../../../scripts/site-artifacts.mjs'
+import { CargoArtifacts } from '../../../scripts/cargo-artifacts.mjs'
 import { chmod, lstat, mkdir, rm, stat } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
 import { tmpdir, userInfo } from 'node:os'
@@ -7,10 +9,8 @@ import { join, resolve } from 'node:path'
 const PROJECT_ROOT = resolve(import.meta.dir, '../..')
 const user = process.getuid?.() ?? createHash('sha256').update(userInfo().username).digest('hex').slice(0, 12)
 const LOCK_ROOT = join(tmpdir(), `tachyon-website-tests-${user}`)
-// A synced folder can recreate a deleted empty lock. Keep coordination local
-// to this user and distinguish independent checkouts by their absolute path.
 const LOCK_DIR = join(LOCK_ROOT, createHash('sha256').update(PROJECT_ROOT).digest('hex').slice(0, 24))
-const WEB_DIST = `${PROJECT_ROOT}/dist/web`
+const WEB_DIST = SiteArtifacts.web(PROJECT_ROOT)
 const REQUIRED_OUTPUTS = [
     `${WEB_DIST}/index.html`,
     `${WEB_DIST}/docs/index.html`,
@@ -76,20 +76,24 @@ async function rustupWhich(tool) {
     return stdout.trim()
 }
 
+/** @param {string[]} paths @returns {Promise<string | undefined>} */
+export async function newestFile(paths) {
+    const found = []
+    for (const path of paths) {
+        const info = await stat(path).catch(() => null)
+        if (info) found.push({ path, modified: info.mtimeMs })
+    }
+    found.sort((left, right) => right.modified - left.modified)
+    return found[0]?.path
+}
+
 async function runBundle() {
-    const configured = process.env.TAC_BIN
-    const releaseBinary = `${PROJECT_ROOT}/../target/release/ty`
-    const debugBinary = `${PROJECT_ROOT}/../target/debug/ty`
-    const command = configured
-        ? [configured, 'bundle', '.']
-        : await fileExists(releaseBinary)
-            ? [releaseBinary, 'bundle', '.']
-            : await fileExists(debugBinary)
-                ? [debugBinary, 'bundle', '.']
-                : [await rustupWhich('cargo'), 'run', '--release', '--locked', '--manifest-path', '../Cargo.toml', '--', 'bundle', '.']
-    const rustc = configured || await fileExists(releaseBinary) || await fileExists(debugBinary)
-        ? process.env.RUSTC
-        : await rustupWhich('rustc')
+    const built = await newestFile([CargoArtifacts.path('release/ty'), CargoArtifacts.path('debug/ty')])
+    const binary = process.env.TAC_BIN || built
+    const command = binary
+        ? [binary, 'bundle', '.', '--out-dir', WEB_DIST]
+        : [await rustupWhich('cargo'), 'run', '--release', '--locked', '--bin', 'ty', '--manifest-path', '../Cargo.toml', '--', 'bundle', '.', '--out-dir', WEB_DIST]
+    const rustc = binary ? process.env.RUSTC : await rustupWhich('rustc')
     const proc = Bun.spawn(command, {
         cwd: PROJECT_ROOT,
         stdout: 'pipe',

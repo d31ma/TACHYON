@@ -1,0 +1,38 @@
+@layer brand {
+.w-btn {
+font-size: var(--step-sm);
+  line-height: 1.5;
+}
+
+[id] {
+scroll-margin-top: 5rem;
+}
+
+.skip-link {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 50;
+  min-height: 44px;
+  padding-inline: 1rem;
+  transform: translateY(-200%);
+}
+
+.skip-link:focus {
+  transform: none;
+}
+
+@media (pointer: coarse) {
+.w-btn,
+  w-btn > .w-btn,
+  nav a,
+  footer a {
+min-height: 44px;
+}
+}
+}
+
+/* @tachyon-generated-tailwind:start */
+/*! tailwindcss v4.3.3 | MIT License | https://tailwindcss.com */
+@layer utilities;
+/* @tachyon-generated-tailwind:end */

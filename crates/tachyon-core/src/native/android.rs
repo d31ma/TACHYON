@@ -1,99 +1,116 @@
-//! Android host generation.
-//!
-//! A full-screen `WebView` over the application's own bundle; see
-//! `native/routes.rs` for why it is no longer a tree of Android views. The
-//! project uses pinned `AndroidX` `WebKit` for a source-frame-aware bridge. The Kotlin
-//! plugin is added only when the project declares a `tac.kt` companion, which
-//! is compiled into the APK rather than to WebAssembly: that is what lets it
-//! reach the Android SDK. Building an APK requires an Android SDK on the build
-//! machine; the generator fails closed when one is absent.
-
+use super::android_architecture::AndroidArchitecture;
+use super::android_file_picker::AndroidFilePicker;
+use super::android_gradle_build::AndroidGradleBuild;
+use super::android_release::AndroidRelease;
+use super::android_rust_libraries::AndroidRustLibraries;
+use super::android_shrinking::AndroidShrinking;
+use super::android_window_settings::AndroidWindowSettings;
+use super::compiler::NativeBuildOptions;
 use super::config::NativeApplication;
+use super::file_picker_sources::FilePickerSources;
 use super::host::{
-    GeneratedHost, first_line, native_io, native_tool_failure, quoted_string_escape, run_tool_in,
-    stage_application, write, write_host_source, xml_escape,
+    GeneratedHost, native_io, quoted_string_escape, stage_application, write, write_host_source,
+    xml_escape,
 };
 use super::routes::NativeRouteIndex;
 use crate::Failure;
+use futures_util::future::OptionFuture;
 use std::fs;
 use std::path::{Path, PathBuf};
-
-/// Android Gradle Plugin pinned by every generated project.
-const ANDROID_GRADLE_PLUGIN: &str = "8.7.3";
-/// Google Maven AAR metadata requires compile SDK 34 and AGP 8.1.1 or newer.
-const ANDROIDX_WEBKIT: &str = "1.14.0";
-/// Kotlin plugin pinned by projects that declare a native companion.
-const KOTLIN_PLUGIN: &str = "2.0.21";
-/// Compile and target SDK pinned by every generated project.
-const COMPILE_SDK: u32 = 35;
-/// Minimum supported Android API level.
-const MIN_SDK: u32 = 26;
-/// Java package segments that cannot appear in a generated package name.
-const JAVA_KEYWORDS: [&str; 16] = [
-    "abstract", "assert", "boolean", "break", "byte", "case", "catch", "char", "class", "const",
-    "do", "else", "for", "if", "int", "new",
-];
 
 #[derive(Clone, Copy, Debug, Default)]
 pub(super) struct AndroidHostGenerator;
 
 impl AndroidHostGenerator {
+    pub(super) const ANDROID_GRADLE_PLUGIN: &str = "8.7.3";
+    pub(super) const ANDROIDX_WEBKIT: &str = "1.14.0";
+    pub(super) const KOTLIN_PLUGIN: &str = "2.0.21";
+    pub(super) const COMPILE_SDK: u32 = 35;
+    const JAVA_KEYWORDS: [&str; 16] = [
+        "abstract", "assert", "boolean", "break", "byte", "case", "catch", "char", "class",
+        "const", "do", "else", "for", "if", "int", "new",
+    ];
+    const KOTLIN_PRELUDE: &str = concat!(
+        include_str!("prelude.kt"),
+        include_str!("prelude_reads.kt"),
+        include_str!("prelude_android.kt"),
+        include_str!("prelude_jvm_models.kt"),
+        include_str!("prelude_native_tasks.kt")
+    );
+    const KOTLIN_CAPABILITY_HOST: &str = concat!(
+        include_str!("capabilities/WindowControls.kt"),
+        include_str!("capabilities/TacNativeCapabilityCall.kt"),
+        include_str!("capabilities/TacNativeCapabilityRegistration.kt")
+    );
+
+    fn rust_services(companions: &[super::registry::NativeCompanionInput]) -> Vec<String> {
+        companions
+            .iter()
+            .filter(|item| item.language == crate::project::NativeCompanion::Rust)
+            .filter(|item| !item.web_assembly)
+            .map(|item| item.service.clone())
+            .collect()
+    }
+
+    fn kotlin_companion_prelude() -> String {
+        format!(
+            "{}{}{}",
+            Self::KOTLIN_PRELUDE,
+            FilePickerSources::kotlin(),
+            Self::KOTLIN_CAPABILITY_HOST
+        )
+    }
+
     pub(super) async fn generate(
         application: &NativeApplication,
         index: &NativeRouteIndex,
         companions: &[super::registry::NativeCompanionInput],
         web_bundle: &Path,
         stage: &Path,
-        package_artifact: bool,
+        options: &NativeBuildOptions,
     ) -> Result<GeneratedHost, Failure> {
         let bundle = stage.join(&application.executable_name);
         let project = bundle.join("project");
         let assets = project.join("app/src/main/assets");
         stage_application(index, web_bundle, stage, &assets)?;
-
-        let package = java_package(&application.application_id);
-        let package_path = package.replace('.', "/");
-        write(
-            &project.join("settings.gradle.kts"),
-            settings_gradle(application).as_bytes(),
+        let rust_companion = super::rust::RustCompanion::stage_for_host(
+            companions,
+            stage,
+            application,
+            super::rust::Linkage::Shared,
         )?;
-        write(
-            &project.join("gradle.properties"),
-            b"org.gradle.jvmargs=-Xmx2g\nandroid.useAndroidX=true\nandroid.nonTransitiveRClass=true\n",
-        )?;
-        // A Kotlin companion is compiled *as Kotlin* into this APK rather than
-        // to WebAssembly, which is the whole point: it reaches the Android SDK
-        // because it was built for this target.
-        let has_companion = stage_companion(companions, &project, &package, &package_path)?;
-        write(
-            &project.join("app/build.gradle.kts"),
-            app_gradle(application, &package, has_companion).as_bytes(),
-        )?;
-        write(
-            &project.join("app/src/main/AndroidManifest.xml"),
-            android_manifest(application).as_bytes(),
-        )?;
-        stage_icon(application, web_bundle, &project)?;
-        write(
-            &project.join("app/src/main/res/values/strings.xml"),
-            strings_xml(application).as_bytes(),
-        )?;
-        write_host_source(
-            &project.join(format!(
-                "app/src/main/java/{package_path}/MainActivity.java"
-            )),
-            &java_source(application, &package, has_companion, index),
+        let rust_services = Self::rust_services(companions);
+        write_project(
+            application,
+            index,
+            companions,
+            web_bundle,
+            (&project, &rust_services, options.android_architecture),
+            super::development_pages::DevelopmentPages::serving(
+                options.development_origin.as_ref(),
+            ),
         )?;
 
-        if !package_artifact {
-            return Ok(GeneratedHost {
-                application_bundle: PathBuf::from(&application.executable_name).join("project"),
-                toolchain_name: String::from("source"),
-                toolchain_version: String::from("not-packaged"),
-            });
+        if !options.package {
+            return Ok(GeneratedHost::not_packaged(
+                PathBuf::from(&application.executable_name).join("project"),
+            ));
         }
 
-        let (gradle_version, apk) = assemble(&project, &bundle, application).await?;
+        OptionFuture::from(rust_companion.as_deref().map(|source| {
+            AndroidRustLibraries::build(
+                application,
+                source,
+                (&project, options.android_architecture),
+            )
+        }))
+        .await
+        .transpose()?;
+        let (gradle_version, apk) = if options.release {
+            AndroidGradleBuild::release(&project, &bundle, application).await?
+        } else {
+            AndroidGradleBuild::debug(&project, &bundle, application).await?
+        };
         Ok(GeneratedHost {
             application_bundle: PathBuf::from(&application.executable_name).join(apk),
             toolchain_name: String::from("gradle"),
@@ -102,98 +119,148 @@ impl AndroidHostGenerator {
     }
 }
 
-/// The prelude appended to a Kotlin companion compiled into this host.
-const KOTLIN_COMPANION_PRELUDE: &str = include_str!("prelude.kt");
-
-/// The Kotlin companion prelude, for the publish-channel drift test.
-#[cfg(test)]
-pub(super) const fn companion_prelude() -> &'static str {
-    KOTLIN_COMPANION_PRELUDE
+fn write_project(
+    application: &NativeApplication,
+    index: &NativeRouteIndex,
+    companions: &[super::registry::NativeCompanionInput],
+    web_bundle: &Path,
+    (project, rust_services, architecture): (&Path, &[String], AndroidArchitecture),
+    pages: super::development_pages::DevelopmentPages<'_>,
+) -> Result<(), Failure> {
+    let package = java_package(&application.application_id);
+    let package_path = package.replace('.', "/");
+    write(
+        &project.join("settings.gradle.kts"),
+        settings_gradle(application).as_bytes(),
+    )?;
+    write(
+        &project.join("gradle.properties"),
+        b"org.gradle.jvmargs=-Xmx2g\nandroid.useAndroidX=true\nandroid.nonTransitiveRClass=true\n",
+    )?;
+    let reach =
+        super::android_yon_reach::AndroidYonReach::declared(application.outgoing.yon_origin());
+    let has_companion =
+        stage_reaching_companion(companions, project, (&package, &package_path), &reach)?;
+    write(
+        &project.join("app/build.gradle.kts"),
+        app_gradle(application, &package, has_companion, architecture).as_bytes(),
+    )?;
+    AndroidShrinking::write_rules(project)?;
+    let has_icon = stage_icon(application, web_bundle, project)?;
+    write(
+        &project.join("app/src/main/AndroidManifest.xml"),
+        android_manifest(application, has_icon).as_bytes(),
+    )?;
+    reach.write_network_security(project)?;
+    write(
+        &project.join("app/src/main/res/values/strings.xml"),
+        strings_xml(application).as_bytes(),
+    )?;
+    AndroidWindowSettings::write_themes(project, &application.window)?;
+    AndroidHostGenerator::write_rust_library_source(project, rust_services)?;
+    write_host_source(
+        &project.join(format!(
+            "app/src/main/java/{package_path}/MainActivity.java"
+        )),
+        &serving_java_source(
+            application,
+            &package,
+            (has_companion, rust_services),
+            index,
+            pages,
+        ),
+    )
 }
 
-/// Stages the entry route's native Kotlin companion into the generated project.
-///
-/// Returns whether one was staged; every project that has not asked for a
-/// companion gets neither the file nor the Kotlin plugin that compiles it.
-fn stage_companion(
+#[cfg(test)]
+pub(super) fn companion_prelude() -> String {
+    AndroidHostGenerator::kotlin_companion_prelude()
+}
+
+#[cfg(test)]
+pub(super) fn stage_companion(
     companions: &[super::registry::NativeCompanionInput],
     project: &Path,
     package: &str,
     package_path: &str,
+) -> Result<bool, Failure> {
+    let reach = super::android_yon_reach::AndroidYonReach::declared(None);
+    stage_reaching_companion(companions, project, (package, package_path), &reach)
+}
+
+fn stage_reaching_companion(
+    companions: &[super::registry::NativeCompanionInput],
+    project: &Path,
+    (package, package_path): (&str, &str),
+    reach: &super::android_yon_reach::AndroidYonReach,
 ) -> Result<bool, Failure> {
     let Some(authored) =
         super::registry::source(companions, crate::project::NativeCompanion::Kotlin)?
     else {
         return Ok(false);
     };
-    // The package is written here rather than by the author: the host reaches
-    // the companion by name, and a file in the default package is unreachable
-    // from one that is not.
+    let prelude = AndroidHostGenerator::kotlin_companion_prelude();
+    let built_in = crate::route_types::WebEventSources::native_application_state("kt", &authored);
+    let model_order = companions
+        .first()
+        .map(|first| super::kotlin_model_order::KotlinModelOrder::text(&first.snapshot_root))
+        .transpose()?
+        .unwrap_or_default();
     write(
         &project.join(format!(
             "app/src/main/kotlin/{package_path}/TachyonCompanion.kt"
         )),
-        format!("package {package}\n\n{authored}\n{KOTLIN_COMPANION_PRELUDE}").as_bytes(),
+        format!(
+            "{}\n{built_in}{prelude}{model_order}",
+            reach.kotlin_companion(package, &authored)
+        )
+        .as_bytes(),
     )?;
+    stage_kotlin_models(companions, project)?;
     Ok(true)
 }
 
-/// Assembles the debug APK and copies it beside the generated project.
-async fn assemble(
+fn stage_kotlin_models(
+    companions: &[super::registry::NativeCompanionInput],
     project: &Path,
-    bundle: &Path,
-    application: &NativeApplication,
-) -> Result<(String, String), Failure> {
-    if std::env::var_os("ANDROID_HOME").is_none() && std::env::var_os("ANDROID_SDK_ROOT").is_none()
-    {
-        return Err(native_tool_failure(
-            1605,
-            "The Android host requires ANDROID_HOME or ANDROID_SDK_ROOT on the build machine.",
-        ));
+) -> Result<(), Failure> {
+    let Some(first) = companions.first() else {
+        return Ok(());
+    };
+    let models = crate::model_sources::ModelSources::read(&first.snapshot_root, "client", "kt")?;
+    for (relative, source) in models.separate_files() {
+        write(
+            &project.join("app/src/main/kotlin").join(relative),
+            source.as_bytes(),
+        )?;
     }
-    let version = first_line(
-        &run_tool_in("gradle", &["--version"], Some(project)).await?,
-        "Gradle unknown",
-    );
-    run_tool_in(
-        "gradle",
-        &["--no-daemon", "--console=plain", "assembleDebug"],
-        Some(project),
-    )
-    .await?;
-    let built = project.join("app/build/outputs/apk/debug/app-debug.apk");
-    let name = format!("{}.apk", application.executable_name);
-    let published = bundle.join(&name);
-    native_io(fs::copy(&built, &published), &published)?;
-    Ok((version, name))
+    Ok(())
 }
 
-/// Returns a valid Java package derived from a reverse-DNS application id.
-fn java_package(application_id: &str) -> String {
+pub(super) fn java_package(application_id: &str) -> String {
     application_id
         .split('.')
-        .map(|segment| {
-            let sanitized = segment
-                .chars()
-                .map(|value| {
-                    if value.is_ascii_alphanumeric() {
-                        value
-                    } else {
-                        '_'
-                    }
-                })
-                .collect::<String>();
-            if sanitized.is_empty()
-                || sanitized.starts_with(|value: char| value.is_ascii_digit())
-                || JAVA_KEYWORDS.contains(&sanitized.as_str())
-            {
-                format!("_{sanitized}")
-            } else {
-                sanitized
-            }
-        })
+        .map(java_package_segment)
         .collect::<Vec<_>>()
         .join(".")
+}
+
+fn java_package_segment(segment: &str) -> String {
+    let mut sanitized = String::new();
+    for character in segment.chars() {
+        if character.is_ascii_alphanumeric() {
+            sanitized.push(character);
+        } else {
+            sanitized.push('_');
+        }
+    }
+    let starts_with_digit = sanitized.starts_with(|character: char| character.is_ascii_digit());
+    let is_keyword = AndroidHostGenerator::JAVA_KEYWORDS.contains(&sanitized.as_str());
+    if sanitized.is_empty() || starts_with_digit || is_keyword {
+        format!("_{sanitized}")
+    } else {
+        sanitized
+    }
 }
 
 fn settings_gradle(application: &NativeApplication) -> String {
@@ -218,12 +285,15 @@ include(":app")
     )
 }
 
-fn app_gradle(application: &NativeApplication, package: &str, has_companion: bool) -> String {
-    // The Kotlin plugin is added only for a project that has a companion: it
-    // is what compiles one, and a project without one should not pay for a
-    // plugin, a standard library and a slower build it never uses.
+fn app_gradle(
+    application: &NativeApplication,
+    package: &str,
+    has_companion: bool,
+    architecture: AndroidArchitecture,
+) -> String {
     let kotlin_plugin = if has_companion {
-        format!("\n  id(\"org.jetbrains.kotlin.android\") version \"{KOTLIN_PLUGIN}\"")
+        let version = AndroidHostGenerator::KOTLIN_PLUGIN;
+        format!("\n  id(\"org.jetbrains.kotlin.android\") version \"{version}\"")
     } else {
         String::new()
     };
@@ -246,13 +316,19 @@ android {{
     applicationId = "{package}"
     minSdk = {min_sdk}
     targetSdk = {compile_sdk}
-    versionCode = 1
+    versionCode = {build}
     versionName = "{version}"
+    ndk {{
+      abiFilters += listOf({abis})
+    }}
   }}
 
+{signing}
   buildTypes {{
     getByName("debug") {{
       isMinifyEnabled = false
+    }}
+{release}      signingConfig = signingConfigs.getByName("release")
     }}
   }}
 
@@ -266,8 +342,6 @@ android {{
   }}
 
   androidResources {{
-    // These assets are the compiler's owned bundle. AAPT's default <dir>_*
-    // rule would silently omit Tachyon's dynamic route directories.
     ignoreAssetsPattern = "!.svn:!.git:!.ds_store:!*.scc:!CVS:!thumbs.db:!picasa.ini:!*~"
   }}
 }}
@@ -275,136 +349,334 @@ android {{
 dependencies {{
   implementation("androidx.webkit:webkit:{webkit}")
 }}
+
+tasks.withType<AbstractArchiveTask>().configureEach {{
+  isPreserveFileTimestamps = false
+  isReproducibleFileOrder = true
+}}
 "#,
-        plugin = ANDROID_GRADLE_PLUGIN,
-        webkit = ANDROIDX_WEBKIT,
+        plugin = AndroidHostGenerator::ANDROID_GRADLE_PLUGIN,
+        webkit = AndroidHostGenerator::ANDROIDX_WEBKIT,
         package = package,
-        compile_sdk = COMPILE_SDK,
-        min_sdk = MIN_SDK,
+        compile_sdk = AndroidHostGenerator::COMPILE_SDK,
+        min_sdk = application
+            .minimum_system
+            .floor(tachyon_contracts::NativeTarget::Android)
+            .major(),
         version = application.version,
+        build = application.build,
+        signing = AndroidRelease::gradle_signing_config(),
+        abis = architecture.gradle_abi_filters(),
+        release = AndroidShrinking::RELEASE_BUILD_TYPE,
     )
 }
 
-fn android_manifest(application: &NativeApplication) -> String {
-    // Declared only when there is one: naming a drawable that is not in the
-    // APK fails the resource link, which is a build error rather than a
-    // missing picture.
-    let icon = application.largest_icon().map_or_else(String::new, |_| {
-        String::from("\n      android:icon=\"@mipmap/ic_launcher\"")
-    });
+fn android_manifest(application: &NativeApplication, has_icon: bool) -> String {
+    let icon = if has_icon {
+        "\n      android:icon=\"@mipmap/ic_launcher\""
+    } else {
+        ""
+    };
     r#"<?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">__INTERNET_PERMISSION____BROWSER_API_PERMISSIONS__
   <application
       android:label="@string/app_name"__ICON__
       android:allowBackup="false"
-      android:usesCleartextTraffic="false"
-      android:theme="@android:style/Theme.Material.Light.NoActionBar">
+      android:enableOnBackInvokedCallback="true"
+      android:usesCleartextTraffic="false"__NETWORK_SECURITY__
+      android:theme="__THEME__">
     <activity
         android:name=".MainActivity"
         android:exported="true"
-        android:label="@string/app_name">
+        android:launchMode="singleTask"
+        android:label="@string/app_name"__ACTIVITY_ATTRIBUTES__>
       <intent-filter>
         <action android:name="android.intent.action.MAIN"/>
         <category android:name="android.intent.category.LAUNCHER"/>
-      </intent-filter>
+      </intent-filter>__LINK_INTENT_FILTERS__
     </activity>
   </application>
 </manifest>
 "#
-    .replace("__ICON__", &icon)
+    .replace("__ICON__", icon)
+    .replace("__THEME__", AndroidWindowSettings::THEME)
+    .replace(
+        "__ACTIVITY_ATTRIBUTES__",
+        &AndroidWindowSettings::activity_attributes(&application.window),
+    )
+    .replace(
+        "__NETWORK_SECURITY__",
+        super::android_yon_reach::AndroidYonReach::declared(application.outgoing.yon_origin())
+            .manifest_attribute(),
+    )
+    .replace(
+        "__LINK_INTENT_FILTERS__",
+        &application.links.android_intent_filters(),
+    )
+    .replace(
+        "__INTERNET_PERMISSION__",
+        AndroidHostGenerator::internet_permission(application),
+    )
+    .replace(
+        "__BROWSER_API_PERMISSIONS__",
+        &super::android_browser_apis::AndroidBrowserApis::manifest_permissions(
+            &application.permissions,
+        ),
+    )
 }
 
-/// Copies the manifest's icon into the density bucket Android reads.
-///
-/// One bucket, not five: the source is a single square image, and Android
-/// scales a launcher icon it finds in the largest bucket down for smaller
-/// screens. Generating five copies of one image would be five copies of one
-/// image.
 fn stage_icon(
     application: &NativeApplication,
     web_bundle: &Path,
     project: &Path,
-) -> Result<(), Failure> {
+) -> Result<bool, Failure> {
     let Some(source) = application.largest_icon() else {
-        return Ok(());
+        return Ok(false);
     };
     let origin = web_bundle.join(source.trim_start_matches('/'));
     if !origin.is_file() {
-        return Ok(());
+        return Ok(false);
     }
     let destination = project.join("app/src/main/res/mipmap-xxxhdpi/ic_launcher.png");
     if let Some(parent) = destination.parent() {
         native_io(fs::create_dir_all(parent), parent)?;
     }
-    native_io(fs::copy(&origin, &destination).map(|_| ()), &destination)
+    native_io(fs::copy(&origin, &destination).map(|_| true), &destination)
 }
 
 fn strings_xml(application: &NativeApplication) -> String {
     format!(
         "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n\
-         <resources>\n  <string name=\"app_name\">{name}</string>\n</resources>\n",
+         <resources>\n  <string name=\"app_name\">{name}</string>\n{reasons}</resources>\n",
         name = xml_escape(&application.name),
+        reasons = application.permissions.android_strings(),
     )
 }
 
-fn java_source(
+#[cfg(test)]
+pub(super) fn java_source(
     application: &NativeApplication,
     package: &str,
     has_companion: bool,
     index: &NativeRouteIndex,
 ) -> String {
-    JAVA_HOST
-        .replace("__ENTRY_DOCUMENT__", &quoted_string_escape(&index.entry_document))
-        // Written into a <script> as the document is served, so it is a Java
-        // string literal that has to survive both Java and HTML.
-        .replace("__NATIVE_SHIM__", &quoted_string_escape(&super::host::native_shim(&application.window)))
-        .replace("__ANDROID_BRIDGE_SHIM__", &quoted_string_escape(ANDROID_BRIDGE_SHIM))
-        .replace("__PACKAGE__", package)
-        .replace(
-            "__BUNDLE_ID__",
-            &quoted_string_escape(&application.application_id),
-        )
-        .replace("__APP_NAME__", &quoted_string_escape(&application.name))
-        .replace("__ROUTE_DOCUMENTS__", &quoted_string_escape(&super::routes::route_documents_json(index)))
-        // The call is written in only when a companion was staged: naming a
-        // class that is not in the APK is a compile error, not a runtime one.
-        .replace(
-            "__TACHYON_COMPANION_CALL__",
-            if has_companion {
-                "TachyonCompanionKt.tacNativeInvoke(request)"
-            } else {
-                "emptyCompanion(request)"
-            },
-        )
-        // Same gate: TacBridge comes from the companion's prelude, so without
-        // one there is no class to name.
-        .replace(
-            "__TACHYON_COMPANION_EMIT__",
-            if has_companion {
-                "TacStore.setPreferences(getSharedPreferences(\"tachyon\", MODE_PRIVATE)); TacBridge.setEmit(this::relayPublish);"
-            } else {
-                "// No companion, so nothing publishes."
-            },
-        )
+    linked_java_source(application, package, (has_companion, &[]), index)
 }
 
-/// The generated host source, for the cross-host drift tests.
-///
-/// The dispatch arms live in this string rather than in Rust, so reading it
-/// is the only way to assert what this host does and does not implement.
 #[cfg(test)]
-pub(super) const fn host_source() -> &'static str {
-    JAVA_HOST
+pub(super) fn linked_java_source(
+    application: &NativeApplication,
+    package: &str,
+    linked: (bool, &[String]),
+    index: &NativeRouteIndex,
+) -> String {
+    serving_java_source(
+        application,
+        package,
+        linked,
+        index,
+        super::development_pages::DevelopmentPages::serving(None),
+    )
 }
 
-// Reply messages are bound to the sending document by AndroidX. The local map
-// also bounds abandoned requests and is retired when the document leaves.
-const ANDROID_BRIDGE_SHIM: &str = r"
+pub(super) fn serving_java_source(
+    application: &NativeApplication,
+    package: &str,
+    (has_companion, rust_services): (bool, &[String]),
+    index: &NativeRouteIndex,
+    pages: super::development_pages::DevelopmentPages<'_>,
+) -> String {
+    let native_shim = format!(
+        "{}{}{}",
+        super::host::native_shim(
+            &application.window,
+            tachyon_contracts::NativeTarget::Android,
+        ),
+        application.window.title_bar.mobile_page_script(),
+        AndroidFilePicker::page_script(&application.native_capabilities)
+    );
+    let route_documents = super::routes::route_documents_json(index);
+    let companion_call = if has_companion {
+        "TachyonCompanionKt.tacNativeInvoke(request)"
+    } else {
+        "emptyCompanion(request)"
+    };
+    let companion_emit = if has_companion {
+        "TacStore.setPreferences(getSharedPreferences(\"tachyon\", MODE_PRIVATE)); TacBridge.setEmit(this::relayPublish); TacNativeCapabilityRegistration.register(this::nativeCapability);"
+    } else {
+        "// No companion, so nothing publishes."
+    };
+    let rust = AndroidHostGenerator::rust_routing(rust_services, companion_call, companion_emit);
+    let (companion_call, companion_emit, rust_services) = rust.as_ref().map_or(
+        (companion_call, companion_emit, ""),
+        |(call, emit, services)| (call.as_str(), emit.as_str(), services.as_str()),
+    );
+    let framed = AndroidHostGenerator::JAVA_HOST
+        .replace("__DEVELOPMENT_PAGES__", &pages.java())
+        .replace("__NATIVE_SHIM__", &quoted_string_escape(&native_shim))
+        .replace(
+            "__ANDROID_BRIDGE_SHIM__",
+            &quoted_string_escape(AndroidHostGenerator::ANDROID_BRIDGE_SHIM),
+        )
+        .replace(
+            "__NATIVE_WINDOW_CONTROLS__",
+            &format!(
+                "{}\n{}\n{}",
+                super::native_window_controls::NativeWindowControls::android(&application.window),
+                AndroidWindowSettings::java(&application.window),
+                AndroidFilePicker::java(&application.native_capabilities)
+            ),
+        )
+        .replace(
+            "__NATIVE_BROWSER_APIS__",
+            &super::android_browser_apis::AndroidBrowserApis::java(&application.permissions),
+        )
+        .replace(
+            "__APPLICATION_STATE__",
+            include_str!("android_application_state.java"),
+        )
+        .replace(
+            "__NATIVE_SYSTEM_BACK__",
+            include_str!("android_system_back.java"),
+        )
+        .replace(
+            "__NATIVE_DEEP_LINKS__",
+            &super::native_deep_link::NativeDeepLink::java_helper(&application.links),
+        )
+        .replace(
+            "__NATIVE_MENUS__",
+            include_str!("native_menus_android.java"),
+        )
+        .replace("__NATIVE_RUST_SERVICES__", rust_services)
+        .replace(
+            "__NATIVE_APPLICATION_STOP__",
+            AndroidHostGenerator::application_stop(rust.is_some()),
+        )
+        .replace(
+            "__NATIVE_MENU_CALLS__",
+            AndroidHostGenerator::menu_calls(&application.menus, rust.is_some()),
+        )
+        .replace("__TACHYON_COMPANION_CALL__", companion_call)
+        .replace("__TACHYON_COMPANION_EMIT__", companion_emit);
+    let entry_document = quoted_string_escape(&index.entry_document);
+    let bundle_id = quoted_string_escape(&application.application_id);
+    let route_documents = quoted_string_escape(&route_documents);
+    let policy = quoted_string_escape(&AndroidHostGenerator::content_security_policy(
+        application,
+        &native_shim,
+    ));
+    let bootstrap_policy =
+        quoted_string_escape(crate::compiler::ContentSecurityPolicy::native_bootstrap());
+    let outgoing_hosts = application.outgoing.java_array();
+    let menu_routes = super::mobile_menu_source::MobileMenuSource::java_routes(&application.menus);
+    let yon_origin =
+        super::android_yon_reach::AndroidYonReach::declared(application.outgoing.yon_origin())
+            .java_origin();
+    super::placeholder_fill::PlaceholderFill::once(
+        &framed,
+        &[
+            ("__ENTRY_DOCUMENT__", &entry_document),
+            ("__PACKAGE__", package),
+            ("__BUNDLE_ID__", &bundle_id),
+            ("__ROUTE_DOCUMENTS__", &route_documents),
+            ("__CONTENT_SECURITY_POLICY__", &policy),
+            ("__BOOTSTRAP_SECURITY_POLICY__", &bootstrap_policy),
+            ("__OUTGOING_HOSTS__", &outgoing_hosts),
+            ("__YON_ORIGIN__", &yon_origin),
+            ("__NATIVE_MENU_ROUTES__", &menu_routes),
+        ],
+    )
+}
+
+#[cfg(test)]
+pub(super) fn host_source() -> &'static str {
+    static SOURCE: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    SOURCE.get_or_init(|| {
+        format!(
+            "{}{}",
+            AndroidHostGenerator::JAVA_HOST,
+            super::android_browser_apis::AndroidBrowserApis::template()
+        )
+    })
+}
+
+impl AndroidHostGenerator {
+    pub(super) const RUST_LIBRARY_SOURCE: &str = include_str!("TachyonRust.java");
+    const RUST_SERVICES_SOURCE: &str = include_str!("android_rust_services.java");
+
+    fn write_rust_library_source(project: &Path, rust_services: &[String]) -> Result<(), Failure> {
+        if rust_services.is_empty() {
+            return Ok(());
+        }
+        let source =
+            Self::RUST_LIBRARY_SOURCE.replace("__LIBRARY__", AndroidRustLibraries::LIBRARY);
+        write(
+            &project.join("app/src/main/java/dev/tachyon/host/TachyonRust.java"),
+            source.as_bytes(),
+        )
+    }
+
+    fn rust_routing(
+        rust_services: &[String],
+        other_call: &str,
+        other_emit: &str,
+    ) -> Option<(String, String, String)> {
+        if rust_services.is_empty() {
+            return None;
+        }
+        let names = rust_services
+            .iter()
+            .map(|service| format!("\"{}\"", quoted_string_escape(service)))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let services = Self::RUST_SERVICES_SOURCE
+            .replace("__RUST_SERVICES__", &names)
+            .replace("__OTHER_COMPANION_CALL__", other_call);
+        Some((
+            String::from("rustOrCompanion(request)"),
+            format!("{other_emit}\n    installRustCompanion();"),
+            services,
+        ))
+    }
+
+    const APPLICATION_STOP: &str = "if (isFinishing() && !isChangingConfigurations()) dev.tachyon.host.TachyonRust.applicationStop();";
+    const MENU_CALLS: &str = include_str!("android_menu_calls.java");
+    const MENU_REFUSALS: &str = "  private boolean menuReady(String event) {\n    return false;\n  }\n\n  private void menuPerform(MenuRoute entry) {\n    record(\"menu.refused\");\n  }\n";
+
+    fn application_stop(rust: bool) -> &'static str {
+        ["", Self::APPLICATION_STOP][usize::from(rust)]
+    }
+
+    fn menu_calls(menus: &super::native_menu_config::NativeMenuConfig, rust: bool) -> &'static str {
+        let calls = [
+            rust,
+            super::mac_os_menu_action_source::MacOsMenuActionSource::has_actions(menus),
+        ] == [true; 2];
+        [Self::MENU_REFUSALS, Self::MENU_CALLS][usize::from(calls)]
+    }
+
+    const INTERNET_PERMISSION: &str =
+        "\n  <uses-permission android:name=\"android.permission.INTERNET\"/>";
+
+    fn content_security_policy(application: &NativeApplication, native_shim: &str) -> String {
+        crate::compiler::ContentSecurityPolicy::native_host_with_inline_script(
+            &application.outgoing.connect_sources(),
+            &format!("{native_shim}{}", Self::ANDROID_BRIDGE_SHIM),
+        )
+    }
+
+    fn internet_permission(application: &NativeApplication) -> &'static str {
+        [Self::INTERNET_PERMISSION, ""][usize::from(application.outgoing.is_empty())]
+    }
+
+    const ANDROID_BRIDGE_SHIM: &str = r"
 ;(() => {
   const host = globalThis.__tachyonAndroidHost;
   const pending = new Map();
   let nextId = 0;
   let closed = false;
+  const pickerWait = capability => capability === 'filePicker.open'
+    || (capability === 'companion.invoke' && globalThis.__tachyonNativeGrants?.includes('filePicker') === true);
   if (host) host.onmessage = event => {
     let reply;
     try { reply = JSON.parse(event.data); } catch { return; }
@@ -426,7 +698,7 @@ const ANDROID_BRIDGE_SHIM: &str = r"
     const id = String(++nextId);
     const timer = setTimeout(() => {
       pending.delete(id); reject(new Error('Android native call timed out.'));
-    }, 10000);
+    }, capability === 'browserApi.notifications.requestPermission' ? 120000 : pickerWait(capability) ? 60000 : 10000);
     pending.set(id, { resolve, reject, timer });
     try { host.postMessage(JSON.stringify({ id, capability, payload })); }
     catch (error) { clearTimeout(timer); pending.delete(id); reject(error); }
@@ -442,13 +714,14 @@ const ANDROID_BRIDGE_SHIM: &str = r"
 })();
 ";
 
-const JAVA_HOST: &str = r#"package __PACKAGE__;
+    const JAVA_HOST: &str = r#"package __PACKAGE__;
 
 import android.app.Activity;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.graphics.Insets;
+import android.view.KeyEvent;
 import android.view.ViewGroup;
 import android.view.WindowInsets;
 import android.widget.FrameLayout;
@@ -469,53 +742,90 @@ import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 
-/**
- * A full-screen WebView over the application's own bundle.
- *
- * This used to build Android views from a lowered Native UI tree. See
- * native/routes.rs for why it does not any more: on a real design almost
- * nothing had an adapter, and what did looked nothing like the rest.
- */
 public final class MainActivity extends Activity {
   private static final String ASSET_ORIGIN = "https://appassets.tachyon.local/";
   private static final String ENTRY_DOCUMENT = "__ENTRY_DOCUMENT__";
   private static final String NATIVE_SHIM = "__NATIVE_SHIM__";
   private static final String ANDROID_BRIDGE_SHIM = "__ANDROID_BRIDGE_SHIM__";
   private static final String ROUTE_DOCUMENTS = "__ROUTE_DOCUMENTS__";
+  private static final String CONTENT_SECURITY_POLICY = "__CONTENT_SECURITY_POLICY__";
+  private static final String BOOTSTRAP_SECURITY_POLICY = "__BOOTSTRAP_SECURITY_POLICY__";
+  private static final String[] OUTGOING_HOSTS = __OUTGOING_HOSTS__;
+  private static final String YON_ORIGIN = "__YON_ORIGIN__";
 
   private WebView view;
   private volatile String route = "";
   private volatile long documentGeneration;
   private final java.util.concurrent.ThreadPoolExecutor bridgeWorker =
       new java.util.concurrent.ThreadPoolExecutor(1, 1, 0L, java.util.concurrent.TimeUnit.MILLISECONDS,
-          new java.util.concurrent.ArrayBlockingQueue<Runnable>(128));
+          new java.util.concurrent.ArrayBlockingQueue<Runnable>(128)) {
+        @Override
+        protected void terminated() {
+          try { companionInvoke("{\"op\":\"host-dispose\",\"retiring\":true}"); }
+          finally { super.terminated(); }
+        }
+      };
 
-  /** Called only after the WebView has authenticated the actual sending frame. */
   private final class HostBridge {
     public String call(String capability, String payload, String ownerRoute) {
+      if ("window.titleBarInsets".equals(capability)) return titleBarInsets;
+      if (capability.startsWith("window.") || capability.startsWith("filePicker.")) return nativeCapability(capability, payload);
       if ("companion.invoke".equals(capability)) {
         try {
-          if (!ownerRoute.equals(new org.json.JSONObject(payload).optString("route"))) {
+          org.json.JSONObject request = new org.json.JSONObject(payload);
+          String operation = request.optString("op");
+          if (!("init".equals(operation) || "get".equals(operation) || "set".equals(operation)
+              || "call".equals(operation) || "event".equals(operation) || "dispose".equals(operation))) {
+            return "{\"error\":\"Invalid companion operation.\"}";
+          }
+          if (!ownerRoute.equals(request.optString("route"))) {
             return "{\"error\":\"Companion route does not belong to this page.\"}";
           }
         } catch (org.json.JSONException error) {
           return "{\"error\":\"Malformed companion request.\"}";
         }
-        // Recorded because it is the one event that proves the whole path: the
-        // bundle loaded, its modules ran, the bridge answered, and the
-        // companion compiled into this APK was reached.
         record("companion.invoked");
-        // Compiled into this APK, so this is a direct Kotlin call.
         return companionInvoke(payload);
       }
       if ("route.open".equals(capability)) {
+        String target;
+        try { target = routeTarget(new org.json.JSONObject(payload).optString("route", "/").replaceAll("^/+|/+$", ""), ""); }
+        catch (org.json.JSONException error) { return "{\"ok\":false,\"error\":\"Malformed route request.\"}"; }
         record("route.opened");
+        view.post(() -> view.loadUrl(target));
         return "{\"ok\":true,\"value\":{}}";
       }
-      // Naming both halves: which capability, and which platform declined it.
       return "{\"ok\":false,\"error\":\"android host does not implement capability '"
           + safeName(capability) + "'\"}";
     }
+  }
+
+__NATIVE_WINDOW_CONTROLS__
+__APPLICATION_STATE__
+
+__NATIVE_SYSTEM_BACK__
+
+__NATIVE_BROWSER_APIS__
+
+__NATIVE_DEEP_LINKS__
+
+__NATIVE_MENUS__
+
+  private volatile String launchTarget = ASSET_ORIGIN + ENTRY_DOCUMENT;
+
+  private String intentTarget(Intent intent) {
+    if (intent == null || !Intent.ACTION_VIEW.equals(intent.getAction()) || intent.getData() == null) return null;
+    return linkTarget(intent.getData().toString());
+  }
+
+  @Override
+  protected void onNewIntent(Intent intent) {
+    super.onNewIntent(intent);
+    setIntent(intent);
+    String target = intentTarget(intent);
+    if (target == null || view == null) return;
+    record("link.opened");
+    view.loadUrl(target);
   }
 
   private boolean currentDocument(WebView web, long generation, String ownerRoute) {
@@ -526,9 +836,36 @@ public final class MainActivity extends Activity {
         && ownerRoute.equals(canonicalRoute(current.getPath()));
   }
 
+  private static boolean hostBridgeSupported() {
+    try {
+      return WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER);
+    } catch (RuntimeException missingWebView) {
+      return false;
+    }
+  }
+
+  private void showBridgeRefusal() {
+    record("bridge.refused");
+    String name = String.valueOf(getApplicationInfo().loadLabel(getPackageManager()));
+    android.content.pm.PackageInfo web = null;
+    try { web = WebViewCompat.getCurrentWebViewPackage(this); } catch (RuntimeException ignored) { }
+    String installed = web == null ? "This device has no Android System WebView."
+        : "This device has " + web.packageName + " " + web.versionName + ", which does not.";
+    android.widget.TextView message = new android.widget.TextView(this);
+    message.setText(name + " needs an Android System WebView that supports the web message listener"
+        + " (WEB_MESSAGE_LISTENER).\n\n" + installed + "\n\nUpdate Android System WebView from Google Play,"
+        + " then open " + name + " again.");
+    message.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 18);
+    message.setTextIsSelectable(true);
+    int padding = Math.round(24 * getResources().getDisplayMetrics().density);
+    message.setPadding(padding, padding, padding, padding);
+    android.widget.ScrollView page = new android.widget.ScrollView(this);
+    page.setFitsSystemWindows(true);
+    page.addView(message);
+    setContentView(page);
+  }
+
   private void installHostBridge() {
-    // No legacy fallback: its callbacks cannot authenticate the sending frame.
-    if (!WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) return;
     WebViewCompat.addWebMessageListener(view, "__tachyonAndroidHost",
         java.util.Collections.singleton("https://appassets.tachyon.local"),
         this::receiveHostMessage);
@@ -543,7 +880,12 @@ public final class MainActivity extends Activity {
         || message.getType() != WebMessageCompat.TYPE_STRING) return;
     try {
       BridgeRequest request = BridgeRequest.parse(message.getData());
-      final long deadline = android.os.SystemClock.uptimeMillis() + 10000;
+      if (request.capability.startsWith("browserApi.")) {
+        answerBrowserApi(web, request, replyProxy);
+        return;
+      }
+      final long deadline = android.os.SystemClock.uptimeMillis()
+          + (pickerWait(request.capability) ? 60000 : 10000);
       bridgeWorker.execute(() -> {
         if (generation != documentGeneration || !ownerRoute.equals(route)
             || android.os.SystemClock.uptimeMillis() > deadline) return;
@@ -556,14 +898,17 @@ public final class MainActivity extends Activity {
         });
       });
     } catch (org.json.JSONException | java.util.concurrent.RejectedExecutionException ignored) {
-      // Malformed or overloaded requests cannot invoke a capability.
     }
+  }
+
+  private static boolean pickerWait(String capability) {
+    return "filePicker.open".equals(capability) || (FILE_PICKER_GRANTED && "companion.invoke".equals(capability));
   }
 
   private String invokeBounded(BridgeRequest request, String ownerRoute) {
     try {
       String result = new HostBridge().call(request.capability, request.payload, ownerRoute);
-      return withinByteLimit(result, 65536) ? result
+      return withinByteLimit(result, request.capability.startsWith("filePicker.") ? 786432 : 65536) ? result
           : "{\"error\":\"Native result exceeds the size limit.\"}";
     } catch (RuntimeException error) {
       return "{\"error\":\"Native host call failed.\"}";
@@ -601,8 +946,6 @@ public final class MainActivity extends Activity {
         && value.getBytes(StandardCharsets.UTF_8).length <= limit;
   }
 
-  // JSONObject is recursive. Bound structural depth before either untrusted
-  // parse, while ignoring brackets and escaped quotes inside JSON strings.
   private static boolean boundedJson(String value, int byteLimit) {
     if (!withinByteLimit(value, byteLimit)) return false;
     int depth = 0;
@@ -621,8 +964,6 @@ public final class MainActivity extends Activity {
         quoted = true;
         continue;
       }
-      // Android's parser accepts single quotes and comments; allowing those
-      // would let its string boundaries disagree with this JSON-only scanner.
       if (nonJsonDelimiter(character)) return false;
       depth += structuralDepthChange(character);
       if (depth < 0 || depth > 64) return false;
@@ -635,8 +976,6 @@ public final class MainActivity extends Activity {
   }
 
   private static boolean jsonStringStartsHere(String value, int index) {
-    // JSONTokener permits quotes embedded in unquoted literals. Those are not
-    // string delimiters to it, so they must not change this scanner's state.
     for (int previous = index - 1; previous >= 0; previous--) {
       char character = value.charAt(previous);
       if (" \t\r\n".indexOf(character) >= 0) continue;
@@ -656,6 +995,16 @@ public final class MainActivity extends Activity {
   private static synchronized String companionInvoke(String request) {
     return __TACHYON_COMPANION_CALL__;
   }
+__NATIVE_RUST_SERVICES__
+
+  private void disposeCompanions() {
+    bridgeWorker.getQueue().clear();
+    try {
+      bridgeWorker.execute(() -> companionInvoke("{\"op\":\"host-dispose\"}"));
+    } catch (java.util.concurrent.RejectedExecutionException ignored) {
+      record("companion.disposal_rejected");
+    }
+  }
 
   private static String emptyCompanion(String request) {
     try {
@@ -667,35 +1016,21 @@ public final class MainActivity extends Activity {
     return "{\"error\":\"This application has no native companion.\"}";
   }
 
-  /**
-   * Hands the companion its sink for tacPublish.
-   *
-   * The other direction of the bridge: everything else here is the page asking
-   * a question, and a companion watching the platform — connectivity, battery,
-   * a sensor — has no question to answer because nobody asked one.
-   *
-   * Called from onCreate, so a rotation replaces the sink rather than adding
-   * one. The lambda holds this Activity, which is why it is replaced rather
-   * than accumulated.
-   */
   private void installCompanionEmit() {
     __TACHYON_COMPANION_EMIT__
   }
 
-  /**
-   * Relays one publish into the page, on the thread the WebView lives on.
-   *
-   * A companion may publish from any thread it likes; a WebView may only be
-   * touched from the UI one. The payload is the companion's own JSON object,
-   * and JSON is a JavaScript expression already.
-   */
   private void relayPublish(String payload) {
     WebView web = view;
-    if (web == null) {
+    if (web == null || payload == null) {
       return;
     }
+    String script = "globalThis.__tachyonCompanionPublish(JSON.parse("
+        + org.json.JSONObject.quote(payload) + "))";
     web.post(
-        () -> web.evaluateJavascript("globalThis.__tachyonCompanionPublish(" + payload + ")", null));
+        () -> {
+          if (isBundlePage(web)) web.evaluateJavascript(script, null);
+        });
   }
 
   private static String safeName(String value) {
@@ -714,9 +1049,11 @@ public final class MainActivity extends Activity {
   protected void onCreate(Bundle state) {
     super.onCreate(state);
     record("controller.created");
+    if (!hostBridgeSupported()) {
+      showBridgeRefusal();
+      return;
+    }
     view = new WebView(this);
-    // Local qualification can inspect debug APKs; distributed release builds
-    // never enable the WebView debugger.
     if ((getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
       WebView.setWebContentsDebuggingEnabled(true);
     }
@@ -726,21 +1063,19 @@ public final class MainActivity extends Activity {
     settings.setDomStorageEnabled(true);
     settings.setAllowFileAccess(false);
     settings.setAllowContentAccess(false);
-    settings.setGeolocationEnabled(false);
     view.setLayoutParams(
         new ViewGroup.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
     installHostBridge();
-    // Installed before the page loads, so a companion that publishes the
-    // moment it wakes up has somewhere to publish to. The shim queues until
-    // the page's modules take over, so nothing is lost either way.
+    installBrowserApis();
     installCompanionEmit();
     view.setWebViewClient(
         new WebViewClient() {
           @Override
           public void onPageStarted(WebView web, String url, android.graphics.Bitmap favicon) {
             documentGeneration++;
-            bridgeWorker.getQueue().clear();
+            disposeCompanions();
+            disposeFilePickers();
             Uri target = Uri.parse(url);
             String canonical = isAssetUrl(target) ? canonicalRoute(target.getPath()) : null;
             route = canonical == null ? "" : canonical;
@@ -752,6 +1087,12 @@ public final class MainActivity extends Activity {
             if (!isAssetUrl(target) || canonicalRoute(target.getPath()) == null) return;
             record("controller.mounted");
             record("controller.active");
+            postApplicationState();
+          }
+
+          @Override
+          public void doUpdateVisitedHistory(WebView web, String url, boolean reload) {
+            holdSystemBack();
           }
 
           @Override
@@ -765,32 +1106,21 @@ public final class MainActivity extends Activity {
           @Override
           public WebResourceResponse shouldInterceptRequest(
               WebView web, WebResourceRequest request) {
-            return assetResponse(request.getUrl());
+            if (request.isForMainFrame() && !isAssetUrl(request.getUrl())) return emptyAssetResponse();
+            if (isOutgoingHost(request.getUrl()) || isYonOrigin(request.getUrl())) return null;
+            WebResourceResponse capability = capabilityResponse(request);
+            return capability != null ? capability : assetResponse(request.getUrl());
           }
         });
-    // Android 15 draws every app targeting SDK 35 edge to edge, so without
-    // this the page renders underneath the status and navigation bars and its
-    // own header collides with the clock. The page is a document, not a game:
-    // it wants the space it can actually use.
-    //
-    // The padding goes on a container rather than on the WebView, because a
-    // WebView lays its page out over its own padding and the insets had no
-    // visible effect at all.
     FrameLayout root = new FrameLayout(this);
-    root.addView(view);
+    root.addView(withMenuBar(view));
     setContentView(root);
-    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-      root.setOnApplyWindowInsetsListener(
-          (padded, insets) -> {
-            Insets bars =
-                insets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
-            padded.setPadding(bars.left, bars.top, bars.right, bars.bottom);
-            return insets;
-          });
-      // The first dispatch happens before a listener set here could see it.
-      root.requestApplyInsets();
+    installWindowSettings(root);
+    String linked = intentTarget(getIntent());
+    if (linked != null) {
+      launchTarget = linked;
+      record("link.opened");
     }
-    // A unique host-owned bootstrap retires legacy workers before loading assets.
     view.loadUrl(ASSET_ORIGIN + "__tachyon_bootstrap__.html?launch=" + System.nanoTime());
     record("bridge.ready");
   }
@@ -798,6 +1128,7 @@ public final class MainActivity extends Activity {
   @Override
   protected void onResume() {
     super.onResume();
+    publishNotificationPermission();
     record("controller.active");
   }
 
@@ -811,7 +1142,9 @@ public final class MainActivity extends Activity {
   protected void onDestroy() {
     documentGeneration++;
     route = "";
+    disposeFilePickers();
     bridgeWorker.shutdownNow();
+    __NATIVE_APPLICATION_STOP__
     super.onDestroy();
     record("controller.destroyed");
   }
@@ -822,8 +1155,34 @@ public final class MainActivity extends Activity {
         && target.getUserInfo() == null && target.getPort() == -1;
   }
 
-  private static String bootstrapDocument() {
-    String destination = org.json.JSONObject.quote(ASSET_ORIGIN + ENTRY_DOCUMENT);
+  private static boolean isBundlePage(WebView web) {
+    String url = web.getUrl();
+    return url != null && isAssetUrl(Uri.parse(url));
+  }
+
+  private static boolean isOutgoingHost(Uri target) {
+    String host = target.getHost();
+    if (!"https".equals(target.getScheme()) || host == null || target.getUserInfo() != null) return false;
+    host = host.toLowerCase(java.util.Locale.ROOT);
+    if (host.endsWith(".")) host = host.substring(0, host.length() - 1);
+    for (String declared : OUTGOING_HOSTS) {
+      boolean matches = declared.startsWith("*.") ? host.endsWith(declared.substring(1)) : declared.equals(host);
+      if (matches) return true;
+    }
+    return false;
+  }
+
+  private static boolean isYonOrigin(Uri target) {
+    String scheme = target.getScheme();
+    String host = target.getHost();
+    if (YON_ORIGIN.isEmpty() || scheme == null || host == null || target.getUserInfo() != null) return false;
+    String port = target.getPort() == -1 ? "" : ":" + target.getPort();
+    return YON_ORIGIN.equals(scheme.toLowerCase(java.util.Locale.ROOT) + "://"
+        + host.toLowerCase(java.util.Locale.ROOT) + port);
+  }
+
+  private String bootstrapDocument() {
+    String destination = org.json.JSONObject.quote(launchTarget);
     return "<!doctype html><meta charset=utf-8><title>Starting application</title><body><script>"
         + "(async()=>{try{const retire=async()=>{if(navigator.serviceWorker){const regs=await navigator.serviceWorker.getRegistrations();await Promise.all(regs.map(r=>r.unregister()));}"
         + "if(globalThis.caches){const keys=await caches.keys();await Promise.all(keys.filter(k=>k.startsWith('tachyon-static-')).map(k=>caches.delete(k)));}};"
@@ -840,24 +1199,26 @@ public final class MainActivity extends Activity {
       return emptyAssetResponse();
     }
     if (path.equals("/__tachyon_bootstrap__.html")) {
-      return new WebResourceResponse("text/html", "UTF-8", 200, "OK",
-          java.util.Collections.singletonMap("Cache-Control", "no-store"),
+      java.util.Map<String, String> headers = new java.util.HashMap<>();
+      headers.put("Cache-Control", "no-store");
+      headers.put("Content-Security-Policy", BOOTSTRAP_SECURITY_POLICY);
+      headers.put("X-Content-Type-Options", "nosniff");
+      return new WebResourceResponse("text/html", "UTF-8", 200, "OK", headers,
           new ByteArrayInputStream(bootstrapDocument().getBytes(StandardCharsets.UTF_8)));
     }
     String document = routeDocument(path);
     String name = document != null ? document : path.substring(1);
-    // Android's asset packager drops dot-prefixed directories, so the generated
-    // runtime is staged under a visible alias. The bundle still asks for it by
-    // its authored path.
+    WebResourceResponse development = developmentResponse(name, target);
+    if (development != null) return development;
     if (name.startsWith(".tachyon/")) {
       name = "tachyon-runtime/" + name.substring(".tachyon/".length());
     }
     try {
-      return new WebResourceResponse(assetMimeType(name), "UTF-8", open(name));
+      return bundleResponse(name, open(name));
     } catch (Exception error) {
       try {
         String bundled = "WebBundle/" + name;
-        return new WebResourceResponse(assetMimeType(bundled), "UTF-8", open(bundled));
+        return bundleResponse(bundled, open(bundled));
       } catch (Exception ignored) {
         return emptyAssetResponse();
       }
@@ -914,31 +1275,33 @@ public final class MainActivity extends Activity {
     }
   }
 
-  /**
-   * Opens one staged asset, injecting the host shim into any document.
-   *
-   * The shim has to be in place before the bundle's own scripts run, and a
-   * rewriting the document as it is served avoids requiring the optional
-   * document-start-script feature in addition to the message listener.
-   */
   private InputStream open(String name) throws Exception {
     InputStream stream = getAssets().open(name);
     if (!name.endsWith(".html")) {
       return stream;
     }
+    return new ByteArrayInputStream(withShim(readLimited(stream)));
+  }
+
+  private static byte[] readLimited(InputStream stream) throws java.io.IOException {
     ByteArrayOutputStream buffer = new ByteArrayOutputStream();
     byte[] chunk = new byte[8192];
     int read;
-    while ((read = stream.read(chunk)) != -1) {
-      if (buffer.size() + read > 16777216) {
-        stream.close();
-        throw new java.io.IOException("Native document exceeds the 16 MiB limit.");
+    try {
+      while ((read = stream.read(chunk)) != -1) {
+        if (buffer.size() + read > 16777216) {
+          throw new java.io.IOException("Native document exceeds the 16 MiB limit.");
+        }
+        buffer.write(chunk, 0, read);
       }
-      buffer.write(chunk, 0, read);
+    } finally {
+      stream.close();
     }
-    stream.close();
-    String document = new String(buffer.toByteArray(), StandardCharsets.UTF_8);
-    // The Android half returns promises, preserving the shared asynchronous API.
+    return buffer.toByteArray();
+  }
+
+  private static byte[] withShim(byte[] page) {
+    String document = new String(page, StandardCharsets.UTF_8);
     String script =
         "<script>"
             + NATIVE_SHIM
@@ -949,17 +1312,30 @@ public final class MainActivity extends Activity {
         head >= 0
             ? document.substring(0, head + 6) + script + document.substring(head + 6)
             : script + document;
-    return new ByteArrayInputStream(document.getBytes(StandardCharsets.UTF_8));
+    return document.getBytes(StandardCharsets.UTF_8);
   }
+
+__DEVELOPMENT_PAGES__
 
   private void openExternal(Uri target) {
     String scheme = target.getScheme();
-    if (!"https".equals(scheme) && !"http".equals(scheme)) return;
+    String host = target.getHost();
+    String address = target.getSchemeSpecificPart();
+    boolean web = ("https".equalsIgnoreCase(scheme) || "http".equalsIgnoreCase(scheme))
+        && host != null && !host.isEmpty() && target.getUserInfo() == null;
+    boolean mail = "mailto".equalsIgnoreCase(scheme) && address != null && !address.isEmpty();
+    if (!web && !mail) return;
     try {
       startActivity(new Intent(Intent.ACTION_VIEW, target));
     } catch (Exception ignored) {
-      // A device without a registered browser keeps the application open.
     }
+  }
+
+  private static WebResourceResponse bundleResponse(String name, InputStream data) {
+    java.util.Map<String, String> headers = new java.util.HashMap<>();
+    headers.put("Content-Security-Policy", CONTENT_SECURITY_POLICY);
+    headers.put("X-Content-Type-Options", "nosniff");
+    return new WebResourceResponse(assetMimeType(name), "UTF-8", 200, "OK", headers, data);
   }
 
   private static WebResourceResponse emptyAssetResponse() {
@@ -990,17 +1366,17 @@ public final class MainActivity extends Activity {
         stream.write(entry.getBytes(StandardCharsets.UTF_8));
       }
     } catch (Exception ignored) {
-      // Telemetry is evidence, never a reason to fail a launch.
     }
   }
 }
 "#;
+}
 
 #[cfg(test)]
 mod tests {
     use super::{
-        ANDROID_GRADLE_PLUGIN, ANDROIDX_WEBKIT, MIN_SDK, android_manifest, app_gradle,
-        java_package, java_source,
+        AndroidArchitecture, AndroidFilePicker, AndroidHostGenerator, AndroidShrinking,
+        android_manifest, app_gradle, java_package, java_source,
     };
     use crate::native::config::NativeApplication;
 
@@ -1010,9 +1386,19 @@ mod tests {
             executable_name: String::from("NativeCatalog"),
             application_id: String::from("dev.tachyon.native-catalog"),
             version: String::from("1.0.0"),
+            build: 1,
             entry_route: String::from("/"),
             icons: Vec::new(),
             window: crate::native::config::WindowConfiguration::default(),
+            native_capabilities: Vec::new(),
+            menus: crate::native::native_menu_config::NativeMenuConfig::default(),
+            rust: crate::native::native_rust_project::NativeRustProject::default(),
+            outgoing: crate::native::native_outgoing_hosts::NativeOutgoingHosts::default(),
+            permissions: crate::native::browser_api_permissions::BrowserApiPermissions::default(),
+            minimum_system: crate::native::minimum_system::MinimumSystem::default(),
+            description: String::new(),
+            tray: None,
+            links: crate::native::native_links::NativeLinks::default(),
         }
     }
 
@@ -1025,9 +1411,123 @@ mod tests {
         }
     }
 
+    fn catalog_java_source(has_companion: bool) -> String {
+        java_source(
+            &application(),
+            "dev.tachyon.native_catalog",
+            has_companion,
+            &index(),
+        )
+    }
+
+    #[test]
+    fn android_lets_the_network_serve_only_the_declared_hosts() {
+        let mut declared = application();
+        declared.outgoing = crate::native::native_outgoing_hosts::NativeOutgoingHosts::listed(&[
+            "api.example.com",
+            "*.cdn.example.com",
+        ]);
+        let source = java_source(&declared, "dev.tachyon.native_catalog", false, &index());
+        assert!(source.contains(
+            r#"private static final String[] OUTGOING_HOSTS = {"api.example.com", "*.cdn.example.com"};"#
+        ));
+        assert!(source.contains(
+            "if (isOutgoingHost(request.getUrl()) || isYonOrigin(request.getUrl())) return null;\n            WebResourceResponse capability = capabilityResponse(request);\n            return capability != null ? capability : assetResponse(request.getUrl());"
+        ));
+        assert!(catalog_java_source(false).contains("OUTGOING_HOSTS = {};"));
+    }
+
+    #[test]
+    fn android_asks_for_network_access_only_when_the_manifest_lists_hosts() {
+        let mut declared = application();
+        assert!(!android_manifest(&declared, false).contains("android.permission.INTERNET"));
+        declared.outgoing =
+            crate::native::native_outgoing_hosts::NativeOutgoingHosts::listed(&["api.example.com"]);
+        assert!(android_manifest(&declared, false).contains(
+            "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\">\n  <uses-permission android:name=\"android.permission.INTERNET\"/>\n  <application"
+        ));
+        let mut yon = application();
+        yon.outgoing = crate::native::native_outgoing_hosts::NativeOutgoingHosts::default()
+            .with_yon_origin(Some(String::from("https://yon.example.com")));
+        assert!(android_manifest(&yon, false).contains("android.permission.INTERNET"));
+        assert!(!android_manifest(&yon, false).contains("networkSecurityConfig"));
+        let mut local = application();
+        local.outgoing = crate::native::native_outgoing_hosts::NativeOutgoingHosts::default()
+            .with_yon_origin(Some(String::from("http://localhost:8080")));
+        assert!(android_manifest(&local, false).contains(
+            "android:usesCleartextTraffic=\"false\"\n      android:networkSecurityConfig=\"@xml/tachyon_network_security\""
+        ));
+    }
+
+    #[test]
+    fn the_host_passes_only_the_declared_yon_origin_to_the_network() {
+        let mut local = application();
+        local.outgoing = crate::native::native_outgoing_hosts::NativeOutgoingHosts::default()
+            .with_yon_origin(Some(String::from("http://localhost:8080")));
+        let source = java_source(&local, "dev.tachyon.native_catalog", false, &index());
+        assert!(
+            source.contains("private static final String YON_ORIGIN = \"http://localhost:8080\";")
+        );
+        assert!(source.contains(
+            "if (isOutgoingHost(request.getUrl()) || isYonOrigin(request.getUrl())) return null;"
+        ));
+        let reach = crate::native::android_yon_reach::AndroidYonReach::declared(Some(
+            "http://localhost:8080",
+        ));
+        let policy = reach.network_security().unwrap_or_default();
+        assert!(policy.contains("<base-config cleartextTrafficPermitted=\"false\"/>"));
+        assert!(policy.contains("<domain includeSubdomains=\"false\">localhost</domain>"));
+        let secure = crate::native::android_yon_reach::AndroidYonReach::declared(Some(
+            "https://api.example.com",
+        ));
+        assert_eq!(secure.network_security(), None);
+        assert_eq!(secure.java_origin(), "https://api.example.com");
+        let quiet = java_source(
+            &application(),
+            "dev.tachyon.native_catalog",
+            false,
+            &index(),
+        );
+        assert!(quiet.contains("private static final String YON_ORIGIN = \"\";"));
+    }
+
+    #[test]
+    fn android_documents_allow_only_the_script_the_host_writes_into_them() {
+        let source = catalog_java_source(false);
+        let shim = crate::native::host::native_shim(
+            &application().window,
+            tachyon_contracts::NativeTarget::Android,
+        );
+        let written = format!(
+            "{shim}{}{}",
+            AndroidFilePicker::page_script(&[]),
+            AndroidHostGenerator::ANDROID_BRIDGE_SHIM
+        );
+        let hash = crate::compiler::ContentSecurityPolicy::inline_script_hash(&written);
+        let policy_line = source
+            .lines()
+            .find(|line| line.contains("String CONTENT_SECURITY_POLICY ="))
+            .unwrap_or_default();
+        assert!(policy_line.contains(&hash), "{policy_line}");
+        assert!(!policy_line.contains("'unsafe-inline' "), "{policy_line}");
+        assert!(source.contains("return bundleResponse(name, open(name));"));
+        assert!(
+            source.contains("headers.put(\"Content-Security-Policy\", BOOTSTRAP_SECURITY_POLICY);")
+        );
+        assert!(!source.contains("\"UTF-8\", open("));
+    }
+
+    #[test]
+    fn an_entry_document_that_looks_like_a_placeholder_stays_text() {
+        let mut routed = index();
+        routed.entry_document = String::from("__NATIVE_SHIM__.html");
+        let source = java_source(&application(), "dev.tachyon.native_catalog", true, &routed);
+        assert!(source.contains(r#"ENTRY_DOCUMENT = "__NATIVE_SHIM__.html";"#));
+    }
+
     #[test]
     fn the_host_is_a_web_view_over_the_applications_own_bundle() {
-        let source = java_source(&application(), "dev.tachyon.native_catalog", true, &index());
+        let source = catalog_java_source(true);
         assert!(source.contains("package dev.tachyon.native_catalog;"));
         assert!(source.contains("controller.created"));
         assert!(source.contains("controller.destroyed"));
@@ -1035,29 +1535,61 @@ mod tests {
         assert!(source.contains("https://appassets.tachyon.local/"));
         assert!(source.contains("TachyonCompanionKt.tacNativeInvoke"));
         assert!(source.contains("WebViewCompat.addWebMessageListener"));
-        // Edge-to-edge is forced from SDK 35, so the page has to be told
-        // where the system bars are or its header sits under the clock.
+        assert!(source.contains("protected void terminated()"));
+        assert!(source.contains("disposeCompanions();"));
+        assert!(source.contains("Invalid companion operation."));
         assert!(source.contains("setOnApplyWindowInsetsListener"));
-        // Nothing rebuilds the view out of Android widgets any more.
         assert!(!source.contains("buildNode"));
-        assert!(!source.contains("LinearLayout"));
+        assert!(source.contains("if (MENU_ROUTES.length == 0) return content;"));
     }
 
     #[test]
-    fn a_host_without_a_companion_names_no_companion_symbol() {
-        let source = java_source(
+    fn the_manifest_window_members_reach_the_activity_and_the_page() {
+        let mut turned = application();
+        turned.window.orientation = crate::native::native_orientation::NativeOrientation::Landscape;
+        turned.window.title_bar = crate::native::native_title_bar::NativeTitleBar::Integrated;
+        let manifest = android_manifest(&turned, false);
+        assert!(manifest.contains("android:theme=\"@style/TachyonTheme\""));
+        assert!(manifest.contains("android:screenOrientation=\"userLandscape\""));
+        let source = java_source(&turned, "dev.tachyon.native_catalog", false, &index());
+        assert!(source.contains("installWindowSettings(root);"));
+        assert!(source.contains("WINDOW_INTEGRATED = true;"));
+        assert!(
+            source.contains(
+                "if (\"window.titleBarInsets\".equals(capability)) return titleBarInsets;"
+            )
+        );
+        assert!(source.contains("__tachyonTitleBar ??= new (class TacMobileTitleBar"));
+        let standard = java_source(
             &application(),
             "dev.tachyon.native_catalog",
             false,
             &index(),
         );
+        assert!(!standard.contains("TacMobileTitleBar"));
+        assert!(!android_manifest(&application(), false).contains("screenOrientation"));
+    }
+
+    #[test]
+    fn a_failing_companion_call_answers_a_fixed_error_without_the_exception_text() {
+        let prelude = AndroidHostGenerator::kotlin_companion_prelude();
+        assert!(prelude.contains("} catch (error: Throwable) {\n        tacFailureAnswer(error)"));
+        assert!(prelude.contains(
+            "private fun tacFailureAnswer(error: Throwable): String = \"{\\\"error\\\":\\\"Native companion operation failed.\\\"}\""
+        ));
+        assert!(!prelude.contains("error.message"));
+    }
+
+    #[test]
+    fn a_host_without_a_companion_names_no_companion_symbol() {
+        let source = catalog_java_source(false);
         assert!(!source.contains("TachyonCompanionKt"));
         assert!(source.contains("has no native companion"));
     }
 
     #[test]
     fn android_bridge_authenticates_the_sending_frame_before_dispatch() {
-        let source = java_source(&application(), "dev.tachyon.native_catalog", true, &index());
+        let source = catalog_java_source(true);
         assert!(!source.contains("addJavascriptInterface"));
         assert!(!source.contains("@JavascriptInterface"));
         assert!(source.contains("WebViewCompat.addWebMessageListener"));
@@ -1069,21 +1601,112 @@ mod tests {
     }
 
     #[test]
+    fn a_web_view_without_the_message_listener_gets_a_refusal_page_before_any_page_loads() {
+        let source = catalog_java_source(true);
+        let check = source
+            .find("if (!hostBridgeSupported()) {\n      showBridgeRefusal();\n      return;\n    }")
+            .unwrap_or_else(|| panic!("the activity has no startup bridge check"));
+        let web_view = source
+            .find("view = new WebView(this);")
+            .unwrap_or_else(|| panic!("the activity creates no web view"));
+        assert!(check < web_view);
+        assert!(source.contains(
+            "return WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER);"
+        ));
+        assert!(
+            source.contains("} catch (RuntimeException missingWebView) {\n      return false;")
+        );
+        assert!(source.contains("record(\"bridge.refused\");"));
+        assert!(source.contains("WebViewCompat.getCurrentWebViewPackage(this)"));
+        assert!(
+            source
+                .contains("needs an Android System WebView that supports the web message listener")
+        );
+        assert!(source.contains("Update Android System WebView from Google Play,"));
+        assert!(!source.contains(
+            "if (!WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) return;"
+        ));
+        assert!(!source.contains("addJavascriptInterface"));
+    }
+
+    #[test]
     fn gradle_and_manifest_pin_the_supported_android_surface() {
-        let gradle = app_gradle(&application(), "dev.tachyon.native_catalog", false);
-        assert!(gradle.contains(ANDROID_GRADLE_PLUGIN));
-        assert!(gradle.contains(&format!("androidx.webkit:webkit:{ANDROIDX_WEBKIT}")));
-        assert!(gradle.contains(&format!("minSdk = {MIN_SDK}")));
+        let gradle = app_gradle(
+            &application(),
+            "dev.tachyon.native_catalog",
+            false,
+            AndroidArchitecture::UNIVERSAL,
+        );
+        let webkit = AndroidHostGenerator::ANDROIDX_WEBKIT;
+        assert!(gradle.contains(AndroidHostGenerator::ANDROID_GRADLE_PLUGIN));
+        assert!(gradle.contains(&format!("androidx.webkit:webkit:{webkit}")));
+        assert!(gradle.contains("minSdk = 26\n"));
         assert!(gradle.contains("VERSION_17"));
         assert!(gradle.contains("ignoreAssetsPattern ="));
-        // The Kotlin plugin is what compiles a companion, so it arrives with
-        // one and stays out of every project that has none.
-        assert!(app_gradle(&application(), "x.y", true).contains("org.jetbrains.kotlin.android"));
+        assert!(
+            app_gradle(&application(), "x.y", true, AndroidArchitecture::UNIVERSAL)
+                .contains("org.jetbrains.kotlin.android")
+        );
         assert!(!gradle.contains("kotlin"));
+        assert!(gradle.contains("versionCode = 1\n"));
+        assert!(gradle.contains("versionName = \"1.0.0\"\n"));
+        let mut released = application();
+        released.version = String::from("2.1.0-beta");
+        released.build = 7;
+        let released_gradle = app_gradle(&released, "x.y", false, AndroidArchitecture::ARM64);
+        assert!(released_gradle.contains("versionCode = 7\n"));
+        assert!(released_gradle.contains("versionName = \"2.1.0-beta\"\n"));
+        let signing = gradle.find("signingConfigs {");
+        let build_types = gradle.find("buildTypes {");
+        assert!(signing.is_some() && signing < build_types);
+        assert!(gradle.contains("getByName(\"debug\") {\n      isMinifyEnabled = false\n    }"));
+        assert!(gradle.contains(&format!(
+            "{}      signingConfig = signingConfigs.getByName(\"release\")",
+            AndroidShrinking::RELEASE_BUILD_TYPE
+        )));
+        assert!(gradle.contains("abiFilters += listOf(\"arm64-v8a\", \"x86_64\")\n"));
+        assert!(released_gradle.contains("abiFilters += listOf(\"arm64-v8a\")\n"));
+        assert!(!gradle.contains("storePassword = \""));
 
-        let manifest = android_manifest(&application());
+        let mut raised = application();
+        raised.minimum_system = raised.minimum_system.with_floor(
+            tachyon_contracts::NativeTarget::Android,
+            crate::native::system_version::SystemVersion::new(30, 0),
+        );
+        let raised_gradle = app_gradle(
+            &raised,
+            "dev.tachyon.native_catalog",
+            false,
+            AndroidArchitecture::UNIVERSAL,
+        );
+        assert!(raised_gradle.contains("minSdk = 30\n"));
+
+        let manifest = android_manifest(&application(), false);
         assert!(manifest.contains("android:usesCleartextTraffic=\"false\""));
+        assert!(manifest.contains("android:enableOnBackInvokedCallback=\"true\""));
         assert!(manifest.contains("android.intent.category.LAUNCHER"));
+        assert!(!manifest.contains("android:icon"));
+        assert!(
+            android_manifest(&application(), true).contains("android:icon=\"@mipmap/ic_launcher\"")
+        );
+    }
+
+    #[test]
+    fn a_named_icon_that_is_missing_leaves_the_manifest_without_an_icon()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let root = tempfile::tempdir()?;
+        let mut application = application();
+        application.icons = vec![(1024, String::from("/icon-1024.png"))];
+        let project = root.path().join("project");
+        assert!(!super::stage_icon(&application, root.path(), &project)?);
+        std::fs::write(root.path().join("icon-1024.png"), b"png")?;
+        assert!(super::stage_icon(&application, root.path(), &project)?);
+        assert!(
+            project
+                .join("app/src/main/res/mipmap-xxxhdpi/ic_launcher.png")
+                .is_file()
+        );
+        Ok(())
     }
 
     #[test]
@@ -1094,5 +1717,139 @@ mod tests {
         );
         assert_eq!(java_package("com.1st.app"), "com._1st.app");
         assert_eq!(java_package("com.class.app"), "com._class.app");
+    }
+
+    #[test]
+    fn android_answers_browser_apis_on_its_own_path_with_the_runtime_permissions() {
+        let mut asking = application();
+        asking.permissions =
+            crate::native::browser_api_permissions::BrowserApiPermissions::declared(
+                &[String::from("clipboard"), String::from("notifications")],
+                &std::collections::BTreeMap::new(),
+            );
+        let source = java_source(&asking, "dev.tachyon.native_catalog", false, &index());
+        assert!(source.contains(
+            "if (request.capability.startsWith(\"browserApi.\")) {\n        answerBrowserApi(web, request, replyProxy);"
+        ));
+        assert!(source.contains("BROWSER_API_GRANTS = {\"clipboard\", \"notifications\"};"));
+        assert!(source.contains("    installBrowserApis();\n"));
+        assert!(!source.contains("setGeolocationEnabled(false)"));
+        assert!(!source.contains("__NATIVE_BROWSER_APIS__"));
+        assert!(android_manifest(&asking, false).contains(
+            "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\">\n  <uses-permission android:name=\"android.permission.POST_NOTIFICATIONS\"/>\n  <application"
+        ));
+        assert!(AndroidHostGenerator::ANDROID_BRIDGE_SHIM.contains(
+            "capability === 'browserApi.notifications.requestPermission' ? 120000 : pickerWait(capability) ? 60000 : 10000"
+        ));
+    }
+
+    #[test]
+    fn android_opens_the_storage_access_framework_for_the_page_linked_services_and_webassembly_services()
+     {
+        let mut granted = application();
+        granted.native_capabilities = vec![String::from("filePicker")];
+        let source = java_source(&granted, "dev.tachyon.native_catalog", true, &index());
+        for check in [
+            "if (capability.startsWith(\"window.\") || capability.startsWith(\"filePicker.\")) return nativeCapability(capability, payload);",
+            "if (capability.startsWith(\"filePicker.\")) return filePickerCall(capability.substring(11), payload);",
+            "private static final boolean FILE_PICKER_GRANTED = true;",
+            "WebResourceResponse capability = capabilityResponse(request);",
+            "disposeCompanions();\n            disposeFilePickers();",
+            "route = \"\";\n    disposeFilePickers();",
+            "protected void onActivityResult(int requestCode, int resultCode, Intent data)",
+            "+ (pickerWait(request.capability) ? 60000 : 10000);",
+            "return \"filePicker.open\".equals(capability) || (FILE_PICKER_GRANTED && \"companion.invoke\".equals(capability));",
+            "request.capability.startsWith(\"filePicker.\") ? 786432 : 65536",
+            "globalThis.__tachyonNativeFilePickerRoute = true; globalThis.__tachyonNativeGrants = [\\\"filePicker\\\"];",
+            "TacNativeCapabilityRegistration.register(this::nativeCapability);",
+        ] {
+            assert!(source.contains(check), "{check}");
+        }
+        assert!(!source.contains("__FILE_PICKER_GRANTED__"));
+        let alone = java_source(
+            &application(),
+            "dev.tachyon.native_catalog",
+            false,
+            &index(),
+        );
+        assert!(alone.contains("private static final boolean FILE_PICKER_GRANTED = false;"));
+    }
+
+    #[test]
+    fn string_resources_carry_the_manifest_reasons_for_the_permission_rationale() {
+        assert!(!super::strings_xml(&application()).contains("tachyon_permission_"));
+        let mut asking = application();
+        asking.permissions =
+            crate::native::browser_api_permissions::BrowserApiPermissions::declared(
+                &[String::from("geolocation"), String::from("notifications")],
+                &std::collections::BTreeMap::from([
+                    (
+                        String::from("geolocation"),
+                        String::from("Shows stores & more"),
+                    ),
+                    (String::from("notifications"), String::from("Order updates")),
+                ]),
+            );
+        let strings = super::strings_xml(&asking);
+        assert!(strings.contains(
+            "<string name=\"tachyon_permission_geolocation\">Shows stores &amp; more</string>"
+        ));
+        assert!(
+            strings.contains(
+                "<string name=\"tachyon_permission_notifications\">Order updates</string>"
+            )
+        );
+    }
+
+    #[test]
+    fn the_host_sends_the_application_state_when_the_activity_stops_and_starts() {
+        let source = catalog_java_source(true);
+        assert!(source.contains("protected void onStop() {\n    super.onStop();\n    sendApplicationState(\"background\");"));
+        assert!(source.contains("protected void onStart() {\n    super.onStart();\n    sendApplicationState(\"foreground\");"));
+        assert!(source.contains("globalThis.__tachyonApplicationState?.('"));
+        assert!(
+            source.contains("record(\"controller.active\");\n            postApplicationState();")
+        );
+        assert!(source.contains("\"event\".equals(operation)"));
+        assert!(!source.contains("__APPLICATION_STATE__"));
+    }
+
+    #[test]
+    fn the_host_runs_its_page_scripts_only_while_the_main_frame_is_on_the_bundle() {
+        let source = catalog_java_source(true);
+        assert!(source.contains(
+            "if (request.isForMainFrame() && !isAssetUrl(request.getUrl())) return emptyAssetResponse();"
+        ));
+        assert!(source.contains(
+            "private static boolean isBundlePage(WebView web) {\n    String url = web.getUrl();\n    return url != null && isAssetUrl(Uri.parse(url));"
+        ));
+        assert!(source.contains("if (isBundlePage(web)) web.evaluateJavascript(script, null);"));
+        assert!(source.contains("WINDOW_INTEGRATED && web != null && isBundlePage(web)"));
+        assert_eq!(
+            source
+                .matches("if (isBundlePage(web)) web.evaluateJavascript(script, null);")
+                .count(),
+            2
+        );
+    }
+
+    #[test]
+    fn the_host_publishes_companion_signals_only_as_json() {
+        let source = catalog_java_source(true);
+        assert!(source.contains(
+            "\"globalThis.__tachyonCompanionPublish(JSON.parse(\"\n        + org.json.JSONObject.quote(payload) + \"))\""
+        ));
+        assert!(!source.contains("__tachyonCompanionPublish(\" + payload"));
+    }
+
+    #[test]
+    fn bundle_responses_forbid_content_type_sniffing() {
+        let source = catalog_java_source(true);
+        assert!(source.contains(
+            "headers.put(\"Content-Security-Policy\", BOOTSTRAP_SECURITY_POLICY);\n      headers.put(\"X-Content-Type-Options\", \"nosniff\");"
+        ));
+        assert!(source.contains(
+            "headers.put(\"Content-Security-Policy\", CONTENT_SECURITY_POLICY);\n    headers.put(\"X-Content-Type-Options\", \"nosniff\");"
+        ));
     }
 }

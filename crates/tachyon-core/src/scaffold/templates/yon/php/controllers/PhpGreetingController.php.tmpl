@@ -1,0 +1,9 @@
+<?php
+#[RequestRoute("/api/php")]
+#[Public]
+class PhpGreetingController {
+    #[GetRoute]
+    public function getGreeting(): string {
+        return 'Hello from PHP';
+    }
+}

@@ -1,0 +1,5 @@
+{
+  "heading": "Values in braces and events",
+  "body": "Braces evaluate a limited expression. Braces work only in text. An attribute gets a value through a name that starts with `:`, such as `:title=\"shell.name\"`. For a true-or-false attribute such as `hidden` or `disabled`, the expression gives true or false, such as `:hidden=\"!shell.open\"`. When the value is false, Tachyon leaves the attribute out. The build refuses braces in a plain attribute, such as `title=\"{shell.name}\"`, with `TY1313`. The expression can use the services that the view names. It can also use the properties that its parent passed. A view refers to ShellService as shell. An event handler contains one method call or one assignment, such as shell.refresh() or shell.name = $event.target.value. The compiler turns the handlers into one delegated listener for each event type. It registers each listener on the document. The listener activates after the most important loading work (off the critical path). Tachyon replays the events that happen before that, so no event is lost.",
+  "code": { "file": "example.html" }
+}

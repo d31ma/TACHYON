@@ -1,0 +1,4 @@
+// server/application.json
+{
+  "redis": { "url": "rediss://cache.example.com:6379/0" }
+}

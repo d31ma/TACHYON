@@ -1,0 +1,9 @@
+<section class="chat">
+  <p aria-live="polite">Every open tab sees each message.</p>
+  <button on:click="chat.sayHello()">Say hello</button>
+  <ul>
+    <loop :for="message of chat.messages">
+      <li>{message.text}</li>
+    </loop>
+  </ul>
+</section>

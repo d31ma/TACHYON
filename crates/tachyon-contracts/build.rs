@@ -1,5 +1,3 @@
-//! Embeds the repository product version into release-facing Rust crates.
-
 use std::fs;
 use std::io;
 use std::path::Path;

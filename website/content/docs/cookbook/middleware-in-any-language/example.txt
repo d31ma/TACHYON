@@ -1,0 +1,15 @@
+middleware.py
+server/
+  controllers/UsersController.ts
+
+from http import HTTPStatus
+
+
+class Middleware:
+    @staticmethod
+    def before(request):
+        return None
+
+    @staticmethod
+    def after(request):
+        return (HTTPStatus.NO_CONTENT, {"x-served-by": "tachyon"}, "")

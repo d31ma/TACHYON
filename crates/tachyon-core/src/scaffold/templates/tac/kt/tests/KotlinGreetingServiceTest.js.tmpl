@@ -1,0 +1,8 @@
+@Test(KotlinGreetingTestSetup, {"partition":"tests"})
+export default class KotlinGreetingServiceTest {
+  async testGreetChangesTheMessageOnTheWeb() {
+    const greeting = new KotlinGreetingService()
+    greeting.greet()
+    Assert.equals('Kotlin says hello again.', greeting.message)
+  }
+}

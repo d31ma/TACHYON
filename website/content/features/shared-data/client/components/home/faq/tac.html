@@ -1,0 +1,9 @@
+<dl>
+  <loop :for="entry of data.faq">
+    <dt>{entry.question}</dt>
+    <dd>{entry.answer}</dd>
+  </loop>
+</dl>
+<logic :if="page.development">
+  <p>Rendered at {page.path}.</p>
+</logic>

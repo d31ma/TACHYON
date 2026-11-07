@@ -1,0 +1,57 @@
+<main>
+  <h1>Canonical logic controls regression</h1>
+  <button id="choose-first" on:click="logicHarness.mode = 'first'">Choose first</button>
+  <button id="choose-second" on:click="logicHarness.mode = 'second'">Choose second</button>
+  <button id="choose-fallback" on:click="logicHarness.mode = 'other'">Choose fallback</button>
+  <button id="nested-ready" on:click="logicHarness.nested = 'ready'">Nested ready</button>
+  <button id="nested-waiting" on:click="logicHarness.nested = 'waiting'">Nested waiting</button>
+  <button id="nested-fallback" on:click="logicHarness.nested = 'other'">Nested fallback</button>
+  <button id="hide-card" on:click="logicHarness.showCard = false">Hide card</button>
+  <button id="show-card" on:click="logicHarness.showCard = true">Show card</button>
+  <p class="shared-probe" id="harness-owned">Harness owns this paragraph</p>
+  <div id="branches">
+    <logic :if="logicHarness.mode === 'first'">
+      <section id="first-branch">
+        <logic :if="logicHarness.nested === 'ready'"><p id="nested-branch">Ready</p></logic>
+        <!-- Nested sibling-chain separator -->
+        <logic :else-if="logicHarness.nested === 'waiting'"><p id="nested-branch">Waiting</p></logic>
+        <logic else><p id="nested-branch">Nested fallback</p></logic>
+      </section>
+    </logic>
+    <!-- Outer sibling-chain separator -->
+    <logic :else-if="logicHarness.mode === 'second'"><p id="second-branch">Second</p></logic>
+    <logic else><p id="fallback-branch">Fallback</p></logic>
+  </div>
+  <section id="list-results" aria-label="List conditional branches">
+    <loop :for="const item of logicHarness.items">
+      <logic :if="item === 0"><p data-probe="list" :data-item="item">First</p></logic>
+      <!-- Repeated sibling-chain separator -->
+      <logic :else-if="item === 1"><p data-probe="list" :data-item="item">Second</p></logic>
+      <logic else><p data-probe="list" :data-item="item">Fallback</p></logic>
+    </loop>
+  </section>
+  <section id="counted-results" aria-label="Counted conditional branches">
+    <loop :for="let number = 0; number &lt; 3; number++">
+      <logic :if="number === 0"><p data-probe="counted" :data-item="number">First</p></logic>
+      <logic :else-if="number === 1"><p data-probe="counted" :data-item="number">Second</p></logic>
+      <logic else><p data-probe="counted" :data-item="number">Fallback</p></logic>
+    </loop>
+  </section>
+  <div id="first-card">
+    <logic :if="logicHarness.showCard"><logic-panel><logic-slot /></logic-panel></logic>
+    <logic else><p id="card-hidden">Card hidden</p></logic>
+  </div>
+  <div id="second-card"><logic-panel><logic-slot /></logic-panel></div>
+  <div id="neighbor"><logic-plain /></div>
+  <svg id="canonical-svg" width="24" height="24" viewBox="0 0 24 24">
+    <logic :if="logicHarness.mode === 'first'">
+      <g id="svg-first"><logic :if="logicHarness.nested === 'ready'"><circle id="svg-nested-ready" cx="4" cy="4" r="2"></circle></logic><logic else><rect id="svg-nested-fallback" x="2" y="2" width="4" height="4"></rect></logic></g>
+    </logic>
+    <!-- SVG sibling-chain separator -->
+    <logic :else-if="logicHarness.mode === 'second'"><g id="svg-second"><path d="M0 0 L4 4"></path></g></logic>
+    <logic else><g id="svg-fallback"><path d="M1 1 L5 5"></path></g></logic>
+    <loop :for="point of logicHarness.items"><logic :if="point === 0"><circle data-probe="svg-loop" :cx="point" cy="8" r="1"></circle></logic><logic else><rect data-probe="svg-loop" :x="point" y="8" width="1" height="1"></rect></logic></loop>
+    <foreignObject id="canonical-foreign" x="0" y="0" width="8" height="8"><logic :if="true"><div id="foreign-html">HTML<svg id="foreign-svg" width="4" height="4" viewBox="0 0 4 4"><logic :if="true"><path id="foreign-svg-path" d="M0 0 L4 4"></path></logic></svg></div></logic></foreignObject>
+  </svg>
+  <logic-svg><logic :if="logicHarness.mode === 'first'"><circle id="svg-slot-first" cx="4" cy="4" r="2"></circle></logic><logic else><rect id="svg-slot-fallback" x="2" y="2" width="4" height="4"></rect></logic></logic-svg>
+</main>

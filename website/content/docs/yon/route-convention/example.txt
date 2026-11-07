@@ -1,0 +1,8 @@
+@RequestRoute("/items")            ->  /items
+@Public
+  @GetRoute                         ->  GET /items
+  @GetRoute("/{id}")                ->  GET /items/{id}
+  @PostRoute                        ->  POST /items
+@RequestRoute("/api/search")
+@Public
+  @GetRoute("/{q}")                 ->  GET /api/search/{q}

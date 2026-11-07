@@ -1,0 +1,77 @@
+{
+  "id": "switch",
+  "title": "Matching a value",
+  "summary": "A switch compares one value with each case. Tac uses the first case that matches. If no case matches, it uses `<case default>`. The compiler turns a switch into a chain of if and else-if branches. A Python service also needs the `tac.python` runtime setting in `client/manifest.json`.",
+  "group": "Tac views",
+  "files": [
+    {
+      "name": "client/manifest.json",
+      "code": { "file": "client/manifest.json" }
+    },
+    {
+      "name": "client/pages/tac.html",
+      "code": { "file": "client/pages/tac.html" }
+    },
+    {
+      "name": "client/components/status/badge/tac.html",
+      "code": { "file": "client/components/status/badge/tac.html" }
+    },
+    {
+      "name": "client/services/BadgeService.js",
+      "code": { "file": "client/services/BadgeService.js" }
+    },
+    {
+      "name": "client/services/BadgeService.ts",
+      "code": { "file": "client/services/BadgeService.ts" }
+    },
+    {
+      "name": "client/services/BadgeService.dart",
+      "code": { "file": "client/services/BadgeService.dart" }
+    },
+    {
+      "name": "client/services/BadgeService.rs",
+      "code": { "file": "client/services/BadgeService.rs" }
+    },
+    {
+      "name": "client/services/BadgeService.go",
+      "code": { "file": "client/services/BadgeService.go" }
+    },
+    {
+      "name": "client/services/BadgeService.rb",
+      "code": { "file": "client/services/BadgeService.rb" }
+    },
+    {
+      "name": "client/services/BadgeService.lua",
+      "code": { "file": "client/services/BadgeService.lua" }
+    },
+    {
+      "name": "client/services/BadgeService.py",
+      "code": { "file": "client/services/BadgeService.py" }
+    },
+    {
+      "name": "client/services/BadgeService.swift",
+      "code": { "file": "client/services/BadgeService.swift" }
+    },
+    {
+      "name": "client/services/BadgeService.kt",
+      "code": { "file": "client/services/BadgeService.kt" }
+    },
+    {
+      "name": "client/services/BadgeService.java",
+      "code": { "file": "client/services/BadgeService.java" }
+    },
+    {
+      "name": "client/services/BadgeService.cs",
+      "code": { "file": "client/services/BadgeService.cs" }
+    },
+    {
+      "name": "client/services/BadgeService.fs",
+      "code": { "file": "client/services/BadgeService.fs" }
+    },
+    {
+      "name": "client/services/BadgeService.hpp",
+      "code": { "file": "client/services/BadgeService.hpp" }
+    }
+  ],
+  "verify": "tac"
+}

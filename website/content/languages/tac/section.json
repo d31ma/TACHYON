@@ -1,0 +1,121 @@
+{
+  "files": [
+    {
+      "name": "client/manifest.json",
+      "code": {
+        "file": "client/manifest.json"
+      },
+      "note": "The Python example selects the pinned offline runtime with `tac.python`: exactly `{\"runtime\": \"pyodide-314.0.7\", \"profile\": \"offline\"}`; other values are refused. Projects without a Python service do not ship the Python runtime."
+    },
+    {
+      "name": "client/components/basket/tally/tac.html",
+      "code": {
+        "file": "client/components/basket/tally/tac.html"
+      }
+    },
+    {
+      "name": "client/components/basket/tally/tac.css",
+      "code": {
+        "file": "client/components/basket/tally/tac.css"
+      }
+    },
+    {
+      "name": "client/services/TallyService.js",
+      "code": {
+        "file": "client/services/TallyService.js"
+      },
+      "note": "The compiler rewrites the @Service marker and its import into plain JavaScript. The browser then runs the ES module. It works on every target, because native hosts display the application in a web view."
+    },
+    {
+      "name": "client/services/TallyService.ts",
+      "code": {
+        "file": "client/services/TallyService.ts"
+      },
+      "note": "The TypeScript compiler emits JavaScript using TypeScript's own language rules. The service runs on the same targets as a JavaScript service."
+    },
+    {
+      "name": "client/services/TallyService.dart",
+      "note": "dart compile wasm turns the service into WebAssembly with garbage collection (WasmGC), at -O4 in a release build. It runs on every target, because native hosts display the application in a web view. Its loader also imports the JavaScript exception tag (WebAssembly.JSTag), so it needs Chrome or Edge 119, Firefox 131 or Safari 18.4 and newer (ADR 0033). Members without this: class fields and methods may use bare names. Keep explicit receivers for shadowing, Swift captured closures and Dart initializing formals. Optional TY1362 suggestions are off by default; enable tac.implicitmembers.suggest in client/manifest.json. It needs the Dart SDK 3.13 or newer, and there is no JavaScript fallback for older browsers. Only JSON values cross to the page: `int`, `double`, `num`, `String`, `bool`, lists and string-keyed maps of them, models, and a `Future` of them. Named arguments arrive as one object after the positional ones. A Dart exception reaches the page as an `Error` with the Dart error's text (ADR 0033).",
+      "code": {
+        "file": "client/services/TallyService.dart"
+      }
+    },
+    {
+      "name": "client/services/TallyService.rs",
+      "code": {
+        "file": "client/services/TallyService.rs"
+      },
+      "note": "rustc compiles the service and links it into the macOS, Windows, Linux, iOS and Android apps, where it can call platform APIs. For the web, it compiles to WebAssembly; a release build tunes rustc for size and runs Binaryen wasm-opt."
+    },
+    {
+      "name": "client/services/TallyService.go",
+      "note": "Go compiles the service to WebAssembly: a release build uses TinyGo for a much smaller module, and the standard Go compiler when TinyGo is missing or cannot build it. No native host links Go, so every target runs the module in its web view.",
+      "code": {
+        "file": "client/services/TallyService.go"
+      }
+    },
+    {
+      "name": "client/services/TallyService.rb",
+      "note": "Ruby runs on Tachyon's own mruby WebAssembly runtime (ADR 0049). The first build of a project with a Ruby service builds that runtime once on your machine, with your Ruby and Emscripten, into the Tachyon cache. The page loads the runtime once for all Ruby services. It runs on every target, because native hosts display the application in a web view. Tac uses mruby, not CRuby: `require` accepts only `json`, `set` and `time`; `File`, `IO`, `Socket` and `ENV` do not exist; `sleep` is refused; time is always UTC; and some methods and error texts differ from CRuby (ADR 0049).",
+      "code": {
+        "file": "client/services/TallyService.rb"
+      }
+    },
+    {
+      "name": "client/services/TallyService.py",
+      "code": {
+        "file": "client/services/TallyService.py"
+      },
+      "note": "Python runs typed services on the pinned Pyodide 314.0.7 WebAssembly runtime (CPython 3.14.2, ADR 0093). The page reads the fields and calls the methods of the Service class; `self` stays required. Put the five pinned Pyodide files in `python-web/314.0.7/` in the Tachyon cache: `ty` never downloads them, and `ty doctor` checks that they are present and match. The build copies them into the output only when a route uses a Python service, about 13 MB before compression, and gives that route a 512 KiB script budget unless you set your own. A Python service can use injection, models, delegates, `async def` methods, saved fields, the behavior annotations, stores, HTTP clients, `on_start`, `on_stop` and `on_event` methods, topics and an `ApplicationEventPublisher` field. The page gets a promise for an `async def` method; other calls run while it waits, and disposing the service cancels it and rejects the promise with `CANCELLED`. `on_stop` and `on_event` stay plain methods; an `async def` one, streams and browser API resources other than `ApplicationEventPublisher` stop the build with `TY1605`. A request may carry up to 1 MiB, a method call up to 64 KiB, and a page may hold up to 256 live Python service objects. Python runs on the page thread, so a long computation blocks the page. `ty test` runs Python test units. See \"Which languages can I use?\" for what Python cannot do yet."
+    },
+    {
+      "name": "client/services/TallyService.lua",
+      "note": "Lua runs on Tachyon's own Lua 5.4 WebAssembly runtime (ADR 0085). The first build of a project with a Lua service builds that runtime once on your machine, with Emscripten, into the Tachyon cache. The page loads the runtime once for all Lua services. Each service is one global table; its fields are the table's fields, and the page reads and changes them. It runs on every target, because native hosts display the application in a web view.",
+      "code": {
+        "file": "client/services/TallyService.lua"
+      }
+    },
+    {
+      "name": "client/services/TallyService.hpp",
+      "note": "em++ (Emscripten) compiles C++ services to WebAssembly (ADR 0099). A C++ service is one header-only class whose markers are standard attributes, such as `class [[Service]] TallyService`. Public fields and methods reach the page. Tachyon ships its own JSON types (`tachyon::json`) and writes the JSON code of every model, because C++ has no reflection. No host links C++, so it runs as WebAssembly on every target.",
+      "code": {
+        "file": "client/services/TallyService.hpp"
+      }
+    },
+    {
+      "name": "client/services/TallyService.swift",
+      "code": {
+        "file": "client/services/TallyService.swift"
+      },
+      "note": "Xcode's swiftc compiles the service into the macOS and iOS hosts, where it can use AppKit and UIKit. On the web and every other target, the swift.org swiftc compiles it to WebAssembly with the Swift SDK for WebAssembly (ADR 0082). There it uses only the Swift standard library. Members without this: class fields and methods may use bare names. Keep explicit receivers for shadowing, Swift captured closures and Dart initializing formals. Optional TY1362 suggestions are off by default; enable tac.implicitmembers.suggest in client/manifest.json. For the web build, install Swift 6.3.3 from swift.org with its matching Swift SDK for WebAssembly, and set `TAC_SWIFT_WASM_SDK` to the SDK's `wasm32-unknown-wasip1` folder. When Xcode's swiftc comes first on PATH, set `TAC_SWIFT_WASM_COMPILER` to the swift.org swiftc. On the web, `Int` is 32 bits, so use `Int64` for larger numbers, such as a time in milliseconds."
+    },
+    {
+      "name": "client/services/TallyService.kt",
+      "code": {
+        "file": "client/services/TallyService.kt"
+      },
+      "note": "On Android, the Android Gradle plugin compiles the Kotlin service into the APK, where it can use the Android SDK. On every other target, kotlinc compiles it to WebAssembly with garbage collection (WasmGC), which needs Chrome or Edge 119, Firefox 120 or Safari 18.2 and newer. Members without this: class fields and methods may use bare names. Keep explicit receivers for shadowing, Swift captured closures and Dart initializing formals. Optional TY1362 suggestions are off by default; enable tac.implicitmembers.suggest in client/manifest.json. For the web build, install the Kotlin compiler 2.1.10 (`kotlinc-js`), download kotlin-stdlib-wasm-js 2.1.10 (a `.klib` file) from Maven Central, and set `TAC_KOTLIN_WASM_STDLIB` to that file. A release build also runs Binaryen `wasm-opt` when it is installed."
+    },
+    {
+      "name": "client/services/TallyService.java",
+      "code": {
+        "file": "client/services/TallyService.java"
+      },
+      "note": "javac compiles the service, and TeaVM turns it into WebAssembly with garbage collection (WasmGC); a release build then runs Binaryen wasm-opt. No native host links Java, so every target runs it in its web view. TeaVM writes a Java catch as a WebAssembly exception reference (exnref), so it needs Chrome or Edge 137, Firefox 131 or Safari 18.4 and newer (ADR 0083). `ty init --tac java` creates a Java service with its test unit, and `ty doctor --install` puts the TeaVM 0.15.0 jars into the Tachyon cache after it checks each one against its pinned SHA-256; `TAC_TEAVM_HOME` can point at your own copy instead. Members without this: class fields and methods may use bare names. Keep explicit receivers for shadowing, Swift captured closures and Dart initializing formals. Optional TY1362 suggestions are off by default; enable tac.implicitmembers.suggest in client/manifest.json."
+    },
+    {
+      "name": "client/services/TallyService.cs",
+      "code": {
+        "file": "client/services/TallyService.cs"
+      },
+      "note": "The .NET SDK compiles the service ahead of time into a native library loaded by the Win32 host. It can use the Windows SDK. On the web and on every other target, it runs on the trimmed .NET browser runtime (compiled ahead of time when tac.dotnet.aot is true). Members without this: class fields and methods may use bare names. Keep explicit receivers for shadowing, Swift captured closures and Dart initializing formals. Optional TY1362 suggestions are off by default; enable tac.implicitmembers.suggest in client/manifest.json."
+    },
+    {
+      "name": "client/services/TallyService.fs",
+      "code": {
+        "file": "client/services/TallyService.fs"
+      },
+      "note": "The .NET SDK compiles the F# service to an assembly, and the page runs it on the same .NET browser runtime as C#. No native host links F#, so every target, Windows included, runs it in its web view. A page with C# and F# services downloads the .NET runtime once. The page reads the service's public properties, such as `member val Count = 6 with get, set`. A long value may go on the lines below `member val Count =`, with `with get, set` after it. Private values can use let bindings. F# member declarations retain their required self identifier; the optional unnecessary-receiver rule does not rewrite them."
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "title": "Request IDs and error reports",
+  "summary": "Every request has an ID that links its log lines. When something fails, the error report has a stable code, so you can find what happened.",
+  "before": [
+    "controllers"
+  ],
+  "sections": [
+    {
+      "include": "../operations/request-ids-and-error-reports/section.json"
+    }
+  ]
+}

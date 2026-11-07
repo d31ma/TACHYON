@@ -1,0 +1,13 @@
+{
+  "title": "Cohesive services",
+  "summary": "A public method of a service or a controller only coordinates. Each private method holds at most one decision or one loop. The build checks this with TY1314.",
+  "before": [
+    "services",
+    "controllers"
+  ],
+  "sections": [
+    {
+      "include": "public-methods-coordinate/section.json"
+    }
+  ]
+}

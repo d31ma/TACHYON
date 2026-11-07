@@ -1,0 +1,16 @@
+{
+  "title": "Streams",
+  "summary": "A stream keeps one HTTP answer open and sends many messages on it. On the server, mark the method with `StreamRoute`. In the page, a client method marked `StreamRequest` receives the messages. A stream route says who may call it like any other route.",
+  "before": [
+    "controllers",
+    "calling-the-server"
+  ],
+  "sections": [
+    {
+      "include": "../yon/streaming/section.json"
+    },
+    {
+      "include": "../annotations/streaming-yon/section.json"
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+// @Test(GoGreetingTestSetup, {"partition":"tests"})
+type GoGreetingControllerTest struct {
+	behaviors *BehaviorContext
+}
+
+func (test *GoGreetingControllerTest) TestGetGreetingSaysHello() {
+	Assert.Equals("Hello from Go", (&GoGreetingController{}).GetGreeting())
+}

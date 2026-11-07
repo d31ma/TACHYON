@@ -1,0 +1,5 @@
+{
+  "heading": "What the host records",
+  "body": "A packaged host writes `tachyon.host.json` next to its bundle. The file names the target the host was built for. It also names the one capability that the bridge (the channel between the page and the service) offers: `companion.invoke`. The file is one line because it holds very little information. An application uses everything else through its own language.",
+  "code": { "file": "example.json" }
+}

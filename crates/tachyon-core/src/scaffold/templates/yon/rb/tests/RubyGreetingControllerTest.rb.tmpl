@@ -1,0 +1,6 @@
+#[Test(RubyGreetingTestSetup, {"partition":"tests"})]
+class RubyGreetingControllerTest
+  def test_get_greeting_says_hello
+    Assert.equals("Hello from Ruby", construct(RubyGreetingController).get_greeting)
+  end
+end

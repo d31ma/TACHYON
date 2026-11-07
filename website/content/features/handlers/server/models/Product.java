@@ -1,0 +1,1 @@
+record Product(String name) {}

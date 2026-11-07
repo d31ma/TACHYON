@@ -1,0 +1,15 @@
+{
+  "title": "WebAssembly compilers per language",
+  "summary": "A release build compiles each WebAssembly service language with the compiler and settings that give the smallest download. This page shows which compiler each language uses, why, and what it costs.",
+  "before": [
+    "build-and-deploy"
+  ],
+  "sections": [
+    {
+      "include": "../operations/webassembly-compilers/section.json"
+    },
+    {
+      "include": "../operations/webassembly-compiler-choices/section.json"
+    }
+  ]
+}

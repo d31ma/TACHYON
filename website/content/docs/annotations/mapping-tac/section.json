@@ -1,0 +1,188 @@
+{
+  "heading": "Mapping: Tac",
+  "axis": "language",
+  "summary": "Converter signatures generate mappings from a literal JSON field plan or from declared source and target model types. Explicit fields override inferred same-named model fields.",
+  "body": "Select a language tab and copy the page, the component view and the two role files. JavaScript, TypeScript and Dart bundle for the web. Go, F#, Java, Ruby and Lua bundle for the web as WebAssembly, and Python on the pinned Pyodide runtime. Swift, Kotlin, C# and Rust stage their native hosts. The view reads {catalog.title} from the service. A view reads its services and the built-in `data` and `page` roots, nothing else (ADR 0036). The browser services ask for the converter with Needs: a Needs field, a `#[Needs]` `attr_reader` in Ruby, a `-- @Needs` field in Lua, or a constructor parameter in F#. A converter needs no behavior context and no Setup, so Tachyon builds it and the service only maps. The Swift, Kotlin, C# and Rust services carry the Service marker, like every class in client/services (TY1363), and only show the title. The compiler finds the annotated converter file and adds it to the same compile unit. Lua writes the converter as a table with an empty method under `-- @Converter` and `-- @Convert(...)`. Python writes the converter as a `Protocol` class under `@converter` whose methods end in `...`, and the service asks for it with an `Annotated[ProductConverter, needs]` field; it runs on the pinned Pyodide runtime.\n\nThe annotation and its options are the same as in Yon. The converter is the same contract too, with a protocol in Swift, and a method body fails the build with TY1308. The previous section runs them in a full example. Only the realm is different. The role folder is client/converters (ADR 0031). A mapping reaches no adapter and needs no authorization, because it reads only the argument that it was given. It is the only data annotation that cannot leave the running process. Tac stays client-rendered. It uses only public TAC_ configuration, never private Yon credentials.\n\nTyped model signatures may omit Convert: Tachyon infers exact same-named target fields from models in the realm models folder and projects nested models and lists. Explicit Convert fields override their named targets; missing or incompatible target fields fail the build. JavaScript uses JSDoc parameter, return and typedef model types. JSON-value signatures keep the complete literal field plan shown here. In the page, a converter runs in JavaScript, in TypeScript and in the WebAssembly of each compiled service language and in Python on Pyodide. The next section shows converters with typed models.",
+  "files": [
+    {
+      "name": "client/pages/tac.html",
+      "code": {
+        "file": "client/pages/tac.html"
+      }
+    },
+    {
+      "name": "client/components/catalog/panel/tac.html",
+      "code": {
+        "file": "client/components/catalog/panel/tac.html"
+      }
+    },
+    {
+      "name": "client/converters/ProductConverter.js",
+      "code": {
+        "file": "client/converters/ProductConverter.js"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.js",
+      "code": {
+        "file": "client/services/CatalogService.js"
+      }
+    },
+    {
+      "name": "client/converters/ProductConverter.ts",
+      "code": {
+        "file": "client/converters/ProductConverter.ts"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.ts",
+      "code": {
+        "file": "client/services/CatalogService.ts"
+      }
+    },
+    {
+      "name": "client/converters/ProductConverter.swift",
+      "code": {
+        "file": "client/converters/ProductConverter.swift"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.swift",
+      "code": {
+        "file": "client/services/CatalogService.swift"
+      }
+    },
+    {
+      "name": "client/converters/ProductConverter.kt",
+      "code": {
+        "file": "client/converters/ProductConverter.kt"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.kt",
+      "code": {
+        "file": "client/services/CatalogService.kt"
+      }
+    },
+    {
+      "name": "client/converters/ProductConverter.cs",
+      "code": {
+        "file": "client/converters/ProductConverter.cs"
+      }
+    },
+    {
+      "name": "client/converters/ProductConverter.fs",
+      "code": {
+        "file": "client/converters/ProductConverter.fs"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.cs",
+      "code": {
+        "file": "client/services/CatalogService.cs"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.fs",
+      "code": {
+        "file": "client/services/CatalogService.fs"
+      }
+    },
+    {
+      "name": "client/converters/ProductConverter.rs",
+      "code": {
+        "file": "client/converters/ProductConverter.rs"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.rs",
+      "code": {
+        "file": "client/services/CatalogService.rs"
+      }
+    },
+    {
+      "name": "client/converters/ProductConverter.go",
+      "code": {
+        "file": "client/converters/ProductConverter.go"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.go",
+      "code": {
+        "file": "client/services/CatalogService.go"
+      }
+    },
+    {
+      "name": "client/converters/ProductConverter.dart",
+      "code": {
+        "file": "client/converters/ProductConverter.dart"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.dart",
+      "code": {
+        "file": "client/services/CatalogService.dart"
+      }
+    },
+    {
+      "name": "client/converters/ProductConverter.rb",
+      "code": {
+        "file": "client/converters/ProductConverter.rb"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.rb",
+      "code": {
+        "file": "client/services/CatalogService.rb"
+      }
+    },
+    {
+      "name": "client/converters/ProductConverter.java",
+      "code": {
+        "file": "client/converters/ProductConverter.java"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.java",
+      "code": {
+        "file": "client/services/CatalogService.java"
+      }
+    },
+    {
+      "name": "client/converters/ProductConverter.py",
+      "code": {
+        "file": "client/converters/ProductConverter.py"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.py",
+      "code": {
+        "file": "client/services/CatalogService.py"
+      }
+    },
+    {
+      "name": "client/converters/ProductConverter.lua",
+      "code": {
+        "file": "client/converters/ProductConverter.lua"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.lua",
+      "code": {
+        "file": "client/services/CatalogService.lua"
+      }
+    },
+    {
+      "name": "client/converters/ProductConverter.hpp",
+      "code": {
+        "file": "client/converters/ProductConverter.hpp"
+      }
+    },
+    {
+      "name": "client/services/CatalogService.hpp",
+      "code": {
+        "file": "client/services/CatalogService.hpp"
+      }
+    }
+  ]
+}

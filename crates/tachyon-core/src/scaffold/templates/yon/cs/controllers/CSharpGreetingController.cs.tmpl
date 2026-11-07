@@ -1,0 +1,8 @@
+[RequestRoute("/api/csharp")]
+[Public]
+class CSharpGreetingController {
+    [GetRoute]
+    public string GetGreeting() {
+        return "Hello from C#";
+    }
+}

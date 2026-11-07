@@ -1,0 +1,35 @@
+What `ty init` lays out
+
+  client/
+    pages/          one folder per route, holding a tac.html
+    components/     a two-level path, <product-card>: a view and its styles
+    services/       one <Name>Service class per file, addressed as {name.field}
+    tests/          <Name>Test files run by ty test
+    shared/         published as-is: assets/, data/, styles/ and scripts/;
+                    utility classes go in shared/utils/
+    manifest.json   name, icons, start_url, and in tac: the
+                    application identity and window, metadata,
+                    shared assets, cache rules and the sitemap
+
+  server/
+    controllers/    <Name>Controller classes; their annotations give the routes
+    tests/          <Name>Test files run by ty test
+    data/           files a controller reads or writes
+    deps/           starts empty
+    application.json  Yon configuration without secrets
+
+  Folders you add when you need them, in client/ and server/:
+    models/         data types
+    remotes/        HTTPClient contracts that send requests
+    stores/  setups/  entities/  helpers/  converters/  services/
+
+  Only in server/:
+    roles/          empty role classes that @Allow names
+    gateways/       reserved: Tachyon generates @Gateway units here, never
+                    write files in it
+
+tac.html, client/services and the role folders are framework contracts:
+a role-annotated type is found by the folder it sits in and the file name
+that matches its type (ADR 0031). models/ holds data types only
+(ADR 0041, ADR 0043), and tests/ is where ty test looks. Tachyon no
+longer reads server/routes/ (TY1310).

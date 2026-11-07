@@ -1,0 +1,250 @@
+use super::{FsharpShadow, FsharpSource};
+use crate::Failure;
+use std::path::{Path, PathBuf};
+use tachyon_diagnostics::{Diagnostic, SourceSpan};
+
+pub(crate) struct FsharpView {
+    shadow_path: PathBuf,
+    shadow_name: String,
+    source_name: String,
+    shadow: FsharpShadow,
+}
+
+impl FsharpView {
+    const ANALYSIS_EXTENSION: &'static str = "cs";
+    const WORDS: [(&'static str, &'static str); 5] = [
+        (".cs'", ".fs'"),
+        ("`switch`", "`match`"),
+        ("`foreach`", "`for`"),
+        ("in C# Tac code", "in F# Tac code"),
+        ("in C# Yon code", "in F# Yon code"),
+    ];
+    const USINGS: &'static str = "using System;\nusing System.Collections.Generic;\nusing System.Net.Http;\nusing Microsoft.FSharp.Core;\nusing Microsoft.FSharp.Collections;\n";
+
+    pub(crate) fn of(path: &Path, source: &str) -> Option<Self> {
+        FsharpSource::is_fsharp(path).then(|| Self::new(path, source))
+    }
+
+    pub(crate) fn new(path: &Path, source: &str) -> Self {
+        let shadow_path = path.with_extension(Self::ANALYSIS_EXTENSION);
+        Self {
+            shadow_name: Self::portable(&shadow_path),
+            source_name: Self::portable(path),
+            shadow_path,
+            shadow: FsharpShadow::of(source),
+        }
+    }
+
+    pub(crate) fn tac(path: &Path, source: &str) -> Self {
+        let view = Self::new(path, source);
+        Self {
+            shadow: view.shadow.without_constructor_needs(),
+            ..view
+        }
+    }
+
+    pub(crate) fn unmoved(path: &Path, source: &str) -> Self {
+        Self {
+            shadow: FsharpShadow::unmoved(source),
+            ..Self::new(path, source)
+        }
+    }
+
+    pub(crate) fn either<T>(
+        path: &Path,
+        source: &str,
+        check: impl Fn(&Path, &str) -> Result<T, Failure>,
+    ) -> Result<T, Failure> {
+        Self::run(path, source, &check).unwrap_or_else(|| check(path, source))
+    }
+
+    pub(crate) fn run<T>(
+        path: &Path,
+        source: &str,
+        check: impl FnOnce(&Path, &str) -> Result<T, Failure>,
+    ) -> Option<Result<T, Failure>> {
+        let view = Self::of(path, source)?;
+        Some(check(view.path(), view.text()).map_err(|failure| view.failure(&failure)))
+    }
+
+    fn portable(path: &Path) -> String {
+        path.to_string_lossy().replace('\\', "/")
+    }
+
+    pub(crate) fn path(&self) -> &Path {
+        &self.shadow_path
+    }
+
+    pub(crate) fn text(&self) -> &str {
+        self.shadow.text()
+    }
+
+    pub(crate) fn source_line(&self, shadow_line: usize) -> Option<usize> {
+        self.shadow.source_line(shadow_line)
+    }
+
+    pub(crate) fn usings(&self) -> String {
+        self.using_lines()
+    }
+
+    pub(crate) fn authored_usings(&self) -> String {
+        Self::using_lines_in(self.text())
+    }
+
+    fn using_lines_in(text: &str) -> String {
+        let mut usings = String::new();
+        for line in text.lines() {
+            Self::add_using(&mut usings, line.trim());
+        }
+        usings
+    }
+
+    fn using_lines(&self) -> String {
+        format!("{}{}", Self::USINGS, self.authored_usings())
+    }
+
+    fn add_using(usings: &mut String, line: &str) {
+        if line.starts_with("using ") {
+            usings.push_str(line);
+            usings.push('\n');
+        }
+    }
+
+    pub(crate) fn failure(&self, failure: &Failure) -> Failure {
+        let diagnostics = failure
+            .diagnostics()
+            .iter()
+            .map(|diagnostic| self.diagnostic(diagnostic))
+            .collect();
+        Failure::new(diagnostics)
+    }
+
+    pub(crate) fn diagnostic(&self, diagnostic: &Diagnostic) -> Diagnostic {
+        Diagnostic {
+            message: self.renamed(&diagnostic.message),
+            help: diagnostic.help.as_deref().map(|help| self.renamed(help)),
+            spans: diagnostic
+                .spans
+                .iter()
+                .map(|span| self.span(span))
+                .collect(),
+            ..diagnostic.clone()
+        }
+    }
+
+    fn renamed(&self, text: &str) -> String {
+        let mut renamed = text.replace(&self.shadow_name, &self.source_name);
+        for (csharp, fsharp) in Self::WORDS {
+            renamed = renamed.replace(csharp, fsharp);
+        }
+        Self::with_fsharp_attributes(renamed)
+    }
+
+    fn with_fsharp_attributes(mut text: String) -> String {
+        for rule in crate::annotation_rules::AnnotationRules::rules() {
+            let csharp = format!("[{}]", rule.name);
+            text = text.replace(&csharp, &format!("[<{}>]", rule.name));
+        }
+        text
+    }
+
+    fn span(&self, span: &SourceSpan) -> SourceSpan {
+        let ours = span.file == self.shadow_name;
+        let mapped = ours.then(|| self.mapped_span(span));
+        mapped.unwrap_or_else(|| span.clone())
+    }
+
+    fn mapped_span(&self, span: &SourceSpan) -> SourceSpan {
+        let start = self.source_offset(span.start);
+        let end = self.source_offset(span.end).max(start);
+        SourceSpan {
+            file: self.source_name.clone(),
+            start,
+            end,
+        }
+    }
+
+    pub(crate) fn source_at(&self, shadow_offset: usize) -> usize {
+        self.shadow
+            .source_offset(shadow_offset.min(self.text().len()))
+    }
+
+    fn source_offset(&self, offset: u64) -> u64 {
+        let offset = usize::try_from(offset).unwrap_or(usize::MAX);
+        u64::try_from(self.source_at(offset)).unwrap_or(u64::MAX)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::FsharpView;
+    use crate::Failure;
+    use crate::failure::{diagnostic, source_span};
+    use std::path::Path;
+
+    #[test]
+    fn a_failure_on_the_shadow_points_at_the_fsharp_file() {
+        let path = Path::new("server/services/TallyService.fs");
+        let source = "[<Service>]\ntype TallyService() =\n    member this.Count() : int = 1\n";
+        let view = FsharpView::of(path, source).unwrap_or_else(|| panic!("fsharp"));
+        assert_eq!(view.path(), Path::new("server/services/TallyService.cs"));
+        let at = view
+            .text()
+            .find("Count")
+            .unwrap_or_else(|| panic!("member"));
+        let failure = Failure::one(diagnostic(
+            1002,
+            "Bad member in 'server/services/TallyService.cs'",
+            None,
+            source_span("server/services/TallyService.cs", at, at + 5),
+        ));
+        let mapped = view.failure(&failure);
+        let mapped = &mapped.diagnostics()[0];
+        assert_eq!(
+            mapped.message,
+            "Bad member in 'server/services/TallyService.fs'"
+        );
+        assert_eq!(mapped.spans[0].file, "server/services/TallyService.fs");
+        let start =
+            usize::try_from(mapped.spans[0].start).unwrap_or_else(|error| panic!("start: {error}"));
+        let line_start = source[..start].rfind('\n').map_or(0, |at| at + 1);
+        assert!(source[line_start..].starts_with("    member this.Count"));
+    }
+
+    #[test]
+    fn a_refusal_on_the_shadow_speaks_fsharp() {
+        let path = Path::new("client/services/ChatService.fs");
+        let source =
+            "[<RequestRoute(\"/chat\")>]\ntype ChatService() =\n    member this.Run() = ()\n";
+        let message = crate::annotation_rules::AnnotationRules::check(path, source)
+            .err()
+            .unwrap_or_else(|| panic!("F# Tac has no routes"))
+            .to_string();
+        assert!(
+            message.contains("[<RequestRoute>] is not used in Tac code"),
+            "{message}"
+        );
+        assert!(
+            message.contains("client/services/ChatService.fs"),
+            "{message}"
+        );
+        assert!(!message.contains("C#"), "{message}");
+    }
+
+    #[test]
+    fn a_tac_socket_client_passes_the_check() {
+        let path = Path::new("client/remotes/ChatClient.fs");
+        let source = "[<HTTPClient(\"/chat\")>]\ntype ChatClient =\n    [<SocketRequest>]\n    abstract Receive: Tick -> unit\n";
+        let checked = crate::annotation_rules::AnnotationRules::check(path, source);
+        assert!(
+            checked.is_ok(),
+            "{:?}",
+            checked.err().map(|error| error.to_string())
+        );
+    }
+
+    #[test]
+    fn other_languages_have_no_view() {
+        assert!(FsharpView::of(Path::new("server/services/A.cs"), "class A {}").is_none());
+    }
+}

@@ -1,0 +1,17 @@
+Who may call a route (ADR 0068)
+
+  Annotation       Who may call the route               Answer to anyone else
+  @Public          anyone, also a caller who is not     (none)
+                   signed in
+  @SignedIn        any signed-in user                   401 when nobody is signed in
+  @Allow(Admin)    a signed-in user with the role       401 when nobody is signed in,
+                   Admin (list more roles with commas)  403 for another role
+
+- Write the rule on the controller class, on a route method, or on both.
+  The rule on the method wins.
+- A route with no rule stops the build with TY1322. There is no switch to
+  turn this off.
+- A role is a type: an empty class in server/roles/<Role>.<ext>.
+  Java writes Admin.class, Kotlin and PHP Admin::class, C# typeof(Admin).
+- @SocketRoute classes take the rule on the class. @StreamRoute methods take
+  it like any other route.

@@ -1,0 +1,17 @@
+import type { Hello } from '/models/Hello.ts'
+
+@Service
+export default class HelloService {
+  @Needs
+  readonly helloClient!: HelloClient;
+  message = ''
+
+  async askServer(): Promise<void> {
+    const hello = await this.helloClient.getHello()
+    this.message = this.messageOf(hello)
+  }
+
+  private messageOf(hello: Hello | void): string {
+    return hello ? hello.message : ''
+  }
+}

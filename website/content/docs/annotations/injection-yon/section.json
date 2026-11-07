@@ -1,0 +1,451 @@
+{
+  "heading": "Injection: Yon",
+  "body": "GET /ledger returns {\"total\":42}. Three annotations connect every class to the classes it needs. Service, Delegate, Needs, Named, NeedsAll and Lifetime work in every Yon language, Lua included. In Tac, Delegate has a shorter language list (see Injection: Tac). Needs marks each field that the framework fills. The field must be an instance field, not static, and it must have no starting value. The framework fills the fields in the order that you declare them. The field itself decides which provider it gets. LedgerService declares one LedgerAmountsDelegate field. It writes no constructor and nothing else. F# has two forms. A type can take a dependency as a parameter of its primary constructor, which is Spring's constructor injection and the recommended form: LedgerDelegate takes its LedgerAmountsDelegate this way. Or a Needs property can receive it: a settable `member val` with a written type, as in LedgerService, `[<Needs>] member val Amounts : LedgerAmountsDelegate = Unchecked.defaultof<LedgerAmountsDelegate> with get, set`. Tachyon sets the property right after the constructor runs, like a Spring field, so a test can set it too. Its type selects the provider, and Named selects another one, as for Settlement in LedgerController. A type may not take the same role both ways, or twice (TY2015). `[<NeedsAll>]` on an F# type only states what the constructor does. When the field does not decide the provider, Named gives the provider's name directly. So you can give a field any words you want, written in the language's variable case (TY1332): lowerCamel case in most languages, snake_case in Python, Ruby and Rust, and an underscore with lowerCamel case for a private C# field, such as `_service`. In LedgerController, the fields service and settlement have Named(\"LedgerService\") and Named(\"LedgerDelegate\"). If a name matches no provider in the entry scope, the build fails. Without Named, the field selects its provider in the way its language allows. JavaScript uses the lowerCamel field name. Ruby and Lua use the type comment above the field, such as `# @return [LedgerService]` or `---@type LedgerService`, and the snake_case field name when there is none. Every other language uses the declared type. Lifetime takes one literal string: singleton, request or transient. A singleton is one instance that everything shares. A request-scoped instance lives for one request. A transient instance is new each time something needs it. Without Lifetime, a controller is request-scoped and everything else is a singleton. So you write Lifetime only to change that. Tachyon rejects a singleton that would depend, directly or through other providers, on a request-scoped provider.\n\nIn C++, a Needs field is a reference with no starting value, such as `[[Needs]] LedgerAmountsDelegate& amounts;`. Tachyon makes the provider and binds the reference when it makes the class, so the class writes no constructor. A C++ class finds its provider by the field type, or by Named, in server/services and server/delegates (ADR 0099).",
+  "axis": "language",
+  "files": [
+    {
+      "name": "server/delegates/LedgerAmountsDelegate.js",
+      "code": {
+        "file": "server/delegates/LedgerAmountsDelegate.js"
+      }
+    },
+    {
+      "name": "server/services/LedgerService.js",
+      "code": {
+        "file": "server/services/LedgerService.js"
+      }
+    },
+    {
+      "name": "server/delegates/LedgerDelegate.js",
+      "code": {
+        "file": "server/delegates/LedgerDelegate.js"
+      }
+    },
+    {
+      "name": "server/controllers/LedgerController.js",
+      "code": {
+        "file": "server/controllers/LedgerController.js"
+      }
+    },
+    {
+      "name": "server/models/Ledger.ts",
+      "code": {
+        "file": "server/models/Ledger.ts"
+      }
+    },
+    {
+      "name": "server/delegates/LedgerAmountsDelegate.ts",
+      "code": {
+        "file": "server/delegates/LedgerAmountsDelegate.ts"
+      }
+    },
+    {
+      "name": "server/services/LedgerService.ts",
+      "code": {
+        "file": "server/services/LedgerService.ts"
+      }
+    },
+    {
+      "name": "server/delegates/LedgerDelegate.ts",
+      "code": {
+        "file": "server/delegates/LedgerDelegate.ts"
+      }
+    },
+    {
+      "name": "server/controllers/LedgerController.ts",
+      "code": {
+        "file": "server/controllers/LedgerController.ts"
+      }
+    },
+    {
+      "name": "server/models/Ledger.py",
+      "code": {
+        "file": "server/models/Ledger.py"
+      }
+    },
+    {
+      "name": "server/delegates/LedgerAmountsDelegate.py",
+      "code": {
+        "file": "server/delegates/LedgerAmountsDelegate.py"
+      }
+    },
+    {
+      "name": "server/services/LedgerService.py",
+      "code": {
+        "file": "server/services/LedgerService.py"
+      }
+    },
+    {
+      "name": "server/delegates/LedgerDelegate.py",
+      "code": {
+        "file": "server/delegates/LedgerDelegate.py"
+      }
+    },
+    {
+      "name": "server/controllers/LedgerController.py",
+      "code": {
+        "file": "server/controllers/LedgerController.py"
+      }
+    },
+    {
+      "name": "server/models/Ledger.php",
+      "code": {
+        "file": "server/models/Ledger.php"
+      }
+    },
+    {
+      "name": "server/delegates/LedgerAmountsDelegate.php",
+      "code": {
+        "file": "server/delegates/LedgerAmountsDelegate.php"
+      }
+    },
+    {
+      "name": "server/services/LedgerService.php",
+      "code": {
+        "file": "server/services/LedgerService.php"
+      }
+    },
+    {
+      "name": "server/delegates/LedgerDelegate.php",
+      "code": {
+        "file": "server/delegates/LedgerDelegate.php"
+      }
+    },
+    {
+      "name": "server/controllers/LedgerController.php",
+      "code": {
+        "file": "server/controllers/LedgerController.php"
+      }
+    },
+    {
+      "name": "server/models/Ledger.java",
+      "code": {
+        "file": "server/models/Ledger.java"
+      }
+    },
+    {
+      "name": "server/models/Ledger.groovy",
+      "code": {
+        "file": "server/models/Ledger.groovy"
+      }
+    },
+    {
+      "name": "server/delegates/LedgerAmountsDelegate.java",
+      "code": {
+        "file": "server/delegates/LedgerAmountsDelegate.java"
+      }
+    },
+    {
+      "name": "server/delegates/LedgerAmountsDelegate.groovy",
+      "code": {
+        "file": "server/delegates/LedgerAmountsDelegate.groovy"
+      }
+    },
+    {
+      "name": "server/services/LedgerService.java",
+      "code": {
+        "file": "server/services/LedgerService.java"
+      }
+    },
+    {
+      "name": "server/services/LedgerService.groovy",
+      "code": {
+        "file": "server/services/LedgerService.groovy"
+      }
+    },
+    {
+      "name": "server/delegates/LedgerDelegate.java",
+      "code": {
+        "file": "server/delegates/LedgerDelegate.java"
+      }
+    },
+    {
+      "name": "server/delegates/LedgerDelegate.groovy",
+      "code": {
+        "file": "server/delegates/LedgerDelegate.groovy"
+      }
+    },
+    {
+      "name": "server/controllers/LedgerController.java",
+      "code": {
+        "file": "server/controllers/LedgerController.java"
+      }
+    },
+    {
+      "name": "server/controllers/LedgerController.groovy",
+      "code": {
+        "file": "server/controllers/LedgerController.groovy"
+      }
+    },
+    {
+      "name": "server/models/Ledger.kt",
+      "code": {
+        "file": "server/models/Ledger.kt"
+      }
+    },
+    {
+      "name": "server/delegates/LedgerAmountsDelegate.kt",
+      "code": {
+        "file": "server/delegates/LedgerAmountsDelegate.kt"
+      }
+    },
+    {
+      "name": "server/services/LedgerService.kt",
+      "code": {
+        "file": "server/services/LedgerService.kt"
+      }
+    },
+    {
+      "name": "server/delegates/LedgerDelegate.kt",
+      "code": {
+        "file": "server/delegates/LedgerDelegate.kt"
+      }
+    },
+    {
+      "name": "server/controllers/LedgerController.kt",
+      "code": {
+        "file": "server/controllers/LedgerController.kt"
+      }
+    },
+    {
+      "name": "server/models/Ledger.cs",
+      "code": {
+        "file": "server/models/Ledger.cs"
+      }
+    },
+    {
+      "name": "server/models/Ledger.fs",
+      "code": {
+        "file": "server/models/Ledger.fs"
+      }
+    },
+    {
+      "name": "server/delegates/LedgerAmountsDelegate.cs",
+      "code": {
+        "file": "server/delegates/LedgerAmountsDelegate.cs"
+      }
+    },
+    {
+      "name": "server/delegates/LedgerAmountsDelegate.fs",
+      "code": {
+        "file": "server/delegates/LedgerAmountsDelegate.fs"
+      }
+    },
+    {
+      "name": "server/services/LedgerService.cs",
+      "code": {
+        "file": "server/services/LedgerService.cs"
+      }
+    },
+    {
+      "name": "server/services/LedgerService.fs",
+      "code": {
+        "file": "server/services/LedgerService.fs"
+      }
+    },
+    {
+      "name": "server/delegates/LedgerDelegate.cs",
+      "code": {
+        "file": "server/delegates/LedgerDelegate.cs"
+      }
+    },
+    {
+      "name": "server/delegates/LedgerDelegate.fs",
+      "code": {
+        "file": "server/delegates/LedgerDelegate.fs"
+      }
+    },
+    {
+      "name": "server/controllers/LedgerController.cs",
+      "code": {
+        "file": "server/controllers/LedgerController.cs"
+      }
+    },
+    {
+      "name": "server/controllers/LedgerController.fs",
+      "code": {
+        "file": "server/controllers/LedgerController.fs"
+      }
+    },
+    {
+      "name": "server/models/Ledger.rs",
+      "code": {
+        "file": "server/models/Ledger.rs"
+      }
+    },
+    {
+      "name": "server/delegates/LedgerAmountsDelegate.rs",
+      "code": {
+        "file": "server/delegates/LedgerAmountsDelegate.rs"
+      }
+    },
+    {
+      "name": "server/services/LedgerService.rs",
+      "code": {
+        "file": "server/services/LedgerService.rs"
+      }
+    },
+    {
+      "name": "server/delegates/LedgerDelegate.rs",
+      "code": {
+        "file": "server/delegates/LedgerDelegate.rs"
+      }
+    },
+    {
+      "name": "server/controllers/LedgerController.rs",
+      "code": {
+        "file": "server/controllers/LedgerController.rs"
+      }
+    },
+    {
+      "name": "server/models/Ledger.go",
+      "code": {
+        "file": "server/models/Ledger.go"
+      }
+    },
+    {
+      "name": "server/delegates/LedgerAmountsDelegate.go",
+      "code": {
+        "file": "server/delegates/LedgerAmountsDelegate.go"
+      }
+    },
+    {
+      "name": "server/services/LedgerService.go",
+      "code": {
+        "file": "server/services/LedgerService.go"
+      }
+    },
+    {
+      "name": "server/delegates/LedgerDelegate.go",
+      "code": {
+        "file": "server/delegates/LedgerDelegate.go"
+      }
+    },
+    {
+      "name": "server/controllers/LedgerController.go",
+      "code": {
+        "file": "server/controllers/LedgerController.go"
+      }
+    },
+    {
+      "name": "server/models/Ledger.dart",
+      "code": {
+        "file": "server/models/Ledger.dart"
+      }
+    },
+    {
+      "name": "server/delegates/LedgerAmountsDelegate.dart",
+      "code": {
+        "file": "server/delegates/LedgerAmountsDelegate.dart"
+      }
+    },
+    {
+      "name": "server/services/LedgerService.dart",
+      "code": {
+        "file": "server/services/LedgerService.dart"
+      }
+    },
+    {
+      "name": "server/delegates/LedgerDelegate.dart",
+      "code": {
+        "file": "server/delegates/LedgerDelegate.dart"
+      }
+    },
+    {
+      "name": "server/controllers/LedgerController.dart",
+      "code": {
+        "file": "server/controllers/LedgerController.dart"
+      }
+    },
+    {
+      "name": "server/models/Ledger.rb",
+      "code": {
+        "file": "server/models/Ledger.rb"
+      }
+    },
+    {
+      "name": "server/delegates/LedgerAmountsDelegate.rb",
+      "code": {
+        "file": "server/delegates/LedgerAmountsDelegate.rb"
+      }
+    },
+    {
+      "name": "server/services/LedgerService.rb",
+      "code": {
+        "file": "server/services/LedgerService.rb"
+      }
+    },
+    {
+      "name": "server/delegates/LedgerDelegate.rb",
+      "code": {
+        "file": "server/delegates/LedgerDelegate.rb"
+      }
+    },
+    {
+      "name": "server/controllers/LedgerController.rb",
+      "code": {
+        "file": "server/controllers/LedgerController.rb"
+      }
+    },
+    {
+      "name": "server/models/Ledger.lua",
+      "code": {
+        "file": "server/models/Ledger.lua"
+      }
+    },
+    {
+      "name": "server/delegates/LedgerAmountsDelegate.lua",
+      "code": {
+        "file": "server/delegates/LedgerAmountsDelegate.lua"
+      }
+    },
+    {
+      "name": "server/services/LedgerService.lua",
+      "code": {
+        "file": "server/services/LedgerService.lua"
+      }
+    },
+    {
+      "name": "server/delegates/LedgerDelegate.lua",
+      "code": {
+        "file": "server/delegates/LedgerDelegate.lua"
+      }
+    },
+    {
+      "name": "server/controllers/LedgerController.lua",
+      "code": {
+        "file": "server/controllers/LedgerController.lua"
+      }
+    },
+    {
+      "name": "server/delegates/LedgerAmountsDelegate.hpp",
+      "code": {
+        "file": "server/delegates/LedgerAmountsDelegate.hpp"
+      }
+    },
+    {
+      "name": "server/services/LedgerService.hpp",
+      "code": {
+        "file": "server/services/LedgerService.hpp"
+      }
+    },
+    {
+      "name": "server/delegates/LedgerDelegate.hpp",
+      "code": {
+        "file": "server/delegates/LedgerDelegate.hpp"
+      }
+    },
+    {
+      "name": "server/controllers/LedgerController.hpp",
+      "code": {
+        "file": "server/controllers/LedgerController.hpp"
+      }
+    },
+    {
+      "name": "server/models/Ledger.hpp",
+      "code": {
+        "file": "server/models/Ledger.hpp"
+      }
+    }
+  ]
+}

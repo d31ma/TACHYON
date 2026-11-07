@@ -1,0 +1,1 @@
+type ReleaseChanged = { Release: string }

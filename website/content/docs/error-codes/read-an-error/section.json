@@ -1,0 +1,4 @@
+{
+  "heading": "How to read an error",
+  "body": "The first line of an error has a level, a code in square brackets, and a message, such as `error[TY1310]: ...`. The level is error, warning or information. An error stops the command. A warning or an information does not.\n\nA line that starts with `-->` names the file and the place in the file. A line that starts with `help:` tells you how to fix the problem. The option `--diagnostic-format json` prints the same errors as JSON, for tools and CI (continuous integration)."
+}

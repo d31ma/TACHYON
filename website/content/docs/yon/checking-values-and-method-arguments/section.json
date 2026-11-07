@@ -1,0 +1,361 @@
+{
+  "heading": "Checking values and method arguments",
+  "axis": "language",
+  "body": "Checked defines JSON rules for direct fields. Required rejects a missing or null value. NotEmpty requires a string that is not empty. The string must contain at least one Unicode scalar (one Unicode character) that is not whitespace. Its whitespace set is U+0009 to 000D, 0020, 0085, 00A0, 1680, 2000 to 200A, 2028, 2029, 202F, 205F and 3000. Length counts UTF-8 bytes for strings, elements for arrays and keys for objects. Length, Min and Max ignore a missing or null value unless a separate rule requires it. Min and Max require finite numbers, never numeric strings. Behaviors.validate(Type, value) needs no context. It checks a plain value, so the caller does not build a DTO first. Check validates its parameter before pagination, cache authorization, cache reads, HTTP or application code. When the parameter breaks a rule and no ErrorHandler handles the error, Yon answers 422 with an application/problem+json body. The body lists each broken rule by field and annotation name, such as `{\"field\":\"name\",\"rule\":\"NotEmpty\"}`, at most 32 of them, with the request ID as `reference` (ADR 0101). The explicit Behaviors.validate call is different: it stops at the first broken rule and raises or returns an error with the code validation and a limited field.rule path, such as name.notBlank. Neither one repeats the input. Unknown fields are still allowed. Tachyon does not support nested validation or validation groups. Tac form validation improves the user experience (UX), but it is not the final check. Validate again in Yon. Also check authorization there, and check which fields a caller may assign.\n\nIn C++, ProductInput is a `[[Checked]]` struct in server/models, and Required goes on its `std::optional` field. Check takes no arguments, because the parameter's type names the model: `ProductInput accept([[Check]] const ProductInput& input)`. C++ parameters are typed, so the controller reads the body into Product. A value of the wrong type gets a 400 answer before the check runs, and a broken rule gets a 422 answer with `application/problem+json` that lists each broken field and rule (ADR 0101). A body with a field that the C++ model does not declare also gets the 400 answer.",
+  "files": [
+    {
+      "name": "server/models/ProductInput.js",
+      "code": {
+        "file": "server/models/ProductInput.js"
+      }
+    },
+    {
+      "name": "server/services/ProductService.js",
+      "code": {
+        "file": "server/services/ProductService.js"
+      }
+    },
+    {
+      "name": "server/controllers/ProductsController.js",
+      "code": {
+        "file": "server/controllers/ProductsController.js"
+      }
+    },
+    {
+      "name": "server/models/ProductInput.ts",
+      "code": {
+        "file": "server/models/ProductInput.ts"
+      }
+    },
+    {
+      "name": "server/services/ProductService.ts",
+      "code": {
+        "file": "server/services/ProductService.ts"
+      }
+    },
+    {
+      "name": "server/models/Product.ts",
+      "code": {
+        "file": "server/models/Product.ts"
+      }
+    },
+    {
+      "name": "server/controllers/ProductsController.ts",
+      "code": {
+        "file": "server/controllers/ProductsController.ts"
+      }
+    },
+    {
+      "name": "server/models/ProductInput.py",
+      "code": {
+        "file": "server/models/ProductInput.py"
+      }
+    },
+    {
+      "name": "server/services/ProductService.py",
+      "code": {
+        "file": "server/services/ProductService.py"
+      }
+    },
+    {
+      "name": "server/models/Product.py",
+      "code": {
+        "file": "server/models/Product.py"
+      }
+    },
+    {
+      "name": "server/controllers/ProductsController.py",
+      "code": {
+        "file": "server/controllers/ProductsController.py"
+      }
+    },
+    {
+      "name": "server/models/ProductInput.php",
+      "code": {
+        "file": "server/models/ProductInput.php"
+      }
+    },
+    {
+      "name": "server/services/ProductService.php",
+      "code": {
+        "file": "server/services/ProductService.php"
+      }
+    },
+    {
+      "name": "server/models/Product.php",
+      "code": {
+        "file": "server/models/Product.php"
+      }
+    },
+    {
+      "name": "server/controllers/ProductsController.php",
+      "code": {
+        "file": "server/controllers/ProductsController.php"
+      }
+    },
+    {
+      "name": "server/models/ProductInput.java",
+      "code": {
+        "file": "server/models/ProductInput.java"
+      }
+    },
+    {
+      "name": "server/services/ProductService.java",
+      "code": {
+        "file": "server/services/ProductService.java"
+      }
+    },
+    {
+      "name": "server/models/Product.java",
+      "code": {
+        "file": "server/models/Product.java"
+      }
+    },
+    {
+      "name": "server/controllers/ProductsController.java",
+      "code": {
+        "file": "server/controllers/ProductsController.java"
+      }
+    },
+    {
+      "name": "server/models/ProductInput.groovy",
+      "code": {
+        "file": "server/models/ProductInput.groovy"
+      }
+    },
+    {
+      "name": "server/services/ProductService.groovy",
+      "code": {
+        "file": "server/services/ProductService.groovy"
+      }
+    },
+    {
+      "name": "server/models/Product.groovy",
+      "code": {
+        "file": "server/models/Product.groovy"
+      }
+    },
+    {
+      "name": "server/controllers/ProductsController.groovy",
+      "code": {
+        "file": "server/controllers/ProductsController.groovy"
+      }
+    },
+    {
+      "name": "server/models/ProductInput.kt",
+      "code": {
+        "file": "server/models/ProductInput.kt"
+      }
+    },
+    {
+      "name": "server/services/ProductService.kt",
+      "code": {
+        "file": "server/services/ProductService.kt"
+      }
+    },
+    {
+      "name": "server/models/Product.kt",
+      "code": {
+        "file": "server/models/Product.kt"
+      }
+    },
+    {
+      "name": "server/controllers/ProductsController.kt",
+      "code": {
+        "file": "server/controllers/ProductsController.kt"
+      }
+    },
+    {
+      "name": "server/models/ProductInput.cs",
+      "code": {
+        "file": "server/models/ProductInput.cs"
+      }
+    },
+    {
+      "name": "server/services/ProductService.cs",
+      "code": {
+        "file": "server/services/ProductService.cs"
+      }
+    },
+    {
+      "name": "server/models/Product.cs",
+      "code": {
+        "file": "server/models/Product.cs"
+      }
+    },
+    {
+      "name": "server/controllers/ProductsController.cs",
+      "code": {
+        "file": "server/controllers/ProductsController.cs"
+      }
+    },
+    {
+      "name": "server/models/ProductInput.fs",
+      "code": {
+        "file": "server/models/ProductInput.fs"
+      }
+    },
+    {
+      "name": "server/services/ProductService.fs",
+      "code": {
+        "file": "server/services/ProductService.fs"
+      }
+    },
+    {
+      "name": "server/models/Product.fs",
+      "code": {
+        "file": "server/models/Product.fs"
+      }
+    },
+    {
+      "name": "server/controllers/ProductsController.fs",
+      "code": {
+        "file": "server/controllers/ProductsController.fs"
+      }
+    },
+    {
+      "name": "server/models/ProductInput.rs",
+      "code": {
+        "file": "server/models/ProductInput.rs"
+      }
+    },
+    {
+      "name": "server/services/ProductService.rs",
+      "code": {
+        "file": "server/services/ProductService.rs"
+      }
+    },
+    {
+      "name": "server/models/Product.rs",
+      "code": {
+        "file": "server/models/Product.rs"
+      }
+    },
+    {
+      "name": "server/controllers/ProductsController.rs",
+      "code": {
+        "file": "server/controllers/ProductsController.rs"
+      }
+    },
+    {
+      "name": "server/models/ProductInput.go",
+      "code": {
+        "file": "server/models/ProductInput.go"
+      }
+    },
+    {
+      "name": "server/services/ProductService.go",
+      "code": {
+        "file": "server/services/ProductService.go"
+      }
+    },
+    {
+      "name": "server/models/Product.go",
+      "code": {
+        "file": "server/models/Product.go"
+      }
+    },
+    {
+      "name": "server/controllers/ProductsController.go",
+      "code": {
+        "file": "server/controllers/ProductsController.go"
+      }
+    },
+    {
+      "name": "server/models/ProductInput.dart",
+      "code": {
+        "file": "server/models/ProductInput.dart"
+      }
+    },
+    {
+      "name": "server/services/ProductService.dart",
+      "code": {
+        "file": "server/services/ProductService.dart"
+      }
+    },
+    {
+      "name": "server/models/Product.dart",
+      "code": {
+        "file": "server/models/Product.dart"
+      }
+    },
+    {
+      "name": "server/controllers/ProductsController.dart",
+      "code": {
+        "file": "server/controllers/ProductsController.dart"
+      }
+    },
+    {
+      "name": "server/models/ProductInput.rb",
+      "code": {
+        "file": "server/models/ProductInput.rb"
+      }
+    },
+    {
+      "name": "server/services/ProductService.rb",
+      "code": {
+        "file": "server/services/ProductService.rb"
+      }
+    },
+    {
+      "name": "server/models/Product.rb",
+      "code": {
+        "file": "server/models/Product.rb"
+      }
+    },
+    {
+      "name": "server/controllers/ProductsController.rb",
+      "code": {
+        "file": "server/controllers/ProductsController.rb"
+      }
+    },
+    {
+      "name": "server/models/ProductInput.hpp",
+      "code": {
+        "file": "server/models/ProductInput.hpp"
+      }
+    },
+    {
+      "name": "server/services/ProductService.hpp",
+      "code": {
+        "file": "server/services/ProductService.hpp"
+      }
+    },
+    {
+      "name": "server/models/Product.hpp",
+      "code": {
+        "file": "server/models/Product.hpp"
+      }
+    },
+    {
+      "name": "server/controllers/ProductsController.hpp",
+      "code": {
+        "file": "server/controllers/ProductsController.hpp"
+      }
+    },
+    {
+      "name": "server/models/ProductInput.lua",
+      "code": {
+        "file": "server/models/ProductInput.lua"
+      }
+    },
+    {
+      "name": "server/services/ProductService.lua",
+      "code": {
+        "file": "server/services/ProductService.lua"
+      }
+    },
+    {
+      "name": "server/models/Product.lua",
+      "code": {
+        "file": "server/models/Product.lua"
+      }
+    },
+    {
+      "name": "server/controllers/ProductsController.lua",
+      "code": {
+        "file": "server/controllers/ProductsController.lua"
+      }
+    }
+  ]
+}

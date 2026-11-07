@@ -1,0 +1,10 @@
+{
+  "tac": {
+    "scripts": [
+      "/shared/scripts/imports.js"
+    ],
+    "styles": [
+      "/shared/styles/site.css"
+    ]
+  }
+}

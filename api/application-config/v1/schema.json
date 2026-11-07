@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tachyon.del.ma/schema/application-config/v1",
+  "title": "Tachyon Application Configuration v1",
+  "description": "Authoring structure. Runtime additionally rejects duplicate keys, enforces UTF-8 byte limits, expands environment placeholders and validates resolved endpoints.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "server": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "host": { "$ref": "#/$defs/text" },
+        "port": {
+          "oneOf": [
+            { "type": "integer", "minimum": 0, "maximum": 65535 },
+            { "$ref": "#/$defs/text" }
+          ]
+        }
+      }
+    },
+    "datasource": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "url": { "$ref": "#/$defs/text" },
+        "username": { "$ref": "#/$defs/text" },
+        "password": { "$ref": "#/$defs/text" }
+      }
+    },
+    "redis": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": { "url": { "$ref": "#/$defs/text" } }
+    },
+    "properties": {
+      "type": "object",
+      "maxProperties": 128,
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^(TAC_|YON_)[A-Z0-9_]+$",
+        "maxLength": 128,
+        "not": { "const": "YON_APPLICATION_JSON" }
+      },
+      "additionalProperties": { "$ref": "#/$defs/text" }
+    }
+  },
+  "$defs": {
+    "text": { "type": "string", "maxLength": 65536, "pattern": "^[^\u0000-\u001f\u007f-\u009f]*$" }
+  }
+}

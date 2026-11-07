@@ -1,0 +1,6 @@
+@RequestRoute("/api/kotlin")
+@Public
+class KotlinGreetingController {
+    @GetRoute
+    fun getGreeting(): String = "Hello from Kotlin"
+}

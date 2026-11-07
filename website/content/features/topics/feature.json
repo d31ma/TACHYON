@@ -1,0 +1,374 @@
+{
+  "id": "topics",
+  "title": "Topics",
+  "group": "Yon server",
+  "summary": "A topic is a model marked `Topic` that carries events between Yon processes, languages and open pages (ADR 0061). When a Yon class publishes a Topic model, Tachyon adds it as one line to the log `data/topics/<name>.jsonl` and calls the `OnEvent` listeners of that model in the other Yon files and languages once. In a page, an `OnEvent` listener for the model opens the stream `/.tachyon/topics/<name>` by itself, in every Tac language; no `HTTPClient` is needed. The stream replays the kept records, and after a lost connection it resumes after the last record it received, through `Last-Event-ID`. A client may also ask for `?position=<n>`; a position the server no longer keeps ends the stream with `TY_TOPIC_CURSOR_STALE`. A server Topic model says who may read its stream, with the same access markers as a controller: `Public`, `SignedIn` or `Allow(Role)`, in the spelling of its language, next to `Topic`. A server Topic without one stops the build with `TY1322`, `SignedIn` or `Allow` without an identity provider stops it with `TY1323`, and every language that declares the same topic writes the same rule. A client topic model takes no access marker (`TY1308`): a page cannot grant itself access. The server answers 404 for a topic that no server model declares, and checks the rule before it opens the stream: 401 when nobody is signed in, and 403 when the user has none of the roles. A page opens its stream with its cookies, so an identity provider that reads a session cookie guards it. A record holds at most 64 KiB, a log at most 16 MiB, and one client address keeps at most 16 topic streams open. The examples are those of the Topics guide, where `InventoryRecord` is `Public`.",
+  "files": [
+    {
+      "name": "access",
+      "code": {
+        "file": "access.txt"
+      }
+    },
+    {
+      "name": "server/models/InventoryRecord.js",
+      "code": {
+        "file": "../../docs/storage/topics/server/models/InventoryRecord.js"
+      }
+    },
+    {
+      "name": "server/controllers/InventoryController.js",
+      "code": {
+        "file": "../../docs/storage/topics/server/controllers/InventoryController.js"
+      }
+    },
+    {
+      "name": "server/models/InventoryRecord.ts",
+      "code": {
+        "file": "../../docs/storage/topics/server/models/InventoryRecord.ts"
+      }
+    },
+    {
+      "name": "server/controllers/InventoryController.ts",
+      "code": {
+        "file": "../../docs/storage/topics/server/controllers/InventoryController.ts"
+      }
+    },
+    {
+      "name": "server/models/InventoryRecord.py",
+      "code": {
+        "file": "../../docs/storage/topics/server/models/InventoryRecord.py"
+      }
+    },
+    {
+      "name": "server/controllers/InventoryController.py",
+      "code": {
+        "file": "../../docs/storage/topics/server/controllers/InventoryController.py"
+      }
+    },
+    {
+      "name": "server/models/InventoryRecord.php",
+      "code": {
+        "file": "../../docs/storage/topics/server/models/InventoryRecord.php"
+      }
+    },
+    {
+      "name": "server/controllers/InventoryController.php",
+      "code": {
+        "file": "../../docs/storage/topics/server/controllers/InventoryController.php"
+      }
+    },
+    {
+      "name": "server/models/InventoryRecord.java",
+      "code": {
+        "file": "../../docs/storage/topics/server/models/InventoryRecord.java"
+      }
+    },
+    {
+      "name": "server/controllers/InventoryController.java",
+      "code": {
+        "file": "../../docs/storage/topics/server/controllers/InventoryController.java"
+      }
+    },
+    {
+      "name": "server/models/InventoryRecord.groovy",
+      "code": {
+        "file": "../../docs/storage/topics/server/models/InventoryRecord.groovy"
+      }
+    },
+    {
+      "name": "server/controllers/InventoryController.groovy",
+      "code": {
+        "file": "../../docs/storage/topics/server/controllers/InventoryController.groovy"
+      }
+    },
+    {
+      "name": "server/models/InventoryRecord.kt",
+      "code": {
+        "file": "../../docs/storage/topics/server/models/InventoryRecord.kt"
+      }
+    },
+    {
+      "name": "server/controllers/InventoryController.kt",
+      "code": {
+        "file": "../../docs/storage/topics/server/controllers/InventoryController.kt"
+      }
+    },
+    {
+      "name": "server/models/InventoryRecord.cs",
+      "code": {
+        "file": "../../docs/storage/topics/server/models/InventoryRecord.cs"
+      }
+    },
+    {
+      "name": "server/controllers/InventoryController.cs",
+      "code": {
+        "file": "../../docs/storage/topics/server/controllers/InventoryController.cs"
+      }
+    },
+    {
+      "name": "server/models/InventoryRecord.rs",
+      "code": {
+        "file": "../../docs/storage/topics/server/models/InventoryRecord.rs"
+      }
+    },
+    {
+      "name": "server/controllers/InventoryController.rs",
+      "code": {
+        "file": "../../docs/storage/topics/server/controllers/InventoryController.rs"
+      }
+    },
+    {
+      "name": "server/models/InventoryRecord.go",
+      "code": {
+        "file": "../../docs/storage/topics/server/models/InventoryRecord.go"
+      }
+    },
+    {
+      "name": "server/controllers/InventoryController.go",
+      "code": {
+        "file": "../../docs/storage/topics/server/controllers/InventoryController.go"
+      }
+    },
+    {
+      "name": "server/models/InventoryRecord.dart",
+      "code": {
+        "file": "../../docs/storage/topics/server/models/InventoryRecord.dart"
+      }
+    },
+    {
+      "name": "server/controllers/InventoryController.dart",
+      "code": {
+        "file": "../../docs/storage/topics/server/controllers/InventoryController.dart"
+      }
+    },
+    {
+      "name": "server/models/InventoryRecord.rb",
+      "code": {
+        "file": "../../docs/storage/topics/server/models/InventoryRecord.rb"
+      }
+    },
+    {
+      "name": "server/controllers/InventoryController.rb",
+      "code": {
+        "file": "../../docs/storage/topics/server/controllers/InventoryController.rb"
+      }
+    },
+    {
+      "name": "server/models/InventoryRecord.fs",
+      "code": {
+        "file": "../../docs/storage/topics/server/models/InventoryRecord.fs"
+      }
+    },
+    {
+      "name": "server/controllers/InventoryController.fs",
+      "code": {
+        "file": "../../docs/storage/topics/server/controllers/InventoryController.fs"
+      }
+    },
+    {
+      "name": "server/models/InventoryRecord.lua",
+      "code": {
+        "file": "../../docs/storage/topics/server/models/InventoryRecord.lua"
+      }
+    },
+    {
+      "name": "server/controllers/InventoryController.lua",
+      "code": {
+        "file": "../../docs/storage/topics/server/controllers/InventoryController.lua"
+      }
+    },
+    {
+      "name": "server/models/InventoryRecord.hpp",
+      "code": {
+        "file": "../../docs/storage/topics/server/models/InventoryRecord.hpp"
+      }
+    },
+    {
+      "name": "server/controllers/InventoryController.hpp",
+      "code": {
+        "file": "../../docs/storage/topics/server/controllers/InventoryController.hpp"
+      }
+    },
+    {
+      "name": "client/pages/inventory/tac.html",
+      "code": {
+        "file": "../../docs/storage/topics/client/pages/inventory/tac.html"
+      }
+    },
+    {
+      "name": "client/components/inventory/feed/tac.html",
+      "code": {
+        "file": "../../docs/storage/topics/client/components/inventory/feed/tac.html"
+      }
+    },
+    {
+      "name": "client/models/InventoryRecord.js",
+      "code": {
+        "file": "../../docs/storage/topics/client/models/InventoryRecord.js"
+      }
+    },
+    {
+      "name": "client/services/InventoryService.js",
+      "code": {
+        "file": "../../docs/storage/topics/client/services/InventoryService.js"
+      }
+    },
+    {
+      "name": "client/models/InventoryRecord.ts",
+      "code": {
+        "file": "../../docs/storage/topics/client/models/InventoryRecord.ts"
+      }
+    },
+    {
+      "name": "client/services/InventoryService.ts",
+      "code": {
+        "file": "../../docs/storage/topics/client/services/InventoryService.ts"
+      }
+    },
+    {
+      "name": "client/models/InventoryRecord.dart",
+      "code": {
+        "file": "../../docs/storage/topics/client/models/InventoryRecord.dart"
+      }
+    },
+    {
+      "name": "client/services/InventoryService.dart",
+      "code": {
+        "file": "../../docs/storage/topics/client/services/InventoryService.dart"
+      }
+    },
+    {
+      "name": "client/models/InventoryRecord.rs",
+      "code": {
+        "file": "../../docs/storage/topics/client/models/InventoryRecord.rs"
+      }
+    },
+    {
+      "name": "client/services/InventoryService.rs",
+      "code": {
+        "file": "../../docs/storage/topics/client/services/InventoryService.rs"
+      }
+    },
+    {
+      "name": "client/models/InventoryRecord.go",
+      "code": {
+        "file": "../../docs/storage/topics/client/models/InventoryRecord.go"
+      }
+    },
+    {
+      "name": "client/services/InventoryService.go",
+      "code": {
+        "file": "../../docs/storage/topics/client/services/InventoryService.go"
+      }
+    },
+    {
+      "name": "client/models/InventoryRecord.rb",
+      "code": {
+        "file": "../../docs/storage/topics/client/models/InventoryRecord.rb"
+      }
+    },
+    {
+      "name": "client/services/InventoryService.rb",
+      "code": {
+        "file": "../../docs/storage/topics/client/services/InventoryService.rb"
+      }
+    },
+    {
+      "name": "client/models/InventoryRecord.lua",
+      "code": {
+        "file": "../../docs/storage/topics/client/models/InventoryRecord.lua"
+      }
+    },
+    {
+      "name": "client/services/InventoryService.lua",
+      "code": {
+        "file": "../../docs/storage/topics/client/services/InventoryService.lua"
+      }
+    },
+    {
+      "name": "client/models/InventoryRecord.py",
+      "code": {
+        "file": "../../docs/storage/topics/client/models/InventoryRecord.py"
+      }
+    },
+    {
+      "name": "client/services/InventoryService.py",
+      "code": {
+        "file": "../../docs/storage/topics/client/services/InventoryService.py"
+      }
+    },
+    {
+      "name": "client/models/InventoryRecord.swift",
+      "code": {
+        "file": "../../docs/storage/topics/client/models/InventoryRecord.swift"
+      }
+    },
+    {
+      "name": "client/services/InventoryService.swift",
+      "code": {
+        "file": "../../docs/storage/topics/client/services/InventoryService.swift"
+      }
+    },
+    {
+      "name": "client/models/InventoryRecord.kt",
+      "code": {
+        "file": "../../docs/storage/topics/client/models/InventoryRecord.kt"
+      }
+    },
+    {
+      "name": "client/services/InventoryService.kt",
+      "code": {
+        "file": "../../docs/storage/topics/client/services/InventoryService.kt"
+      }
+    },
+    {
+      "name": "client/models/InventoryRecord.java",
+      "code": {
+        "file": "../../docs/storage/topics/client/models/InventoryRecord.java"
+      }
+    },
+    {
+      "name": "client/services/InventoryService.java",
+      "code": {
+        "file": "../../docs/storage/topics/client/services/InventoryService.java"
+      }
+    },
+    {
+      "name": "client/models/InventoryRecord.cs",
+      "code": {
+        "file": "../../docs/storage/topics/client/models/InventoryRecord.cs"
+      }
+    },
+    {
+      "name": "client/services/InventoryService.cs",
+      "code": {
+        "file": "../../docs/storage/topics/client/services/InventoryService.cs"
+      }
+    },
+    {
+      "name": "client/models/InventoryRecord.fs",
+      "code": {
+        "file": "../../docs/storage/topics/client/models/InventoryRecord.fs"
+      }
+    },
+    {
+      "name": "client/services/InventoryService.fs",
+      "code": {
+        "file": "../../docs/storage/topics/client/services/InventoryService.fs"
+      }
+    },
+    {
+      "name": "client/models/InventoryRecord.hpp",
+      "code": {
+        "file": "../../docs/storage/topics/client/models/InventoryRecord.hpp"
+      }
+    },
+    {
+      "name": "client/services/InventoryService.hpp",
+      "code": {
+        "file": "../../docs/storage/topics/client/services/InventoryService.hpp"
+      }
+    }
+  ]
+}

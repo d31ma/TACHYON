@@ -1,0 +1,134 @@
+{
+  "name": "Tachyon",
+  "short_name": "Tachyon",
+  "description": "A polyglot, file-system-routed full-stack framework shipped as one binary.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#07090d",
+  "theme_color": "#22d3ee",
+  "icons": [
+    {
+      "src": "/shared/assets/logo-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/shared/assets/logo-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/shared/assets/logo-1024.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/shared/assets/logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ],
+  "tac": {
+    "browserApis": [
+      "preferenceStrings"
+    ],
+    "origin": "https://tachyon.del.ma",
+    "names": {
+      "words": [
+        "toc"
+      ]
+    },
+    "budgets": {
+      "script": 320
+    },
+    "application": {
+      "id": "ma.del.tachyon.website",
+      "version": "26.45.01"
+    },
+    "blockingScripts": [
+      "/shared/scripts/ThemeDefault.js"
+    ],
+    "scripts": [
+      "/shared/assets/duvay/duvay-wc-site.min.js",
+      "/shared/assets/duvay/duvay.min.js",
+      "/shared/scripts/DocsDataPreload.js"
+    ],
+    "styles": [
+      "/shared/styles/site.css"
+    ],
+    "metadata": {
+      "defaults": {
+        "image": "/shared/assets/logo.svg",
+        "siteName": "Tachyon"
+      },
+      "routes": {
+        "/": {
+          "title": "Tachyon — one project, web and native",
+          "description": "A full-stack framework for many languages. Folders define the pages, and annotations define the server routes. Write HTML once. Run it in the browser and on every desktop and mobile target.",
+          "canonical": "/"
+        },
+        "/docs": {
+          "title": "Documentation — Tachyon",
+          "description": "Guides for Tac views, Yon endpoints, supported languages and build targets. Every feature has code that shows that it works.",
+          "canonical": "/docs"
+        },
+        "/docs/_topic": {
+          "title": "Documentation — Tachyon",
+          "description": "Tachyon guide.",
+          "canonical": "/docs",
+          "noindex": true
+        },
+        "/docs/features": {
+          "title": "Features — Tachyon",
+          "description": "Every Tachyon feature, each on its own page with code that shows that it works. The features cover routing, views, storage, the server, native targets and the toolchain.",
+          "canonical": "/docs/features"
+        },
+        "/docs/features/_id": {
+          "title": "Features — Tachyon",
+          "description": "One Tachyon feature, with code that shows that it works.",
+          "canonical": "/docs/features",
+          "noindex": true
+        }
+      }
+    },
+    "sitemap": {
+      "/docs/_topic": {
+        "data": "/shared/data/docs.json",
+        "values": "/order"
+      },
+      "/docs/features/_id": {
+        "data": "/shared/data/features.json",
+        "values": "/features",
+        "field": "id"
+      }
+    },
+    "scriptSources": {
+      "/shared/assets/duvay/duvay-wc-site.min.js": {
+        "package": "duvay",
+        "version": "26.35.01",
+        "license": "MIT",
+        "sha256": "abb7402843ce907785053827fa74290c91c7758cb9209a29ec69bcf62635452c"
+      },
+      "/shared/assets/duvay/duvay.min.js": {
+        "package": "duvay",
+        "version": "26.35.01",
+        "license": "MIT",
+        "sha256": "50ca0fd49f2232e3520f9e3d1fe8efa1fec1948a69e1076d43ed649a09b80d5b"
+      }
+    },
+    "styleSources": {
+      "/shared/styles/site.css": {
+        "kind": "foundation"
+      },
+      "/shared/assets/duvay/duvay.min.css": {
+        "kind": "vendor",
+        "package": "duvay",
+        "version": "26.35.01",
+        "license": "MIT",
+        "sha256": "dd0b9a6841313bc3b4bf30da476dc1aa88821a58220d662b679f83873b92c768"
+      }
+    }
+  }
+}

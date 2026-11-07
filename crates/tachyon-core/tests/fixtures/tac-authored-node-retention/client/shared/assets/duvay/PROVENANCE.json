@@ -1,0 +1,37 @@
+{
+  "version": "26.35.01",
+  "license_source": "https://raw.githubusercontent.com/d31ma/DUVAY/refs/tags/v26.35.01/LICENSE",
+  "license_sha256": "5018934d79ea0bf37c34065635d6cbdbe96701c0e7b59e39f40d47641a7da6b7",
+  "assets": {
+    "/shared/assets/duvay/duvay-wc-card.min.js": {
+      "package": "duvay",
+      "version": "26.35.01",
+      "license": "MIT",
+      "sha256": "fbd2d97e9fadc3ffef74b927ac8164798c0724defa3a873088ad60ec4d9658d6"
+    }
+  },
+  "build": {
+    "commit": "17aba01d5da9f4ceeb9b6373ebb99157a06ed44f",
+    "bundler": "bun 1.3.14",
+    "flags": [
+      "--target=browser",
+      "--format=esm",
+      "--minify"
+    ],
+    "modules": [
+      "src/components/base.js",
+      "src/components/duvay-motion.js",
+      "src/icons.js",
+      "src/components/card.js",
+      "src/components/container.js"
+    ],
+    "inputs": {
+      "src/components/base.js": "028bc2647236d983adbe038c071ef3f2bb2b417ec6aa0f991d0fdd3a765f6dca",
+      "src/components/card.js": "41db05faf065b9c7b567f144fb3a053ae41c74cd44408f0dc40c2da07c0333c8",
+      "src/components/container.js": "2d180dc78561a2ca27ca3b97ca078bf141cba98e29fd529cd6bf9cc634cb7956",
+      "src/components/duvay-motion.js": "0bb423af2a03dff92cebf17419382bc6474f248b6d4599ff5787e1ce357e7fe5",
+      "src/icons.js": "52586403c00ca8638639d0412a278a61fb061988579996545b60634de2fd3be2"
+    },
+    "output": "shared/assets/duvay/duvay-wc-card.min.js"
+  }
+}

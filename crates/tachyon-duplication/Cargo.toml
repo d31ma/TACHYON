@@ -1,0 +1,15 @@
+[package]
+name = "tachyon-duplication"
+description = "Finds repeated blocks of code the way SonarQube's copy-paste detection does"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+
+[lints]
+workspace = true

@@ -1,0 +1,1 @@
+type UserSaved = { Name: string }

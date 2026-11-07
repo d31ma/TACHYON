@@ -1,0 +1,21 @@
+[package]
+name = "cohesion-scan"
+description = "Development tool that finds Rust functions that break Tachyon's cohesion rule"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+proc-macro2 = { version = "1.0.107", default-features = false, features = ["span-locations"] }
+quote = { version = "1.0.47", default-features = false }
+serde.workspace = true
+serde_json.workspace = true
+tachyon-duplication.workspace = true
+syn = { version = "3.0.3", default-features = false, features = ["full", "parsing", "printing", "visit"] }
+
+[lints]
+workspace = true

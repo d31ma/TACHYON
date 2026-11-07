@@ -1,0 +1,7 @@
+<main aria-label="Ordinary .NET Task continuation fixture">
+  <p id="task-ready">{delayTask.last}</p>
+  <p id="task-calls">{delayTask.calls}</p>
+  <button id="task-load" on:click="delayTask.load('view', 100)">Load view result</button>
+  <button id="task-forget" on:click="delayTask.forget()">Wait for void result</button>
+  <button id="task-failure" on:click="delayTask.failure()">Request a refused result</button>
+</main>

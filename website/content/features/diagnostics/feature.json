@@ -1,0 +1,12 @@
+{
+  "id": "diagnostics",
+  "title": "Stable error codes",
+  "summary": "Every failure has a stable `TY` code, a message of limited length and a help line. The help line says what to do. Operators (people who run the application) and tools can depend on the code. The wording only explains the problem to people.",
+  "group": "Tooling",
+  "files": [
+    {
+      "name": "shell",
+      "code": { "file": "shell.txt" }
+    }
+  ]
+}

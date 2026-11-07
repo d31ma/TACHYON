@@ -1,0 +1,230 @@
+/** @import { DocumentationCatalogue } from '/models/DocumentationCatalogue.ts' */
+/** @import { FeatureCatalogue } from '/models/FeatureCatalogue.ts' */
+/** @import { Guide } from '/models/Guide.ts' */
+/** @import { Section } from '/models/Section.ts' */
+/** @import { SnippetFile } from '/models/SnippetFile.ts' */
+/** @import { SearchResult } from '/models/SearchResult.ts' */
+/** @import { SearchRow } from '/models/SearchRow.ts' */
+/** @import { SearchHit } from '/models/SearchHit.ts' */
+/** @import { GuideLink } from '/models/GuideLink.ts' */
+/** @import { FeatureEntry } from '/models/FeatureEntry.ts' */
+export class DocumentationUtils {
+  /** @param {string} value @returns {string} */
+  static slugOf(value) {
+    return String(value).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+  }
+
+  /** @param {DocumentationCatalogue} documents @param {string} slug @returns {Guide | undefined} */
+  static guide(documents, slug) {
+    return documents.topics[slug]
+  }
+
+  /** @param {DocumentationCatalogue} documents @param {string} slug @param {string} hash @returns {string | undefined} */
+  static redirect(documents, slug, hash = '') {
+    const target = documents.redirects?.[slug]
+    const anchor = hash.replace(/^#/, '')
+    const holder = DocumentationUtils._holderFor(documents, anchor)
+    return DocumentationUtils._redirectTo(target, holder, hash)
+  }
+
+  /**
+   * @param {string} query
+   * @param {DocumentationCatalogue} documents
+   * @param {FeatureCatalogue} features
+   * @param {number} maximum
+   * @returns {SearchResult[]}
+   */
+  static search(query, documents, features, maximum = 12) {
+    const term = DocumentationUtils._searchTerm(query)
+    const rows = DocumentationUtils._searchRows(documents, features)
+    const hits = DocumentationUtils._hits(rows, term)
+    return DocumentationUtils._bestHits(hits, maximum)
+  }
+
+  /** @param {string} slug @param {Guide} topic @returns {GuideLink} */
+  static _guideLink(slug, topic) {
+    return { slug, title: topic.title, summary: topic.summary, path: `/docs/${slug}` }
+  }
+
+  /** @param {DocumentationCatalogue} documents @param {string} anchor @returns {string | undefined} */
+  static _holderFor(documents, anchor) {
+    return DocumentationUtils._anchorHolder(DocumentationUtils._matchingGuides(documents, anchor), anchor)
+  }
+
+  /** @param {DocumentationCatalogue} documents @param {string} anchor @returns {string[]} */
+  static _matchingGuides(documents, anchor) {
+    return documents.order.filter((slug) => DocumentationUtils._hasAnchor(documents.topics[slug], anchor))
+  }
+
+  /** @param {Guide} topic @param {string} anchor @returns {boolean} */
+  static _hasAnchor(topic, anchor) {
+    return topic.sections.some((section) => DocumentationUtils.slugOf(section.heading) === anchor)
+  }
+
+  /** @param {string[]} matching @param {string} anchor @returns {string | undefined} */
+  static _anchorHolder(matching, anchor) {
+    return anchor ? matching[0] : undefined
+  }
+
+  /** @param {string | undefined} target @param {string | undefined} holder @param {string} hash @returns {string | undefined} */
+  static _redirectTo(target, holder, hash) {
+    const destination = DocumentationUtils._destination(holder, target)
+    return DocumentationUtils._whenRedirected(target, destination, hash)
+  }
+
+  /** @param {string | undefined} holder @param {string | undefined} target @returns {string | undefined} */
+  static _destination(holder, target) {
+    return holder ?? target
+  }
+
+  /** @param {string | undefined} target @param {string | undefined} destination @param {string} hash @returns {string | undefined} */
+  static _whenRedirected(target, destination, hash) {
+    return target ? `/docs/${destination}${hash}` : undefined
+  }
+
+  /** @param {FeatureCatalogue} features @returns {(FeatureEntry & { path: string })[]} */
+  static _featureLinks(features) {
+    return features.features.map(DocumentationUtils._featureLink)
+  }
+
+  /** @param {FeatureEntry} feature @returns {FeatureEntry & { path: string }} */
+  static _featureLink(feature) {
+    return { ...feature, path: `/docs/features/${feature.id}` }
+  }
+
+  /** @param {string} query @returns {string} */
+  static _searchTerm(query) {
+    return String(query ?? '').trim().toLowerCase()
+  }
+
+  /** @param {DocumentationCatalogue} documents @param {FeatureCatalogue} features @returns {SearchRow[]} */
+  static _searchRows(documents, features) {
+    return [...DocumentationUtils._topicRows(documents), ...DocumentationUtils._featureRows(features)]
+  }
+
+  /** @param {DocumentationCatalogue} documents @returns {SearchRow[]} */
+  static _topicRows(documents) {
+    return documents.order.flatMap((slug) => DocumentationUtils._rowsForGuide(slug, documents.topics[slug]))
+  }
+
+  /** @param {string} slug @param {Guide} topic @returns {SearchRow[]} */
+  static _rowsForGuide(slug, topic) {
+    const entry = DocumentationUtils._guideLink(slug, topic)
+    const rows = DocumentationUtils._sectionRows(entry, DocumentationUtils._sectionsOf(topic))
+    return [{ title: entry.title, path: entry.path, kind: 'topic', text: entry.summary }, ...rows]
+  }
+
+  /** @param {Guide} topic @returns {Section[]} */
+  static _sectionsOf(topic) {
+    return topic.sections ?? []
+  }
+
+  /** @param {GuideLink} entry @param {Section[]} sections @returns {SearchRow[]} */
+  static _sectionRows(entry, sections) {
+    return sections.map((section) => DocumentationUtils._sectionRow(entry, section))
+  }
+
+  /** @param {GuideLink} entry @param {Section & { files?: SnippetFile[] }} section @returns {SearchRow} */
+  static _sectionRow(entry, section) {
+    const anchor = DocumentationUtils.slugOf(section.heading)
+    const code = DocumentationUtils._codeOf(section.files)
+    return {
+      title: `${entry.title} · ${section.heading}`,
+      path: `${entry.path}#${anchor}`,
+      kind: 'section',
+      text: DocumentationUtils._joinText([section.summary, section.body, section.code, ...code]),
+    }
+  }
+
+  /** @param {SnippetFile[] | undefined} files @returns {string[]} */
+  static _codeOf(files) {
+    return DocumentationUtils._knownFiles(files).map(DocumentationUtils._fileCode)
+  }
+
+  /** @param {SnippetFile[] | undefined} files @returns {SnippetFile[]} */
+  static _knownFiles(files) {
+    return files ?? []
+  }
+
+  /** @param {SnippetFile} file @returns {string} */
+  static _fileCode(file) {
+    return file.code
+  }
+
+  /** @param {(string | undefined)[]} parts @returns {string} */
+  static _joinText(parts) {
+    return parts.filter(Boolean).join('\n')
+  }
+
+  /** @param {FeatureCatalogue} features @returns {SearchRow[]} */
+  static _featureRows(features) {
+    return DocumentationUtils._featureLinks(features).map(DocumentationUtils._featureRow)
+  }
+
+  /** @param {FeatureEntry & { path: string }} entry @returns {SearchRow} */
+  static _featureRow(entry) {
+    return {
+      title: entry.title, path: entry.path, kind: 'feature',
+      text: DocumentationUtils._joinText([entry.summary, entry.group, ...DocumentationUtils._codeOf(entry.files)]),
+    }
+  }
+
+  /** @param {SearchRow[]} rows @param {string} term @returns {SearchHit[]} */
+  static _hits(rows, term) {
+    const hits = DocumentationUtils._ranked(rows, term)
+    return DocumentationUtils._searchable(term.length, hits)
+  }
+
+  /** @param {SearchRow[]} rows @param {string} term @returns {SearchHit[]} */
+  static _ranked(rows, term) {
+    return rows.map((row) => DocumentationUtils._hit(row, term)).filter(DocumentationUtils._matched)
+  }
+
+  /** @param {SearchRow} row @param {string} term @returns {SearchHit} */
+  static _hit(row, term) {
+    return { row, rank: DocumentationUtils._rankOf(row.title.toLowerCase(), row.text.toLowerCase(), term) }
+  }
+
+  /** @param {string} title @param {string} text @param {string} term @returns {number} */
+  static _rankOf(title, text, term) {
+    let rank = 0
+    if (title.startsWith(term)) {
+      rank = 3
+    } else if (title.includes(term)) {
+      rank = 2
+    } else if (text.includes(term)) {
+      rank = 1
+    }
+    return rank
+  }
+
+  /** @param {SearchHit} hit @returns {boolean} */
+  static _matched(hit) {
+    return hit.rank > 0
+  }
+
+  /** @param {number} length @param {SearchHit[]} hits @returns {SearchHit[]} */
+  static _searchable(length, hits) {
+    return length < DocumentationUtils.shortestTerm() ? [] : hits
+  }
+
+  /** @param {SearchHit[]} hits @param {number} maximum @returns {SearchResult[]} */
+  static _bestHits(hits, maximum) {
+    return hits.sort(DocumentationUtils._compareHits).slice(0, maximum).map(DocumentationUtils._resultOf)
+  }
+
+  /** @param {SearchHit} left @param {SearchHit} right @returns {number} */
+  static _compareHits(left, right) {
+    return right.rank - left.rank || left.row.title.length - right.row.title.length
+  }
+
+  /** @param {SearchHit} hit @returns {SearchResult} */
+  static _resultOf(hit) {
+    return { title: hit.row.title, path: hit.row.path, kind: hit.row.kind }
+  }
+
+  /** @returns {number} */
+  static shortestTerm() {
+    return 2
+  }
+}

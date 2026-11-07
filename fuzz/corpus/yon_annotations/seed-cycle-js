@@ -1,0 +1,17 @@
+Z
+@Service()
+@Needs(Second)
+class First {
+  constructor(second) { this.second = second; }
+}
+@Service()
+@Needs(First)
+class Second {
+  constructor(first) { this.first = first; }
+}
+@Controller()
+@Needs(First)
+class Products {
+  constructor(first) { this.first = first; }
+  GET() { return []; }
+}

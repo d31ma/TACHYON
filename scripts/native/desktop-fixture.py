@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""Write a real two-route WebView/native companion acceptance project."""
 
 import argparse
 from pathlib import Path
@@ -11,92 +10,255 @@ def write(root, relative, source):
     destination.write_text(source, encoding="utf-8")
 
 
-def create(root, platform):
-    if any(root.iterdir()):
-        raise RuntimeError("the acceptance fixture directory must be empty")
-    write(root, "tac.config.js", """export const application = {
-  name: 'Native Gate', id: 'dev.tachyon.desktop-gate',
-  version: '0.0.1', entryRoute: '/',
-};
-""")
-    write(root, "client/shared/native-gate.css", """body {
-  --native-gate: ready; font-family: sans-serif; padding: 24px;
-}
-button, a { display: block; padding: 8px; margin: 8px; }
-""")
-    write(root, "client/shared/native-gate.js", "export const marker = 'Shared module ready';\n")
-    for route, label, number in [("", "Root", 7), ("items/_id/", "Second", 9)]:
-        language = "CSharp" if route and platform == "windows" else "Rust"
-        link = '<a href="/">Return root</a>' if route else '<a href="/items/7/">Open second</a>'
-        write(root, f"client/pages/{route}tac.html", f"""<!doctype html>
-<html><head><title>Native Gate</title>
-<link rel="stylesheet" href="/shared/native-gate.css"></head><body>
-<main aria-label="{label} route"><h1>{label} route</h1>
-<p>{{marker}}</p><p>{label} count {{count}}</p><p>{{status}}</p>
-<p>{{platformStatus}}</p><p>{{styleStatus}}</p><p>{{boundaryStatus}}</p>
-<p>Publish {{signal}}</p>
-<button on:click="verify()">Verify native {label}</button>
-{link}<a href="https://example.invalid/">Leave app</a>
-</main></body></html>
-""")
-        write(root, f"client/pages/{route}tac.js", f"""import {{ marker }} from '/shared/native-gate.js';
-export default class {{
-  marker = marker;
-  count = -100;
-  status = 'Waiting for native verification';
-  platformStatus = '';
-  styleStatus = '';
-  boundaryStatus = '';
-  @subscribe('native.event')
-  signal = 'waiting';
-  async verify() {{
-    this.count = {number};
-    this.status = 'Native {language} ' + await this.doubled();
-    this.platformStatus = await this.processId() > 0 ? 'OS ready' : 'OS failed';
-    const stylesheet = await fetch('/shared/native-gate.css', {{ signal: AbortSignal.timeout(5000) }});
-    const stylesheetType = stylesheet.headers.get('content-type')?.split(';')[0].trim();
-    const style = getComputedStyle(document.body).getPropertyValue('--native-gate').trim();
-    this.styleStatus = stylesheet.ok && stylesheetType === 'text/css' && style === 'ready'
-      ? 'Styles ready' : 'Styles failed';
-    let routeRejected = false;
-    try {{
-      const rejected = JSON.parse(await globalThis.__tachyonNativeHostCall(
-        'companion.invoke', JSON.stringify({{ route: '/not-this-route', op: 'init' }})));
-      routeRejected = Boolean(rejected.error);
-    }} catch {{ routeRejected = true; }}
-    this.boundaryStatus = routeRejected ? 'Route boundary ready' : 'Route boundary FAILED';
-    await this.announce();
+def manifest(platform):
+    visibility = ""
+    if platform == "windows":
+        visibility = ',\n    "visibility": { "check": false }'
+    return f"""{{
+  "name": "Native Gate",
+  "start_url": "/",
+  "tac": {{
+    "application": {{ "id": "dev.tachyon.desktop-gate", "version": "0.0.1", "build": 7 }},
+    "styles": ["/shared/native-gate.css"]{visibility}
   }}
 }}
+"""
+
+
+def write_shared_files(root, platform):
+    write(root, "client/manifest.json", manifest(platform))
+    write(root, "client/models/NativeEvent.js", """/**
+ * @typedef {Object} NativeEvent
+ * @property {string} text
+ */
+export {}
 """)
-        if language == "Rust":
-            write(root, f"client/pages/{route}tac.rs", """#[derive(Default)]
-struct Companion {
-    count: i64,
+    write(root, "client/models/NativeEvent.rs", "pub struct NativeEvent {\n    pub text: String,\n}\n")
+    write(root, "client/shared/native-gate.css", """body {
+  --native-gate: ready; font-family: sans-serif;
 }
-impl Companion {
-    fn doubled(&self) -> i64 { self.count * 2 }
-    fn process_id(&self) -> i64 { std::process::id() as i64 }
-    fn announce(&self) {
-        tac_publish("native.event", TacValue::Text("received".to_owned()));
+""")
+    write(root, "client/shared/utils/NativeGateUtils.js", """export default class NativeGateUtils {
+  /** @returns {string} */
+  static marker() {
+    return 'Shared module ready'
+  }
+
+  /**
+   * @param {string} language
+   * @param {number} doubled
+   * @param {number} processId
+   * @param {string} service
+   * @returns {Promise<string[]>}
+   */
+  static async checks(language, doubled, processId, service) {
+    return [
+      `Native ${language} ${doubled}`,
+      NativeGateUtils._platformStatus(processId),
+      await NativeGateUtils._styleStatus(),
+      await NativeGateUtils._boundaryStatus(service),
+    ]
+  }
+
+  /**
+   * @param {number} processId
+   * @returns {string}
+   */
+  static _platformStatus(processId) {
+    return processId > 0 ? 'OS ready' : 'OS failed'
+  }
+
+  /** @returns {Promise<string>} */
+  static async _styleStatus() {
+    const ready = [await NativeGateUtils._stylesheetServed(), NativeGateUtils._styleApplied()].every(Boolean)
+    return ready ? 'Styles ready' : 'Styles failed'
+  }
+
+  /** @returns {Promise<boolean>} */
+  static async _stylesheetServed() {
+    const stylesheet = await fetch('/shared/native-gate.css', { signal: AbortSignal.timeout(5000) })
+    const type = String(stylesheet.headers.get('content-type')).split(';')[0].trim()
+    return [stylesheet.ok, type === 'text/css'].every(Boolean)
+  }
+
+  /** @returns {boolean} */
+  static _styleApplied() {
+    return getComputedStyle(document.body).getPropertyValue('--native-gate').trim() === 'ready'
+  }
+
+  /**
+   * @param {string} service
+   * @returns {Promise<string>}
+   */
+  static async _boundaryStatus(service) {
+    const rejected = await NativeGateUtils._foreignRouteRejected(service)
+    return rejected ? 'Route boundary ready' : 'Route boundary FAILED'
+  }
+
+  /**
+   * @param {string} service
+   * @returns {Promise<boolean>}
+   */
+  static async _foreignRouteRejected(service) {
+    const request = JSON.stringify({ route: '/not-this-route', service, op: 'init' })
+    try {
+      const answer = JSON.parse(await globalThis.__tachyonNativeHostCall('companion.invoke', request))
+      return Boolean(answer.error)
+    } catch {
+      return true
+    }
+  }
+}
+""")
+    write(root, "client/shared/utils/NativeServiceUtils.rs", """use crate::models::NativeEvent;
+
+pub struct NativeServiceUtils;
+
+impl NativeServiceUtils {
+    const RECEIVED: &str = "received";
+
+    pub fn doubled(count: i64) -> i64 {
+        count * 2
+    }
+
+    pub fn process_id() -> i64 {
+        i64::from(std::process::id())
+    }
+
+    pub fn announce(publisher: &ApplicationEventPublisher) -> String {
+        let event = NativeEvent { text: Self::RECEIVED.to_owned() };
+        publisher.publish_event(event, false);
+        Self::RECEIVED.to_owned()
     }
 }
 """)
-        else:
-            write(root, f"client/pages/{route}tac.cs", """public class Companion
-{
-    public int Count = 0;
-    public int Doubled() => Count * 2;
-    public int ProcessId() => Environment.ProcessId;
-    public void Announce() { Tac.Publish("native.event", "received"); }
+
+
+def component_view(label, instance, link):
+    return f"""<main aria-label="{label} route"><h1>{label} route</h1>
+<p>{label} count {{{instance}.count}}</p>
+<loop :for="check of {instance}.checks"><p>{{check}}</p></loop>
+<p>Publish {{{instance}.signal}}</p>
+<button on:click="{instance}.verify()">Verify native {label}</button>
+{link}<a href="https://example.invalid/">Leave app</a>
+</main>
+"""
+
+
+def component_style():
+    return """main { padding: 24px; }
+button, a { display: block; padding: 8px; margin: 8px; }
+"""
+
+
+def browser_service(service, instance, number, language):
+    return f"""@Service
+export default class {service} {{
+  count = -100
+  checks = [NativeGateUtils.marker()]
+  signal = 'waiting'
+
+  /** @param {{NativeEvent}} event */
+  @OnEvent
+  receive(event) {{
+    this.signal = event.text
+  }}
+
+  async verify() {{
+    this.count = {number}
+    this.checks = await NativeGateUtils.checks('{language}', await this.doubled(), await this.processId(), '{instance}')
+    await this.announce()
+  }}
+}}
+"""
+
+
+def rust_service(service):
+    source = """#[Service]
+#[derive(Default)]
+struct __SERVICE__ {
+    count: i64,
+    application_event_publisher: ApplicationEventPublisher,
 }
-""")
+
+impl __SERVICE__ {
+    pub fn doubled(&self) -> i64 {
+        NativeServiceUtils::doubled(self.count)
+    }
+
+    pub fn process_id(&self) -> i64 {
+        NativeServiceUtils::process_id()
+    }
+
+    pub fn announce(&self) -> String {
+        NativeServiceUtils::announce(&self.application_event_publisher)
+    }
+}
+"""
+    return source.replace("__SERVICE__", service)
 
 
-if __name__ == "__main__":
+def csharp_service(service):
+    source = """using Models;
+
+[Service]
+public class __SERVICE__
+{
+    private const string Received = "received";
+    public int Count = 0;
+    private readonly ApplicationEventPublisher applicationEventPublisher;
+
+    public int Doubled() => Count * 2;
+
+    public int ProcessId() => Environment.ProcessId;
+
+    public string Announce()
+    {
+        applicationEventPublisher.PublishEvent(new NativeEvent(Received));
+        return Received;
+    }
+}
+"""
+    return source.replace("__SERVICE__", service)
+
+
+def write_route(root, platform, route, label, number):
+    language = "Rust"
+    if route and platform == "windows":
+        language = "CSharp"
+    component = f"gate/{label.lower()}"
+    service = f"Gate{label}Service"
+    instance = f"gate{label}"
+    link = '<a href="/items/7/">Open second</a>'
+    if route:
+        link = '<a href="/">Return root</a>'
+    write(root, f"client/pages/{route}tac.html", f'<gate-{label.lower()} />\n')
+    write(root, f"client/components/{component}/tac.html", component_view(label, instance, link))
+    write(root, f"client/components/{component}/tac.css", component_style())
+    write(root, f"client/services/{service}.js", browser_service(service, instance, number, language))
+    if language == "Rust":
+        write(root, f"client/services/{service}.rs", rust_service(service))
+    else:
+        write(root, f"client/services/{service}.cs", csharp_service(service))
+        write(root, "client/models/NativeEvent.cs", "public record NativeEvent(string Text);\n")
+
+
+def create(root, platform):
+    if any(root.iterdir()):
+        raise RuntimeError("the acceptance fixture directory must be empty")
+    write_shared_files(root, platform)
+    write_route(root, platform, "", "Root", 7)
+    write_route(root, platform, "items/_id/", "Second", 9)
+
+
+def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("directory", type=Path)
     parser.add_argument("platform", choices=["linux", "windows"])
     arguments = parser.parse_args()
     arguments.directory.mkdir(parents=True, exist_ok=True)
     create(arguments.directory, arguments.platform)
+
+
+if __name__ == "__main__":
+    main()

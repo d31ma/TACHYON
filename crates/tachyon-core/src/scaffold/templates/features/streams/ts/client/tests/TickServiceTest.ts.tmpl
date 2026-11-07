@@ -1,0 +1,8 @@
+@Test(TickTestSetup, {"partition":"tests"})
+export default class TickServiceTest {
+  async testAddTickKeepsTheTick(): Promise<void> {
+    const service = new TickService()
+    service.addTick({ level: 3 })
+    Assert.equals(1, service.ticks.length)
+  }
+}

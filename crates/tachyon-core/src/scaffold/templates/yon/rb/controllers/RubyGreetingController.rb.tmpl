@@ -1,0 +1,9 @@
+#[RequestRoute("/api/ruby")]
+#[Public]
+class RubyGreetingController
+  # @return [String]
+  #[GetRoute]
+  def get_greeting
+    "Hello from Ruby"
+  end
+end

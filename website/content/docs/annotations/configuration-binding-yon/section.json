@@ -1,0 +1,256 @@
+{
+  "heading": "Configuration binding: Yon",
+  "axis": "language",
+  "summary": "One Setup role class carries the whole policy. Settings binds the YON_CATALOG_ prefix, and the Setup class's own fields are the settings, with @Min and @Max on a field. WhenProfile selects the active environment. WhenSetting turns the bean on or off based on a bound property. Setting binds a single canonical yon. path with a literal default. Its class, Endpoint, is a model in `server/models/` (ADR 0092); the Rust controller imports it with `use crate::models::{Endpoint, Settings}`. Every YON_CATALOG_ name in the snapshot must be declared. WhenProfile and WhenSetting are both decided before configure runs. The private snapshot stays private. Secrets live in .env. server/application.json holds placeholders and safe defaults. The controller returns selected fields that are not secret, never the resolved configuration.",
+  "body": "Settings takes the prefix and, if you need it, \"names\":{\"pageSize\":\"PAGE_LIMIT\"}, which renames one variable. By default the name after the prefix is the field name in capital letters with underscores, so pageSize reads YON_CATALOG_PAGE_SIZE. With that option it reads YON_CATALOG_PAGE_LIMIT. Only Rust and Go use \"defaults\":{\"field\":value}, as the Go tab shows (ADR 0055).\n\nSettings reads server/application.json and .env. It does not read the environment of ty itself. A handler gets an outside variable, such as HOME, only when server.environment in server/application.json lists its name (ADR 0026).\n\nIn C++, Settings and Setting go on models in server/models, as in C++ Tac code, so the Setup only selects: `Behaviors::properties<CatalogSettings>(application)` and `Behaviors::values<Endpoint>(application)` bind the snapshot that `tachyon::yon::YonApplication::snapshot()` reads, and `options.withApplication(application)` gives `Behaviors::create<CatalogSetup>(options)` the same values for WhenSetting. C++ Settings fields take `[[Min]]` and `[[Max]]`, as on the Tac side (ADR 0099).",
+  "files": [
+    {
+      "name": "server/application.json",
+      "code": { "file": "server/application.json" }
+    },
+    {
+      "name": ".env",
+      "code": { "file": "example.env" }
+    },
+    {
+      "name": "server/setups/CatalogSetup.js",
+      "code": { "file": "server/setups/CatalogSetup.js" }
+    },
+    {
+      "name": "server/controllers/SettingsController.js",
+      "code": { "file": "server/controllers/SettingsController.js" }
+    },
+    {
+      "name": "server/models/Settings.ts",
+      "code": { "file": "server/models/Settings.ts" }
+    },
+    {
+      "name": "server/setups/CatalogSetup.ts",
+      "code": { "file": "server/setups/CatalogSetup.ts" }
+    },
+    {
+      "name": "server/controllers/SettingsController.ts",
+      "code": { "file": "server/controllers/SettingsController.ts" }
+    },
+    {
+      "name": "server/models/Settings.py",
+      "code": { "file": "server/models/Settings.py" }
+    },
+    {
+      "name": "server/setups/CatalogSetup.py",
+      "code": { "file": "server/setups/CatalogSetup.py" }
+    },
+    {
+      "name": "server/controllers/SettingsController.py",
+      "code": { "file": "server/controllers/SettingsController.py" }
+    },
+    {
+      "name": "server/models/Settings.php",
+      "code": { "file": "server/models/Settings.php" }
+    },
+    {
+      "name": "server/setups/CatalogSetup.php",
+      "code": { "file": "server/setups/CatalogSetup.php" }
+    },
+    {
+      "name": "server/controllers/SettingsController.php",
+      "code": { "file": "server/controllers/SettingsController.php" }
+    },
+    {
+      "name": "server/models/Settings.java",
+      "code": { "file": "server/models/Settings.java" }
+    },
+    {
+      "name": "server/models/Settings.groovy",
+      "code": { "file": "server/models/Settings.groovy" }
+    },
+    {
+      "name": "server/setups/CatalogSetup.java",
+      "code": { "file": "server/setups/CatalogSetup.java" }
+    },
+    {
+      "name": "server/setups/CatalogSetup.groovy",
+      "code": { "file": "server/setups/CatalogSetup.groovy" }
+    },
+    {
+      "name": "server/controllers/SettingsController.java",
+      "code": { "file": "server/controllers/SettingsController.java" }
+    },
+    {
+      "name": "server/controllers/SettingsController.groovy",
+      "code": { "file": "server/controllers/SettingsController.groovy" }
+    },
+    {
+      "name": "server/models/Settings.kt",
+      "code": { "file": "server/models/Settings.kt" }
+    },
+    {
+      "name": "server/setups/CatalogSetup.kt",
+      "code": { "file": "server/setups/CatalogSetup.kt" }
+    },
+    {
+      "name": "server/controllers/SettingsController.kt",
+      "code": { "file": "server/controllers/SettingsController.kt" }
+    },
+    {
+      "name": "server/models/Settings.cs",
+      "code": { "file": "server/models/Settings.cs" }
+    },
+    {
+      "name": "server/models/Settings.fs",
+      "code": { "file": "server/models/Settings.fs" }
+    },
+    {
+      "name": "server/setups/CatalogSetup.cs",
+      "code": { "file": "server/setups/CatalogSetup.cs" }
+    },
+    {
+      "name": "server/setups/CatalogSetup.fs",
+      "code": { "file": "server/setups/CatalogSetup.fs" }
+    },
+    {
+      "name": "server/controllers/SettingsController.cs",
+      "code": { "file": "server/controllers/SettingsController.cs" }
+    },
+    {
+      "name": "server/controllers/SettingsController.fs",
+      "code": { "file": "server/controllers/SettingsController.fs" }
+    },
+    {
+      "name": "server/models/Settings.rs",
+      "code": { "file": "server/models/Settings.rs" }
+    },
+    {
+      "name": "server/setups/CatalogSetup.rs",
+      "code": { "file": "server/setups/CatalogSetup.rs" }
+    },
+    {
+      "name": "server/controllers/SettingsController.rs",
+      "code": { "file": "server/controllers/SettingsController.rs" }
+    },
+    {
+      "name": "server/models/Settings.dart",
+      "code": { "file": "server/models/Settings.dart" }
+    },
+    {
+      "name": "server/setups/CatalogSetup.dart",
+      "code": { "file": "server/setups/CatalogSetup.dart" }
+    },
+    {
+      "name": "server/controllers/SettingsController.dart",
+      "code": { "file": "server/controllers/SettingsController.dart" }
+    },
+    {
+      "name": "server/models/Endpoint.js",
+      "code": { "file": "server/models/Endpoint.js" }
+    },
+    {
+      "name": "server/models/Endpoint.ts",
+      "code": { "file": "server/models/Endpoint.ts" }
+    },
+    {
+      "name": "server/models/Endpoint.py",
+      "code": { "file": "server/models/Endpoint.py" }
+    },
+    {
+      "name": "server/models/Endpoint.php",
+      "code": { "file": "server/models/Endpoint.php" }
+    },
+    {
+      "name": "server/models/Endpoint.java",
+      "code": { "file": "server/models/Endpoint.java" }
+    },
+    {
+      "name": "server/models/Endpoint.groovy",
+      "code": { "file": "server/models/Endpoint.groovy" }
+    },
+    {
+      "name": "server/models/Endpoint.kt",
+      "code": { "file": "server/models/Endpoint.kt" }
+    },
+    {
+      "name": "server/models/Endpoint.cs",
+      "code": { "file": "server/models/Endpoint.cs" }
+    },
+    {
+      "name": "server/models/Endpoint.fs",
+      "code": { "file": "server/models/Endpoint.fs" }
+    },
+    {
+      "name": "server/models/Endpoint.rs",
+      "code": { "file": "server/models/Endpoint.rs" }
+    },
+    {
+      "name": "server/models/Settings.go",
+      "code": { "file": "server/models/Settings.go" }
+    },
+    {
+      "name": "server/setups/CatalogSetup.go",
+      "code": { "file": "server/setups/CatalogSetup.go" }
+    },
+    {
+      "name": "server/controllers/SettingsController.go",
+      "code": { "file": "server/controllers/SettingsController.go" }
+    },
+    {
+      "name": "server/models/Endpoint.go",
+      "code": { "file": "server/models/Endpoint.go" }
+    },
+    {
+      "name": "server/models/Endpoint.dart",
+      "code": { "file": "server/models/Endpoint.dart" }
+    },
+    {
+      "name": "server/models/Settings.rb",
+      "code": { "file": "server/models/Settings.rb" }
+    },
+    {
+      "name": "server/setups/CatalogSetup.rb",
+      "code": { "file": "server/setups/CatalogSetup.rb" }
+    },
+    {
+      "name": "server/controllers/SettingsController.rb",
+      "code": { "file": "server/controllers/SettingsController.rb" }
+    },
+    {
+      "name": "server/models/Endpoint.rb",
+      "code": { "file": "server/models/Endpoint.rb" }
+    },
+    {
+      "name": "server/setups/CatalogSetup.lua",
+      "code": { "file": "server/setups/CatalogSetup.lua" }
+    },
+    {
+      "name": "server/controllers/SettingsController.lua",
+      "code": { "file": "server/controllers/SettingsController.lua" }
+    },
+    {
+      "name": "server/models/Settings.lua",
+      "code": { "file": "server/models/Settings.lua" }
+    },
+    {
+      "name": "server/models/CatalogSettings.hpp",
+      "code": { "file": "server/models/CatalogSettings.hpp" }
+    },
+    {
+      "name": "server/models/Endpoint.hpp",
+      "code": { "file": "server/models/Endpoint.hpp" }
+    },
+    {
+      "name": "server/models/Settings.hpp",
+      "code": { "file": "server/models/Settings.hpp" }
+    },
+    {
+      "name": "server/setups/CatalogSetup.hpp",
+      "code": { "file": "server/setups/CatalogSetup.hpp" }
+    },
+    {
+      "name": "server/controllers/SettingsController.hpp",
+      "code": { "file": "server/controllers/SettingsController.hpp" }
+    },
+    {
+      "name": "server/models/Endpoint.lua",
+      "code": { "file": "server/models/Endpoint.lua" }
+    }
+  ]
+}

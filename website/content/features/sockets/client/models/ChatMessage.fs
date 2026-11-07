@@ -1,0 +1,1 @@
+type ChatMessage = { Text: string }

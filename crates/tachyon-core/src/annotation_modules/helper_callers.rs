@@ -1,0 +1,111 @@
+use super::Module;
+use crate::Failure;
+use crate::compiler::PortablePath;
+use std::path::{Path, PathBuf};
+
+pub(super) struct HelperCallers {
+    entry: PathBuf,
+    units: Vec<Module>,
+}
+
+impl HelperCallers {
+    pub(super) fn graph(
+        entry: &Path,
+        source: &str,
+        modules: &[Module],
+    ) -> Result<crate::behavior::CsharpHelperGraph, Failure> {
+        Self::read(entry, source, modules).ownership_graph()
+    }
+
+    pub(super) fn check(
+        entry: &Path,
+        source: &str,
+        modules: &[Module],
+        environment: &str,
+    ) -> Result<(), Failure> {
+        Self::wanted(entry, environment)
+            .then(|| Self::read(entry, source, modules).validate())
+            .transpose()
+            .map(|_| ())
+    }
+
+    fn wanted(entry: &Path, environment: &str) -> bool {
+        matches!(
+            (
+                entry.extension().and_then(|value| value.to_str()),
+                environment
+            ),
+            (Some("cs" | "fs"), "tac")
+        )
+    }
+
+    fn read(entry: &Path, source: &str, modules: &[Module]) -> Self {
+        let mut units = vec![Module {
+            path: entry.to_path_buf(),
+            source: source.to_owned(),
+        }];
+        units.extend(modules.iter().map(|module| Module {
+            path: module.path.clone(),
+            source: module.source.clone(),
+        }));
+        Self {
+            entry: entry.to_path_buf(),
+            units,
+        }
+    }
+
+    fn validate(&self) -> Result<(), Failure> {
+        let source = self.joined();
+        crate::behavior::HelperRole::require_callers(&self.entry, &source)
+            .map_err(|failure| self.located(&failure))
+    }
+
+    fn ownership_graph(&self) -> Result<crate::behavior::CsharpHelperGraph, Failure> {
+        let source = self.joined();
+        Module::require_source_bound(&self.entry, &source)?;
+        Self::graph_of(&self.entry, &source).map_err(|failure| self.located(&failure))
+    }
+
+    fn graph_of(entry: &Path, source: &str) -> Result<crate::behavior::CsharpHelperGraph, Failure> {
+        if !crate::fsharp_source::FsharpSource::is_fsharp(entry) {
+            return crate::behavior::CsharpHelperGraph::read(entry, source);
+        }
+        let view = crate::fsharp_source::FsharpView::tac(entry, source);
+        crate::behavior::CsharpHelperGraph::read(view.path(), view.text())
+            .map_err(|failure| view.failure(&failure))
+    }
+
+    fn joined(&self) -> String {
+        self.units
+            .iter()
+            .map(|unit| unit.source.as_str())
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    fn located(&self, failure: &Failure) -> Failure {
+        let mut diagnostics = failure.diagnostics().to_vec();
+        for diagnostic in &mut diagnostics {
+            diagnostic.spans.iter_mut().for_each(|span| self.span(span));
+        }
+        Failure::new(diagnostics)
+    }
+
+    fn span(&self, span: &mut tachyon_diagnostics::SourceSpan) {
+        let mut start = 0_u64;
+        for unit in &self.units {
+            self.unit_span(unit, start, span);
+            start += unit.source.len() as u64 + 1;
+        }
+    }
+
+    fn unit_span(&self, unit: &Module, start: u64, span: &mut tachyon_diagnostics::SourceSpan) {
+        if span.file == PortablePath::file(&self.entry)
+            && (start..start + unit.source.len() as u64).contains(&span.start)
+        {
+            span.file = PortablePath::file(&unit.path);
+            span.start -= start;
+            span.end = span.end.saturating_sub(start).min(unit.source.len() as u64);
+        }
+    }
+}

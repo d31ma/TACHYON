@@ -1,0 +1,1 @@
+record Money(int amount) {}

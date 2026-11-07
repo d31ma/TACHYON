@@ -1,0 +1,1 @@
+type ShortDetail = { name: string }

@@ -1,3 +1,5 @@
+import { CargoArtifacts } from './cargo-artifacts.mjs'
+import { RelaunchStorageProbe } from './native/relaunch-storage-probe.mjs'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
@@ -18,36 +20,41 @@ import { chromium } from 'playwright'
 
 assert.equal(process.platform, 'darwin', 'Phase 4 macOS evidence requires macOS.')
 
-const repository = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const binary = process.env.TAC_BIN ?? join(process.env.CARGO_TARGET_DIR ?? join(repository, 'target'), 'debug/ty')
-const fixture = join(
-  repository,
-  'crates/tachyon-cli/tests/fixtures/phase4-macos',
-)
-const evidenceDirectory = join(repository, 'target/phase4-evidence')
-const temporary = mkdtempSync(join(tmpdir(), 'tachyon-phase4-'))
-const project = join(temporary, 'project')
-const helper = join(temporary, 'phase4-macos-accessibility')
-const visualHelper = join(temporary, 'phase4-visual-compare')
-const nativeScreenshot = join(evidenceDirectory, 'native-macos.png')
-const webScreenshot = join(evidenceDirectory, 'mobile-web.png')
-const accessibilityPath = join(evidenceDirectory, 'accessibility.json')
-const visualPath = join(evidenceDirectory, 'visual-comparison.json')
-const reportPath = join(evidenceDirectory, 'report.json')
-const bundleIdentifier = `dev.tachyon.phase-four-evidence.g${process.pid}`
-const processName = `TachyonPhaseFour${process.pid}`
-const lifecyclePath = join(
-  process.env.HOME,
-  `Library/Logs/Tachyon/${bundleIdentifier}.jsonl`,
-)
-
-let browser
-let server
-let applicationStarted = false
+class Phase4Evidence {
+  static repository = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+  static binary = process.env.TAC_BIN ?? CargoArtifacts.path('debug/ty')
+  static fixture = join(
+    Phase4Evidence.repository,
+    'crates/tachyon-cli/tests/fixtures/phase4-macos',
+  )
+  static evidenceDirectory = join(Phase4Evidence.repository, 'target/phase4-evidence')
+  static temporary = mkdtempSync(join(tmpdir(), 'tachyon-phase4-'))
+  static project = join(Phase4Evidence.temporary, 'project')
+  static helper = join(Phase4Evidence.temporary, 'phase4-macos-accessibility')
+  static visualDelegate = join(Phase4Evidence.temporary, 'phase4-visual-compare')
+  static nativeScreenshot = join(Phase4Evidence.evidenceDirectory, 'native-macos.png')
+  static webScreenshot = join(Phase4Evidence.evidenceDirectory, 'mobile-web.png')
+  static accessibilityPath = join(Phase4Evidence.evidenceDirectory, 'accessibility.json')
+  static visualPath = join(Phase4Evidence.evidenceDirectory, 'visual-comparison.json')
+  static reportPath = join(Phase4Evidence.evidenceDirectory, 'report.json')
+  static bundleIdentifier = `dev.tachyon.phase-four-evidence.g${process.pid}`
+  static processName = `TachyonPhaseFour${process.pid}`
+  static lifecyclePath = join(
+    process.env.HOME,
+    `Library/Logs/Tachyon/${Phase4Evidence.bundleIdentifier}.jsonl`,
+  )
+  static websiteDataFolders = [
+    join(process.env.HOME, 'Library/WebKit', Phase4Evidence.bundleIdentifier),
+    join(process.env.HOME, 'Library/Caches', Phase4Evidence.bundleIdentifier),
+  ]
+  static relaunchStoragePrefix = 'Relaunch storage: '
+  static relaunchStorageStyle =
+    'position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap'
+}
 
 function run(program, commandArguments, options = {}) {
   const result = spawnSync(program, commandArguments, {
-    cwd: repository,
+    cwd: Phase4Evidence.repository,
     encoding: 'utf8',
     stdio: 'pipe',
     ...options,
@@ -63,7 +70,7 @@ function run(program, commandArguments, options = {}) {
 function stopApplication() {
   spawnSync('/usr/bin/osascript', [
     '-e',
-    `tell application id "${bundleIdentifier}" to quit`,
+    `tell application id "${Phase4Evidence.bundleIdentifier}" to quit`,
   ])
 }
 
@@ -87,22 +94,109 @@ function sha256(path) {
   return createHash('sha256').update(readFileSync(path)).digest('hex')
 }
 
-try {
-  run(process.execPath, [join(repository, 'scripts/native/apple-protocol-test.mjs')], {
+function prepareProject() {
+  run(process.execPath, [join(Phase4Evidence.repository, 'scripts/native/apple-protocol-test.mjs')], {
     timeout: 90000, killSignal: 'SIGKILL', maxBuffer: 1024 * 1024,
   })
   stopApplication()
-  cpSync(fixture, project, {
+  cpSync(Phase4Evidence.fixture, Phase4Evidence.project, {
     recursive: true,
-    filter: (source) => relative(fixture, source).split(sep)[0] !== 'dist',
+    filter: (source) => relative(Phase4Evidence.fixture, source).split(sep)[0] !== 'dist',
   })
-  const manifest = JSON.parse(readFileSync(join(project, 'manifest.json'), 'utf8'))
-  manifest.name = processName
-  manifest.tachyon.id = bundleIdentifier
-  writeFileSync(join(project, 'manifest.json'), JSON.stringify(manifest))
-  mkdirSync(evidenceDirectory, { recursive: true })
-  rmSync(lifecyclePath, { force: true })
+  const manifestPath = join(Phase4Evidence.project, 'client', 'manifest.json')
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
+  manifest.name = Phase4Evidence.processName
+  manifest.tac.application.id = Phase4Evidence.bundleIdentifier
+  writeFileSync(manifestPath, JSON.stringify(manifest))
+  writeRelaunchStorageFixture()
+  mkdirSync(Phase4Evidence.evidenceDirectory, { recursive: true })
+  rmSync(Phase4Evidence.lifecyclePath, { force: true })
+}
 
+function writeProjectFile(relativePath, source) {
+  const file = join(Phase4Evidence.project, relativePath)
+  mkdirSync(dirname(file), { recursive: true })
+  writeFileSync(file, source)
+}
+
+function writeRelaunchStorageFixture() {
+  writeProjectFile('client/shared/relaunch-storage.js', RelaunchStorageProbe.pageModule())
+  writeProjectFile('client/services/StorageCheckService.js', `import { RelaunchStorage } from '/shared/relaunch-storage.js';
+@Service()
+export default class StorageCheckService {
+  static _PREFIX = ${JSON.stringify(Phase4Evidence.relaunchStoragePrefix)};
+  @Needs
+  taskScheduler;
+  report = StorageCheckService._PREFIX + '${RelaunchStorageProbe.CHECKING}';
+  @OnStart()
+  initialize() {
+    void this._check();
+  }
+  async _check() {
+    this.report = StorageCheckService._PREFIX + await RelaunchStorage.check();
+    await this.taskScheduler.render();
+  }
+}
+`)
+  writeProjectFile('client/components/storage/check/tac.html',
+    `<p style="${Phase4Evidence.relaunchStorageStyle}">{storageCheck.report}</p>\n`)
+  const pagePath = join(Phase4Evidence.project, 'client/pages/tac.html')
+  const page = readFileSync(pagePath, 'utf8').trimEnd()
+  writeFileSync(pagePath, `${page}\n<storage-check hydrate="load" />\n`)
+}
+
+function nativeProcessIdentifier() {
+  const identifiers = run('/usr/bin/pgrep', ['-x', Phase4Evidence.processName]).trim().split('\n')
+  assert.equal(identifiers.length, 1, `expected one ${Phase4Evidence.processName} process`)
+  return Number(identifiers[0])
+}
+
+async function readRelaunchStorage(label) {
+  return retry(label, () => {
+    const snapshot = JSON.parse(run(Phase4Evidence.helper, [Phase4Evidence.processName]))
+    const element = snapshot.elements.find(
+      (candidate) => candidate.value?.startsWith(Phase4Evidence.relaunchStoragePrefix),
+    )
+    assert.ok(element, 'the relaunch storage text is not in the Accessibility tree yet')
+    const result = element.value.slice(Phase4Evidence.relaunchStoragePrefix.length)
+    assert.notEqual(result, RelaunchStorageProbe.CHECKING, 'the page is still checking its storage')
+    return result
+  }, 200)
+}
+
+async function checkFirstLaunchStorage() {
+  const result = await readRelaunchStorage('first launch storage write')
+  assert.equal(result, RelaunchStorageProbe.WRITTEN, `the first launch must write web storage, got ${result}`)
+  return { result, processIdentifier: nativeProcessIdentifier() }
+}
+
+async function waitForNativeExit(label) {
+  await retry(label, () => {
+    const result = spawnSync('/usr/bin/pgrep', ['-x', Phase4Evidence.processName])
+    assert.notEqual(result.status, 0)
+    return true
+  }, 200)
+}
+
+async function checkRelaunchStorage(app, firstLaunch) {
+  run('/usr/bin/open', ['-n', app])
+  try {
+    const result = await readRelaunchStorage('relaunched storage read')
+    const processIdentifier = nativeProcessIdentifier()
+    assert.notEqual(processIdentifier, firstLaunch.processIdentifier, 'the relaunch must be a new process')
+    assert.equal(result, RelaunchStorageProbe.KEPT, `web storage was not kept after the app quit, got ${result}`)
+    process.stdout.write(
+      `macOS relaunch storage passed: launch ${firstLaunch.processIdentifier} ${firstLaunch.result}, ` +
+        `relaunch ${processIdentifier} read ${result}\n`,
+    )
+    return { firstLaunch, relaunch: { result, processIdentifier } }
+  } finally {
+    stopApplication()
+    await waitForNativeExit('relaunched native process termination')
+  }
+}
+
+function compileDelegates() {
   run('/usr/bin/xcrun', [
     'swiftc',
     '-warnings-as-errors',
@@ -111,9 +205,9 @@ try {
     'AppKit',
     '-framework',
     'ApplicationServices',
-    join(repository, 'scripts/phase4-macos-accessibility.swift'),
+    join(Phase4Evidence.repository, 'scripts/phase4-macos-accessibility.swift'),
     '-o',
-    helper,
+    Phase4Evidence.helper,
   ])
   run('/usr/bin/xcrun', [
     'swiftc',
@@ -123,15 +217,17 @@ try {
     'CoreGraphics',
     '-framework',
     'ImageIO',
-    join(repository, 'scripts/phase4-visual-compare.swift'),
+    join(Phase4Evidence.repository, 'scripts/phase4-visual-compare.swift'),
     '-o',
-    visualHelper,
+    Phase4Evidence.visualDelegate,
   ])
+}
 
-  const buildOutput = run(binary, ['build', project, '--target', 'macos'])
-  const output = join(project, 'dist/macos')
-  const app = join(output, `${processName}.app`)
-  assert.ok(existsSync(join(app, `Contents/MacOS/${processName}`)))
+function buildNativeApp() {
+  const buildOutput = run(Phase4Evidence.binary, ['build', Phase4Evidence.project, '--target', 'macos'])
+  const output = join(Phase4Evidence.project, 'dist/macos')
+  const app = join(output, `${Phase4Evidence.processName}.app`)
+  assert.ok(existsSync(join(app, `Contents/MacOS/${Phase4Evidence.processName}`)))
 
   const nativeIndex = JSON.parse(readFileSync(join(output, 'native-index.json'), 'utf8'))
   assert.equal(nativeIndex.contract_version, 2)
@@ -142,20 +238,21 @@ try {
   assert.deepEqual(host.companions, [])
   assert.deepEqual(readFileSync(join(output, 'web/index.html')),
     readFileSync(join(app, 'Contents/Resources/WebBundle/index.html')))
+  return { buildOutput, output, app, nativeIndex, host }
+}
 
-  run('/usr/bin/open', ['-n', app])
-  applicationStarted = true
+async function checkNativeAccessibility() {
   await retry('native rendered Accessibility controls', () => {
-    const snapshot = JSON.parse(run(helper, [processName]))
+    const snapshot = JSON.parse(run(Phase4Evidence.helper, [Phase4Evidence.processName]))
     assert.ok(snapshot.elements.some(element => element.role === 'AXButton' && element.label === 'Increase count'))
     assert.ok(snapshot.elements.some(element => element.role === 'AXTextField' && element.label === 'Customer name'))
     return snapshot
   })
   const accessibility = JSON.parse(
-    run(helper, [processName, '--interact']),
+    run(Phase4Evidence.helper, [Phase4Evidence.processName, '--interact']),
   )
   writeFileSync(
-    accessibilityPath,
+    Phase4Evidence.accessibilityPath,
     `${JSON.stringify(accessibility, null, 2)}\n`,
   )
   assert.deepEqual(accessibility.interactions, [
@@ -204,10 +301,13 @@ try {
         element.role === 'AXGroup' && element.label === 'Sales chart',
     ),
   )
+  return { accessibility, elements }
+}
 
+function captureNativeWindow() {
   const bounds = run('/usr/bin/osascript', [
     '-e',
-    `tell application "System Events" to tell process "${processName}"`,
+    `tell application "System Events" to tell process "${Phase4Evidence.processName}"`,
     '-e',
     'set frontmost to true',
     '-e',
@@ -233,11 +333,14 @@ try {
   run('/usr/sbin/screencapture', [
     '-x',
     `-R${bounds}`,
-    nativeScreenshot,
+    Phase4Evidence.nativeScreenshot,
   ])
+  return { nativeWidth, nativeHeight }
+}
 
+function createWebServer(output) {
   const webRoot = join(output, 'web')
-  server = createServer((request, response) => {
+  return createServer((request, response) => {
     const pathname = decodeURIComponent(
       new URL(request.url || '/', 'http://127.0.0.1').pathname,
     )
@@ -250,21 +353,24 @@ try {
       const bytes = readFileSync(requested)
       const type = requested.endsWith('.js')
         ? 'text/javascript; charset=utf-8'
-        : 'text/html; charset=utf-8'
+        : requested.endsWith('.css')
+          ? 'text/css; charset=utf-8'
+          : 'text/html; charset=utf-8'
       response.writeHead(200, { 'content-type': type }).end(bytes)
     } catch {
       response.writeHead(404).end()
     }
   })
-  await new Promise((resolveListen, rejectListen) => {
+}
+
+function listen(server) {
+  return new Promise((resolveListen, rejectListen) => {
     server.once('error', rejectListen)
     server.listen(0, '127.0.0.1', resolveListen)
   })
-  const address = server.address()
-  assert.equal(typeof address, 'object')
-  const url = `http://127.0.0.1:${address.port}/`
+}
 
-  browser = await chromium.launch({ headless: true })
+async function checkWebPage(browser, url, nativeWidth, nativeHeight) {
   const page = await browser.newPage({
     viewport: { width: nativeWidth, height: nativeHeight },
   })
@@ -332,21 +438,21 @@ try {
     { role: 'group', name: 'Implementation details' },
     { role: 'group', name: 'Sales chart' },
   ])
-  await page.screenshot({ path: webScreenshot })
+  await page.screenshot({ path: Phase4Evidence.webScreenshot })
+  return webSemantics
+}
 
-  const visualOutput = run(visualHelper, [nativeScreenshot, webScreenshot])
-  writeFileSync(visualPath, visualOutput)
+function compareVisuals() {
+  const visualOutput = run(Phase4Evidence.visualDelegate, [Phase4Evidence.nativeScreenshot, Phase4Evidence.webScreenshot])
+  writeFileSync(Phase4Evidence.visualPath, visualOutput)
   const visual = JSON.parse(visualOutput)
   assert.equal(visual.passed, true)
+  return visual
+}
 
-  stopApplication()
-  applicationStarted = false
-  await retry('native process termination', () => {
-    const result = spawnSync('/usr/bin/pgrep', ['-x', processName])
-    assert.notEqual(result.status, 0)
-    return true
-  })
-  const lifecycle = readFileSync(lifecyclePath, 'utf8')
+async function checkLifecycle() {
+  await waitForNativeExit('native process termination')
+  const lifecycle = readFileSync(Phase4Evidence.lifecyclePath, 'utf8')
     .trim()
     .split('\n')
     .map((line) => JSON.parse(line))
@@ -372,7 +478,13 @@ try {
     lifecycleEvents.indexOf('controller.active') <
       lifecycleEvents.indexOf('controller.destroyed'),
   )
+  return lifecycleEvents
+}
 
+function writeReport(evidence) {
+  const {
+    buildOutput, elements, nativeIndex, host, webSemantics, lifecycleEvents, accessibility, visual, relaunchStorage,
+  } = evidence
   const report = {
     contractVersion: 1,
     target: 'macos',
@@ -384,35 +496,80 @@ try {
     lifecycleEvents,
     interactions: accessibility.interactions,
     visual,
+    relaunchStorage,
     artifacts: {
       accessibility: {
         path: 'accessibility.json',
-        sha256: sha256(accessibilityPath),
+        sha256: sha256(Phase4Evidence.accessibilityPath),
       },
       nativeScreenshot: {
         path: 'native-macos.png',
-        sha256: sha256(nativeScreenshot),
+        sha256: sha256(Phase4Evidence.nativeScreenshot),
       },
       webScreenshot: {
         path: 'mobile-web.png',
-        sha256: sha256(webScreenshot),
+        sha256: sha256(Phase4Evidence.webScreenshot),
       },
       visualComparison: {
         path: 'visual-comparison.json',
-        sha256: sha256(visualPath),
+        sha256: sha256(Phase4Evidence.visualPath),
       },
     },
   }
-  writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`)
+  writeFileSync(Phase4Evidence.reportPath, `${JSON.stringify(report, null, 2)}\n`)
   process.stdout.write(
-    `Phase 4 macOS acceptance passed; evidence: ${reportPath}\n`,
+    `Phase 4 macOS acceptance passed; evidence: ${Phase4Evidence.reportPath}\n`,
   )
-} finally {
-  if (browser) await browser.close()
-  if (server) {
-    await new Promise((resolveClose) => server.close(resolveClose))
-  }
-  if (applicationStarted) stopApplication()
-  if (process.env.TAC_KEEP_NATIVE_FIXTURE === '1') console.error(`Native fixture retained: ${project}`)
-  else rmSync(temporary, { force: true, recursive: true })
 }
+
+function removeTemporaryData() {
+  rmSync(Phase4Evidence.temporary, { force: true, recursive: true })
+  for (const folder of Phase4Evidence.websiteDataFolders) {
+    rmSync(folder, { force: true, recursive: true })
+  }
+}
+
+async function main() {
+  let browser
+  let server
+  let applicationStarted = false
+  try {
+    prepareProject()
+    compileDelegates()
+    const { buildOutput, output, app, nativeIndex, host } = buildNativeApp()
+
+    run('/usr/bin/open', ['-n', app])
+    applicationStarted = true
+    const { accessibility, elements } = await checkNativeAccessibility()
+    const firstLaunch = await checkFirstLaunchStorage()
+    const { nativeWidth, nativeHeight } = captureNativeWindow()
+
+    server = createWebServer(output)
+    await listen(server)
+    const address = server.address()
+    assert.equal(typeof address, 'object')
+    const url = `http://127.0.0.1:${address.port}/`
+
+    browser = await chromium.launch({ headless: true })
+    const webSemantics = await checkWebPage(browser, url, nativeWidth, nativeHeight)
+    const visual = compareVisuals()
+
+    stopApplication()
+    applicationStarted = false
+    const lifecycleEvents = await checkLifecycle()
+    const relaunchStorage = await checkRelaunchStorage(app, firstLaunch)
+    writeReport({
+      buildOutput, elements, nativeIndex, host, webSemantics, lifecycleEvents, accessibility, visual, relaunchStorage,
+    })
+  } finally {
+    if (browser) await browser.close()
+    if (server) {
+      await new Promise((resolveClose) => server.close(resolveClose))
+    }
+    if (applicationStarted) stopApplication()
+    if (process.env.TAC_KEEP_NATIVE_FIXTURE === '1') console.error(`Native fixture retained: ${Phase4Evidence.project}`)
+    else removeTemporaryData()
+  }
+}
+
+await main()

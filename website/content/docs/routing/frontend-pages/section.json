@@ -1,0 +1,5 @@
+{
+  "heading": "Folders become URLs",
+  "body": "client/pages/tac.html serves /. client/pages/docs/tac.html serves /docs. client/pages/docs/_topic/tac.html serves /docs/:topic. The page you are reading uses this dynamic segment. A page that contains a slot element becomes a reusable shell (a shared layout) for every page below it. A page holds only component tags (`TY1309`). For an app whose pages still hold markup, `ty migrate fix --write` moves the markup to `client/components/page/<name>/tac.html` and places `<page-<name> />` in the page (`<page-home />` for the root page). It splits the page's `tac.css`: rules the global foundation stylesheet accepts, such as `body` colours, fonts and resets, go to `client/shared/styles/<name>-page.css`, listed in `tac.styles`, and the rest goes beside the component. When the app has one page, its `tac.js` moves to `client/shared/scripts/<name>-page.js`, listed in `tac.scripts`.",
+  "code": { "file": "example.txt" }
+}

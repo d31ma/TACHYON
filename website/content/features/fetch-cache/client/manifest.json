@@ -1,0 +1,22 @@
+{
+  "tac": {
+    "python": {
+      "runtime": "pyodide-314.0.7",
+      "profile": "offline"
+    },
+    "cache": [
+      {
+        "path": "/api/products",
+        "policy": "cache-first"
+      },
+      {
+        "path": "/api/search/*",
+        "policy": "network-first"
+      },
+      {
+        "path": "/api/session",
+        "policy": "no-store"
+      }
+    ]
+  }
+}

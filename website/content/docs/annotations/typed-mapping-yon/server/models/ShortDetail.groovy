@@ -1,0 +1,1 @@
+record ShortDetail(String name) {}
