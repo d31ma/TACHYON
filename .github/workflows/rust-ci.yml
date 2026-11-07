@@ -151,11 +151,17 @@ jobs:
           echo "${jdk}/bin" >> "${GITHUB_PATH}"
 
       - name: Install PHP and php-cgi for PHP Yon handlers
+        if: runner.os != 'macOS'
         uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
         with:
           php-version: '8.4'
           coverage: none
           tools: none
+
+      - name: Install PHP 8.4 and php-cgi for PHP Yon handlers from Homebrew on macOS
+        if: runner.os == 'macOS'
+        timeout-minutes: 20
+        run: node scripts/ci/install-homebrew-php.mjs 8.4
 
       - name: Install checksum-pinned Groovy, Kotlin, the Kotlin/Wasm stdlib, Dart, Lua, Pyodide, TeaVM and cargo-nextest
         shell: bash
@@ -794,12 +800,9 @@ jobs:
       - name: Install the C# WebAssembly workload
         run: dotnet workload install wasm-tools wasm-tools-net9
 
-      - name: Install PHP and php-cgi for published Yon examples
-        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
-        with:
-          php-version: '8.4'
-          coverage: none
-          tools: none
+      - name: Install PHP 8.4 and php-cgi for published Yon examples from Homebrew
+        timeout-minutes: 20
+        run: node scripts/ci/install-homebrew-php.mjs 8.4
 
       - name: Install Ruby for published Yon examples and Ruby test units
         uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1.327.0
