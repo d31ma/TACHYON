@@ -71,6 +71,7 @@ impl SqlStore {
         if dialect != Dialect::Sqlite {
             require_network_credentials(settings)?;
         }
+        #[cfg(feature = "storage-postgres")]
         if dialect == Dialect::Postgres {
             reject_postgres_environment()?;
         }
@@ -466,6 +467,7 @@ fn validate_database_path(url: &url::Url) -> Result<(), Failure> {
     Ok(())
 }
 
+#[cfg(feature = "storage-postgres")]
 fn reject_postgres_environment() -> Result<(), Failure> {
     const KEYS: [&str; 12] = [
         "PGPORT",

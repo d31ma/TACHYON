@@ -498,6 +498,29 @@ async fn a_build_without_postgres_names_the_feature_that_adds_it() {
     assert!(error.to_string().contains("--features storage-postgres"));
 }
 
+#[cfg(not(feature = "storage-postgres"))]
+#[test]
+fn a_build_without_postgres_names_the_feature_even_with_ambient_postgres_settings() {
+    let test_binary =
+        std::env::current_exe().unwrap_or_else(|error| panic!("test binary: {error}"));
+    let output = std::process::Command::new(test_binary)
+        .args([
+            "storage::tests::a_build_without_postgres_names_the_feature_that_adds_it",
+            "--exact",
+            "--test-threads=1",
+        ])
+        .env("PGUSER", "ambient")
+        .output()
+        .unwrap_or_else(|error| panic!("child test run: {error}"));
+    let printed = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        output.status.success(),
+        "{printed}{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(printed.contains("1 passed"), "{printed}");
+}
+
 #[cfg(not(feature = "storage-mysql"))]
 #[tokio::test]
 async fn a_build_without_mysql_names_the_feature_that_adds_it() {
