@@ -9,16 +9,16 @@ pub(crate) struct SourceArchive {
     pub(crate) name: String,
     pub(crate) version: String,
     checksum: String,
-    url: String,
+    urls: Vec<String>,
     step: WebRuntimeStep,
 }
 
 impl SourceArchive {
     const DOWNLOAD_LIMIT: Duration = Duration::from_mins(10);
-    const CONNECT_SECONDS: &'static str = "30";
+    const CONNECT_SECONDS: &'static str = "15";
     const STALLED_BYTES_PER_SECOND: &'static str = "1024";
     const STALLED_SECONDS: &'static str = "60";
-    const RETRIES: &'static str = "4";
+    const RETRIES: &'static str = "2";
     const RETRY_DELAY_SECONDS: &'static str = "2";
     const UNPACK_LIMIT: Duration = Duration::from_mins(5);
 
@@ -30,8 +30,8 @@ impl SourceArchive {
 
     pub(crate) async fn unpack_into(&self, work: &Path, target: &str) -> Result<(), Failure> {
         let archive = format!("{}.tar.gz", self.name);
-        self.download(&work.join(&archive)).await?;
-        self.verify(&work.join(&archive))?;
+        let url = self.download(&work.join(&archive)).await?;
+        self.verify(&work.join(&archive), url)?;
         self.step.create_folder(&work.join(target))?;
         let mut command = Command::new("tar");
         command
@@ -49,7 +49,23 @@ impl SourceArchive {
             .await
     }
 
-    async fn download(&self, archive: &Path) -> Result<(), Failure> {
+    async fn download(&self, archive: &Path) -> Result<&str, Failure> {
+        let mut refusals = Vec::with_capacity(self.urls.len());
+        for url in &self.urls {
+            let Err(failure) = self.download_from(url, archive).await else {
+                return Ok(url);
+            };
+            refusals.push(failure.to_string());
+        }
+        Err(self.step.failure(&format!(
+            "None of the {} pinned sources for {} answered. Tachyon tried them in order:\n{}",
+            self.urls.len(),
+            self.name,
+            refusals.join("\n")
+        )))
+    }
+
+    async fn download_from(&self, url: &str, archive: &Path) -> Result<(), Failure> {
         let mut command = Command::new("curl");
         command
             .args(["--fail", "--location", "--silent", "--show-error"])
@@ -60,14 +76,14 @@ impl SourceArchive {
             .args(["--retry-delay", Self::RETRY_DELAY_SECONDS])
             .args(["--proto-redir", "=https", "--output"])
             .arg(archive)
-            .arg(&self.url);
-        let label = format!("curl to download {}", self.name);
+            .arg(url);
+        let label = format!("curl to download {} from {url}", self.name);
         self.step
             .run(&mut command, &label, Self::DOWNLOAD_LIMIT)
             .await
     }
 
-    fn verify(&self, archive: &Path) -> Result<(), Failure> {
+    fn verify(&self, archive: &Path, url: &str) -> Result<(), Failure> {
         let bytes = self.step.read_file(archive)?;
         let actual = crate::compiler::hex_digest(Sha256::digest(&bytes));
         if actual == self.checksum {
@@ -76,7 +92,7 @@ impl SourceArchive {
         let _ = std::fs::remove_file(archive);
         Err(self.step.failure(&format!(
             "The {} download from {} has SHA-256 {actual}, but Tachyon pins {}. Tachyon deleted the download and stopped.",
-            self.name, self.url, self.checksum
+            self.name, url, self.checksum
         )))
     }
 
@@ -88,16 +104,19 @@ impl SourceArchive {
 
     fn from_line(step: WebRuntimeStep, line: &str) -> Result<Self, Failure> {
         let fields: Vec<&str> = line.split_whitespace().collect();
-        let [name, version, checksum, url] = fields[..] else {
+        let [name, version, checksum, first_url, ref fallback_urls @ ..] = fields[..] else {
             return Err(step.failure(&format!(
-                "The runtime source line '{line}' needs a name, a version, a SHA-256 and a URL."
+                "The runtime source line '{line}' needs a name, a version, a SHA-256 and at least one URL."
             )));
         };
         Ok(Self {
             name: String::from(name),
             version: String::from(version),
             checksum: String::from(checksum),
-            url: String::from(url),
+            urls: std::iter::once(first_url)
+                .chain(fallback_urls.iter().copied())
+                .map(String::from)
+                .collect(),
             step,
         })
     }
@@ -237,6 +256,67 @@ mod tests {
         assert_eq!(requests.load(Ordering::SeqCst), 2);
     }
 
+    async fn closed_url() -> String {
+        let listener = TcpListener::bind("127.0.0.1:0").await.expect("listener");
+        let port = listener.local_addr().expect("address").port();
+        drop(listener);
+        format!("http://127.0.0.1:{port}/demo.tar.gz")
+    }
+
+    #[tokio::test]
+    async fn an_unreachable_source_falls_back_to_the_next_pinned_url() {
+        if !tools_available() {
+            eprintln!("skipping: curl or tar is unavailable");
+            return;
+        }
+        let work = tempfile::tempdir().expect("work");
+        let archive = packed_folder(work.path());
+        let checksum =
+            crate::compiler::hex_digest(Sha256::digest(std::fs::read(&archive).expect("archive")));
+        let mirror = url::Url::from_file_path(&archive).expect("file url");
+        let closed = closed_url().await;
+        SourceArchive::pinned(
+            WebRuntimeStep::new("Demo"),
+            &format!("demo 1 {checksum} {closed} {mirror}\n"),
+            "demo",
+        )
+        .expect("pinned")
+        .unpack_into(work.path(), "unpacked/demo")
+        .await
+        .expect("unpacked from the mirror");
+        let text =
+            std::fs::read_to_string(work.path().join("unpacked/demo/hello.txt")).expect("file");
+        assert_eq!(text, "hello");
+    }
+
+    #[tokio::test]
+    async fn every_unreachable_source_is_named_in_the_failure() {
+        if !tools_available() {
+            eprintln!("skipping: curl or tar is unavailable");
+            return;
+        }
+        let work = tempfile::tempdir().expect("work");
+        let first = closed_url().await;
+        let second = closed_url().await;
+        let failure = SourceArchive::pinned(
+            WebRuntimeStep::new("Demo"),
+            &format!("demo 1 {} {first} {second}\n", "0".repeat(64)),
+            "demo",
+        )
+        .expect("pinned")
+        .unpack_into(work.path(), "unpacked/demo")
+        .await
+        .expect_err("no source answers");
+        let message = failure.to_string();
+        assert!(
+            message.contains("None of the 2 pinned sources for demo answered"),
+            "{message}"
+        );
+        assert!(message.contains(&first), "{message}");
+        assert!(message.contains(&second), "{message}");
+        assert!(!work.path().join("unpacked").exists());
+    }
+
     #[test]
     fn a_source_line_needs_all_four_fields() {
         let failure = SourceArchive::pinned(WebRuntimeStep::new("Demo"), "demo 1 abc\n", "demo")
@@ -245,7 +325,7 @@ mod tests {
         assert!(
             failure
                 .to_string()
-                .contains("needs a name, a version, a SHA-256 and a URL"),
+                .contains("needs a name, a version, a SHA-256 and at least one URL"),
             "{failure}"
         );
         assert!(

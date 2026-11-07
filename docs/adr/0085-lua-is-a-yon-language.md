@@ -135,7 +135,9 @@ the build with `TY2015`, and the message names the resource and this ADR.
   after Ruby.
 - It runs on Tachyon's own Lua WebAssembly runtime. `runtimes/lua-web` holds
   its source: `sources.txt` pins the Lua 5.4.9 archive from lua.org by
-  SHA-256 (`2335b6c5…fb8e6`, the sum lua.org lists), `tachyon_lua.c` is the
+  SHA-256 (`2335b6c5…fb8e6`, the sum lua.org lists), with the buildroot and
+  Alpine source mirrors as fallbacks when lua.org does not answer (the pin
+  decides, whichever host serves the bytes), `tachyon_lua.c` is the
   small C boundary and `tachyon-lua.js` is the loader. The first build of a
   project with a Tac Lua service downloads and checks the archive, then links
   the Lua core, the base, coroutine, table, string, math and utf8 libraries

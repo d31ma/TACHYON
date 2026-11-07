@@ -115,6 +115,30 @@ class LanguageToolchains {
   /** @param {string} url @param {string} file @param {string} sha256 */
   static download(url, file, sha256) {
     execFileSync('curl', [...LanguageToolchains.downloadOptions, '--output', file, url], { stdio: 'inherit' });
+    LanguageToolchains.verify(url, file, sha256);
+  }
+
+  /** @param {string[]} urls @param {string} file @param {string} sha256 */
+  static downloadFromFirstAnswering(urls, file, sha256) {
+    for (const url of urls) {
+      if (LanguageToolchains.fetched(url, file)) return LanguageToolchains.verify(url, file, sha256);
+    }
+    throw new Error(`None of the ${urls.length} pinned sources answered: ${urls.join(', ')}`);
+  }
+
+  /** @param {string} url @param {string} file @returns {boolean} */
+  static fetched(url, file) {
+    try {
+      execFileSync('curl', [...LanguageToolchains.downloadOptions, '--output', file, url], { stdio: 'inherit' });
+      return true;
+    } catch (error) {
+      console.log(`${url} did not answer (${error.message}); trying the next pinned source`);
+      return false;
+    }
+  }
+
+  /** @param {string} url @param {string} file @param {string} sha256 */
+  static verify(url, file, sha256) {
     const actual = createHash('sha256').update(readFileSync(file)).digest('hex');
     if (actual !== sha256) throw new Error(`Checksum mismatch for ${url}: expected ${sha256}, got ${actual}`);
   }
@@ -216,9 +240,9 @@ class LanguageToolchains {
   static installLua(directory) {
     const line = readFileSync(LanguageToolchains.luaSources, 'utf8').split('\n').find(entry => entry.startsWith('lua '));
     if (!line) throw new Error(`${LanguageToolchains.luaSources} has no lua line`);
-    const [, version, sha256, url] = line.trim().split(/\s+/);
+    const [, version, sha256, ...urls] = line.trim().split(/\s+/);
     const file = join(directory, `lua-${version}.tar.gz`);
-    LanguageToolchains.download(url, file, sha256);
+    LanguageToolchains.downloadFromFirstAnswering(urls, file, sha256);
     LanguageToolchains.unpack(file, directory);
     const tree = join(directory, `lua-${version}`);
     const bin = process.platform === 'win32' ? join(tree, 'src') : join(directory, 'lua', 'bin');

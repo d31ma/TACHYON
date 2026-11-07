@@ -709,9 +709,11 @@ and the migration step.
   them reach the egress guard and the resource door. Outgoing requests failed
   with `Permission denied`, and gateway calls answered 500.
 - The first Lua or Ruby page build downloads its pinned runtime sources with a
-  30 s connect timeout, aborts a download that stalls for a minute, and retries
-  four times. When `www.lua.org` did not answer, the build waited up to five
-  minutes on the connection and then failed.
+  15 s connect timeout, aborts a download that stalls for a minute, and retries
+  twice. A source line may list more than one URL, tried in order, and the
+  SHA-256 pin still decides what is used. The Lua 5.4.9 line falls back to the
+  buildroot and Alpine source mirrors. When `www.lua.org` did not answer, the
+  build waited up to five minutes on the connection and then failed.
 - A `ty` built without `--features storage-postgres` now names that feature
   when a project asks for PostgreSQL, even with `PGHOST`, `PGPORT` or other
   `PG*` variables set. Before, it reported the ambient `PG*` settings and hid
