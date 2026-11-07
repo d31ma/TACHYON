@@ -104,12 +104,17 @@ class LanguageToolchains {
   };
 
   static luaSources = 'runtimes/lua-web/sources.txt';
+  static downloadOptions = [
+    '--fail', '--location', '--silent', '--show-error', '--max-time', '900',
+    '--connect-timeout', '30', '--speed-limit', '1024', '--speed-time', '60',
+    '--retry', '4', '--retry-all-errors', '--retry-delay', '5',
+  ];
 
   static usage = 'Usage: node scripts/ci/install-toolchains.mjs <directory> <groovy|kotlin|kotlin-wasm|dart|lua|pyodide|nextest|teavm>...';
 
   /** @param {string} url @param {string} file @param {string} sha256 */
   static download(url, file, sha256) {
-    execFileSync('curl', ['--fail', '--location', '--silent', '--show-error', '--retry', '3', '--max-time', '900', '--output', file, url], { stdio: 'inherit' });
+    execFileSync('curl', [...LanguageToolchains.downloadOptions, '--output', file, url], { stdio: 'inherit' });
     const actual = createHash('sha256').update(readFileSync(file)).digest('hex');
     if (actual !== sha256) throw new Error(`Checksum mismatch for ${url}: expected ${sha256}, got ${actual}`);
   }
