@@ -712,6 +712,10 @@ and the migration step.
   30 s connect timeout, aborts a download that stalls for a minute, and retries
   four times. When `www.lua.org` did not answer, the build waited up to five
   minutes on the connection and then failed.
+- A `ty` built without `--features storage-postgres` now names that feature
+  when a project asks for PostgreSQL, even with `PGHOST`, `PGPORT` or other
+  `PG*` variables set. Before, it reported the ambient `PG*` settings and hid
+  the real cause.
 - `ty serve`, `ty dev` and `ty start` drain on `SIGTERM`, `SIGINT` or
   Ctrl-C: they stop accepting connections, close streams and WebSockets
   (`1001`), and let running requests finish within
