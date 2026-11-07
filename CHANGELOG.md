@@ -682,6 +682,13 @@ and the migration step.
 - On macOS 26, Java, Kotlin and Groovy handlers start with IPv4 sockets, so
   the sandbox lets them reach the egress guard. They failed with
   `java.net.ConnectException: Operation not permitted`.
+- On macOS 26, C# and F# handlers also use IPv4 sockets, so the sandbox lets
+  them reach the egress guard and the resource door. Outgoing requests failed
+  with `Permission denied`, and gateway calls answered 500.
+- The first Lua or Ruby page build downloads its pinned runtime sources with a
+  30 s connect timeout, aborts a download that stalls for a minute, and retries
+  four times. When `www.lua.org` did not answer, the build waited up to five
+  minutes on the connection and then failed.
 - `ty serve`, `ty dev` and `ty start` drain on `SIGTERM`, `SIGINT` or
   Ctrl-C: they stop accepting connections, close streams and WebSockets
   (`1001`), and let running requests finish within
