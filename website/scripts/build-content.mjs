@@ -4,26 +4,45 @@ import { RecordedRuns } from './recorded-runs.mjs'
 import { SiteContent } from './site-content.mjs'
 
 class BuildContent {
+  static RUNS_OPTION = '--runs'
   static checkOnly = process.argv.includes('--check')
 
   static run() {
-    const staleFiles = [...BuildContent.syncGeneratedFiles(), ...BuildContent.syncPublishedRuns()]
-    BuildContent.reportOutdatedRecordings(RecordedRuns.site.stale())
+    const staleFiles = BuildContent.syncFiles(BuildContent.generatedFiles())
     BuildContent.report(staleFiles)
+    BuildContent.publishUnlessChecking(RecordedRuns.forSite(BuildContent.runsFolder(process.argv)))
   }
 
-  /** @returns {string[]} */
-  static syncGeneratedFiles() {
+  /** @returns {Map<string, string>} */
+  static generatedFiles() {
     const expected = SiteContent.generatedFiles().map(file => [SiteContent.outputPath(file), SiteContent.render(file)])
-    return BuildContent.syncFiles(new Map(/** @type {[string, string][]} */ (expected)))
+    return new Map(/** @type {[string, string][]} */ (expected))
   }
 
-  /** @returns {string[]} */
-  static syncPublishedRuns() {
-    const published = RecordedRuns.site.published()
-    const expected = [...published].map(([name, text]) => [path.join(RecordedRuns.site.publishedFolder, name), text])
-    const changed = BuildContent.syncFiles(new Map(/** @type {[string, string][]} */ (expected)))
-    return [...changed, ...BuildContent.removeUnpublished(new Set(published.keys()))]
+  /**
+   * @param {string[]} argumentsList
+   * @returns {string}
+   */
+  static runsFolder(argumentsList) {
+    const index = argumentsList.indexOf(BuildContent.RUNS_OPTION)
+    if (index === -1) return RecordedRuns.sampleFolder
+    return path.resolve(argumentsList[index + 1] ?? '')
+  }
+
+  /** @param {RecordedRuns} runs */
+  static publishUnlessChecking(runs) {
+    if (BuildContent.checkOnly) return
+    BuildContent.publishRuns(runs)
+  }
+
+  /** @param {RecordedRuns} runs */
+  static publishRuns(runs) {
+    const published = runs.published()
+    const expected = [...published].map(([name, text]) => [path.join(runs.publishedFolder, name), text])
+    BuildContent.syncFiles(new Map(/** @type {[string, string][]} */ (expected)))
+    BuildContent.removeUnpublished(runs.publishedFolder, new Set(published.keys()))
+    console.log(`Published ${published.size} recorded runs from ${runs.recordingFolder} to ${path.relative(SiteContent.website, runs.publishedFolder)}.`)
+    BuildContent.reportOutdatedRecordings(runs.stale())
   }
 
   /**
@@ -41,19 +60,21 @@ class BuildContent {
   }
 
   /**
+   * @param {string} folder
    * @param {Set<string>} keptNames
-   * @returns {string[]}
    */
-  static removeUnpublished(keptNames) {
-    const extraNames = BuildContent.publishedNames().filter(name => !keptNames.has(name))
-    for (const name of extraNames) BuildContent.removeUnlessChecking(path.join(RecordedRuns.site.publishedFolder, name))
-    return extraNames.map(name => path.relative(SiteContent.website, path.join(RecordedRuns.site.publishedFolder, name)))
+  static removeUnpublished(folder, keptNames) {
+    const extraNames = BuildContent.publishedNames(folder).filter(name => !keptNames.has(name))
+    for (const name of extraNames) rmSync(path.join(folder, name))
   }
 
-  /** @returns {string[]} */
-  static publishedNames() {
-    if (!existsSync(RecordedRuns.site.publishedFolder)) return []
-    return readdirSync(RecordedRuns.site.publishedFolder).filter(name => name.endsWith(RecordedRuns.SUFFIX))
+  /**
+   * @param {string} folder
+   * @returns {string[]}
+   */
+  static publishedNames(folder) {
+    if (!existsSync(folder)) return []
+    return readdirSync(folder).filter(name => name.endsWith(RecordedRuns.SUFFIX))
   }
 
   /**
@@ -64,12 +85,6 @@ class BuildContent {
     if (BuildContent.checkOnly) return
     mkdirSync(path.dirname(outputPath), { recursive: true })
     writeFileSync(outputPath, text)
-  }
-
-  /** @param {string} outputPath */
-  static removeUnlessChecking(outputPath) {
-    if (BuildContent.checkOnly) return
-    rmSync(outputPath)
   }
 
   /**
@@ -87,8 +102,7 @@ class BuildContent {
   /** @param {string[]} handlers */
   static reportOutdatedRecordings(handlers) {
     if (handlers.length === 0) return
-    console.warn(`These recorded runs no longer match their snippet files and are not published: ${handlers.join(', ')}`)
-    console.warn('Record them again into website/runs with: TAC_SNIPPETS_RECORD=1 bun scripts/verify-snippets.mjs')
+    console.warn(`These recorded runs no longer match their example files and are not published: ${handlers.join(', ')}`)
   }
 
   /** @param {string[]} staleFiles */

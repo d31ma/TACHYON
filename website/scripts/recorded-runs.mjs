@@ -16,13 +16,45 @@ export class RecordedRuns {
   static SCHEMA = 1
   static ID_LENGTH = 16
   static SUFFIX = '.json'
-  static site = new RecordedRuns(fileURLToPath(new URL('..', import.meta.url)))
+  static SCRATCH_FOLDER = '.runs'
+  static SOCKET_ROUTE = /^\s*(?:class\s+)?(?:\/\/ @|-- @|@|#\[|\[\[|\[<|\[)(?:SocketRoute|socket_route)\b(?:\(\s*["']([^"']*)["']\s*\))?/m
+  static CONTROLLER = /^server\/controllers\/[A-Z]\w*Controller\.(js|ts|py|php|java|groovy|kt|cs|fs|rs|dart|go|rb|lua|hpp)$/
+  static website = fileURLToPath(new URL('..', import.meta.url))
+  static sampleFolder = path.join(RecordedRuns.website, 'runs')
 
-  /** @param {string} website */
-  constructor(website) {
+  /**
+   * @param {string} website
+   * @param {string} recordingFolder
+   */
+  constructor(website, recordingFolder) {
     this.contentFolder = path.join(website, 'content')
-    this.recordingFolder = path.join(website, 'runs')
+    this.recordingFolder = recordingFolder
     this.publishedFolder = path.join(website, 'client', 'shared', 'data', 'runs')
+  }
+
+  /**
+   * @param {string} recordingFolder
+   * @returns {RecordedRuns}
+   */
+  static forSite(recordingFolder) {
+    return new RecordedRuns(RecordedRuns.website, recordingFolder)
+  }
+
+  /**
+   * @param {string} scratchRoot
+   * @returns {string}
+   */
+  static scratchFolder(scratchRoot) {
+    return path.join(scratchRoot, RecordedRuns.SCRATCH_FOLDER)
+  }
+
+  /**
+   * @param {string} name
+   * @param {string} code
+   * @returns {boolean}
+   */
+  static isRecordable(name, code) {
+    return RecordedRuns.CONTROLLER.test(name) && !RecordedRuns.SOCKET_ROUTE.test(code)
   }
 
   /**
@@ -44,15 +76,6 @@ export class RecordedRuns {
     const file = this.recordingPath(source)
     mkdirSync(path.dirname(file), { recursive: true })
     return RecordedRuns.writeWhenChanged(file, text)
-  }
-
-  /**
-   * @param {string} source
-   * @returns {string | undefined}
-   */
-  currentId(source) {
-    const recording = RecordedRuns.read(this.recordingPath(source))
-    return this.idWhenCurrent(recording, source)
   }
 
   /** @returns {Map<string, string>} */
@@ -132,16 +155,6 @@ export class RecordedRuns {
     const text = RecordedRuns.textOf(file)
     if (text === undefined) return undefined
     return JSON.parse(text)
-  }
-
-  /**
-   * @param {Recording | undefined} recording
-   * @param {string} source
-   * @returns {string | undefined}
-   */
-  idWhenCurrent(recording, source) {
-    if (!this.isCurrent(recording)) return undefined
-    return RecordedRuns.idFor(source)
   }
 
   /**

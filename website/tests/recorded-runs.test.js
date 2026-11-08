@@ -21,7 +21,7 @@ class RunFixture {
   static runs() {
     const website = mkdtempSync(path.join(tmpdir(), 'recorded-runs-'))
     RunFixture.folders.push(website)
-    const runs = new RecordedRuns(website)
+    const runs = new RecordedRuns(website, path.join(website, 'runs'))
     RunFixture.writeContent(runs, RunFixture.handler, RunFixture.handlerCode)
     RunFixture.writeContent(runs, RunFixture.model, RunFixture.modelCode)
     return runs
@@ -53,26 +53,43 @@ afterEach(() => {
 })
 
 describe('RecordedRuns', () => {
-  test('a recording of unchanged files gives the handler a run id', () => {
+  test('a recording of unchanged files is published', () => {
     const runs = RunFixture.runs()
     RunFixture.record(runs)
-    expect(runs.currentId(RunFixture.handler)).toBe(RecordedRuns.idFor(RunFixture.handler))
+    expect([...runs.published().keys()]).toEqual([`${RecordedRuns.idFor(RunFixture.handler)}.json`])
   })
 
   test('the run id is the first 16 hex digits of the handler path hash', () => {
     expect(RecordedRuns.idFor(RunFixture.handler)).toMatch(/^[0-9a-f]{16}$/)
   })
 
-  test('a handler without a recording has no run id', () => {
+  test('a missing recording folder publishes nothing', () => {
     const runs = RunFixture.runs()
-    expect(runs.currentId(RunFixture.handler)).toBeUndefined()
+    expect(runs.published().size).toBe(0)
+    expect(runs.stale()).toEqual([])
+  })
+
+  test('a controller with an HTTP route can be recorded', () => {
+    expect(RecordedRuns.isRecordable('server/controllers/EchoController.py', '@request_route("/echo")\nclass EchoController: pass')).toBe(true)
+  })
+
+  test('a socket controller cannot be recorded', () => {
+    expect(RecordedRuns.isRecordable('server/controllers/ChatController.ts', '@SocketRoute("/chat")\nexport default class ChatController {}')).toBe(false)
+  })
+
+  test('a file outside server/controllers cannot be recorded', () => {
+    expect(RecordedRuns.isRecordable('server/models/Message.py', 'class Message: pass')).toBe(false)
+  })
+
+  test('the scratch folder for recordings is hidden from staging cleanup', () => {
+    expect(path.basename(RecordedRuns.scratchFolder('/tmp/tachyon-snippets'))).toBe('.runs')
   })
 
   test('changing an input file makes the recording stale', () => {
     const runs = RunFixture.runs()
     RunFixture.record(runs)
     RunFixture.writeContent(runs, RunFixture.model, 'class Message:\n    name: str\n')
-    expect(runs.currentId(RunFixture.handler)).toBeUndefined()
+    expect(runs.published().size).toBe(0)
     expect(runs.stale()).toEqual([RunFixture.handler])
   })
 
@@ -80,7 +97,7 @@ describe('RecordedRuns', () => {
     const runs = RunFixture.runs()
     RunFixture.record(runs)
     rmSync(path.join(runs.contentFolder, RunFixture.model))
-    expect(runs.currentId(RunFixture.handler)).toBeUndefined()
+    expect(runs.published().size).toBe(0)
   })
 
   test('a recording from another schema is stale', () => {
@@ -88,7 +105,7 @@ describe('RecordedRuns', () => {
     RunFixture.record(runs)
     const file = runs.recordingPath(RunFixture.handler)
     writeFileSync(file, readFileSync(file, 'utf8').replace('"schema": 1', '"schema": 2'))
-    expect(runs.currentId(RunFixture.handler)).toBeUndefined()
+    expect(runs.published().size).toBe(0)
   })
 
   test('writing the same recording again changes nothing', () => {

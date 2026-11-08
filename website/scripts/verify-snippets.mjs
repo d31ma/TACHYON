@@ -51,6 +51,7 @@ class Settings {
   static concurrency = chooseConcurrency()
   static requireToolchains = process.env.TAC_SNIPPETS_REQUIRE_TOOLCHAINS === '1'
   static recordRuns = process.env.TAC_SNIPPETS_RECORD === '1'
+  static recordedRuns = RecordedRuns.forSite(RecordedRuns.scratchFolder(Settings.scratchRoot))
   static identityToken = 'ada-token'
   static loadFailureLimit = Number(process.env.TAC_SNIPPETS_READINESS_BUDGET ?? 2)
 }
@@ -82,7 +83,7 @@ class Patterns {
   static controllerPath = /^server\/controllers\/[A-Z]\w*Controller\.(js|ts|py|php|java|groovy|kt|cs|fs|rs|dart|go|rb|lua|hpp)$/
   static identityProviderPath = /^server\/controllers\/[A-Z]\w*IdentityProvider\.(js|ts|py|php|java|groovy|kt|cs|fs|rs|dart|go|rb|lua|hpp)$/
   static classRoute = /^\s*(?:class\s+)?(?:\/\/ @|-- @|@|#\[|\[\[|\[<|\[)(?:RequestRoute|request_route)\b(?:\(\s*["']([^"']*)["']\s*\))?/m
-  static socketRoute = /^\s*(?:class\s+)?(?:\/\/ @|-- @|@|#\[|\[\[|\[<|\[)(?:SocketRoute|socket_route)\b(?:\(\s*["']([^"']*)["']\s*\))?/m
+  static socketRoute = RecordedRuns.SOCKET_ROUTE
   static methodRoute = /^\s*(?:\/\/ @|-- @|@|#\[|\[\[|\[<|\[)(Get|Post|Put|Patch|Delete|Stream|get|post|put|patch|delete|stream)(?:Route|_route)\b(?:\(\s*["']([^"']*)["']\s*\))?/gm
   static pathVariable = /\{[a-z0-9_]+\}/g
   static pagePath = /^client\/pages\/.*tac\.html$/
@@ -1132,7 +1133,7 @@ function recordedExchange(requestPath, options, response, body) {
 function saveRecording(label, handler, files, exchanges) {
   if (!Settings.recordRuns || handler.source === undefined || exchanges.length === 0) return
   const inputs = files.filter(file => file.source !== undefined).map(file => ({ source: String(file.source), code: file.code }))
-  if (RecordedRuns.site.write(handler.source, inputs, exchanges)) emit('log', `recorded ${label}`)
+  if (Settings.recordedRuns.write(handler.source, inputs, exchanges)) emit('log', `recorded ${label}`)
 }
 
 /**
@@ -1840,6 +1841,7 @@ async function main() {
   const scope = Settings.scope
   console.log(`Selected CLI: ${Settings.binary}`)
   console.log(`Staging: ${Settings.scratchRoot} (compiled handlers are cached here between runs)`)
+  if (Settings.recordRuns) console.log(`Recording runs to ${Settings.recordedRuns.recordingFolder} (publish them with: bun run content --runs <that folder>)`)
   console.log(`Concurrency: ${Settings.concurrency} of ${cpus().length} cores, load ${loadavg()[0].toFixed(1)}`)
   console.log(`Shard: ${Settings.shard.describe()} (--shard=<index>/<count> splits the steps between runs)`)
   console.log((await runCommand(Settings.binary, ['--version'], { timeout: 10_000 })).trim())

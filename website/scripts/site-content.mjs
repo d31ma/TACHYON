@@ -113,17 +113,17 @@ export class SiteContent {
    */
   static withRunDetails(result, source, withSources) {
     if (source === undefined) return result
-    return { ...result, ...SiteContent.runField(source), ...SiteContent.sourceField(source, withSources) }
+    return { ...result, ...SiteContent.runField(result, source), ...SiteContent.sourceField(source, withSources) }
   }
 
   /**
+   * @param {Record<string, any>} file
    * @param {string} source
    * @returns {{ run?: string }}
    */
-  static runField(source) {
-    const run = RecordedRuns.site.currentId(source)
-    if (run === undefined) return {}
-    return { run }
+  static runField(file, source) {
+    if (!RecordedRuns.isRecordable(file.name, String(file.code))) return {}
+    return { run: RecordedRuns.idFor(source) }
   }
 
   /**

@@ -16,7 +16,7 @@ client/
   tests/        a test unit for every service, plus separate test-only setups
   shared/       styles, the DuVay components, scripts, and the site data in data/
 content/        every code example as a real file, with the docs text (see "Code examples")
-runs/           recorded runs of the Yon examples, made by verify:snippets (see "Recorded runs")
+runs/           one sample recorded run of a Yon example (see "Recorded runs")
 client/manifest.json   the Tac configuration: page metadata, the shared script and stylesheet,
                        the sitemap settings and the native identity (ADR 0052)
 ```
@@ -120,27 +120,34 @@ check skips it.
 
 ### Recorded runs
 
-A Yon controller example has a **Run** button when it has a current recorded
-run. The button shows the requests that `verify:snippets` sent to the
-controller and the answers it gave: method, path, body, status, content type
-and response body. The site does not run code; it shows what the example
-did the last time it was verified.
+A Yon controller example with an HTTP route has a **Run** button. The button
+shows the requests that `verify:snippets` sent to the controller and the
+answers it gave: method, path, body, status, content type and response body.
+The site does not run code: it shows what the example did when the release
+was verified. A socket controller has no Run button.
 
-To record the runs, set `TAC_SNIPPETS_RECORD=1` for `verify:snippets`, for
-example `TAC_SNIPPETS_RECORD=1 bun run verify:snippets --suite=features`.
-Each controller that passes writes `runs/<content path>.json`, such as
-`runs/features/any-language/server/controllers/EchoController.py.json`. The
-recording keeps a SHA-256 hash of every example file the run used. A file
-changes only when its requests, answers or input files change, so commit the
-changed files under `runs/`.
+Every controller tab in the generated data has `"run": "<id>"`, where `<id>`
+is the first 16 hex digits of the SHA-256 hash of the controller's path under
+`content/`. The id does not depend on any recording, so the generated data in
+git stays the same. The browser loads `/shared/data/runs/<id>.json` when the
+visitor presses Run; when that file is missing, the button says "No recorded
+output in this build".
 
-`bun run content` publishes each recording whose input files still match
-their hashes to `client/shared/data/runs/<id>.json`, where `<id>` is the first
-16 hex digits of the SHA-256 hash of the controller's content path. It adds
-`"run": "<id>"` to that controller's tab in the generated data. A recording
-whose files changed is not published, so its example shows no Run button;
-`bun run content` lists those recordings so you can record them again.
-Do not edit `runs/` or `client/shared/data/runs/` by hand.
+The recordings are build output, made when a release is built:
+
+1. `TAC_SNIPPETS_RECORD=1 bun run verify:snippets` records each controller
+   that passes to `.runs/` in the staging folder (`TAC_SNIPPETS_SCRATCH`, or
+   `tachyon-snippets` in the system temporary folder), at its path under
+   `content/`. Each recording keeps a SHA-256 hash of every example file the
+   run used.
+2. `bun run content --runs <staging folder>/.runs` publishes each recording
+   whose files still match their hashes to `client/shared/data/runs/<id>.json`,
+   and lists the recordings it left out.
+3. `ty bundle` then copies them into the site.
+
+`client/shared/data/runs/` is not in git. Without `--runs`, `bun run content`
+publishes the one sample recording in `runs/`, so a local preview shows one
+working Run button (the Python tab of the "Many server languages" feature).
 
 ## Styles
 

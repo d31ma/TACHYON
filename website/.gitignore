@@ -2,3 +2,4 @@ dist/
 dist-*/
 node_modules/
 .tac-cache/
+client/shared/data/runs/

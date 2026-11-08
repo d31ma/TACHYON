@@ -11,7 +11,7 @@ export default class SnippetRunService {
   private static readonly RUN_LABEL = 'Run'
   private static readonly HIDE_LABEL = 'Hide output'
   private static readonly LOADING_MESSAGE = 'Loading the recorded output'
-  private static readonly FAILED_MESSAGE = 'The recorded output could not be loaded. Try again.'
+  private static readonly FAILED_MESSAGE = 'No recorded output in this build.'
   @Needs
   recordedRunClient!: RecordedRunClient
   @Needs

@@ -43,14 +43,14 @@ export default class SnippetRunServiceTest {
     this.mounted(service, async () => { throw Error('offline') })
     await service.toggle(null, 'abc')
     Assert.isTrue(!service.isShown('abc'), 'nothing is shown')
-    Assert.equals('The recorded output could not be loaded. Try again.', service.status('abc'), 'the status says what happened')
+    Assert.equals('No recorded output in this build.', service.status('abc'), 'the status says what happened')
   }
 
   async testAnEmptyAnswerCountsAsAFailedLoad() {
     const service = new SnippetRunService()
     this.mounted(service, async () => undefined)
     await service.toggle(null, 'abc')
-    Assert.equals('The recorded output could not be loaded. Try again.', service.status('abc'), 'an empty answer is a failure')
+    Assert.equals('No recorded output in this build.', service.status('abc'), 'an empty answer is a failure')
   }
 
   async testAnUnknownRunHasNoExchanges() {
