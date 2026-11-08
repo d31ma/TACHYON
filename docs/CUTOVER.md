@@ -3,7 +3,7 @@
 "Cutover" means making the Rust implementation Tachyon's default. The cutover
 gate is the list of conditions that must hold first.
 
-## Current status: release candidate (2026-11-02)
+## Current status: release candidate (2026-11-08)
 
 Maintainer decision D1 (2026-10-31): the next version published from
 `develop` is a **release candidate**. It is not a supported release and not a
@@ -15,37 +15,41 @@ The candidate is published only after every gate in the table below has a
 passing result on the release commit. These gates replace the open
 reconciliation gate of 2026-08-30 (below) for this version.
 
-- Release commit: the version commit on `release/26.45.01`, on top of
-  `develop` at `5a6f31450`. It changes only the version and the release
-  notes, so the gates below ran on `5a6f31450`.
-- Version: **26.45.01**
+- Release commit: the version commit on `release/26.45.07`, on top of
+  `develop` at `66ae003b2` with `main` (the 26.45.01 release commit) merged
+  in.
+- Version: **26.45.07**
+- 26.45.01 passed these gates on `5a6f31450` (2026-11-02), but it was never
+  published: its publish run failed in the native artifact jobs, whose
+  install, upgrade and rollback drill ran without Bun. Its results are in the
+  history of this file on `release/26.45.01`.
 
 A **pending** cell is filled with the date, the commit and the run (a CI run
 link, or the name of the local run) when the gate runs on the release commit.
 
 | Gate | Command | Result on the release commit |
 | --- | --- | --- |
-| Rust suite on macOS, Linux and Windows | `tachyon-ci --vms develop`: fmt, clippy `-D warnings`, the full nextest suite and rustdoc `-D warnings` in every lane | Passed, 2026-11-02, `5a6f31450`, local run `ci-20261102-1006-5a6f3145`: macOS 5,590 of 5,590, Linux 5,568 of 5,568, Windows 5,444 of 5,444 |
-| Website typing | `ty types website`, `bun run typecheck` | Passed, 2026-11-02, `5a6f31450`, local run `ci-20261102-1045-5a6f3145` |
-| Website content, styles and language coverage | `website/scripts/build-content.mjs --check`, `build-styles.mjs --check`, `language-coverage.mjs --strict` | Passed, 2026-11-02, `5a6f31450`, local run `ci-20261102-1045-5a6f3145` |
-| Page size budget (TY1337) and responsive widths | `ty build website`, `ty preview --static`, `website/scripts/check-responsive.mjs` | Passed, 2026-11-02, `5a6f31450`, local run `ci-20261102-1045-5a6f3145` |
-| Browser gates | the `bun run test:*-browser` steps of the `rust-ci.yml` browser job, and `bun run test:website-browser` | Passed, 2026-11-02, `5a6f31450`, local run `ci-20261102-1045-5a6f3145` (42 steps), and the five browser-job steps that run outside that list in local run `release-11c-20261102-1006` |
-| Website acceptance | `bun run test:website` | Passed, 2026-11-02, `5a6f31450`, local run `ci-20261102-1045-5a6f3145` |
-| Published snippets | `website/scripts/verify-snippets.mjs --no-cache` | Passed, 2026-11-02, `5a6f31450`, local run `ci-20261102-1045-5a6f3145`: 852 bundles, 0 failures |
-| macOS native | `bun run test:phase4-macos` | Passed, 2026-11-02, `5a6f31450`, local run `ci-20261102-1045-5a6f3145`, with the macOS page, window, geolocation and Safari gates; one flaky gate (below) |
-| iOS simulator | `scripts/ios/native-test.mjs` | Passed, 2026-11-02, `5a6f31450`, local run `ci-20261102-1045-5a6f3145`, with 12 of the 13 iOS gates; the system back gesture is limited (below) |
-| Android emulator | `scripts/android/native-test.sh` | Passed, 2026-11-02, `5a6f31450`, local run `ci-20261102-1045-5a6f3145`; the Java cells are limited (below) |
-| Linux GTK4 | `scripts/linux/native-test.sh`, `scripts/linux/application-state-test.sh` and the icon gate, in the pinned container | Passed, 2026-11-02, `5a6f31450`, local run `ci-20261102-1045-5a6f3145`: 14 of 14 Linux steps |
-| Windows WebView2 | `scripts/windows/native-test.ps1` | Passed, 2026-11-02, `5a6f31450`, local run `ci-20261102-1045-5a6f3145`: 16 of 16 Windows steps |
-| Native GUI tests that are ignored by default | `scripts/linux/compositor-test.sh`, `scripts/linux/wine-tests.sh`, the macOS GUI tests | Passed, 2026-11-02, `5a6f31450`, local run `ci-20261102-1045-5a6f3145`: Wine 20 of 20, macOS GUI 16 of 16 with one flaky test (below) |
-| Fuzzing | the six `rust-ci.yml` fuzz targets, 300 seconds each | Passed, 2026-11-02, `5a6f31450`, local run `ci-20261102-1045-5a6f3145`: no crash in any target |
-| Install, upgrade, rollback and uninstall | `scripts/release/lifecycle-drill.sh`, from v26.36.01 to the candidate and back to v26.36.01 | Passed, 2026-11-02, `5a6f31450`, local run `release-11c-20261102-1006/drill`, with OS egress enforcement |
+| Rust suite on macOS, Linux and Windows | `tachyon-ci --vms develop`: fmt, clippy `-D warnings`, the full nextest suite and rustdoc `-D warnings` in every lane | **pending** |
+| Website typing | `ty types website`, `bun run typecheck` | **pending** |
+| Website content, styles and language coverage | `website/scripts/build-content.mjs --check`, `build-styles.mjs --check`, `language-coverage.mjs --strict` | **pending** |
+| Page size budget (TY1337) and responsive widths | `ty build website`, `ty preview --static`, `website/scripts/check-responsive.mjs` | **pending** |
+| Browser gates | the `bun run test:*-browser` steps of the `rust-ci.yml` browser job, and `bun run test:website-browser` | **pending** |
+| Website acceptance | `bun run test:website` | **pending** |
+| Published snippets | `website/scripts/verify-snippets.mjs --no-cache` | **pending** |
+| macOS native | `bun run test:phase4-macos` | **pending** |
+| iOS simulator | `scripts/ios/native-test.mjs` | **pending** |
+| Android emulator | `scripts/android/native-test.sh` | **pending** |
+| Linux GTK4 | `scripts/linux/native-test.sh`, `scripts/linux/application-state-test.sh` and the icon gate, in the pinned container | **pending** |
+| Windows WebView2 | `scripts/windows/native-test.ps1` | **pending** |
+| Native GUI tests that are ignored by default | `scripts/linux/compositor-test.sh`, `scripts/linux/wine-tests.sh`, the macOS GUI tests | **pending** |
+| Fuzzing | the six `rust-ci.yml` fuzz targets, 300 seconds each | **pending** |
+| Install, upgrade, rollback and uninstall | `scripts/release/lifecycle-drill.sh`, from v26.36.01 to the candidate and back to v26.36.01 | **pending** |
 | Full CI on the `develop` to `main` pull request | `.github/workflows/rust-ci.yml` | **pending** |
 | Signed, attested and verified assets | the sign, stage and verify jobs of `.github/workflows/publish.yml` | **pending** |
 | macOS release app (Developer ID signing and notarization) | the ignored test `a_developer_id_macos_release_is_notarized_and_stapled` in `crates/tachyon-cli/tests/it/macos_release_cli.rs` | **Accepted exception** (2026-10-31): this machine has no notarization profile. v26.36.01 shipped no notarized macOS app either, only the `ty` executable with Sigstore attestations |
 
-Flaky on the release commit, each passed on a rerun and accepted on
-2026-11-02:
+Flaky on 26.45.01's release commit (`5a6f31450`), each passed on a rerun and
+accepted on 2026-11-02:
 
 - `page-services-macos`: the window refusal check read no text from the app
   window on its first run, then passed when the gate ran again on its own,

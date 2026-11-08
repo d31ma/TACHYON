@@ -8,7 +8,7 @@ machine contracts have their own, independent major versions.
 
 ## [Unreleased]
 
-## [26.45.01] - 2026-11-02
+## [26.45.07] - 2026-11-08
 
 ### Highlights
 
@@ -923,6 +923,12 @@ irm https://github.com/d31ma/TACHYON/releases/download/v26.36.01/install.ps1 | i
 ```
 
 PHP projects can keep `php-cgi` installed; 26.36.01 starts `php`.
+
+## [26.45.01] - 2026-11-02 (unpublished)
+
+This release candidate was never made public. Its publish run failed in the
+native artifact jobs, whose install, upgrade and rollback drill ran without
+Bun. 26.45.07 replaces it with the same changes.
 
 ## [26.36.01] - 2026-08-31
 
@@ -2260,7 +2266,8 @@ that expected the old `dist/layouts/` output.
 
 See the Git history and GitHub release notes for changes before 2.0.
 
-[Unreleased]: https://github.com/d31ma/TACHYON/compare/v26.45.01...HEAD
+[Unreleased]: https://github.com/d31ma/TACHYON/compare/v26.45.07...HEAD
+[26.45.07]: https://github.com/d31ma/TACHYON/compare/v26.36.01...v26.45.07
 [26.45.01]: https://github.com/d31ma/TACHYON/compare/v26.36.01...v26.45.01
 [26.36.01]: https://github.com/d31ma/TACHYON/compare/v26.35.07...v26.36.01
 [26.35.07]: https://github.com/d31ma/TACHYON/compare/v26.33.02...v26.35.07
