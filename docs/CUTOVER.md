@@ -15,9 +15,11 @@ The candidate is published only after every gate in the table below has a
 passing result on the release commit. These gates replace the open
 reconciliation gate of 2026-08-30 (below) for this version.
 
-- Release commit: the version commit on `release/26.45.07`, on top of
-  `develop` at `66ae003b2` with `main` (the 26.45.01 release commit) merged
-  in.
+- Release commit: the version commit `a17a1c79f` on `release/26.45.07`, on
+  top of `develop` at `66ae003b2` with `main` (the 26.45.01 release commit)
+  merged in. `develop` at `eaa638cbc` was merged after it as `8fa6cd034`:
+  it pins the hosted runner images of `rust-ci.yml` and
+  `fuzz-scheduled.yml` and changes no runtime code.
 - Version: **26.45.07**
 - 26.45.01 passed these gates on `5a6f31450` (2026-11-02), but it was never
   published: its publish run failed in the native artifact jobs, whose
@@ -29,35 +31,39 @@ link, or the name of the local run) when the gate runs on the release commit.
 
 | Gate | Command | Result on the release commit |
 | --- | --- | --- |
-| Rust suite on macOS, Linux and Windows | `tachyon-ci --vms develop`: fmt, clippy `-D warnings`, the full nextest suite and rustdoc `-D warnings` in every lane | **pending** |
-| Website typing | `ty types website`, `bun run typecheck` | **pending** |
-| Website content, styles and language coverage | `website/scripts/build-content.mjs --check`, `build-styles.mjs --check`, `language-coverage.mjs --strict` | **pending** |
-| Page size budget (TY1337) and responsive widths | `ty build website`, `ty preview --static`, `website/scripts/check-responsive.mjs` | **pending** |
-| Browser gates | the `bun run test:*-browser` steps of the `rust-ci.yml` browser job, and `bun run test:website-browser` | **pending** |
-| Website acceptance | `bun run test:website` | **pending** |
-| Published snippets | `website/scripts/verify-snippets.mjs --no-cache` | **pending** |
-| macOS native | `bun run test:phase4-macos` | **pending** |
-| iOS simulator | `scripts/ios/native-test.mjs` | **pending** |
-| Android emulator | `scripts/android/native-test.sh` | **pending** |
-| Linux GTK4 | `scripts/linux/native-test.sh`, `scripts/linux/application-state-test.sh` and the icon gate, in the pinned container | **pending** |
-| Windows WebView2 | `scripts/windows/native-test.ps1` | **pending** |
-| Native GUI tests that are ignored by default | `scripts/linux/compositor-test.sh`, `scripts/linux/wine-tests.sh`, the macOS GUI tests | **pending** |
-| Fuzzing | the six `rust-ci.yml` fuzz targets, 300 seconds each | **pending** |
-| Install, upgrade, rollback and uninstall | `scripts/release/lifecycle-drill.sh`, from v26.36.01 to the candidate and back to v26.36.01 | **pending** |
+| Rust suite on macOS, Linux and Windows | `tachyon-ci --vms develop`: fmt, clippy `-D warnings`, the full nextest suite and rustdoc `-D warnings` in every lane | **Passed** 2026-11-08 on `a17a1c79f`: macOS 5,600 of 5,600 tests (local run `ci-20261108-0701`), Linux 5,578 of 5,578 and Windows 5,454 of 5,454 (`ci-20261108-0638`). On `8fa6cd034`, `cargo nextest run -p tachyon-contracts --test repository_policy --locked`: 40 of 40 |
+| Website typing | `ty types website`, `bun run typecheck` | **Passed** 2026-11-08 on `a17a1c79f` (`ci-20261108-0718`, website group) |
+| Website content, styles and language coverage | `website/scripts/build-content.mjs --check`, `build-styles.mjs --check`, `language-coverage.mjs --strict` | **Passed** 2026-11-08 on `a17a1c79f` (`ci-20261108-0718`) |
+| Page size budget (TY1337) and responsive widths | `ty build website`, `ty preview --static`, `website/scripts/check-responsive.mjs` | **Passed** 2026-11-08 on `a17a1c79f` (`ci-20261108-0718`) |
+| Browser gates | the `bun run test:*-browser` steps of the `rust-ci.yml` browser job, and `bun run test:website-browser` | **Passed** 2026-11-08 on `a17a1c79f` (`ci-20261108-0718`, browser group). The five `package.json` gates that release-extras does not run (native-bridge-bounds, python-tac-public-assets, server-probe, remotes-socket-browser, go-page-provider-identity-browser) passed in `release-26.45.07-drill-fu11`. Branded Safari 27.2: 9 of 9 (`release-26.45.07-safari-diag2`); Safari must not be already open, because it rejects automation sessions it did not launch; branded iOS Safari: 9 of 9 (`ci-20261108-1135`) |
+| Website acceptance | `bun run test:website` | **Passed** 2026-11-08 on `a17a1c79f` (`ci-20261108-0718`) |
+| Published snippets | `website/scripts/verify-snippets.mjs --no-cache` | **Passed** 2026-11-08 on `a17a1c79f` (`ci-20261108-0718`) |
+| macOS native | `bun run test:phase4-macos` | **Passed** 2026-11-08 on `a17a1c79f` (`ci-20261108-1555`, run from Terminal.app). Every other macOS group gate passed except the macOS release app (see below). `page-services-macos` is **pending**: every page service and WindowControls caller passed, but the FilePicker callers wait for a rerun with the fixed open-panel test script (the old script's final Return did not press Open on macOS 27.2) |
+| iOS simulator | `scripts/ios/native-test.mjs` | **Passed** 2026-11-08 on `a17a1c79f` (`ci-20261108-1135`) |
+| Android emulator | `scripts/android/native-test.sh` | **Passed** 2026-11-08 on `a17a1c79f` (`ci-20261108-1328`, with `ADB_MDNS=0`) |
+| Linux GTK4 | `scripts/linux/native-test.sh`, `scripts/linux/application-state-test.sh` and the icon gate, in the pinned container | **Passed** 2026-11-08 on `a17a1c79f` (`ci-20261108-1453`, 14 of 14 linux steps) |
+| Windows WebView2 | `scripts/windows/native-test.ps1` | **Passed** 2026-11-08 on `a17a1c79f` (`ci-20261108-1135`, 16 of 16 windows steps) |
+| Native GUI tests that are ignored by default | `scripts/linux/compositor-test.sh`, `scripts/linux/wine-tests.sh`, the macOS GUI tests | **Passed** 2026-11-08 on `a17a1c79f`: compositor and Wine (20 of 20) in `ci-20261108-1453`, the macOS GUI tests in `ci-20261108-1555` |
+| Fuzzing | the six `rust-ci.yml` fuzz targets, 300 seconds each | **Passed** 2026-11-08 on `a17a1c79f` (`ci-20261108-0718`) |
+| Install, upgrade, rollback and uninstall | `scripts/release/lifecycle-drill.sh`, from v26.36.01 to the candidate and back to v26.36.01 | **Passed** 2026-11-08 on `a17a1c79f` (`release-26.45.07-drill-fu11`): every stage, and two packagings were bit-identical |
 | Full CI on the `develop` to `main` pull request | `.github/workflows/rust-ci.yml` | **pending** |
 | Signed, attested and verified assets | the sign, stage and verify jobs of `.github/workflows/publish.yml` | **pending** |
 | macOS release app (Developer ID signing and notarization) | the ignored test `a_developer_id_macos_release_is_notarized_and_stapled` in `crates/tachyon-cli/tests/it/macos_release_cli.rs` | **Accepted exception** (2026-10-31): this machine has no notarization profile. v26.36.01 shipped no notarized macOS app either, only the `ty` executable with Sigstore attestations |
 
-Flaky on 26.45.01's release commit (`5a6f31450`), each passed on a rerun and
-accepted on 2026-11-02:
+Flaky on 26.45.07's release commit (`a17a1c79f`): each failed once or
+twice and then passed. The maintainer accepts or rejects each one before
+the merge to `main`:
 
-- `page-services-macos`: the window refusal check read no text from the app
-  window on its first run, then passed when the gate ran again on its own,
-  twice.
-- The macOS GUI test
-  `macos_integrated_title_bar_keeps_buttons_insets_drag_regions_and_full_screen`:
-  its first try could not take the full-screen screenshot, and the retry
-  passed.
+- `windows-page-checks`: in `ci-20261108-0718` every page step passed, then
+  the UI Automation probe ran past its 600 second limit. It passed in
+  `ci-20261108-1135`.
+- `scripts/android/native-test.sh`: the system back check "Back goes to the
+  previous route" failed in `ci-20261108-1251` and passed in
+  `ci-20261108-1328`.
+- The Linux GUI test
+  `linux_generated_host_places_the_window_buttons_at_the_declared_inset`:
+  it failed at different steps in `ci-20261108-0718` and
+  `ci-20261108-1401`, and passed in `ci-20261108-1453`.
 
 Passed before the release commit was chosen, on `develop` at `e5c2fc8d4`
 (2026-10-31):
@@ -97,10 +103,11 @@ Not passed, and not claimed by this release candidate:
     starts WebKit's back gesture but does not complete it in three tries.
     `history.back()` works, a manual check with the simulator's own edge
     gesture went back, and the gate passed on iOS 18.0 (ADR 0109).
-- The Linux desktop evidence comes from WSL on ARM64 and from containers, not
-  from a physical x86_64 desktop.
+- The Linux desktop evidence comes from linux/arm64 containers, not from a
+  physical x86_64 desktop.
 - The Windows desktop gates other than `native-test.ps1` ran on ARM64 only.
-- The macOS Accessibility automation is still a named local evidence gap.
+- The Android gates ran with `ADB_MDNS=0`: adb 37.0.1 aborts in its mDNS
+  code on macOS 27.2 when the emulator starts.
 - A hung native service is not stopped by the native call time limit (see
   [`SUPPORT_TIERS.md`](SUPPORT_TIERS.md), "Native apps reach Yon through a
   declared origin").
