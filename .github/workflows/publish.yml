@@ -375,7 +375,7 @@ jobs:
         (github.event_name == 'workflow_dispatch' && !inputs.dry_run) ||
         (inputs.dry_run && needs.build.result == 'success'))
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 25
+    timeout-minutes: ${{ matrix.os == 'linux-x64' && 90 || 25 }}
     permissions:
       contents: write
     strategy:
@@ -514,13 +514,29 @@ jobs:
               "${file}"
           done
 
-      - name: Verify features in the downloaded executable
+      - name: Name a byte-identical copy of the downloaded executable ty, as the installers do
         shell: bash
         env:
-          TAC_BIN: ${{ github.workspace }}/release/${{ matrix.asset }}
+          ASSET: ${{ matrix.asset }}
         run: |
           set -euo pipefail
-          chmod 0755 "${TAC_BIN}"
+          name=ty
+          if [[ "${ASSET}" == *.exe ]]; then
+            name=ty.exe
+          fi
+          mkdir -p "${RUNNER_TEMP}/ty-bin"
+          cp "release/${ASSET}" "${RUNNER_TEMP}/ty-bin/${name}"
+          chmod 0755 "${RUNNER_TEMP}/ty-bin/${name}"
+          cmp "release/${ASSET}" "${RUNNER_TEMP}/ty-bin/${name}"
+          echo "TAC_BIN=${RUNNER_TEMP}/ty-bin/${name}" >> "${GITHUB_ENV}"
+
+      - name: Verify features in the downloaded executable
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${RUNNER_OS}" = Windows ]; then
+            export YON_EGRESS_ENFORCEMENT=proxy
+          fi
           node scripts/schema-contract-smoke.mjs
           node scripts/native/companion-test.mjs
           node scripts/release/feature-smoke.mjs
@@ -622,10 +638,7 @@ jobs:
       - name: Build the Tac Lua runtime once with the downloaded executable, outside the browser gates' build limits
         if: matrix.os == 'linux-x64'
         shell: bash
-        run: |
-          set -euo pipefail
-          chmod 0755 "release/${{ matrix.asset }}"
-          node scripts/ci/build-lua-runtime.mjs "release/${{ matrix.asset }}"
+        run: node scripts/ci/build-lua-runtime.mjs "${TAC_BIN}"
 
       - name: Check the website data generated from website/content
         if: matrix.os == 'linux-x64'
@@ -636,7 +649,6 @@ jobs:
         if: matrix.os == 'linux-x64'
         shell: bash
         env:
-          TAC_BIN: ${{ github.workspace }}/release/${{ matrix.asset }}
           TAC_BROWSER_REQUIRE_TOOLCHAINS: "1"
         run: |
           set -euo pipefail

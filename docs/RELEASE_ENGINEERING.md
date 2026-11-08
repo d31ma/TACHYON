@@ -88,7 +88,8 @@ it, and it never creates its own tag. It:
     Windows x64/arm64;
 11. verifies every checksum, GitHub provenance attestation, and Sigstore
     signature;
-12. tests each raw binary and the real installer, which fails closed. The
+12. tests each raw binary, under the name `ty` that the installers give it,
+    and the real installer, which fails closed. The
     tests cover schema contracts, the native companion ABI (application
     binary interface), client plans, and production start. The downloaded
     Linux binary also runs the browser/storage and website typing gates
