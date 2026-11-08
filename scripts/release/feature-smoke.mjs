@@ -33,7 +33,8 @@ async function checkBundle(binary, root) {
   assert.equal(plan.nodes[0].k, 'component');
   assert.equal(plan.nodes[0].name, 'feature-main');
   const [main] = plan.nodes[0].template;
-  assert.equal(main.attributes[0].value, '&lt;', 'entities must decode only once');
+  const title = main.attributes.find((/** @type {{ name: string, value: string }} */ attribute) => attribute.name === 'title');
+  assert.equal(title?.value, '&lt;', 'entities must decode only once');
   assert.equal(main.children[0].k, 'counted');
   assert.equal(main.children[0].comparison, 'ge');
   assert.ok(published.includes('name="viewport"'));
