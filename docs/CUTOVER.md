@@ -19,7 +19,10 @@ reconciliation gate of 2026-08-30 (below) for this version.
   top of `develop` at `66ae003b2` with `main` (the 26.45.01 release commit)
   merged in. `develop` at `eaa638cbc` was merged after it as `8fa6cd034`:
   it pins the hosted runner images of `rust-ci.yml` and
-  `fuzz-scheduled.yml` and changes no runtime code.
+  `fuzz-scheduled.yml` and changes no runtime code. `develop` at
+  `91eceb505` was merged as `89c8988cc`: it makes the macOS open-panel
+  test script wait for the panel and click Open, and changes no runtime
+  code.
 - Version: **26.45.07**
 - 26.45.01 passed these gates on `5a6f31450` (2026-11-02), but it was never
   published: its publish run failed in the native artifact jobs, whose
@@ -38,12 +41,12 @@ link, or the name of the local run) when the gate runs on the release commit.
 | Browser gates | the `bun run test:*-browser` steps of the `rust-ci.yml` browser job, and `bun run test:website-browser` | **Passed** 2026-11-08 on `a17a1c79f` (`ci-20261108-0718`, browser group). The five `package.json` gates that release-extras does not run (native-bridge-bounds, python-tac-public-assets, server-probe, remotes-socket-browser, go-page-provider-identity-browser) passed in `release-26.45.07-drill-fu11`. Branded Safari 27.2: 9 of 9 (`release-26.45.07-safari-diag2`); Safari must not be already open, because it rejects automation sessions it did not launch; branded iOS Safari: 9 of 9 (`ci-20261108-1135`) |
 | Website acceptance | `bun run test:website` | **Passed** 2026-11-08 on `a17a1c79f` (`ci-20261108-0718`) |
 | Published snippets | `website/scripts/verify-snippets.mjs --no-cache` | **Passed** 2026-11-08 on `a17a1c79f` (`ci-20261108-0718`) |
-| macOS native | `bun run test:phase4-macos` | **Passed** 2026-11-08 on `a17a1c79f` (`ci-20261108-1555`, run from Terminal.app). Every other macOS group gate passed except the macOS release app (see below). `page-services-macos` is **pending**: every page service and WindowControls caller passed, but the FilePicker callers wait for a rerun with the fixed open-panel test script (the old script's final Return did not press Open on macOS 27.2) |
+| macOS native | `bun run test:phase4-macos` | **Passed** 2026-11-08 on `a17a1c79f` (`ci-20261108-1555`, run from Terminal.app). Every other macOS group gate passed except the macOS release app (see below). `page-services-macos` **passed** on `89c8988cc` twice in a row (`release-26.45.07-picker-merge`, run from Terminal.app, with the release ty of `ci-20261108-1830`): every page service, WindowControls and FilePicker caller (rs, swift) passed. Before the fixed open-panel test script, the FilePicker callers failed on macOS 27.2 because the script's final Return did not press Open |
 | iOS simulator | `scripts/ios/native-test.mjs` | **Passed** 2026-11-08 on `a17a1c79f` (`ci-20261108-1135`) |
 | Android emulator | `scripts/android/native-test.sh` | **Passed** 2026-11-08 on `a17a1c79f` (`ci-20261108-1328`, with `ADB_MDNS=0`) |
 | Linux GTK4 | `scripts/linux/native-test.sh`, `scripts/linux/application-state-test.sh` and the icon gate, in the pinned container | **Passed** 2026-11-08 on `a17a1c79f` (`ci-20261108-1453`, 14 of 14 linux steps) |
 | Windows WebView2 | `scripts/windows/native-test.ps1` | **Passed** 2026-11-08 on `a17a1c79f` (`ci-20261108-1135`, 16 of 16 windows steps) |
-| Native GUI tests that are ignored by default | `scripts/linux/compositor-test.sh`, `scripts/linux/wine-tests.sh`, the macOS GUI tests | **Passed** 2026-11-08 on `a17a1c79f`: compositor and Wine (20 of 20) in `ci-20261108-1453`, the macOS GUI tests in `ci-20261108-1555` |
+| Native GUI tests that are ignored by default | `scripts/linux/compositor-test.sh`, `scripts/linux/wine-tests.sh`, the macOS GUI tests | **Passed** 2026-11-08 on `a17a1c79f`: compositor and Wine (20 of 20) in `ci-20261108-1453`, the macOS GUI tests in `ci-20261108-1555`, and again, 16 of 16, on `89c8988cc` with the shared open-panel script (`ci-20261108-1830`) |
 | Fuzzing | the six `rust-ci.yml` fuzz targets, 300 seconds each | **Passed** 2026-11-08 on `a17a1c79f` (`ci-20261108-0718`) |
 | Install, upgrade, rollback and uninstall | `scripts/release/lifecycle-drill.sh`, from v26.36.01 to the candidate and back to v26.36.01 | **Passed** 2026-11-08 on `a17a1c79f` (`release-26.45.07-drill-fu11`): every stage, and two packagings were bit-identical |
 | Full CI on the `develop` to `main` pull request | `.github/workflows/rust-ci.yml` | **pending** |
