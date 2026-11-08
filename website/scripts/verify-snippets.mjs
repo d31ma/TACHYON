@@ -19,6 +19,7 @@ import { SnippetScope } from './snippet-scope.mjs'
 import { SocketProbe } from './socket-probe.mjs'
 import { PythonWebRuntime } from './python-web-runtime.mjs'
 import { RecordedRuns } from './recorded-runs.mjs'
+import { RunnableExamples } from './runnable-examples.mjs'
 import { SnippetShard } from './snippet-shard.mjs'
 import { ToolchainFingerprint } from './toolchain-fingerprint.mjs'
 import { TypeCheckProjects } from './type-check-projects.mjs'
@@ -52,6 +53,7 @@ class Settings {
   static requireToolchains = process.env.TAC_SNIPPETS_REQUIRE_TOOLCHAINS === '1'
   static recordRuns = process.env.TAC_SNIPPETS_RECORD === '1'
   static recordedRuns = RecordedRuns.forSite(RecordedRuns.scratchFolder(Settings.scratchRoot))
+  static runnableFolder = process.env.TAC_SNIPPETS_STAGE_RUNNABLE ? path.resolve(process.env.TAC_SNIPPETS_STAGE_RUNNABLE) : undefined
   static identityToken = 'ada-token'
   static loadFailureLimit = Number(process.env.TAC_SNIPPETS_READINESS_BUDGET ?? 2)
 }
@@ -902,14 +904,18 @@ async function bundleServiceClass(label, code) {
  * @returns {{method:string, path:string}[]}
  */
 function controllerRoutes(code) {
+  return controllerRouteTemplates(code).map(route => ({ method: route.method, path: route.path.replace(Patterns.pathVariable, '42') }))
+}
+
+/** @param {string} code */
+function controllerRouteTemplates(code) {
   const classMatch = code.match(Patterns.classRoute)
   assert.ok(classMatch, 'A controller needs a RequestRoute annotation on its class')
   const classPath = classMatch[1] ?? ''
   const routes = []
   for (const match of code.matchAll(Patterns.methodRoute)) {
     const method = match[1].toLowerCase() === 'stream' ? 'GET' : match[1].toUpperCase()
-    const fullPath = `${classPath}${match[2] ?? ''}`.replace(Patterns.pathVariable, '42')
-    routes.push({ method, path: fullPath || '/' })
+    routes.push({ method, path: `${classPath}${match[2] ?? ''}` || '/' })
   }
   assert.ok(routes.length > 0, 'A controller needs at least one route method, such as GetRoute')
   return routes
@@ -1107,6 +1113,7 @@ async function executeHandler(label, files, handler, checkValue, expectedError) 
         pass(`${label} OPTIONS without identity`, 'http')
       }
       saveRecording(label, handler, files, exchanges)
+      stageRunnable(label, handler, files, controllerRouteTemplates(handler.code))
     })
   })
 }
@@ -1122,6 +1129,19 @@ function recordedExchange(requestPath, options, response, body) {
   const headers = Object.fromEntries(Object.entries(options.headers).filter(([name]) => !Patterns.defaultRequestHeaders.has(name)))
   const request = { method: options.method, path: requestPath, headers, ...(options.body === undefined ? {} : { body: options.body }) }
   return { request, response: { status: response.status, contentType: response.headers.get('content-type') ?? '', body } }
+}
+
+/**
+ * @param {string} label
+ * @param {Snippet} handler
+ * @param {Snippet[]} files
+ * @param {{method:string, path:string}[]} routes
+ */
+function stageRunnable(label, handler, files, routes) {
+  if (Settings.runnableFolder === undefined || handler.source === undefined || routes.length === 0) return
+  if (FyloStaging.tools(files).length > 0) return
+  const runId = new RunnableExamples(Settings.runnableFolder).stage(handler.source, files, routes)
+  emit('log', `staged runnable ${label} as ${runId}`)
 }
 
 /**
@@ -1842,6 +1862,7 @@ async function main() {
   console.log(`Selected CLI: ${Settings.binary}`)
   console.log(`Staging: ${Settings.scratchRoot} (compiled handlers are cached here between runs)`)
   if (Settings.recordRuns) console.log(`Recording runs to ${Settings.recordedRuns.recordingFolder} (publish them with: bun run content --runs <that folder>)`)
+  if (Settings.runnableFolder) console.log(`Staging runnable examples to ${Settings.runnableFolder}`)
   console.log(`Concurrency: ${Settings.concurrency} of ${cpus().length} cores, load ${loadavg()[0].toFixed(1)}`)
   console.log(`Shard: ${Settings.shard.describe()} (--shard=<index>/<count> splits the steps between runs)`)
   console.log((await runCommand(Settings.binary, ['--version'], { timeout: 10_000 })).trim())

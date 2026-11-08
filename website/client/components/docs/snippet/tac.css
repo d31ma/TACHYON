@@ -206,6 +206,52 @@ margin: 0 1rem;
 .code-run-output .code-block {
 padding-right: 1rem;
 }
+
+.code-run-live {
+display: grid;
+  gap: .5rem;
+  margin: .5rem 0 0;
+  padding-top: .75rem;
+  border-top: 1px solid var(--w-border, currentColor);
+}
+
+.code-run-field {
+display: grid;
+  gap: .25rem;
+  margin: 0 1rem;
+  font-size: var(--step-sm);
+  line-height: 1.5;
+}
+
+.code-run-field-name {
+color: var(--w-text-subtle, inherit);
+  font-family: var(--tachyon-mono);
+}
+
+.code-run-input {
+min-height: 2.75rem;
+  padding: .5rem .75rem;
+  border: 1px solid var(--w-border, currentColor);
+  border-radius: var(--w-radius-md, 8px);
+  background: var(--w-surface-container-low, canvas);
+  color: var(--w-text, inherit);
+  font-family: var(--tachyon-mono);
+  font-size: var(--step-sm);
+  line-height: 1.5;
+}
+
+.code-run-input:focus-visible {
+outline: 2px solid var(--w-primary, currentColor);
+  outline-offset: 2px;
+}
+
+.code-run-actions {
+display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .75rem;
+  margin: 0 1rem;
+}
 }
 
 /* @tachyon-generated-tailwind:start */
