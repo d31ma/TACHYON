@@ -325,14 +325,14 @@ mod tests {
             .is_ok_and(|status| status.success())
     }
 
-    async fn assert_process_gone(pid: u32) {
+    fn assert_process_gone(pid: u32) {
         for _attempt in 0..100 {
             if !process_exists(pid) {
                 return;
             }
-            tokio::time::sleep(Duration::from_millis(20)).await;
+            std::thread::sleep(Duration::from_millis(20));
         }
-        panic!("descendant {pid} survived parent exit");
+        panic!("descendant {pid} survived cleanup");
     }
 
     fn first_line_pid(stdout: &[u8]) -> u32 {
@@ -359,7 +359,7 @@ mod tests {
         assert!(output.status.success());
         assert_eq!(output.stdout.len(), 1_024);
         let pid = first_line_pid(&output.stdout);
-        assert_process_gone(pid).await;
+        assert_process_gone(pid);
     }
 
     #[tokio::test]
@@ -381,7 +381,7 @@ mod tests {
             panic!("expected a deadline failure, got {error:?}");
         };
         assert!(started.elapsed() < Duration::from_secs(5));
-        assert_process_gone(first_line_pid(&partial.stdout)).await;
+        assert_process_gone(first_line_pid(&partial.stdout));
         assert_eq!(
             active_count(&tracker.active_drains),
             0,
@@ -400,7 +400,7 @@ mod tests {
         assert!(output.status.success());
         assert_eq!(output.stdout.len(), 1_024);
         let pid = first_line_pid(&output.stdout);
-        assert!(!process_exists(pid), "descendant {pid} survived cleanup");
+        assert_process_gone(pid);
 
         let started = std::time::Instant::now();
         let mut timeout = std::process::Command::new("sh");
