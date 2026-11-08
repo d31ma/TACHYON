@@ -133,7 +133,11 @@ is the first 16 hex digits of the SHA-256 hash of the controller's path under
 `content/`. The id does not depend on any recording, so the generated data in
 git stays the same. The browser loads `/shared/data/runs/<id>.json` when the
 visitor presses Run; when that file is missing, the button says "No recorded
-output in this build".
+output in this build". On `tachyon.del.ma` and `staging.tachyon.del.ma` the
+file comes from the API origin (see Live runs), because Tac sends every HTTP
+client call there once the page has one; the runner container serves the
+same site build, recordings included. So when the API is down, the recorded
+output does not show either. A local preview loads it from its own origin.
 
 The recordings are build output, made when a release is built:
 
@@ -156,8 +160,21 @@ working Run button (the Python tab of the "Many server languages" feature).
 Under the recorded output, the Run panel has a form, filled in from the
 recording, where a visitor can change the path (with a query after `?`) and
 the body, then press **Run live**. The page sends the run to
-`POST /api/snippets/{id}/runs` on its own origin. When nothing answers there,
-as on a static preview, the page says so and keeps the recorded output.
+`POST /api/snippets/{id}/runs` on the API origin. The script
+`client/shared/scripts/YonOrigin.js`, the first of `tac.scripts`, so it runs
+after the page's meta tags, chooses it from the page's host name, so
+one build works on both sites: `tachyon.del.ma` calls
+`https://api.tachyon.del.ma`, `staging.tachyon.del.ma` calls
+`https://api.staging.tachyon.del.ma`, and any other host, such as a local
+preview, calls its own origin. `tac.yon.origin` in `client/manifest.json`
+makes the build write the `tachyon-yon-origin` meta tag with the production
+API origin; the script changes the tag for the staging host and removes it on
+any other host. Tac sends the request to that origin over CORS without
+cookies. `tac.outgoing.hosts` adds both API origins to the page's
+`connect-src`. The proxy in front of the API answers
+CORS for the site origin, for the runs and for `GET /shared/data/runs/*`,
+so `server.origins` stays empty. When nothing answers, as on a static preview, the page says so and keeps the
+recorded output.
 
 A live run goes through three parts, all in one container:
 
@@ -167,7 +184,7 @@ A live run goes through three parts, all in one container:
    reaches the host as `X-Snippet-Client`. `server/application.json` lists
    the host as `snippets.localhost` in `outgoing.hosts`; that is the only
    loopback name a confined handler may reach. `server.hosts` lists
-   `api.tachyon.del.ma` and `staging.api.tachyon.del.ma`.
+   `api.tachyon.del.ma` and `api.staging.tachyon.del.ma`.
 2. The snippet host (`runner/`, run with `bun runner/main.ts`) listens on
    `127.0.0.1:8100` and refuses other peers. It refuses an example that was
    not staged for this build, a path that is not one of the example's routes,

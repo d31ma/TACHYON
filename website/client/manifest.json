@@ -35,6 +35,15 @@
       "preferenceStrings"
     ],
     "origin": "https://tachyon.del.ma",
+    "yon": {
+      "origin": "https://api.tachyon.del.ma"
+    },
+    "outgoing": {
+      "hosts": [
+        "api.tachyon.del.ma",
+        "api.staging.tachyon.del.ma"
+      ]
+    },
     "names": {
       "words": [
         "toc"
@@ -51,6 +60,7 @@
       "/shared/scripts/ThemeDefault.js"
     ],
     "scripts": [
+      "/shared/scripts/YonOrigin.js",
       "/shared/assets/duvay/duvay-wc-site.min.js",
       "/shared/assets/duvay/duvay.min.js",
       "/shared/scripts/DocsDataPreload.js"
