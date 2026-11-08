@@ -49,6 +49,11 @@ impl FakeGtkHost {
         &SENT
     }
 
+    fn queued() -> &'static std::sync::Mutex<Vec<(u64, String)>> {
+        static QUEUED: std::sync::Mutex<Vec<(u64, String)>> = std::sync::Mutex::new(Vec::new());
+        &QUEUED
+    }
+
     fn dispatched() -> &'static std::sync::atomic::AtomicUsize {
         static DISPATCHED: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
         &DISPATCHED
@@ -80,7 +85,12 @@ impl FakeGtkHost {
         let url = Self::text(url);
         let line = format!("{} {url} {:?} body={} {} {limit}", Self::text(method), Self::text(headers), !body.is_null() && length > 0, timeout > 0);
         Self::sent().lock().expect("sent").push(line);
-        std::thread::spawn(move || {
+        Self::queued().lock().expect("queued").push((ticket, url));
+    }
+
+    fn answer_queued() {
+        let queued = std::mem::take(&mut *Self::queued().lock().expect("queued"));
+        for (ticket, url) in queued {
             let (status, answer, error): (u32, &[u8], &[u8]) = match url.rsplit('/').next() {
                 Some("greeting") => (200, br#"{"message":"hello from Yon"}"#, b"\0"),
                 Some("refused") => (401, b"", b"\0"),
@@ -88,7 +98,7 @@ impl FakeGtkHost {
             };
             let error = if error.len() > 1 { error.as_ptr().cast() } else { core::ptr::null() };
             unsafe { TacHostHttp::tac_native_http_answer(ticket, status, answer.as_ptr(), answer.len(), error) };
-        });
+        }
     }
 
     fn request(operation: &str, name: &str) -> String {
@@ -102,10 +112,24 @@ impl FakeGtkHost {
         let heard = Self::signals().lock().expect("signals").len();
         let started = Self::request("call", name);
         assert!(started.starts_with(r#"{"task":"#), "{started}");
+        Self::run_main_loop_until_answered(heard)
+    }
+
+    fn ask_answered_now_or_later(name: &str) -> String {
+        let heard = Self::signals().lock().expect("signals").len();
+        let started = Self::request("call", name);
+        match started.starts_with(r#"{"task":"#) {
+            true => Self::run_main_loop_until_answered(heard),
+            false => started,
+        }
+    }
+
+    fn run_main_loop_until_answered(heard: usize) -> String {
         for _ in 0..3000 {
             if Self::signals().lock().expect("signals").len() > heard {
                 break;
             }
+            Self::answer_queued();
             if Self::dispatched().swap(0, std::sync::atomic::Ordering::SeqCst) > 0 {
                 tac_handle(r#"{"op":"host-resume"}"#);
             }
@@ -120,7 +144,7 @@ fn main() {
     assert!(!init.contains("error"), "{init}");
     unsafe { tac_native_set_emit(Some(FakeGtkHost::emit)) };
     unsafe { TacTaskDispatch::tac_native_set_dispatch(Some(FakeGtkHost::dispatch)) };
-    let missing = FakeGtkHost::ask("askServer");
+    let missing = FakeGtkHost::ask_answered_now_or_later("askServer");
     assert!(missing.contains("HTTP_MISSING"), "a host without an HTTP sender keeps refusing: {missing}");
     unsafe { TacHostHttp::tac_native_set_http_sender(Some(FakeGtkHost::send)) };
     let answered = FakeGtkHost::ask("askServer");
