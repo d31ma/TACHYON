@@ -1,4 +1,4 @@
-ARG TOOLCHAIN_IMAGE
+ARG TOOLCHAIN_IMAGE=tachyon-linux-ci:required
 ARG LAMBDA_ADAPTER=public.ecr.aws/awsguru/aws-lambda-adapter:0.9.1
 
 FROM ${LAMBDA_ADAPTER} AS adapter

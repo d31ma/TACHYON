@@ -7,6 +7,7 @@ class StageRunnerImage {
   static website = fileURLToPath(new URL('..', import.meta.url))
   static WEBSITE_PARTS = ['client', 'server', 'runner']
   static OPTIONS = ['--out', '--ty', '--runnable', '--website-dist']
+  static BUILD_OUTPUT = ['dist', '.tachyon', 'node_modules']
 
   static run() {
     const options = StageRunnerImage.options(process.argv)
@@ -14,10 +15,18 @@ class StageRunnerImage {
     mkdirSync(path.join(options.out, 'website', 'dist'), { recursive: true })
     for (const part of StageRunnerImage.WEBSITE_PARTS) cpSync(path.join(StageRunnerImage.website, part), path.join(options.out, 'website', part), { recursive: true })
     cpSync(options.websiteDist, path.join(options.out, 'website', 'dist', 'web'), { recursive: true })
-    cpSync(options.runnable, path.join(options.out, 'runnable'), { recursive: true })
+    cpSync(options.runnable, path.join(options.out, 'runnable'), { recursive: true, filter: source => !StageRunnerImage.isBuildOutput(source) })
     cpSync(options.ty, path.join(options.out, 'ty'))
     cpSync(path.join(StageRunnerImage.website, 'runner', 'Dockerfile'), path.join(options.out, 'Dockerfile'))
     console.log(`Staged the snippet runner image context in ${options.out}`)
+  }
+
+  /**
+   * @param {string} source
+   * @returns {boolean}
+   */
+  static isBuildOutput(source) {
+    return StageRunnerImage.BUILD_OUTPUT.includes(path.basename(source))
   }
 
   /**

@@ -17,6 +17,8 @@ client/
   shared/       styles, the DuVay components, scripts, and the site data in data/
 content/        every code example as a real file, with the docs text (see "Code examples")
 runs/           one sample recorded run of a Yon example (see "Recorded runs")
+server/         the Yon routes that run examples live: POST /api/snippets/{id}/runs (see "Live runs")
+runner/         the snippet host and the runner image (Bun; not part of the site bundle)
 client/manifest.json   the Tac configuration: page metadata, the shared script and stylesheet,
                        the sitemap settings and the native identity (ADR 0052)
 ```
@@ -148,6 +150,53 @@ The recordings are build output, made when a release is built:
 `client/shared/data/runs/` is not in git. Without `--runs`, `bun run content`
 publishes the one sample recording in `runs/`, so a local preview shows one
 working Run button (the Python tab of the "Many server languages" feature).
+
+### Live runs
+
+Under the recorded output, the Run panel has a form, filled in from the
+recording, where a visitor can change the path (with a query after `?`) and
+the body, then press **Run live**. The page sends the run to
+`POST /api/snippets/{id}/runs` on its own origin. When nothing answers there,
+as on a static preview, the page says so and keeps the recorded output.
+
+A live run goes through three parts, all in one container:
+
+1. `ty start website` serves `server/`. `SnippetRunController` is `@Public`.
+   It passes the run, and the client address that `ty` puts in `X-Real-IP`
+   (`server.proxies` trusts only loopback), to the snippet host. The address
+   reaches the host as `X-Snippet-Client`. `server/application.json` lists
+   the host as `snippets.localhost` in `outgoing.hosts`; that is the only
+   loopback name a confined handler may reach. `server.hosts` lists
+   `api.tachyon.del.ma` and `staging.api.tachyon.del.ma`.
+2. The snippet host (`runner/`, run with `bun runner/main.ts`) listens on
+   `127.0.0.1:8100` and refuses other peers. It refuses an example that was
+   not staged for this build, a path that is not one of the example's routes,
+   a body over 16 KiB or more than 16 query values. It allows 10 runs a
+   minute and 200 a day for each client address (429 with `Retry-After`),
+   runs at most 4 at once with 16 waiting (503 beyond that), and stops an
+   answer at 64 KiB and a run at 10 seconds (`outcome: "timeout"`).
+3. For each example, the host starts the example's own `ty start` on first
+   use, from a copy in a temporary folder, with a cleared environment and
+   `YON_ISOLATION=process`, so every request gets a fresh process under the
+   operating system's egress confinement. An example server that has been
+   idle for 60 seconds stops and its folder is deleted; at most 4 run at once.
+
+`TAC_SNIPPETS_STAGE_RUNNABLE=<folder> bun run verify:snippets` writes each
+controller that passes to `<folder>/<id>/project`, with `runnable.json`
+(its source, language and route templates). Examples that need FYLO are
+left out. `node scripts/stage-runner-image.mjs --out <context> --ty <Linux ty>
+--runnable <folder> --website-dist <dist/web>` gathers the image context, and
+`docker buildx build --build-arg TOOLCHAIN_IMAGE=<Linux toolchain image>
+<context>` builds `runner/Dockerfile`: the toolchain image plus the AWS Lambda
+Web Adapter, `ty`, the website and the staged examples, each bundled during
+the build. The container starts `bun runner/main.ts`, which starts the
+snippet host and `ty start website` on port 8000.
+
+To try it on this machine, stage some examples, run `ty bundle .` in each
+`project` folder, build the site, and run
+`SNIPPET_HOST_PROJECTS=<folder> SNIPPET_HOST_TY=<ty> SNIPPET_HOST_WEBSITE=$PWD
+WEBSITE_PORT=8040 bun runner/main.ts`; the site and its API are then at
+`http://localhost:8040`.
 
 ## Styles
 
