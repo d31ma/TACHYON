@@ -99,6 +99,22 @@ The workflow never creates or moves a tag. It never overwrites a release
 asset. If a verification fails, the draft stays non-public so that people can
 investigate.
 
+### Dry Run
+
+Before a release PR, run the workflow's dry run on the branch you mean to
+release, so the native artifact jobs and the release checks run on GitHub's
+runners with the toolchains the workflow installs:
+
+```sh
+gh workflow run publish.yml --ref <branch> -f dry_run=true
+```
+
+A dry run takes no tag. It builds all six native artifacts and runs the
+lifecycle drill on the Linux and macOS ones. It then runs every check of the
+staged-release verification on those artifacts, with checksums made from them.
+It skips the full qualification suite, the SBOM, every attestation and Sigstore
+step, and it never creates, edits or downloads a release.
+
 Cross-building may add to the matrix. It never replaces native evidence for
 promotion.
 
@@ -199,8 +215,10 @@ the drill logs the refusal and starts the server again with
 `YON_EGRESS_ENFORCEMENT=proxy`. Each run logs which enforcement it used.
 
 `--from` defaults to `TAC_DRILL_FROM`, or else to the latest published
-release. The drill needs `node` on `PATH` for the sample app's route.
-The drill also needs `git` to revert the migration.
+release. The drill needs `node` 24.5 or later on `PATH` for the sample app's
+route, and `bun`, because `ty start` runs the sample app's JavaScript with Bun
+(TY2112 when it is missing). Every job that runs the drill installs both at the
+pinned versions. The drill also needs `git` to revert the migration.
 `TAC_DRILL_RELEASE_URL` replaces the download folder of the `--from` release.
 
 The drill does not cover Windows; `install.ps1` has its own backup and restore

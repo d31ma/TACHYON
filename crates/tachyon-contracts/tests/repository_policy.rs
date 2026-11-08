@@ -691,6 +691,137 @@ fn stable_release_is_tag_gated_and_fail_closed() -> Result<(), Box<dyn std::erro
 }
 
 #[test]
+fn every_lifecycle_drill_installs_node_and_bun_before_it_runs()
+-> Result<(), Box<dyn std::error::Error>> {
+    let mut checked = 0;
+    for name in ["publish.yml", "rust-ci.yml"] {
+        let workflow = parsed_workflow(name)?;
+        let jobs = workflow["jobs"].as_hash().ok_or("the workflow has jobs")?;
+        for (job_name, job) in jobs {
+            let steps = job["steps"].as_vec().map(Vec::as_slice).unwrap_or_default();
+            let Some(drill) = steps.iter().position(|step| {
+                step["run"]
+                    .as_str()
+                    .is_some_and(|run| run.contains("lifecycle-drill.sh"))
+            }) else {
+                continue;
+            };
+            checked += 1;
+            let before = &steps[..drill];
+            assert!(
+                before.iter().any(|step| pins_setup_action(
+                    step,
+                    "actions/setup-node@",
+                    "node-version"
+                )),
+                "{name}: job {job_name:?} runs the lifecycle drill before it installs a pinned Node"
+            );
+            assert!(
+                before.iter().any(|step| pins_setup_action(
+                    step,
+                    "oven-sh/setup-bun@",
+                    "bun-version"
+                )),
+                "{name}: job {job_name:?} runs the lifecycle drill before it installs a pinned Bun, which the sample app's ty start requires"
+            );
+        }
+    }
+    assert_eq!(
+        checked, 2,
+        "publish.yml's build job and rust-ci.yml's release-lifecycle job run the lifecycle drill"
+    );
+    Ok(())
+}
+
+fn pins_setup_action(step: &Yaml, action: &str, version_input: &str) -> bool {
+    let uses_action = step["uses"]
+        .as_str()
+        .is_some_and(|uses| uses.starts_with(action));
+    uses_action && step["with"][version_input].as_str().is_some()
+}
+
+#[test]
+fn a_publish_dry_run_never_attests_stages_or_publishes() -> Result<(), Box<dyn std::error::Error>> {
+    let workflow = parsed_workflow("publish.yml")?;
+    let jobs = &workflow["jobs"];
+    let dry_run = &workflow["on"]["workflow_dispatch"]["inputs"]["dry_run"];
+    assert_eq!(dry_run["type"].as_str(), Some("boolean"));
+    assert_eq!(dry_run["default"].as_bool(), Some(false));
+    assert_eq!(
+        jobs["qualification"]["if"].as_str(),
+        Some("github.event_name == 'push'")
+    );
+    assert_eq!(
+        jobs["sbom"]["if"].as_str(),
+        Some("github.event_name == 'push'")
+    );
+    assert_eq!(
+        jobs["stage-release"]["if"].as_str(),
+        Some("github.event_name == 'push'")
+    );
+    assert!(
+        jobs["publish"]["if"]
+            .as_str()
+            .is_some_and(|condition| condition.contains("!inputs.dry_run &&")),
+        "the publish job never runs for a dry run"
+    );
+
+    let dry_identity = jobs["validate"]["steps"]
+        .as_vec()
+        .ok_or("validate has steps")?
+        .iter()
+        .find(|step| step["id"].as_str() == Some("dry-run-identity"))
+        .ok_or("validate reads a dry run's version in its own step")?;
+    assert_eq!(dry_identity["if"].as_str(), Some("inputs.dry_run"));
+    assert!(
+        dry_identity["run"]
+            .as_str()
+            .is_some_and(|run| run.contains("test -z \"${TAG_INPUT}\"")),
+        "a dry run refuses a release tag"
+    );
+
+    let release_actions = [
+        "actions/attest-build-provenance@",
+        "sigstore/cosign-installer@",
+    ];
+    let release_commands = [
+        "gh release download",
+        "gh attestation verify",
+        "cosign verify-blob",
+    ];
+    let mut guarded = 0;
+    for job_name in ["validate", "build", "verify-release"] {
+        for step in jobs[job_name]["steps"]
+            .as_vec()
+            .ok_or("the job has steps")?
+        {
+            let uses = step["uses"].as_str().unwrap_or_default();
+            let run = step["run"].as_str().unwrap_or_default();
+            let touches_a_release = release_actions
+                .iter()
+                .any(|action| uses.starts_with(action))
+                || release_commands.iter().any(|command| run.contains(command))
+                || run.contains("gh release view");
+            if !touches_a_release {
+                continue;
+            }
+            guarded += 1;
+            assert_eq!(
+                step["if"].as_str(),
+                Some("${{ !inputs.dry_run }}"),
+                "{job_name}: step {:?} attests, signs, or reads a release, so a dry run skips it",
+                step["name"].as_str()
+            );
+        }
+    }
+    assert_eq!(
+        guarded, 6,
+        "validate's identity check, build's attestation, and verify-release's download, attestation, cosign install and signature checks"
+    );
+    Ok(())
+}
+
+#[test]
 fn release_signatures_and_downloads_use_the_current_repository_name()
 -> Result<(), Box<dyn std::error::Error>> {
     let root = repository_root();
