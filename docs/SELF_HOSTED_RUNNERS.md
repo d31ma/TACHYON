@@ -38,13 +38,13 @@ In every other case the job uses the same GitHub-hosted runner as before:
 
 The Android emulator job also needs a second variable,
 `TACHYON_SELF_HOSTED_ANDROID`, set to `true`. Without it, that job stays on
-`ubuntu-latest` even when the main switch is on, because the emulator needs
+`ubuntu-24.04` even when the main switch is on, because the emulator needs
 hardware virtualization (`/dev/kvm`) inside WSL.
 
 The expression in a job looks like this:
 
 ```yaml
-runs-on: ${{ ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/heads/') && vars.TACHYON_SELF_HOSTED == 'true') && fromJSON('["self-hosted","tachyon","linux"]') || 'ubuntu-latest' }}
+runs-on: ${{ ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/heads/') && vars.TACHYON_SELF_HOSTED == 'true') && fromJSON('["self-hosted","tachyon","linux"]') || 'ubuntu-24.04' }}
 ```
 
 The two matrix jobs keep `matrix.os` as the hosted label. Each matrix entry
@@ -61,26 +61,26 @@ other workflow names a self-hosted runner.
 
 | Job | Hosted runner | Self-hosted labels | Machine |
 | --- | --- | --- | --- |
-| `rewrite-policy` | `ubuntu-latest` | `self-hosted, tachyon, linux` | WSL |
-| `native` (Linux entry) | `ubuntu-latest` | `self-hosted, tachyon, linux` | WSL |
-| `native` (macOS entry) | `macos-latest` | `self-hosted, tachyon, macos` | Mac |
-| `native` (Windows entry) | `windows-latest` | `self-hosted, tachyon, windows` | Windows |
-| `managed-storage` | `ubuntu-latest` | `self-hosted, tachyon, linux` | WSL (Docker) |
-| `supply-chain` | `ubuntu-latest` | `self-hosted, tachyon, linux` | WSL |
-| `browser` | `ubuntu-latest` | `self-hosted, tachyon, linux` | WSL |
-| `browser-languages` (one entry per browser gate) | `ubuntu-latest` | `self-hosted, tachyon, linux` | WSL |
-| `macos-native` (one entry for the gates and one for each third of the published snippets) | `macos-latest` | `self-hosted, tachyon, macos` | Mac |
-| `linux-native` | `ubuntu-latest` | `self-hosted, tachyon, linux` | WSL (Docker) |
-| `windows-native` | `windows-latest` | `self-hosted, tachyon, windows` | Windows (interactive desktop) |
-| `android-native` | `ubuntu-latest` | `self-hosted, tachyon, linux` only with `TACHYON_SELF_HOSTED_ANDROID` | WSL (`/dev/kvm`) |
-| `compatibility` | `ubuntu-latest` | `self-hosted, tachyon, linux` | WSL |
-| `fuzz` | `ubuntu-latest` | `self-hosted, tachyon, linux` | WSL |
-| `sanitizers` | `ubuntu-latest` | `self-hosted, tachyon, linux` | WSL |
-| `soak` | `ubuntu-latest` | `self-hosted, tachyon, linux` | WSL |
-| `provenance` | `ubuntu-latest` | `self-hosted, tachyon, linux` | WSL |
-| `release-lifecycle` (Linux entry) | `ubuntu-latest` | `self-hosted, tachyon, linux` | WSL |
-| `release-lifecycle` (macOS entry) | `macos-latest` | `self-hosted, tachyon, macos` | Mac |
-| `coverage` | `ubuntu-latest` | `self-hosted, tachyon, linux` | WSL |
+| `rewrite-policy` | `ubuntu-24.04` | `self-hosted, tachyon, linux` | WSL |
+| `native` (Linux entry) | `ubuntu-24.04` | `self-hosted, tachyon, linux` | WSL |
+| `native` (macOS entry) | `macos-15` | `self-hosted, tachyon, macos` | Mac |
+| `native` (Windows entry) | `windows-2025` | `self-hosted, tachyon, windows` | Windows |
+| `managed-storage` | `ubuntu-24.04` | `self-hosted, tachyon, linux` | WSL (Docker) |
+| `supply-chain` | `ubuntu-24.04` | `self-hosted, tachyon, linux` | WSL |
+| `browser` | `ubuntu-24.04` | `self-hosted, tachyon, linux` | WSL |
+| `browser-languages` (one entry per browser gate) | `ubuntu-24.04` | `self-hosted, tachyon, linux` | WSL |
+| `macos-native` (one entry for the gates and one for each third of the published snippets) | `macos-15` | `self-hosted, tachyon, macos` | Mac |
+| `linux-native` | `ubuntu-24.04` | `self-hosted, tachyon, linux` | WSL (Docker) |
+| `windows-native` | `windows-2025` | `self-hosted, tachyon, windows` | Windows (interactive desktop) |
+| `android-native` | `ubuntu-24.04` | `self-hosted, tachyon, linux` only with `TACHYON_SELF_HOSTED_ANDROID` | WSL (`/dev/kvm`) |
+| `compatibility` | `ubuntu-24.04` | `self-hosted, tachyon, linux` | WSL |
+| `fuzz` | `ubuntu-24.04` | `self-hosted, tachyon, linux` | WSL |
+| `sanitizers` | `ubuntu-24.04` | `self-hosted, tachyon, linux` | WSL |
+| `soak` | `ubuntu-24.04` | `self-hosted, tachyon, linux` | WSL |
+| `provenance` | `ubuntu-24.04` | `self-hosted, tachyon, linux` | WSL |
+| `release-lifecycle` (Linux entry) | `ubuntu-24.04` | `self-hosted, tachyon, linux` | WSL |
+| `release-lifecycle` (macOS entry) | `macos-15` | `self-hosted, tachyon, macos` | Mac |
+| `coverage` | `ubuntu-24.04` | `self-hosted, tachyon, linux` | WSL |
 
 GitHub compares labels without regard to case. Every self-hosted runner gets
 the labels `self-hosted`, its operating system (`Linux`, `macOS`, or
@@ -218,7 +218,7 @@ run" lists what the machine must already have.
 | Docker | — | `docker build`, `docker run` | Docker Engine in WSL; the runner account in the `docker` group |
 | Storage fixtures | PostgreSQL 18, MySQL 8.4, MariaDB 11.8, SQL Server 2022 and Redis 8 images, each pinned by digest in `scripts/test-managed-storage.mjs` | `docker run` (`managed-storage`) | Docker; about 2.5 GB free for the SQL Server image |
 | Xvfb | — | inside the `scripts/linux/Dockerfile` image | nothing on the host |
-| Xcode | the version that `macos-latest` uses | preinstalled | Xcode, an iOS simulator runtime, accepted license |
+| Xcode | the version that `macos-15` uses | preinstalled | Xcode, an iOS simulator runtime, accepted license |
 | Redis | — | `brew install redis` if missing (macOS) | install it once from the administrator account |
 | MSVC, Windows SDK | — | preinstalled | Visual Studio Build Tools with the C++ x64 tools |
 | WebView2 | SDK `1.0.3485.44` | checksum-pinned download | the WebView2 Runtime (already in Windows 11) |
@@ -296,7 +296,7 @@ connected, the runner fails its jobs; turn the switch off first.
 
 ### Install System Software as an Administrator
 
-1. Install Xcode in `/Applications` (the version that `macos-latest` uses;
+1. Install Xcode in `/Applications` (the version that `macos-15` uses;
    see the GitHub `runner-images` README). Then run:
 
    ```sh
@@ -334,7 +334,7 @@ connected, the runner fails its jobs; turn the switch off first.
    runner=self-hosted
    ```
 
-   Use the `ImageOS` value of the current `macos-latest` image.
+   Use the `ImageOS` value of the current `macos-15` image.
 3. Add `/Volumes/<volume>/tachyon-runner/cargo/bin`, `/opt/homebrew/bin`, and the
    Node.js 24.22.2 folder to the start of `.path`.
 4. Install the runner as a launch agent: `./svc.sh install` and
@@ -417,7 +417,7 @@ The runner must run as a signed-in user.
    JAVA_HOME_21_X64=C:\Program Files\Eclipse Adoptium\jdk-21-hotspot
    ```
 
-   Use the `ImageOS` value of the current `windows-latest` image, and the real
+   Use the `ImageOS` value of the current `windows-2025` image, and the real
    JDK folder.
 4. Start the runner when `runner` signs in. Open Task Scheduler → Create Task:
    - General: user `runner`, **Run only when user is logged on**, not "with
@@ -446,7 +446,7 @@ the `runner` account is already signed in for the Windows runner.
 
 1. As an administrator, make sure WSL 2 is installed (`wsl --install
    --no-distribution`) and up to date (`wsl --update`).
-2. As `runner`, install Ubuntu with the LTS version that `ubuntu-latest`
+2. As `runner`, install Ubuntu with the LTS version that `ubuntu-24.04`
    uses (see the GitHub `runner-images` README), on the large drive:
 
    ```powershell
@@ -561,7 +561,7 @@ own development distribution.
 2. Add `runner` to the `kvm` group: `sudo usermod -aG kvm runner`.
 3. Only after one Android job passed on this runner, set the repository
    variable `TACHYON_SELF_HOSTED_ANDROID` to `true`. If `/dev/kvm` is missing,
-   leave the variable unset; the Android job then stays on `ubuntu-latest`.
+   leave the variable unset; the Android job then stays on `ubuntu-24.04`.
 
 ### Register and Start the Runners
 
