@@ -13,7 +13,7 @@ impl FilePickerPermissionCheck {
         include_str!("../../../../scripts/native/FilePickerPermissionService.swift");
     const CALLER: &str = include_str!("../../../../scripts/native/FilePickerPermissionCheck.swift");
     const SELECTOR: &str =
-        include_str!("../../../../scripts/native/FilePickerPermissionSelect.applescript");
+        include_str!("../../../../scripts/native/MacOsOpenPanelKeys.applescript");
     const OUTPUT_LIMIT: usize = 65_536;
 
     fn new() -> Self {
