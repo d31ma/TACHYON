@@ -42,6 +42,32 @@
           type="button" class="code-copy" on:click="clipboard.copy(file.name, file.code)"
           :aria-label="clipboard.label(file.name) + ' ' + file.name">{clipboard.label(file.name)}</button></pre>
         <span class="sr-only" role="status">{clipboard.copied === file.name ? clipboard.label(file.name) : ''}</span>
+        <logic :if="file.run">
+          <div class="code-run">
+            <button type="button" class="code-run-button"
+                    :aria-expanded="snippetRun.isShown(file.run) ? 'true' : 'false'"
+                    :aria-controls="snippet.panelId() + '-run-' + file.run"
+                    on:click="snippetRun.toggle(file.run)">{snippetRun.label(file.run)}</button>
+            <span class="code-run-status" role="status">{snippetRun.status(file.run)}</span>
+          </div>
+          <div class="code-run-output" :id="snippet.panelId() + '-run-' + file.run"
+               :hidden="!snippetRun.isShown(file.run)">
+            <p class="code-run-note">Recorded when this example was last verified.</p>
+            <loop :for="exchange of snippetRun.exchanges(file.run)">
+              <p class="demo-code-label">
+                <span class="demo-code-name">{exchange.request.method} {exchange.request.path}</span>
+              </p>
+              <logic :if="snippetRun.requestText(exchange)">
+                <pre class="code-block" tabindex="0"><code>{snippetRun.requestText(exchange)}</code></pre>
+              </logic>
+              <p class="demo-code-label">
+                <span class="demo-code-name">{exchange.response.status}</span>
+                <span class="demo-code-language">{exchange.response.contentType}</span>
+              </p>
+              <pre class="code-block" tabindex="0"><code>{snippetRun.responseText(exchange)}</code></pre>
+            </loop>
+          </div>
+        </logic>
       </div>
     </loop>
   </div>

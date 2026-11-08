@@ -16,6 +16,7 @@ client/
   tests/        a test unit for every service, plus separate test-only setups
   shared/       styles, the DuVay components, scripts, and the site data in data/
 content/        every code example as a real file, with the docs text (see "Code examples")
+runs/           recorded runs of the Yon examples, made by verify:snippets (see "Recorded runs")
 client/manifest.json   the Tac configuration: page metadata, the shared script and stylesheet,
                        the sitemap settings and the native identity (ADR 0052)
 ```
@@ -116,6 +117,30 @@ link on a docs page opens the JSON file of that topic or feature.
 `content/` is not part of the site: `ty bundle`, `ty preview` and `ty test`
 read only `client/`, `server/` and the root configuration, and the root type
 check skips it.
+
+### Recorded runs
+
+A Yon controller example has a **Run** button when it has a current recorded
+run. The button shows the requests that `verify:snippets` sent to the
+controller and the answers it gave: method, path, body, status, content type
+and response body. The site does not run code; it shows what the example
+did the last time it was verified.
+
+To record the runs, set `TAC_SNIPPETS_RECORD=1` for `verify:snippets`, for
+example `TAC_SNIPPETS_RECORD=1 bun run verify:snippets --suite=features`.
+Each controller that passes writes `runs/<content path>.json`, such as
+`runs/features/any-language/server/controllers/EchoController.py.json`. The
+recording keeps a SHA-256 hash of every example file the run used. A file
+changes only when its requests, answers or input files change, so commit the
+changed files under `runs/`.
+
+`bun run content` publishes each recording whose input files still match
+their hashes to `client/shared/data/runs/<id>.json`, where `<id>` is the first
+16 hex digits of the SHA-256 hash of the controller's content path. It adds
+`"run": "<id>"` to that controller's tab in the generated data. A recording
+whose files changed is not published, so its example shows no Run button;
+`bun run content` lists those recordings so you can record them again.
+Do not edit `runs/` or `client/shared/data/runs/` by hand.
 
 ## Styles
 

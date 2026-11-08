@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { RecordedRuns } from './recorded-runs.mjs'
 
 /** @typedef {{ source: string, output: string, escapeNonAscii: boolean, omit?: string[] }} GeneratedFile */
 
@@ -16,20 +17,22 @@ export class SiteContent {
 
   /**
    * @param {string} name
+   * @param {boolean} [withSources]
    * @returns {any}
    */
-  static data(name) {
+  static data(name, withSources = false) {
     const file = SiteContent.generatedFiles().find(entry => path.basename(entry.output) === name)
     if (!file) throw new Error(`website/content/generated-files.json does not list ${name}`)
-    return SiteContent.value(file)
+    return SiteContent.value(file, withSources)
   }
 
   /**
    * @param {GeneratedFile} file
+   * @param {boolean} [withSources]
    * @returns {any}
    */
-  static value(file) {
-    const value = SiteContent.load(path.join(SiteContent.contentFolder, file.source))
+  static value(file, withSources = false) {
+    const value = SiteContent.load(path.join(SiteContent.contentFolder, file.source), SiteContent.readText, withSources)
     return SiteContent.without(value, file.omit ?? [])
   }
 
@@ -66,28 +69,71 @@ export class SiteContent {
   /**
    * @param {string} jsonFile
    * @param {(file: string) => any} [readFile]
+   * @param {boolean} [withSources]
    * @returns {any}
    */
-  static load(jsonFile, readFile = SiteContent.readText) {
+  static load(jsonFile, readFile = SiteContent.readText, withSources = false) {
     const value = JSON.parse(readFileSync(jsonFile, 'utf8'))
-    return SiteContent.resolve(value, path.dirname(jsonFile), readFile)
+    return SiteContent.resolve(value, path.dirname(jsonFile), readFile, withSources)
   }
 
   /**
    * @param {any} value
    * @param {string} folder
    * @param {(file: string) => any} [readFile]
+   * @param {boolean} [withSources]
    * @returns {any}
    */
-  static resolve(value, folder, readFile = SiteContent.readText) {
-    if (Array.isArray(value)) return value.map(item => SiteContent.resolve(item, folder, readFile))
+  static resolve(value, folder, readFile = SiteContent.readText, withSources = false) {
+    if (Array.isArray(value)) return value.map(item => SiteContent.resolve(item, folder, readFile, withSources))
     if (value === null || typeof value !== 'object') return value
-    if (SiteContent.isReference(value, 'include')) return SiteContent.load(SiteContent.inside(folder, value.include), readFile)
+    if (SiteContent.isReference(value, 'include')) return SiteContent.load(SiteContent.inside(folder, value.include), readFile, withSources)
     if (SiteContent.isReference(value, 'file')) return readFile(SiteContent.inside(folder, value.file))
     /** @type {Record<string, any>} */
     const result = {}
-    for (const [key, item] of Object.entries(value)) result[key] = SiteContent.resolve(item, folder, readFile)
-    return result
+    for (const [key, item] of Object.entries(value)) result[key] = SiteContent.resolve(item, folder, readFile, withSources)
+    return SiteContent.withRunDetails(result, SiteContent.snippetSource(value, folder), withSources)
+  }
+
+  /**
+   * @param {Record<string, any>} value
+   * @param {string} folder
+   * @returns {string | undefined}
+   */
+  static snippetSource(value, folder) {
+    if (typeof value.name !== 'string' || !SiteContent.isReference(value.code ?? {}, 'file')) return undefined
+    return path.relative(SiteContent.contentFolder, SiteContent.inside(folder, value.code.file)).split(path.sep).join('/')
+  }
+
+  /**
+   * @param {Record<string, any>} result
+   * @param {string | undefined} source
+   * @param {boolean} withSources
+   * @returns {Record<string, any>}
+   */
+  static withRunDetails(result, source, withSources) {
+    if (source === undefined) return result
+    return { ...result, ...SiteContent.runField(source), ...SiteContent.sourceField(source, withSources) }
+  }
+
+  /**
+   * @param {string} source
+   * @returns {{ run?: string }}
+   */
+  static runField(source) {
+    const run = RecordedRuns.site.currentId(source)
+    if (run === undefined) return {}
+    return { run }
+  }
+
+  /**
+   * @param {string} source
+   * @param {boolean} withSources
+   * @returns {{ source?: string }}
+   */
+  static sourceField(source, withSources) {
+    if (!withSources) return {}
+    return { source }
   }
 
   /**

@@ -1,20 +1,75 @@
-import { readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
+import { RecordedRuns } from './recorded-runs.mjs'
 import { SiteContent } from './site-content.mjs'
 
 class BuildContent {
   static checkOnly = process.argv.includes('--check')
 
   static run() {
-    const staleFiles = []
-    for (const file of SiteContent.generatedFiles()) {
-      const expected = SiteContent.render(file)
-      const outputPath = SiteContent.outputPath(file)
-      if (BuildContent.currentText(outputPath) === expected) continue
-      staleFiles.push(path.relative(SiteContent.website, outputPath))
-      if (!BuildContent.checkOnly) writeFileSync(outputPath, expected)
-    }
+    const staleFiles = [...BuildContent.syncGeneratedFiles(), ...BuildContent.syncPublishedRuns()]
+    BuildContent.reportOutdatedRecordings(RecordedRuns.site.stale())
     BuildContent.report(staleFiles)
+  }
+
+  /** @returns {string[]} */
+  static syncGeneratedFiles() {
+    const expected = SiteContent.generatedFiles().map(file => [SiteContent.outputPath(file), SiteContent.render(file)])
+    return BuildContent.syncFiles(new Map(/** @type {[string, string][]} */ (expected)))
+  }
+
+  /** @returns {string[]} */
+  static syncPublishedRuns() {
+    const published = RecordedRuns.site.published()
+    const expected = [...published].map(([name, text]) => [path.join(RecordedRuns.site.publishedFolder, name), text])
+    const changed = BuildContent.syncFiles(new Map(/** @type {[string, string][]} */ (expected)))
+    return [...changed, ...BuildContent.removeUnpublished(new Set(published.keys()))]
+  }
+
+  /**
+   * @param {Map<string, string>} expected
+   * @returns {string[]}
+   */
+  static syncFiles(expected) {
+    const staleFiles = []
+    for (const [outputPath, text] of expected) {
+      if (BuildContent.currentText(outputPath) === text) continue
+      staleFiles.push(path.relative(SiteContent.website, outputPath))
+      BuildContent.writeUnlessChecking(outputPath, text)
+    }
+    return staleFiles
+  }
+
+  /**
+   * @param {Set<string>} keptNames
+   * @returns {string[]}
+   */
+  static removeUnpublished(keptNames) {
+    const extraNames = BuildContent.publishedNames().filter(name => !keptNames.has(name))
+    for (const name of extraNames) BuildContent.removeUnlessChecking(path.join(RecordedRuns.site.publishedFolder, name))
+    return extraNames.map(name => path.relative(SiteContent.website, path.join(RecordedRuns.site.publishedFolder, name)))
+  }
+
+  /** @returns {string[]} */
+  static publishedNames() {
+    if (!existsSync(RecordedRuns.site.publishedFolder)) return []
+    return readdirSync(RecordedRuns.site.publishedFolder).filter(name => name.endsWith(RecordedRuns.SUFFIX))
+  }
+
+  /**
+   * @param {string} outputPath
+   * @param {string} text
+   */
+  static writeUnlessChecking(outputPath, text) {
+    if (BuildContent.checkOnly) return
+    mkdirSync(path.dirname(outputPath), { recursive: true })
+    writeFileSync(outputPath, text)
+  }
+
+  /** @param {string} outputPath */
+  static removeUnlessChecking(outputPath) {
+    if (BuildContent.checkOnly) return
+    rmSync(outputPath)
   }
 
   /**
@@ -27,6 +82,13 @@ class BuildContent {
     } catch {
       return undefined
     }
+  }
+
+  /** @param {string[]} handlers */
+  static reportOutdatedRecordings(handlers) {
+    if (handlers.length === 0) return
+    console.warn(`These recorded runs no longer match their snippet files and are not published: ${handlers.join(', ')}`)
+    console.warn('Record them again into website/runs with: TAC_SNIPPETS_RECORD=1 bun scripts/verify-snippets.mjs')
   }
 
   /** @param {string[]} staleFiles */

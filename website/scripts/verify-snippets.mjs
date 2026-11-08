@@ -18,11 +18,12 @@ import { SnippetRequest } from './snippet-request.mjs'
 import { SnippetScope } from './snippet-scope.mjs'
 import { SocketProbe } from './socket-probe.mjs'
 import { PythonWebRuntime } from './python-web-runtime.mjs'
+import { RecordedRuns } from './recorded-runs.mjs'
 import { SnippetShard } from './snippet-shard.mjs'
 import { ToolchainFingerprint } from './toolchain-fingerprint.mjs'
 import { TypeCheckProjects } from './type-check-projects.mjs'
 
-/** @typedef {{name:string,code:string}} Snippet */
+/** @typedef {{name:string,code:string,source?:string}} Snippet */
 /** @typedef {{id:string,files:Snippet[],verify?:string,target?:string}} Feature */
 /** @typedef {{heading:string,axis?:string,code?:string,target?:string,files?:Snippet[]}} GuideSection */
 /** @typedef {{status:number,type:string,value:any}} ExpectedError */
@@ -49,17 +50,18 @@ class Settings {
   static cache = new SnippetCache(path.join(Settings.scratchRoot, SnippetCache.folderName), !process.argv.includes('--no-cache'), '')
   static concurrency = chooseConcurrency()
   static requireToolchains = process.env.TAC_SNIPPETS_REQUIRE_TOOLCHAINS === '1'
+  static recordRuns = process.env.TAC_SNIPPETS_RECORD === '1'
   static identityToken = 'ada-token'
   static loadFailureLimit = Number(process.env.TAC_SNIPPETS_READINESS_BUDGET ?? 2)
 }
 
 class SiteData {
   /** @type {Feature[]} */
-  static features = SiteContent.data('features.json').features
+  static features = SiteContent.data('features.json', true).features
   /** @type {{tac:{files:Snippet[]},yon:{entries:{id:string,files:Snippet[]}[]}}} */
-  static languages = SiteContent.data('languages.json')
+  static languages = SiteContent.data('languages.json', true)
   /** @type {{topics:Record<string,{sections?:GuideSection[]}>}} */
-  static docs = SiteContent.data('docs.json')
+  static docs = SiteContent.data('docs.json', true)
 }
 
 class Progress {
@@ -73,6 +75,7 @@ class Progress {
 }
 
 class Patterns {
+  static defaultRequestHeaders = new Set(['accept', 'content-type'])
   static tutorials = new Set(['first-app'])
   static excerptManifest = JSON.stringify({ tac: { visibility: { check: false } } })
   static roleFile = /\/(controllers|services|stores|remotes|clients|helpers|setups|converters|entities)\/[^/]+\.(js|ts|py|php|java|groovy|kt|cs|fs|rs|swift|dart|go|rb|lua)$/
@@ -1069,6 +1072,8 @@ async function executeHandler(label, files, handler, checkValue, expectedError) 
       const schemaHeaders = identity ? { authorization: Settings.identityToken } : {}
       let refused = 0
       let hidden = 0
+      /** @type {import('./recorded-runs.mjs').RecordedExchange[]} */
+      const exchanges = []
       for (const { method, path: routePath } of routes) {
         if (!schemas.has(routePath)) {
           const signedInSchema = await checkSchemaAnswer(label, request, routePath, schemaHeaders)
@@ -1078,8 +1083,10 @@ async function executeHandler(label, files, handler, checkValue, expectedError) 
         const schema = schemas.get(routePath)
         const options = requestOptionsFor(method, streaming, schema)
         if (identity) refused += await refusedWithoutIdentity(request, requestPathFor(routePath, method, schema), options)
-        const response = await request(requestPathFor(routePath, method, schema), options)
+        const requestPath = requestPathFor(routePath, method, schema)
+        const response = await request(requestPath, options)
         const body = await readBodyWithLimit(response)
+        exchanges.push(recordedExchange(requestPath, options, response, body))
         if (expectedError) {
           checkHandledError(expectedError, schemas.get(routePath), method, response.status, body)
           pass(`${label} ${method} error handler`, 'http')
@@ -1098,8 +1105,34 @@ async function executeHandler(label, files, handler, checkValue, expectedError) 
         assert.ok(hidden > 0, 'OPTIONS without identity must leave out the methods a guest may not call')
         pass(`${label} OPTIONS without identity`, 'http')
       }
+      saveRecording(label, handler, files, exchanges)
     })
   })
+}
+
+/**
+ * @param {string} requestPath
+ * @param {{method:string, headers:Record<string,string>, body?:string}} options
+ * @param {Response} response
+ * @param {string} body
+ * @returns {import('./recorded-runs.mjs').RecordedExchange}
+ */
+function recordedExchange(requestPath, options, response, body) {
+  const headers = Object.fromEntries(Object.entries(options.headers).filter(([name]) => !Patterns.defaultRequestHeaders.has(name)))
+  const request = { method: options.method, path: requestPath, headers, ...(options.body === undefined ? {} : { body: options.body }) }
+  return { request, response: { status: response.status, contentType: response.headers.get('content-type') ?? '', body } }
+}
+
+/**
+ * @param {string} label
+ * @param {Snippet} handler
+ * @param {Snippet[]} files
+ * @param {import('./recorded-runs.mjs').RecordedExchange[]} exchanges
+ */
+function saveRecording(label, handler, files, exchanges) {
+  if (!Settings.recordRuns || handler.source === undefined || exchanges.length === 0) return
+  const inputs = files.filter(file => file.source !== undefined).map(file => ({ source: String(file.source), code: file.code }))
+  if (RecordedRuns.site.write(handler.source, inputs, exchanges)) emit('log', `recorded ${label}`)
 }
 
 /**

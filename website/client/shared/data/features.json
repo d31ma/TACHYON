@@ -2220,7 +2220,8 @@
         },
         {
           "name": "server/controllers/EchoController.py",
-          "code": "from typing import Annotated\nfrom models import Message\n\n\n@request_route(\"/echo\")\n@public\nclass EchoController:\n    @post_route\n    def post_echo(self, message: Annotated[Message, from_body]) -> Message:\n        return message\n"
+          "code": "from typing import Annotated\nfrom models import Message\n\n\n@request_route(\"/echo\")\n@public\nclass EchoController:\n    @post_route\n    def post_echo(self, message: Annotated[Message, from_body]) -> Message:\n        return message\n",
+          "run": "75236e5355efdd11"
         },
         {
           "name": "server/models/Message.php",
