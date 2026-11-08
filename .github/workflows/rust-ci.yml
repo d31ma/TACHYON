@@ -63,14 +63,14 @@ jobs:
       matrix:
         os:
           - ubuntu-24.04
-          - macos-latest
-          - windows-latest
+          - macos-15
+          - windows-2025
         include:
           - os: ubuntu-24.04
             self_hosted_labels: '["self-hosted","tachyon","linux"]'
-          - os: macos-latest
+          - os: macos-15
             self_hosted_labels: '["self-hosted","tachyon","macos"]'
-          - os: windows-latest
+          - os: windows-2025
             self_hosted_labels: '["self-hosted","tachyon","windows"]'
 
     steps:
@@ -258,12 +258,12 @@ jobs:
       fail-fast: false
       matrix:
         os:
-          - macos-latest
-          - windows-latest
+          - macos-15
+          - windows-2025
         include:
-          - os: macos-latest
+          - os: macos-15
             self_hosted_labels: '["self-hosted","tachyon","macos"]'
-          - os: windows-latest
+          - os: windows-2025
             self_hosted_labels: '["self-hosted","tachyon","windows"]'
     steps:
       - name: Check out source
@@ -764,7 +764,7 @@ jobs:
   macos-native:
     if: (github.event_name != 'pull_request' || github.head_ref == 'develop' || startsWith(github.head_ref, 'release/')) && (!inputs.jobs || contains(format(',{0},', inputs.jobs), ',macos-native,'))
     name: Phase 4 macOS native and mobile-web parity (${{ matrix.label }})
-    runs-on: ${{ ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/heads/') && vars.TACHYON_SELF_HOSTED == 'true') && fromJSON('["self-hosted","tachyon","macos"]') || 'macos-latest' }}
+    runs-on: ${{ ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/heads/') && vars.TACHYON_SELF_HOSTED == 'true') && fromJSON('["self-hosted","tachyon","macos"]') || 'macos-15' }}
     timeout-minutes: 180
     # The published snippets take about 200 minutes in one run on a 3-core hosted runner, most of it
     # compiling C#, F#, Swift and Kotlin examples for the web, so three runs share them.
@@ -1116,7 +1116,7 @@ jobs:
   windows-native:
     if: (github.event_name != 'pull_request' || github.head_ref == 'develop' || startsWith(github.head_ref, 'release/')) && (!inputs.jobs || contains(format(',{0},', inputs.jobs), ',windows-native,'))
     name: Windows WebView2 native gate
-    runs-on: ${{ ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/heads/') && vars.TACHYON_SELF_HOSTED == 'true') && fromJSON('["self-hosted","tachyon","windows"]') || 'windows-latest' }}
+    runs-on: ${{ ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/heads/') && vars.TACHYON_SELF_HOSTED == 'true') && fromJSON('["self-hosted","tachyon","windows"]') || 'windows-2025' }}
     timeout-minutes: 30
 
     steps:
@@ -1535,11 +1535,11 @@ jobs:
       matrix:
         os:
           - ubuntu-24.04
-          - macos-latest
+          - macos-15
         include:
           - os: ubuntu-24.04
             self_hosted_labels: '["self-hosted","tachyon","linux"]'
-          - os: macos-latest
+          - os: macos-15
             self_hosted_labels: '["self-hosted","tachyon","macos"]'
 
     steps:

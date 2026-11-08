@@ -955,8 +955,8 @@ fn self_hosted_runners_serve_only_opted_in_branch_pushes_and_dispatches()
     let guard = "(github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/heads/') && vars.TACHYON_SELF_HOSTED == 'true'";
     let hosted_fallbacks = [
         "|| 'ubuntu-24.04' }}",
-        "|| 'macos-latest' }}",
-        "|| 'windows-latest' }}",
+        "|| 'macos-15' }}",
+        "|| 'windows-2025' }}",
         "|| matrix.os }}",
     ];
 
