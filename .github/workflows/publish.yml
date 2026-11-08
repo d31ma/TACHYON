@@ -656,7 +656,8 @@ jobs:
           bunx playwright install --with-deps chromium firefox webkit
           bun run test:storage-browser
           bun run test:runtime-browser
-          bun run test:website-browser
+          "${TAC_BIN}" build website --out-dir "${RUNNER_TEMP}/tachyon-website"
+          TAC_WEBSITE_OUTPUT="${RUNNER_TEMP}/tachyon-website" bun run test:website-browser
 
       - name: Check the downloaded Unix executable version
         if: runner.os != 'Windows'
