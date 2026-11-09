@@ -174,7 +174,7 @@ fn required_foundation_documents_are_present_and_substantive()
 fn a_local_gate_builds_the_release_binary_with_the_shipped_features()
 -> Result<(), Box<dyn std::error::Error>> {
     let root = repository_root();
-    let shipped = "build --release --locked -p tachyon-cli --bin ty --features storage-all";
+    let shipped = "build --release --locked -p tachyon-cli --bin ty --features shipped";
     let artifact = fs::read_to_string(root.join("scripts/release/build-artifact.sh"))?;
     let package = fs::read_to_string(root.join("package.json"))?;
     let workflow = fs::read_to_string(root.join(".github/workflows/rust-ci.yml"))?;
@@ -865,15 +865,35 @@ fn release_signatures_and_downloads_use_the_current_repository_name()
 }
 
 #[test]
-fn the_snippet_job_builds_ty_with_every_storage_driver() -> Result<(), Box<dyn std::error::Error>> {
+fn the_snippet_job_builds_ty_with_the_shipped_feature_set() -> Result<(), Box<dyn std::error::Error>>
+{
     let root = repository_root();
     let workflow = fs::read_to_string(root.join(".github/workflows/rust-ci.yml"))?;
     let release_build = fs::read_to_string(root.join("scripts/release/build-artifact.sh"))?;
 
-    assert!(workflow.contains("run: cargo build --locked --bin ty --features storage-all"));
+    assert!(workflow.contains("run: cargo build --locked --bin ty --features shipped"));
     assert!(workflow.contains("run: node website/scripts/verify-snippets.mjs"));
     assert!(workflow.contains("TAC_BIN: ${{ github.workspace }}/target/debug/ty"));
-    assert!(release_build.contains("--bin ty --features storage-all"));
+    assert!(release_build.contains("--bin ty --features shipped"));
+    Ok(())
+}
+
+#[test]
+fn the_shipped_feature_set_is_what_ci_tests() -> Result<(), Box<dyn std::error::Error>> {
+    let root = repository_root();
+    let workflow = fs::read_to_string(root.join(".github/workflows/rust-ci.yml"))?;
+    let cli_manifest = fs::read_to_string(root.join("crates/tachyon-cli/Cargo.toml"))?;
+
+    assert!(cli_manifest.contains("shipped = [\"storage-all\"]"));
+    assert!(workflow.contains(
+        "run: cargo nextest run --workspace --all-targets --features shipped --locked --no-tests=fail"
+    ));
+    assert!(workflow.contains(
+        "run: cargo clippy --workspace --all-targets --features shipped --locked -- -D warnings"
+    ));
+    assert!(workflow.contains(
+        "if: runner.os == 'Linux'\n        run: cargo nextest run --workspace --all-targets --all-features --locked --no-tests=fail"
+    ));
     Ok(())
 }
 

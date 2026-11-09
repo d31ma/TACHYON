@@ -103,13 +103,20 @@ The checked-in `rust-toolchain.toml` selects Rust 1.97.1. Build the current
 framework from the repository root:
 
 ```sh
-cargo build --release --locked -p tachyon-cli --features storage-all
+cargo build --release --locked -p tachyon-cli --features shipped
 ```
 
-`storage-all` turns on the network storage drivers that release builds ship:
-`storage-postgres`, `storage-mysql` (MySQL and MariaDB), `storage-redis` and
-`storage-sqlserver`. Without them, `ty` refuses an application that
-configures one, and names the feature. SQLite and FYLO are always built in.
+`shipped` is the feature set release builds use. It turns on `storage-all`,
+the network storage drivers that release builds ship: `storage-postgres`,
+`storage-mysql` (MySQL and MariaDB), `storage-redis` and `storage-sqlserver`.
+Without them, `ty` refuses an application that configures one, and names the
+feature. SQLite and FYLO are always built in.
+
+`json-preserve-order` (on `tachyon-core`) is for test builds only and never
+ships. It turns on serde_json's `preserve_order`, so the `--all-features`
+test run proves that TACHYON's JSON output does not depend on map order.
+CI tests the `shipped` set on every OS and runs `--all-features` once, on
+Linux.
 
 The canonical validation gate is:
 
@@ -118,7 +125,9 @@ cargo fmt --check
 cargo check --workspace --all-targets --all-features --locked
 cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 cargo clippy --workspace --all-targets --locked -- -D warnings
-cargo test --workspace --all-targets --all-features --locked
+cargo clippy --workspace --all-targets --features shipped --locked -- -D warnings
+cargo nextest run --workspace --all-targets --features shipped --locked --no-tests=fail
+cargo nextest run --workspace --all-targets --all-features --locked --no-tests=fail
 RUSTDOCFLAGS="-D warnings" cargo doc --workspace --all-features --no-deps --locked
 cargo deny check advisories bans licenses sources
 ```

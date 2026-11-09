@@ -197,11 +197,14 @@ jobs:
       - name: Run Clippy without the optional storage drivers
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
 
+      - name: Run Clippy on the shipped feature set
+        run: cargo clippy --workspace --all-targets --features shipped --locked -- -D warnings
+
       - name: Build the Tac Ruby runtime once, outside nextest's per-test time limit
-        run: cargo test --all-features --locked -p tachyon-core --lib -- --exact tac_ruby::tests::the_runtime_is_built_once_into_the_user_cache_and_never_into_the_project
+        run: cargo test --workspace --features shipped --locked --lib -- --exact tac_ruby::tests::the_runtime_is_built_once_into_the_user_cache_and_never_into_the_project
 
       - name: Run unit and Phase 4 real-process acceptance tests in the nextest groups
-        run: cargo nextest run --workspace --all-targets --all-features --locked --no-tests=fail
+        run: cargo nextest run --workspace --all-targets --features shipped --locked --no-tests=fail
 
       - name: Run the storage tests without the optional storage drivers
         run: "cargo nextest run -p tachyon-core --lib --locked --no-tests=fail storage::"
@@ -210,6 +213,10 @@ jobs:
         run: node scripts/native/companion-test.mjs
         env:
           TAC_BIN: ${{ github.workspace }}/target/debug/ty${{ runner.os == 'Windows' && '.exe' || '' }}
+
+      - name: Run every test with all features, including serde_json's preserve_order
+        if: runner.os == 'Linux'
+        run: cargo nextest run --workspace --all-targets --all-features --locked --no-tests=fail
 
       - name: Smoke-test the release binary
         run: cargo run --release --locked --bin ty -- --version
@@ -936,10 +943,10 @@ jobs:
           JARS
           echo "TAC_TEAVM_HOME=${teavm}" >> "${GITHUB_ENV}"
 
-      # The published snippets include the Redis configuration example, so this job's `ty` needs the storage
-      # drivers that the released binary has (scripts/release/build-artifact.sh).
-      - name: Build the Phase 4 CLI with every storage driver
-        run: cargo build --locked --bin ty --features storage-all
+      # The published snippets include the Redis configuration example, so this job's `ty` needs the
+      # shipped feature set that the released binary has (scripts/release/build-artifact.sh).
+      - name: Build the Phase 4 CLI with the shipped feature set
+        run: cargo build --locked --bin ty --features shipped
 
       - name: Verify every website compiler is ready
         run: ./target/debug/ty doctor website
@@ -1518,7 +1525,7 @@ jobs:
         run: cargo cyclonedx --all --format json
 
       - name: Build a release binary with an embedded dependency list
-        run: cargo auditable build --release --locked -p tachyon-cli --bin ty --features storage-all
+        run: cargo auditable build --release --locked -p tachyon-cli --bin ty --features shipped
 
       - name: Publish the bill of materials
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

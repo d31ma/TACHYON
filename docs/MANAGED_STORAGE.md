@@ -360,7 +360,8 @@ Which drivers a build has:
 - SQLite and FYLO are always built in. The network drivers are cargo
   features: `storage-postgres`, `storage-mysql` (MySQL and MariaDB),
   `storage-redis` and `storage-sqlserver`. `storage-all` turns on all four.
-  Release builds use `storage-all`; a default `cargo build` has none of them.
+  Release builds use the `shipped` feature set of `tachyon-cli`, which turns
+  on `storage-all`; a default `cargo build` has none of them.
 - A `ty` built without a driver refuses a datasource or Redis setting that
   needs it at startup with `TY2160`, and the message names the feature.
 - Without the network drivers, `ty` links no rustls, ring, sqlx network
