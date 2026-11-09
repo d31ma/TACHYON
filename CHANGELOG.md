@@ -848,6 +848,10 @@ This release is a release candidate. `docs/THREAT_MODEL.md`,
 - The publish workflow's Windows ARM64 job does not run the Sigstore
   client, which has no Windows ARM64 build; the other five jobs verify the
   signature of every asset, the Windows ARM64 executable included.
+- `ty` bundles SQLite 3.51.3, which has advisory RUSTSEC-2026-0459
+  (CVE-2026-119375). Only an app whose configured SQLite database file can
+  be written by a less trusted party is exposed. A later release will update
+  SQLite.
 
 ### Migration notes
 
