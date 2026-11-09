@@ -8,6 +8,8 @@ machine contracts have their own, independent major versions.
 
 ## [Unreleased]
 
+## [26.46.01] - 2026-11-09
+
 ### Highlights
 
 - **One annotation model in every language.** Classes take their role from an
@@ -215,6 +217,15 @@ lists every place below that it can find. `ty migrate fix` prints a plan, and
   `Retry-After: 1`. Both answered `500` in 26.36.01; other failures still
   answer `500`. Affects clients and monitors that expect `500`. Migrate:
   manual; treat `504` and `503` as retryable.
+- `/api.json` and `/api-docs/` list only the routes that a caller without an
+  identity may call (`@Public`), and only the models those routes name, the
+  rule `OPTIONS` follows. A guarded route's schema now comes from `OPTIONS`,
+  for a caller that the route's rule lets in, and a project whose routes are
+  all guarded no longer publishes `/api.json` or `/api-docs/` (they answer
+  `404`). Affects clients and tools that read guarded routes' schemas from
+  `/api.json` without signing in. Migrate: read them with `OPTIONS` and
+  credentials. `ty api freeze` and `TY1338` still compare every route, so
+  existing `server/api-baseline.json` files are unaffected.
 
 #### Tac pages, components and services
 
@@ -659,10 +670,22 @@ and the migration step.
   reloads once when the new worker takes control, so it no longer mixes old
   and new scripts. It does not reload on a first visit, after the visitor
   has typed into the page, while offline, or twice within 10 seconds.
+  On the first deploy after 26.36.01, sites whose static host or CDN cached
+  `register-sw.js` get the reload from the following deploy on; `ty start`
+  sent `no-store`, so it is not affected.
 - The console stays clean: fast navigation no longer logs `AbortError:
   Transition was skipped`, the idle precache no longer shows failed
   `net::ERR_ABORTED` requests, and WebKit and the Linux and Windows hosts no
   longer refuse the inline speculation rules (allowed by hash now).
+- The note that the scaffold writes for a new Kotlin service says what the
+  page runs: the JavaScript copy written next to the generated service,
+  until you delete that copy and the service compiles to WebAssembly with
+  garbage collection (WasmGC). It said the service always compiled to
+  WasmGC.
+- `TY1605`, the build's refusal of a Ruby Delegate that has an `OnStart`,
+  `OnStop` or `OnEvent` method, points at the hook and names the Delegate's
+  real file, including one in a subfolder. It named
+  `client/delegates/<name>.rb`, with no source location.
 
 **Yon**
 
@@ -691,6 +714,10 @@ and the migration step.
   SHA-256 pin still decides what is used. The Lua 5.4.9 line falls back to the
   buildroot and Alpine source mirrors. When `www.lua.org` did not answer, the
   build waited up to five minutes on the connection and then failed.
+- A `ty` built without `--features storage-postgres` now names that feature
+  when a project asks for PostgreSQL, even with `PGHOST`, `PGPORT` or other
+  `PG*` variables set. Before, it reported the ambient `PG*` settings and hid
+  the real cause.
 - `ty serve`, `ty dev` and `ty start` drain on `SIGTERM`, `SIGINT` or
   Ctrl-C: they stop accepting connections, close streams and WebSockets
   (`1001`), and let running requests finish within
@@ -754,6 +781,8 @@ and the migration step.
 
 ### Security
 
+- API docs no longer reveal guarded routes: `/api.json` and `/api-docs/`
+  list only `@Public` routes and their models (see Breaking).
 - `ty handler invoke --allow-env` refuses Tachyon's own variables
   (`TAC_*`, `TACHYON_*`, `YON_*` and the proxy variables) with `TY2006`,
   as `server.environment` already does; 26.36.01 accepted them.
@@ -804,6 +833,25 @@ and the migration step.
 - `tokio` 1.53.3 (RUSTSEC-2026-0386), `ctutils` 0.4.6 (RUSTSEC-2026-0385),
   and `webpki-roots` 1.0.11 with `rustls-webpki` 0.103.16, which drop the
   distrusted emSign roots (RUSTSEC-2026-0381, RUSTSEC-2026-0382).
+
+### Known limits
+
+This release is a release candidate. `docs/THREAT_MODEL.md`,
+`docs/SUPPORT_TIERS.md` and `docs/CUTOVER.md` hold the details.
+
+- The outgoing guard allows any port on a declared host, and takes no
+  per-run credential.
+- `ty test` units run without egress confinement.
+- Topic streams are capped at 128 per server, 32 per topic and 16 per
+  client address, so two addresses can fill a public topic and eight the
+  whole server.
+- The publish workflow's Windows ARM64 job does not run the Sigstore
+  client, which has no Windows ARM64 build; the other five jobs verify the
+  signature of every asset, the Windows ARM64 executable included.
+- `ty` bundles SQLite 3.51.3, which has advisory RUSTSEC-2026-0459
+  (CVE-2026-119375). Only an app whose configured SQLite database file can
+  be written by a less trusted party is exposed. A later release will update
+  SQLite.
 
 ### Migration notes
 
@@ -882,6 +930,19 @@ irm https://github.com/d31ma/TACHYON/releases/download/v26.36.01/install.ps1 | i
 ```
 
 PHP projects can keep `php-cgi` installed; 26.36.01 starts `php`.
+
+## [26.45.07] - 2026-11-08 (unpublished)
+
+This release candidate was never made public. Its pull request's CI failed
+in the macOS gates job, which ran the runner image's Node 22 instead of a
+pinned Node. 26.46.01 replaces it with the same changes and pins Node
+24.22.2 in that job.
+
+## [26.45.01] - 2026-11-02 (unpublished)
+
+This release candidate was never made public. Its publish run failed in the
+native artifact jobs, whose install, upgrade and rollback drill ran without
+Bun. 26.45.07 replaces it with the same changes.
 
 ## [26.36.01] - 2026-08-31
 
@@ -2219,7 +2280,10 @@ that expected the old `dist/layouts/` output.
 
 See the Git history and GitHub release notes for changes before 2.0.
 
-[Unreleased]: https://github.com/d31ma/TACHYON/compare/v26.36.01...HEAD
+[Unreleased]: https://github.com/d31ma/TACHYON/compare/v26.46.01...HEAD
+[26.46.01]: https://github.com/d31ma/TACHYON/compare/v26.36.01...v26.46.01
+[26.45.07]: https://github.com/d31ma/TACHYON/compare/v26.36.01...v26.45.07
+[26.45.01]: https://github.com/d31ma/TACHYON/compare/v26.36.01...v26.45.01
 [26.36.01]: https://github.com/d31ma/TACHYON/compare/v26.35.07...v26.36.01
 [26.35.07]: https://github.com/d31ma/TACHYON/compare/v26.33.02...v26.35.07
 [26.33.02]: https://github.com/d31ma/TACHYON/compare/v26.33.01...v26.33.02

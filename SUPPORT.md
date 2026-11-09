@@ -4,7 +4,7 @@
 
 The Rust rewrite has finished engineering phases 0–7. It has also finished
 later work on the client, on server isolation and on the native runtime.
-The next version published from `develop` is a release candidate. A release
+26.46.01 is a release candidate. A release
 candidate is not a supported release or a preview release of the application
 framework. No target is promoted to `supported`, in this candidate or in the
 published versions up to `26.36.01`. Its artifacts come with no promise about
