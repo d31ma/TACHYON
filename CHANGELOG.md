@@ -845,6 +845,9 @@ This release is a release candidate. `docs/THREAT_MODEL.md`,
 - Topic streams are capped at 128 per server, 32 per topic and 16 per
   client address, so two addresses can fill a public topic and eight the
   whole server.
+- The publish workflow's Windows ARM64 job does not run the Sigstore
+  client, which has no Windows ARM64 build; the other five jobs verify the
+  signature of every asset, the Windows ARM64 executable included.
 
 ### Migration notes
 
