@@ -83,7 +83,7 @@ platform_arch() {
 
 latest_release() {
   local location
-  location="$(curl -fsSI "${RELEASES_URL}/latest" | tr -d '\r' | awk 'tolower($1) == "location:" { print $2 }' | tail -1)"
+  location="$(curl -fsSI --retry 12 --retry-delay 15 --retry-all-errors --connect-timeout 15 "${RELEASES_URL}/latest" | tr -d '\r' | awk 'tolower($1) == "location:" { print $2 }' | tail -1)"
   [ -n "${location}" ] || fail "could not find the latest published release"
   local version
   version="$(basename "${location}" | sed 's/^v//')"
@@ -117,8 +117,8 @@ fetch_previous() {
   name="tachyon-${version}-$(platform_arch)-$(platform_os)"
   echo "    fetching ${base}/${name}.tar.gz"
   mkdir -p "${work}/download" "${work}/previous"
-  curl -fsSL "${base}/${name}.tar.gz" -o "${work}/download/${name}.tar.gz"
-  curl -fsSL "${base}/SHA256SUMS" -o "${work}/download/SHA256SUMS"
+  curl -fsSL --retry 12 --retry-delay 15 --retry-all-errors --connect-timeout 15 "${base}/${name}.tar.gz" -o "${work}/download/${name}.tar.gz"
+  curl -fsSL --retry 12 --retry-delay 15 --retry-all-errors --connect-timeout 15 "${base}/SHA256SUMS" -o "${work}/download/SHA256SUMS"
   local expected
   expected="$(awk -v asset="${name}.tar.gz" '$2 == asset { print $1; exit }' "${work}/download/SHA256SUMS")"
   [ -n "${expected}" ] || fail "release ${version} publishes no checksum for ${name}.tar.gz"
