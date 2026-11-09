@@ -127,6 +127,11 @@ the Amplify app and its headers are defined in d31ma/PaaS
 probes are in `.github/site-deploy.json`. `scripts/site-deploy.mjs` does the
 packaging, deployment and probes; `bun run test:site-deploy` tests it.
 
+`staging.tachyon.del.ma` is reachable only on the tailnet, so the staging probes
+use the Amplify branch address `staging.d2n4qmh2a7hdo4.amplifyapp.com`. They read
+the branch's basic-auth credentials at run time with `amplify:GetBranch`, mask
+them in the log, and send them with each request; no password is stored here.
+
 ### Dry Run
 
 Before a release PR, run the workflow's dry run on the branch you mean to

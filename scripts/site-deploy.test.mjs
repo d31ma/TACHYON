@@ -18,28 +18,35 @@ function fakeTools(responses = {}) {
     const calls = []
     const fetched = []
     const logs = []
+    const masked = []
+    const authorizations = []
     const jobStates = [...(responses.jobStates ?? [])]
     const pages = responses.pages ?? {}
     return {
         calls,
         fetched,
         logs,
+        masked,
+        authorizations,
         tools: {
             run: (command, args, options) => {
                 calls.push([command, ...args])
                 if (command === 'zip') return SiteDeploy.run(command, args, options)
                 if (args[1] === 'create-deployment') return JSON.stringify({ jobId: '7', zipUploadUrl: 'https://upload.example/zip' })
                 if (args[1] === 'get-job') return JSON.stringify({ job: { summary: { status: jobStates.shift() } } })
+                if (args[1] === 'get-branch') return JSON.stringify({ branch: responses.branch ?? { enableBasicAuth: false } })
                 if (args[1] === 'get-app') return JSON.stringify({ app: { customHeaders: responses.policy ?? '' } })
                 return ''
             },
             fetch: async (url, options = {}) => {
                 fetched.push([url, options.method ?? 'GET'])
+                authorizations.push(options.headers?.authorization)
                 const page = pages[url.split('?')[0]] ?? { status: 404, body: '' }
                 return new Response(page.body, { status: page.status ?? 200, headers: page.headers ?? {} })
             },
             sleep: async () => {},
-            log: (line) => logs.push(line)
+            log: (line) => logs.push(line),
+            mask: (secret) => masked.push(secret)
         }
     }
 }
@@ -71,8 +78,8 @@ function configFile() {
 function stagingSite() {
     return {
         'https://upload.example/zip': { status: 200, body: '' },
-        'https://staging.site.example/site-version.json': { body: '{"version":"26.46.01"}' },
-        'https://staging.site.example/': { body: 'Welcome', headers: { 'content-type': 'text/html', 'x-content-type-options': 'nosniff' } }
+        'https://staging.d000000000000.amplifyapp.com/site-version.json': { body: '{"version":"26.46.01"}' },
+        'https://staging.d000000000000.amplifyapp.com/': { body: 'Welcome', headers: { 'content-type': 'text/html', 'x-content-type-options': 'nosniff' } }
     }
 }
 
@@ -209,8 +216,56 @@ describe('SiteDeploy.probe', () => {
     })
 
     test('fails when the branch never serves the new version', async () => {
-        const fake = fakeTools({ pages: { 'https://staging.site.example/site-version.json': { body: '{"version":"26.45.07"}' } } })
+        const fake = fakeTools({ pages: { 'https://staging.d000000000000.amplifyapp.com/site-version.json': { body: '{"version":"26.45.07"}' } } })
         await assert.rejects(new SiteDeploy(fake.tools).probe(CONFIG, 'staging', '26.46.01'), /does not serve 26.46.01/)
+    })
+})
+
+describe('SiteDeploy staging basic auth', () => {
+    const credentials = 'dXNlcjpwYXNzd29yZA=='
+    const pages = {
+        'https://staging.d000000000000.amplifyapp.com/site-version.json': { body: '{"version":"26.46.01"}' },
+        'https://staging.d000000000000.amplifyapp.com/': { body: 'Welcome', headers: { 'content-type': 'text/html', 'x-content-type-options': 'nosniff' } }
+    }
+
+    test('reads the credentials with GetBranch, masks them and sends them with every request', async () => {
+        const fake = fakeTools({ pages, branch: { enableBasicAuth: true, basicAuthCredentials: credentials } })
+        await new SiteDeploy(fake.tools).probe(CONFIG, 'staging', '26.46.01')
+        assert.deepEqual(fake.masked, [credentials])
+        assert.deepEqual(fake.authorizations, [`Basic ${credentials}`, `Basic ${credentials}`])
+        assert.deepEqual(fake.calls[0], ['aws', 'amplify', 'get-branch', '--app-id', CONFIG.appId, '--branch-name', 'staging', '--region', 'ca-central-1', '--output', 'json'])
+    })
+
+    test('never logs the credentials', async () => {
+        const fake = fakeTools({ pages, branch: { enableBasicAuth: true, basicAuthCredentials: credentials } })
+        await new SiteDeploy(fake.tools).probe(CONFIG, 'staging', '26.46.01')
+        assert.ok(!fake.logs.join('\n').includes(credentials))
+    })
+
+    test('sends no authorization when basic auth is off', async () => {
+        const fake = fakeTools({ pages })
+        await new SiteDeploy(fake.tools).probe(CONFIG, 'staging', '26.46.01')
+        assert.deepEqual(fake.masked, [])
+        assert.deepEqual(fake.authorizations, [undefined, undefined])
+    })
+
+    test('fails when basic auth is on but GetBranch returns no credentials', async () => {
+        const fake = fakeTools({ pages, branch: { enableBasicAuth: true } })
+        await assert.rejects(new SiteDeploy(fake.tools).probe(CONFIG, 'staging', '26.46.01'), /returned no basicAuthCredentials/)
+        assert.deepEqual(fake.fetched, [])
+    })
+
+    test('live masking writes a GitHub mask command only inside GitHub Actions', () => {
+        const log = mock.method(console, 'log', () => {})
+        const previous = process.env.GITHUB_ACTIONS
+        process.env.GITHUB_ACTIONS = 'true'
+        SiteDeploy.live().tools.mask('secret-in-actions')
+        process.env.GITHUB_ACTIONS = 'false'
+        SiteDeploy.live().tools.mask('secret-on-a-laptop')
+        process.env.GITHUB_ACTIONS = previous ?? ''
+        const lines = log.mock.calls.map((call) => call.arguments[0])
+        log.mock.restore()
+        assert.deepEqual(lines, ['::add-mask::secret-in-actions'])
     })
 })
 
@@ -219,8 +274,8 @@ describe('SiteDeploy.origin', () => {
         assert.equal(new SiteDeploy(fakeTools().tools).origin(CONFIG, 'production'), 'https://site.example')
     })
 
-    test('serves staging from its subdomain', () => {
-        assert.equal(new SiteDeploy(fakeTools().tools).origin(CONFIG, 'staging'), 'https://staging.site.example')
+    test('probes staging on its Amplify branch address, outside the tailnet front door', () => {
+        assert.equal(new SiteDeploy(fakeTools().tools).origin(CONFIG, 'staging'), 'https://staging.d000000000000.amplifyapp.com')
     })
 })
 

@@ -8,7 +8,7 @@ import { join, relative } from 'node:path'
  * @typedef {{ appId: string, region: string, domain: string, roles: Record<string, string>, requiredHeaders: Record<string, string>, probes: Probe[] }} SiteConfig
  * @typedef {{ cwd?: string, input?: string, env?: Record<string, string> }} RunOptions
  * @typedef {(command: string, args: string[], options?: RunOptions) => string} Runner
- * @typedef {{ run: Runner, fetch: typeof fetch, sleep: (seconds: number) => Promise<void>, log: (line: string) => void }} Tools
+ * @typedef {{ run: Runner, fetch: typeof fetch, sleep: (seconds: number) => Promise<void>, log: (line: string) => void, mask: (secret: string) => void }} Tools
  * @typedef {{ jobId: string, zipUploadUrl: string }} Deployment
  */
 export class SiteDeploy {
@@ -23,6 +23,7 @@ export class SiteDeploy {
     static VERSION_ATTEMPTS = 12
     static VERSION_WAIT_SECONDS = 15
     static PRODUCTION = 'production'
+    static AMPLIFY_DOMAIN = 'amplifyapp.com'
 
     /** @param {Tools} tools */
     constructor(tools) {
@@ -84,8 +85,7 @@ export class SiteDeploy {
      * @returns {Promise<string>}
      */
     async liveVersion(config, branch) {
-        const response = await this.tools.fetch(this.#versionUrl(config, branch), { redirect: 'follow' })
-        return this.#versionFrom(response)
+        return this.#fetchVersion(config, branch, this.#requestHeaders(config, branch))
     }
 
     /**
@@ -94,8 +94,9 @@ export class SiteDeploy {
      * @param {string} version
      */
     async probe(config, branch, version) {
-        await this.#waitForVersion(config, branch, version)
-        const failures = await this.#probeFailures(config, this.origin(config, branch))
+        const headers = this.#requestHeaders(config, branch)
+        await this.#waitForVersion(config, branch, version, headers)
+        const failures = await this.#probeFailures(config, this.origin(config, branch), headers)
         this.#requireNothingMissing(failures, 'Probes failed')
         this.tools.log(`${this.origin(config, branch)} serves ${version}; ${config.probes.length} probes passed`)
     }
@@ -106,16 +107,56 @@ export class SiteDeploy {
      * @returns {string}
      */
     origin(config, branch) {
-        return `https://${this.#host(config.domain, branch)}`
+        return `https://${this.#host(config, branch)}`
     }
 
     /**
-     * @param {string} domain
+     * @param {SiteConfig} config
      * @param {string} branch
      * @returns {string}
      */
-    #host(domain, branch) {
-        return branch === SiteDeploy.PRODUCTION ? domain : `${branch}.${domain}`
+    #host(config, branch) {
+        return branch === SiteDeploy.PRODUCTION ? config.domain : `${branch}.${config.appId}.${SiteDeploy.AMPLIFY_DOMAIN}`
+    }
+
+    /**
+     * @param {SiteConfig} config
+     * @param {string} branch
+     * @returns {Record<string, string>}
+     */
+    #requestHeaders(config, branch) {
+        const settings = this.#aws('get-branch', ['--app-id', config.appId, '--branch-name', branch], config.region).branch
+        return this.#authorization(settings)
+    }
+
+    /**
+     * @param {{ enableBasicAuth: boolean, basicAuthCredentials?: string }} settings
+     * @returns {Record<string, string>}
+     */
+    #authorization(settings) {
+        if (!settings.enableBasicAuth) return {}
+        return { authorization: `Basic ${this.#maskedCredentials(settings.basicAuthCredentials)}` }
+    }
+
+    /**
+     * @param {string | undefined} credentials
+     * @returns {string}
+     */
+    #maskedCredentials(credentials) {
+        if (!credentials) throw new Error('Basic auth is on for the branch, but GetBranch returned no basicAuthCredentials')
+        this.tools.mask(credentials)
+        return credentials
+    }
+
+    /**
+     * @param {SiteConfig} config
+     * @param {string} branch
+     * @param {Record<string, string>} headers
+     * @returns {Promise<string>}
+     */
+    async #fetchVersion(config, branch, headers) {
+        const response = await this.tools.fetch(this.#versionUrl(config, branch), { redirect: 'follow', headers })
+        return this.#versionFrom(response)
     }
 
     /**
@@ -216,10 +257,11 @@ export class SiteDeploy {
      * @param {SiteConfig} config
      * @param {string} branch
      * @param {string} version
+     * @param {Record<string, string>} headers
      */
-    async #waitForVersion(config, branch, version) {
+    async #waitForVersion(config, branch, version, headers) {
         for (let attempt = 0; attempt < SiteDeploy.VERSION_ATTEMPTS; attempt += 1) {
-            if ((await this.liveVersion(config, branch)) === version) return
+            if ((await this.#fetchVersion(config, branch, headers)) === version) return
             await this.tools.sleep(SiteDeploy.VERSION_WAIT_SECONDS)
         }
         throw new Error(`${this.origin(config, branch)} does not serve ${version}`)
@@ -253,12 +295,13 @@ export class SiteDeploy {
     /**
      * @param {SiteConfig} config
      * @param {string} origin
+     * @param {Record<string, string>} headers
      * @returns {Promise<string[]>}
      */
-    async #probeFailures(config, origin) {
+    async #probeFailures(config, origin, headers) {
         const failures = []
         for (const probe of config.probes) {
-            failures.push(...(await this.#checkProbe(origin, probe, config.requiredHeaders)))
+            failures.push(...(await this.#checkProbe(origin, probe, config.requiredHeaders, headers)))
         }
         return failures
     }
@@ -267,10 +310,11 @@ export class SiteDeploy {
      * @param {string} origin
      * @param {Probe} probe
      * @param {Record<string, string>} requiredHeaders
+     * @param {Record<string, string>} headers
      * @returns {Promise<string[]>}
      */
-    async #checkProbe(origin, probe, requiredHeaders) {
-        const response = await this.tools.fetch(`${origin}${probe.path}`, { redirect: 'follow' })
+    async #checkProbe(origin, probe, requiredHeaders, headers) {
+        const response = await this.tools.fetch(`${origin}${probe.path}`, { redirect: 'follow', headers })
         const body = await response.text()
         return [
             ...this.#statusFailure(probe, response),
@@ -427,7 +471,16 @@ export class SiteDeploy {
             fetch: globalThis.fetch,
             sleep: (seconds) => new Promise((resolve) => setTimeout(resolve, seconds * 1000)),
             log: (line) => console.log(line),
+            mask: SiteDeploy.#maskFor(process.env),
         })
+    }
+
+    /**
+     * @param {Record<string, string | undefined>} environment
+     * @returns {(secret: string) => void}
+     */
+    static #maskFor(environment) {
+        return environment.GITHUB_ACTIONS === 'true' ? (secret) => console.log(`::add-mask::${secret}`) : () => {}
     }
 
     /**
