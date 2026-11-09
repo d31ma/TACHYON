@@ -204,10 +204,26 @@ controller that passes to `<folder>/<id>/project`, with `runnable.json`
 left out. `node scripts/stage-runner-image.mjs --out <context> --ty <Linux ty>
 --runnable <folder> --website-dist <dist/web>` gathers the image context, and
 `docker buildx build --build-arg TOOLCHAIN_IMAGE=<Linux toolchain image>
-<context>` builds `runner/Dockerfile`: the toolchain image plus the AWS Lambda
-Web Adapter, `ty`, the website and the staged examples, each bundled during
-the build. The container starts `bun runner/main.ts`, which starts the
-snippet host and `ty start website` on port 8000.
+<context>` builds `runner/Dockerfile`. The image keeps only what the Yon
+handler languages need at run time, on a plain Ubuntu base of the same
+release as the toolchain image:
+
+- From the toolchain image it copies `/opt/tachyon` without Swift (Yon has no
+  Swift handlers), .NET's WebAssembly workloads and older runtimes, Rust's
+  clippy, rustfmt and WebAssembly target, nextest and sccache. Every
+  compiler stays: `ty start` checks each one and puts its version in the
+  handler cache key, so a bundled handler still needs the compiler that
+  built it.
+- From Ubuntu it installs the JDK, `php-cgi` and Lua packages that the
+  toolchain image has, so their versions stay in step with
+  `vm-setup-linux.sh`, plus clang, g++, `perl` (the relay examples) and the
+  libraries Ruby and .NET load.
+- It adds the AWS Lambda Web Adapter, `ty`, the website and the staged
+  examples. The build bundles every example and then deletes Tachyon's
+  shared copy of each compiled handler, since each example keeps its own.
+
+The container starts `bun runner/main.ts`, which starts the snippet host and
+`ty start website` on port 8000.
 
 To try it on this machine, stage some examples, run `ty bundle .` in each
 `project` folder, build the site, and run
