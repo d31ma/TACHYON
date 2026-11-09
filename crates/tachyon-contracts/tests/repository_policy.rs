@@ -789,7 +789,12 @@ fn a_publish_dry_run_never_attests_stages_or_publishes() -> Result<(), Box<dyn s
         "gh attestation verify",
         "cosign verify-blob",
     ];
+    let cosign_steps = [
+        "Install pinned Sigstore client",
+        "Verify workflow-identity signatures",
+    ];
     let mut guarded = 0;
+    let mut skipped_on_windows_arm64 = 0;
     for job_name in ["validate", "build", "verify-release"] {
         for step in jobs[job_name]["steps"]
             .as_vec()
@@ -806,17 +811,29 @@ fn a_publish_dry_run_never_attests_stages_or_publishes() -> Result<(), Box<dyn s
                 continue;
             }
             guarded += 1;
+            let step_name = step["name"].as_str().unwrap_or_default();
+            let cosign_has_no_windows_arm64_build =
+                job_name == "verify-release" && cosign_steps.contains(&step_name);
+            let expected_guard = if cosign_has_no_windows_arm64_build {
+                skipped_on_windows_arm64 += 1;
+                "${{ !inputs.dry_run && matrix.os != 'windows-arm64' }}"
+            } else {
+                "${{ !inputs.dry_run }}"
+            };
             assert_eq!(
                 step["if"].as_str(),
-                Some("${{ !inputs.dry_run }}"),
-                "{job_name}: step {:?} attests, signs, or reads a release, so a dry run skips it",
-                step["name"].as_str()
+                Some(expected_guard),
+                "{job_name}: step {step_name:?} attests, signs, or reads a release, so a dry run skips it"
             );
         }
     }
     assert_eq!(
         guarded, 6,
         "validate's identity check, build's attestation, and verify-release's download, attestation, cosign install and signature checks"
+    );
+    assert_eq!(
+        skipped_on_windows_arm64, 2,
+        "only verify-release's cosign install and signature check skip windows-arm64, where cosign has no build; the other verify jobs check every asset's signature"
     );
     Ok(())
 }
