@@ -100,6 +100,33 @@ The workflow never creates or moves a tag. It never overwrites a release
 asset. If a verification fails, the draft stays non-public so that people can
 investigate.
 
+### Website
+
+The Linux x64 verification job also bundles the website with the downloaded
+binary (`cd website && bun run bundle`) and packages `website/dist/web` as a
+deterministic `tachyon-site-<version>.zip` with a `site-version.json` inside.
+This step may fail without blocking the binary release. After the release is
+public, the `site-release` job attests the zip and attaches it and its
+`.sha256` to the release. It never replaces an existing asset.
+
+When `Stable Release` succeeds for a tag push, `site-deploy.yml` deploys that
+zip to the Amplify `staging` branch (`staging.tachyon.del.ma`), probes it,
+then deploys the same zip to `production` (`tachyon.del.ma`) and probes again.
+If the production probes fail, it redeploys the version production served
+before and fails the run. To roll back or redeploy, run:
+
+```sh
+gh workflow run site-deploy.yml -f version=<version> -f target=production
+```
+
+Each deploy job runs in a GitHub environment (`site-staging` or
+`site-production`, both limited to `main`) and assumes its role through OIDC
+(`tachyon-site-deploy-staging` or `tachyon-site-deploy-production`). The roles,
+the Amplify app and its headers are defined in d31ma/PaaS
+(`infra/tachyon/amplify`, `docs/runbooks/site-deploy.md`). App id, roles and
+probes are in `.github/site-deploy.json`. `scripts/site-deploy.mjs` does the
+packaging, deployment and probes; `bun run test:site-deploy` tests it.
+
 ### Dry Run
 
 Before a release PR, run the workflow's dry run on the branch you mean to

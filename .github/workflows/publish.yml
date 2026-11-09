@@ -659,6 +659,32 @@ jobs:
           "${TAC_BIN}" build website --out-dir "${RUNNER_TEMP}/tachyon-website"
           TAC_WEBSITE_OUTPUT="${RUNNER_TEMP}/tachyon-website" bun run test:website-browser
 
+      - name: Bundle and package the website for Amplify
+        id: site
+        if: matrix.os == 'linux-x64' && !inputs.dry_run
+        continue-on-error: true
+        shell: bash
+        env:
+          VERSION: ${{ needs.validate.outputs.version }}
+        run: |
+          set -euo pipefail
+          bun install --cwd website --frozen-lockfile
+          (cd website && TAC_BIN="${TAC_BIN}" bun run bundle)
+          zip_name="tachyon-site-${VERSION}.zip"
+          mkdir -p "${RUNNER_TEMP}/site"
+          sha256=$(bun scripts/site-deploy.mjs package website/dist/web "${VERSION}" "$(git rev-parse HEAD)" "${RUNNER_TEMP}/site/${zip_name}")
+          echo "${sha256}  ${zip_name}" > "${RUNNER_TEMP}/site/${zip_name}.sha256"
+          echo "${zip_name} ${sha256}"
+
+      - name: Keep the website zip for the release
+        if: steps.site.outcome == 'success'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: tachyon-site
+          path: ${{ runner.temp }}/site/
+          retention-days: 7
+          if-no-files-found: error
+
       - name: Check the downloaded Unix executable version
         if: runner.os != 'Windows'
         shell: bash
@@ -794,3 +820,44 @@ jobs:
           REPOSITORY: ${{ github.repository }}
           TAG: ${{ needs.validate.outputs.tag }}
         run: gh release edit "${TAG}" --repo "${REPOSITORY}" --draft=false --latest
+
+  site-release:
+    name: Attach the website zip to the published release
+    needs: [validate, publish]
+    if: always() && needs.publish.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - name: Download the website zip
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: tachyon-site
+          path: site
+
+      - name: Check the website zip checksum
+        working-directory: site
+        run: sha256sum --check --strict -- *.sha256
+
+      - name: Attest the website zip
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-path: site/tachyon-site-*.zip
+
+      - name: Attach the website zip to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          TAG: ${{ needs.validate.outputs.tag }}
+          VERSION: ${{ needs.validate.outputs.version }}
+        run: |
+          set -euo pipefail
+          zip_name="tachyon-site-${VERSION}.zip"
+          if gh release view "${TAG}" --repo "${REPOSITORY}" --json assets --jq '.assets[].name' | grep -qx "${zip_name}"; then
+            echo "::notice::${TAG} already has ${zip_name}; the released zip is kept."
+          else
+            gh release upload "${TAG}" --repo "${REPOSITORY}" "site/${zip_name}" "site/${zip_name}.sha256"
+          fi

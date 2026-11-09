@@ -73,6 +73,7 @@
     "test:remotes-socket-browser": "node scripts/remotes-socket-test.mjs",
     "test:native-bridge-bounds": "node scripts/native-bridge-bounds-test.mjs",
     "test:python-tac-public-assets": "node --test scripts/python-tac-public-assets.test.mjs",
+    "test:site-deploy": "node --test scripts/site-deploy.test.mjs",
     "test:server-probe": "node scripts/release/server-probe-test.mjs"
   },
   "keywords": [

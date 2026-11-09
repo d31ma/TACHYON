@@ -335,6 +335,7 @@ fn the_workflow_folder_holds_exactly_the_parsed_workflows() -> Result<(), Box<dy
         "publish.yml",
         "ruby-runtime.yml",
         "rust-ci.yml",
+        "site-deploy.yml",
     ]
     .map(String::from);
     assert_eq!(workflow_file_names()?, BTreeSet::from(expected));
@@ -356,6 +357,12 @@ fn the_publish_workflow_parses_as_yaml_with_jobs() -> Result<(), Box<dyn std::er
 #[test]
 fn the_ruby_runtime_workflow_parses_as_yaml_with_jobs() -> Result<(), Box<dyn std::error::Error>> {
     parsed_workflow("ruby-runtime.yml")?;
+    Ok(())
+}
+
+#[test]
+fn the_site_deploy_workflow_parses_as_yaml_with_jobs() -> Result<(), Box<dyn std::error::Error>> {
+    parsed_workflow("site-deploy.yml")?;
     Ok(())
 }
 
