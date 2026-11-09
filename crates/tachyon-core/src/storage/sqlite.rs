@@ -3,7 +3,7 @@ use std::sync::{
     Arc,
     atomic::{AtomicBool, Ordering},
 };
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use futures_util::TryStreamExt;
 use serde_json::{Map, Value, json};
@@ -27,6 +27,8 @@ impl Drop for CancelOnDrop {
 }
 
 impl SqliteStore {
+    const SETTLEMENT_RESERVE: Duration = Duration::from_millis(500);
+
     pub(super) async fn connect(url: &str) -> Result<Self, Failure> {
         let options = sqlx::sqlite::SqliteConnectOptions::from_str(url)
             .map_err(|_| failure("Invalid SQLite URL."))?
@@ -56,24 +58,29 @@ impl SqliteStore {
             .map_err(|_| failure("SQLite admission failed."))
     }
 
-    pub(super) async fn execute(&self, statement: &Statement) -> Result<Value, Failure> {
+    pub(super) async fn execute(
+        &self,
+        statement: &Statement,
+        deadline: Instant,
+    ) -> Result<Value, Failure> {
         let mut connection = self.acquire_connection().await?;
-        Self::execute_on(&mut connection, statement).await
+        Self::execute_on(&mut connection, statement, deadline).await
     }
 
     pub(super) async fn execute_on(
         connection: &mut sqlx::SqliteConnection,
         statement: &Statement,
+        deadline: Instant,
     ) -> Result<Value, Failure> {
         let cancellation = CancelOnDrop(Arc::new(AtomicBool::new(false)));
         let cancelled = Arc::clone(&cancellation.0);
-        let deadline = Instant::now() + ManagedStorage::OPERATION_TIMEOUT;
+        let interrupt_deadline = Self::interrupt_deadline(deadline);
         connection
             .lock_handle()
             .await
             .map_err(|_| failure("SQLite worker access failed."))?
             .set_progress_handler(1000, move || {
-                !cancelled.load(Ordering::Relaxed) && Instant::now() < deadline
+                !cancelled.load(Ordering::Relaxed) && Instant::now() < interrupt_deadline
             });
         let result = run_statement(connection, statement).await;
         connection
@@ -82,6 +89,12 @@ impl SqliteStore {
             .map_err(|_| failure("SQLite worker settlement failed."))?
             .remove_progress_handler();
         result
+    }
+
+    fn interrupt_deadline(deadline: Instant) -> Instant {
+        deadline
+            .checked_sub(Self::SETTLEMENT_RESERVE)
+            .unwrap_or(deadline)
     }
 
     pub(super) async fn close(&self) {

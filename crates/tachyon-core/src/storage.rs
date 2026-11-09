@@ -9,7 +9,7 @@ mod sqlite;
 #[cfg(not(feature = "storage-redis"))]
 mod unbuilt_redis_store;
 
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use serde_json::Value;
 use tokio::sync::Semaphore;
@@ -102,14 +102,15 @@ impl ManagedStorage {
             .admission
             .try_acquire()
             .map_err(|_| failure("Managed storage admission is closed or full."))?;
-        tokio::time::timeout(self.deadline(command), self.dispatch(command))
+        let deadline = Instant::now() + self.time_limit(command);
+        tokio::time::timeout_at(deadline.into(), self.dispatch(command, deadline))
             .await
             .map_err(|_| {
                 failure("Managed storage operation deadline exceeded; writes may have committed.")
             })?
     }
 
-    fn deadline(&self, command: &Value) -> Duration {
+    fn time_limit(&self, command: &Value) -> Duration {
         let names = (command["operation"].as_str(), command["command"].as_str());
         let is_scroll = names == (Some("document"), Some("scroll"));
         let base = if is_scroll {
@@ -120,12 +121,14 @@ impl ManagedStorage {
         base * self.deadline_factor
     }
 
-    async fn dispatch(&self, command: &Value) -> Result<Value, Failure> {
+    async fn dispatch(&self, command: &Value, deadline: Instant) -> Result<Value, Failure> {
         if command["operation"] == "transaction" {
-            return self.transaction(command).await;
+            return self.transaction(command, deadline).await;
         }
         if let Some(transaction) = command.get("transaction") {
-            return self.execute_in_transaction(command, transaction).await;
+            return self
+                .execute_in_transaction(command, transaction, deadline)
+                .await;
         }
         let needs_fylo = matches!(command["operation"].as_str(), Some("document" | "queue"));
         if needs_fylo && self.fylo.is_none() {
@@ -138,7 +141,7 @@ impl ManagedStorage {
         } else if let Some(fylo) = &self.fylo {
             fylo.execute(command).await?
         } else {
-            self.sql_store()?.execute(command).await?
+            self.sql_store()?.execute(command, deadline).await?
         };
         check_size(&result)?;
         Ok(result)
@@ -148,6 +151,7 @@ impl ManagedStorage {
         &self,
         command: &Value,
         transaction: &Value,
+        deadline: Instant,
     ) -> Result<Value, Failure> {
         let Some(id) = transaction.as_str().filter(|id| id.len() <= 128) else {
             return Err(failure("Transaction identifiers are bounded strings."));
@@ -163,7 +167,7 @@ impl ManagedStorage {
         }
         let result = self
             .sql_store()?
-            .execute_in(id, &Value::Object(inner))
+            .execute_in(id, &Value::Object(inner), deadline)
             .await?;
         check_size(&result)?;
         Ok(result)
@@ -181,7 +185,7 @@ impl ManagedStorage {
             .ok_or_else(|| failure("Yon Redis is not configured."))
     }
 
-    async fn transaction(&self, command: &Value) -> Result<Value, Failure> {
+    async fn transaction(&self, command: &Value, deadline: Instant) -> Result<Value, Failure> {
         object_keys(command, &["operation", "action", "transaction"])?;
         let action = text(command, "action")?;
         if !matches!(action, "begin" | "commit" | "rollback") {
@@ -199,7 +203,7 @@ impl ManagedStorage {
             if command.get("transaction").is_some() {
                 return Err(failure("Beginning a transaction takes no identifier."));
             }
-            return sql.begin().await;
+            return sql.begin(deadline).await;
         }
         let Some(id) = command
             .get("transaction")
@@ -210,7 +214,7 @@ impl ManagedStorage {
                 "Committing or rolling back requires its transaction.",
             ));
         };
-        sql.settle(id, action).await
+        sql.settle(id, action, deadline).await
     }
 
     pub(crate) async fn close(&self) {
