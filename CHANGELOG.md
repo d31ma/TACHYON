@@ -8,6 +8,19 @@ machine contracts have their own, independent major versions.
 
 ## [Unreleased]
 
+### Changed
+
+**CLI and tooling**
+
+- JSON that `ty` writes has its object keys in sorted order, however `ty` is
+  built: route answers and bodies, storage results, topic records, Redis
+  values, behavior records, SQL column lists and build output such as the
+  service worker's asset list. Some output changes key order from earlier
+  builds; the content is the same.
+- Release builds use the new `shipped` feature set of `tachyon-cli`. Build
+  from source with `cargo build --release --locked -p tachyon-cli --features
+  shipped`; `storage-all` still works.
+
 ## [26.46.01] - 2026-11-09
 
 ### Highlights
