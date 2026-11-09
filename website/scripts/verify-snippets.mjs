@@ -17,6 +17,7 @@ import { SnippetCache } from './snippet-cache.mjs'
 import { SnippetRequest } from './snippet-request.mjs'
 import { SnippetScope } from './snippet-scope.mjs'
 import { SocketProbe } from './socket-probe.mjs'
+import { TacRubyWarmUp } from './tac-ruby-warm-up.mjs'
 import { PythonWebRuntime } from './python-web-runtime.mjs'
 import { RecordedRuns } from './recorded-runs.mjs'
 import { RunnableExamples } from './runnable-examples.mjs'
@@ -48,6 +49,7 @@ class Settings {
   static onlyFeature = readOption('--feature=')
   static shard = SnippetShard.parse(readOption('--shard='))
   static scratchRoot = prepareScratchRoot()
+  static tacRuby = new TacRubyWarmUp(runCommand, Settings.binary, Settings.scratchRoot, reportWarmUp)
   static cache = new SnippetCache(path.join(Settings.scratchRoot, SnippetCache.folderName), !process.argv.includes('--no-cache'), '')
   static concurrency = chooseConcurrency()
   static requireToolchains = process.env.TAC_SNIPPETS_REQUIRE_TOOLCHAINS === '1'
@@ -364,6 +366,12 @@ function pass(label, kind) {
   emit('log', `  ok  ${label} [${kind}]`)
 }
 
+/** @param {string} text */
+function reportWarmUp(text) {
+  record(TacRubyWarmUp.label, 'warm-up')
+  emit('log', text)
+}
+
 /**
  * @param {string} label
  * @param {string} reason
@@ -622,6 +630,7 @@ async function inStagingDirectory(label, operation) {
   assert.ok(!Staging.activeDirectories.has(root), `Two steps share one staging directory: ${label}`)
   Staging.activeDirectories.add(root)
   try {
+    if (TacRubyWarmUp.needs(label)) await Settings.tacRuby.ready()
     emptyStagingDirectory(root)
     await operation(root)
   } catch (error) {
