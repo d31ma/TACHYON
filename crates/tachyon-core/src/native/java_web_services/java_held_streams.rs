@@ -4,6 +4,7 @@ use super::java_member::JavaMember;
 use super::java_member_kind::JavaMemberKind;
 use crate::Failure;
 use crate::events::{EventModule, EventStream, HeldStreams};
+use crate::sorted_json::SortedJson;
 use std::path::Path;
 
 pub(super) struct JavaHeldStreams<'a> {
@@ -69,7 +70,7 @@ impl<'a> JavaHeldStreams<'a> {
             value_type: String::new(),
             parameters: Vec::new(),
             kind: JavaMemberKind::Stream {
-                description: description.to_string(),
+                description: SortedJson::text(&description),
             },
         }
     }

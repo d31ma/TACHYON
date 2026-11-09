@@ -1,4 +1,5 @@
 use crate::handler::frame::HandlerFrame;
+use crate::sorted_json::SortedJson;
 use command_group::AsyncGroupChild;
 use std::process::ExitStatus;
 use std::time::Duration;
@@ -61,7 +62,11 @@ impl ProcessReaper {
         if !reaped {
             eprintln!(
                 "{}",
-                Self::cleanup_unsettled_event(request_id, process_id, kill_failed)
+                SortedJson::text(&Self::cleanup_unsettled_event(
+                    request_id,
+                    process_id,
+                    kill_failed
+                ))
             );
         }
     }

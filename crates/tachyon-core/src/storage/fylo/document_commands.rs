@@ -1,3 +1,4 @@
+use crate::sorted_json::SortedJson;
 use serde_json::{Map, Value, json};
 
 use super::collection_name::CollectionName;
@@ -97,7 +98,8 @@ impl<'store> DocumentCommands<'store> {
     async fn scroll(&self, command: &Value) -> Result<Value, Failure> {
         let collection = Self::collection(command)?;
         let scroll = ScrollRequest::parse(command)?;
-        let scope = json!({ "collection": collection, "where": scroll.filter() }).to_string();
+        let scope =
+            SortedJson::text(&json!({ "collection": collection, "where": scroll.filter() }));
         let cursor = self.cursor_for(collection, &scroll, scope.clone()).await?;
         let page = self
             .store

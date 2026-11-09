@@ -1,4 +1,5 @@
 use super::HeaderNames;
+use crate::sorted_json::SortedJson;
 use axum::Router;
 use axum::body::Body;
 use axum::http::{Request, Response};
@@ -37,7 +38,7 @@ impl AccessLog {
             "duration_ms": duration_ms,
         });
         Self::add_request_id(&mut event, response);
-        event.to_string()
+        SortedJson::text(&event)
     }
 
     fn add_request_id(event: &mut serde_json::Value, response: &Response<Body>) {

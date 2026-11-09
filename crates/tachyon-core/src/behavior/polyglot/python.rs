@@ -1,6 +1,7 @@
 use super::super::testing::{Unit, polyglot_unit};
 use super::typed_answer::TypedAnswer;
 use super::{Edit, Method, Module, Type, concrete_edit, render};
+use crate::sorted_json::SortedJson;
 use serde_json::{Map, Value};
 use std::fmt::Write as _;
 
@@ -103,7 +104,7 @@ fn constructor_edit(module: &Module, type_declaration: &Type, fields: &[String])
 }
 
 fn registration(type_declaration: &Type, data: &Map<String, Value>) -> Result<String, String> {
-    let json = serde_json::to_string(data).map_err(|error| error.to_string())?;
+    let json = SortedJson::text(&Value::Object(data.clone()));
     let quoted_json = serde_json::to_string(&json).map_err(|error| error.to_string())?;
     Ok(format!(
         "{}: _behavior_json.loads({quoted_json})",
@@ -132,7 +133,10 @@ fn test_members(unit: &Unit, indent: &str) -> String {
     for name in &unit.mocks {
         let _ = writeln!(mocks, "{indent}{indent}{indent}self.{name} = None");
     }
-    let table = super::super::ValueSource::case_table(&unit.cases, &unit.inputs).to_string();
+    let table = SortedJson::text(&super::super::ValueSource::case_table(
+        &unit.cases,
+        &unit.inputs,
+    ));
     let cases = serde_json::Value::String(table);
     format!(
         "{indent}async def startBehaviors(self):\n\

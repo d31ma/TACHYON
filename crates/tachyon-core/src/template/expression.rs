@@ -1,5 +1,6 @@
 use crate::Failure;
 use crate::failure::{diagnostic, source_span};
+use crate::sorted_json::SortedJson;
 use serde_json::{Number, Value};
 use std::collections::BTreeMap;
 use std::str::FromStr;
@@ -135,7 +136,7 @@ enum ExpressionNode {
 impl ExpressionNode {
     fn client_json(&self) -> String {
         match self {
-            Self::Literal(value) => format!(r#"{{"k":"lit","v":{value}}}"#),
+            Self::Literal(value) => format!(r#"{{"k":"lit","v":{}}}"#, SortedJson::text(value)),
             Self::Identifier(name) => format!(r#"{{"k":"id","n":"{name}"}}"#),
             Self::Access(parent, Access::Property(property)) => format!(
                 r#"{{"k":"get","o":{},"p":"{property}"}}"#,

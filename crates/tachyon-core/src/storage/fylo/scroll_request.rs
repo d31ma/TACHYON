@@ -1,3 +1,4 @@
+use crate::sorted_json::SortedJson;
 use serde_json::{Map, Value, json};
 
 use super::identifier;
@@ -51,7 +52,7 @@ impl ScrollRequest {
     fn parse_conditions(command: &Value) -> Result<Map<String, Value>, Failure> {
         let criteria = Self::present(command, "where").map_or(Ok(Map::new()), Self::criteria)?;
         let mut conditions = Map::new();
-        for (field, value) in &criteria {
+        for (field, value) in SortedJson::entries(&criteria) {
             scalar(value)?;
             conditions.insert(identifier(field)?.to_owned(), json!({ "$eq": value }));
         }

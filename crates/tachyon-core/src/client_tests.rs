@@ -1,6 +1,7 @@
 use crate::Failure;
 use crate::failure::{diagnostic, source_span};
 use crate::model_sources::ModelSources;
+use crate::sorted_json::SortedJson;
 use module_url::ModuleUrl;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
@@ -739,7 +740,10 @@ fn write_deno_import_map(directory: &Path, project: &Path) -> std::io::Result<Pa
         imports.insert(prefix, serde_json::Value::String(target));
     }
     let map = directory.join("imports.json");
-    std::fs::write(&map, serde_json::json!({ "imports": imports }).to_string())?;
+    std::fs::write(
+        &map,
+        SortedJson::text(&serde_json::json!({ "imports": imports })),
+    )?;
     Ok(map)
 }
 

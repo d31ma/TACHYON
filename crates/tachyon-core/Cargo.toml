@@ -11,6 +11,7 @@ publish = false
 
 [features]
 fuzzing = []
+json-preserve-order = ["serde_json/preserve_order"]
 storage-all = ["storage-mysql", "storage-postgres", "storage-redis", "storage-sqlserver"]
 storage-mysql = ["sqlx/any", "sqlx/mysql", "sqlx/tls-rustls-ring-webpki"]
 storage-postgres = ["sqlx/any", "sqlx/postgres", "sqlx/tls-rustls-ring-webpki"]

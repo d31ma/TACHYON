@@ -1,5 +1,6 @@
 use crate::Failure;
 use crate::failure::{diagnostic, source_span};
+use crate::sorted_json::SortedJson;
 use serde_json::{Map, Value, json};
 use std::ops::Range;
 use std::path::Path;
@@ -261,7 +262,7 @@ impl ClientClass {
         let arguments = if options.is_empty() {
             String::new()
         } else {
-            Value::Object(options).to_string()
+            SortedJson::text(&Value::Object(options))
         };
         HttpClientSource::marker_text(extension, "Client", &arguments)
     }
@@ -588,7 +589,7 @@ impl<'a> SourceText<'a> {
         let marker = HttpClientSource::marker_text(
             self.extension,
             "WebCall",
-            &Value::Object(policy).to_string(),
+            &SortedJson::text(&Value::Object(policy)),
         );
         Ok(RequestEdit { marker, blanks })
     }

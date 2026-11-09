@@ -4,6 +4,7 @@ use serde_json::{Value, json};
 
 use super::{ManagedStorage, failure, object_keys, scalar, text};
 use crate::Failure;
+use crate::sorted_json::SortedJson;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(super) enum Dialect {
@@ -211,8 +212,11 @@ impl Dialect {
             .get(text(command, "idField")?)
             .ok_or_else(|| failure("Store save requires its mapped identifier."))?;
         entity_id(identifier)?;
-        let columns = self.quoted_columns(data.keys())?;
-        let bindings = self.bindings(data.values(), &mut statement.parameters)?;
+        let columns = self.quoted_columns(SortedJson::keys(data).into_iter())?;
+        let bindings = self.bindings(
+            SortedJson::values(data).into_iter(),
+            &mut statement.parameters,
+        )?;
         let assignments = self.update_assignments(&columns, id);
         let upsert = Upsert {
             table,

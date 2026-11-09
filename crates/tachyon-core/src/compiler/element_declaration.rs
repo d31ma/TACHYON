@@ -1,5 +1,6 @@
 use super::element_events::ElementEvents;
 use super::typescript_field_type::TypescriptFieldType;
+use crate::sorted_json::SortedJson;
 use serde_json::{Map, Value};
 
 pub(super) struct ElementDeclaration<'a> {
@@ -28,10 +29,8 @@ impl<'a> ElementDeclaration<'a> {
     }
 
     pub(super) fn text(&self) -> String {
-        let models: String = self
-            .events
-            .models
-            .iter()
+        let models: String = SortedJson::entries(&self.events.models)
+            .into_iter()
             .map(|(model, described)| Self::model_interface(model, described))
             .collect();
         [
@@ -66,8 +65,8 @@ impl<'a> ElementDeclaration<'a> {
             .get("fields")
             .and_then(Value::as_object)
             .unwrap_or(&empty);
-        let members: String = fields
-            .iter()
+        let members: String = SortedJson::entries(fields)
+            .into_iter()
             .map(|(field, written)| Self::field_line(field, written))
             .collect();
         format!("export interface {model} {{\n{members}}}\n\n")

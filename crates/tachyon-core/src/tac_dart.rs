@@ -1,6 +1,7 @@
 use crate::Failure;
 use crate::events::{EventModule, EventStream};
 use crate::failure::diagnostic;
+use crate::sorted_json::SortedJson;
 use dart_delegate_bases::DartDelegateBases;
 use dart_http_constructor::DartHttpConstructor;
 use dart_model_shape::DartModelShape;
@@ -615,7 +616,7 @@ Future<void> Function(Object?) tachyonSocketSender(Map<String, Object> graph, St
         let providers: Vec<(String, String)> = named
             .as_object()
             .into_iter()
-            .flatten()
+            .flat_map(SortedJson::entries)
             .filter_map(|(field, provider)| Some((field.clone(), provider.as_str()?.to_owned())))
             .collect();
         for owner in self.classes.iter_mut().filter(|owner| owner.name == class) {
@@ -946,7 +947,7 @@ Future<void> Function(Object?) tachyonSocketSender(Map<String, Object> graph, St
     ) -> String {
         let [fields, readonly, methods, injected] = self.member_lists(injections);
         let stored = json_text(&self.stored);
-        let plan = self.module_plan(class, plan, held);
+        let plan = SortedJson::text(&self.module_plan(class, plan, held));
         let shared_module = WasmProgram::SHARED_MODULE;
         let publisher_resource = Self::PUBLISHER_RESOURCE;
         format!(

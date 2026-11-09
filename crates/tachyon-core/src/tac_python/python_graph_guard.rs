@@ -1,5 +1,6 @@
 use super::python_provider_source::PythonProviderSource;
 use crate::Failure;
+use crate::sorted_json::SortedJson;
 use serde_json::{Map, Value};
 use std::collections::BTreeSet;
 use std::path::Path;
@@ -8,8 +9,8 @@ pub(super) struct PythonGraphGuard;
 
 impl PythonGraphGuard {
     pub(super) fn check(providers: &Map<String, Value>) -> Result<(), Failure> {
-        providers
-            .keys()
+        SortedJson::keys(providers)
+            .into_iter()
             .try_for_each(|name| Self::visit(name, providers, &BTreeSet::new()).map(|_| ()))
     }
 

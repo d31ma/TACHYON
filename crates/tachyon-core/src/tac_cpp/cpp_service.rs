@@ -5,6 +5,7 @@ use super::{
 };
 use crate::Failure;
 use crate::annotation_rules::Realm;
+use crate::sorted_json::SortedJson;
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
@@ -191,7 +192,7 @@ impl CppService {
 
     fn binding_class(&self) -> String {
         let binding = self.binding_name();
-        let metadata = self.metadata();
+        let metadata = SortedJson::text(&self.metadata());
         let fields = self.field_bindings();
         let props = self.prop_bindings();
         let methods = self.method_bindings();

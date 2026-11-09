@@ -1,5 +1,6 @@
 use super::{EventModule, Plan, Write, index, quote};
 use crate::events::{EventListener, EventMethod, EventType};
+use crate::sorted_json::SortedJson;
 use crate::yon::plan::Route;
 use crate::yon::route_calls::RouteCalls;
 
@@ -1290,7 +1291,7 @@ pub(super) fn listener_options(listener: &EventListener) -> String {
         "models": listener.models,
         "returns": listener.returns,
     });
-    options.to_string()
+    SortedJson::text(&options)
 }
 
 fn payload_type(method: &EventMethod) -> String {

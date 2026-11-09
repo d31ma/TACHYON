@@ -2,6 +2,7 @@ use super::ProcessFailure;
 use crate::Failure;
 use crate::failure::diagnostic;
 use crate::handler::frame::HandlerFrame;
+use crate::sorted_json::SortedJson;
 use serde_json::Value;
 use std::process::ExitStatus;
 use tokio::io::{AsyncRead, AsyncReadExt};
@@ -130,7 +131,7 @@ impl Drained {
             .for_each(|category| Self::print_relay_failure(request_id, category));
         self.exceptions(request_id)
             .iter()
-            .for_each(|line| eprintln!("{line}"));
+            .for_each(|line| eprintln!("{}", SortedJson::text(line)));
         self.report_stderr(request_id);
     }
 
@@ -151,7 +152,7 @@ impl Drained {
 
     fn print_stderr_event(&self, reported: bool, request_id: &str) {
         if reported && let Some(event) = self.stderr_event(request_id) {
-            eprintln!("{event}");
+            eprintln!("{}", SortedJson::text(&event));
         }
     }
 
@@ -360,11 +361,11 @@ impl Drained {
     fn print_relay_failure(request_id: &str, category: &str) {
         eprintln!(
             "{}",
-            serde_json::json!({
+            SortedJson::text(&serde_json::json!({
                 "event": "handler.relay_failed",
                 "request_id": request_id,
                 "category": category,
-            })
+            }))
         );
     }
 }

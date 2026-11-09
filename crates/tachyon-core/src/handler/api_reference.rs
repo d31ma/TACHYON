@@ -1,4 +1,5 @@
 use crate::server::RouteGuard;
+use crate::sorted_json::SortedJson;
 use crate::yon::route_access::RouteAccess;
 use crate::{Failure, RouteGraph};
 use serde_json::{Map, Value};
@@ -22,7 +23,7 @@ impl ApiReference {
         }
         let models = Self::referenced_models(&routes, &models);
         let document = Self::document(&routes, &models);
-        let bytes = serde_json::to_vec_pretty(&document).map_err(|_| {
+        let bytes = serde_json::to_vec_pretty(&SortedJson::value(&document)).map_err(|_| {
             Failure::one(crate::failure::diagnostic(
                 2005,
                 "Cannot encode the declared API reference.",

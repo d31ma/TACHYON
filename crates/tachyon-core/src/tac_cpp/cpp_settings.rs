@@ -1,6 +1,7 @@
 use super::{CppAttribute, CppClass, CppFailure, CppMember, CppMemberKind, CppSetup};
 use crate::Failure;
 use crate::behavior::{WrittenField, WrittenMarker, WrittenPolicies};
+use crate::sorted_json::SortedJson;
 use serde_json::{Map, Value, json};
 use std::path::Path;
 
@@ -195,7 +196,7 @@ impl CppSettings {
     }
 
     pub(crate) fn specialization(plan_type: &str, name: &str, plan: &Value) -> String {
-        let literal = Value::String(plan.to_string()).to_string();
+        let literal = Value::String(SortedJson::text(plan)).to_string();
         format!(
             "namespace tachyon {{\ntemplate <>\nstruct {plan_type}<::{name}> {{\n    static const json::JsonNode& plan() {{\n        static const json::JsonNode written = json::JsonNode::parse({literal});\n        return written;\n    }}\n}};\n}}\n"
         )

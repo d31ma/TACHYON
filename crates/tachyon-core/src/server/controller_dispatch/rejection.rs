@@ -1,4 +1,5 @@
 use super::RouteAnswer;
+use crate::sorted_json::SortedJson;
 use axum::body::Body;
 use axum::http::header::CONTENT_TYPE;
 use axum::http::{Response, StatusCode};
@@ -30,7 +31,7 @@ impl Rejection {
         )]);
         let body = HandlerBody {
             encoding: HandlerBodyEncoding::Utf8,
-            data: self.body().to_string(),
+            data: SortedJson::text(&self.body()),
         };
         HandlerResponse::success(request_id, StatusCode::BAD_REQUEST.as_u16(), headers, body)
     }

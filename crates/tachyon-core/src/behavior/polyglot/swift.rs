@@ -3,6 +3,7 @@ use super::super::mapper;
 use super::super::testing::{Unit, joined, polyglot_unit};
 use super::string_literal::StringLiteral;
 use super::{Edit, Method, Module, Parameter, Type, block, concrete_edit, declared_fields, render};
+use crate::sorted_json::SortedJson;
 use serde_json::{Map, Value};
 use std::fmt::Write as _;
 use swift_client_answer::SwiftClientAnswer;
@@ -49,7 +50,7 @@ pub(super) fn lower(module: &Module) -> Result<String, String> {
             serde_json::json!({"cache": type_declaration.cache, "methods": methods}),
         );
     }
-    let registry = Value::Object(registrations).to_string();
+    let registry = SortedJson::text(&Value::Object(registrations));
     let generated = include_str!("swift_runtime.swift")
         .replace("__TAC_BEHAVIOR_MODULE__", &quote(&module.module_id))
         .replace("__TAC_BEHAVIOR_ENVIRONMENT__", &quote(&module.environment))
@@ -63,7 +64,7 @@ pub(super) fn lower(module: &Module) -> Result<String, String> {
 }
 
 fn policy_line(type_declaration: &Type) -> String {
-    let policies = Value::Object(type_declaration.policies.clone()).to_string();
+    let policies = SortedJson::text(&Value::Object(type_declaration.policies.clone()));
     format!(
         "if ObjectIdentifier(type) == ObjectIdentifier({}.self) {{ return try BehaviorJSON.parse({}) }}\n",
         type_declaration.name,
@@ -81,7 +82,7 @@ fn entity_line(type_declaration: &Type, entity: &Value) -> String {
     format!(
         "if ObjectIdentifier(entity) == ObjectIdentifier({}.self) {{ return try BehaviorJSON.parse({}) }}\n",
         type_declaration.name,
-        quote(&mapping.to_string())
+        quote(&SortedJson::text(&mapping))
     )
 }
 
@@ -263,7 +264,7 @@ fn pageable_line(method: &Method, policy: &Value) -> Result<String, String> {
         "{declaration}{} = try BehaviorPage.normalize({}, policy: BehaviorJSON.parse({}))\n",
         parameter.name,
         parameter.name,
-        quote(&policy.to_string())
+        quote(&SortedJson::text(policy))
     ))
 }
 
@@ -298,7 +299,7 @@ fn validation_prefix(method: &Method) -> Result<String, String> {
     Ok(format!(
         "{binding} {} = try Behaviors.validateSchema(BehaviorJSON.parse({}), {})\n",
         parameter.name,
-        quote(&policy["schema"].to_string()),
+        quote(&SortedJson::text(&policy["schema"])),
         parameter.name
     ))
 }
@@ -325,13 +326,13 @@ fn mapping_body(method: &Method, policy: &Value) -> Result<String, String> {
     if let Some(result) = policy.get("result").and_then(Value::as_str) {
         return Ok(format!(
             "\nlet mapped = try BehaviorContext.mapValue(BehaviorJSON.parse({}), BehaviorJSON.parse(tacEncode(tacModelValue({}))))\nreturn try tacModel({result}.self, tacParseJSON(mapped.encoded()))\n",
-            quote(&policy.to_string()),
+            quote(&SortedJson::text(policy)),
             value.name
         ));
     }
     Ok(format!(
         "\nreturn try BehaviorContext.mapValue(BehaviorJSON.parse({}), try BehaviorJSON.from({}))\n",
-        quote(&policy.to_string()),
+        quote(&SortedJson::text(policy)),
         value.name
     ))
 }
@@ -343,7 +344,7 @@ fn query_body(method: &Method, query: &Value) -> Result<String, String> {
     let arguments = json_arguments(method);
     Ok(format!(
         "\nreturn try await self.behaviors.query(BehaviorJSON.parse({}), arguments: [{arguments}])\n",
-        quote(&query.to_string())
+        quote(&SortedJson::text(query))
     ))
 }
 

@@ -1,4 +1,5 @@
 use super::JsonFields;
+use crate::sorted_json::SortedJson;
 use serde_json::Value;
 
 pub(super) struct ModelDifference;
@@ -10,8 +11,8 @@ impl ModelDifference {
 
     pub(super) fn breaks(old: &Value, new: &Value) -> Vec<String> {
         let current = JsonFields::object(new, Self::MODELS);
-        JsonFields::object(old, Self::MODELS)
-            .iter()
+        SortedJson::entries(JsonFields::object(old, Self::MODELS))
+            .into_iter()
             .flat_map(|(name, model)| Self::one_model_breaks(name, model, current.get(name)))
             .collect()
     }
@@ -26,8 +27,8 @@ impl ModelDifference {
     fn present_model_breaks(name: &str, old: &Value, new: &Value) -> Vec<String> {
         let old_fields = JsonFields::object(old, Self::PROPERTIES);
         let new_fields = JsonFields::object(new, Self::PROPERTIES);
-        let mut found: Vec<String> = old_fields
-            .iter()
+        let mut found: Vec<String> = SortedJson::entries(old_fields)
+            .into_iter()
             .filter(|(field, schema)| new_fields.get(*field) != Some(*schema))
             .map(|(field, _)| format!("the field {name}.{field} was removed or changed its type"))
             .collect();

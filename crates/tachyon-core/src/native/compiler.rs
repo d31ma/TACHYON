@@ -13,6 +13,7 @@ use super::windows::WindowsHostGenerator;
 use super::windows_architecture::WindowsArchitecture;
 use crate::compiler::{ArtifactProvenance, publish, resolve_output_path};
 use crate::failure::diagnostic;
+use crate::sorted_json::SortedJson;
 use crate::{BuildOptions, Failure, Project, ProjectDiscovery, WebCompiler};
 use sha2::{Digest, Sha256};
 use std::fs;
@@ -453,7 +454,7 @@ fn write_host_descriptor(
 }
 
 fn write_pretty_json(path: &Path, value: &serde_json::Value) -> Result<(), Failure> {
-    let mut bytes = serde_json::to_vec_pretty(value).map_err(|error| {
+    let mut bytes = serde_json::to_vec_pretty(&SortedJson::value(value)).map_err(|error| {
         Failure::one(diagnostic(
             1605,
             format!("Cannot serialize native compatibility artifact: {error}"),

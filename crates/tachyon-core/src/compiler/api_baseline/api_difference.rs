@@ -1,4 +1,5 @@
 use super::{JsonFields, ModelDifference, RequestFields, SchemaChange};
+use crate::sorted_json::SortedJson;
 use serde_json::Value;
 use std::collections::BTreeMap;
 
@@ -52,8 +53,8 @@ impl ApiDifference {
 
     fn method_breaks(route: &str, old: &Value, new: &Value) -> Vec<String> {
         let current = JsonFields::object(new, Self::METHODS);
-        JsonFields::object(old, Self::METHODS)
-            .iter()
+        SortedJson::entries(JsonFields::object(old, Self::METHODS))
+            .into_iter()
             .flat_map(|(verb, method)| {
                 let at = format!("{verb} {route}");
                 Self::one_method_breaks(&at, method, current.get(verb))

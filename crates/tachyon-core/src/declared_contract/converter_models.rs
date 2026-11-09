@@ -2,6 +2,7 @@ use super::contract_declaration::ContractDeclaration;
 use super::contract_form::ContractForm;
 use super::contract_member::ContractMember;
 use crate::behavior::HttpClientSource;
+use crate::sorted_json::SortedJson;
 use serde_json::{Map, Value};
 use std::ops::Range;
 use std::path::Path;
@@ -368,7 +369,7 @@ impl<'a> ConverterModels<'a> {
         options
             .is_empty()
             .then(String::new)
-            .unwrap_or_else(|| format!("({})", Value::Object(options)))
+            .unwrap_or_else(|| format!("({})", SortedJson::text(&Value::Object(options))))
     }
 
     fn add_models(&self, options: &mut Map<String, Value>) {

@@ -4,6 +4,7 @@ use super::edits::TextEdit;
 use super::markers::{Marker, MarkerLine};
 use super::scan::SourceText;
 use crate::route_types::{ModelTable, Shape, TypeText};
+use crate::sorted_json::SortedJson;
 use serde_json::{Map, Value};
 use std::path::Path;
 
@@ -146,7 +147,7 @@ impl<'a> EventConversion<'a> {
         if options.is_empty() {
             return String::new();
         }
-        Value::Object(options).to_string()
+        SortedJson::text(&Value::Object(options))
     }
 
     fn event_names(options: &Map<String, Value>) -> Vec<String> {

@@ -4,6 +4,7 @@ use super::markers::{Marker, MarkerLine};
 use super::python_parameters::PythonParameterEdits;
 use super::scan::SourceText;
 use crate::behavior::HttpClientSource;
+use crate::sorted_json::SortedJson;
 use serde_json::{Map, Value};
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -181,7 +182,7 @@ impl<'a> ClientConversion<'a> {
         if options.is_empty() {
             return String::new();
         }
-        Value::Object(options).to_string()
+        SortedJson::text(&Value::Object(options))
     }
 
     fn cache_note(name: &str, owner: &Owner) -> Option<String> {
@@ -190,6 +191,7 @@ impl<'a> ClientConversion<'a> {
             .as_ref()
             .filter(|cache| cache.as_str() != Some("no-store"));
         cache.map(|cache| {
+            let cache = SortedJson::text(cache);
             format!(
                 "Dropped the {cache} cache option of @Client on {name}: mark the class @CacheSettings and each read method @Cached instead (ADR 0087)."
             )
@@ -324,7 +326,8 @@ impl<'a> ClientConversion<'a> {
         let map = map
             .as_object()
             .ok_or_else(|| self.manual(line, "The fix cannot read the @WebCall mappings."))?;
-        map.iter()
+        SortedJson::entries(map)
+            .into_iter()
             .map(|(name, index)| self.mapped_marker(name, index, marker, line))
             .collect()
     }

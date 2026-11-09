@@ -1,4 +1,5 @@
 use super::{TopicFailure, TopicFiles, TopicHub, TopicState};
+use crate::sorted_json::SortedJson;
 use futures_util::future::OptionFuture;
 use std::sync::Arc;
 use std::time::Duration;
@@ -42,7 +43,8 @@ impl TopicTailer {
         Self::check_plain_line(line)?;
         let value =
             serde_json::from_str::<serde_json::Value>(line).map_err(|_| Self::INVALID_RECORD)?;
-        let canonical = serde_json::to_string(&value).map_err(|_| Self::INVALID_RECORD)?;
+        let canonical =
+            serde_json::to_string(&SortedJson::value(&value)).map_err(|_| Self::INVALID_RECORD)?;
         Ok(format!("id: {position}\ndata: {canonical}\n\n"))
     }
 

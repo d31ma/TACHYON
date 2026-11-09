@@ -9,6 +9,7 @@ use tokio::sync::Mutex;
 
 use super::{ManagedStorage, failure, object_keys, text};
 use crate::Failure;
+use crate::sorted_json::SortedJson;
 use redis_channel::RedisChannel;
 use redis_reply::RedisReply;
 use redis_target::RedisTarget;
@@ -111,8 +112,7 @@ impl RedisStore {
         let value = command
             .get("value")
             .ok_or_else(|| failure("Redis set requires a JSON value."))?;
-        let bytes =
-            serde_json::to_vec(value).map_err(|_| failure("Redis JSON encoding failed."))?;
+        let bytes = SortedJson::text(value).into_bytes();
         let ttl = command["ttlSeconds"]
             .as_u64()
             .filter(|ttl| (1..=Self::MAX_TTL_SECONDS).contains(ttl))
