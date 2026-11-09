@@ -161,6 +161,7 @@ jobs:
 
       - name: Install PHP and php-cgi for PHP Yon handlers
         if: runner.os != 'macOS'
+        timeout-minutes: 10
         uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
         with:
           php-version: '8.4'
@@ -411,6 +412,13 @@ jobs:
           echo "JAVA_HOME=${JAVA_HOME_21_X64}" >> "${GITHUB_ENV}"
           echo "${JAVA_HOME_21_X64}/bin" >> "${GITHUB_PATH}"
 
+      - name: Restore the cached download of the Swift SDK for WebAssembly
+        id: swift-wasm-sdk-cache
+        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: ${{ runner.temp }}/swift-wasm-sdk-download
+          key: swift-wasm-sdk-${{ runner.os }}-${{ hashFiles('scripts/ci/install-swift-wasm-sdk.mjs') }}
+
       - name: Install the pinned Swift 6.3.3 toolchain and Swift SDK for WebAssembly
         run: |
           set -euo pipefail
@@ -424,13 +432,18 @@ jobs:
           tar -xzf "${archive}" -C "${RUNNER_TEMP}"
           toolchain="${RUNNER_TEMP}/swift-6.3.3-RELEASE-ubuntu24.04/usr"
           sdks="${RUNNER_TEMP}/swift-sdks"
-          "${toolchain}/bin/swift" sdk install --swift-sdks-path "${sdks}" \
-            "${release}/wasm-sdk/swift-6.3.3-RELEASE/swift-6.3.3-RELEASE_wasm.artifactbundle.tar.gz" \
-            --checksum cabfa08b73bb8ac783927ecd15fa386e99d0c139c5f232445067bcf58379cae7
+          node scripts/ci/install-swift-wasm-sdk.mjs "${toolchain}/bin/swift" "${sdks}" "${RUNNER_TEMP}/swift-wasm-sdk-download"
           sdk="${sdks}/swift-6.3.3-RELEASE_wasm.artifactbundle/swift-6.3.3-RELEASE_wasm/wasm32-unknown-wasip1"
           test -d "${sdk}/WASI.sdk"
           echo "TAC_SWIFT_WASM_COMPILER=${toolchain}/bin/swiftc" >> "${GITHUB_ENV}"
           echo "TAC_SWIFT_WASM_SDK=${sdk}" >> "${GITHUB_ENV}"
+
+      - name: Save the download of the Swift SDK for WebAssembly for reruns
+        if: steps.swift-wasm-sdk-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: ${{ runner.temp }}/swift-wasm-sdk-download
+          key: swift-wasm-sdk-${{ runner.os }}-${{ hashFiles('scripts/ci/install-swift-wasm-sdk.mjs') }}
 
       - name: Check the website data generated from website/content
         run: node website/scripts/build-content.mjs --check
@@ -728,6 +741,13 @@ jobs:
           echo "JAVA_HOME=${JAVA_HOME_21_X64}" >> "${GITHUB_ENV}"
           echo "${JAVA_HOME_21_X64}/bin" >> "${GITHUB_PATH}"
 
+      - name: Restore the cached download of the Swift SDK for WebAssembly
+        id: swift-wasm-sdk-cache
+        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: ${{ runner.temp }}/swift-wasm-sdk-download
+          key: swift-wasm-sdk-${{ runner.os }}-${{ hashFiles('scripts/ci/install-swift-wasm-sdk.mjs') }}
+
       - name: Install the pinned Swift 6.3.3 toolchain and Swift SDK for WebAssembly
         run: |
           set -euo pipefail
@@ -741,13 +761,18 @@ jobs:
           tar -xzf "${archive}" -C "${RUNNER_TEMP}"
           toolchain="${RUNNER_TEMP}/swift-6.3.3-RELEASE-ubuntu24.04/usr"
           sdks="${RUNNER_TEMP}/swift-sdks"
-          "${toolchain}/bin/swift" sdk install --swift-sdks-path "${sdks}" \
-            "${release}/wasm-sdk/swift-6.3.3-RELEASE/swift-6.3.3-RELEASE_wasm.artifactbundle.tar.gz" \
-            --checksum cabfa08b73bb8ac783927ecd15fa386e99d0c139c5f232445067bcf58379cae7
+          node scripts/ci/install-swift-wasm-sdk.mjs "${toolchain}/bin/swift" "${sdks}" "${RUNNER_TEMP}/swift-wasm-sdk-download"
           sdk="${sdks}/swift-6.3.3-RELEASE_wasm.artifactbundle/swift-6.3.3-RELEASE_wasm/wasm32-unknown-wasip1"
           test -d "${sdk}/WASI.sdk"
           echo "TAC_SWIFT_WASM_COMPILER=${toolchain}/bin/swiftc" >> "${GITHUB_ENV}"
           echo "TAC_SWIFT_WASM_SDK=${sdk}" >> "${GITHUB_ENV}"
+
+      - name: Save the download of the Swift SDK for WebAssembly for reruns
+        if: steps.swift-wasm-sdk-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: ${{ runner.temp }}/swift-wasm-sdk-download
+          key: swift-wasm-sdk-${{ runner.os }}-${{ hashFiles('scripts/ci/install-swift-wasm-sdk.mjs') }}
 
       - name: Show tool versions
         run: |
@@ -904,6 +929,13 @@ jobs:
           unzip -q "${sdk}" -d "${RUNNER_TEMP}/dart"
           echo "${RUNNER_TEMP}/dart/dart-sdk/bin" >> "${GITHUB_PATH}"
 
+      - name: Restore the cached download of the Swift SDK for WebAssembly
+        id: swift-wasm-sdk-cache
+        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: ${{ runner.temp }}/swift-wasm-sdk-download
+          key: swift-wasm-sdk-${{ runner.os }}-${{ hashFiles('scripts/ci/install-swift-wasm-sdk.mjs') }}
+
       - name: Install the pinned Swift 6.3.3 toolchain and Swift SDK for WebAssembly
         run: |
           set -euo pipefail
@@ -916,13 +948,18 @@ jobs:
           installer -pkg "${package}" -target CurrentUserHomeDirectory
           toolchain="${HOME}/Library/Developer/Toolchains/swift-6.3.3-RELEASE.xctoolchain"
           sdks="${RUNNER_TEMP}/swift-sdks"
-          "${toolchain}/usr/bin/swift" sdk install --swift-sdks-path "${sdks}" \
-            "${release}/wasm-sdk/swift-6.3.3-RELEASE/swift-6.3.3-RELEASE_wasm.artifactbundle.tar.gz" \
-            --checksum cabfa08b73bb8ac783927ecd15fa386e99d0c139c5f232445067bcf58379cae7
+          node scripts/ci/install-swift-wasm-sdk.mjs "${toolchain}/usr/bin/swift" "${sdks}" "${RUNNER_TEMP}/swift-wasm-sdk-download"
           sdk="${sdks}/swift-6.3.3-RELEASE_wasm.artifactbundle/swift-6.3.3-RELEASE_wasm/wasm32-unknown-wasip1"
           test -d "${sdk}/WASI.sdk"
           echo "TAC_SWIFT_WASM_COMPILER=${toolchain}/usr/bin/swiftc" >> "${GITHUB_ENV}"
           echo "TAC_SWIFT_WASM_SDK=${sdk}" >> "${GITHUB_ENV}"
+
+      - name: Save the download of the Swift SDK for WebAssembly for reruns
+        if: steps.swift-wasm-sdk-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: ${{ runner.temp }}/swift-wasm-sdk-download
+          key: swift-wasm-sdk-${{ runner.os }}-${{ hashFiles('scripts/ci/install-swift-wasm-sdk.mjs') }}
 
       - name: Install the checksum-pinned TeaVM 0.15 jars for Java web services
         run: |
@@ -1442,6 +1479,7 @@ jobs:
           echo "${jdk}/bin" >> "${GITHUB_PATH}"
 
       - name: Install PHP and php-cgi for PHP Yon handlers
+        timeout-minutes: 10
         uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
         with:
           php-version: '8.4'
@@ -1679,6 +1717,7 @@ jobs:
           echo "${GITHUB_WORKSPACE}/node_modules/.bin" >> "${GITHUB_PATH}"
 
       - name: Install PHP and php-cgi for PHP Yon handlers
+        timeout-minutes: 10
         uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
         with:
           php-version: '8.4'
