@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "handler": "docs/yon/how-return-values-become-responses/server/controllers/ProductsController.groovy",
+  "inputs": {
+    "docs/yon/how-return-values-become-responses/server/controllers/ProductsController.groovy": "f0cc387ad4507338f9d9fa38b7a23a923c6ba3c74c620622c3bca7180d58dd50"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/products",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "text/html; charset=utf-8",
+        "body": "<main><h1>Products</h1><p>{not-a-template}</p><if>literal</if></main>"
+      }
+    }
+  ]
+}

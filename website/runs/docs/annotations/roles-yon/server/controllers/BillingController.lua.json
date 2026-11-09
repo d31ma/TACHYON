@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "handler": "docs/annotations/roles-yon/server/controllers/BillingController.lua",
+  "inputs": {
+    "docs/annotations/roles-yon/server/controllers/BillingController.lua": "5a8d074890a29d4789770ceccff356a4fd4b14d2079dc1efcac840a7b7a9a512",
+    "docs/annotations/roles-yon/server/delegates/BillingDelegate.lua": "43a2fec21958f3525197bad42135fa62bb61265553a6885d99ed7313376e1faa",
+    "docs/annotations/roles-yon/server/entities/BillingEntity.lua": "5abdd6fe20810c2052b2b5b8d8f62266633a4c5ce288f9a6b6004ee34c03a8e3",
+    "docs/annotations/roles-yon/server/models/Bill.lua": "5f34c2c107b219e6f6db38db516ddd5ce8b93878053395954d24ffef11e1792f",
+    "docs/annotations/roles-yon/server/services/BillingService.lua": "eb587af50d7f210555ba424c94d75aebf609982c347b31750d13bb62e7117e4a",
+    "docs/annotations/roles-yon/server/setups/BillingSetup.lua": "f3f1f6db3a6bc83db8630cfc038c54e3f78c81b01945f91f336255ccbb8dc3c9",
+    "docs/annotations/roles-yon/server/stores/BillingStore.lua": "9a21f26f85551e12cd70e8080a4056ef585f8daece4e6681ce54595c96cc1ae6"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/billing",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"total\":42}"
+      }
+    }
+  ]
+}

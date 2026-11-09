@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "handler": "docs/yon/reading-settings-and-choosing-configuration/server/controllers/SettingsController.hpp",
+  "inputs": {
+    "docs/yon/reading-settings-and-choosing-configuration/example.env": "62c6f1eb70172a42e9259e4a1bb5ec889521a33cfdd8d413e7ff422f7aa287cd",
+    "docs/yon/reading-settings-and-choosing-configuration/server/application.json": "2b324937d95c941f566872695032ea424611952de9f6fe849b571fcabfac70b8",
+    "docs/yon/reading-settings-and-choosing-configuration/server/controllers/SettingsController.hpp": "c41697feb1e87b386f0364125b374f9ff8789fdab232b115aa24ed739e81174d",
+    "docs/yon/reading-settings-and-choosing-configuration/server/models/CatalogSettings.hpp": "38f921ec41d390be3cbc279970664f4334ac25255594f93060a162b582b57636",
+    "docs/yon/reading-settings-and-choosing-configuration/server/models/Endpoint.hpp": "961ee51e793e84ed8c4b13bdd318f3e233fb8ba93e850428a5b7ce17f86bd6e9",
+    "docs/yon/reading-settings-and-choosing-configuration/server/models/Settings.hpp": "30da00afa7862e2406acb8dddc55fed564b3634aacce6e2719e5ddf539f636ae",
+    "docs/yon/reading-settings-and-choosing-configuration/server/setups/CatalogSetup.hpp": "6ce2253e58ae8156044aaef7bb14622c96ad3cab4f7ac3efad83f58bdd311f03"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/settings",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"profile\":\"development\",\"pageSize\":20}"
+      }
+    }
+  ]
+}

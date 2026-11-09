@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "handler": "docs/yon/calling-a-method-in-another-language/server/controllers/ReportController.rs",
+  "inputs": {
+    "docs/yon/calling-a-method-in-another-language/server/controllers/ReportController.rs": "7d35fd8fb89524fd8f25fe79b9ac200a4369118eef25c63a4c29d085a0ecab41",
+    "docs/yon/calling-a-method-in-another-language/server/helpers/forecast.py": "89498b67665c74b190c68829c6e6245c3f3666efe623643c8bcc6d2c5c5311cc",
+    "docs/yon/calling-a-method-in-another-language/server/models/Report.rs": "574b68ec63751830a59282da0c3a7382f0f60f1a4699d868f8f0077ed1c6483e",
+    "docs/yon/calling-a-method-in-another-language/server/remotes/ReportClient.rs": "67d8914e669e4d78e22570d13d49ec09fdab0716d43308f1902dddcaf6505055",
+    "docs/yon/calling-a-method-in-another-language/server/services/ReportService.py": "a6e85ea14e83023f58823a3976b51f2ca58aae74f9cf6f3e979d9fa501ae0bda"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/report",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"summary\":{\"language\":\"python\",\"period\":\"2026-Q3\",\"total\":42},\"forecast\":{\"growth\":[1.5,1.5],\"months\":2}}"
+      }
+    }
+  ]
+}

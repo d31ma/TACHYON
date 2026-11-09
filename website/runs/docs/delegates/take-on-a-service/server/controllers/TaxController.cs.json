@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "handler": "docs/delegates/take-on-a-service/server/controllers/TaxController.cs",
+  "inputs": {
+    "docs/delegates/take-on-a-service/server/controllers/TaxController.cs": "bf1de8ea47346a2a723c6702e994edd20ea85f70cfc05a80e0d53e409c0a21da",
+    "docs/delegates/take-on-a-service/server/delegates/TaxDelegate.cs": "8daa3cd9cee6bc6b3938c5ca638290b9f96d4465d4a675a8e5bdd49f565292f0",
+    "docs/delegates/take-on-a-service/server/models/TaxAnswer.cs": "ad27404251469938bb58da067faa73512001ff5c87a49bd8b82581f0189d3b77",
+    "docs/delegates/take-on-a-service/server/services/TaxService.cs": "469d062cdb0de753586fe929e8e8780c5a258da25f85cc6b324b33fe4c4aff74"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/tax",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"rate\":4,\"total\":30,\"extra\":34}"
+      }
+    }
+  ]
+}

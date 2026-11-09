@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "handler": "docs/annotations/lifecycle-and-events-yon/server/controllers/LifecycleController.groovy",
+  "inputs": {
+    "docs/annotations/lifecycle-and-events-yon/server/controllers/LifecycleController.groovy": "2cefd1e657378cd77d9cfadd81cdeb0c31fadc11ed6e2fb72908c6f7873d9c49",
+    "docs/annotations/lifecycle-and-events-yon/server/models/Lifecycle.groovy": "8fc9ac8356075c56d9f84460575db3911131051ab547e4ca94fe827e5201d695",
+    "docs/annotations/lifecycle-and-events-yon/server/models/PlacedOrder.groovy": "50648e63f861f85e07f1eee1020912c226e8bd08a2d080b47428c9b5d9e5ef9f",
+    "docs/annotations/lifecycle-and-events-yon/server/models/SettledOrder.groovy": "5280c3a0c2a7ecdd44402d92d45eed7efb0254e0fedff166f769003d00ddca4f",
+    "docs/annotations/lifecycle-and-events-yon/server/services/AuditService.groovy": "f8a8298d37475fb0e43b378b7688699e49803752abdc72de8f61cee6f6d17e08",
+    "docs/annotations/lifecycle-and-events-yon/server/services/CheckoutService.groovy": "ad3e0cfe26dd48083aed2981e32d12bfe70c68bb2c5980e6e9c01ef8bd1108b5"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/lifecycle",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"log\":[\"paid\"],\"settled\":25}"
+      }
+    }
+  ]
+}

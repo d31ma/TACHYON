@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "handler": "docs/storage/datasource-in-a-service/server/controllers/CatalogController.java",
+  "inputs": {
+    "docs/storage/datasource-in-a-service/server/application.json": "996ea814c84a4dd3ee601a63d20efb0f183977a704c9f0d803462c7567e311c4",
+    "docs/storage/datasource-in-a-service/server/controllers/CatalogController.java": "583ca60afc092a316707ff29772a1920476a0abdaeafe79d9639d7bb3126a1ac",
+    "docs/storage/datasource-in-a-service/server/services/CatalogService.java": "3d217876019f330fcd81f25173faf99fc2f68a9b35ae54e9a29db02b95fdf562"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/catalog",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "[{\"amount\":42}]"
+      }
+    }
+  ]
+}

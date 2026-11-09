@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "handler": "languages/yon/kotlin/server/controllers/OrdersController.kt",
+  "inputs": {
+    "languages/yon/kotlin/server/controllers/OrdersController.kt": "98aa95c874ab10638f1ad5e4d5d47da8d8a04fdfd85726445d1371db46d027f9",
+    "languages/yon/kotlin/server/models/OrderList.kt": "f68b93504c08b74c6309f3bbe574b0d0e9ab1faa8dc63813163fc9c7a565ff25",
+    "languages/yon/kotlin/server/services/OrderService.kt": "ed0846202b41a22e639f9c0a45352622e93b0278986cf74648eaaaf9877826ec"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/orders",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"orders\":[\"anvil\"]}"
+      }
+    }
+  ]
+}

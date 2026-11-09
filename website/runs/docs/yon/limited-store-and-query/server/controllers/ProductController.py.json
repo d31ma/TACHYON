@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "handler": "docs/yon/limited-store-and-query/server/controllers/ProductController.py",
+  "inputs": {
+    "docs/yon/limited-store-and-query/server/controllers/ProductController.py": "fde74bb0837d74b19d78bcfa001cdd9e1e298b6563acc797225e900c521ed5e0",
+    "docs/yon/limited-store-and-query/server/delegates/CatalogAdapterDelegate.py": "febeca41fb614ea75301c135ac66a621a9440889f7b822122d038e7487146ed0",
+    "docs/yon/limited-store-and-query/server/entities/ProductEntity.py": "fc09e50f1b484207b7fc829761638a4b3c5ac6200d8109a6211ef995d248cf1f",
+    "docs/yon/limited-store-and-query/server/models/ProductReport.py": "ec873618c3997c7c766eed3c9b50fea5d3bfb9f0562764c1e1f1c4b3b7d36d40",
+    "docs/yon/limited-store-and-query/server/setups/CatalogSetup.py": "7f9fb74454f88cb0b3e9f5ddfde6b87bb51cbb07e9393b7b06bcb7666928808f",
+    "docs/yon/limited-store-and-query/server/stores/ProductStore.py": "5163ef24d9986acbba366dde7b93b71c7870129889ee6dd21df3ac6311861daa"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/products",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"active\":[{\"id\":1,\"status\":\"active\"}],\"count\":1,\"others\":[{\"id\":2,\"status\":\"retired\"}]}"
+      }
+    }
+  ]
+}

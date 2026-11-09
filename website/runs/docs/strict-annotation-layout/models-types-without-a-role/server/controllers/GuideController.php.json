@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "handler": "docs/strict-annotation-layout/models-types-without-a-role/server/controllers/GuideController.php",
+  "inputs": {
+    "docs/strict-annotation-layout/models-types-without-a-role/server/controllers/GuideController.php": "48bb0eec32cba441f24a97b09dd53e93fab041024b65942c14e6bdf22b160387",
+    "docs/strict-annotation-layout/models-types-without-a-role/server/models/Guide.php": "0cf66f35d5f267bdf5b33d824fd4edfce1599fcd06667a5a765c095a683a7501"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/guide",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"title\":\"Models hold types\",\"pages\":3}"
+      }
+    }
+  ]
+}

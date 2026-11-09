@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "handler": "docs/storage/topics/server/controllers/InventoryController.rb",
+  "inputs": {
+    "docs/storage/topics/server/controllers/InventoryController.rb": "2c81a30a5014cf079dd06e2b20a6b544157439f4bb332797720fc88b5bc68f7d",
+    "docs/storage/topics/server/models/InventoryRecord.rb": "920e8f9d2dfa5733244359be632748ae89a56f2d6a42d63d86b989b047e52ecf"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "POST",
+        "path": "/inventory",
+        "headers": {},
+        "body": "{\"level\":4,\"sku\":\"anvil\"}"
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"sku\":\"anvil\",\"level\":4}"
+      }
+    }
+  ]
+}

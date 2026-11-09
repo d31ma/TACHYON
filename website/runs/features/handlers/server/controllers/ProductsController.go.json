@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "handler": "features/handlers/server/controllers/ProductsController.go",
+  "inputs": {
+    "features/handlers/server/controllers/ProductsController.go": "fa65d38a3b9b45fdce0cdeabc3f6ca4cc2783831b3d2c40d6c0064abdcace355",
+    "features/handlers/server/models/Product.go": "edaa47a2361842b2a9746d4a13249e3131d3dae9e12b8517fc801e0f15feb2e4"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/products",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "[{\"name\":\"anvil\"}]"
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/products",
+        "headers": {},
+        "body": "{\"name\":\"snippet\"}"
+      },
+      "response": {
+        "status": 201,
+        "contentType": "application/json",
+        "body": "{\"name\":\"snippet\"}"
+      }
+    }
+  ]
+}

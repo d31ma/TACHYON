@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "handler": "docs/annotations/roles-yon/server/controllers/BillingController.groovy",
+  "inputs": {
+    "docs/annotations/roles-yon/server/controllers/BillingController.groovy": "c3505f03c9ada1715771718beccb5e8a6824c50af8afef9967a134cad08e7781",
+    "docs/annotations/roles-yon/server/delegates/BillingDelegate.groovy": "fd235c6387c13d223bbd5e2d865784c951a029a3c5636b47d585b9117a03b53f",
+    "docs/annotations/roles-yon/server/entities/BillingEntity.groovy": "a1f598013910fba569af053710191dd1f6562d7645c04d113c8b7e1bafce8eec",
+    "docs/annotations/roles-yon/server/models/Bill.groovy": "a2f23820cc42254fc192a60ba5f5ef27b456e8c4dff7c3188608b3f708c47bb9",
+    "docs/annotations/roles-yon/server/remotes/BillingClient.groovy": "b6bc1b264dfef4b1ce663d9d5b8bb90d3f0ee0d508dcfec58479a1e8fe165962",
+    "docs/annotations/roles-yon/server/services/BillingService.groovy": "2dc763e1a6bb070e064a6e20b6391f4495f2ac0786d5bc50d2fb81aa626f68e8",
+    "docs/annotations/roles-yon/server/setups/BillingSetup.groovy": "c8325d7d2c92efe43d84f87b088d1614b81ff0a2b6a5e75ead13f94a6342ee00",
+    "docs/annotations/roles-yon/server/stores/BillingStore.groovy": "51d5f8d2e6a4573947f1dbd7e689929d7883ae0d1f641db4f14deda7c90c1487"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/billing",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"total\":42}"
+      }
+    }
+  ]
+}

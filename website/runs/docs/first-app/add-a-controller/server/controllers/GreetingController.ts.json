@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "handler": "docs/first-app/add-a-controller/server/controllers/GreetingController.ts",
+  "inputs": {
+    "docs/first-app/add-a-controller/server/controllers/GreetingController.ts": "5a1a697a014fdf9cdb5255e3fb46340bf0b088c1b6d7642116f643eb0f2fd3d7",
+    "docs/first-app/add-a-controller/server/models/Greeting.ts": "4c3d8688ec11a318628b25e6384dcdf1a0b9460547c8cc5ce60bdd78c9729a44"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/api/greeting",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"message\":\"Hello from Yon\"}"
+      }
+    }
+  ]
+}

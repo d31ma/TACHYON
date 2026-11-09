@@ -1,0 +1,36 @@
+{
+  "schema": 1,
+  "handler": "docs/yon/what-a-controller-method-is/server/controllers/ItemsController.java",
+  "inputs": {
+    "docs/yon/what-a-controller-method-is/server/controllers/ItemsController.java": "1ff44a0409f96434da24ad94decd1f7e9b8e51a3cf568e4e6ee1086aeac3dcda",
+    "docs/yon/what-a-controller-method-is/server/models/Item.java": "612c9801cf65a95d8a0b4b9c7f5e1e58ea9236df9f9d9379fedab82c0e31e943",
+    "docs/yon/what-a-controller-method-is/server/models/ItemList.java": "68ec339d7803cbf323d3e24cc9e76ce06d6a66f70166b272e18a37e81f97d488"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/items",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"items\":[]}"
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/items",
+        "headers": {},
+        "body": "{\"name\":\"snippet\"}"
+      },
+      "response": {
+        "status": 201,
+        "contentType": "application/json",
+        "body": "{\"name\":\"snippet\"}"
+      }
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "handler": "languages/yon/java/server/controllers/OrdersController.java",
+  "inputs": {
+    "languages/yon/java/server/controllers/OrdersController.java": "6be10b589e9e6270b23cbe9bfe7afe028174211a20549fda4148cc9cb6d76612",
+    "languages/yon/java/server/models/OrderList.java": "0e6e8bb60bf870b4ff83547eb22b138ae8e85bacc905e933074f7693047d1993",
+    "languages/yon/java/server/services/OrderService.java": "f9153d0fe1e21190b4a63ce83f27546cadf81659c085dd9ec2978bd3b47cb908"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/orders",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"orders\":[\"anvil\"]}"
+      }
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "handler": "docs/annotations/configuration-binding-yon/server/controllers/SettingsController.cs",
+  "inputs": {
+    "docs/annotations/configuration-binding-yon/example.env": "62c6f1eb70172a42e9259e4a1bb5ec889521a33cfdd8d413e7ff422f7aa287cd",
+    "docs/annotations/configuration-binding-yon/server/application.json": "2b324937d95c941f566872695032ea424611952de9f6fe849b571fcabfac70b8",
+    "docs/annotations/configuration-binding-yon/server/controllers/SettingsController.cs": "9aa9b86480a3a54ca5c7512de1456cb3fb4d408787477a38a98e778bbcde2255",
+    "docs/annotations/configuration-binding-yon/server/models/Endpoint.cs": "f570def21c901a0cecf04fccac830f756974204ea103b9a22564910773b5d7f7",
+    "docs/annotations/configuration-binding-yon/server/models/Settings.cs": "cc22d21aa24256e6fc69508e657e5596653213e8008921c09306d3dc720877bd",
+    "docs/annotations/configuration-binding-yon/server/setups/CatalogSetup.cs": "b4a1af36b92ef2cce9279f6c481475f8740ffb70802e54adad47fb056242d361"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/settings",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"profile\":\"development\",\"pageSize\":20}"
+      }
+    }
+  ]
+}

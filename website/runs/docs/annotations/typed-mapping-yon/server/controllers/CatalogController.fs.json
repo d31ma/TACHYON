@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "handler": "docs/annotations/typed-mapping-yon/server/controllers/CatalogController.fs",
+  "inputs": {
+    "docs/annotations/typed-mapping-yon/server/controllers/CatalogController.fs": "f2540b86e80512197b4e6792cb7aa0f6650c68b4d6d033429c8dad64f69d53c3",
+    "docs/annotations/typed-mapping-yon/server/converters/ProductConverter.fs": "1ac4ba42612f68d7c1217080f3bd06d257da8aebaeec80f8492d3d8df025d064",
+    "docs/annotations/typed-mapping-yon/server/models/Detail.fs": "b1f9407b1daff882c9072afecc313e216316c6758f8f897f62ed514d5c263684",
+    "docs/annotations/typed-mapping-yon/server/models/Product.fs": "f3c94e2abf8b0d8e51659208069ced368279606d7f5e9df941e0be3c4028afd6",
+    "docs/annotations/typed-mapping-yon/server/models/ShortDetail.fs": "2a4f59150a05661e51b1f3256dc910d02f70fb0ed86a2090a70c0d6462b67bba",
+    "docs/annotations/typed-mapping-yon/server/models/Summary.fs": "3d52d7b851d45f211d3a88add61b6a11bf327e35eef607c0add85b1800505fb0"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/catalog",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"id\":7,\"name\":\"Anvil\",\"detail\":{\"name\":\"detail\"},\"items\":[{\"name\":\"detail\"}],\"kind\":\"product\"}"
+      }
+    }
+  ]
+}

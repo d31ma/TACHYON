@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "handler": "docs/annotations/caching-yon/server/controllers/CatalogController.java",
+  "inputs": {
+    "docs/annotations/caching-yon/server/controllers/CatalogController.java": "53ac9921f892c21663f7ef5a0a5426286a9072b37c4e076db2708283511a19f0",
+    "docs/annotations/caching-yon/server/delegates/MemoryCacheDelegate.java": "eff6ee502dcac8e712c248dd9a484d04c1c8652ce131f6226bad36571a35034b",
+    "docs/annotations/caching-yon/server/models/CacheReport.java": "ca3b034b666721395b0f4dfe27d68a7e7c881eaac6bc4d390dd45f2be2ce92d4",
+    "docs/annotations/caching-yon/server/services/CatalogService.java": "a9e502c343723ac7b28e4985006795376370536a6c6b510befcb18536a3ae83f",
+    "docs/annotations/caching-yon/server/setups/CatalogSetup.java": "db1a6482f27057d795aa039d86ec2410ca4a5097ecc4428850a877e471806c30"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/catalog",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"first\":{\"reads\":1,\"sku\":\"anvil\"},\"repeat\":{\"reads\":1,\"sku\":\"anvil\"},\"written\":{\"reads\":99,\"sku\":\"anvil\"},\"refreshed\":{\"reads\":2,\"sku\":\"anvil\"}}"
+      }
+    }
+  ]
+}

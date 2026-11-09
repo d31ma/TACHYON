@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "handler": "docs/annotations/outgoing-http-yon/server/controllers/CatalogController.lua",
+  "inputs": {
+    "docs/annotations/outgoing-http-yon/server/controllers/CatalogController.lua": "c1d574f77f6965445b28b44845de3d52693202fdf64766e72b75494fe674b7cb",
+    "docs/annotations/outgoing-http-yon/server/delegates/CatalogTransportDelegate.lua": "da6309e4dad89909c7f91c58cee9ab9814c9394f13a53f163d97111aef07472f",
+    "docs/annotations/outgoing-http-yon/server/remotes/CatalogClient.lua": "b260401bfa20e9f5e90f89b711b68fe1f5cb200bb69a61601a455d21a11ee440",
+    "docs/annotations/outgoing-http-yon/server/services/CatalogService.lua": "8f430a926cc02425a00c357e657f3aabf1f73e29bc71b09e334720557f2d3a14",
+    "docs/annotations/outgoing-http-yon/server/setups/CatalogSetup.lua": "9994162f7e4308d33ab67caa49d75432eb202ffbe74c4348f5f0a899ea456a8d"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/catalog",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"items\":[\"anvil\"]}"
+      }
+    }
+  ]
+}

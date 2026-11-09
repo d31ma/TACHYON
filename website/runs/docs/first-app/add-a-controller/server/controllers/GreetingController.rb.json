@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "handler": "docs/first-app/add-a-controller/server/controllers/GreetingController.rb",
+  "inputs": {
+    "docs/first-app/add-a-controller/server/controllers/GreetingController.rb": "8f5dd8e233c07fe20ff473fbbe7735c2554642cf7a8317b08132dbfea47771ae",
+    "docs/first-app/add-a-controller/server/models/Greeting.rb": "30cce47515b9b3a7b01985967faeeac199b24f9b82fabf6ddbd9d5c9416850b8"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/api/greeting",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"message\":\"Hello from Yon\"}"
+      }
+    }
+  ]
+}

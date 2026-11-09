@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "handler": "docs/yon/checking-values-and-method-arguments/server/controllers/ProductsController.cs",
+  "inputs": {
+    "docs/yon/checking-values-and-method-arguments/server/controllers/ProductsController.cs": "de450fe7bc7beae3c612852283aa6e43d6bd4ddb3cb5dee1e261975ee1a3d9c4",
+    "docs/yon/checking-values-and-method-arguments/server/models/Product.cs": "0c6e700b7fe242b17425c2c3b0bf272a189829bb6f2f74dbe044f5f9ef4ff788",
+    "docs/yon/checking-values-and-method-arguments/server/models/ProductInput.cs": "6cba0a037a0d0aa8cad06d115f422db4058b655ece733cce705005adb222fc6a",
+    "docs/yon/checking-values-and-method-arguments/server/services/ProductService.cs": "8b7c348cab3033fff69c65e21654b4c45122b4d7eec701e863ed1b71b67100b6"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "POST",
+        "path": "/products",
+        "headers": {},
+        "body": "{\"level\":4,\"name\":\"snippet\",\"sku\":\"anvil\"}"
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"name\":\"snippet\",\"sku\":\"anvil\",\"level\":4}"
+      }
+    }
+  ]
+}

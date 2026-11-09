@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "handler": "docs/application-events/yon-all-ten-supported-languages/server/controllers/ProbeController.go",
+  "inputs": {
+    "docs/application-events/yon-all-ten-supported-languages/server/controllers/ProbeController.go": "392c3a7905c67b3ed5143fef6a187d880eef9b34fbbee77e7e4ddbfb28f1db2f",
+    "docs/application-events/yon-all-ten-supported-languages/server/models/ProbeReady.go": "8d60d601f066b10ee7c8835ee57e4543739ec6fcccb2a4fc560ccc390b92cdc4",
+    "docs/application-events/yon-all-ten-supported-languages/server/services/ProbeService.go": "04e8b32a63e2de79900b6614db9a7ebcd53c1209eaa25d602246bc8dbefce5c8",
+    "docs/application-events/yon-all-ten-supported-languages/server/services/PublishService.go": "fb73bdc46a384eaad9bb411928f089107b85ab79415b9a00819742f332d7e649"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/probe",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"value\":7}"
+      }
+    }
+  ]
+}

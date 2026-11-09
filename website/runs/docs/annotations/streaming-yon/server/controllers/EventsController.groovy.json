@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "handler": "docs/annotations/streaming-yon/server/controllers/EventsController.groovy",
+  "inputs": {
+    "docs/annotations/streaming-yon/server/controllers/EventsController.groovy": "bb4561c073802902e60c7d335a1f00d418256f6d325bcab8dcbbca4effa1376c",
+    "docs/annotations/streaming-yon/server/models/Ticket.groovy": "2ebfb69b9c89ceabcbe52bb7ec691fee78b994d375dd54032a8ba9c85938a382",
+    "docs/annotations/streaming-yon/server/services/TicketService.groovy": "880b7b0fac4cae2f8f91f86ff42bbaaf26fb745dfc9ccd6c636a2b272d43d506"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/events",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "text/event-stream; charset=utf-8",
+        "body": "data: {\"sku\":\"anvil\",\"level\":1}\n\ndata: {\"sku\":\"anvil\",\"level\":2}\n\ndata: {\"sku\":\"anvil\",\"level\":3}\n\nevent: end\ndata: {}\n\n"
+      }
+    }
+  ]
+}

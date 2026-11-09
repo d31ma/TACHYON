@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "handler": "docs/routing/backend-routes/server/controllers/ItemsController.php",
+  "inputs": {
+    "docs/routing/backend-routes/server/controllers/ItemsController.php": "c1144e6d11aa28fe089995391ae3fff23d918b974849424bf732b9c3ef04d11b",
+    "docs/routing/backend-routes/server/models/Item.php": "21b6636e4fb85f4f07e3c0769e93cf6ca790dbac41efe5f1bda8cefa88853d25"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/items/42",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"name\":\"42\"}"
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/items",
+        "headers": {},
+        "body": "{\"name\":\"snippet\"}"
+      },
+      "response": {
+        "status": 201,
+        "contentType": "application/json",
+        "body": "{\"name\":\"snippet\"}"
+      }
+    }
+  ]
+}

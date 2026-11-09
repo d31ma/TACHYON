@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "handler": "features/realtime/server/controllers/TicksController.py",
+  "inputs": {
+    "features/realtime/server/controllers/TicksController.py": "d7db1f72e263e39696a435c4852f73356f51f0b0a8908d8dfcc40e23901bba5e",
+    "features/realtime/server/models/Tick.py": "74b7ebb1e9904ff6ade495d6e9a3a1d8ae8634358b16c44ae7e6434c0ffae1aa"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/ticks",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "text/event-stream; charset=utf-8",
+        "body": "data: {\"sku\":\"ANVIL-1\",\"level\":3}\n\ndata: {\"sku\":\"ANVIL-1\",\"level\":2}\n\ndata: {\"sku\":\"ANVIL-1\",\"level\":1}\n\nevent: end\ndata: {}\n\n"
+      }
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "handler": "docs/routing-annotations/a-typed-path-in-every-yon-language/server/controllers/ItemsController.go",
+  "inputs": {
+    "docs/routing-annotations/a-typed-path-in-every-yon-language/server/controllers/ItemsController.go": "5be577790e9b2065ac0ac492e93ec0b53e11080d7bc11b53e531e45a82f42ad2",
+    "docs/routing-annotations/a-typed-path-in-every-yon-language/server/models/Item.go": "c2da77c7cc57ef08defbf2fcc8c30b83ef496463871ff8ddcf3bde43c0cd7f0c"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/items/42",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"id\":42}"
+      }
+    }
+  ]
+}

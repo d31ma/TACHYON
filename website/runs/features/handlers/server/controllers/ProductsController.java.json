@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "handler": "features/handlers/server/controllers/ProductsController.java",
+  "inputs": {
+    "features/handlers/server/controllers/ProductsController.java": "90223c2a46519ddaaa674841ed1c441826913669d48d1434a89f56e2efb22a5d",
+    "features/handlers/server/models/Product.java": "2ecf5d48a95f1d860396fb9eac67a6fe0eddee73934f169b934907473515efa7"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/products",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "[{\"name\":\"anvil\"}]"
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/products",
+        "headers": {},
+        "body": "{\"name\":\"snippet\"}"
+      },
+      "response": {
+        "status": 201,
+        "contentType": "application/json",
+        "body": "{\"name\":\"snippet\"}"
+      }
+    }
+  ]
+}

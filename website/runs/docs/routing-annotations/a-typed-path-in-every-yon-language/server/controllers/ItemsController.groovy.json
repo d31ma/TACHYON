@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "handler": "docs/routing-annotations/a-typed-path-in-every-yon-language/server/controllers/ItemsController.groovy",
+  "inputs": {
+    "docs/routing-annotations/a-typed-path-in-every-yon-language/server/controllers/ItemsController.groovy": "98d76a7a58ba43f787be421abf41da4596a05e5949d39fbc437cfd33be6e7fb8",
+    "docs/routing-annotations/a-typed-path-in-every-yon-language/server/models/Item.groovy": "13958ca5010ca2afde4cbdf6eec54346fc4e32d0970b94470918abb0af7c34cc"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/items/42",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"id\":42}"
+      }
+    }
+  ]
+}

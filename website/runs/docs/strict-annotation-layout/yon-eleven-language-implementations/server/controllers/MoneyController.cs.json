@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "handler": "docs/strict-annotation-layout/yon-eleven-language-implementations/server/controllers/MoneyController.cs",
+  "inputs": {
+    "docs/strict-annotation-layout/yon-eleven-language-implementations/server/controllers/MoneyController.cs": "007367f0784059ec15752b7b206f3e696960b52e219d8a781769ed98698ec864",
+    "docs/strict-annotation-layout/yon-eleven-language-implementations/server/models/Money.cs": "bcbfda4a1648d681f2677e56636ce9fdb2f83c2b99e5d1bed1bac9f7aea2eae2",
+    "docs/strict-annotation-layout/yon-eleven-language-implementations/server/services/MoneyService.cs": "491b5deb87dfa2d5993cf8e3a268e5127efe816791ed1fb2a7ed2a8a7e811d7f"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/money",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"amount\":42}"
+      }
+    }
+  ]
+}

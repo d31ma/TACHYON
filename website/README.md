@@ -139,21 +139,28 @@ client call there once the page has one; the runner container serves the
 same site build, recordings included. So when the API is down, the recorded
 output does not show either. A local preview loads it from its own origin.
 
-The recordings are build output, made when a release is built:
+The recordings are refreshed and committed at each release. They live in
+`runs/`, at each controller's path under `content/`:
 
 1. `TAC_SNIPPETS_RECORD=1 bun run verify:snippets` records each controller
    that passes to `.runs/` in the staging folder (`TAC_SNIPPETS_SCRATCH`, or
    `tachyon-snippets` in the system temporary folder), at its path under
    `content/`. Each recording keeps a SHA-256 hash of every example file the
-   run used.
-2. `bun run content --runs <staging folder>/.runs` publishes each recording
-   whose files still match their hashes to `client/shared/data/runs/<id>.json`,
-   and lists the recordings it left out.
-3. `ty bundle` then copies them into the site.
+   run used. The release gates run this on the release commit, with every
+   server toolchain, Redis and a `ty` built with all storage features.
+2. Before the release branch is cut, the recordings replace the contents of
+   `runs/` in a commit to `develop`
+   (`rsync -a --delete <staging folder>/.runs/ runs/`).
+3. `bun run content` publishes each recording in `runs/` whose files still
+   match their hashes to `client/shared/data/runs/<id>.json`, and lists the
+   recordings it left out. An example that changed after it was recorded
+   shows "No recorded output" until the next release records it again.
+4. `bun run bundle`, which the release workflow runs, runs step 3 and then
+   `ty bundle`, which copies them into the site.
 
-`client/shared/data/runs/` is not in git. Without `--runs`, `bun run content`
-publishes the one sample recording in `runs/`, so a local preview shows one
-working Run button (the Python tab of the "Many server languages" feature).
+`client/shared/data/runs/` is not in git. `bun run content --runs <folder>`
+publishes the recordings in another folder instead of `runs/`, for example
+fresh ones from a local `verify:snippets`.
 
 ### Live runs
 

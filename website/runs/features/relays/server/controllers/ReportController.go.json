@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "handler": "features/relays/server/controllers/ReportController.go",
+  "inputs": {
+    "features/relays/server/controllers/ReportController.go": "1829a35bc731ee14183cbcc96bd5465950ce3fe4b03da805dfc9ef69df8326ed",
+    "features/relays/server/relays/report.pl": "aa3c43ffb4c73e91cdc0b0a782f85a8cb8fb55ef96fe91a6b17e302b82649677"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/report",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"language\":\"Perl\",\"route\":\"/report\"}"
+      }
+    }
+  ]
+}

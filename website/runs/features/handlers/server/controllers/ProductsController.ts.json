@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "handler": "features/handlers/server/controllers/ProductsController.ts",
+  "inputs": {
+    "features/handlers/server/controllers/ProductsController.ts": "15c8cefda559bcd701807fa2d5dcbe4ab2cf18c7acdf9ac82acfbcb005c94dfa",
+    "features/handlers/server/models/Product.ts": "0facaa030af076d00d8b535d6c101f83774731437acbbf28de89a672776da9d5"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/products",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "[{\"name\":\"anvil\"}]"
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/products",
+        "headers": {},
+        "body": "{\"name\":\"snippet\"}"
+      },
+      "response": {
+        "status": 201,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"name\":\"snippet\"}"
+      }
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "handler": "features/handlers/server/controllers/ProductsController.rb",
+  "inputs": {
+    "features/handlers/server/controllers/ProductsController.rb": "43ebfc7032a1c144c4351848e9b5fdf47dc5d526d477d2047e9583b5077168e8",
+    "features/handlers/server/models/Product.rb": "c1a73845fd97eb2ab4d401ab37b925efb0a27a0aa46030b5aedfde28223cbcf6"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/products",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "[{\"name\":\"anvil\"}]"
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/products",
+        "headers": {},
+        "body": "{\"name\":\"snippet\"}"
+      },
+      "response": {
+        "status": 201,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"name\":\"snippet\"}"
+      }
+    }
+  ]
+}

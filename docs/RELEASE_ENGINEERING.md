@@ -109,6 +109,14 @@ This step may fail without blocking the binary release. After the release is
 public, the `site-release` job attests the zip and attaches it and its
 `.sha256` to the release. It never replaces an existing asset.
 
+The site's Run buttons show the recorded runs in `website/runs/`, and the
+bundle publishes only those. So before the release branch is cut, record the
+examples on the release commit (`TAC_SNIPPETS_RECORD=1 bun run
+verify:snippets`, with every server toolchain and Redis) and commit the
+recordings to `develop`, replacing the contents of `website/runs/`. A
+recording whose example files changed since it was recorded is left out of the
+site (see "Recorded runs" in `website/README.md`).
+
 Staging (`staging.tachyon.del.ma`) is hosted on Floci on kestrel and is reachable
 only on the tailnet and the CITADEL LAN. kestrel's pull deployer deploys the
 release's zip there, probes it, and sets the commit status `site-staging/floci`

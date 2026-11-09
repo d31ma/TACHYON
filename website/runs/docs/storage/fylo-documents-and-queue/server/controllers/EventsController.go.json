@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "handler": "docs/storage/fylo-documents-and-queue/server/controllers/EventsController.go",
+  "inputs": {
+    "docs/storage/fylo-documents-and-queue/server/application.json": "bb3908b49fc41b54152dd8adbe7b3d776f77616dd9ea6577df9787f85d8dda46",
+    "docs/storage/fylo-documents-and-queue/server/controllers/EventsController.go": "0398087751fd2f26abf1e642efc58927006fbb4f6284cfe7284918a6bdd60d61",
+    "docs/storage/fylo-documents-and-queue/server/models/Event.go": "7d89d3358d326878016afe200278828b59e979bd4f633c68643fe5ca3af2e0dd",
+    "docs/storage/fylo-documents-and-queue/server/models/EventReport.go": "0703ed7c853a6b7bf083fcc479b15d2a75544e73f59ecef7a4336450f1cd0f9b",
+    "docs/storage/fylo-documents-and-queue/server/models/Job.go": "ee83185fa937af7c5243bd891a4347bdd8ac8b5a735ec012a181fe062e4c65bd",
+    "docs/storage/fylo-documents-and-queue/server/services/EventService.go": "2360d6a5ea1db22701b0bd155547ab90bb4ec0c510daedd9420d27cbb0cdff88"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/events",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"found\":\"deploy\",\"patched\":7,\"pages\":2,\"seen\":3,\"job\":{\"app\":\"web\"},\"gone\":true,\"dropped\":true}"
+      }
+    }
+  ]
+}

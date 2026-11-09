@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "handler": "docs/first-app/add-a-controller/server/controllers/GreetingController.lua",
+  "inputs": {
+    "docs/first-app/add-a-controller/server/controllers/GreetingController.lua": "9ec0cbd675a6106bee0ef279ae89db385469e4fc1042a2ecae431d98ca148bb9",
+    "docs/first-app/add-a-controller/server/models/Greeting.lua": "9fc1021489b36f248ae6a8a3ed1417ed20638b14103aae34b41641698c81567f"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/api/greeting",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"message\":\"Hello from Yon\"}"
+      }
+    }
+  ]
+}

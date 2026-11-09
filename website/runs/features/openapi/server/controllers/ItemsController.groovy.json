@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "handler": "features/openapi/server/controllers/ItemsController.groovy",
+  "inputs": {
+    "features/openapi/server/controllers/ItemsController.groovy": "77463b73368e1a80a2e308d7e6f161c121a217ae168db6c42fc0c546b43afb8c",
+    "features/openapi/server/models/Item.groovy": "4fefde5cc9c3b20de7f26b55908eb5babd8d5be6e3f41e28ba2dab7807ef01e2"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/items/42",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"name\":\"anvil\",\"level\":42}"
+      }
+    },
+    {
+      "request": {
+        "method": "PATCH",
+        "path": "/items/42",
+        "headers": {},
+        "body": "{\"level\":4,\"name\":\"snippet\"}"
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"name\":\"snippet\",\"level\":42}"
+      }
+    }
+  ]
+}

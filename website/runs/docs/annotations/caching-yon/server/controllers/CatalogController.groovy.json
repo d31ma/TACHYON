@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "handler": "docs/annotations/caching-yon/server/controllers/CatalogController.groovy",
+  "inputs": {
+    "docs/annotations/caching-yon/server/controllers/CatalogController.groovy": "b35d7dddb727b776b89f3c2be5b36cfaac6b4a343f7004eb32c2982af3f289d3",
+    "docs/annotations/caching-yon/server/delegates/MemoryCacheDelegate.groovy": "a6e55534b69966a941fc36dc0b23d10f0efa79c0551bff66f4426729aadae8f8",
+    "docs/annotations/caching-yon/server/models/CacheReport.groovy": "ca3b034b666721395b0f4dfe27d68a7e7c881eaac6bc4d390dd45f2be2ce92d4",
+    "docs/annotations/caching-yon/server/services/CatalogService.groovy": "4081770cf8f3707dc8e4e8a77c0d64871dea67933234d0c8dcd70d9ed6d6b449",
+    "docs/annotations/caching-yon/server/setups/CatalogSetup.groovy": "0cb61a3d157501c288d2eb7c3cc655ae196df0c3c26fd64921d729aef8585f9f"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/catalog",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"first\":{\"reads\":1,\"sku\":\"anvil\"},\"repeat\":{\"reads\":1,\"sku\":\"anvil\"},\"written\":{\"reads\":99,\"sku\":\"anvil\"},\"refreshed\":{\"reads\":2,\"sku\":\"anvil\"}}"
+      }
+    }
+  ]
+}

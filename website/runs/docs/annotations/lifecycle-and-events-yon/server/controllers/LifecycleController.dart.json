@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "handler": "docs/annotations/lifecycle-and-events-yon/server/controllers/LifecycleController.dart",
+  "inputs": {
+    "docs/annotations/lifecycle-and-events-yon/server/controllers/LifecycleController.dart": "6c2d3abd78bec3d5ae19bee36ec05a06d4a7dbad776baec9792aee598bd32bfd",
+    "docs/annotations/lifecycle-and-events-yon/server/models/Lifecycle.dart": "5bce72beb1b50d2eedba6cc4c0bba67403eb59e035cd8eb911fe3bf0b7987724",
+    "docs/annotations/lifecycle-and-events-yon/server/models/PlacedOrder.dart": "b98d967866029dc04154988003f2b062e7eca3c8e11f6a5fac707892c492e53d",
+    "docs/annotations/lifecycle-and-events-yon/server/models/SettledOrder.dart": "7411c60e926778287d9f0863ed8918e71de90fdf53c91f47072185cbccc17b3a",
+    "docs/annotations/lifecycle-and-events-yon/server/services/AuditService.dart": "2abdd38a9b17076611ddbdea266ab8b7f62579e453c5fc1d133a428d3133f029",
+    "docs/annotations/lifecycle-and-events-yon/server/services/CheckoutService.dart": "c808997bd2285fd6f90dc9d38bf5344128f3bff944f7e2a937440533252e8095"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/lifecycle",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"log\":[\"paid\"],\"settled\":25,\"audited\":25}"
+      }
+    }
+  ]
+}

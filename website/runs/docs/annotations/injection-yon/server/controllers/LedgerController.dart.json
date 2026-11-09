@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "handler": "docs/annotations/injection-yon/server/controllers/LedgerController.dart",
+  "inputs": {
+    "docs/annotations/injection-yon/server/controllers/LedgerController.dart": "02d98f7de5d5ffa0b149eae98005623eedd5200976adf4b8a754cdeee90f844d",
+    "docs/annotations/injection-yon/server/delegates/LedgerAmountsDelegate.dart": "5a9c3c204649bb9829aef4a9b977145326e293bb8035e94a4c31347c4551fe5c",
+    "docs/annotations/injection-yon/server/delegates/LedgerDelegate.dart": "5c4fcf5a137ecda0ff32fbd8fbbe73f2016305a205009404c49238733a17f854",
+    "docs/annotations/injection-yon/server/models/Ledger.dart": "90c18f2e7fc6557aa8a771cec2483f0af62e8f239a722e30207a8bdf06a87765",
+    "docs/annotations/injection-yon/server/services/LedgerService.dart": "7644210326129e0579d3293ebf0486ff1d9c2902291a4bedf7620addb2914867"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/ledger",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"total\":42}"
+      }
+    }
+  ]
+}

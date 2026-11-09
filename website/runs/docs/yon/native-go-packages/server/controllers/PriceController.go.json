@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "handler": "docs/yon/native-go-packages/server/controllers/PriceController.go",
+  "inputs": {
+    "docs/yon/native-go-packages/server/controllers/PriceController.go": "c03a30a0e570e62f080a0376b78b2e0bfc3f8466719ee4b56a60bce8dab26d19",
+    "docs/yon/native-go-packages/server/packages/go.mod": "a5287a29dfe0401eb331ffe57c08bc1c65a5b69a898be89a3d33414e5428481c",
+    "docs/yon/native-go-packages/server/packages/pricing/tax.go": "6c907ff2fcddc9f2a290ca28461a6c698e8794c4562ddc780cbafeebaf7f3156"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/api/price",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"cents\":1100}"
+      }
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "handler": "features/any-language/server/controllers/EchoController.dart",
+  "inputs": {
+    "features/any-language/server/controllers/EchoController.dart": "e09f3836cbbaac890becfc031cf2b775fca5cb93abca7116734203bc1080f489",
+    "features/any-language/server/models/Message.dart": "c9c3cafa51a6b7df49075bc7a207deacc7c96fad5c59f890dc3d62cccfc0a94f"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "POST",
+        "path": "/echo",
+        "headers": {},
+        "body": "{\"level\":4,\"name\":\"snippet\"}"
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"name\":\"snippet\",\"level\":4}"
+      }
+    }
+  ]
+}

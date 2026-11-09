@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "handler": "features/handlers/server/controllers/ProductsController.groovy",
+  "inputs": {
+    "features/handlers/server/controllers/ProductsController.groovy": "e53732b3b72b3c2a5e7cb01bcb47df9fd8ccb6afc325af8e6290bd95b53dcf9f",
+    "features/handlers/server/models/Product.groovy": "2ecf5d48a95f1d860396fb9eac67a6fe0eddee73934f169b934907473515efa7"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/products",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "[{\"name\":\"anvil\"}]"
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/products",
+        "headers": {},
+        "body": "{\"name\":\"snippet\"}"
+      },
+      "response": {
+        "status": 201,
+        "contentType": "application/json",
+        "body": "{\"name\":\"snippet\"}"
+      }
+    }
+  ]
+}

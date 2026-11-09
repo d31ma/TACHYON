@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "handler": "docs/application-configuration/access-from-every-yon-language/server/controllers/ConfigurationController.lua",
+  "inputs": {
+    "docs/application-configuration/access-from-every-yon-language/server/application.json": "9595f0144805a443ce2bbefc311ac77a753577f831f0910e22ca026f569ad2a4",
+    "docs/application-configuration/access-from-every-yon-language/server/controllers/ConfigurationController.lua": "fd4755b9479082d3920d44cef29d285463357edce0b0e97998ae81c18d6b3d81",
+    "docs/application-configuration/access-from-every-yon-language/server/models/CatalogSettings.lua": "6ef1da7796ca8967fedcca9863a6f09881e867cf259a21ca88338d8b925d8b27",
+    "docs/application-configuration/access-from-every-yon-language/server/models/Configuration.lua": "bcd09f641b8a5bde6e366bb09db3d3b292c305c431dd7f0635a38717be3d0ff7",
+    "docs/application-configuration/access-from-every-yon-language/server/models/Endpoint.lua": "40861faf435fdb316342b593a6a8a4854d3c28be4599f86987f6ffe25b5d0e68"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/configuration",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"pageSize\":20,\"port\":0}"
+      }
+    }
+  ]
+}

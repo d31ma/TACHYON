@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "handler": "docs/yon/error-handlers-in-every-yon-language/server/controllers/OrdersController.groovy",
+  "inputs": {
+    "docs/yon/error-handlers-in-every-yon-language/server/controllers/OrdersController.groovy": "821fd26ab95353513e20f3314b9b56e586246cc54215cedf1664db4190e219a1",
+    "docs/yon/error-handlers-in-every-yon-language/server/controllers/OrdersErrorHandler.groovy": "3164f324d836e5e41be117f652774809c238be3eccac0ea6254cfa26e1c9f512",
+    "docs/yon/error-handlers-in-every-yon-language/server/errors/OrderNotFound.groovy": "b05c4dd7e52ec68189bfc13a5b3aa7e1883ac7f739c17b8a5dc86ca8fec901da",
+    "docs/yon/error-handlers-in-every-yon-language/server/models/Problem.groovy": "5aa1d603aeaa36a6dc235b71e83eadd5bafca0f37e1da7f3cd79aa287157b3f4"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/orders",
+        "headers": {}
+      },
+      "response": {
+        "status": 404,
+        "contentType": "application/json",
+        "body": "{\"code\":\"order-not-found\"}"
+      }
+    }
+  ]
+}

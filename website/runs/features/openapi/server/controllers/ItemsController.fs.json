@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "handler": "features/openapi/server/controllers/ItemsController.fs",
+  "inputs": {
+    "features/openapi/server/controllers/ItemsController.fs": "b2785d8dde958fe604c884c885ad48642bfcf4199e09522c8e7edcdd78cc8698",
+    "features/openapi/server/models/Item.fs": "3bd7d73dd23e8a9390f97e82078bf9dc0e20381fb5aba59b43b2a50d4829656c"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/items/42",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"name\":\"anvil\",\"level\":42}"
+      }
+    },
+    {
+      "request": {
+        "method": "PATCH",
+        "path": "/items/42",
+        "headers": {},
+        "body": "{\"level\":4,\"name\":\"snippet\"}"
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"name\":\"snippet\",\"level\":42}"
+      }
+    }
+  ]
+}

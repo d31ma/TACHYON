@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "handler": "docs/annotations/transactions-yon/server/controllers/LedgerController.js",
+  "inputs": {
+    "docs/annotations/transactions-yon/server/controllers/LedgerController.js": "6111dcb89a0cb2dbf9c0014a04af5f6a86f2b5caabffa1eda4cdf634cb386d3e",
+    "docs/annotations/transactions-yon/server/entities/EntryEntity.js": "870327d66e3b7383b7a816ac9b461ebc8f77b5d71f8a52ae577e493f65efec2b",
+    "docs/annotations/transactions-yon/server/models/LedgerReport.ts": "7cbb281e2cdbcf2aa0a2dce37916a7b9994dfeee019385e045182d52383c93f0",
+    "docs/annotations/transactions-yon/server/services/LedgerService.js": "7baa3c65fb7ed94dbd0c1da2c631ca6658e5e178dfea14938fe9693c6f94c36c",
+    "docs/annotations/transactions-yon/server/setups/LedgerSetup.js": "c68c71436bc9e6ba07c920c78cdd73ef70e62bc4aefbbc6ec319dfc289dd2e43",
+    "docs/annotations/transactions-yon/server/stores/EntryStore.js": "04bf0c77c9abe765c03726a2331ca0fdba39568919aa605cca44034813faa150"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/ledger",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"settled\":{\"open\":[{\"id\":1,\"status\":\"open\"}],\"total\":1},\"commands\":[\"begin\",\"find@t1\",\"count@t1\",\"commit:t1\"]}"
+      }
+    }
+  ]
+}

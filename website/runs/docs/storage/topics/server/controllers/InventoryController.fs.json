@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "handler": "docs/storage/topics/server/controllers/InventoryController.fs",
+  "inputs": {
+    "docs/storage/topics/server/controllers/InventoryController.fs": "cbe0b6d222bd12e7954f2a095b2a3579055b004a456ba69c069f1a37eb0c10d0",
+    "docs/storage/topics/server/models/InventoryRecord.fs": "6e5d6faafcf33bc206530b911c961d02045304e9093f3c9c86e45d9a11d57791"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "POST",
+        "path": "/inventory",
+        "headers": {},
+        "body": "{\"level\":4,\"sku\":\"anvil\"}"
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"sku\":\"anvil\",\"level\":4}"
+      }
+    }
+  ]
+}

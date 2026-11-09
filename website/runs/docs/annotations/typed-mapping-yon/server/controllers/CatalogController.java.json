@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "handler": "docs/annotations/typed-mapping-yon/server/controllers/CatalogController.java",
+  "inputs": {
+    "docs/annotations/typed-mapping-yon/server/controllers/CatalogController.java": "4f56259786c094ec443037f1fe78d38252058d803fc8a6f45574d80b0977f8b7",
+    "docs/annotations/typed-mapping-yon/server/converters/ProductConverter.java": "04633f2f9714eacb17954375fe5005dda1e36358b30bc3e31b3e86d96f59a54e",
+    "docs/annotations/typed-mapping-yon/server/models/Detail.java": "e8bcf7011cc1c5e86a96fbe4aa31d4e1b3d8e0d8cd7409fcaec17e8981e5a63a",
+    "docs/annotations/typed-mapping-yon/server/models/Product.java": "1497205896700693caee7609f5525688c937cb45e5172e8460ac2729e64014ec",
+    "docs/annotations/typed-mapping-yon/server/models/ShortDetail.java": "b21c99580116903a98fde3c2b75b18e3dd2b5384f16017c1e2c5308705865de8",
+    "docs/annotations/typed-mapping-yon/server/models/Summary.java": "ff3aa8260db3da3c13d08a410051a820b897a07f9c55a0a87974f149d11fe6c8"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/catalog",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"id\":7,\"name\":\"Anvil\",\"detail\":{\"name\":\"detail\"},\"items\":[{\"name\":\"detail\"}],\"kind\":\"product\"}"
+      }
+    }
+  ]
+}

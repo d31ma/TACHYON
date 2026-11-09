@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "handler": "docs/annotations/injection-yon/server/controllers/LedgerController.rb",
+  "inputs": {
+    "docs/annotations/injection-yon/server/controllers/LedgerController.rb": "9dc2cb80727c01bffdb0f0e833d2c8b1297b0339e447282c7a2ccd59e05f9804",
+    "docs/annotations/injection-yon/server/delegates/LedgerAmountsDelegate.rb": "3b4e01da9292b418e085dfbb2d2d78d84ff22691eec1b34226c395f076443809",
+    "docs/annotations/injection-yon/server/delegates/LedgerDelegate.rb": "b64e3284e92216d57cb1b5f959e22cf98396788868484872ac0fdfc0a127d203",
+    "docs/annotations/injection-yon/server/models/Ledger.rb": "7b6ea2236d3e625e8bd7c5d2bee5d8f0463196b1365e8df87d24e13a620fb002",
+    "docs/annotations/injection-yon/server/services/LedgerService.rb": "8ab3c6666eb41ae0a7c583ee30b19decba0c2f63c4cc01f9a74033dc33d8a592"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/ledger",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"total\":42}"
+      }
+    }
+  ]
+}

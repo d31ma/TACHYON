@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "handler": "docs/annotations/injection-yon/server/controllers/LedgerController.py",
+  "inputs": {
+    "docs/annotations/injection-yon/server/controllers/LedgerController.py": "fb2c0c6d1b66026324e6247b6016a0a965c9864d825282bd3421997607af6b9a",
+    "docs/annotations/injection-yon/server/delegates/LedgerAmountsDelegate.py": "70a4f797457144eb08cba06c9f64f5d4b1b3241f48d3a4374f8dbb0c486254bb",
+    "docs/annotations/injection-yon/server/delegates/LedgerDelegate.py": "0ee3a3d0d8f60a82af7f30af6c9e5c90812b99b8061b06f7726d67eb808adb18",
+    "docs/annotations/injection-yon/server/models/Ledger.py": "2afe714f815da47447c10aeb689b49d4d854cd8f23c5b073b9d26c8709808c39",
+    "docs/annotations/injection-yon/server/services/LedgerService.py": "2acb791ac301eedb85ccbbc5433a18806a4f3687ff42de853a8f85fae4343da7"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/ledger",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"total\":42}"
+      }
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "handler": "languages/yon/go/server/controllers/OrdersController.go",
+  "inputs": {
+    "languages/yon/go/server/controllers/OrdersController.go": "9c10c81f38c87f5ec1dbec5b1355730104a7a680f216eef571c2262e3497c2b0",
+    "languages/yon/go/server/models/OrderList.go": "21d401534d5987a030f4903130a112badb2181ffe40d80799b50f516911edf05",
+    "languages/yon/go/server/services/OrderService.go": "ef185e5c47b258df3666d37508c10640d29d9678024b7bea6fd724a241fa02ae"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/orders",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"orders\":[\"anvil\"]}"
+      }
+    }
+  ]
+}

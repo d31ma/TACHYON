@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "handler": "docs/storage/datasource-in-a-service/server/controllers/CatalogController.rb",
+  "inputs": {
+    "docs/storage/datasource-in-a-service/server/application.json": "996ea814c84a4dd3ee601a63d20efb0f183977a704c9f0d803462c7567e311c4",
+    "docs/storage/datasource-in-a-service/server/controllers/CatalogController.rb": "198c6955feeceb957718446c50918115e4302130c495e10d3c03f63e73fe2fe1",
+    "docs/storage/datasource-in-a-service/server/services/CatalogService.rb": "abb2a2cbc5516de884c28d340f0a0ee22c5db0d500ddeb2feb5efc3aac2d1651"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/catalog",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "[{\"amount\":42}]"
+      }
+    }
+  ]
+}

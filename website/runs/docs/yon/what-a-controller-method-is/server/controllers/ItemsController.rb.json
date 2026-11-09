@@ -1,0 +1,36 @@
+{
+  "schema": 1,
+  "handler": "docs/yon/what-a-controller-method-is/server/controllers/ItemsController.rb",
+  "inputs": {
+    "docs/yon/what-a-controller-method-is/server/controllers/ItemsController.rb": "57c7b528abd4924eca949dc8366c1c2ae76a75ba9c1e17b3c77f2a4890adda9a",
+    "docs/yon/what-a-controller-method-is/server/models/Item.rb": "82df80bc59421fe03500ab8d200b5910c6fc6bb984f67c4a80968d8b734bb607",
+    "docs/yon/what-a-controller-method-is/server/models/ItemList.rb": "5b954f9594df439ac964e748bd10cf01c95cf7265b168a00e6b0b5b353c1e2fe"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/items",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"items\":[]}"
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/items",
+        "headers": {},
+        "body": "{\"name\":\"snippet\"}"
+      },
+      "response": {
+        "status": 201,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"name\":\"snippet\"}"
+      }
+    }
+  ]
+}

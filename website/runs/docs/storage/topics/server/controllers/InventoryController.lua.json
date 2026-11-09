@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "handler": "docs/storage/topics/server/controllers/InventoryController.lua",
+  "inputs": {
+    "docs/storage/topics/server/controllers/InventoryController.lua": "007be85163490061eeeb53f0eb4a33358b3d5f9d05bc272fc064289638e98ca6",
+    "docs/storage/topics/server/models/InventoryRecord.lua": "810c39ec2db315c98e282244fa4f8e5117aa9aa1397f464b444741037b335e0f"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "POST",
+        "path": "/inventory",
+        "headers": {},
+        "body": "{\"level\":4,\"sku\":\"anvil\"}"
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"sku\":\"anvil\",\"level\":4}"
+      }
+    }
+  ]
+}

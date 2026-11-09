@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "handler": "docs/operations/handler-environment/server/controllers/RegionController.go",
+  "inputs": {
+    "docs/operations/handler-environment/server/application.json": "a9b087bbaff92a24ec691399b5b29b82ad940c49c975c5ce216c408abe6d7c99",
+    "docs/operations/handler-environment/server/controllers/RegionController.go": "8812ce8081d98023ec9500472565f9a1b72d235a38d3c5fdd7deaa2b298ca106"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/api/region",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"region\":\"\"}"
+      }
+    }
+  ]
+}

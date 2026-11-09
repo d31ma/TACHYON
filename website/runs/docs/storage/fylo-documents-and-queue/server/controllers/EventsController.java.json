@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "handler": "docs/storage/fylo-documents-and-queue/server/controllers/EventsController.java",
+  "inputs": {
+    "docs/storage/fylo-documents-and-queue/server/application.json": "bb3908b49fc41b54152dd8adbe7b3d776f77616dd9ea6577df9787f85d8dda46",
+    "docs/storage/fylo-documents-and-queue/server/controllers/EventsController.java": "bb3297b7befbf5267b7e0fc832ec736f5cdb97fd54e76c838e869132c5533965",
+    "docs/storage/fylo-documents-and-queue/server/services/EventService.java": "1a57608bb34a27fb7ce61d2a638a9ffa0d6cc5c927a306e03c5a6c92b3888b93"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/events",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"pages\":2,\"seen\":3,\"found\":\"deploy\",\"patched\":7,\"job\":{\"app\":\"web\"},\"gone\":true,\"dropped\":true}"
+      }
+    }
+  ]
+}

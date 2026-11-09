@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "handler": "docs/routing-annotations/a-typed-path-in-every-yon-language/server/controllers/ItemsController.cs",
+  "inputs": {
+    "docs/routing-annotations/a-typed-path-in-every-yon-language/server/controllers/ItemsController.cs": "5989c92b992ea5430c6e57df40243afa085dcb04a82605749a9aa22408607d7c",
+    "docs/routing-annotations/a-typed-path-in-every-yon-language/server/models/Item.cs": "06c30e0aa656e4ba9b8ea181908ee9dd9d4f9c3ac11afcd370d55ccd2e5bb87e"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/items/42",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"id\":42}"
+      }
+    }
+  ]
+}

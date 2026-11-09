@@ -1,0 +1,36 @@
+{
+  "schema": 1,
+  "handler": "docs/yon/what-a-controller-method-is/server/controllers/ItemsController.groovy",
+  "inputs": {
+    "docs/yon/what-a-controller-method-is/server/controllers/ItemsController.groovy": "cdd95cfea08cc5148acc954b55c9641e5e8f0a5324026517fe73894cdfa70ea6",
+    "docs/yon/what-a-controller-method-is/server/models/Item.groovy": "612c9801cf65a95d8a0b4b9c7f5e1e58ea9236df9f9d9379fedab82c0e31e943",
+    "docs/yon/what-a-controller-method-is/server/models/ItemList.groovy": "43180cceff5a406f331913aaa25b4588dd59c876d240a4889ecd7a7e8c9321f3"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/items",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"items\":[]}"
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/items",
+        "headers": {},
+        "body": "{\"name\":\"snippet\"}"
+      },
+      "response": {
+        "status": 201,
+        "contentType": "application/json",
+        "body": "{\"name\":\"snippet\"}"
+      }
+    }
+  ]
+}

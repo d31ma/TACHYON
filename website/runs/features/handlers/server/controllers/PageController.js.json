@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "handler": "features/handlers/server/controllers/PageController.js",
+  "inputs": {
+    "features/handlers/server/controllers/PageController.js": "21e6939332139c94737b35d43ffdc7e5cfd4194135bd76ac21962934cc8a40e1",
+    "features/handlers/server/controllers/ProductsController.js": "95f763fb8c6848ba563b3ab8045f3c06841fdd40d8931cbeab18aa5fb2fb607d",
+    "features/handlers/server/models/Product.ts": "0facaa030af076d00d8b535d6c101f83774731437acbbf28de89a672776da9d5"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/page",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"status\":202,\"headers\":{\"content-type\":\"text/html; charset=utf-8\",\"x-origin\":\"controller\"},\"body\":\"<article><h1>Unchanged HTML</h1><p>{not-a-template}</p><if>literal</if></article>\"}"
+      }
+    }
+  ]
+}

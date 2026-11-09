@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "handler": "docs/delegates/take-on-a-service/server/controllers/TaxController.dart",
+  "inputs": {
+    "docs/delegates/take-on-a-service/server/controllers/TaxController.dart": "94d995ce5dd62eaf34b21fa6a457f3b26bbcf1f87ab41152748b17a426b7c7a8",
+    "docs/delegates/take-on-a-service/server/delegates/TaxDelegate.dart": "5f3531b54e13217cf7754647e855abcd417379b10b6dccfdea9b5c80fdb39f48",
+    "docs/delegates/take-on-a-service/server/models/TaxAnswer.dart": "06d617e60b9f2bcc8b7cdc6061681a6756189526d5ce0ea80e7416aa92ac860f",
+    "docs/delegates/take-on-a-service/server/services/TaxService.dart": "0cc03a64c0fa34fd2a89085b66f38e332b7502a1b57233c7ad4643f1db060ca0"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/tax",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"rate\":4,\"total\":30,\"extra\":34}"
+      }
+    }
+  ]
+}

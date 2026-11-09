@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "handler": "docs/annotations/validation-yon/server/controllers/OrdersController.py",
+  "inputs": {
+    "docs/annotations/validation-yon/server/controllers/OrdersController.py": "03f218f344ea2a450ffa2c0eb49b34ed22bd9afaa5c05c7dbe3a7fc376949660",
+    "docs/annotations/validation-yon/server/models/OrderInput.py": "514613c2168e266611673cc3e1d2e548266b6a00103c7e1b2b229441689354ff",
+    "docs/annotations/validation-yon/server/services/OrderService.py": "fc50b3419b7b65a28c8280b21231edcc272c30a655dbd3e4aed583d96eef72a8"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "POST",
+        "path": "/orders",
+        "headers": {},
+        "body": "{\"name\":\"snippet\",\"sku\":\"anvil\",\"level\":4}"
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"level\":4,\"name\":\"snippet\",\"sku\":\"anvil\"}"
+      }
+    }
+  ]
+}

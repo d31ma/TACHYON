@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "handler": "docs/annotations/streaming-yon/server/controllers/EventsController.cs",
+  "inputs": {
+    "docs/annotations/streaming-yon/server/controllers/EventsController.cs": "2c0c28ef26d8f521d809ae3e42b91e81d8dcefbdbe6d49b71e005e07670cd5c1",
+    "docs/annotations/streaming-yon/server/models/Ticket.cs": "3cb7efdaaaab97cdb6277783450fd32e825d1fa4646c469dcc0beed1e3226ba0",
+    "docs/annotations/streaming-yon/server/services/TicketService.cs": "363282aba20cab94d5a89a357b0472f4ce7c1e3e3fe2406b7257b2321c2f9f07"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/events",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "text/event-stream; charset=utf-8",
+        "body": "data: {\"sku\":\"anvil\",\"level\":1}\n\ndata: {\"sku\":\"anvil\",\"level\":2}\n\ndata: {\"sku\":\"anvil\",\"level\":3}\n\nevent: end\ndata: {}\n\n"
+      }
+    }
+  ]
+}

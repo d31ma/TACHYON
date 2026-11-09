@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "handler": "features/dynamic-segments/server/controllers/ItemsController.fs",
+  "inputs": {
+    "features/dynamic-segments/server/controllers/ItemsController.fs": "ad203b9494b5a7b18759af1305eb431a212ba61b15c235350f0cd69267683824",
+    "features/dynamic-segments/server/models/Item.fs": "ce1fc00aa2201616e1427254c43c84505e1835c66c903460469d4f02f1cced16"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/items/42",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"id\":42}"
+      }
+    }
+  ]
+}

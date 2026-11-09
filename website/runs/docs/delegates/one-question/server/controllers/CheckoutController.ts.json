@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "handler": "docs/delegates/one-question/server/controllers/CheckoutController.ts",
+  "inputs": {
+    "docs/delegates/one-question/server/controllers/CheckoutController.ts": "df58ad1916c170e146fd4493d9e17a649a62d9bc074aa64694141e6dceb6c8a9",
+    "docs/delegates/one-question/server/delegates/TaxDelegate.ts": "236ce9bdebed00d0eb747f32b351603aaa7880c95441a41253ddf22893fe496d",
+    "docs/delegates/one-question/server/delegates/TaxRateDelegate.ts": "608df68e03af2e3a2c211f72b756e58bed17fbd76ff3d64f05f7003df27379ba",
+    "docs/delegates/one-question/server/models/Receipt.ts": "ca7b94b735318c4074ca0d5c0afb69f2a2c57259543905116b6d12f2b7bb0309",
+    "docs/delegates/one-question/server/services/CheckoutService.ts": "9836018eb7c52b7a9c76b64d74127e73183a786e84e83043e5445c09c5bbf75b"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/checkout",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"total\":42}"
+      }
+    }
+  ]
+}

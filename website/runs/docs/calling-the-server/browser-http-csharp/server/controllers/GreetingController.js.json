@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "handler": "docs/calling-the-server/browser-http-csharp/server/controllers/GreetingController.js",
+  "inputs": {
+    "docs/calling-the-server/browser-http-csharp/server/controllers/GreetingController.js": "1210ca438843951cdee8c2c9af3234f5352c1f58d1c6495885812558b005f279"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/api/greeting",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"message\":\"Hello from Yon\"}"
+      }
+    }
+  ]
+}

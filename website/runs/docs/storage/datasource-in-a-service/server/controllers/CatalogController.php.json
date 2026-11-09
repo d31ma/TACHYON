@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "handler": "docs/storage/datasource-in-a-service/server/controllers/CatalogController.php",
+  "inputs": {
+    "docs/storage/datasource-in-a-service/server/application.json": "996ea814c84a4dd3ee601a63d20efb0f183977a704c9f0d803462c7567e311c4",
+    "docs/storage/datasource-in-a-service/server/controllers/CatalogController.php": "870f2d0d209ce85bd6107663d573bde2cdea7012761e7c1c70b947760c7166df",
+    "docs/storage/datasource-in-a-service/server/services/CatalogService.php": "c89f5991e2b62df7a87129758125f3e9213d5003f4b4416c1cb5abb5c7157a97"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/catalog",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "[{\"amount\":42}]"
+      }
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "handler": "docs/strict-annotation-layout/models-types-without-a-role/server/controllers/GuideController.groovy",
+  "inputs": {
+    "docs/strict-annotation-layout/models-types-without-a-role/server/controllers/GuideController.groovy": "afac8444077fd1f30b2572a500c08729f94152567380282e0a76b65316e40d45",
+    "docs/strict-annotation-layout/models-types-without-a-role/server/models/Guide.groovy": "14345d859920fe958ca2afad135c4b1cca8529a0ea144fada721c2e7f6c59fab"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/guide",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"title\":\"Models hold types\",\"pages\":3}"
+      }
+    }
+  ]
+}

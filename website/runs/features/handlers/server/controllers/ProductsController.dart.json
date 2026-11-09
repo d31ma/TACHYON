@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "handler": "features/handlers/server/controllers/ProductsController.dart",
+  "inputs": {
+    "features/handlers/server/controllers/ProductsController.dart": "212b7ea6755da488f38f4cb0ffa64f423525e1e60cdd28d34657ec82510d515e",
+    "features/handlers/server/models/Product.dart": "3edc5fba094c84db10bfde036a8b411946b02063420943eea7bdf1b1608028e3"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/products",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "[{\"name\":\"anvil\"}]"
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/products",
+        "headers": {},
+        "body": "{\"name\":\"snippet\"}"
+      },
+      "response": {
+        "status": 201,
+        "contentType": "application/json",
+        "body": "{\"name\":\"snippet\"}"
+      }
+    }
+  ]
+}

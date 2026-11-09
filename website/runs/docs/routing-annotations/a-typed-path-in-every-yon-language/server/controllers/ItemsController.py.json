@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "handler": "docs/routing-annotations/a-typed-path-in-every-yon-language/server/controllers/ItemsController.py",
+  "inputs": {
+    "docs/routing-annotations/a-typed-path-in-every-yon-language/server/controllers/ItemsController.py": "ab39be763f14b1144063e7864aef683bf5dc5654cddb8751af721da3f1b7924e",
+    "docs/routing-annotations/a-typed-path-in-every-yon-language/server/models/Item.py": "d223ab7ba9c1374883e3752d305e5f0bf9537f0e5b1550e9d50b6fa1d7e2c4d4"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/items/42",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"id\":42}"
+      }
+    }
+  ]
+}

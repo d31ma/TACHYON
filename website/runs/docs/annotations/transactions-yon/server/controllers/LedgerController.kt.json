@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "handler": "docs/annotations/transactions-yon/server/controllers/LedgerController.kt",
+  "inputs": {
+    "docs/annotations/transactions-yon/server/controllers/LedgerController.kt": "e8b3a93b8755e662aaa0d22681c62d69445ab6ae5c916403a83d5789b7b1a4c2",
+    "docs/annotations/transactions-yon/server/delegates/LedgerAdapterDelegate.kt": "7686de61bdb94b847877b727cfabef4fa8eef50d86553b34b87a053c8421ebfa",
+    "docs/annotations/transactions-yon/server/entities/EntryEntity.kt": "6444d96ca4046ec4f0aa31031c01247c81ba4ad02b65380e08c03111adcea6a0",
+    "docs/annotations/transactions-yon/server/models/LedgerReport.kt": "449d1a98efec4ff9400b205761e636451c94498168053ee9d6f235f14bd57b8e",
+    "docs/annotations/transactions-yon/server/services/LedgerService.kt": "1fe8eb494fed91092f15aee922de9f283c3f3973ff1d7705be06442bfca115d6",
+    "docs/annotations/transactions-yon/server/setups/LedgerSetup.kt": "e97a6bb0b91471d13276896668fc27493c5aa6144a1ac9b934cf1226016d390a",
+    "docs/annotations/transactions-yon/server/stores/EntryStore.kt": "42e246814f5548ac53f207c2826c032106b576d3240b6506e19ccc2b85672e4b"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/ledger",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"settled\":{\"open\":[{\"id\":1,\"status\":\"open\"}],\"total\":1},\"commands\":[\"begin\",\"find@t1\",\"count@t1\",\"commit:t1\"]}"
+      }
+    }
+  ]
+}

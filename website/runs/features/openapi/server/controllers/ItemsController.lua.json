@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "handler": "features/openapi/server/controllers/ItemsController.lua",
+  "inputs": {
+    "features/openapi/server/controllers/ItemsController.lua": "4da5b197ea7ed03cb05b7aac4dba84a81d7635d9a4ca2c8bbf5a4a44e9b3b2b3",
+    "features/openapi/server/models/Item.lua": "ecf834711775cac97166ea24be172dc89dfb7d1dfdbd149eb4aabb562ba325b6"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/items/42",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"name\":\"anvil\",\"level\":42}"
+      }
+    },
+    {
+      "request": {
+        "method": "PATCH",
+        "path": "/items/42",
+        "headers": {},
+        "body": "{\"level\":4,\"name\":\"snippet\"}"
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"name\":\"snippet\",\"level\":42}"
+      }
+    }
+  ]
+}

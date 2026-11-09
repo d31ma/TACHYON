@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "handler": "docs/routing/backend-routes/server/controllers/ItemsController.groovy",
+  "inputs": {
+    "docs/routing/backend-routes/server/controllers/ItemsController.groovy": "5ae86c02e0c4572e257fc935e55e2914520bd5f86a3d86da9371d1d0e2aefe90",
+    "docs/routing/backend-routes/server/models/Item.groovy": "612c9801cf65a95d8a0b4b9c7f5e1e58ea9236df9f9d9379fedab82c0e31e943"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/items/42",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"name\":\"42\"}"
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/items",
+        "headers": {},
+        "body": "{\"name\":\"snippet\"}"
+      },
+      "response": {
+        "status": 201,
+        "contentType": "application/json",
+        "body": "{\"name\":\"snippet\"}"
+      }
+    }
+  ]
+}

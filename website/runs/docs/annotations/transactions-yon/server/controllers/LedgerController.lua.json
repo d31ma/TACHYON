@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "handler": "docs/annotations/transactions-yon/server/controllers/LedgerController.lua",
+  "inputs": {
+    "docs/annotations/transactions-yon/server/controllers/LedgerController.lua": "8c800601d8b09a23335b73058d38b77bd22c3392c6e9f0e75c3304afcff08420",
+    "docs/annotations/transactions-yon/server/delegates/LedgerAdapterDelegate.lua": "48b8eb7da10d8a291943e245a4eeecdbadb27f08df6e182feafc99f87870be66",
+    "docs/annotations/transactions-yon/server/entities/EntryEntity.lua": "9fd7a44f00b351cb605ac53d87cfa62575cc166e141fdcb1151687826a71cf4c",
+    "docs/annotations/transactions-yon/server/models/LedgerReport.lua": "e18e4bc1b02d5ce84c5e24ffdddceca67f24dea62ce38737d23f30face5a48ce",
+    "docs/annotations/transactions-yon/server/services/LedgerService.lua": "20e4be659dfbb815b7d31f41093c5f62507e0e225738fbbd693546d03442d1c7",
+    "docs/annotations/transactions-yon/server/setups/LedgerSetup.lua": "b6cb9e3dbb284e875cbfd0a01fec0c7e1eeb64cfdc05ee2ad0745ce55f05affd",
+    "docs/annotations/transactions-yon/server/stores/EntryStore.lua": "8b250d753e062adfe6b4719680d0b46bbdb0f13f994f365944ed0be3ce27a197"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/ledger",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"settled\":{\"open\":[{\"id\":1,\"status\":\"open\"}],\"total\":1},\"commands\":[\"begin\",\"find@t1\",\"count@t1\",\"commit:t1\"]}"
+      }
+    }
+  ]
+}

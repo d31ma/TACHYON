@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "handler": "docs/first-app/add-a-controller/server/controllers/GreetingController.groovy",
+  "inputs": {
+    "docs/first-app/add-a-controller/server/controllers/GreetingController.groovy": "ab190565d63ff3ea34eee1ead9510eaed25b72879a4ad64f1a0b04495c9210f4",
+    "docs/first-app/add-a-controller/server/models/Greeting.groovy": "8b7d6c9cc3fd67794dc98c32ad66fb707ab83cfd31d99f2877d75b34cd43f553"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/api/greeting",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"message\":\"Hello from Yon\"}"
+      }
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "handler": "docs/first-app/add-a-controller/server/controllers/GreetingController.dart",
+  "inputs": {
+    "docs/first-app/add-a-controller/server/controllers/GreetingController.dart": "1a7beb9f777651a63a8b0c39ba55233b76707b747a5c33ca5fa78e7720b45fd9",
+    "docs/first-app/add-a-controller/server/models/Greeting.dart": "e3b1c52dbd2ebf908a338c2658805bbcb04c4b6e9019b48c0927c1cd871f6ac5"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/api/greeting",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"message\":\"Hello from Yon\"}"
+      }
+    }
+  ]
+}

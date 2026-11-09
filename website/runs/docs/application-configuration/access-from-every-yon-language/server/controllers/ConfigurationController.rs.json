@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "handler": "docs/application-configuration/access-from-every-yon-language/server/controllers/ConfigurationController.rs",
+  "inputs": {
+    "docs/application-configuration/access-from-every-yon-language/server/application.json": "9595f0144805a443ce2bbefc311ac77a753577f831f0910e22ca026f569ad2a4",
+    "docs/application-configuration/access-from-every-yon-language/server/controllers/ConfigurationController.rs": "b0d1f53a0a4e3661cad173f0cbc2d382b81fcf2a60c1669459508d244caa1e69",
+    "docs/application-configuration/access-from-every-yon-language/server/models/CatalogSettings.rs": "18dfd6880685192313f6dbb325840b9599b2acbc27ff60918ebb33872a622943",
+    "docs/application-configuration/access-from-every-yon-language/server/models/Configuration.rs": "77dcc51754feb18bb4bb1c68e198b348e2d8d672f1c1cabf6ad2bac00ea79571",
+    "docs/application-configuration/access-from-every-yon-language/server/models/Endpoint.rs": "32e791d2d54933b99c48b941c2a9f07e4bb10b470fb75bb6ee19dab887bd791b"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/configuration",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"pageSize\":20,\"port\":0}"
+      }
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "handler": "docs/yon/limited-store-and-query/server/controllers/ProductController.lua",
+  "inputs": {
+    "docs/yon/limited-store-and-query/server/controllers/ProductController.lua": "01927112f1d3f45d92a132ad32073cb951c8b2594a1b523e7e8497fa2644ce8c",
+    "docs/yon/limited-store-and-query/server/delegates/CatalogRowsDelegate.lua": "852106200c511e73f86ca9256dc706d524f3b4a53f54a07af9d1d98f8ca08bdf",
+    "docs/yon/limited-store-and-query/server/entities/ProductEntity.lua": "9c3f18323a5fa6487a0f7bc27e101be1db7089f89ccf3bf244c68ee13fb9b57e",
+    "docs/yon/limited-store-and-query/server/models/ProductReport.lua": "780f230edc4794dda4307c30b51a9da20d635d80436829e0755a434fd39cc975",
+    "docs/yon/limited-store-and-query/server/setups/CatalogSetup.lua": "912af30de6407db6c106230eabb858a22071e836d4038f251d5c2dfde303447c",
+    "docs/yon/limited-store-and-query/server/stores/ProductStore.lua": "713af8bf02b96e69dc5c46907a65cefeea58b9e28c488004f38fe575b758938b"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/products",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"active\":[{\"id\":1,\"status\":\"active\"}],\"count\":1,\"others\":[{\"id\":2,\"status\":\"retired\"}]}"
+      }
+    }
+  ]
+}

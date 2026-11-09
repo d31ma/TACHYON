@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "handler": "languages/yon/rust/server/controllers/OrdersController.rs",
+  "inputs": {
+    "languages/yon/rust/server/controllers/OrdersController.rs": "9c148095c32f74b446a4f5695feb8d2ad5b95a026563a1c15f97ade3a149624b",
+    "languages/yon/rust/server/models/OrderList.rs": "dad9f230232bed908d0b813d92b2702fb548e67632c75973093eec55cf49705c",
+    "languages/yon/rust/server/services/OrderService.rs": "7144095f8a911d5867bbbc93315838499192c3c50c1aaf3195a6e2782e2b8146"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/orders",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"orders\":[\"anvil\"]}"
+      }
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "handler": "languages/yon/fsharp/server/controllers/OrdersController.fs",
+  "inputs": {
+    "languages/yon/fsharp/server/controllers/OrdersController.fs": "3ea8e8b77374a63768861bf24ed5b1d70cded8822d20fc6a86af25d88a62f0bd",
+    "languages/yon/fsharp/server/models/OrderList.fs": "42b87acb30412c331f8b48ac2497fbb716df9ec25873a45b13d1bf9b00d239db",
+    "languages/yon/fsharp/server/services/OrderService.fs": "bae179cc4e523935b39ea8c8310ae40c227abf3f36ae115a7913479a92ea59bb"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/orders",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"orders\":[\"anvil\"]}"
+      }
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "handler": "features/gateways/server/controllers/LedgerController.groovy",
+  "inputs": {
+    "features/gateways/server/controllers/LedgerController.groovy": "d68b564a0c0d528678801820ba1b3ce7e6771a44fc0071199257c6b3a5e5b667",
+    "features/gateways/server/helpers/forecast.py": "88b4f91069b67a937be3a8717aaa6fcc409fa8af08dc9a5e022a050627670aca",
+    "features/gateways/server/models/Balance.groovy": "b4418be92c0bbd4b404cded62209b0c491cb41bb79e5cddff89fd3051033e57a",
+    "features/gateways/server/remotes/LedgerClient.groovy": "6b76e7c565c32af76cc7d5cc6eb34d2352b937b8b5b85c8beb3d29eef105a215",
+    "features/gateways/server/services/LedgerService.py": "ec2f8ca304bd172d9e1ff31bc3659c3a6b7a038cc0985298f9021c4180426ee8",
+    "features/gateways/server/services/ReportService.groovy": "068d787a1b97a5e88991589b639112a70107d04f6f3c3202e20e18d4a4524111"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/ledger",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"balance\":{\"account\":\"ACME-7\",\"balance\":1250.5,\"language\":\"python\"},\"forecast\":{\"growth\":[1.5],\"method\":\"forecast\",\"months\":1}}"
+      }
+    }
+  ]
+}

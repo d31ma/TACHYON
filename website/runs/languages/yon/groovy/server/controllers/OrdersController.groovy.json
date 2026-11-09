@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "handler": "languages/yon/groovy/server/controllers/OrdersController.groovy",
+  "inputs": {
+    "languages/yon/groovy/server/controllers/OrdersController.groovy": "7dd80211763393929932fd1e9e4d6662d6e91e9f4c7680d016863899d1f6e357",
+    "languages/yon/groovy/server/models/OrderList.groovy": "af78082255221e8ae43e9305ef9e647d56238cbd41e5c7221886ea1f44e2cca1",
+    "languages/yon/groovy/server/services/OrderService.groovy": "8f7de60cd57f84d0420c0b3022befa7c96d743d513ea9ad5ac4851db31603dbe"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/orders",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"orders\":[\"anvil\"]}"
+      }
+    }
+  ]
+}

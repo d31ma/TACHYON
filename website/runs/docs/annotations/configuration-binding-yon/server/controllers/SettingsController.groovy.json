@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "handler": "docs/annotations/configuration-binding-yon/server/controllers/SettingsController.groovy",
+  "inputs": {
+    "docs/annotations/configuration-binding-yon/example.env": "62c6f1eb70172a42e9259e4a1bb5ec889521a33cfdd8d413e7ff422f7aa287cd",
+    "docs/annotations/configuration-binding-yon/server/application.json": "2b324937d95c941f566872695032ea424611952de9f6fe849b571fcabfac70b8",
+    "docs/annotations/configuration-binding-yon/server/controllers/SettingsController.groovy": "b02bca14a0a6e066e5e40ae589bf60d7ff0698cd6c8a858e9fc59b124391ffda",
+    "docs/annotations/configuration-binding-yon/server/models/Endpoint.groovy": "865e91936f8be4b0acf696b7a7a7479d8f8784c1c91868f9f0ae000b85bd4159",
+    "docs/annotations/configuration-binding-yon/server/models/Settings.groovy": "42432fb1e237aa6d3e631313a2d42e340c41587d079434af0debc93081813fb8",
+    "docs/annotations/configuration-binding-yon/server/setups/CatalogSetup.groovy": "51d8b7a2ad36f4489a8ff644193eae66d79128e5b77cd1861ca89ac509cc5634"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/settings",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"profile\":\"development\",\"pageSize\":20}"
+      }
+    }
+  ]
+}

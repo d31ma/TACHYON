@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "handler": "features/any-language/server/controllers/EchoController.rb",
+  "inputs": {
+    "features/any-language/server/controllers/EchoController.rb": "4534720738d9b2f4aea774f9f37c4822a58de45ba6f39dc9aab51dfe9eba2f8d",
+    "features/any-language/server/models/Message.rb": "11dfcc53e1578ed5a37b296599cbc75105f247ce1227c49b7f2f687f4d14e692"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "POST",
+        "path": "/echo",
+        "headers": {},
+        "body": "{\"level\":4,\"name\":\"snippet\"}"
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"name\":\"snippet\",\"level\":4}"
+      }
+    }
+  ]
+}

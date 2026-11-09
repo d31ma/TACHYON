@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "handler": "docs/types-in-every-language/every-member-states-its-type/server/controllers/PriceController.java",
+  "inputs": {
+    "docs/types-in-every-language/every-member-states-its-type/server/application.json": "60e7f198d50d11da6e32265a65aa132b78ebb6e7f421313e2323a6b0304ad040",
+    "docs/types-in-every-language/every-member-states-its-type/server/controllers/PriceController.java": "febc4c5a38a58ae7a2901b57ae19bb751048267a00f8ebcf7ca7e44af8345592",
+    "docs/types-in-every-language/every-member-states-its-type/server/models/Price.java": "e16eb961c5f45c421cf6f8af398bc25a448825dbcafe9857af5d7edb5a5d8dea",
+    "docs/types-in-every-language/every-member-states-its-type/server/services/PriceService.java": "94964ad68e0de2482d17ae2ed8f5742845acf36f2e2e01aa981d5d3d34a675d8"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/price",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"amount\":60,\"currency\":\"EUR\"}"
+      }
+    }
+  ]
+}

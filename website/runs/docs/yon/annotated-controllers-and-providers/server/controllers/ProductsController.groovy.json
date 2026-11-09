@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "handler": "docs/yon/annotated-controllers-and-providers/server/controllers/ProductsController.groovy",
+  "inputs": {
+    "docs/yon/annotated-controllers-and-providers/server/controllers/ProductsController.groovy": "3b51174190de958ba782235efb2bd98053352a959b5b583fe37dd3d46568383f",
+    "docs/yon/annotated-controllers-and-providers/server/models/Product.groovy": "851df917ee8ebdbb8efdb9aa489b28aad04ab46a774f01143c0f7dacdf8b39cc",
+    "docs/yon/annotated-controllers-and-providers/server/services/ProductsService.groovy": "f9f74d7de5fbac5239750662cb1c6c36940b44797ee341cdee40cf035bcf9881"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/products",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "[{\"id\":1,\"name\":\"Anvil\"}]"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "path": "/products/42",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"id\":42,\"name\":\"Anvil\"}"
+      }
+    }
+  ]
+}

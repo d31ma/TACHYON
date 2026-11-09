@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "handler": "docs/delegates/take-on-a-service/server/controllers/TaxController.lua",
+  "inputs": {
+    "docs/delegates/take-on-a-service/server/controllers/TaxController.lua": "4caea51f741ca930ec00cc0155b046624bd8c2a8bee65451ef85d47cd6762a8e",
+    "docs/delegates/take-on-a-service/server/delegates/TaxDelegate.lua": "257939228989135eefe7f44db53ec41651d9579cec6ff64fdf7bba5318a0e0a8",
+    "docs/delegates/take-on-a-service/server/models/TaxAnswer.lua": "959f7fc363dc92fc605a88fccbf229bf2746eccb14fa28b8fa5384cff42d0e09",
+    "docs/delegates/take-on-a-service/server/services/TaxService.lua": "7bde8dc513f92459f5d216aa15071f7a6486805e5486d5673976b920d53a9f3e"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/tax",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"rate\":4,\"total\":30,\"extra\":34}"
+      }
+    }
+  ]
+}

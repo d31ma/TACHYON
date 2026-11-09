@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "handler": "docs/yon/streaming/server/controllers/TicksController.js",
+  "inputs": {
+    "docs/yon/streaming/server/controllers/TicksController.js": "fb461468d459f312f63328d2078a5328946b0c007c73c9d057c04167147a1211",
+    "docs/yon/streaming/server/models/Tick.ts": "9440d8e3741a8e24cd990fe3ab4bb9429eed1f93a0400849394e93186d7d3815"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/ticks",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "text/event-stream; charset=utf-8",
+        "body": "data: {\"sku\":\"ANVIL-1\",\"level\":1}\n\ndata: {\"sku\":\"ANVIL-1\",\"level\":2}\n\ndata: {\"sku\":\"ANVIL-1\",\"level\":3}\n\nevent: end\ndata: {}\n\n"
+      }
+    }
+  ]
+}

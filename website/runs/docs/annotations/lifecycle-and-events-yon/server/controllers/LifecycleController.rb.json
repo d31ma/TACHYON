@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "handler": "docs/annotations/lifecycle-and-events-yon/server/controllers/LifecycleController.rb",
+  "inputs": {
+    "docs/annotations/lifecycle-and-events-yon/server/controllers/LifecycleController.rb": "475a5cbd90076a0c3789229167af0087dc9b0775ae8505670d55e8b925080724",
+    "docs/annotations/lifecycle-and-events-yon/server/models/Lifecycle.rb": "7d7c7eea7a06d9f7090bb85633204d81af12a50aecb3b3fb28d03364eff7caeb",
+    "docs/annotations/lifecycle-and-events-yon/server/models/PlacedOrder.rb": "e03103bde74b1dfba860c1a5fbdee85e325799a9e218151a3aff1b58a1ce5753",
+    "docs/annotations/lifecycle-and-events-yon/server/models/SettledOrder.rb": "0c9d91ff71e0ef93468be0fbc7b7b69220953a425c3ff5dd1015692ec8e55dad",
+    "docs/annotations/lifecycle-and-events-yon/server/services/AuditService.rb": "4ab18ca12877829e1563aa1fe3abf7a6b93889ed08774368707c9752b93fee13",
+    "docs/annotations/lifecycle-and-events-yon/server/services/CheckoutService.rb": "c8f3fd593c2b585cefd0ef9a6700f1e8dac0de45f7be7d102c46e016e86ba5cf"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/lifecycle",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"log\":[\"paid\"],\"settled\":25}"
+      }
+    }
+  ]
+}
