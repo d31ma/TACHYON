@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { FyloStaging } from './fylo-staging.mjs'
 import { RecordedRuns } from './recorded-runs.mjs'
 
 /** @typedef {{ source: string, output: string, escapeNonAscii: boolean, omit?: string[] }} GeneratedFile */
@@ -92,7 +93,42 @@ export class SiteContent {
     /** @type {Record<string, any>} */
     const result = {}
     for (const [key, item] of Object.entries(value)) result[key] = SiteContent.resolve(item, folder, readFile, withSources)
-    return SiteContent.withRunDetails(result, SiteContent.snippetSource(value, folder), withSources)
+    return SiteContent.withRecordedOnlyRuns(SiteContent.withRunDetails(result, SiteContent.snippetSource(value, folder), withSources))
+  }
+
+  /**
+   * @param {Record<string, any>} result
+   * @returns {Record<string, any>}
+   */
+  static withRecordedOnlyRuns(result) {
+    if (!SiteContent.needsFylo(result.files)) return result
+    return { ...result, files: result.files.map(SiteContent.recordedOnly) }
+  }
+
+  /**
+   * @param {unknown} files
+   * @returns {boolean}
+   */
+  static needsFylo(files) {
+    if (!Array.isArray(files)) return false
+    return FyloStaging.tools(SiteContent.textFiles(files)).length > 0
+  }
+
+  /**
+   * @param {any[]} files
+   * @returns {{name: string, code: string}[]}
+   */
+  static textFiles(files) {
+    return files.filter(file => typeof file?.code === 'string')
+  }
+
+  /**
+   * @param {Record<string, any>} file
+   * @returns {Record<string, any>}
+   */
+  static recordedOnly(file) {
+    if (file.run === undefined) return file
+    return { ...file, live: false }
   }
 
   /**

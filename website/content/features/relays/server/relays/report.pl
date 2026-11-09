@@ -2,7 +2,8 @@ use strict;
 use warnings;
 use JSON::PP;
 
+my $json = JSON::PP->new->canonical;
 my $input = do { local $/; <STDIN> };
-my $request = decode_json($input || '{}');
-my $body = encode_json({ language => 'Perl', route => $request->{route} });
-print encode_json({ status => 200, headers => { 'content-type' => ['application/json'] }, body => $body });
+my $request = $json->decode($input || '{}');
+my $body = $json->encode({ language => 'Perl', route => $request->{route} });
+print $json->encode({ status => 200, headers => { 'content-type' => ['application/json'] }, body => $body });

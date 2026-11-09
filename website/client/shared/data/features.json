@@ -2382,7 +2382,7 @@
       "files": [
         {
           "name": "server/relays/report.pl",
-          "code": "use strict;\nuse warnings;\nuse JSON::PP;\n\nmy $input = do { local $/; <STDIN> };\nmy $request = decode_json($input || '{}');\nmy $body = encode_json({ language => 'Perl', route => $request->{route} });\nprint encode_json({ status => 200, headers => { 'content-type' => ['application/json'] }, body => $body });\n"
+          "code": "use strict;\nuse warnings;\nuse JSON::PP;\n\nmy $json = JSON::PP->new->canonical;\nmy $input = do { local $/; <STDIN> };\nmy $request = $json->decode($input || '{}');\nmy $body = $json->encode({ language => 'Perl', route => $request->{route} });\nprint $json->encode({ status => 200, headers => { 'content-type' => ['application/json'] }, body => $body });\n"
         },
         {
           "name": "relaying",

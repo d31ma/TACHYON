@@ -3,7 +3,7 @@
   "handler": "features/relays/server/controllers/ReportController.fs",
   "inputs": {
     "features/relays/server/controllers/ReportController.fs": "b7453083a1daf0dd8f1f4dbaf108b5560d61b67e2f80db6ba21dbce57a1d113f",
-    "features/relays/server/relays/report.pl": "aa3c43ffb4c73e91cdc0b0a782f85a8cb8fb55ef96fe91a6b17e302b82649677"
+    "features/relays/server/relays/report.pl": "40744ecf75d032ec9dc0f4dee865c1f15d1658175a1c8ae9f978e8160a7dd85b"
   },
   "exchanges": [
     {

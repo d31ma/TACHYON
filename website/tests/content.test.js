@@ -79,6 +79,35 @@ describe('site data is generated from website/content', () => {
   })
 })
 
+class RunFiles {
+  static fyloSettings = { name: 'server/application.json', code: '{"datasource":{"driver":"fylo","url":"fylo:///data"}}' }
+  static sqliteSettings = { name: 'server/application.json', code: '{"datasource":{"driver":"sqlite","url":"sqlite://data.db"}}' }
+  static controller = { name: 'server/controllers/EventsController.py', code: 'class EventsController: pass', run: '0123456789abcdef' }
+  static service = { name: 'server/services/EventService.py', code: 'class EventService: pass' }
+}
+
+describe('examples that need FYLO show only their recorded run', () => {
+  test('every runnable file of an example whose settings use FYLO is marked live: false', () => {
+    const example = SiteContent.withRecordedOnlyRuns({ files: [RunFiles.fyloSettings, RunFiles.controller, RunFiles.service] })
+    expect(example.files).toEqual([RunFiles.fyloSettings, { ...RunFiles.controller, live: false }, RunFiles.service])
+  })
+
+  test('an example with other settings keeps its live runs', () => {
+    const example = { files: [RunFiles.sqliteSettings, RunFiles.controller] }
+    expect(SiteContent.withRecordedOnlyRuns(example)).toBe(example)
+  })
+
+  test('a settings file whose code is not text is not read', () => {
+    const example = { files: [{ name: 'server/application.json', code: { file: 'application.json' } }, RunFiles.controller] }
+    expect(SiteContent.withRecordedOnlyRuns(example)).toBe(example)
+  })
+
+  test('a value without a file list is left as it is', () => {
+    const value = { title: 'Server data' }
+    expect(SiteContent.withRecordedOnlyRuns(value)).toBe(value)
+  })
+})
+
 describe('the docs guide reads in order', () => {
   test('the reading order is the groups, in order, and every topic is in one group', () => {
     /** @type {{ order: string[], groups: { topics: string[] }[], topics: Record<string, { before?: string[] }>, redirects?: Record<string, string> }} */

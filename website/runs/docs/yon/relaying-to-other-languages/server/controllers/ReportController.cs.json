@@ -3,7 +3,7 @@
   "handler": "docs/yon/relaying-to-other-languages/server/controllers/ReportController.cs",
   "inputs": {
     "docs/yon/relaying-to-other-languages/server/controllers/ReportController.cs": "218a3e9631c6a2eacd519219c8e252b8798d905911f98781b7e8a534b15c6d7e",
-    "docs/yon/relaying-to-other-languages/server/relays/report.pl": "aa3c43ffb4c73e91cdc0b0a782f85a8cb8fb55ef96fe91a6b17e302b82649677"
+    "docs/yon/relaying-to-other-languages/server/relays/report.pl": "40744ecf75d032ec9dc0f4dee865c1f15d1658175a1c8ae9f978e8160a7dd85b"
   },
   "exchanges": [
     {
@@ -15,7 +15,7 @@
       "response": {
         "status": 200,
         "contentType": "application/json",
-        "body": "{\"route\":\"/report\",\"language\":\"Perl\"}"
+        "body": "{\"language\":\"Perl\",\"route\":\"/report\"}"
       }
     }
   ]

@@ -3,7 +3,7 @@
   "handler": "docs/yon/relaying-to-other-languages/server/controllers/ReportController.py",
   "inputs": {
     "docs/yon/relaying-to-other-languages/server/controllers/ReportController.py": "82cccc55a1000b1da25f28f6e8047dccebc365b15f7ded644d0f118bfa2f074d",
-    "docs/yon/relaying-to-other-languages/server/relays/report.pl": "aa3c43ffb4c73e91cdc0b0a782f85a8cb8fb55ef96fe91a6b17e302b82649677"
+    "docs/yon/relaying-to-other-languages/server/relays/report.pl": "40744ecf75d032ec9dc0f4dee865c1f15d1658175a1c8ae9f978e8160a7dd85b"
   },
   "exchanges": [
     {
@@ -15,7 +15,7 @@
       "response": {
         "status": 200,
         "contentType": "application/json",
-        "body": "{\"route\":\"/report\",\"language\":\"Perl\"}"
+        "body": "{\"language\":\"Perl\",\"route\":\"/report\"}"
       }
     }
   ]

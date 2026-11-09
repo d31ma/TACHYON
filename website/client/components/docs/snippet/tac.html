@@ -66,35 +66,40 @@
               </p>
               <pre class="code-block" tabindex="0"><code>{snippetRun.responseText(exchange)}</code></pre>
             </loop>
-            <div class="code-run-live">
-              <p class="demo-code-label">
-                <span class="demo-code-name">Try it on the live runner</span>
-              </p>
-              <label class="code-run-field">
-                <span class="code-run-field-name">{snippetRun.draftMethod(file.run)} path</span>
-                <input type="text" class="code-run-input" :value="snippetRun.draftPath(file.run)"
-                       on:input="snippetRun.editPath(file.run, $event.target.value)"
-                       autocomplete="off" spellcheck="false">
-              </label>
-              <logic :if="snippetRun.takesBody(file.run)">
-                <label class="code-run-field">
-                  <span class="code-run-field-name">Body</span>
-                  <textarea class="code-run-input" rows="4" spellcheck="false" :value="snippetRun.draftBody(file.run)"
-                            on:input="snippetRun.editBody(file.run, $event.target.value)"></textarea>
-                </label>
-              </logic>
-              <div class="code-run-actions">
-                <button type="button" class="code-run-button" on:click="snippetRun.runLive(file.run)">Run live</button>
-                <span class="code-run-status" role="status">{snippetRun.liveMessage(file.run)}</span>
-              </div>
-              <logic :if="snippetRun.hasLiveAnswer(file.run)">
+            <logic :if="file.live !== false">
+              <div class="code-run-live">
                 <p class="demo-code-label">
-                  <span class="demo-code-name">{snippetRun.liveStatus(file.run)}</span>
-                  <span class="demo-code-language">{snippetRun.liveContentType(file.run)}</span>
+                  <span class="demo-code-name">Try it on the live runner</span>
                 </p>
-                <pre class="code-block" tabindex="0"><code>{snippetRun.liveBody(file.run)}</code></pre>
-              </logic>
-            </div>
+                <label class="code-run-field">
+                  <span class="code-run-field-name">{snippetRun.draftMethod(file.run)} path</span>
+                  <input type="text" class="code-run-input" :value="snippetRun.draftPath(file.run)"
+                         on:input="snippetRun.editPath(file.run, $event.target.value)"
+                         autocomplete="off" spellcheck="false">
+                </label>
+                <logic :if="snippetRun.takesBody(file.run)">
+                  <label class="code-run-field">
+                    <span class="code-run-field-name">Body</span>
+                    <textarea class="code-run-input" rows="4" spellcheck="false" :value="snippetRun.draftBody(file.run)"
+                              on:input="snippetRun.editBody(file.run, $event.target.value)"></textarea>
+                  </label>
+                </logic>
+                <div class="code-run-actions">
+                  <button type="button" class="code-run-button" on:click="snippetRun.runLive(file.run)">Run live</button>
+                  <span class="code-run-status" role="status">{snippetRun.liveMessage(file.run)}</span>
+                </div>
+                <logic :if="snippetRun.hasLiveAnswer(file.run)">
+                  <p class="demo-code-label">
+                    <span class="demo-code-name">{snippetRun.liveStatus(file.run)}</span>
+                    <span class="demo-code-language">{snippetRun.liveContentType(file.run)}</span>
+                  </p>
+                  <pre class="code-block" tabindex="0"><code>{snippetRun.liveBody(file.run)}</code></pre>
+                </logic>
+              </div>
+            </logic>
+            <logic :if="file.live === false">
+              <p class="code-run-note">This example needs FYLO storage, which the live runner does not have, so only its recorded run is shown.</p>
+            </logic>
           </div>
         </logic>
       </div>

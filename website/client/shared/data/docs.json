@@ -6400,7 +6400,8 @@
             {
               "name": "server/controllers/EventsController.js",
               "code": "@RequestRoute(\"/events\")\n@Public\nclass EventsController {\n  /** @type {EventService} */\n  @Needs\n  eventService;\n  /** @returns {Promise<object>} */\n  @GetRoute\n  getEvents() { return this.eventService.report(); }\n}\n",
-              "run": "eec4a0248b1598e5"
+              "run": "eec4a0248b1598e5",
+              "live": false
             },
             {
               "name": "server/services/EventService.ts",
@@ -6409,7 +6410,8 @@
             {
               "name": "server/controllers/EventsController.ts",
               "code": "@RequestRoute(\"/events\")\n@Public\nclass EventsController {\n  @Needs\n  eventService!: EventService;\n  @GetRoute\n  getEvents() { return this.eventService.report(); }\n}\n",
-              "run": "70ec6c04b4070f8a"
+              "run": "70ec6c04b4070f8a",
+              "live": false
             },
             {
               "name": "server/services/EventService.py",
@@ -6418,7 +6420,8 @@
             {
               "name": "server/controllers/EventsController.py",
               "code": "from typing import Annotated\n\n@request_route(\"/events\")\n@public\nclass EventsController:\n    event_service: Annotated[EventService, needs]\n    @get_route\n    def get_events(self) -> dict[str, object]:\n        return self.event_service.report()\n",
-              "run": "25889eea17becdc7"
+              "run": "25889eea17becdc7",
+              "live": false
             },
             {
               "name": "server/services/EventService.java",
@@ -6427,7 +6430,8 @@
             {
               "name": "server/controllers/EventsController.java",
               "code": "@RequestRoute(\"/events\")\n@Public\nclass EventsController {\n  @Needs\n  EventService eventService;\n  @GetRoute\n  Object getEvents() { return eventService.report(); }\n}\n",
-              "run": "556bbaf10760f0ad"
+              "run": "556bbaf10760f0ad",
+              "live": false
             },
             {
               "name": "server/services/EventService.groovy",
@@ -6436,7 +6440,8 @@
             {
               "name": "server/controllers/EventsController.groovy",
               "code": "@RequestRoute(\"/events\")\n@Public\nclass EventsController {\n  @Needs\n  EventService eventService\n  @GetRoute\n  Object getEvents() { return eventService.report() }\n}\n",
-              "run": "2fa57a5942909cac"
+              "run": "2fa57a5942909cac",
+              "live": false
             },
             {
               "name": "server/services/EventService.kt",
@@ -6445,7 +6450,8 @@
             {
               "name": "server/controllers/EventsController.kt",
               "code": "@RequestRoute(\"/events\")\n@Public\nclass EventsController {\n  @Needs\n  val eventService: EventService\n  @GetRoute\n  fun getEvents(): Any? = eventService.report()\n}\n",
-              "run": "d1c9afe2a795cb9c"
+              "run": "d1c9afe2a795cb9c",
+              "live": false
             },
             {
               "name": "server/services/EventService.cs",
@@ -6454,7 +6460,8 @@
             {
               "name": "server/controllers/EventsController.cs",
               "code": "[RequestRoute(\"/events\")]\n[Public]\nclass EventsController {\n  [Needs]\n  EventService _eventService;\n  [GetRoute]\n  public object GetEvents() { return _eventService.Report(); }\n}\n",
-              "run": "16cd8602c867bb74"
+              "run": "16cd8602c867bb74",
+              "live": false
             },
             {
               "name": "server/services/EventService.fs",
@@ -6463,7 +6470,8 @@
             {
               "name": "server/controllers/EventsController.fs",
               "code": "[<RequestRoute(\"/events\")>]\n[<Public>]\ntype EventsController(eventService: EventService) =\n    [<GetRoute>]\n    member this.GetEvents() : obj =\n        eventService.Report()\n",
-              "run": "c9cc5eecaac0140b"
+              "run": "c9cc5eecaac0140b",
+              "live": false
             },
             {
               "name": "server/services/EventService.php",
@@ -6472,7 +6480,8 @@
             {
               "name": "server/controllers/EventsController.php",
               "code": "<?php\n#[RequestRoute(\"/events\")]\n#[Public]\nclass EventsController {\n  #[Needs]\n  private EventService $eventService;\n  #[GetRoute]\n  public function getEvents(): array { return $this->eventService->report(); }\n}\n",
-              "run": "33530b278273c880"
+              "run": "33530b278273c880",
+              "live": false
             },
             {
               "name": "server/services/EventService.rs",
@@ -6481,7 +6490,8 @@
             {
               "name": "server/controllers/EventsController.rs",
               "code": "#[RequestRoute(\"/events\")]\n#[Public]\nstruct EventsController {\n  #[Needs]\n  event_service: std::sync::Arc<EventService>,\n}\nimpl EventsController {\n  #[GetRoute]\n  fn get_events(&self) -> Result<Json, YonResourceError> { self.event_service.report() }\n}\n",
-              "run": "a412758bc466075e"
+              "run": "a412758bc466075e",
+              "live": false
             },
             {
               "name": "server/models/Event.go",
@@ -6502,7 +6512,8 @@
             {
               "name": "server/controllers/EventsController.go",
               "code": "// @RequestRoute(\"/events\")\n// @Public\ntype EventsController struct {\n\t// @Needs\n\teventService *EventService\n}\n\n// @GetRoute\nfunc (controller *EventsController) GetEvents() (EventReport, error) {\n\treturn controller.eventService.Report()\n}\n",
-              "run": "e926e8f1b09007eb"
+              "run": "e926e8f1b09007eb",
+              "live": false
             },
             {
               "name": "server/services/EventService.dart",
@@ -6511,7 +6522,8 @@
             {
               "name": "server/controllers/EventsController.dart",
               "code": "@RequestRoute(\"/events\")\n@Public\nclass EventsController {\n  @Needs\n  final EventService eventService;\n\n  @GetRoute\n  Future<Map<String, Object?>> getEvents() {\n    return eventService.report();\n  }\n}\n",
-              "run": "322cfef909ca6a71"
+              "run": "322cfef909ca6a71",
+              "live": false
             },
             {
               "name": "server/services/EventService.rb",
@@ -6520,7 +6532,8 @@
             {
               "name": "server/controllers/EventsController.rb",
               "code": "#[RequestRoute(\"/events\")]\n#[Public]\nclass EventsController\n  #[Needs]\n  # @return [EventService]\n  attr_reader :event_service\n\n  # @return [Hash]\n  #[GetRoute]\n  def get_events\n    event_service.report\n  end\nend\n",
-              "run": "574f026b08986076"
+              "run": "574f026b08986076",
+              "live": false
             }
           ]
         },
@@ -9320,7 +9333,7 @@
           "files": [
             {
               "name": "server/relays/report.pl",
-              "code": "use strict;\nuse warnings;\nuse JSON::PP;\n\nmy $input = do { local $/; <STDIN> };\nmy $request = decode_json($input || '{}');\nmy $body = encode_json({ language => 'Perl', route => $request->{route} });\nprint encode_json({ status => 200, headers => { 'content-type' => ['application/json'] }, body => $body });\n"
+              "code": "use strict;\nuse warnings;\nuse JSON::PP;\n\nmy $json = JSON::PP->new->canonical;\nmy $input = do { local $/; <STDIN> };\nmy $request = $json->decode($input || '{}');\nmy $body = $json->encode({ language => 'Perl', route => $request->{route} });\nprint $json->encode({ status => 200, headers => { 'content-type' => ['application/json'] }, body => $body });\n"
             },
             {
               "name": "server/controllers/ReportController.js",

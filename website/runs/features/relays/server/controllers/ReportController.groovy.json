@@ -3,7 +3,7 @@
   "handler": "features/relays/server/controllers/ReportController.groovy",
   "inputs": {
     "features/relays/server/controllers/ReportController.groovy": "95e9106505c8ff3a461b31527a264f572b0b45fa4119031aac533177e938773a",
-    "features/relays/server/relays/report.pl": "aa3c43ffb4c73e91cdc0b0a782f85a8cb8fb55ef96fe91a6b17e302b82649677"
+    "features/relays/server/relays/report.pl": "40744ecf75d032ec9dc0f4dee865c1f15d1658175a1c8ae9f978e8160a7dd85b"
   },
   "exchanges": [
     {
@@ -15,7 +15,7 @@
       "response": {
         "status": 200,
         "contentType": "application/json",
-        "body": "{\"route\":\"/report\",\"language\":\"Perl\"}"
+        "body": "{\"language\":\"Perl\",\"route\":\"/report\"}"
       }
     }
   ]
