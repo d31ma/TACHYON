@@ -84,12 +84,27 @@ class RunFiles {
   static sqliteSettings = { name: 'server/application.json', code: '{"datasource":{"driver":"sqlite","url":"sqlite://data.db"}}' }
   static controller = { name: 'server/controllers/EventsController.py', code: 'class EventsController: pass', run: '0123456789abcdef' }
   static service = { name: 'server/services/EventService.py', code: 'class EventService: pass' }
+  static testUnit = { name: 'server/tests/EventServiceTest.py', code: '@Test(EventTestSetup)\nclass EventServiceTest: pass' }
 }
 
-describe('examples that need FYLO show only their recorded run', () => {
-  test('every runnable file of an example whose settings use FYLO is marked live: false', () => {
+describe('examples the live runner does not have show no live run', () => {
+  test('every runnable file of an example whose settings use FYLO is recorded only, because it needs FYLO', () => {
     const example = SiteContent.withRecordedOnlyRuns({ files: [RunFiles.fyloSettings, RunFiles.controller, RunFiles.service] })
-    expect(example.files).toEqual([RunFiles.fyloSettings, { ...RunFiles.controller, live: false }, RunFiles.service])
+    expect(example.files).toEqual([RunFiles.fyloSettings, { ...RunFiles.controller, recordedOnly: 'fylo' }, RunFiles.service])
+  })
+
+  test('every runnable file of an example with a test unit is recorded only, because its test units check it', () => {
+    const example = SiteContent.withRecordedOnlyRuns({ files: [RunFiles.controller, RunFiles.service, RunFiles.testUnit] })
+    expect(example.files).toEqual([{ ...RunFiles.controller, recordedOnly: 'tests' }, RunFiles.service, RunFiles.testUnit])
+  })
+
+  test('the generated site data marks the 13 FYLO runs and the 4 test-unit runs', () => {
+    const counts = { fylo: 0, tests: 0 }
+    JSON.stringify(SiteContent.data('docs.json'), (key, value) => {
+      if (key === 'recordedOnly') counts[value] += 1
+      return value
+    })
+    expect(counts).toEqual({ fylo: 13, tests: 4 })
   })
 
   test('an example with other settings keeps its live runs', () => {

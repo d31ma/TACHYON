@@ -10,6 +10,9 @@ export class SiteContent {
   static website = fileURLToPath(new URL('..', import.meta.url))
   static contentFolder = path.join(SiteContent.website, 'content')
   static listFile = path.join(SiteContent.contentFolder, 'generated-files.json')
+  static TEST_UNIT_PATH = /^(server|client)\/tests\/[A-Z]\w*Test\.(js|ts|py|php|java|groovy|kt|cs|fs|rs|swift|dart|go|rb|lua|hpp)$/
+  static NEEDS_FYLO = 'fylo'
+  static CHECKED_BY_TESTS = 'tests'
 
   /** @returns {GeneratedFile[]} */
   static generatedFiles() {
@@ -101,17 +104,28 @@ export class SiteContent {
    * @returns {Record<string, any>}
    */
   static withRecordedOnlyRuns(result) {
-    if (!SiteContent.needsFylo(result.files)) return result
-    return { ...result, files: result.files.map(SiteContent.recordedOnly) }
+    const reason = SiteContent.recordedOnlyReason(result.files)
+    if (reason === undefined) return result
+    return { ...result, files: result.files.map(file => SiteContent.recordedOnly(file, reason)) }
   }
 
   /**
    * @param {unknown} files
-   * @returns {boolean}
+   * @returns {string | undefined}
    */
-  static needsFylo(files) {
-    if (!Array.isArray(files)) return false
-    return FyloStaging.tools(SiteContent.textFiles(files)).length > 0
+  static recordedOnlyReason(files) {
+    if (!Array.isArray(files)) return undefined
+    return SiteContent.reasonFor(SiteContent.textFiles(files))
+  }
+
+  /**
+   * @param {{name: string, code: string}[]} files
+   * @returns {string | undefined}
+   */
+  static reasonFor(files) {
+    if (FyloStaging.tools(files).length > 0) return SiteContent.NEEDS_FYLO
+    if (files.some(file => SiteContent.TEST_UNIT_PATH.test(file.name))) return SiteContent.CHECKED_BY_TESTS
+    return undefined
   }
 
   /**
@@ -124,11 +138,12 @@ export class SiteContent {
 
   /**
    * @param {Record<string, any>} file
+   * @param {string} reason
    * @returns {Record<string, any>}
    */
-  static recordedOnly(file) {
+  static recordedOnly(file, reason) {
     if (file.run === undefined) return file
-    return { ...file, live: false }
+    return { ...file, recordedOnly: reason }
   }
 
   /**

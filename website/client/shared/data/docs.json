@@ -6401,7 +6401,7 @@
               "name": "server/controllers/EventsController.js",
               "code": "@RequestRoute(\"/events\")\n@Public\nclass EventsController {\n  /** @type {EventService} */\n  @Needs\n  eventService;\n  /** @returns {Promise<object>} */\n  @GetRoute\n  getEvents() { return this.eventService.report(); }\n}\n",
               "run": "eec4a0248b1598e5",
-              "live": false
+              "recordedOnly": "fylo"
             },
             {
               "name": "server/services/EventService.ts",
@@ -6411,7 +6411,7 @@
               "name": "server/controllers/EventsController.ts",
               "code": "@RequestRoute(\"/events\")\n@Public\nclass EventsController {\n  @Needs\n  eventService!: EventService;\n  @GetRoute\n  getEvents() { return this.eventService.report(); }\n}\n",
               "run": "70ec6c04b4070f8a",
-              "live": false
+              "recordedOnly": "fylo"
             },
             {
               "name": "server/services/EventService.py",
@@ -6421,7 +6421,7 @@
               "name": "server/controllers/EventsController.py",
               "code": "from typing import Annotated\n\n@request_route(\"/events\")\n@public\nclass EventsController:\n    event_service: Annotated[EventService, needs]\n    @get_route\n    def get_events(self) -> dict[str, object]:\n        return self.event_service.report()\n",
               "run": "25889eea17becdc7",
-              "live": false
+              "recordedOnly": "fylo"
             },
             {
               "name": "server/services/EventService.java",
@@ -6431,7 +6431,7 @@
               "name": "server/controllers/EventsController.java",
               "code": "@RequestRoute(\"/events\")\n@Public\nclass EventsController {\n  @Needs\n  EventService eventService;\n  @GetRoute\n  Object getEvents() { return eventService.report(); }\n}\n",
               "run": "556bbaf10760f0ad",
-              "live": false
+              "recordedOnly": "fylo"
             },
             {
               "name": "server/services/EventService.groovy",
@@ -6441,7 +6441,7 @@
               "name": "server/controllers/EventsController.groovy",
               "code": "@RequestRoute(\"/events\")\n@Public\nclass EventsController {\n  @Needs\n  EventService eventService\n  @GetRoute\n  Object getEvents() { return eventService.report() }\n}\n",
               "run": "2fa57a5942909cac",
-              "live": false
+              "recordedOnly": "fylo"
             },
             {
               "name": "server/services/EventService.kt",
@@ -6451,7 +6451,7 @@
               "name": "server/controllers/EventsController.kt",
               "code": "@RequestRoute(\"/events\")\n@Public\nclass EventsController {\n  @Needs\n  val eventService: EventService\n  @GetRoute\n  fun getEvents(): Any? = eventService.report()\n}\n",
               "run": "d1c9afe2a795cb9c",
-              "live": false
+              "recordedOnly": "fylo"
             },
             {
               "name": "server/services/EventService.cs",
@@ -6461,7 +6461,7 @@
               "name": "server/controllers/EventsController.cs",
               "code": "[RequestRoute(\"/events\")]\n[Public]\nclass EventsController {\n  [Needs]\n  EventService _eventService;\n  [GetRoute]\n  public object GetEvents() { return _eventService.Report(); }\n}\n",
               "run": "16cd8602c867bb74",
-              "live": false
+              "recordedOnly": "fylo"
             },
             {
               "name": "server/services/EventService.fs",
@@ -6471,7 +6471,7 @@
               "name": "server/controllers/EventsController.fs",
               "code": "[<RequestRoute(\"/events\")>]\n[<Public>]\ntype EventsController(eventService: EventService) =\n    [<GetRoute>]\n    member this.GetEvents() : obj =\n        eventService.Report()\n",
               "run": "c9cc5eecaac0140b",
-              "live": false
+              "recordedOnly": "fylo"
             },
             {
               "name": "server/services/EventService.php",
@@ -6481,7 +6481,7 @@
               "name": "server/controllers/EventsController.php",
               "code": "<?php\n#[RequestRoute(\"/events\")]\n#[Public]\nclass EventsController {\n  #[Needs]\n  private EventService $eventService;\n  #[GetRoute]\n  public function getEvents(): array { return $this->eventService->report(); }\n}\n",
               "run": "33530b278273c880",
-              "live": false
+              "recordedOnly": "fylo"
             },
             {
               "name": "server/services/EventService.rs",
@@ -6491,7 +6491,7 @@
               "name": "server/controllers/EventsController.rs",
               "code": "#[RequestRoute(\"/events\")]\n#[Public]\nstruct EventsController {\n  #[Needs]\n  event_service: std::sync::Arc<EventService>,\n}\nimpl EventsController {\n  #[GetRoute]\n  fn get_events(&self) -> Result<Json, YonResourceError> { self.event_service.report() }\n}\n",
               "run": "a412758bc466075e",
-              "live": false
+              "recordedOnly": "fylo"
             },
             {
               "name": "server/models/Event.go",
@@ -6513,7 +6513,7 @@
               "name": "server/controllers/EventsController.go",
               "code": "// @RequestRoute(\"/events\")\n// @Public\ntype EventsController struct {\n\t// @Needs\n\teventService *EventService\n}\n\n// @GetRoute\nfunc (controller *EventsController) GetEvents() (EventReport, error) {\n\treturn controller.eventService.Report()\n}\n",
               "run": "e926e8f1b09007eb",
-              "live": false
+              "recordedOnly": "fylo"
             },
             {
               "name": "server/services/EventService.dart",
@@ -6523,7 +6523,7 @@
               "name": "server/controllers/EventsController.dart",
               "code": "@RequestRoute(\"/events\")\n@Public\nclass EventsController {\n  @Needs\n  final EventService eventService;\n\n  @GetRoute\n  Future<Map<String, Object?>> getEvents() {\n    return eventService.report();\n  }\n}\n",
               "run": "322cfef909ca6a71",
-              "live": false
+              "recordedOnly": "fylo"
             },
             {
               "name": "server/services/EventService.rb",
@@ -6533,7 +6533,7 @@
               "name": "server/controllers/EventsController.rb",
               "code": "#[RequestRoute(\"/events\")]\n#[Public]\nclass EventsController\n  #[Needs]\n  # @return [EventService]\n  attr_reader :event_service\n\n  # @return [Hash]\n  #[GetRoute]\n  def get_events\n    event_service.report\n  end\nend\n",
               "run": "574f026b08986076",
-              "live": false
+              "recordedOnly": "fylo"
             }
           ]
         },
@@ -17281,7 +17281,8 @@
             {
               "name": "server/controllers/CatalogController.js",
               "code": "/** @import { CatalogTotal } from '/models/CatalogTotal.ts' */\n@RequestRoute(\"/api/catalog\")\n@Public\nclass CatalogController {\n  /** @type {CatalogService} */\n  @Needs\n  catalogService;\n\n  /** @returns {CatalogTotal} */\n  @GetRoute\n  getTotal() {\n    return { total: this.catalogService.total() }\n  }\n}\n",
-              "run": "b5d1e94a62e697f1"
+              "run": "b5d1e94a62e697f1",
+              "recordedOnly": "tests"
             },
             {
               "name": "server/services/CatalogService.js",
@@ -17306,7 +17307,8 @@
             {
               "name": "server/controllers/CatalogController.ts",
               "code": "import type { CatalogTotal } from '/models/CatalogTotal.ts'\n\n@RequestRoute(\"/api/catalog\")\n@Public\nclass CatalogController {\n  @Needs\n  catalogService!: CatalogService;\n\n  @GetRoute\n  getTotal(): CatalogTotal {\n    return { total: this.catalogService.total() }\n  }\n}\n",
-              "run": "9d562b56011da8c9"
+              "run": "9d562b56011da8c9",
+              "recordedOnly": "tests"
             },
             {
               "name": "server/services/CatalogService.ts",
@@ -17335,7 +17337,8 @@
             {
               "name": "server/controllers/CatalogController.php",
               "code": "<?php\n#[RequestRoute(\"/api/catalog\")]\n#[Public]\nclass CatalogController {\n    #[Needs]\n    public CatalogService $catalogService;\n\n    #[GetRoute]\n    public function getTotal(): int {\n        return $this->catalogService->total();\n    }\n}\n",
-              "run": "1eb8bbb0f61c314a"
+              "run": "1eb8bbb0f61c314a",
+              "recordedOnly": "tests"
             },
             {
               "name": "server/services/CatalogService.php",
@@ -17440,7 +17443,8 @@
             {
               "name": "server/controllers/CatalogController.hpp",
               "code": "#pragma once\n#include \"../models/CatalogTotal.hpp\"\n\nclass [[RequestRoute(\"/api/catalog\")]] [[Public]] CatalogController {\n    [[Needs]] CatalogService& catalogService;\n\npublic:\n    [[GetRoute]]\n    CatalogTotal getTotal() {\n        return CatalogTotal{catalogService.total()};\n    }\n};\n",
-              "run": "a74635608021a01c"
+              "run": "a74635608021a01c",
+              "recordedOnly": "tests"
             },
             {
               "name": "server/services/CatalogService.hpp",
