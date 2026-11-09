@@ -109,28 +109,30 @@ This step may fail without blocking the binary release. After the release is
 public, the `site-release` job attests the zip and attaches it and its
 `.sha256` to the release. It never replaces an existing asset.
 
-When `Stable Release` succeeds for a tag push, `site-deploy.yml` deploys that
-zip to the Amplify `staging` branch (`staging.tachyon.del.ma`), probes it,
-then deploys the same zip to `production` (`tachyon.del.ma`) and probes again.
-If the production probes fail, it redeploys the version production served
-before and fails the run. To roll back or redeploy, run:
+Staging (`staging.tachyon.del.ma`) is hosted on Floci on kestrel and is reachable
+only on the tailnet and the CITADEL LAN. kestrel's pull deployer deploys the
+release's zip there, probes it, and sets the commit status `site-staging/floci`
+on the release commit, with the description
+`<version> <first 12 hex of the zip SHA-256>`.
+
+When `Stable Release` succeeds for a tag push, `site-deploy.yml` checks the zip's
+SHA-256 and waits up to 20 minutes for that status to be `success` for exactly
+this zip. It stops at once on `failure` or `error`. It then deploys the same zip
+to Amplify `production` (`tachyon.del.ma`) and probes it. If the production
+probes fail, it redeploys the version production served before and fails the
+run. To roll back or redeploy without waiting for staging, run:
 
 ```sh
 gh workflow run site-deploy.yml -f version=<version> -f target=production
 ```
 
-Each deploy job runs in a GitHub environment (`site-staging` or
-`site-production`, both limited to `main`) and assumes its role through OIDC
-(`tachyon-site-deploy-staging` or `tachyon-site-deploy-production`). The roles,
-the Amplify app and its headers are defined in d31ma/PaaS
-(`infra/tachyon/amplify`, `docs/runbooks/site-deploy.md`). App id, roles and
-probes are in `.github/site-deploy.json`. `scripts/site-deploy.mjs` does the
-packaging, deployment and probes; `bun run test:site-deploy` tests it.
-
-`staging.tachyon.del.ma` is reachable only on the tailnet, so the staging probes
-use the Amplify branch address `staging.d2n4qmh2a7hdo4.amplifyapp.com`. They read
-the branch's basic-auth credentials at run time with `amplify:GetBranch`, mask
-them in the log, and send them with each request; no password is stored here.
+The deploy job runs in GitHub environment `site-production` (limited to `main`)
+and assumes `tachyon-site-deploy-production` through OIDC. It reads the commit
+status with its own token (`statuses: read`). The role, the Amplify app and its
+headers are defined in d31ma/PaaS (`infra/tachyon/amplify`,
+`docs/runbooks/site-deploy.md`). App id, role and probes are in
+`.github/site-deploy.json`. `scripts/site-deploy.mjs` does the packaging, the
+staging wait, the deployment and the probes; `bun run test:site-deploy` tests it.
 
 ### Dry Run
 

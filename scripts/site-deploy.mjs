@@ -5,25 +5,34 @@ import { join, relative } from 'node:path'
 
 /**
  * @typedef {{ path: string, contains: string, contentTypes: string[] }} Probe
- * @typedef {{ appId: string, region: string, domain: string, roles: Record<string, string>, requiredHeaders: Record<string, string>, probes: Probe[] }} SiteConfig
+ * @typedef {{ appId: string, region: string, domain: string, role: string, requiredHeaders: Record<string, string>, probes: Probe[] }} SiteConfig
  * @typedef {{ cwd?: string, input?: string, env?: Record<string, string> }} RunOptions
  * @typedef {(command: string, args: string[], options?: RunOptions) => string} Runner
- * @typedef {{ run: Runner, fetch: typeof fetch, sleep: (seconds: number) => Promise<void>, log: (line: string) => void, mask: (secret: string) => void }} Tools
+ * @typedef {{ run: Runner, fetch: typeof fetch, sleep: (seconds: number) => Promise<void>, log: (line: string) => void }} Tools
  * @typedef {{ jobId: string, zipUploadUrl: string }} Deployment
+ * @typedef {{ repository: string, commit: string, version: string, sha256: string, token: string }} StagingGate
+ * @typedef {{ context: string, state: string, description: string }} CommitStatus
  */
 export class SiteDeploy {
     static VERSION_FILE = 'site-version.json'
     static FIXED_TIME = new Date('1980-01-01T00:00:00Z')
     static FILE_MODE = 0o644
     static DIRECTORY_MODE = 0o755
+    static BRANCH = 'production'
     static SUCCEEDED = 'SUCCEED'
     static FAILED_STATES = ['FAILED', 'CANCELLED']
     static JOB_ATTEMPTS = 80
     static JOB_WAIT_SECONDS = 15
     static VERSION_ATTEMPTS = 12
     static VERSION_WAIT_SECONDS = 15
-    static PRODUCTION = 'production'
-    static AMPLIFY_DOMAIN = 'amplifyapp.com'
+    static STAGING_CONTEXT = 'site-staging/floci'
+    static STAGING_PASSED = 'success'
+    static STAGING_FAILED = ['failure', 'error']
+    static STAGING_MISSING = { context: 'site-staging/floci', state: 'missing', description: '' }
+    static STAGING_ATTEMPTS = 40
+    static STAGING_WAIT_SECONDS = 30
+    static SHA256_PREFIX_LENGTH = 12
+    static GITHUB_API = 'https://api.github.com'
 
     /** @param {Tools} tools */
     constructor(tools) {
@@ -60,6 +69,22 @@ export class SiteDeploy {
         this.#requireEqual(this.checksum(file), expected.trim(), `SHA-256 of ${file}`)
     }
 
+    /**
+     * @param {string} version
+     * @param {string} sha256
+     * @returns {string}
+     */
+    stagingDescription(version, sha256) {
+        return `${version} ${sha256.slice(0, SiteDeploy.SHA256_PREFIX_LENGTH)}`
+    }
+
+    /** @param {StagingGate} gate */
+    async waitForStaging(gate) {
+        const expected = this.stagingDescription(gate.version, gate.sha256)
+        await this.#pollStaging(gate, expected)
+        this.tools.log(`${SiteDeploy.STAGING_CONTEXT} passed on ${gate.commit}: ${expected}`)
+    }
+
     /** @param {SiteConfig} config */
     checkHeaders(config) {
         const policy = this.#headerPolicy(config)
@@ -69,94 +94,98 @@ export class SiteDeploy {
 
     /**
      * @param {SiteConfig} config
-     * @param {string} branch
      * @param {string} zip
      */
-    async deploy(config, branch, zip) {
-        const deployment = /** @type {Deployment} */ (this.#aws('create-deployment', ['--app-id', config.appId, '--branch-name', branch], config.region))
+    async deploy(config, zip) {
+        const deployment = /** @type {Deployment} */ (this.#aws('create-deployment', ['--app-id', config.appId, '--branch-name', SiteDeploy.BRANCH], config.region))
         await this.#upload(deployment.zipUploadUrl, zip)
-        this.#aws('start-deployment', ['--app-id', config.appId, '--branch-name', branch, '--job-id', deployment.jobId], config.region)
-        await this.#waitForJob(config, branch, deployment.jobId)
+        this.#aws('start-deployment', ['--app-id', config.appId, '--branch-name', SiteDeploy.BRANCH, '--job-id', deployment.jobId], config.region)
+        await this.#waitForJob(config, deployment.jobId)
     }
 
     /**
      * @param {SiteConfig} config
-     * @param {string} branch
      * @returns {Promise<string>}
      */
-    async liveVersion(config, branch) {
-        return this.#fetchVersion(config, branch, this.#requestHeaders(config, branch))
+    async liveVersion(config) {
+        const response = await this.tools.fetch(this.#versionUrl(config), { redirect: 'follow' })
+        return this.#versionFrom(response)
     }
 
     /**
      * @param {SiteConfig} config
-     * @param {string} branch
      * @param {string} version
      */
-    async probe(config, branch, version) {
-        const headers = this.#requestHeaders(config, branch)
-        await this.#waitForVersion(config, branch, version, headers)
-        const failures = await this.#probeFailures(config, this.origin(config, branch), headers)
+    async probe(config, version) {
+        await this.#waitForVersion(config, version)
+        const failures = await this.#probeFailures(config)
         this.#requireNothingMissing(failures, 'Probes failed')
-        this.tools.log(`${this.origin(config, branch)} serves ${version}; ${config.probes.length} probes passed`)
+        this.tools.log(`${this.origin(config)} serves ${version}; ${config.probes.length} probes passed`)
     }
 
     /**
      * @param {SiteConfig} config
-     * @param {string} branch
      * @returns {string}
      */
-    origin(config, branch) {
-        return `https://${this.#host(config, branch)}`
+    origin(config) {
+        return `https://${config.domain}`
     }
 
     /**
-     * @param {SiteConfig} config
-     * @param {string} branch
-     * @returns {string}
+     * @param {StagingGate} gate
+     * @param {string} expected
      */
-    #host(config, branch) {
-        return branch === SiteDeploy.PRODUCTION ? config.domain : `${branch}.${config.appId}.${SiteDeploy.AMPLIFY_DOMAIN}`
+    async #pollStaging(gate, expected) {
+        for (let attempt = 0; attempt < SiteDeploy.STAGING_ATTEMPTS; attempt += 1) {
+            if (this.#stagingPassed(await this.#latestStagingStatus(gate), expected)) return
+            await this.tools.sleep(SiteDeploy.STAGING_WAIT_SECONDS)
+        }
+        throw new Error(`No ${SiteDeploy.STAGING_CONTEXT} success "${expected}" on ${gate.commit} in time`)
     }
 
     /**
-     * @param {SiteConfig} config
-     * @param {string} branch
-     * @returns {Record<string, string>}
+     * @param {StagingGate} gate
+     * @returns {Promise<CommitStatus>}
      */
-    #requestHeaders(config, branch) {
-        const settings = this.#aws('get-branch', ['--app-id', config.appId, '--branch-name', branch], config.region).branch
-        return this.#authorization(settings)
+    async #latestStagingStatus(gate) {
+        const response = await this.tools.fetch(`${SiteDeploy.GITHUB_API}/repos/${gate.repository}/commits/${gate.commit}/statuses?per_page=100`, {
+            headers: { accept: 'application/vnd.github+json', authorization: `Bearer ${gate.token}`, 'x-github-api-version': '2022-11-28' },
+        })
+        this.#requireOk(response, 'Reading the commit statuses')
+        return this.#newestStagingStatus(await response.json())
     }
 
     /**
-     * @param {{ enableBasicAuth: boolean, basicAuthCredentials?: string }} settings
-     * @returns {Record<string, string>}
+     * @param {CommitStatus[]} statuses
+     * @returns {CommitStatus}
      */
-    #authorization(settings) {
-        if (!settings.enableBasicAuth) return {}
-        return { authorization: `Basic ${this.#maskedCredentials(settings.basicAuthCredentials)}` }
+    #newestStagingStatus(statuses) {
+        return statuses.find((status) => status.context === SiteDeploy.STAGING_CONTEXT) ?? SiteDeploy.STAGING_MISSING
     }
 
     /**
-     * @param {string | undefined} credentials
-     * @returns {string}
+     * @param {CommitStatus} status
+     * @param {string} expected
+     * @returns {boolean}
      */
-    #maskedCredentials(credentials) {
-        if (!credentials) throw new Error('Basic auth is on for the branch, but GetBranch returned no basicAuthCredentials')
-        this.tools.mask(credentials)
-        return credentials
+    #stagingPassed(status, expected) {
+        this.tools.log(`${SiteDeploy.STAGING_CONTEXT}: ${status.state} ${status.description}`)
+        this.#requireStagingNotFailed(status)
+        return this.#isExpectedSuccess(status, expected)
+    }
+
+    /** @param {CommitStatus} status */
+    #requireStagingNotFailed(status) {
+        if (SiteDeploy.STAGING_FAILED.includes(status.state)) throw new Error(`Staging on Floci reported ${status.state}: ${status.description}`)
     }
 
     /**
-     * @param {SiteConfig} config
-     * @param {string} branch
-     * @param {Record<string, string>} headers
-     * @returns {Promise<string>}
+     * @param {CommitStatus} status
+     * @param {string} expected
+     * @returns {boolean}
      */
-    async #fetchVersion(config, branch, headers) {
-        const response = await this.tools.fetch(this.#versionUrl(config, branch), { redirect: 'follow', headers })
-        return this.#versionFrom(response)
+    #isExpectedSuccess(status, expected) {
+        return status.state === SiteDeploy.STAGING_PASSED && status.description === expected
     }
 
     /**
@@ -231,17 +260,16 @@ export class SiteDeploy {
 
     /**
      * @param {SiteConfig} config
-     * @param {string} branch
      * @param {string} jobId
      */
-    async #waitForJob(config, branch, jobId) {
+    async #waitForJob(config, jobId) {
         for (let attempt = 0; attempt < SiteDeploy.JOB_ATTEMPTS; attempt += 1) {
-            const status = this.#aws('get-job', ['--app-id', config.appId, '--branch-name', branch, '--job-id', jobId], config.region).job.summary.status
-            this.tools.log(`Amplify ${branch} job ${jobId}: ${status}`)
+            const status = this.#aws('get-job', ['--app-id', config.appId, '--branch-name', SiteDeploy.BRANCH, '--job-id', jobId], config.region).job.summary.status
+            this.tools.log(`Amplify ${SiteDeploy.BRANCH} job ${jobId}: ${status}`)
             if (this.#jobFinished(status)) return
             await this.tools.sleep(SiteDeploy.JOB_WAIT_SECONDS)
         }
-        throw new Error(`Amplify ${branch} job ${jobId} did not finish in time`)
+        throw new Error(`Amplify ${SiteDeploy.BRANCH} job ${jobId} did not finish in time`)
     }
 
     /**
@@ -255,25 +283,22 @@ export class SiteDeploy {
 
     /**
      * @param {SiteConfig} config
-     * @param {string} branch
      * @param {string} version
-     * @param {Record<string, string>} headers
      */
-    async #waitForVersion(config, branch, version, headers) {
+    async #waitForVersion(config, version) {
         for (let attempt = 0; attempt < SiteDeploy.VERSION_ATTEMPTS; attempt += 1) {
-            if ((await this.#fetchVersion(config, branch, headers)) === version) return
+            if ((await this.liveVersion(config)) === version) return
             await this.tools.sleep(SiteDeploy.VERSION_WAIT_SECONDS)
         }
-        throw new Error(`${this.origin(config, branch)} does not serve ${version}`)
+        throw new Error(`${this.origin(config)} does not serve ${version}`)
     }
 
     /**
      * @param {SiteConfig} config
-     * @param {string} branch
      * @returns {string}
      */
-    #versionUrl(config, branch) {
-        return `${this.origin(config, branch)}/${SiteDeploy.VERSION_FILE}?check=${Date.now()}`
+    #versionUrl(config) {
+        return `${this.origin(config)}/${SiteDeploy.VERSION_FILE}?check=${Date.now()}`
     }
 
     /**
@@ -294,14 +319,12 @@ export class SiteDeploy {
 
     /**
      * @param {SiteConfig} config
-     * @param {string} origin
-     * @param {Record<string, string>} headers
      * @returns {Promise<string[]>}
      */
-    async #probeFailures(config, origin, headers) {
+    async #probeFailures(config) {
         const failures = []
         for (const probe of config.probes) {
-            failures.push(...(await this.#checkProbe(origin, probe, config.requiredHeaders, headers)))
+            failures.push(...(await this.#checkProbe(this.origin(config), probe, config.requiredHeaders)))
         }
         return failures
     }
@@ -310,11 +333,10 @@ export class SiteDeploy {
      * @param {string} origin
      * @param {Probe} probe
      * @param {Record<string, string>} requiredHeaders
-     * @param {Record<string, string>} headers
      * @returns {Promise<string[]>}
      */
-    async #checkProbe(origin, probe, requiredHeaders, headers) {
-        const response = await this.tools.fetch(`${origin}${probe.path}`, { redirect: 'follow', headers })
+    async #checkProbe(origin, probe, requiredHeaders) {
+        const response = await this.tools.fetch(`${origin}${probe.path}`, { redirect: 'follow' })
         const body = await response.text()
         return [
             ...this.#statusFailure(probe, response),
@@ -471,16 +493,7 @@ export class SiteDeploy {
             fetch: globalThis.fetch,
             sleep: (seconds) => new Promise((resolve) => setTimeout(resolve, seconds * 1000)),
             log: (line) => console.log(line),
-            mask: SiteDeploy.#maskFor(process.env),
         })
-    }
-
-    /**
-     * @param {Record<string, string | undefined>} environment
-     * @returns {(secret: string) => void}
-     */
-    static #maskFor(environment) {
-        return environment.GITHUB_ACTIONS === 'true' ? (secret) => console.log(`::add-mask::${secret}`) : () => {}
     }
 
     /**
@@ -494,10 +507,11 @@ export class SiteDeploy {
     /**
      * @param {string[]} argv
      * @param {SiteDeploy} [site]
+     * @param {Record<string, string | undefined>} [environment]
      */
-    static async main(argv, site = SiteDeploy.live()) {
+    static async main(argv, site = SiteDeploy.live(), environment = process.env) {
         const [command, ...args] = argv
-        const output = await SiteDeploy.#command(site, command, args)
+        const output = await SiteDeploy.#command(site, command, args, environment)
         console.log(output)
     }
 
@@ -505,28 +519,32 @@ export class SiteDeploy {
      * @param {SiteDeploy} site
      * @param {string} command
      * @param {string[]} args
+     * @param {Record<string, string | undefined>} environment
      * @returns {Promise<string>}
      */
-    static async #command(site, command, args) {
+    static async #command(site, command, args, environment) {
         switch (command) {
             case 'package':
                 return site.package(args[0], args[1], args[2], args[3])
             case 'verify':
                 site.verify(args[0], args[1])
                 return 'verified'
+            case 'wait-staging':
+                await site.waitForStaging({ repository: args[0], commit: args[1], version: args[2], sha256: args[3], token: environment.GITHUB_TOKEN ?? '' })
+                return 'staging passed'
             case 'check-headers':
                 site.checkHeaders(SiteDeploy.config(args[0]))
                 return 'header policy covers the required headers'
             case 'deploy':
-                await site.deploy(SiteDeploy.config(args[0]), args[1], args[2])
+                await site.deploy(SiteDeploy.config(args[0]), args[1])
                 return 'deployed'
             case 'live-version':
-                return site.liveVersion(SiteDeploy.config(args[0]), args[1])
+                return site.liveVersion(SiteDeploy.config(args[0]))
             case 'probe':
-                await site.probe(SiteDeploy.config(args[0]), args[1], args[2])
+                await site.probe(SiteDeploy.config(args[0]), args[1])
                 return 'probes passed'
             default:
-                throw new Error('Usage: site-deploy.mjs package|verify|check-headers|deploy|live-version|probe ...')
+                throw new Error('Usage: site-deploy.mjs package|verify|wait-staging|check-headers|deploy|live-version|probe ...')
         }
     }
 }

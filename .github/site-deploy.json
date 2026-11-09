@@ -2,10 +2,7 @@
   "appId": "d2n4qmh2a7hdo4",
   "region": "ca-central-1",
   "domain": "tachyon.del.ma",
-  "roles": {
-    "staging": "arn:aws:iam::117469679339:role/tachyon-site-deploy-staging",
-    "production": "arn:aws:iam::117469679339:role/tachyon-site-deploy-production"
-  },
+  "role": "arn:aws:iam::117469679339:role/tachyon-site-deploy-production",
   "requiredHeaders": {},
   "probes": [
     { "path": "/", "contains": "Tachyon", "contentTypes": ["text/html"] },

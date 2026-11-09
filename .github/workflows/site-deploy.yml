@@ -11,11 +11,11 @@ on:
         required: true
         type: string
       target:
-        description: staging-then-production, or production alone for a rollback
+        description: after-staging waits for kestrel's Floci staging check; production deploys at once (rollback)
         required: true
         type: choice
-        default: staging-then-production
-        options: [staging-then-production, production]
+        default: after-staging
+        options: [after-staging, production]
 
 permissions: {}
 
@@ -43,6 +43,7 @@ jobs:
       deploy: ${{ steps.release.outputs.deploy }}
       version: ${{ steps.release.outputs.version }}
       sha256: ${{ steps.release.outputs.sha256 }}
+      commit: ${{ steps.release.outputs.commit }}
       target: ${{ steps.release.outputs.target }}
     steps:
       - name: Checkout deploy tooling
@@ -72,7 +73,7 @@ jobs:
             TARGET="$INPUT_TARGET"
           else
             VERSION=$(git tag --points-at "$HEAD_SHA" --list 'v*' | sed -n 's/^v//p' | head -n 1)
-            TARGET=staging-then-production
+            TARGET=after-staging
           fi
           if [[ "$EVENT" == "workflow_run" && -z "$VERSION" ]]; then
             echo "::notice::$HEAD_SHA has no release tag; nothing to deploy."
@@ -103,11 +104,12 @@ jobs:
             echo "deploy=true"
             echo "version=$VERSION"
             echo "sha256=$SHA256"
+            echo "commit=$TAG_SHA"
             echo "target=$TARGET"
           } >> "$GITHUB_OUTPUT"
-          echo "Deploying $ZIP ($SHA256), target $TARGET"
+          echo "Deploying $ZIP ($SHA256) from $TAG_SHA, target $TARGET"
 
-      - name: Keep the zip for the deploy jobs
+      - name: Keep the zip for the deploy job
         if: steps.release.outputs.deploy == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -116,22 +118,23 @@ jobs:
           retention-days: 7
           if-no-files-found: error
 
-  deploy-staging:
-    name: Deploy staging
+  deploy-production:
+    name: Deploy production
     needs: resolve
-    if: needs.resolve.outputs.deploy == 'true' && needs.resolve.outputs.target != 'production'
+    if: needs.resolve.outputs.deploy == 'true'
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 75
     environment:
-      name: site-staging
-      url: https://staging.tachyon.del.ma
+      name: site-production
+      url: https://tachyon.del.ma
     permissions:
       contents: read
       id-token: write
+      statuses: read
     env:
-      BRANCH: staging
       VERSION: ${{ needs.resolve.outputs.version }}
       SHA256: ${{ needs.resolve.outputs.sha256 }}
+      COMMIT: ${{ needs.resolve.outputs.commit }}
     steps:
       - name: Checkout deploy tooling
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -152,69 +155,15 @@ jobs:
       - name: Verify the zip is the released one
         run: bun scripts/site-deploy.mjs verify "site/$SITE_ASSET_PREFIX-$VERSION.zip" "$SHA256"
 
-      - name: Read the deploy role
-        id: role
-        run: echo "arn=$(jq -r ".roles.$BRANCH" "$CONFIG")" >> "$GITHUB_OUTPUT"
-
-      - name: Assume the staging deploy role
-        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
-        with:
-          role-to-assume: ${{ steps.role.outputs.arn }}
-          aws-region: ca-central-1
-
-      - name: Check the PaaS header policy
-        run: bun scripts/site-deploy.mjs check-headers "$CONFIG"
-
-      - name: Deploy to Amplify staging
-        run: bun scripts/site-deploy.mjs deploy "$CONFIG" "$BRANCH" "site/$SITE_ASSET_PREFIX-$VERSION.zip"
-
-      - name: Probe staging
-        run: bun scripts/site-deploy.mjs probe "$CONFIG" "$BRANCH" "$VERSION"
-
-  deploy-production:
-    name: Deploy production
-    needs: [resolve, deploy-staging]
-    if: >-
-      ${{
-        always() &&
-        needs.resolve.outputs.deploy == 'true' &&
-        (needs.deploy-staging.result == 'success' || needs.deploy-staging.result == 'skipped')
-      }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 45
-    environment:
-      name: site-production
-      url: https://tachyon.del.ma
-    permissions:
-      contents: read
-      id-token: write
-    env:
-      BRANCH: production
-      VERSION: ${{ needs.resolve.outputs.version }}
-      SHA256: ${{ needs.resolve.outputs.sha256 }}
-    steps:
-      - name: Checkout deploy tooling
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
-        with:
-          bun-version: 1.4.3
-
-      - name: Download the site zip
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: site
-          path: site
-
-      - name: Verify the zip is the one staging received
-        run: bun scripts/site-deploy.mjs verify "site/$SITE_ASSET_PREFIX-$VERSION.zip" "$SHA256"
+      - name: Wait for the same zip to pass staging on Floci
+        if: needs.resolve.outputs.target == 'after-staging'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: bun scripts/site-deploy.mjs wait-staging "$GITHUB_REPOSITORY" "$COMMIT" "$VERSION" "$SHA256"
 
       - name: Read the deploy role
         id: role
-        run: echo "arn=$(jq -r ".roles.$BRANCH" "$CONFIG")" >> "$GITHUB_OUTPUT"
+        run: echo "arn=$(jq -r .role "$CONFIG")" >> "$GITHUB_OUTPUT"
 
       - name: Assume the production deploy role
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
@@ -229,17 +178,17 @@ jobs:
         id: previous
         run: |
           set -euo pipefail
-          PREVIOUS=$(bun scripts/site-deploy.mjs live-version "$CONFIG" "$BRANCH")
+          PREVIOUS=$(bun scripts/site-deploy.mjs live-version "$CONFIG")
           echo "version=$PREVIOUS" >> "$GITHUB_OUTPUT"
           echo "Production serves '${PREVIOUS:-unknown}' before this deploy"
 
       - name: Deploy to Amplify production
         id: deploy
-        run: bun scripts/site-deploy.mjs deploy "$CONFIG" "$BRANCH" "site/$SITE_ASSET_PREFIX-$VERSION.zip"
+        run: bun scripts/site-deploy.mjs deploy "$CONFIG" "site/$SITE_ASSET_PREFIX-$VERSION.zip"
 
       - name: Probe production
         id: probe
-        run: bun scripts/site-deploy.mjs probe "$CONFIG" "$BRANCH" "$VERSION"
+        run: bun scripts/site-deploy.mjs probe "$CONFIG" "$VERSION"
 
       - name: Roll back to the previous version
         if: >-
@@ -258,6 +207,6 @@ jobs:
           mkdir -p previous
           gh release download "v$PREVIOUS" --repo "$GITHUB_REPOSITORY" --dir previous --pattern "$ZIP" --pattern "$ZIP.sha256"
           bun scripts/site-deploy.mjs verify "previous/$ZIP" "$(cut -d' ' -f1 "previous/$ZIP.sha256")"
-          bun scripts/site-deploy.mjs deploy "$CONFIG" "$BRANCH" "previous/$ZIP"
-          bun scripts/site-deploy.mjs probe "$CONFIG" "$BRANCH" "$PREVIOUS"
+          bun scripts/site-deploy.mjs deploy "$CONFIG" "previous/$ZIP"
+          bun scripts/site-deploy.mjs probe "$CONFIG" "$PREVIOUS"
           echo "::error::Production probes failed for $VERSION; production is back on $PREVIOUS."
