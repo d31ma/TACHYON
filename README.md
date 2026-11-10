@@ -16,9 +16,9 @@ layer. Both use the standalone `ty` executable.
 
 > [!IMPORTANT]
 > This branch contains the Rust rewrite, written from scratch. Engineering
-> phases 0 to 7 are implemented. The next version published from `develop` is
-> a release candidate. It is not a supported release and not a preview, and no
-> target is promoted. [docs/CUTOVER.md](docs/CUTOVER.md) lists the gates, and
+> phases 0 to 7 are implemented. 26.46.02 is the latest release; no target is
+> promoted to supported yet. It is not a supported release and not a preview.
+> [docs/CUTOVER.md](docs/CUTOVER.md) lists the gates, and
 > [docs/SUPPORT_TIERS.md](docs/SUPPORT_TIERS.md) records each target's tier.
 
 ## Why Tachyon

@@ -3,15 +3,15 @@
 "Cutover" means making the Rust implementation Tachyon's default. The cutover
 gate is the list of conditions that must hold first.
 
-## Current status: release candidate (2026-11-09)
+## Current status: latest release, not supported (2026-11-10)
 
-Maintainer decision D1 (2026-10-31): the next version published from
-`develop` is a **release candidate**. It is not a supported release and not a
-preview. No target is promoted to `supported` or `preview`. Each target keeps
+Maintainer decisions D1 (2026-10-31) and D2 (2026-11-10): 26.46.02 is the
+latest release; no target is promoted to supported yet. It is not a supported
+release and not a preview. No target is promoted to `supported` or `preview`. Each target keeps
 the tier that [`SUPPORT_TIERS.md`](SUPPORT_TIERS.md) records for it, and a
 promotion still needs the full promotion evidence listed there.
 
-The candidate is published only after every gate in the table below has a
+The release is published only after every gate in the table below has a
 passing result on the release commit. These gates replace the open
 reconciliation gate of 2026-08-30 (below) for this version.
 
@@ -86,14 +86,14 @@ Passed before the release commit was chosen, on `develop` at `e5c2fc8d4`
 
 - The full nextest suite in the Linux lane (a linux/arm64 container): 5,103
   of 5,103 tests passed.
-- The release candidate blockers of 2026-10-11 that needed code are closed:
+- The release blockers of 2026-10-11 that needed code are closed:
   - the gateway runtime text test passes in that run;
   - `ty test` reports a unit that does not answer as failed and runs the other
     units;
   - a C# contract interface that is not public is refused (TY1308);
   - the website lists Java and Ruby on the browser HTTP transport.
 
-Not passed, and not claimed by this release candidate:
+Not passed, and not claimed by this release:
 
 - Before 2026-10-31 these gates had never passed on `develop`: published
   snippets, website acceptance, website browser typing, the page size budget,
@@ -102,7 +102,7 @@ Not passed, and not claimed by this release candidate:
 - No run used a physical iOS or Android device. iOS runs use the simulator
   without an Apple team ID.
 - macOS app bundles that `ty bundle --release` builds are not notarized in
-  this release candidate. The Developer ID and notarization gate is an
+  this release. The Developer ID and notarization gate is an
   accepted exception (see the table above).
 - These browser and native UI gates are limited by the test devices, not
   passed (decided 2026-11-01):
@@ -144,7 +144,7 @@ That result does not qualify the newer native architecture:
 - The reconciliation in [`RECONCILIATION.md`](RECONCILIATION.md) must pass new
   gates before a new immutable version is published. These gates cover browser,
   schema, native-host, security, and downloaded-artifact behavior. For the
-  release candidate, the gate table above is that check.
+  release, the gate table above is that check.
 - Old widget and WebAssembly results cannot replace the host and companion
   gates of ADR 0018/0019 (ADR means architecture decision record).
 

@@ -4,14 +4,14 @@
 
 The Rust rewrite has finished engineering phases 0–7. It has also finished
 later work on the client, on server isolation and on the native runtime.
-26.46.01 is a release candidate. A release
-candidate is not a supported release or a preview release of the application
-framework. No target is promoted to `supported`, in this candidate or in the
-published versions up to `26.36.01`. Its artifacts come with no promise about
-compatibility, uptime, security support or production use.
+26.46.02 is the latest release; no target is promoted to supported yet. It is
+not a supported release or a preview release of the application framework. No
+target is promoted to `supported`, in this release or in the Rust versions
+published before it. Its artifacts come with no promise about compatibility,
+uptime, security support or production use.
 
-[`docs/CUTOVER.md`](docs/CUTOVER.md) lists the release-candidate gates, the
-ones this candidate has passed and the ones it has not.
+[`docs/CUTOVER.md`](docs/CUTOVER.md) lists the release gates, the ones this
+release has passed and the ones it has not.
 [`docs/SUPPORT_TIERS.md`](docs/SUPPORT_TIERS.md) records each target's tier
 and the evidence a target needs before promotion.
 [`docs/PROJECT_PLAN.md`](docs/PROJECT_PLAN.md) has the plan.

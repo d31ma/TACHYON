@@ -18,18 +18,18 @@ One label never replaces another. Containers do not replace filesystem and
 process tests on a native host. Emulation does not replace evidence from a
 device or the native architecture when a target claims `supported`.
 
-## Release candidate status (2026-10-31)
+## Release status (2026-11-10)
 
-The next version published from `develop` is a release candidate (maintainer
-decision D1, 2026-10-31). No target is promoted to `supported` or `preview` by
-it. The release-candidate gates, with the ones passed and the ones still
-pending on the release commit, are in [`CUTOVER.md`](CUTOVER.md). A target
+26.46.02 is the latest release; no target is promoted to supported yet
+(maintainer decisions D1, 2026-10-31, and D2, 2026-11-10). It promotes no
+target to `supported` or `preview`. The release gates, with the ones passed and
+the ones still pending on the release commit, are in [`CUTOVER.md`](CUTOVER.md). A target
 moves to `supported` only with all of the evidence in "Promotion Evidence"
 below.
 
-Known limits of the release candidate, on every target. Each is in
-[`THREAT_MODEL.md`](THREAT_MODEL.md) under "Known limits of this release
-candidate", with the ADR where a later release addresses it:
+Known limits of the release, on every target. Each is in
+[`THREAT_MODEL.md`](THREAT_MODEL.md) under "Known limits of this release",
+with the ADR where a later release addresses it:
 
 - The outgoing guard lets a handler reach any port of a declared host, and
   it takes no per-run credential (SEC-6, partial; ADR 0113).
@@ -1390,7 +1390,7 @@ application may need to be relaunched. On macOS and iOS a native call runs on
 the main actor, so a hung service also freezes the window until it returns.
 On Android native calls run one at a time on one worker thread with a queue of
 128 calls, so a hung service holds every later call, and a call beyond the
-queue is refused. This release candidate accepts that limit.
+queue is refused. This release accepts that limit.
 
 ### Web pages keep cross-origin Yon reads offline (2026-10-19)
 

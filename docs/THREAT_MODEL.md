@@ -694,9 +694,9 @@ run `go mod vendor` with `git diff --exit-code`, `go mod verify` and
   retention of component and native DOM state, failed-build diagnostics,
   recovery and structural reload, with no browser console errors.
 
-## Known limits of this release candidate
+## Known limits of this release
 
-These are accepted for this release candidate. Each names where a later
+These are accepted for this release. Each names where a later
 release addresses it.
 
 - **Any port on a declared host (SEC-6, partial).** The outgoing guard
