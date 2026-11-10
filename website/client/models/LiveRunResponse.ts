@@ -1,5 +1,5 @@
 import type { RecordedResponse } from '/models/RecordedResponse.ts'
 
-export interface LiveRunResponse extends RecordedResponse {
+export type LiveRunResponse = RecordedResponse & {
   truncated: boolean
 }

@@ -5,6 +5,7 @@
     "target": "ESNext",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
+    "experimentalDecorators": true,
     "paths": {
       "/models/*": [
         "./website/client/models/*"
@@ -44,6 +45,7 @@
     "website/dist",
     "website/dist-debug",
     "website/node_modules*",
-    "website/client/shared/assets/duvay/**/*.js"
+    "website/client/shared/assets/duvay/**/*.js",
+    "website/server"
   ]
 }

@@ -1,4 +1,4 @@
-export interface RecordedResponse {
+export type RecordedResponse = {
   status: number
   contentType: string
   body: string

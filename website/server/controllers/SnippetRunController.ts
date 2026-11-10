@@ -3,7 +3,7 @@ import type { RunResult } from '/models/RunResult.ts'
 
 @RequestRoute("/api/snippets")
 @Public
-class SnippetRunController {
+export class SnippetRunController {
   @Needs
   readonly snippetRuns!: SnippetRunService
 

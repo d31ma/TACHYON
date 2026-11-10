@@ -6,10 +6,10 @@ export default class SnippetHostSetup {
   static readonly JSON = 'application/json'
 
   static configure() {
-    return { http: { snippetHost: { exchange: (command: BehaviorHttpCommand) => SnippetHostSetup.exchange(command) } } }
+    return { http: { snippetHost: { exchange: (command: BehaviorHttpRequest) => SnippetHostSetup.exchange(command) } } }
   }
 
-  static async exchange(command: BehaviorHttpCommand): Promise<HostAnswer> {
+  static async exchange(command: BehaviorHttpRequest): Promise<HostAnswer> {
     const response = await fetch(new URL(command.path, SnippetHostSetup.ORIGIN), {
       method: command.method,
       headers: { ...command.headers, 'content-type': SnippetHostSetup.JSON },

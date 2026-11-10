@@ -1,7 +1,7 @@
 import type { Problem } from '/models/Problem.ts'
 
 @ErrorHandler
-class SnippetRunErrorHandler {
+export class SnippetRunErrorHandler {
   @HandlesError
   @ResponseStatus(400)
   invalid(error: InvalidRun): Problem {

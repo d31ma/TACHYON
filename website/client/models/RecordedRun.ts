@@ -1,6 +1,6 @@
 import type { RecordedExchange } from '/models/RecordedExchange.ts'
 
-export interface RecordedRun {
+export type RecordedRun = {
   schema: number
   exchanges: RecordedExchange[]
 }

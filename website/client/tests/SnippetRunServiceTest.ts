@@ -1,3 +1,7 @@
+import type { LiveRunResult } from '/models/LiveRunResult.ts'
+import type { RecordedExchange } from '/models/RecordedExchange.ts'
+import type { RecordedRun } from '/models/RecordedRun.ts'
+
 @Test(SiteTestSetup, {"partition":"tests"})
 export default class SnippetRunServiceTest {
   exchange(contentType: string, body: string): RecordedExchange {

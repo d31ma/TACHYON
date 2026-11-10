@@ -56,7 +56,7 @@ export class RunForwarder {
       size += next.value.length
     }
     await reader.cancel()
-    return new Uint8Array(await new Blob(parts).arrayBuffer())
+    return new Uint8Array(Bun.concatArrayBuffers(parts))
   }
 
   private timeoutOrThrow(error: unknown): undefined {

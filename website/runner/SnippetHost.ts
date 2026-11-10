@@ -32,7 +32,7 @@ export class SnippetHost {
   private readonly queue: RunQueue
   private readonly reader: RunRequestReader
   private readonly forwarder: RunForwarder
-  private readonly server: Server
+  private readonly server: Server<undefined>
 
   constructor(settings: RunnerSettings) {
     this.catalog = new ExampleCatalog(settings.projectsFolder)
@@ -57,7 +57,7 @@ export class SnippetHost {
     await this.servers.stopAll()
   }
 
-  private async handle(request: Request, server: Server): Promise<Response> {
+  private async handle(request: Request, server: Server<undefined>): Promise<Response> {
     try {
       this.requireLoopbackPeer(server.requestIP(request)?.address)
       return await this.route(request)

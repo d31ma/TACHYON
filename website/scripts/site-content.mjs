@@ -106,7 +106,9 @@ export class SiteContent {
   static withRecordedOnlyRuns(result) {
     const reason = SiteContent.recordedOnlyReason(result.files)
     if (reason === undefined) return result
-    return { ...result, files: result.files.map(file => SiteContent.recordedOnly(file, reason)) }
+    /** @type {Record<string, any>[]} */
+    const files = result.files
+    return { ...result, files: files.map(file => SiteContent.recordedOnly(file, reason)) }
   }
 
   /**

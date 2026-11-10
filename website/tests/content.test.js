@@ -99,6 +99,7 @@ describe('examples the live runner does not have show no live run', () => {
   })
 
   test('the generated site data marks the 13 FYLO runs and the 4 test-unit runs', () => {
+    /** @type {Record<string, number>} */
     const counts = { fylo: 0, tests: 0 }
     JSON.stringify(SiteContent.data('docs.json'), (key, value) => {
       if (key === 'recordedOnly') counts[value] += 1

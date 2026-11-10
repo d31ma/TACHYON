@@ -80,15 +80,27 @@ export class RecordedRuns {
 
   /** @returns {Map<string, string>} */
   published() {
-    const recordings = RecordedRuns.recordingFiles(this.recordingFolder).map(file => RecordedRuns.read(file))
-    const current = recordings.filter(recording => this.isCurrent(recording))
+    const current = this.recordings().filter(recording => this.isCurrent(recording))
     return new Map(current.map(recording => [RecordedRuns.publishedName(recording), RecordedRuns.publishedText(recording)]))
   }
 
   /** @returns {string[]} */
   stale() {
+    return this.recordings().filter(recording => !this.isCurrent(recording)).map(recording => recording.handler)
+  }
+
+  /** @returns {Recording[]} */
+  recordings() {
     const recordings = RecordedRuns.recordingFiles(this.recordingFolder).map(file => RecordedRuns.read(file))
-    return recordings.filter(recording => !this.isCurrent(recording)).map(recording => recording.handler)
+    return recordings.filter(RecordedRuns.isRecording)
+  }
+
+  /**
+   * @param {Recording | undefined} recording
+   * @returns {recording is Recording}
+   */
+  static isRecording(recording) {
+    return recording !== undefined
   }
 
   /**
