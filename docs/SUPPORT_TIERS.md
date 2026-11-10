@@ -2516,9 +2516,10 @@ starts `powershell.exe` and takes about 0.8 s (FY1, 2026-10-29). The two
 `fylo_datasource` CLI tests failed with `TY2110` on the Windows test machine for this
 reason, not because of x64 emulation, which costs about 1.6 times on macOS
 under Rosetta. The tests now seed 12 documents instead of 120 and give
-Windows a 240 s deadline. Known limit: FYLO writes on Windows stay slow
-until the pin moves to a FYLO release with FYLO `d75e4ba`; see
-[MANAGED_STORAGE.md](MANAGED_STORAGE.md) for the measurements.
+Windows a 240 s deadline. Since 2026-11-10 the pin is FYLO v26.45.07, which
+has FYLO `d75e4ba`: in one `fylo exec --loop` process, as Tachyon runs FYLO,
+only the first write on Windows takes about 1.9 s and later writes about
+4 ms; see [MANAGED_STORAGE.md](MANAGED_STORAGE.md) for the measurements.
 
 ### Support table narrowed to its runs (2026-10-25, JS1)
 
