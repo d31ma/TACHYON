@@ -32,8 +32,9 @@ class HostFixture {
     settings.tyCommand = [process.execPath, path.join(import.meta.dir, 'helpers', 'FakeTy.ts')]
     settings.childPath = path.dirname(process.execPath)
     settings.runMilliseconds = 1000
+    settings.firstRunMilliseconds = 2000
     settings.maxAnswerBytes = 1024
-    HostFixture.stage(settings.projectsFolder, HostFixture.ECHO, [{ method: 'POST', path: '/echo' }, { method: 'GET', path: '/slow' }, { method: 'GET', path: '/big' }])
+    HostFixture.stage(settings.projectsFolder, HostFixture.ECHO, [{ method: 'POST', path: '/echo' }, { method: 'GET', path: '/slow' }, { method: 'GET', path: '/big' }, { method: 'GET', path: '/cold' }])
     HostFixture.stage(settings.projectsFolder, HostFixture.ITEMS, [{ method: 'GET', path: '/items/{id}' }])
     change(settings)
     const host = new SnippetHost(settings)
@@ -85,6 +86,21 @@ describe('the snippet host', () => {
     const host = HostFixture.host()
     const answer = await HostFixture.answerOf(await HostFixture.run(host, HostFixture.ECHO, { method: 'POST', path: '/echo' }))
     expect(answer.environment).toEqual(['HOME', 'LANG', 'PATH', 'TAC_CACHE_DIR', 'TMPDIR', 'YON_ISOLATION'])
+  })
+
+  test('the example server gets the egress enforcement the operator set for the runner', async () => {
+    const host = HostFixture.host(settings => { settings.passedEnvironment = { YON_EGRESS_ENFORCEMENT: 'proxy' } })
+    const answer = await HostFixture.answerOf(await HostFixture.run(host, HostFixture.ECHO, { method: 'POST', path: '/echo' }))
+    expect(answer.environment).toContain('YON_EGRESS_ENFORCEMENT')
+  })
+
+  test('the runner passes the egress enforcement and tool folders from its environment, and nothing else', () => {
+    const settings = RunnerSettings.fromEnvironment({ YON_EGRESS_ENFORCEMENT: 'proxy', DOTNET_ROOT: '/opt/dotnet', AWS_SECRET_ACCESS_KEY: 'secret', YON_OTHER: 'x' })
+    expect(settings.passedEnvironment).toEqual({ YON_EGRESS_ENFORCEMENT: 'proxy', DOTNET_ROOT: '/opt/dotnet' })
+  })
+
+  test('the runner passes no egress enforcement when the operator set none', () => {
+    expect(RunnerSettings.fromEnvironment({}).passedEnvironment).toEqual({})
   })
 
   test('the example runs from its own copy in the temporary folder', async () => {
@@ -197,6 +213,28 @@ describe('the snippet host', () => {
     const result = await (await HostFixture.run(host, HostFixture.ECHO, { method: 'GET', path: '/slow' })).json() as Record<string, any>
     expect(result.outcome).toBe('timeout')
     expect(result.response).toBeUndefined()
+  })
+
+  test('the first run on a new example server may take longer than the run limit', async () => {
+    const host = HostFixture.host()
+    const result = await (await HostFixture.run(host, HostFixture.ECHO, { method: 'GET', path: '/cold' })).json() as Record<string, any>
+    expect(result.outcome).toBe('ok')
+    expect(result.durationMs).toBeGreaterThan(1000)
+  })
+
+  test('later runs on the same example server keep the normal run limit', async () => {
+    const host = HostFixture.host()
+    await HostFixture.run(host, HostFixture.ECHO, { method: 'POST', path: '/echo' })
+    const result = await (await HostFixture.run(host, HostFixture.ECHO, { method: 'GET', path: '/slow' })).json() as Record<string, any>
+    expect(result.outcome).toBe('timeout')
+    expect(result.durationMs).toBeLessThan(2000)
+  })
+
+  test('the first run still ends at the first-run limit', async () => {
+    const host = HostFixture.host()
+    const result = await (await HostFixture.run(host, HostFixture.ECHO, { method: 'GET', path: '/slow' })).json() as Record<string, any>
+    expect(result.outcome).toBe('timeout')
+    expect(result.durationMs).toBeGreaterThanOrEqual(2000)
   })
 
   test('a large answer is cut at the limit and marked truncated', async () => {

@@ -8,7 +8,7 @@ export class RunnerSettings {
   static readonly DEFAULT_PATH = '/usr/local/bin:/usr/bin:/bin'
   static readonly SECONDS = 1000
   static readonly MINUTE = 60 * RunnerSettings.SECONDS
-  static readonly TOOL_NAMES = ['DOTNET_ROOT', 'JAVA_HOME', 'RUSTUP_HOME', 'CARGO_HOME', 'GOROOT']
+  static readonly PASSED_NAMES = ['DOTNET_ROOT', 'JAVA_HOME', 'RUSTUP_HOME', 'CARGO_HOME', 'GOROOT', 'YON_EGRESS_ENFORCEMENT']
 
   port = RunnerSettings.DEFAULT_PORT
   projectsFolder = RunnerSettings.DEFAULT_PROJECTS
@@ -16,7 +16,7 @@ export class RunnerSettings {
   tyCommand: string[] = [RunnerSettings.DEFAULT_TY]
   childPath = RunnerSettings.DEFAULT_PATH
   cacheFolder = path.join(tmpdir(), 'tac-cache')
-  toolEnvironment: Record<string, string> = {}
+  passedEnvironment: Record<string, string> = {}
   runsPerMinute = 10
   runsPerDay = 200
   maxServers = 4
@@ -25,6 +25,7 @@ export class RunnerSettings {
   idleMilliseconds = RunnerSettings.MINUTE
   startMilliseconds = 30 * RunnerSettings.SECONDS
   runMilliseconds = 10 * RunnerSettings.SECONDS
+  firstRunMilliseconds = 20 * RunnerSettings.SECONDS
   maxBodyBytes = 16 * 1024
   maxAnswerBytes = 64 * 1024
 
@@ -35,12 +36,12 @@ export class RunnerSettings {
     settings.tyCommand = [environment.SNIPPET_HOST_TY ?? RunnerSettings.DEFAULT_TY]
     settings.childPath = environment.PATH ?? RunnerSettings.DEFAULT_PATH
     settings.cacheFolder = environment.TAC_CACHE_DIR ?? settings.cacheFolder
-    settings.toolEnvironment = RunnerSettings.toolValues(environment)
+    settings.passedEnvironment = RunnerSettings.passedValues(environment)
     return settings
   }
 
-  private static toolValues(environment: Record<string, string | undefined>): Record<string, string> {
-    const present = RunnerSettings.TOOL_NAMES.filter(name => environment[name] !== undefined)
+  private static passedValues(environment: Record<string, string | undefined>): Record<string, string> {
+    const present = RunnerSettings.PASSED_NAMES.filter(name => environment[name] !== undefined)
     return Object.fromEntries(present.map(name => [name, String(environment[name])]))
   }
 }

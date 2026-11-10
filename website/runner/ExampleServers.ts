@@ -62,6 +62,7 @@ export class ExampleServers {
   private async runOn<T>(server: ExampleServer | undefined, work: (server: ExampleServer) => Promise<T>): Promise<T | undefined> {
     if (server === undefined) return undefined
     server.activeRuns += 1
+    server.runsStarted += 1
     server.lastUsed = Date.now()
     try {
       return await work(server)

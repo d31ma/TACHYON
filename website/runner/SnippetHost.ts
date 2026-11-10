@@ -40,7 +40,7 @@ export class SnippetHost {
     this.limiter = new RateLimiter(settings.runsPerMinute, settings.runsPerDay)
     this.queue = new RunQueue(settings.maxActiveRuns, settings.maxWaitingRuns)
     this.reader = new RunRequestReader(settings.maxBodyBytes)
-    this.forwarder = new RunForwarder(settings.runMilliseconds, settings.maxAnswerBytes)
+    this.forwarder = new RunForwarder(settings.runMilliseconds, settings.firstRunMilliseconds, settings.maxAnswerBytes)
     this.server = Bun.serve({ hostname: SnippetHost.LOOPBACK, port: settings.port, fetch: (request, server) => this.handle(request, server) })
   }
 

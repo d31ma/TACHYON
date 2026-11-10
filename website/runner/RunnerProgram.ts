@@ -26,7 +26,7 @@ export class RunnerProgram {
     const website = environment.SNIPPET_HOST_WEBSITE ?? RunnerProgram.DEFAULT_WEBSITE
     const port = environment.WEBSITE_PORT ?? RunnerProgram.DEFAULT_WEBSITE_PORT
     return Bun.spawn([...settings.tyCommand, 'start', website, '--host', RunnerProgram.LOCALHOST, '--port', port], {
-      env: { ...settings.toolEnvironment, PATH: settings.childPath, LANG: RunnerProgram.LANGUAGE, HOME: settings.temporaryFolder, TMPDIR: settings.temporaryFolder, TAC_CACHE_DIR: settings.cacheFolder },
+      env: { ...settings.passedEnvironment, PATH: settings.childPath, LANG: RunnerProgram.LANGUAGE, HOME: settings.temporaryFolder, TMPDIR: settings.temporaryFolder, TAC_CACHE_DIR: settings.cacheFolder },
       stdin: 'ignore',
       stdout: 'inherit',
       stderr: 'inherit',

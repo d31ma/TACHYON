@@ -14,6 +14,7 @@ export class ExampleServer {
 
   lastUsed = 0
   activeRuns = 0
+  runsStarted = 0
 
   private constructor(readonly port: number, private readonly child: Subprocess<'ignore', 'pipe', 'inherit'>, readonly folder: string) {}
 
@@ -49,7 +50,7 @@ export class ExampleServer {
 
   private static environment(folder: string, settings: RunnerSettings): Record<string, string> {
     return {
-      ...settings.toolEnvironment,
+      ...settings.passedEnvironment,
       PATH: settings.childPath,
       LANG: ExampleServer.LANGUAGE,
       HOME: folder,

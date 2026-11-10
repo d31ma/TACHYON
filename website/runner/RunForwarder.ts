@@ -7,13 +7,19 @@ export class RunForwarder {
   static readonly LOCAL_HOST = 'localhost'
   static readonly JSON = 'application/json'
   static readonly TIMEOUT = 'TimeoutError'
+  static readonly FIRST_RUN = 1
 
-  constructor(private readonly runMilliseconds: number, private readonly maxAnswerBytes: number) {}
+  constructor(private readonly runMilliseconds: number, private readonly firstRunMilliseconds: number, private readonly maxAnswerBytes: number) {}
 
   async forward(server: ExampleServer, request: RunRequest): Promise<RunResult> {
     const started = performance.now()
-    const answer = await this.exchange(server, request, AbortSignal.timeout(this.runMilliseconds)).catch(error => this.timeoutOrThrow(error))
+    const answer = await this.exchange(server, request, AbortSignal.timeout(this.limitFor(server))).catch(error => this.timeoutOrThrow(error))
     return this.result(answer, Math.round(performance.now() - started))
+  }
+
+  private limitFor(server: ExampleServer): number {
+    if (server.runsStarted === RunForwarder.FIRST_RUN) return this.firstRunMilliseconds
+    return this.runMilliseconds
   }
 
   private async exchange(server: ExampleServer, request: RunRequest, signal: AbortSignal): Promise<RunResponse> {

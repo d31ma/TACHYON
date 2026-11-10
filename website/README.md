@@ -198,11 +198,19 @@ A live run goes through three parts, all in one container:
    a body over 16 KiB or more than 16 query values. It allows 10 runs a
    minute and 200 a day for each client address (429 with `Retry-After`),
    runs at most 4 at once with 16 waiting (503 beyond that), and stops an
-   answer at 64 KiB and a run at 10 seconds (`outcome: "timeout"`).
+   answer at 64 KiB and a run at 10 seconds (`outcome: "timeout"`). The
+   first run on a newly started example server may take 20 seconds, because
+   on a fresh machine, such as a new AWS Lambda environment, the language's
+   files may still be loading.
 3. For each example, the host starts the example's own `ty start` on first
    use, from a copy in a temporary folder, with a cleared environment and
    `YON_ISOLATION=process`, so every request gets a fresh process under the
-   operating system's egress confinement. An example server that has been
+   operating system's egress confinement. From its own environment the host
+   passes on only `PATH`, the toolchain folders (`DOTNET_ROOT`, `JAVA_HOME`,
+   `RUSTUP_HOME`, `CARGO_HOME`, `GOROOT`) and `YON_EGRESS_ENFORCEMENT`. Set
+   `YON_EGRESS_ENFORCEMENT=proxy` only where the platform already blocks
+   outgoing traffic, such as a Lambda function with no network rules
+   (ADR 0113). An example server that has been
    idle for 60 seconds stops and its folder is deleted; at most 4 run at once.
 
 `TAC_SNIPPETS_STAGE_RUNNABLE=<folder> bun run verify:snippets` writes each
