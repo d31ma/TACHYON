@@ -20,6 +20,8 @@ machine contracts have their own, independent major versions.
 - Release builds use the new `shipped` feature set of `tachyon-cli`. Build
   from source with `cargo build --release --locked -p tachyon-cli --features
   shipped`; `storage-all` still works.
+- CI and the storage tests use FYLO 26.45.07 (was 26.33.02), installed by
+  `scripts/ci/install-fylo.mjs` with its checksum.
 
 ## [26.46.01] - 2026-11-09
 
