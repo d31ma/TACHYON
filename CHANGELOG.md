@@ -8,6 +8,37 @@ machine contracts have their own, independent major versions.
 
 ## [Unreleased]
 
+## [26.46.02] - 2026-11-10
+
+### Highlights
+
+- **The latest release.** 26.46.02 is the latest release on GitHub; no target
+  is promoted to supported yet, and the no-support promise in `SUPPORT.md` is
+  unchanged. Its stable release also deploys the website: the release's site
+  zip goes to staging on Floci, and after kestrel's staging check passes for
+  the same zip, to production at `tachyon.del.ma`.
+- **Run the website's Yon examples.** The code examples show recorded runs
+  of each Yon controller, and can run an example live through a snippet host.
+
+### Added
+
+**Website and docs**
+
+- The website shows the recorded requests and answers of each Yon controller
+  example (712 recordings in 15 languages, in `website/runs`), and a Run live
+  button that sends a run to a snippet host (`website/server`,
+  `website/runner`). Examples that need FYLO storage show their recorded run
+  only.
+- One website build calls the API origin of its own site: production,
+  staging, or the page's own origin elsewhere.
+
+**CLI and tooling**
+
+- Each stable release attaches its website zip (`tachyon-site-<version>.zip`,
+  with its SHA-256 and a build attestation), and `site-deploy.yml` deploys
+  it to production after the staging check, rolling back when the production
+  probes fail.
+
 ### Changed
 
 **CLI and tooling**
@@ -22,6 +53,27 @@ machine contracts have their own, independent major versions.
   shipped`; `storage-all` still works.
 - CI and the storage tests use FYLO 26.45.07 (was 26.33.02), installed by
   `scripts/ci/install-fylo.mjs` with its checksum.
+
+**Platform support**
+
+- On Windows on Arm the installer now gets the ARM64 `ty` from the latest
+  release.
+
+### Fixed
+
+**Storage and topics**
+
+- SQLite operations stop at one operation deadline, so a slow query answers
+  with the interrupt error instead of "deadline exceeded; writes may have
+  committed".
+- With FYLO 26.45.07, FYLO writes on Windows are fast again in one FYLO
+  process, as Tachyon runs it: the first write takes about 2 s, later writes
+  a few milliseconds (each took about 0.8 s with 26.33.02).
+
+**Website and docs**
+
+- The website's server realm has its own type-check configuration, and the
+  Perl relay examples write JSON with sorted keys.
 
 ## [26.46.01] - 2026-11-09
 

@@ -1,6 +1,6 @@
 {
   "name": "@d31ma/tachyon",
-  "version": "26.46.01",
+  "version": "26.46.02",
   "description": "Tooling and qualification dependencies for the Tachyon Rust framework",
   "author": "Chidelma",
   "license": "MIT",

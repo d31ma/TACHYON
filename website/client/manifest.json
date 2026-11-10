@@ -54,7 +54,7 @@
     },
     "application": {
       "id": "ma.del.tachyon.website",
-      "version": "26.46.01"
+      "version": "26.46.02"
     },
     "blockingScripts": [
       "/shared/scripts/ThemeDefault.js"
