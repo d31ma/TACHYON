@@ -209,6 +209,7 @@ class WebsiteMigrationAcceptance {
     assert.ok(proof.customElements.every(element => element.defined), 'Declared DuVay custom elements are registered')
     assert.deepEqual(proof.scripts, [
       { src: '/shared/scripts/ThemeDefault.js', type: null },
+      { src: '/shared/scripts/YonOrigin.js', type: 'module' },
       { src: '/shared/assets/duvay/duvay-wc-site.min.js', type: 'module' },
       { src: '/shared/assets/duvay/duvay.min.js', type: 'module' },
       { src: '/shared/scripts/DocsDataPreload.js', type: 'module' },

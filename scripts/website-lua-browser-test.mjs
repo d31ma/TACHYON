@@ -202,7 +202,16 @@ class WebsiteLuaGate {
    */
   static #featureFiles(files, rendered) {
     assert.equal(rendered.length > 0, files.length > 0, 'known features render snippets; unknown features have none')
-    for (const shown of rendered) assert.deepEqual(shown, files.find(file => file.name === shown.name), 'rendered code is the original catalogue text')
+    for (const shown of rendered) assert.deepEqual(shown, WebsiteLuaGate.#shownPart(files.find(file => file.name === shown.name)), 'rendered code is the original catalogue text')
+  }
+
+  /**
+   * @param {FeatureSnippet | undefined} file
+   * @returns {RenderedFeatureSnippet | undefined}
+   */
+  static #shownPart(file) {
+    if (file === undefined) return undefined
+    return { name: file.name, code: file.code }
   }
 
   static async #routes(page, origin, diagnostics) {
