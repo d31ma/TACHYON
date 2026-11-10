@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "handler": "docs/annotations/caching-yon/server/controllers/CatalogController.js",
+  "inputs": {
+    "docs/annotations/caching-yon/server/controllers/CatalogController.js": "8864118fd3e3d1a3d34c307eb646dcd5c8bd5e50e415057097a7af0af00e6c9b",
+    "docs/annotations/caching-yon/server/models/CacheReport.ts": "eff6fc19c667be4bc9bb83d1106fa75a41c2f303e5b1f0b438c205bd304ec9d6",
+    "docs/annotations/caching-yon/server/services/CatalogService.js": "926f1b46ce92319233a463aabae5e4ba6302eebebf664368665dae771ba8364f",
+    "docs/annotations/caching-yon/server/setups/CatalogSetup.js": "ea085f694c8b1f1e31f291c614542acd2a2e42c231700481852e65d9de442959"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/catalog",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"first\":{\"reads\":1,\"sku\":\"anvil\"},\"repeat\":{\"reads\":1,\"sku\":\"anvil\"},\"written\":{\"reads\":99,\"sku\":\"anvil\"},\"refreshed\":{\"reads\":2,\"sku\":\"anvil\"}}"
+      }
+    }
+  ]
+}

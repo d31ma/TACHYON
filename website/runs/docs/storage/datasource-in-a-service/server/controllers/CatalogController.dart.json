@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "handler": "docs/storage/datasource-in-a-service/server/controllers/CatalogController.dart",
+  "inputs": {
+    "docs/storage/datasource-in-a-service/server/application.json": "996ea814c84a4dd3ee601a63d20efb0f183977a704c9f0d803462c7567e311c4",
+    "docs/storage/datasource-in-a-service/server/controllers/CatalogController.dart": "28f1f25fbbd62b3aa0a04b94c0b5c7922b96fb3bfdff553b7c6aeedacafe6b60",
+    "docs/storage/datasource-in-a-service/server/services/CatalogService.dart": "47835e05debade0793e374b78e92c4eb209c2ed3a509d8592b682dec03543a2b"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/catalog",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "[{\"amount\":42}]"
+      }
+    }
+  ]
+}

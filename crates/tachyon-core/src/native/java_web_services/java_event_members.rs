@@ -4,6 +4,7 @@ use super::java_member_kind::JavaMemberKind;
 use super::java_value_type::JavaValueType;
 use crate::Failure;
 use crate::events::{EventListener, EventMethod, EventModule, EventType};
+use crate::sorted_json::SortedJson;
 use std::path::Path;
 
 pub(super) struct JavaEventMembers<'a> {
@@ -175,7 +176,7 @@ impl<'a> JavaEventMembers<'a> {
             "condition": listener.condition,
             "returns": listener.returns,
         });
-        described.to_string()
+        SortedJson::text(&described)
     }
 
     fn failure(&self, message: &str) -> Failure {

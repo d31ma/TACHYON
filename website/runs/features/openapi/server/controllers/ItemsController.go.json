@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "handler": "features/openapi/server/controllers/ItemsController.go",
+  "inputs": {
+    "features/openapi/server/controllers/ItemsController.go": "56e6a67551a60ff0d9e404988c62f179007186ced93d2d7a6f04d64c55f3bd2f",
+    "features/openapi/server/models/Item.go": "765e0e071a77a484b3f305c8f6d1ce1c4b5bf57bc2a2f3b5dac31fa843eabcf1"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/items/42",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"name\":\"anvil\",\"level\":42}"
+      }
+    },
+    {
+      "request": {
+        "method": "PATCH",
+        "path": "/items/42",
+        "headers": {},
+        "body": "{\"level\":4,\"name\":\"snippet\"}"
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"name\":\"snippet\",\"level\":42}"
+      }
+    }
+  ]
+}

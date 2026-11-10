@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "handler": "docs/annotations/injection-yon/server/controllers/LedgerController.ts",
+  "inputs": {
+    "docs/annotations/injection-yon/server/controllers/LedgerController.ts": "37c98e3bfbdaf23817f413630508c9c432d621de50689935eef64bae098be42f",
+    "docs/annotations/injection-yon/server/delegates/LedgerAmountsDelegate.ts": "2807e79dd801dc2c8d88b2fbcf794449c222a0e5691484d428e32248633a312e",
+    "docs/annotations/injection-yon/server/delegates/LedgerDelegate.ts": "f0fe12145adad5447e2bbcedd52286d641323359f372269cee6d5efccf601e59",
+    "docs/annotations/injection-yon/server/models/Ledger.ts": "e0076a904bdd647f3e4f2f1629f74c2251f3d43c1fea6652c21c8936072ead86",
+    "docs/annotations/injection-yon/server/services/LedgerService.ts": "042b2bbe5d43d3fe89c52f5d1113d5b212e0c171777bd9d8efad2642b13e3c41"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/ledger",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"total\":42}"
+      }
+    }
+  ]
+}

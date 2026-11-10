@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "handler": "languages/yon/ruby/server/controllers/OrdersController.rb",
+  "inputs": {
+    "languages/yon/ruby/server/controllers/OrdersController.rb": "ecf4f06a306bf61bb119c6265223fbf3ff754eb24f842792adc1c5bbfd5862a7",
+    "languages/yon/ruby/server/models/Order.rb": "11f91348a7b8a705c5a3e5ffc9cfa07a29796335504fa2e686c47e68aee90350",
+    "languages/yon/ruby/server/models/OrderList.rb": "ee12d6319912b0a220b6ce9ff4aaf95ba843c87d6864cc781a7896028f45a015",
+    "languages/yon/ruby/server/services/OrderService.rb": "fc1df398d345c3da9e9550e3dcdbaa265db0beaea68540730a4f8e78e8b21c19"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/orders",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"orders\":[{\"sku\":\"anvil\",\"level\":4}]}"
+      }
+    }
+  ]
+}

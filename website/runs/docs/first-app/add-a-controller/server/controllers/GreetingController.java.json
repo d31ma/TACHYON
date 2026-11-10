@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "handler": "docs/first-app/add-a-controller/server/controllers/GreetingController.java",
+  "inputs": {
+    "docs/first-app/add-a-controller/server/controllers/GreetingController.java": "cc082c53b2d49f490aa0fcd8a4ea243d7756faba14687208156faee1f72e0866",
+    "docs/first-app/add-a-controller/server/models/Greeting.java": "8b7d6c9cc3fd67794dc98c32ad66fb707ab83cfd31d99f2877d75b34cd43f553"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/api/greeting",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"message\":\"Hello from Yon\"}"
+      }
+    }
+  ]
+}

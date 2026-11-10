@@ -29,9 +29,7 @@ build_tests() {
   cargo test --locked -p tachyon-core --lib --no-run
 }
 
-run_in_mutter() {
-  echo '==> running the Linux host tests in a headless mutter Wayland session'
-  export TAC_WAYLAND_DISPLAY_NAME=tachyon-wayland
+in_mutter() {
   dbus-run-session -- bash -c '
     set -euo pipefail
     mutter --headless --wayland --no-x11 --wayland-display="$TAC_WAYLAND_DISPLAY_NAME" --virtual-monitor 1280x900 >"$STATE/mutter.log" 2>&1 &
@@ -46,11 +44,29 @@ run_in_mutter() {
     export WAYLAND_DISPLAY="$TAC_WAYLAND_DISPLAY_NAME" GDK_BACKEND=wayland
     export LIBGL_ALWAYS_SOFTWARE=1 WEBKIT_DMABUF_RENDERER_FORCE_SHM=1 GDK_DEBUG=no-portals
     export GIO_USE_VFS=local GIO_USE_VOLUME_MONITOR=unix
-    mutter --version
-    cargo test --locked -p tachyon-core --lib native::linux_ -- --ignored --test-threads=1 \
-      --skip linux_browser_apis_reach_geoclue_and_the_notification_server --skip linux_package_tests
-    cargo test --locked -p tachyon-core --lib the_linux_ -- --ignored --test-threads=1
-  '
+    filter=$1
+    shift
+    cargo test --locked -p tachyon-core --lib "$filter" -- --ignored --test-threads=1 "$@"
+  ' bash "$@"
+}
+
+title_bar_tests() {
+  cargo test --locked -p tachyon-core --lib native::linux_title_bar_tests:: -- --ignored --list --format terse 2>/dev/null |
+    sed -n 's/: test$//p'
+}
+
+run_in_mutter() {
+  echo '==> running the Linux host tests in a headless mutter Wayland session'
+  export TAC_WAYLAND_DISPLAY_NAME=tachyon-wayland
+  mutter --version
+  in_mutter native::linux_ --skip linux_browser_apis_reach_geoclue_and_the_notification_server --skip linux_package_tests \
+    --skip linux_title_bar_tests
+  in_mutter the_linux_
+  echo '==> running each title bar test in its own mutter session, because earlier tests leave the pointer and the window elsewhere'
+  local test
+  for test in $(title_bar_tests); do
+    in_mutter "$test" --exact
+  done
 }
 
 run_in_wslg() {

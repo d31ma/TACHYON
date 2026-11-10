@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "handler": "docs/delegates/one-question/server/controllers/CheckoutController.py",
+  "inputs": {
+    "docs/delegates/one-question/server/controllers/CheckoutController.py": "871fc8a2d49f39aa17c0c13b8c63095f346325fdbeaaaceecc52329d6fb5db80",
+    "docs/delegates/one-question/server/delegates/TaxDelegate.py": "164204b7d309c2752b322f034f28c1260422a0fe3f4a90bfaa40bfbe5579f0c3",
+    "docs/delegates/one-question/server/delegates/TaxRateDelegate.py": "e5129c02ffbf638cc448b40e818c0c202f78360dcde6b91175b11db033714996",
+    "docs/delegates/one-question/server/models/Receipt.py": "c4469a3f4da7863bf13875024876549858d145aab60967a4d589acda4eb80f53",
+    "docs/delegates/one-question/server/services/CheckoutService.py": "b75d47daf14f4a4008af763b65f7a133093b902df89ae585e5be7e4fc3138768"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/checkout",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"total\":42}"
+      }
+    }
+  ]
+}

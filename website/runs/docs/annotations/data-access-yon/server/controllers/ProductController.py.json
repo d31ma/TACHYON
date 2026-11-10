@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "handler": "docs/annotations/data-access-yon/server/controllers/ProductController.py",
+  "inputs": {
+    "docs/annotations/data-access-yon/server/controllers/ProductController.py": "b4d7b08b6801f064e5c8f858aef93f9a226aa53f7a937db83bfa16316ccb3f51",
+    "docs/annotations/data-access-yon/server/delegates/CatalogAdapterDelegate.py": "febeca41fb614ea75301c135ac66a621a9440889f7b822122d038e7487146ed0",
+    "docs/annotations/data-access-yon/server/entities/ProductEntity.py": "fc09e50f1b484207b7fc829761638a4b3c5ac6200d8109a6211ef995d248cf1f",
+    "docs/annotations/data-access-yon/server/models/ProductReport.py": "e494fbb64fca79fcd935ee70203a9c006e5ae7d2805c4a8895bbe4ae70dc030e",
+    "docs/annotations/data-access-yon/server/setups/CatalogSetup.py": "7f9fb74454f88cb0b3e9f5ddfde6b87bb51cbb07e9393b7b06bcb7666928808f",
+    "docs/annotations/data-access-yon/server/stores/ProductStore.py": "56775c08dad1f344f53d3773cb29f0d2f093e382e17bc590ae67259bc48c2104"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/products",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"active\":[{\"id\":1,\"status\":\"active\"}],\"count\":1,\"others\":[{\"id\":2,\"status\":\"retired\"}],\"first\":{\"id\":1,\"status\":\"active\"}}"
+      }
+    }
+  ]
+}

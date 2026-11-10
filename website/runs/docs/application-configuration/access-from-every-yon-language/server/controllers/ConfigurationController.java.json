@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "handler": "docs/application-configuration/access-from-every-yon-language/server/controllers/ConfigurationController.java",
+  "inputs": {
+    "docs/application-configuration/access-from-every-yon-language/server/application.json": "9595f0144805a443ce2bbefc311ac77a753577f831f0910e22ca026f569ad2a4",
+    "docs/application-configuration/access-from-every-yon-language/server/controllers/ConfigurationController.java": "02a9a5f0725b7d4784b600911a2b1185d97fc100485e4ef9a633d622ce66c40e",
+    "docs/application-configuration/access-from-every-yon-language/server/models/CatalogSettings.java": "8dd4b8ba36d6b1fd411d0f75365fb03311a5bef810261d2e50e676899a0732eb",
+    "docs/application-configuration/access-from-every-yon-language/server/models/Configuration.java": "bb22c1fa51db13cf25b95a296671cd49c5c96a73237e64764c51315b4b1a1f72",
+    "docs/application-configuration/access-from-every-yon-language/server/models/Endpoint.java": "827ceb57a7d0ce2c91bf3a5b8885753adfd57661c5dac7bf93a6dadb8521b71a"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/configuration",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"pageSize\":20,\"port\":0}"
+      }
+    }
+  ]
+}

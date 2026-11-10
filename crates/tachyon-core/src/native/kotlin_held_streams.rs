@@ -1,5 +1,6 @@
 use crate::events::{EventModule, EventStream, HeldStreams};
 use crate::project::NativeCompanion;
+use crate::sorted_json::SortedJson;
 use crate::template::RequiredFields;
 use std::path::Path;
 
@@ -79,7 +80,7 @@ impl KotlinHeldStreams {
         let key = format!("__stream_{client}_{}", stream.method);
         let models = stream.models.as_ref().map_or_else(
             || String::from("null"),
-            |models| Self::text(&models.to_string()),
+            |models| Self::text(&SortedJson::text(models)),
         );
         format!(
             "\"{key}\" to TacStream({}, {}, {}, {}, {models}),\n",

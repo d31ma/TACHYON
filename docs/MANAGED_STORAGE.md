@@ -350,17 +350,23 @@ FYLO:
   Windows test run those PowerShell starts also slowed the tests running
   beside them. The tests now seed 12 documents and scroll them 5 at a time
   (still 3 pages), about 19 writes, and Windows keeps a 240 s handler
-  deadline. Known limit: every FYLO write on Windows stays slow until
-  Tachyon pins a FYLO release with FYLO commit `d75e4ba` (on FYLO develop),
-  which finds the identity once. CI's Windows native job installs no FYLO,
-  so the tests skip there.
+  deadline. CI's Windows native job installs no FYLO, so the tests skip
+  there.
+- On 2026-11-10 the pin moved to FYLO v26.45.07, which has FYLO commit
+  `d75e4ba` and finds the identity once per process. In `windows-vm`
+  (Windows 11 ARM64, the x64 FYLO), one `fylo exec --loop` process, the way
+  Tachyon runs FYLO, took 1.9 s for its first write and 3.6 ms on average
+  for the next 19. A new process for each write still takes about 0.9 s,
+  so keep one process open. The local Mac, Linux and Windows lanes and
+  `scripts/test-managed-storage.mjs --without-docker` passed on this pin.
 
 Which drivers a build has:
 
 - SQLite and FYLO are always built in. The network drivers are cargo
   features: `storage-postgres`, `storage-mysql` (MySQL and MariaDB),
   `storage-redis` and `storage-sqlserver`. `storage-all` turns on all four.
-  Release builds use `storage-all`; a default `cargo build` has none of them.
+  Release builds use the `shipped` feature set of `tachyon-cli`, which turns
+  on `storage-all`; a default `cargo build` has none of them.
 - A `ty` built without a driver refuses a datasource or Redis setting that
   needs it at startup with `TY2160`, and the message names the feature.
 - Without the network drivers, `ty` links no rustls, ring, sqlx network

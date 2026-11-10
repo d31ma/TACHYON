@@ -1,6 +1,7 @@
 use super::{Dispatch, DispatchRoute, EventStream, InvocationLog, ServerResponse};
 use crate::Failure;
 use crate::handler::{HandlerCancellation, HandlerEvent, HandlerSource, HandlerSupervisor};
+use crate::sorted_json::SortedJson;
 use axum::body::Body;
 use axum::http::Response;
 use std::future::Future;
@@ -218,7 +219,7 @@ impl HandlerEventBridge {
             "message": "The handler stream ended unexpectedly.",
             "request_id": request_id,
         });
-        format!("event: error\ndata: {data}\n\n").into_bytes()
+        format!("event: error\ndata: {}\n\n", SortedJson::text(&data)).into_bytes()
     }
 
     async fn write_event(

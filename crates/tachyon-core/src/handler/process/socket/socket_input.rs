@@ -1,4 +1,5 @@
 use crate::handler::frame::FramePrefix;
+use crate::sorted_json::SortedJson;
 use serde_json::{Value, json};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -10,7 +11,7 @@ pub(crate) enum SocketInput {
 
 impl SocketInput {
     pub(super) fn frame(&self, request_id: &str, style: FramePrefix) -> Vec<u8> {
-        let payload = self.frame_value(request_id).to_string().into_bytes();
+        let payload = SortedJson::text(&self.frame_value(request_id)).into_bytes();
         [style.encode(payload.len()), payload].concat()
     }
 

@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "handler": "docs/annotations/roles-yon/server/controllers/BillingController.py",
+  "inputs": {
+    "docs/annotations/roles-yon/server/controllers/BillingController.py": "f6f20ec751ab83f17f7fa049a6c66dc217dd01dfe8ef985d6c0e129ef4051924",
+    "docs/annotations/roles-yon/server/delegates/BillingDelegate.py": "d42e8e6d63b04de6fba50325b86cd41fe7fa36c3e47e9fa8226f45e9d33c6025",
+    "docs/annotations/roles-yon/server/entities/BillingEntity.py": "3581402d8bfa7e22cc88197ccd92305d68215af1b6540a4d035115d3f23fe4c4",
+    "docs/annotations/roles-yon/server/models/Bill.py": "c370e633c74fcaac2fd0318755af6cba19ec51a91dae044f75d56b9702824c08",
+    "docs/annotations/roles-yon/server/remotes/BillingClient.py": "ef2b6ecc0a99383cf86c1e66f787313b8c998ed9f3325e469a839a43dd330e68",
+    "docs/annotations/roles-yon/server/services/BillingService.py": "050b26297bfa57968829d402d7a964c9bb0d52fcf40e6bbba5a689194b1ea140",
+    "docs/annotations/roles-yon/server/setups/BillingSetup.py": "182098f6e73bc2d1bacaf15804ad5f7b7e238d5ecc2ba345554f71a99fcf7d1e",
+    "docs/annotations/roles-yon/server/stores/BillingStore.py": "fe46ff760cd147a199f5d564dc4601a3bc66b5e10213c02a178826190977f9bb"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/billing",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"total\":42}"
+      }
+    }
+  ]
+}

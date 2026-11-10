@@ -4,6 +4,7 @@ use super::{
     ScaffoldFailure, ServerFiles, TacLanguage, YonLanguage,
 };
 use crate::Failure;
+use crate::sorted_json::SortedJson;
 use std::collections::BTreeMap;
 use std::path::Path;
 
@@ -160,7 +161,8 @@ impl ProjectAddition {
             serde_json::from_str(&text).unwrap_or_else(|_| serde_json::json!({}));
         let datasource = serde_json::json!({ "driver": "sqlite", "url": "sqlite::memory:" });
         let added = Self::insert_missing(&mut settings, "datasource", datasource);
-        let pretty = serde_json::to_string_pretty(&settings).unwrap_or_default();
+        let pretty =
+            serde_json::to_string_pretty(&SortedJson::value(&settings)).unwrap_or_default();
         ScaffoldFailure::checked(std::fs::write(&path, format!("{pretty}\n")), &path)?;
         Ok(added.then(|| {
             String::from("server/application.json now names the in-memory SQLite datasource.")
@@ -183,7 +185,7 @@ impl ProjectAddition {
             .entry("tac")
             .or_insert_with(|| serde_json::json!({}));
         let added = Self::insert_missing(tac, "python", ClientFiles::python_runtime());
-        let pretty = serde_json::to_string_pretty(&manifest).unwrap_or_default();
+        let pretty = serde_json::to_string_pretty(&SortedJson::map(&manifest)).unwrap_or_default();
         ScaffoldFailure::checked(std::fs::write(&path, format!("{pretty}\n")), &path)?;
         Ok(added.then(|| {
             String::from(
@@ -235,7 +237,8 @@ impl ProjectAddition {
         if !Self::insert_origin(&mut settings, origin) {
             return Ok(None);
         }
-        let pretty = serde_json::to_string_pretty(&settings).unwrap_or_default();
+        let pretty =
+            serde_json::to_string_pretty(&SortedJson::value(&settings)).unwrap_or_default();
         ScaffoldFailure::checked(std::fs::write(path, format!("{pretty}\n")), path)?;
         Ok(Some(Self::origin_note(target, origin, "Added")))
     }

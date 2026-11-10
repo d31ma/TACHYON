@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "handler": "docs/annotations/mapping-yon/server/controllers/CatalogController.hpp",
+  "inputs": {
+    "docs/annotations/mapping-yon/server/controllers/CatalogController.hpp": "371e87455ed74ff7ab3305a27fb6150c0e04b493519cfa411c883021b08a8c24",
+    "docs/annotations/mapping-yon/server/converters/ProductConverter.hpp": "7f2a5eb856eeeed2356f6e58be3083a67895058311e7281e47647cc4355d6568",
+    "docs/annotations/mapping-yon/server/models/CatalogSummary.hpp": "1ba15af484ff30f711de74f9117a49f4b239ea755366369385c4b3f2f0a1267e"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/catalog",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"summary\":{\"productId\":7,\"title\":\"Anvil\",\"absent\":null,\"kind\":\"product\"}}"
+      }
+    }
+  ]
+}

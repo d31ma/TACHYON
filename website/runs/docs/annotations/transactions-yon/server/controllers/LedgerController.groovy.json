@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "handler": "docs/annotations/transactions-yon/server/controllers/LedgerController.groovy",
+  "inputs": {
+    "docs/annotations/transactions-yon/server/controllers/LedgerController.groovy": "8e1479401145cc6599030b23cd9278dc34f3b184bb7f3ccef028e8e48b3acaa4",
+    "docs/annotations/transactions-yon/server/delegates/LedgerAdapterDelegate.groovy": "54cfa117d0979c42aa413e8ee0329398bf1b0ae2c726af4b9840ddd40ece26d6",
+    "docs/annotations/transactions-yon/server/entities/EntryEntity.groovy": "06ac007b4a61676dfdde6264db299cdf49f7fb794a4900f595915115079016e9",
+    "docs/annotations/transactions-yon/server/models/LedgerReport.groovy": "fdbefcace7d03cbc81183a192d1fa2d5c606ba9eb1f2a42852a215d478ae2b54",
+    "docs/annotations/transactions-yon/server/services/LedgerService.groovy": "c353a9cf99f75c607b72b712d8c19e6e44bcc160efe952e59dae1a6c8bf9b277",
+    "docs/annotations/transactions-yon/server/setups/LedgerSetup.groovy": "61332582aae67a6d6522e51099a43f60894f98b009bdfbc1937f4e23442e4bde",
+    "docs/annotations/transactions-yon/server/stores/EntryStore.groovy": "25fe4c0bc73892aa83ae8986d136c9cfe0d41c0114b7fc0594c8a6e2d3bebf7b"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/ledger",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"settled\":{\"open\":[{\"id\":1,\"status\":\"open\"}],\"total\":1},\"commands\":[\"begin\",\"find@t1\",\"count@t1\",\"commit:t1\"]}"
+      }
+    }
+  ]
+}

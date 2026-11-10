@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "handler": "docs/yon/vendored-go-modules/server/controllers/GreetingController.go",
+  "inputs": {
+    "docs/yon/vendored-go-modules/server/controllers/GreetingController.go": "674fa76e6cbedacef09b332e8a2701fe5e4c9cab6ab45f004e7facc57f92adf7",
+    "docs/yon/vendored-go-modules/server/packages/go.mod": "84bf3d96cbb843bc840bbc6338c74b5a4fae249e5540695c2894ca564d304d59",
+    "docs/yon/vendored-go-modules/server/packages/go.sum": "e4f828fd2861f836eb950084ed3aaed2007732047bac91c17b693811933c3023",
+    "docs/yon/vendored-go-modules/server/packages/vendor/example.com/greet/greet.go": "2651b6a143fef4522bf72d929b37987d8c1555e46dd961061369e25ba655a5a5",
+    "docs/yon/vendored-go-modules/server/packages/vendor/modules.txt": "c866315994d2ac6282a8dbdeada3b9af787df0c5bcc2eb981ad8ca47b92e54b9"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/api/greeting",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"text\":\"Hello, shop\"}"
+      }
+    }
+  ]
+}

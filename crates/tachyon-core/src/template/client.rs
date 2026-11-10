@@ -8,6 +8,7 @@ use super::{
 };
 use crate::Failure;
 use crate::failure::{diagnostic, source_span};
+use crate::sorted_json::SortedJson;
 use serde_json::{Value, json};
 use std::collections::{BTreeMap, BTreeSet};
 use tachyon_contracts::{CountedComparison, ViewSourceMap};
@@ -157,8 +158,8 @@ impl<'a> ClientViewRenderer<'a> {
     }
 
     fn serialized_plan(program: &TemplateProgram, plan: &Value) -> Result<String, Failure> {
-        let plan =
-            serde_json::to_string(plan).map_err(|error| serialization_failure(program, &error))?;
+        let plan = serde_json::to_string(&SortedJson::value(plan))
+            .map_err(|error| serialization_failure(program, &error))?;
         if plan.len() > Self::MAX_CLIENT_PLAN_BYTES {
             return Err(Failure::one(diagnostic(
                 1305,

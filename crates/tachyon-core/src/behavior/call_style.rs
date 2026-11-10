@@ -1,3 +1,4 @@
+use crate::sorted_json::SortedJson;
 use serde_json::Value;
 
 pub(super) struct CallStyle {
@@ -38,22 +39,20 @@ impl CallStyle {
     fn rust_literal(value: &Value) -> String {
         match value {
             Value::String(text) => format!("{text:?}"),
-            other => other.to_string(),
+            other => SortedJson::text(other),
         }
     }
 
     fn json_literal(value: &Value) -> String {
-        value.to_string()
+        SortedJson::text(value)
     }
 
     fn dart_literal(value: &Value) -> String {
-        value.to_string().replace(Self::DOLLAR, Self::DART_DOLLAR)
+        SortedJson::text(value).replace(Self::DOLLAR, Self::DART_DOLLAR)
     }
 
     fn jvm_literal(value: &Value) -> String {
-        let text = value
-            .to_string()
-            .replace(Self::DOLLAR, Self::ESCAPED_DOLLAR);
+        let text = SortedJson::text(value).replace(Self::DOLLAR, Self::ESCAPED_DOLLAR);
         format!("{text}{}", Self::long_mark(value))
     }
 

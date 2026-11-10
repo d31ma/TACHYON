@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "handler": "languages/yon/cpp/server/controllers/OrdersController.hpp",
+  "inputs": {
+    "languages/yon/cpp/server/controllers/OrdersController.hpp": "33333a6caacfdf067b57ed0349fc9edd135beae81d7313619cc241459a17c4ae",
+    "languages/yon/cpp/server/models/OrderList.hpp": "2401338795c6401546c9156875b31c7a727849de83c0d96179838ffebe197304",
+    "languages/yon/cpp/server/services/OrderService.hpp": "8676d636e0aa79d95f8e08e6282322c62b147f1910eb7db302766a1fc9ec022b"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/orders",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"orders\":[\"anvil\"]}"
+      }
+    }
+  ]
+}

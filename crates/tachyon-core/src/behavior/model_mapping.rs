@@ -1,3 +1,4 @@
+use crate::sorted_json::SortedJson;
 use serde_json::{Map, Value};
 use std::collections::BTreeSet;
 
@@ -140,8 +141,8 @@ impl<'a> ModelMapping<'a> {
         Self::bounded_depth(target, depth)?;
         let source_fields = self.fields(source);
         let target_fields = self.fields(target);
-        let remaining: Vec<_> = target_fields
-            .iter()
+        let remaining: Vec<_> = SortedJson::entries(&target_fields)
+            .into_iter()
             .filter(|(name, _)| !written.contains(*name))
             .collect();
         let entries: Result<Vec<_>, String> = remaining

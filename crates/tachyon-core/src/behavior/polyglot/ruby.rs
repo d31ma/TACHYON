@@ -1,13 +1,14 @@
 use super::super::testing::{Unit, polyglot_unit};
 use super::typed_answer::TypedAnswer;
 use super::{Edit, Method, Module, Type, render};
+use crate::sorted_json::SortedJson;
 use serde_json::{Map, Value};
 use std::fmt::Write as _;
 
 pub(super) struct RubyLowering;
 
 impl RubyLowering {
-    pub(super) fn records(module: &Module) -> Result<String, String> {
+    pub(super) fn records(module: &Module) -> String {
         let records: Map<String, Value> = module
             .types
             .iter()
@@ -18,7 +19,7 @@ impl RubyLowering {
                 )
             })
             .collect();
-        serde_json::to_string(&records).map_err(|error| error.to_string())
+        SortedJson::text(&Value::Object(records))
     }
 
     fn with_methods(type_declaration: &Type) -> Value {
@@ -40,7 +41,7 @@ impl RubyLowering {
                 units.push_str(&Self::test_members(&unit));
             }
         }
-        let encoded = Self::records(module)?;
+        let encoded = Self::records(module);
         let suffix = format!(
             "{}\nBehaviors.register({}, {:?}, {:?})\n{units}{}",
             include_str!("ruby_runtime.rb"),
@@ -93,7 +94,7 @@ impl RubyLowering {
             let name = &method.parameters[index].name;
             format!(
                 "; {name} = BehaviorValidation.check(JSON.parse({}), {name});{original}",
-                Self::single_quoted(&policy["schema"].to_string())
+                Self::single_quoted(&SortedJson::text(&policy["schema"]))
             )
         } else {
             let parameters = if arguments.is_empty() {
@@ -114,7 +115,7 @@ impl RubyLowering {
     }
 
     fn mapping_body(policy: &Value, arguments: &str) -> String {
-        let plan = Self::single_quoted(&policy.to_string());
+        let plan = Self::single_quoted(&SortedJson::text(policy));
         match policy.get("result").and_then(Value::as_str) {
             Some(result) => Self::typed_mapping(policy, &plan, result, arguments),
             None => format!("BehaviorBoundary.map_value(JSON.parse({plan}), [{arguments}])"),
@@ -165,9 +166,10 @@ impl RubyLowering {
     }
 
     fn test_members(unit: &Unit) -> String {
-        let cases = Self::single_quoted(
-            &super::super::ValueSource::case_table(&unit.cases, &unit.inputs).to_string(),
-        );
+        let cases = Self::single_quoted(&SortedJson::text(&super::super::ValueSource::case_table(
+            &unit.cases,
+            &unit.inputs,
+        )));
         let mut clear_fakes = String::new();
         let mut fakes = String::new();
         for name in &unit.mocks {
@@ -177,8 +179,8 @@ impl RubyLowering {
         let options = format!(
             "\"partition\" => {}, \"signal\" => BehaviorSignal.new, \"profiles\" => JSON.parse({}), \"properties\" => JSON.parse({})",
             serde_json::Value::String(unit.partition.clone()),
-            Self::single_quoted(&unit.profiles.to_string()),
-            Self::single_quoted(&unit.flat_properties().to_string()),
+            Self::single_quoted(&SortedJson::text(&unit.profiles)),
+            Self::single_quoted(&SortedJson::text(&unit.flat_properties())),
         );
         format!(
             "\nclass {name}\n\

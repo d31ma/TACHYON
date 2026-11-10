@@ -1,5 +1,6 @@
 use crate::Failure;
 use crate::failure::{diagnostic, source_span};
+use crate::sorted_json::SortedJson;
 use serde_json::{Map, Value};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
@@ -2490,7 +2491,7 @@ fn validate_path_variables(
             ));
         }
     }
-    for name in declared.into_iter().flat_map(|declared| declared.keys()) {
+    for name in declared.into_iter().flat_map(SortedJson::keys) {
         if !written.contains(&name.as_str()) {
             return Err(input.failure(
                 marker.span.start,
@@ -2513,7 +2514,7 @@ fn validate_argument_mapping(
             format!("A request method maps up to 32 {key} names to its parameters"),
         ));
     };
-    for (name, index) in entries {
+    for (name, index) in SortedJson::entries(entries) {
         let bounded_name = !name.is_empty() && name.len() <= 256;
         let valid_index = index.as_u64().is_some_and(|index| index < 32);
         if !bounded_name || !valid_index {
@@ -2901,7 +2902,7 @@ fn registration_js(registration: &Registration) -> String {
         .or_insert(Value::Bool(false));
     data.insert("name".to_owned(), Value::String(registration.name.clone()));
     data.insert("methods".to_owned(), methods_json(registration));
-    let json = Value::Object(data).to_string();
+    let json = SortedJson::text(&Value::Object(data));
     format!("{{type:{},{}", registration.name, &json[1..])
 }
 

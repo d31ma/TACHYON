@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "handler": "languages/yon/lua/server/controllers/OrdersController.lua",
+  "inputs": {
+    "languages/yon/lua/server/controllers/OrdersController.lua": "05d3805fd5ab9801bb72329144e0fdc04600afcc310e5509697c354b77e91c71",
+    "languages/yon/lua/server/models/Order.lua": "b18523d6b5d89466e310e74b82d5e06e64e0971092dc8d7e115741359e083d3a",
+    "languages/yon/lua/server/models/OrderList.lua": "0b96babaf21e4ae84e38a232043ca77164ca9d3375e93e12b4fcb12fb58c9c2e",
+    "languages/yon/lua/server/services/OrderService.lua": "57e6c90cad42326ebf539b2a0a33e4f69d53ae0262d1290cd431de1bf4d55b73"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/orders",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"orders\":[{\"sku\":\"anvil\",\"level\":4}]}"
+      }
+    }
+  ]
+}

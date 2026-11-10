@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "handler": "docs/routing/backend-routes/server/controllers/ItemsController.lua",
+  "inputs": {
+    "docs/routing/backend-routes/server/controllers/ItemsController.lua": "9ee0c06735cfba234b9dc37047f45931f9e884c3a8d85016a0557da04fcfe44b",
+    "docs/routing/backend-routes/server/models/Item.lua": "c2547f5a72a8f350156c3c394dc50d1e304f0ee6beff625d1e85eb5640a69b66"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/items/42",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"name\":\"42\"}"
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/items",
+        "headers": {},
+        "body": "{\"name\":\"snippet\"}"
+      },
+      "response": {
+        "status": 201,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"name\":\"snippet\"}"
+      }
+    }
+  ]
+}

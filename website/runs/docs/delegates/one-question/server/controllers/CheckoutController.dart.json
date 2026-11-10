@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "handler": "docs/delegates/one-question/server/controllers/CheckoutController.dart",
+  "inputs": {
+    "docs/delegates/one-question/server/controllers/CheckoutController.dart": "9a5129d09fdef1c322e8e22c240193b0830aabb24494d0389fda8b979fbbc7ec",
+    "docs/delegates/one-question/server/delegates/TaxDelegate.dart": "bbd3edf19b72f05bf53be9eae557ad4b93c9d507565c4a3db9989d2f01078cda",
+    "docs/delegates/one-question/server/delegates/TaxRateDelegate.dart": "64ecf38dc7abccd2fd911b938030b22fb913d11f3b9d56a1e43a9546c6e68a57",
+    "docs/delegates/one-question/server/models/Receipt.dart": "0ea5a9c012dbec283f015e5fff1fa6c29a8abf39bc4365ce853073490e4588c0",
+    "docs/delegates/one-question/server/services/CheckoutService.dart": "71aba50af1a41cf2bc9d22ca9fb6ef01c8fad87d488d9f30abf65a87975ffaa4"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/checkout",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"total\":42}"
+      }
+    }
+  ]
+}

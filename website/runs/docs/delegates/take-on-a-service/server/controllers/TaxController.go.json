@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "handler": "docs/delegates/take-on-a-service/server/controllers/TaxController.go",
+  "inputs": {
+    "docs/delegates/take-on-a-service/server/controllers/TaxController.go": "dcd5d7d36c787eafc20980a75ec742ab3c5f6e6d01c3f381c35c563b89d5b574",
+    "docs/delegates/take-on-a-service/server/delegates/TaxDelegate.go": "26292e3b32c2a7a1fd0308cc408ad84e7e29acb22e382664b0f787b48aa140bb",
+    "docs/delegates/take-on-a-service/server/models/TaxAnswer.go": "773b9afac33acfe4109dee72c4392d76f58f69a3a26458d87d7152c6f80cfc3c",
+    "docs/delegates/take-on-a-service/server/services/TaxService.go": "0c289ff6725a68ff5c3a354e7a620af78bcfe6c536fa2e42d5158f501ec4bf10"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/tax",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"rate\":4,\"total\":30,\"extra\":34}"
+      }
+    }
+  ]
+}

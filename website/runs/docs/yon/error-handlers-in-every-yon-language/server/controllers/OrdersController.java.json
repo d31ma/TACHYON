@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "handler": "docs/yon/error-handlers-in-every-yon-language/server/controllers/OrdersController.java",
+  "inputs": {
+    "docs/yon/error-handlers-in-every-yon-language/server/controllers/OrdersController.java": "630f93445dc478905e2c82e6d1cdbdd37589e14284588f2482d3ce2abb516707",
+    "docs/yon/error-handlers-in-every-yon-language/server/controllers/OrdersErrorHandler.java": "9ea7b26cae844faa47dc3116bbec31c51f9e3073a0db5c768c809eb61778ef58",
+    "docs/yon/error-handlers-in-every-yon-language/server/errors/OrderNotFound.java": "9d3bbd51debd359187afa3e3e0deca9237553d39636ff30b5c58052cc327a47b",
+    "docs/yon/error-handlers-in-every-yon-language/server/models/Problem.java": "5aa1d603aeaa36a6dc235b71e83eadd5bafca0f37e1da7f3cd79aa287157b3f4"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/orders",
+        "headers": {}
+      },
+      "response": {
+        "status": 404,
+        "contentType": "application/json",
+        "body": "{\"code\":\"order-not-found\"}"
+      }
+    }
+  ]
+}

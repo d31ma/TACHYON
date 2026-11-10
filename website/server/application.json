@@ -1,0 +1,10 @@
+{
+  "server": {
+    "hosts": ["api.tachyon.del.ma", "api.staging.tachyon.del.ma"],
+    "proxies": ["127.0.0.1", "::1"],
+    "maxbody": 32768
+  },
+  "outgoing": {
+    "hosts": ["snippets.localhost"]
+  }
+}

@@ -1,3 +1,4 @@
+use crate::sorted_json::SortedJson;
 use std::ffi::{OsStr, OsString};
 
 pub struct EgressLaunch;
@@ -91,7 +92,9 @@ impl EgressLaunch {
     fn report(reason: &str) {
         eprintln!(
             "{}",
-            serde_json::json!({ "event": "handler.egress_refused", "reason": reason })
+            SortedJson::text(
+                &serde_json::json!({ "event": "handler.egress_refused", "reason": reason })
+            )
         );
     }
 }

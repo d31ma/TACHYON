@@ -1,6 +1,6 @@
 {
   "name": "@d31ma/tachyon",
-  "version": "26.46.01",
+  "version": "26.46.02",
   "description": "Tooling and qualification dependencies for the Tachyon Rust framework",
   "author": "Chidelma",
   "license": "MIT",
@@ -10,9 +10,9 @@
     "bun": ">=1.4.3"
   },
   "scripts": {
-    "typecheck": "bun check -p jsconfig.json && bun check -p jsconfig.release.json && bun run typecheck:types",
+    "typecheck": "bun check -p jsconfig.json && bun check -p website/server/jsconfig.json && bun check -p jsconfig.release.json && bun run typecheck:types",
     "typecheck:types": "bun check -p types/tsconfig.json && bun check -p types/tsconfig.json --experimentalDecorators && bun check -p types/tsconfig.routes.json",
-    "test:release-build": "cargo build --release --locked -p tachyon-cli --bin ty --features storage-all",
+    "test:release-build": "cargo build --release --locked -p tachyon-cli --bin ty --features shipped",
     "test:website": "bun --cwd website test",
     "test:website-browser": "node scripts/website-browser-test.mjs",
     "test:phase3-browser": "node scripts/phase3-browser-test.mjs",
@@ -73,6 +73,7 @@
     "test:remotes-socket-browser": "node scripts/remotes-socket-test.mjs",
     "test:native-bridge-bounds": "node scripts/native-bridge-bounds-test.mjs",
     "test:python-tac-public-assets": "node --test scripts/python-tac-public-assets.test.mjs",
+    "test:site-deploy": "node --test scripts/site-deploy.test.mjs",
     "test:server-probe": "node scripts/release/server-probe-test.mjs"
   },
   "keywords": [

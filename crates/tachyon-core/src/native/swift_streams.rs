@@ -2,6 +2,7 @@ use crate::Failure;
 use crate::behavior::HttpClientSource;
 use crate::events::{EventModule, EventStream, EventType};
 use crate::project::NativeCompanion;
+use crate::sorted_json::SortedJson;
 use std::path::Path;
 
 pub(super) struct SwiftStreams {
@@ -153,7 +154,7 @@ impl SwiftStreams {
     fn entry(client: &str, stream: &EventStream) -> String {
         let models = stream.models.as_ref().map_or_else(
             || String::from("nil"),
-            |models| Self::text(&models.to_string()),
+            |models| Self::text(&SortedJson::text(models)),
         );
         format!(
             "\"__stream_{client}_{}\": .stream(TacStream({}, {}, {}, {}, {models})),\n",

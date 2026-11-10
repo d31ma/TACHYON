@@ -1,5 +1,6 @@
 use super::ManualStep;
 use super::edits::TextEdit;
+use crate::sorted_json::SortedJson;
 use serde_json::{Map, Value};
 use std::fs;
 use std::path::Path;
@@ -204,7 +205,11 @@ impl PlannedManifest {
         let step = (!same).then(|| {
             ManualStep::new(
                 source,
-                format!("{source} sets {member} to {value}, but client/manifest.json already has {existing}."),
+                format!(
+                    "{source} sets {member} to {}, but client/manifest.json already has {}.",
+                    SortedJson::text(value),
+                    SortedJson::text(existing)
+                ),
                 format!("Keep one value as {member} in client/manifest.json, then remove the other from {source}."),
             )
         });
@@ -255,7 +260,7 @@ impl PlannedManifest {
     fn take_application(&mut self, source: &str, application: &Map<String, Value>) -> bool {
         let mut identity = Map::new();
         let mut moved = true;
-        for (key, value) in application {
+        for (key, value) in SortedJson::entries(application) {
             moved &= self.take_application_value(source, key, value, &mut identity);
         }
         let offered = (!identity.is_empty())
@@ -695,7 +700,8 @@ struct JsonText;
 
 impl JsonText {
     fn value(value: &Value, indent: usize) -> String {
-        let pretty = serde_json::to_string_pretty(value).unwrap_or_else(|_| String::from("null"));
+        let pretty = serde_json::to_string_pretty(&SortedJson::value(value))
+            .unwrap_or_else(|_| String::from("null"));
         pretty.replace('\n', &format!("\n{}", " ".repeat(indent)))
     }
 

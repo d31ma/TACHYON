@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "handler": "features/relays/server/controllers/ReportController.rb",
+  "inputs": {
+    "features/relays/server/controllers/ReportController.rb": "0f48b582692eeed1aa173cbe5ec76be41defb49b8e8bfe03ecb50d6ee44821a8",
+    "features/relays/server/relays/report.pl": "40744ecf75d032ec9dc0f4dee865c1f15d1658175a1c8ae9f978e8160a7dd85b"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/report",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"language\":\"Perl\",\"route\":\"/report\"}"
+      }
+    }
+  ]
+}

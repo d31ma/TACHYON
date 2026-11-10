@@ -161,6 +161,7 @@ jobs:
 
       - name: Install PHP and php-cgi for PHP Yon handlers
         if: runner.os != 'macOS'
+        timeout-minutes: 10
         uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
         with:
           php-version: '8.4'
@@ -197,11 +198,14 @@ jobs:
       - name: Run Clippy without the optional storage drivers
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
 
+      - name: Run Clippy on the shipped feature set
+        run: cargo clippy --workspace --all-targets --features shipped --locked -- -D warnings
+
       - name: Build the Tac Ruby runtime once, outside nextest's per-test time limit
-        run: cargo test --all-features --locked -p tachyon-core --lib -- --exact tac_ruby::tests::the_runtime_is_built_once_into_the_user_cache_and_never_into_the_project
+        run: cargo test --workspace --features shipped --locked --lib -- --exact tac_ruby::tests::the_runtime_is_built_once_into_the_user_cache_and_never_into_the_project
 
       - name: Run unit and Phase 4 real-process acceptance tests in the nextest groups
-        run: cargo nextest run --workspace --all-targets --all-features --locked --no-tests=fail
+        run: cargo nextest run --workspace --all-targets --features shipped --locked --no-tests=fail
 
       - name: Run the storage tests without the optional storage drivers
         run: "cargo nextest run -p tachyon-core --lib --locked --no-tests=fail storage::"
@@ -210,6 +214,10 @@ jobs:
         run: node scripts/native/companion-test.mjs
         env:
           TAC_BIN: ${{ github.workspace }}/target/debug/ty${{ runner.os == 'Windows' && '.exe' || '' }}
+
+      - name: Run every test with all features, including serde_json's preserve_order
+        if: runner.os == 'Linux'
+        run: cargo nextest run --workspace --all-targets --all-features --locked --no-tests=fail
 
       - name: Smoke-test the release binary
         run: cargo run --release --locked --bin ty -- --version
@@ -404,6 +412,13 @@ jobs:
           echo "JAVA_HOME=${JAVA_HOME_21_X64}" >> "${GITHUB_ENV}"
           echo "${JAVA_HOME_21_X64}/bin" >> "${GITHUB_PATH}"
 
+      - name: Restore the cached download of the Swift SDK for WebAssembly
+        id: swift-wasm-sdk-cache
+        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: ${{ runner.temp }}/swift-wasm-sdk-download
+          key: swift-wasm-sdk-${{ runner.os }}-${{ hashFiles('scripts/ci/install-swift-wasm-sdk.mjs') }}
+
       - name: Install the pinned Swift 6.3.3 toolchain and Swift SDK for WebAssembly
         run: |
           set -euo pipefail
@@ -417,13 +432,18 @@ jobs:
           tar -xzf "${archive}" -C "${RUNNER_TEMP}"
           toolchain="${RUNNER_TEMP}/swift-6.3.3-RELEASE-ubuntu24.04/usr"
           sdks="${RUNNER_TEMP}/swift-sdks"
-          "${toolchain}/bin/swift" sdk install --swift-sdks-path "${sdks}" \
-            "${release}/wasm-sdk/swift-6.3.3-RELEASE/swift-6.3.3-RELEASE_wasm.artifactbundle.tar.gz" \
-            --checksum cabfa08b73bb8ac783927ecd15fa386e99d0c139c5f232445067bcf58379cae7
+          node scripts/ci/install-swift-wasm-sdk.mjs "${toolchain}/bin/swift" "${sdks}" "${RUNNER_TEMP}/swift-wasm-sdk-download"
           sdk="${sdks}/swift-6.3.3-RELEASE_wasm.artifactbundle/swift-6.3.3-RELEASE_wasm/wasm32-unknown-wasip1"
           test -d "${sdk}/WASI.sdk"
           echo "TAC_SWIFT_WASM_COMPILER=${toolchain}/bin/swiftc" >> "${GITHUB_ENV}"
           echo "TAC_SWIFT_WASM_SDK=${sdk}" >> "${GITHUB_ENV}"
+
+      - name: Save the download of the Swift SDK for WebAssembly for reruns
+        if: steps.swift-wasm-sdk-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: ${{ runner.temp }}/swift-wasm-sdk-download
+          key: swift-wasm-sdk-${{ runner.os }}-${{ hashFiles('scripts/ci/install-swift-wasm-sdk.mjs') }}
 
       - name: Check the website data generated from website/content
         run: node website/scripts/build-content.mjs --check
@@ -721,6 +741,13 @@ jobs:
           echo "JAVA_HOME=${JAVA_HOME_21_X64}" >> "${GITHUB_ENV}"
           echo "${JAVA_HOME_21_X64}/bin" >> "${GITHUB_PATH}"
 
+      - name: Restore the cached download of the Swift SDK for WebAssembly
+        id: swift-wasm-sdk-cache
+        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: ${{ runner.temp }}/swift-wasm-sdk-download
+          key: swift-wasm-sdk-${{ runner.os }}-${{ hashFiles('scripts/ci/install-swift-wasm-sdk.mjs') }}
+
       - name: Install the pinned Swift 6.3.3 toolchain and Swift SDK for WebAssembly
         run: |
           set -euo pipefail
@@ -734,13 +761,18 @@ jobs:
           tar -xzf "${archive}" -C "${RUNNER_TEMP}"
           toolchain="${RUNNER_TEMP}/swift-6.3.3-RELEASE-ubuntu24.04/usr"
           sdks="${RUNNER_TEMP}/swift-sdks"
-          "${toolchain}/bin/swift" sdk install --swift-sdks-path "${sdks}" \
-            "${release}/wasm-sdk/swift-6.3.3-RELEASE/swift-6.3.3-RELEASE_wasm.artifactbundle.tar.gz" \
-            --checksum cabfa08b73bb8ac783927ecd15fa386e99d0c139c5f232445067bcf58379cae7
+          node scripts/ci/install-swift-wasm-sdk.mjs "${toolchain}/bin/swift" "${sdks}" "${RUNNER_TEMP}/swift-wasm-sdk-download"
           sdk="${sdks}/swift-6.3.3-RELEASE_wasm.artifactbundle/swift-6.3.3-RELEASE_wasm/wasm32-unknown-wasip1"
           test -d "${sdk}/WASI.sdk"
           echo "TAC_SWIFT_WASM_COMPILER=${toolchain}/bin/swiftc" >> "${GITHUB_ENV}"
           echo "TAC_SWIFT_WASM_SDK=${sdk}" >> "${GITHUB_ENV}"
+
+      - name: Save the download of the Swift SDK for WebAssembly for reruns
+        if: steps.swift-wasm-sdk-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: ${{ runner.temp }}/swift-wasm-sdk-download
+          key: swift-wasm-sdk-${{ runner.os }}-${{ hashFiles('scripts/ci/install-swift-wasm-sdk.mjs') }}
 
       - name: Show tool versions
         run: |
@@ -897,6 +929,13 @@ jobs:
           unzip -q "${sdk}" -d "${RUNNER_TEMP}/dart"
           echo "${RUNNER_TEMP}/dart/dart-sdk/bin" >> "${GITHUB_PATH}"
 
+      - name: Restore the cached download of the Swift SDK for WebAssembly
+        id: swift-wasm-sdk-cache
+        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: ${{ runner.temp }}/swift-wasm-sdk-download
+          key: swift-wasm-sdk-${{ runner.os }}-${{ hashFiles('scripts/ci/install-swift-wasm-sdk.mjs') }}
+
       - name: Install the pinned Swift 6.3.3 toolchain and Swift SDK for WebAssembly
         run: |
           set -euo pipefail
@@ -909,13 +948,18 @@ jobs:
           installer -pkg "${package}" -target CurrentUserHomeDirectory
           toolchain="${HOME}/Library/Developer/Toolchains/swift-6.3.3-RELEASE.xctoolchain"
           sdks="${RUNNER_TEMP}/swift-sdks"
-          "${toolchain}/usr/bin/swift" sdk install --swift-sdks-path "${sdks}" \
-            "${release}/wasm-sdk/swift-6.3.3-RELEASE/swift-6.3.3-RELEASE_wasm.artifactbundle.tar.gz" \
-            --checksum cabfa08b73bb8ac783927ecd15fa386e99d0c139c5f232445067bcf58379cae7
+          node scripts/ci/install-swift-wasm-sdk.mjs "${toolchain}/usr/bin/swift" "${sdks}" "${RUNNER_TEMP}/swift-wasm-sdk-download"
           sdk="${sdks}/swift-6.3.3-RELEASE_wasm.artifactbundle/swift-6.3.3-RELEASE_wasm/wasm32-unknown-wasip1"
           test -d "${sdk}/WASI.sdk"
           echo "TAC_SWIFT_WASM_COMPILER=${toolchain}/usr/bin/swiftc" >> "${GITHUB_ENV}"
           echo "TAC_SWIFT_WASM_SDK=${sdk}" >> "${GITHUB_ENV}"
+
+      - name: Save the download of the Swift SDK for WebAssembly for reruns
+        if: steps.swift-wasm-sdk-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: ${{ runner.temp }}/swift-wasm-sdk-download
+          key: swift-wasm-sdk-${{ runner.os }}-${{ hashFiles('scripts/ci/install-swift-wasm-sdk.mjs') }}
 
       - name: Install the checksum-pinned TeaVM 0.15 jars for Java web services
         run: |
@@ -936,10 +980,10 @@ jobs:
           JARS
           echo "TAC_TEAVM_HOME=${teavm}" >> "${GITHUB_ENV}"
 
-      # The published snippets include the Redis configuration example, so this job's `ty` needs the storage
-      # drivers that the released binary has (scripts/release/build-artifact.sh).
-      - name: Build the Phase 4 CLI with every storage driver
-        run: cargo build --locked --bin ty --features storage-all
+      # The published snippets include the Redis configuration example, so this job's `ty` needs the
+      # shipped feature set that the released binary has (scripts/release/build-artifact.sh).
+      - name: Build the Phase 4 CLI with the shipped feature set
+        run: cargo build --locked --bin ty --features shipped
 
       - name: Verify every website compiler is ready
         run: ./target/debug/ty doctor website
@@ -1435,6 +1479,7 @@ jobs:
           echo "${jdk}/bin" >> "${GITHUB_PATH}"
 
       - name: Install PHP and php-cgi for PHP Yon handlers
+        timeout-minutes: 10
         uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
         with:
           php-version: '8.4'
@@ -1518,7 +1563,7 @@ jobs:
         run: cargo cyclonedx --all --format json
 
       - name: Build a release binary with an embedded dependency list
-        run: cargo auditable build --release --locked -p tachyon-cli --bin ty --features storage-all
+        run: cargo auditable build --release --locked -p tachyon-cli --bin ty --features shipped
 
       - name: Publish the bill of materials
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -1587,7 +1632,7 @@ jobs:
     if: (github.event_name != 'pull_request' || github.head_ref == 'develop' || startsWith(github.head_ref, 'release/')) && (!inputs.jobs || contains(format(',{0},', inputs.jobs), ',coverage,'))
     name: Rust coverage ratchet
     runs-on: ${{ ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/heads/') && vars.TACHYON_SELF_HOSTED == 'true') && fromJSON('["self-hosted","tachyon","linux"]') || 'ubuntu-24.04' }}
-    timeout-minutes: 90
+    timeout-minutes: 120
 
     steps:
       - name: Check out source
@@ -1672,6 +1717,7 @@ jobs:
           echo "${GITHUB_WORKSPACE}/node_modules/.bin" >> "${GITHUB_PATH}"
 
       - name: Install PHP and php-cgi for PHP Yon handlers
+        timeout-minutes: 10
         uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
         with:
           php-version: '8.4'

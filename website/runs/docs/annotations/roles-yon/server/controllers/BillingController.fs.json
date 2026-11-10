@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "handler": "docs/annotations/roles-yon/server/controllers/BillingController.fs",
+  "inputs": {
+    "docs/annotations/roles-yon/server/controllers/BillingController.fs": "eae33ad683fbfea191dd2dece0a0cb4730daa260c34582c0103ab4822705aba4",
+    "docs/annotations/roles-yon/server/delegates/BillingDelegate.fs": "bb62c8f4f3225829dd7238d1e28adb395bac111c7b11639d81a67bb075a08772",
+    "docs/annotations/roles-yon/server/entities/BillingEntity.fs": "7d861e5e84c0f2b1279f663b1890eb0478c60c7395fe1d3dffc5380f707e1507",
+    "docs/annotations/roles-yon/server/models/Bill.fs": "15b154661789f515cf4cb72e7e4cc4d1e5fa5de73d1da401e110653c7ed428a7",
+    "docs/annotations/roles-yon/server/services/BillingService.fs": "e2272ea4ced9ed1131890c71e1da1f758e75d9819f89b60704dd235509f05eaf",
+    "docs/annotations/roles-yon/server/setups/BillingSetup.fs": "ca6787ac6340d399e68adc1416fe4857da2a807e84f2b8fe62bea6d816057396",
+    "docs/annotations/roles-yon/server/stores/BillingStore.fs": "9c661a9e0c76c86889b129723abcd3096dae049867522d81ec9f9d6724d4e679"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/billing",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"total\":42}"
+      }
+    }
+  ]
+}

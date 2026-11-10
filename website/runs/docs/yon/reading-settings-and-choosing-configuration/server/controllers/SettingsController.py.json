@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "handler": "docs/yon/reading-settings-and-choosing-configuration/server/controllers/SettingsController.py",
+  "inputs": {
+    "docs/yon/reading-settings-and-choosing-configuration/example.env": "62c6f1eb70172a42e9259e4a1bb5ec889521a33cfdd8d413e7ff422f7aa287cd",
+    "docs/yon/reading-settings-and-choosing-configuration/server/application.json": "2b324937d95c941f566872695032ea424611952de9f6fe849b571fcabfac70b8",
+    "docs/yon/reading-settings-and-choosing-configuration/server/controllers/SettingsController.py": "7dca0661f7981d44bd28ad4fde26be72a7a595691bb1a1fb0eb2d39e29e748ee",
+    "docs/yon/reading-settings-and-choosing-configuration/server/models/Endpoint.py": "f7b6a52e93cb91326ea4a0d08c5273a2f8cb1faba1216b9bfb4024bc4fe2a3b1",
+    "docs/yon/reading-settings-and-choosing-configuration/server/models/Settings.py": "a244f356095ed8ebbd9345f73ef20ce7652c248149f0af155fa6605e92c0e22c",
+    "docs/yon/reading-settings-and-choosing-configuration/server/setups/CatalogSetup.py": "68b4bf70c7efda1e7987d51f1111f8be31db8a918e2e4e04dfe6f07097b86493"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/settings",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"profile\":\"development\",\"pageSize\":20}"
+      }
+    }
+  ]
+}

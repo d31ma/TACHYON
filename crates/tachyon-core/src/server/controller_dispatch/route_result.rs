@@ -1,5 +1,6 @@
 use super::RouteAnswer;
 use crate::route_types::{ModelTable, Shape};
+use crate::sorted_json::SortedJson;
 use crate::yon::plan::{ErrorResponse, Route};
 use axum::body::Body;
 use axum::http::{Response, StatusCode};
@@ -29,7 +30,7 @@ impl RouteResult {
             "method": route.method,
             "problem": problem,
         });
-        eprintln!("{event}");
+        eprintln!("{}", SortedJson::text(&event));
         let body = serde_json::json!({
             "error": "The answer does not match the declared return type.",
             "reference": request_id,

@@ -1,6 +1,7 @@
 use crate::Failure;
 use crate::events::EventModule;
 use crate::failure::{diagnostic, source_span};
+use crate::sorted_json::SortedJson;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
@@ -116,8 +117,10 @@ impl ComponentScript {
     }
 
     fn event_plan(events: &EventModule, source_path: &str) -> Result<Vec<u8>, Failure> {
-        let plan = serde_json::to_string(&serde_json::json!({"types": events.types}))
-            .map_err(|_| Self::retired_decorator_failure(source_path))?;
+        let plan = serde_json::to_string(&SortedJson::value(
+            &serde_json::json!({"types": events.types}),
+        ))
+        .map_err(|_| Self::retired_decorator_failure(source_path))?;
         Ok(format!("\nexport const __tachyon_event_plan__ = {plan};\n").into_bytes())
     }
 

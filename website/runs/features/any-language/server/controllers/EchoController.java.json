@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "handler": "features/any-language/server/controllers/EchoController.java",
+  "inputs": {
+    "features/any-language/server/controllers/EchoController.java": "764d050eb34c65351070a6870a5c2e6d45139ee09a9b67fb04edaa425f35b820",
+    "features/any-language/server/models/Message.java": "69529f76e9564b3ff55ea82c4a786f157d2f1eee8f985e6b798e2e05b1b654c4"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "POST",
+        "path": "/echo",
+        "headers": {},
+        "body": "{\"level\":4,\"name\":\"snippet\"}"
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"name\":\"snippet\",\"level\":4}"
+      }
+    }
+  ]
+}

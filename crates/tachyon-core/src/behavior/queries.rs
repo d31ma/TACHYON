@@ -1,5 +1,6 @@
 use super::{Input, Marker};
 use crate::Failure;
+use crate::sorted_json::SortedJson;
 use serde_json::{Value, json};
 use std::collections::BTreeSet;
 
@@ -58,7 +59,7 @@ fn without_setup(options: &str) -> String {
             || options.to_owned(),
             |mut object| {
                 object.remove("setup");
-                Value::Object(object).to_string()
+                SortedJson::text(&Value::Object(object))
             },
         )
 }

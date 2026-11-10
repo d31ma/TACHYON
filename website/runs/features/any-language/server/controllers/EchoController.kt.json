@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "handler": "features/any-language/server/controllers/EchoController.kt",
+  "inputs": {
+    "features/any-language/server/controllers/EchoController.kt": "7fe3c58ceb1978ecf4511e6848c1e1557d63b8c86638c1af3fb32e7c526c93ab",
+    "features/any-language/server/models/Message.kt": "3c89bdbb8ea52729bd2c79ff9f225764eb0e3e4c09955b570baf428722db2e78"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "POST",
+        "path": "/echo",
+        "headers": {},
+        "body": "{\"level\":4,\"name\":\"snippet\"}"
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"name\":\"snippet\",\"level\":4}"
+      }
+    }
+  ]
+}

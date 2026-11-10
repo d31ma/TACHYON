@@ -1,4 +1,5 @@
 use crate::routing::RouteMethod;
+use crate::sorted_json::SortedJson;
 use crate::yon::plan::Route;
 use axum::body::Body;
 use axum::http::header::{ALLOW, CONTENT_TYPE};
@@ -48,7 +49,7 @@ impl RouteAnswer {
             .status(status)
             .header(CONTENT_TYPE, Self::JSON_CONTENT_TYPE);
         Self::with_allow(builder, verbs)
-            .body(Body::from(body.to_string()))
+            .body(Body::from(SortedJson::text(body)))
             .unwrap_or_else(|_| {
                 let mut fallback = Response::new(Body::empty());
                 *fallback.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;

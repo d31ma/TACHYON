@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "handler": "docs/delegates/take-on-a-service/server/controllers/TaxController.rb",
+  "inputs": {
+    "docs/delegates/take-on-a-service/server/controllers/TaxController.rb": "bbb5e8f15da9950ebe79c376abb5100d6d455b66c7086dc7df71a2fa3544a353",
+    "docs/delegates/take-on-a-service/server/delegates/TaxDelegate.rb": "cc01be48b8a5a6ff73c6051f8a27b4233a0192b3157489c7301b363d46998c6c",
+    "docs/delegates/take-on-a-service/server/models/TaxAnswer.rb": "130e7aa5d22979d30e675093a2a3b546b26b54e891f446ef2a8da7bc210012ba",
+    "docs/delegates/take-on-a-service/server/services/TaxService.rb": "fd5cee441548c48a904082d5426a9e045d1d6ac85eb76ab2547ec3ceabed6a63"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/tax",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"rate\":4,\"total\":30,\"extra\":34}"
+      }
+    }
+  ]
+}

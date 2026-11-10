@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "handler": "docs/types-in-every-language/every-member-states-its-type/server/controllers/PriceController.py",
+  "inputs": {
+    "docs/types-in-every-language/every-member-states-its-type/server/application.json": "60e7f198d50d11da6e32265a65aa132b78ebb6e7f421313e2323a6b0304ad040",
+    "docs/types-in-every-language/every-member-states-its-type/server/controllers/PriceController.py": "9d40612250a525d942ca00a4f096285109aa65edb5215980a5fb18cf5af4851c",
+    "docs/types-in-every-language/every-member-states-its-type/server/models/Price.py": "ca44517dca26eaa64c28072373f64c31efda27378e4e1f347841c1a82bd3ff98",
+    "docs/types-in-every-language/every-member-states-its-type/server/services/PriceService.py": "5a9e63acdb1479df4ce0740494ce14c3147c2a19e7a966d12d8634fbc26fa1a6"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/price",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"amount\":60,\"currency\":\"EUR\"}"
+      }
+    }
+  ]
+}

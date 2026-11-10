@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "handler": "docs/annotations/lifecycle-and-events-yon/server/controllers/LifecycleController.java",
+  "inputs": {
+    "docs/annotations/lifecycle-and-events-yon/server/controllers/LifecycleController.java": "4ce364eb08cc66586df2924712244a49bc02bfe7343cae52bca4c28d5f633c7b",
+    "docs/annotations/lifecycle-and-events-yon/server/models/Lifecycle.java": "043009375497bd1eaf8cf365d820f4ee91851b09b83aa2fc3856f60e02c552d2",
+    "docs/annotations/lifecycle-and-events-yon/server/models/PlacedOrder.java": "50648e63f861f85e07f1eee1020912c226e8bd08a2d080b47428c9b5d9e5ef9f",
+    "docs/annotations/lifecycle-and-events-yon/server/models/SettledOrder.java": "5280c3a0c2a7ecdd44402d92d45eed7efb0254e0fedff166f769003d00ddca4f",
+    "docs/annotations/lifecycle-and-events-yon/server/services/AuditService.java": "d01265e85f634572b810983b21945c307c0a8697f558341a0cd719a54b36f62e",
+    "docs/annotations/lifecycle-and-events-yon/server/services/CheckoutService.java": "00955a8c2f167d8be99af0f1946d138a7a978ed833ff7f6ad891a31632fec6d0"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/lifecycle",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"log\":[\"paid\"],\"settled\":25}"
+      }
+    }
+  ]
+}

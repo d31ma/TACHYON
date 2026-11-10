@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "handler": "docs/yon/limited-store-and-query/server/controllers/ProductController.java",
+  "inputs": {
+    "docs/yon/limited-store-and-query/server/controllers/ProductController.java": "570c8157ca0078c6059a8ed1cae3c3f7f811292175549618fc39979b373b1a56",
+    "docs/yon/limited-store-and-query/server/entities/ProductEntity.java": "1884fa41b73856f7d2e14766f0655f3822eb2e93cff97a179a840171405e0b80",
+    "docs/yon/limited-store-and-query/server/models/ProductReport.java": "cff92b028e0da94271c10303a74f54fefddc1c7c5533b39245486763fd70f511",
+    "docs/yon/limited-store-and-query/server/setups/CatalogSetup.java": "9496b8ed42a87e610bb59b90d11c0fe848ad9b4c273dd9dd19d29331ffd295e9",
+    "docs/yon/limited-store-and-query/server/stores/ProductStore.java": "37a7e8b9afe6a33b3284e9229b341048749f1ce468cfcac66c483fb052b4c865"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/products",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"active\":[{\"id\":1,\"status\":\"active\"}],\"count\":1,\"others\":[{\"id\":2,\"status\":\"retired\"}]}"
+      }
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "handler": "docs/annotations/validation-yon/server/controllers/OrdersController.groovy",
+  "inputs": {
+    "docs/annotations/validation-yon/server/controllers/OrdersController.groovy": "c3528db26397338b15ade61e8fce2c28b571f7d2afc7600061bf1682abe76924",
+    "docs/annotations/validation-yon/server/models/OrderInput.groovy": "8e2cb3ba7c08fb4ac6b54fc503e449d1a2b34c63066777fcd957c4c77b056624",
+    "docs/annotations/validation-yon/server/services/OrderService.groovy": "d06de222551f863213ed3f7f6d58e4e51bde5ff2ffd0961c24d692ce1ea7f728"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "POST",
+        "path": "/orders",
+        "headers": {},
+        "body": "{\"name\":\"snippet\",\"sku\":\"anvil\",\"level\":4}"
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"level\":4,\"name\":\"snippet\",\"sku\":\"anvil\"}"
+      }
+    }
+  ]
+}

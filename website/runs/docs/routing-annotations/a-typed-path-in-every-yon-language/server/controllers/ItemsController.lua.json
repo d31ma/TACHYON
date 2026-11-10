@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "handler": "docs/routing-annotations/a-typed-path-in-every-yon-language/server/controllers/ItemsController.lua",
+  "inputs": {
+    "docs/routing-annotations/a-typed-path-in-every-yon-language/server/controllers/ItemsController.lua": "dbd798c29ace7153520f6f17f10e3daee48f7272d1fccc7afc4c38826693bf78",
+    "docs/routing-annotations/a-typed-path-in-every-yon-language/server/models/Item.lua": "0c07b8d631069cb6c147a4a071c69920a3798c359d48ef5193f88198a913087d"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/items/42",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"id\":42}"
+      }
+    }
+  ]
+}

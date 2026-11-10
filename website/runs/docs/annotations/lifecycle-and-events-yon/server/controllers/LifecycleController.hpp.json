@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "handler": "docs/annotations/lifecycle-and-events-yon/server/controllers/LifecycleController.hpp",
+  "inputs": {
+    "docs/annotations/lifecycle-and-events-yon/server/controllers/LifecycleController.hpp": "429b5a1b32244dc9aa618840437a28231ed8b4821da667443e9a27fef62a26d7",
+    "docs/annotations/lifecycle-and-events-yon/server/models/Lifecycle.hpp": "2fb4e926e90f9a21ea694af1c60b8ec1850e9cae6d1b3aea253022a58399171f",
+    "docs/annotations/lifecycle-and-events-yon/server/models/PlacedOrder.hpp": "048aa7d1b98e9e8a227b1fd33ae71abad4653bf7255f5321aef47eaf37764ff6",
+    "docs/annotations/lifecycle-and-events-yon/server/models/SettledOrder.hpp": "b510bcb9df88fbd809a268ffdff1b1b6dabebe5da85eab8e136423c6f996c836",
+    "docs/annotations/lifecycle-and-events-yon/server/services/AuditService.hpp": "0e5ad5d82e090603ecbb3cd9348fdc5c1db83f3267a7148bea6deea26c9376a8",
+    "docs/annotations/lifecycle-and-events-yon/server/services/CheckoutService.hpp": "f50d060cf612bc1bbdc5d7d23a4e1d61defd264a96c9db082dbbf5a45e11b37c"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/lifecycle",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"log\":[\"paid\"],\"settled\":25}"
+      }
+    }
+  ]
+}

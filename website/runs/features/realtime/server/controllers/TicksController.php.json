@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "handler": "features/realtime/server/controllers/TicksController.php",
+  "inputs": {
+    "features/realtime/server/controllers/TicksController.php": "f573844c5d6473b17e83a451b1cf154bef0f637803de318da990ae76268f5083",
+    "features/realtime/server/models/Tick.php": "ef24f7496d2bd268cb07c877e22773e8999efaa75d6ada5fb7fd702ebf748f68"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/ticks",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "text/event-stream; charset=utf-8",
+        "body": "data: {\"sku\":\"ANVIL-1\",\"level\":3}\n\ndata: {\"sku\":\"ANVIL-2\",\"level\":1}\n\nevent: end\ndata: {}\n\n"
+      }
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "handler": "docs/yon/annotated-controllers-and-providers/server/controllers/ProductsController.rb",
+  "inputs": {
+    "docs/yon/annotated-controllers-and-providers/server/controllers/ProductsController.rb": "6386f4ba51d4052aa8e6149a26f5a3ca388321c7d43500e97f0f47eb6fba62fd",
+    "docs/yon/annotated-controllers-and-providers/server/models/Product.rb": "9ea00c9e4aa487d29d6b909fdf1c03b16f34c0c16d5dfe8ac250917d3e5674fe",
+    "docs/yon/annotated-controllers-and-providers/server/services/ProductsService.rb": "6b508aefc4364fcd682f1a1c122db9bccb0e496b1665b26485082f43b77d16d6"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/products",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "[{\"id\":1,\"name\":\"Anvil\"}]"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "path": "/products/42",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"id\":42,\"name\":\"Anvil\"}"
+      }
+    }
+  ]
+}

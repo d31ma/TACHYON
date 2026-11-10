@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "handler": "docs/annotations/caching-yon/server/controllers/CatalogController.rs",
+  "inputs": {
+    "docs/annotations/caching-yon/server/controllers/CatalogController.rs": "625d2e76059b1db1dd62aa36a4117f93e67ee1a7933c2527e360a2b8c1c0568d",
+    "docs/annotations/caching-yon/server/delegates/MemoryCacheDelegate.rs": "fe3212147a1e927ec29a503ce5623a72abe91daf1a6f208fb4f9e84761e3addb",
+    "docs/annotations/caching-yon/server/models/CacheReport.rs": "450c8189d020381fefc7021b444b7f91d4b694fc2c30d421e4d0d962461f36fa",
+    "docs/annotations/caching-yon/server/services/CatalogService.rs": "0fe29834913d11f7f86d983ac6b2edcee2adf8dc3e3c208c4afaa800b00db5e7",
+    "docs/annotations/caching-yon/server/setups/CatalogSetup.rs": "66c4a9f75ea1c9c2888323e7d17dc05464bff208526efa7248c30bd4ae5ea6a5"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/catalog",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"first\":{\"reads\":1,\"sku\":\"anvil\"},\"repeat\":{\"reads\":1,\"sku\":\"anvil\"},\"written\":{\"reads\":99,\"sku\":\"anvil\"},\"refreshed\":{\"reads\":2,\"sku\":\"anvil\"}}"
+      }
+    }
+  ]
+}

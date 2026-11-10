@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "handler": "docs/annotations/retries-yon/server/controllers/OrdersController.groovy",
+  "inputs": {
+    "docs/annotations/retries-yon/server/controllers/OrdersController.groovy": "72129ec7ed1e4462767158c3ca813c576aa20a24ff3b782da7ceee318b318123",
+    "docs/annotations/retries-yon/server/models/OrderReport.groovy": "32d631f5d25d91895f5ce726ffdb865c3a8e5c6f1be181de0186a2c87dea5668",
+    "docs/annotations/retries-yon/server/services/OrdersService.groovy": "e2743f39a715ae6d0f28192c8a9c19ec9f012d583b42629ac7024feaaf994e1e",
+    "docs/annotations/retries-yon/server/setups/OrdersSetup.groovy": "96da839a45ebe66aff02c97680d202455999b1ced323a6e12f5a48fc3ef9c021"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/orders",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"submitted\":{\"attempts\":3,\"id\":\"A-1\"},\"report\":{\"attempts\":3,\"id\":\"A-1\"}}"
+      }
+    }
+  ]
+}

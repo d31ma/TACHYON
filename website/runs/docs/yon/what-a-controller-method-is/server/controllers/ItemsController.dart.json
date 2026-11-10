@@ -1,0 +1,36 @@
+{
+  "schema": 1,
+  "handler": "docs/yon/what-a-controller-method-is/server/controllers/ItemsController.dart",
+  "inputs": {
+    "docs/yon/what-a-controller-method-is/server/controllers/ItemsController.dart": "e45916844717e2094ccd1ee75381c953318e538ae431294968a1eb098c0875ee",
+    "docs/yon/what-a-controller-method-is/server/models/Item.dart": "c312c7c44ef265666585510bfbe8d88a34c5310695e33961425e8366ca2b13a2",
+    "docs/yon/what-a-controller-method-is/server/models/ItemList.dart": "2a2e84d6741734dd758491ba53b5d51bcffd8bdf2c11a7067f2c9185db57780a"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/items",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"items\":[]}"
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/items",
+        "headers": {},
+        "body": "{\"name\":\"snippet\"}"
+      },
+      "response": {
+        "status": 201,
+        "contentType": "application/json",
+        "body": "{\"name\":\"snippet\"}"
+      }
+    }
+  ]
+}

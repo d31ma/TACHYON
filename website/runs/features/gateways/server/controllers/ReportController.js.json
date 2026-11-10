@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "handler": "features/gateways/server/controllers/ReportController.js",
+  "inputs": {
+    "features/gateways/server/controllers/ReportController.js": "33fa88fd56852cc410fbde3d8ea739553b0764472b27caf6eb78530f4c0c8a58",
+    "features/gateways/server/helpers/forecast.py": "88b4f91069b67a937be3a8717aaa6fcc409fa8af08dc9a5e022a050627670aca",
+    "features/gateways/server/models/Report.js": "b2c328f609b03fca12655f8697f08017d9657292873ba92db3d7e7d26293338d",
+    "features/gateways/server/remotes/ReportClient.js": "07607591411493855469882200578cb56a12ed97a4b711de52366295680d5737",
+    "features/gateways/server/services/ReportService.java": "bd00827a87f234f4b72be1fb7149a243a10fe454492dfe965d011679fbd2e049"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/report",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"summary\":{\"language\":\"java\",\"period\":\"2026-Q3\",\"total\":42},\"forecast\":{\"growth\":[1.5,1.5,1.5],\"method\":\"forecast\",\"months\":3}}"
+      }
+    }
+  ]
+}

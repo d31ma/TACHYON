@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "handler": "docs/annotations/lifecycle-and-events-yon/server/controllers/LifecycleController.lua",
+  "inputs": {
+    "docs/annotations/lifecycle-and-events-yon/server/controllers/LifecycleController.lua": "df78a4904eaa3f4927d40fcd13f045a39287f23e79ad612de50a20a4ae1f91fb",
+    "docs/annotations/lifecycle-and-events-yon/server/models/Lifecycle.lua": "aee18a46ddfe40619c493c08bd661e2d4753edc04ec97f7edad214b726c535c1",
+    "docs/annotations/lifecycle-and-events-yon/server/models/PlacedOrder.lua": "47f4f468f807a8acdabac002f835f52943e036c9be5f5ec63580039f69c5f59f",
+    "docs/annotations/lifecycle-and-events-yon/server/models/SettledOrder.lua": "7e7a64636212820dc49ac47ce6819b7201ba5fb99d6ff5068c168cf5e1bd77b1",
+    "docs/annotations/lifecycle-and-events-yon/server/services/AuditService.lua": "47a7dca4a451f7dc9b4f53c263b47106c48e197c6b284adee49e13b786c30fd0",
+    "docs/annotations/lifecycle-and-events-yon/server/services/CheckoutService.lua": "94ec1c3c865fd8cf5234fc1949d70bc7a47058b7b7a8ec8f26f468d437cf19d1"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/lifecycle",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"log\":[\"paid\"],\"settled\":25}"
+      }
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "handler": "docs/annotations/streaming-yon/server/controllers/EventsController.rb",
+  "inputs": {
+    "docs/annotations/streaming-yon/server/controllers/EventsController.rb": "b0dd8fbdbd501af70d748ae459b07a1441568bb5d63e749456d4b1fa97e70797",
+    "docs/annotations/streaming-yon/server/models/Ticket.rb": "4a7d30e38b0fd7f084937e5aecce5d819d9e6baf07ff29b006a78c9db9945e05",
+    "docs/annotations/streaming-yon/server/services/TicketService.rb": "836e033bd8b2f0aa93047626bb9791752040480553c63a44db9ab47b7b047aed"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/events",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "text/event-stream; charset=utf-8",
+        "body": "data: {\"sku\":\"anvil\",\"level\":1}\n\ndata: {\"sku\":\"anvil\",\"level\":2}\n\ndata: {\"sku\":\"anvil\",\"level\":3}\n\nevent: end\ndata: {}\n\n"
+      }
+    }
+  ]
+}

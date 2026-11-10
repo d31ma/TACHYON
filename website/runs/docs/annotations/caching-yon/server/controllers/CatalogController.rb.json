@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "handler": "docs/annotations/caching-yon/server/controllers/CatalogController.rb",
+  "inputs": {
+    "docs/annotations/caching-yon/server/controllers/CatalogController.rb": "83e47f1715f967d9e7f6ca3547a7e98d456108f97a81c8942e676165a0f20c80",
+    "docs/annotations/caching-yon/server/delegates/MemoryCacheDelegate.rb": "8a0e8800f78935a2fc752e57d79545fa26d6bd4046f62bcfb4754a1ea683f2ed",
+    "docs/annotations/caching-yon/server/models/CacheReport.rb": "52f799004e6e55de3ed23372c86b84e791c69aa5cab689a1fa3374d77c2fb93b",
+    "docs/annotations/caching-yon/server/services/CatalogService.rb": "8be5aeb0959415dfe75d604c2f5c727f27a17b0882a053209f9f54dc6e726653",
+    "docs/annotations/caching-yon/server/setups/CatalogSetup.rb": "3053326090d01ea4c4d7d91864b7a94a6d684c82577e033ea6f22c5df30afe6c"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/catalog",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"first\":{\"reads\":1,\"sku\":\"anvil\"},\"repeat\":{\"reads\":1,\"sku\":\"anvil\"},\"written\":{\"reads\":99,\"sku\":\"anvil\"},\"refreshed\":{\"reads\":2,\"sku\":\"anvil\"}}"
+      }
+    }
+  ]
+}

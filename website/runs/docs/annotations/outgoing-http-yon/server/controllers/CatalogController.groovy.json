@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "handler": "docs/annotations/outgoing-http-yon/server/controllers/CatalogController.groovy",
+  "inputs": {
+    "docs/annotations/outgoing-http-yon/server/controllers/CatalogController.groovy": "9ece2a831b7df810a010cf9f6fd47bce7d90dbe7595e4a3d996912dd15c4f24a",
+    "docs/annotations/outgoing-http-yon/server/remotes/CatalogClient.groovy": "1f1950d6a207e52c4b44173cf9ceb7e99d3834ea1a5fd17a7edcd7bfe1531358",
+    "docs/annotations/outgoing-http-yon/server/services/CatalogService.groovy": "e7222909535258648ca527d3406a598359522b8a41e3e2e8dae5ca2d085be8e6",
+    "docs/annotations/outgoing-http-yon/server/setups/CatalogSetup.groovy": "daea448a66af6dce635feb78c971c4ffdb90ca27dd8163662afb4db66d8341d0"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/catalog",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"items\":[\"anvil\"]}"
+      }
+    }
+  ]
+}

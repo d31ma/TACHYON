@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "handler": "docs/storage/topics/server/controllers/InventoryController.groovy",
+  "inputs": {
+    "docs/storage/topics/server/controllers/InventoryController.groovy": "a81a1124995e3663689537e00ef90dbbe4f49cb6caf10bf10dbce080eb909af1",
+    "docs/storage/topics/server/models/InventoryRecord.groovy": "32f59fcd02a68a28a1b312a5010805b68eb6598b5827746923b9f0435d9357c9"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "POST",
+        "path": "/inventory",
+        "headers": {},
+        "body": "{\"level\":4,\"sku\":\"anvil\"}"
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"sku\":\"anvil\",\"level\":4}"
+      }
+    }
+  ]
+}

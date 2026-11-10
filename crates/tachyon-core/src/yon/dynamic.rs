@@ -1,4 +1,5 @@
 use super::plan::{Plan, Provider, Route, Scope, SocketMethod, SocketMethods};
+use crate::sorted_json::SortedJson;
 use std::fmt::Write;
 
 pub(crate) fn lower(extension: &str, stripped: &str, plan: &Plan) -> Result<String, String> {
@@ -294,12 +295,12 @@ fn javascript_socket(
     for (index, provider) in plan.providers.iter().enumerate() {
         javascript_provider(&mut output, plan, provider, index, typed)?;
     }
-    let names = serde_json::json!({
+    let names = SortedJson::text(&serde_json::json!({
         "open": methods.open.as_ref().map(|method| &method.name),
         "message": methods.message,
         "close": methods.close.as_ref().map(|method| &method.name),
         "error": methods.error.as_ref().map(|method| &method.name),
-    });
+    }));
     let (request_type, cache_type, runtime) = if typed {
         (": any", ": unknown[]", "(globalThis as any).YonSocket")
     } else {

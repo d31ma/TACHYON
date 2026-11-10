@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "handler": "docs/annotations/data-access-yon/server/controllers/ProductController.fs",
+  "inputs": {
+    "docs/annotations/data-access-yon/server/controllers/ProductController.fs": "3d37485510e565bca1a5c8f73efd04614546ccd2f6dd81e437e488d39dbf160b",
+    "docs/annotations/data-access-yon/server/delegates/CatalogAdapterDelegate.fs": "b689c0a350389aa3daf7195c2a0f110aca636666e3eb1e9cdb1121968eb52fb1",
+    "docs/annotations/data-access-yon/server/entities/ProductEntity.fs": "d604b3bdf55aafd3f423935d6764d7cd39eb3a5c1c7d872e096e7b1406e9d73d",
+    "docs/annotations/data-access-yon/server/models/ProductReport.fs": "210f6bfde42c13c2ecaf2b901eb6e9b5fa572c25293084b8a69023ad22176f94",
+    "docs/annotations/data-access-yon/server/setups/CatalogSetup.fs": "513172d1ab3f30878413d61c19b13f93ab81abbdcaf4ff4727a403f05fa82075",
+    "docs/annotations/data-access-yon/server/stores/ProductStore.fs": "fff78e8bc0e876b166052346cce6606e113ae2aeaa6362899fa7f049220a6255"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/products",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"active\":[{\"id\":1,\"status\":\"active\"}],\"count\":1,\"others\":[{\"id\":2,\"status\":\"retired\"}],\"first\":{\"id\":1,\"status\":\"active\"}}"
+      }
+    }
+  ]
+}

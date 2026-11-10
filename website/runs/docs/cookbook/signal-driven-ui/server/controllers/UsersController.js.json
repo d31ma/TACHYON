@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "handler": "docs/cookbook/signal-driven-ui/server/controllers/UsersController.js",
+  "inputs": {
+    "docs/cookbook/signal-driven-ui/server/controllers/UsersController.js": "77348e7a95b026ea871dfab0243ba7a5df9e3fe70ebdd92f3a980a4e13a2bc4b"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "POST",
+        "path": "/users",
+        "headers": {},
+        "body": "\"snippet\""
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"name\":\"snippet\"}"
+      }
+    }
+  ]
+}

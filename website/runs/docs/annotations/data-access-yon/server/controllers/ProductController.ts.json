@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "handler": "docs/annotations/data-access-yon/server/controllers/ProductController.ts",
+  "inputs": {
+    "docs/annotations/data-access-yon/server/controllers/ProductController.ts": "f213cc2a8155564a07305839063aa11958a42a52a46831eb8ca5cad0e144705f",
+    "docs/annotations/data-access-yon/server/entities/ProductEntity.ts": "49b18199d95018eb0be902776b6ea2d256bf51924fec06154c3a4f97c3b4faf0",
+    "docs/annotations/data-access-yon/server/models/ProductReport.ts": "47b4af28e971e7598f5ac3c8c435dd2976e8987a24ef3ade3b0f6ea2485df9e8",
+    "docs/annotations/data-access-yon/server/setups/CatalogSetup.ts": "3e2ec39e590fbf4d3c9e0da072d03d07e4e3882e65eb6ea4451b0bc05742197e",
+    "docs/annotations/data-access-yon/server/stores/ProductStore.ts": "9f7f0788e8b9bf468e0dabf18c76ce2870f31a4797d3e965f6b5fac1bdd0a91c"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/products",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"active\":[{\"id\":1,\"status\":\"active\"}],\"count\":1,\"others\":[{\"id\":2,\"status\":\"retired\"}],\"first\":{\"id\":1,\"status\":\"active\"}}"
+      }
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "handler": "features/realtime/server/controllers/TicksController.lua",
+  "inputs": {
+    "features/realtime/server/controllers/TicksController.lua": "1c3b9400da9df438380dc41b6336200ad00efa9d5a6aaad3efb6dfb2504e2fed",
+    "features/realtime/server/models/Tick.lua": "ab52ca5e0ba53f21dc354609a7f2bb164f8fcffb566cc4d2a2f2478600921672"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/ticks",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "text/event-stream; charset=utf-8",
+        "body": "data: {\"sku\":\"ANVIL-1\",\"level\":3}\n\ndata: {\"sku\":\"ANVIL-1\",\"level\":2}\n\ndata: {\"sku\":\"ANVIL-1\",\"level\":1}\n\nevent: end\ndata: {}\n\n"
+      }
+    }
+  ]
+}

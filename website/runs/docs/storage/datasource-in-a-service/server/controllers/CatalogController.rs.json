@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "handler": "docs/storage/datasource-in-a-service/server/controllers/CatalogController.rs",
+  "inputs": {
+    "docs/storage/datasource-in-a-service/server/application.json": "996ea814c84a4dd3ee601a63d20efb0f183977a704c9f0d803462c7567e311c4",
+    "docs/storage/datasource-in-a-service/server/controllers/CatalogController.rs": "75297b24fabf84c256bcdec81a4e9709954af1cca31520085ab1711a1580fdbf",
+    "docs/storage/datasource-in-a-service/server/services/CatalogService.rs": "91343e367eb19a22751f7c3284907c3edc17d734f96159452eeab4b27d93a43b"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/catalog",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "[{\"amount\":42}]"
+      }
+    }
+  ]
+}

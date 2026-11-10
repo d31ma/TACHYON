@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "handler": "docs/delegates/one-question/server/controllers/CheckoutController.lua",
+  "inputs": {
+    "docs/delegates/one-question/server/controllers/CheckoutController.lua": "aa1927a1f890423885b795d3b8d779137e9acecb83bbc27de7135347fcd8c505",
+    "docs/delegates/one-question/server/delegates/TaxDelegate.lua": "8c8fdec06c934c3ebb45fee8b79b4dabbe58747b1f26ff3f4d5374aa58344282",
+    "docs/delegates/one-question/server/delegates/TaxRateDelegate.lua": "ee13c54653cbe3a605e8247f1d6007a92363eaea8e2930361750858578b89050",
+    "docs/delegates/one-question/server/models/Receipt.lua": "19302c1a0064e81ce578818946c2050798c070b1b563a631a5b656ed435db552",
+    "docs/delegates/one-question/server/services/CheckoutService.lua": "11d3323e0b0e4988198017c0a2572e2a7fb79a1057065254cfe5dc534ebbf552"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/checkout",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"total\":42}"
+      }
+    }
+  ]
+}

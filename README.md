@@ -16,9 +16,9 @@ layer. Both use the standalone `ty` executable.
 
 > [!IMPORTANT]
 > This branch contains the Rust rewrite, written from scratch. Engineering
-> phases 0 to 7 are implemented. The next version published from `develop` is
-> a release candidate. It is not a supported release and not a preview, and no
-> target is promoted. [docs/CUTOVER.md](docs/CUTOVER.md) lists the gates, and
+> phases 0 to 7 are implemented. 26.46.02 is the latest release; no target is
+> promoted to supported yet. It is not a supported release and not a preview.
+> [docs/CUTOVER.md](docs/CUTOVER.md) lists the gates, and
 > [docs/SUPPORT_TIERS.md](docs/SUPPORT_TIERS.md) records each target's tier.
 
 ## Why Tachyon
@@ -131,7 +131,7 @@ previous release this way.
 The rewrite also builds from source with stable Rust 1.97.1:
 
 ```sh
-cargo build --release --locked -p tachyon-cli --features storage-all
+cargo build --release --locked -p tachyon-cli --features shipped
 ./target/release/ty init hello --name "Hello"
 cd hello
 ../target/release/ty preview
@@ -860,7 +860,7 @@ file is the `yon` namespace, so it has no root key.
   serves repositories from a local document store instead of SQL
   ([ADR 0032](docs/adr/0032-fylo-datasource.md)). Release builds include
   every driver. A `ty` built from source has only `sqlite` and `fylo` unless
-  it is built with `--features storage-all` (or one of `storage-postgres`,
+  it is built with `--features shipped` or `storage-all` (or one of `storage-postgres`,
   `storage-mysql`, `storage-sqlserver`; Redis is `storage-redis`).
 - Restart the server to apply changes to private configuration.
 
@@ -1118,6 +1118,8 @@ cargo fmt --check
 cargo check --workspace --all-targets --all-features --locked
 cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 cargo clippy --workspace --all-targets --locked -- -D warnings
+cargo clippy --workspace --all-targets --features shipped --locked -- -D warnings
+cargo nextest run --workspace --all-targets --features shipped --locked --no-tests=fail
 cargo nextest run --workspace --all-targets --all-features --locked --no-tests=fail
 RUSTDOCFLAGS="-D warnings" cargo doc --workspace --all-features --no-deps --locked
 cargo deny check advisories bans licenses sources

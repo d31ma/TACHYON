@@ -42,6 +42,71 @@
           type="button" class="code-copy" on:click="clipboard.copy(file.name, file.code)"
           :aria-label="clipboard.label(file.name) + ' ' + file.name">{clipboard.label(file.name)}</button></pre>
         <span class="sr-only" role="status">{clipboard.copied === file.name ? clipboard.label(file.name) : ''}</span>
+        <logic :if="file.run">
+          <logic :if="file.recordedOnly === 'tests'">
+            <p class="code-run-note">This example is checked by running its test units, not by sending it requests, so it has no recorded run and the live runner does not have it.</p>
+          </logic>
+          <logic :if="file.recordedOnly !== 'tests'">
+            <div class="code-run">
+              <button type="button" class="code-run-button"
+                      :aria-expanded="snippetRun.isShown(file.run) ? 'true' : 'false'"
+                      :aria-controls="snippet.panelId() + '-run-' + file.run"
+                      on:click="snippetRun.toggle(file.run)">{snippetRun.label(file.run)}</button>
+              <span class="code-run-status" role="status">{snippetRun.status(file.run)}</span>
+            </div>
+            <div class="code-run-output" :id="snippet.panelId() + '-run-' + file.run"
+                 :hidden="!snippetRun.isShown(file.run)">
+              <p class="code-run-note">Recorded when this example was last verified.</p>
+              <loop :for="exchange of snippetRun.exchanges(file.run)">
+                <p class="demo-code-label">
+                  <span class="demo-code-name">{exchange.request.method} {exchange.request.path}</span>
+                </p>
+                <logic :if="snippetRun.requestText(exchange)">
+                  <pre class="code-block" tabindex="0"><code>{snippetRun.requestText(exchange)}</code></pre>
+                </logic>
+                <p class="demo-code-label">
+                  <span class="demo-code-name">{exchange.response.status}</span>
+                  <span class="demo-code-language">{exchange.response.contentType}</span>
+                </p>
+                <pre class="code-block" tabindex="0"><code>{snippetRun.responseText(exchange)}</code></pre>
+              </loop>
+              <logic :if="!file.recordedOnly">
+                <div class="code-run-live">
+                  <p class="demo-code-label">
+                    <span class="demo-code-name">Try it on the live runner</span>
+                  </p>
+                  <label class="code-run-field">
+                    <span class="code-run-field-name">{snippetRun.draftMethod(file.run)} path</span>
+                    <input type="text" class="code-run-input" :value="snippetRun.draftPath(file.run)"
+                           on:input="snippetRun.editPath(file.run, $event.target.value)"
+                           autocomplete="off" spellcheck="false">
+                  </label>
+                  <logic :if="snippetRun.takesBody(file.run)">
+                    <label class="code-run-field">
+                      <span class="code-run-field-name">Body</span>
+                      <textarea class="code-run-input" rows="4" spellcheck="false" :value="snippetRun.draftBody(file.run)"
+                                on:input="snippetRun.editBody(file.run, $event.target.value)"></textarea>
+                    </label>
+                  </logic>
+                  <div class="code-run-actions">
+                    <button type="button" class="code-run-button" on:click="snippetRun.runLive(file.run)">Run live</button>
+                    <span class="code-run-status" role="status">{snippetRun.liveMessage(file.run)}</span>
+                  </div>
+                  <logic :if="snippetRun.hasLiveAnswer(file.run)">
+                    <p class="demo-code-label">
+                      <span class="demo-code-name">{snippetRun.liveStatus(file.run)}</span>
+                      <span class="demo-code-language">{snippetRun.liveContentType(file.run)}</span>
+                    </p>
+                    <pre class="code-block" tabindex="0"><code>{snippetRun.liveBody(file.run)}</code></pre>
+                  </logic>
+                </div>
+              </logic>
+              <logic :if="file.recordedOnly === 'fylo'">
+                <p class="code-run-note">This example needs FYLO storage, which the live runner does not have, so only its recorded run is shown.</p>
+              </logic>
+            </div>
+          </logic>
+        </logic>
       </div>
     </loop>
   </div>

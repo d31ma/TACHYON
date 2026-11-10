@@ -1,6 +1,6 @@
 {
   "name": "tachyon-website",
-  "version": "26.46.01",
+  "version": "26.46.02",
   "private": true,
   "type": "module",
   "scripts": {

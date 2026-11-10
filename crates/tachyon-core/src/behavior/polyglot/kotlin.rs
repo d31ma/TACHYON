@@ -1,6 +1,7 @@
 use super::super::mapper::Plan;
 use super::super::testing::Unit;
 use super::{Edit, Method, Module, Type, block, concrete_edit, declared_fields, render};
+use crate::sorted_json::SortedJson;
 use kotlin_async_client::KotlinAsyncClient;
 use serde_json::Value;
 use std::fmt::Write as _;
@@ -212,7 +213,7 @@ fn value_bindings(type_declaration: &Type) -> Result<String, String> {
         return Ok(String::new());
     };
     let mut descriptors = Vec::new();
-    for (field, descriptor) in policy {
+    for (field, descriptor) in SortedJson::entries(policy) {
         descriptors.push(property_descriptor(field, descriptor, "path")?);
     }
     Ok(format!(
@@ -230,8 +231,8 @@ fn properties_case(type_declaration: &Type) -> Result<String, String> {
         .get("fields")
         .and_then(Value::as_object)
         .ok_or("Properties fields missing")?;
-    let descriptors = fields
-        .iter()
+    let descriptors = SortedJson::entries(fields)
+        .into_iter()
         .map(|(name, field)| property_descriptor(name, field, "name"))
         .collect::<Result<Vec<_>, _>>()?;
     let mut line = String::new();
@@ -312,7 +313,7 @@ fn validation_policy(type_declaration: &Type) -> Result<String, String> {
         .and_then(Value::as_object)
         .ok_or("Checked fields missing")?;
     let mut rules = Vec::new();
-    for (name, rule) in fields {
+    for (name, rule) in SortedJson::entries(fields) {
         rules.push(validation_rule(name, rule)?);
     }
     Ok(format!(
@@ -1002,7 +1003,7 @@ fn argument_pair_list(exchange: &Value, key: &str) -> String {
         return String::new();
     };
     let mut pairs = Vec::new();
-    for (name, index) in entries {
+    for (name, index) in SortedJson::entries(entries) {
         pairs.push(format!(
             "Pair({}, {})",
             quote(name),

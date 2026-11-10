@@ -1,0 +1,55 @@
+{
+  "schema": 1,
+  "handler": "docs/yon/who-may-call-a-route-in-every-yon-language/server/controllers/OrdersController.js",
+  "inputs": {
+    "docs/yon/who-may-call-a-route-in-every-yon-language/server/controllers/AppIdentityProvider.js": "844f06fd6f2ec264cff8c82fb595dac3ae3d8243d8b0e08f738bb36b6d782428",
+    "docs/yon/who-may-call-a-route-in-every-yon-language/server/controllers/OrdersController.js": "063dbcb420ad1ee31a2799dd2cafa46d3c06c9cd42cd5db1752e6574e8580f57",
+    "docs/yon/who-may-call-a-route-in-every-yon-language/server/roles/Admin.js": "0eff73e6a67afda958ad4f5f6dc40b453b1aa26d17625b03e25d1da4ddbf97ea"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/orders",
+        "headers": {
+          "authorization": "ada-token"
+        }
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "[\"lamp\",\"desk\"]"
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/orders",
+        "headers": {
+          "authorization": "ada-token"
+        },
+        "body": "{\"name\":\"snippet\",\"sku\":\"anvil\",\"level\":4}"
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "[\"chair\"]"
+      }
+    },
+    {
+      "request": {
+        "method": "DELETE",
+        "path": "/orders",
+        "headers": {
+          "authorization": "ada-token"
+        },
+        "body": "{\"name\":\"snippet\",\"sku\":\"anvil\",\"level\":4}"
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "[]"
+      }
+    }
+  ]
+}

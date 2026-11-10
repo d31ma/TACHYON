@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "handler": "docs/yon/limited-store-and-query/server/controllers/ProductController.dart",
+  "inputs": {
+    "docs/yon/limited-store-and-query/server/controllers/ProductController.dart": "19c2439c70e72f392ba6c2f83bb745c33d3f87d2c513616daa615bbef7df344d",
+    "docs/yon/limited-store-and-query/server/entities/ProductEntity.dart": "829361ff70477bf18d7a1c704106cfd1211361906f8df5cb7809008afd0486f1",
+    "docs/yon/limited-store-and-query/server/models/ProductReport.dart": "f946a47c4f26292bb95173285846bed260fc38ceffc88ecf9df9ab4809eadab1",
+    "docs/yon/limited-store-and-query/server/setups/CatalogSetup.dart": "1f8dc41cab74092c9ba077468210a240444060af56e722375318a41d0d240646",
+    "docs/yon/limited-store-and-query/server/stores/ProductStore.dart": "db7d10221af00d1779f218b5944dcb5e3a3588cfc809315dddce6fb7548b8139"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/products",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"active\":[{\"id\":1,\"status\":\"active\"}],\"count\":1,\"others\":[{\"id\":2,\"status\":\"retired\"}]}"
+      }
+    }
+  ]
+}

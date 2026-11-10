@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "handler": "languages/yon/typescript/server/controllers/OrdersController.ts",
+  "inputs": {
+    "languages/yon/typescript/server/controllers/OrdersController.ts": "09150f0b1c5642cdc8966b9961d27743c1fb5fbf283fc7413772c6a6af0a64cb",
+    "languages/yon/typescript/server/models/Order.ts": "ce73c1df76816d6414894e016dd7af4d874616e51582a1c434e783e5b16d2195",
+    "languages/yon/typescript/server/models/OrderList.ts": "7cd68b57d6f561043f810d9ebf3c769939fb63a9d1a9f1bbf1e662ef38597ec4",
+    "languages/yon/typescript/server/services/OrderService.ts": "d8d77e7913b68d1cacca960f62dfc8641f64e6b2ac0180ee66b7e622f176a245"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/orders",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"orders\":[{\"sku\":\"anvil\",\"level\":4}]}"
+      }
+    }
+  ]
+}

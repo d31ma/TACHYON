@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "handler": "features/any-language/server/controllers/EchoController.fs",
+  "inputs": {
+    "features/any-language/server/controllers/EchoController.fs": "9b11821a56f2bfd8e2596fda36ef079fc15bf858667a48e3d058c96f14ecaddc",
+    "features/any-language/server/models/Message.fs": "6747838e2da4ca6b67556810152a18e7457f2434e1ecca616fe75a1d3fc6a7a7"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "POST",
+        "path": "/echo",
+        "headers": {},
+        "body": "{\"level\":4,\"name\":\"snippet\"}"
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"name\":\"snippet\",\"level\":4}"
+      }
+    }
+  ]
+}

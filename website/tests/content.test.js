@@ -79,6 +79,51 @@ describe('site data is generated from website/content', () => {
   })
 })
 
+class RunFiles {
+  static fyloSettings = { name: 'server/application.json', code: '{"datasource":{"driver":"fylo","url":"fylo:///data"}}' }
+  static sqliteSettings = { name: 'server/application.json', code: '{"datasource":{"driver":"sqlite","url":"sqlite://data.db"}}' }
+  static controller = { name: 'server/controllers/EventsController.py', code: 'class EventsController: pass', run: '0123456789abcdef' }
+  static service = { name: 'server/services/EventService.py', code: 'class EventService: pass' }
+  static testUnit = { name: 'server/tests/EventServiceTest.py', code: '@Test(EventTestSetup)\nclass EventServiceTest: pass' }
+}
+
+describe('examples the live runner does not have show no live run', () => {
+  test('every runnable file of an example whose settings use FYLO is recorded only, because it needs FYLO', () => {
+    const example = SiteContent.withRecordedOnlyRuns({ files: [RunFiles.fyloSettings, RunFiles.controller, RunFiles.service] })
+    expect(example.files).toEqual([RunFiles.fyloSettings, { ...RunFiles.controller, recordedOnly: 'fylo' }, RunFiles.service])
+  })
+
+  test('every runnable file of an example with a test unit is recorded only, because its test units check it', () => {
+    const example = SiteContent.withRecordedOnlyRuns({ files: [RunFiles.controller, RunFiles.service, RunFiles.testUnit] })
+    expect(example.files).toEqual([{ ...RunFiles.controller, recordedOnly: 'tests' }, RunFiles.service, RunFiles.testUnit])
+  })
+
+  test('the generated site data marks the 13 FYLO runs and the 4 test-unit runs', () => {
+    /** @type {Record<string, number>} */
+    const counts = { fylo: 0, tests: 0 }
+    JSON.stringify(SiteContent.data('docs.json'), (key, value) => {
+      if (key === 'recordedOnly') counts[value] += 1
+      return value
+    })
+    expect(counts).toEqual({ fylo: 13, tests: 4 })
+  })
+
+  test('an example with other settings keeps its live runs', () => {
+    const example = { files: [RunFiles.sqliteSettings, RunFiles.controller] }
+    expect(SiteContent.withRecordedOnlyRuns(example)).toBe(example)
+  })
+
+  test('a settings file whose code is not text is not read', () => {
+    const example = { files: [{ name: 'server/application.json', code: { file: 'application.json' } }, RunFiles.controller] }
+    expect(SiteContent.withRecordedOnlyRuns(example)).toBe(example)
+  })
+
+  test('a value without a file list is left as it is', () => {
+    const value = { title: 'Server data' }
+    expect(SiteContent.withRecordedOnlyRuns(value)).toBe(value)
+  })
+})
+
 describe('the docs guide reads in order', () => {
   test('the reading order is the groups, in order, and every topic is in one group', () => {
     /** @type {{ order: string[], groups: { topics: string[] }[], topics: Record<string, { before?: string[] }>, redirects?: Record<string, string> }} */

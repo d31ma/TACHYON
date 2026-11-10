@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "handler": "features/realtime/server/controllers/TicksController.rb",
+  "inputs": {
+    "features/realtime/server/controllers/TicksController.rb": "873fa3ca1130a8b3714f23d665c19b69fc533cb01f0a669a3fc3ed14d4f8c7fa",
+    "features/realtime/server/models/Tick.rb": "d19f63f3b8b555bc8aef095c51da3b0ff9262fe67b1a1c65e4b7015870db69d7"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/ticks",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "text/event-stream; charset=utf-8",
+        "body": "data: {\"sku\":\"ANVIL-1\",\"level\":3}\n\ndata: {\"sku\":\"ANVIL-1\",\"level\":2}\n\ndata: {\"sku\":\"ANVIL-1\",\"level\":1}\n\nevent: end\ndata: {}\n\n"
+      }
+    }
+  ]
+}

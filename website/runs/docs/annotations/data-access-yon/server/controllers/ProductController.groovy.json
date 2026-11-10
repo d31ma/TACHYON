@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "handler": "docs/annotations/data-access-yon/server/controllers/ProductController.groovy",
+  "inputs": {
+    "docs/annotations/data-access-yon/server/controllers/ProductController.groovy": "9e1815de1f770625d9b9874ca31dc124da69125df3c25d9f231fa2b18eb05d58",
+    "docs/annotations/data-access-yon/server/entities/ProductEntity.groovy": "6289a4c0300ad9d0ae91c97af4e0cbea65b9007a8562e13380e3eb4c0199fcca",
+    "docs/annotations/data-access-yon/server/models/ProductReport.groovy": "9e10933d6c635a809ce98a38464a154ef8b0e5678425205854b356fcac9a1502",
+    "docs/annotations/data-access-yon/server/setups/CatalogSetup.groovy": "fd309727373ad8563c5925eef2bdaf8db2e0bc09f6084703e5676db0fade7ac5",
+    "docs/annotations/data-access-yon/server/stores/ProductStore.groovy": "df63b49de7532f9dee14e20b21772ed01dad37c6e39a72ea65426f2efcbfe707"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/products",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"active\":[{\"id\":1,\"status\":\"active\"}],\"count\":1,\"others\":[{\"id\":2,\"status\":\"retired\"}],\"first\":{\"id\":1,\"status\":\"active\"}}"
+      }
+    }
+  ]
+}

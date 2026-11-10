@@ -1,4 +1,5 @@
 use super::{AppFeature, AppName, BaseFiles, Choice, PageFile, ProjectChoices, TacLanguage};
+use crate::sorted_json::SortedJson;
 use crate::tac_python::RuntimeAssets;
 use std::collections::BTreeMap;
 
@@ -173,7 +174,10 @@ impl ClientFiles {
 
     fn manifest(javascript_name: &str, languages: &[TacLanguage]) -> String {
         let python = if languages.contains(&TacLanguage::Python) {
-            format!(",\n    \"python\": {}", Self::python_runtime())
+            format!(
+                ",\n    \"python\": {}",
+                SortedJson::text(&Self::python_runtime())
+            )
         } else {
             String::new()
         };

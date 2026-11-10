@@ -1,0 +1,36 @@
+{
+  "schema": 1,
+  "handler": "docs/yon/what-a-controller-method-is/server/controllers/ItemsController.lua",
+  "inputs": {
+    "docs/yon/what-a-controller-method-is/server/controllers/ItemsController.lua": "804d6f29f92be5be33255318ef1cbb6b2917084ee2b1f31f35edfe08fa75a6c0",
+    "docs/yon/what-a-controller-method-is/server/models/Item.lua": "c2547f5a72a8f350156c3c394dc50d1e304f0ee6beff625d1e85eb5640a69b66",
+    "docs/yon/what-a-controller-method-is/server/models/ItemList.lua": "11a2ae5ab11539e1e7d50e46c442d806234b12eaef4f75d2f7037744881609fb"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/items",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"items\":[]}"
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/items",
+        "headers": {},
+        "body": "{\"name\":\"snippet\"}"
+      },
+      "response": {
+        "status": 201,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"name\":\"snippet\"}"
+      }
+    }
+  ]
+}

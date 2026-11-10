@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "handler": "docs/yon/annotated-controllers-and-providers/server/controllers/ProductsController.cs",
+  "inputs": {
+    "docs/yon/annotated-controllers-and-providers/server/controllers/ProductsController.cs": "1f6fd457622b8c82cbbd64a564b594a6c53dcb73cf634f7738cb00df48e8e949",
+    "docs/yon/annotated-controllers-and-providers/server/models/Product.cs": "681fa26a5991e3c451bf69fd36715ac2cecb8e46c23c97ef12788cb3b0c421dd",
+    "docs/yon/annotated-controllers-and-providers/server/services/ProductsService.cs": "180829f1ed258c97a051c126a778a07300309ddb218f915ef5affef128cdc184"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/products",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "[{\"id\":1,\"name\":\"Anvil\"}]"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "path": "/products/42",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"id\":42,\"name\":\"Anvil\"}"
+      }
+    }
+  ]
+}

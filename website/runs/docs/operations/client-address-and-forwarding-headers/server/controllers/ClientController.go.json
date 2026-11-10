@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "handler": "docs/operations/client-address-and-forwarding-headers/server/controllers/ClientController.go",
+  "inputs": {
+    "docs/operations/client-address-and-forwarding-headers/server/application.json": "ae8f2ccd62919dfb1ab0a39bdd32d71fbd4d7e3dd02105c0edc4ed6d7d6bbfe9",
+    "docs/operations/client-address-and-forwarding-headers/server/controllers/ClientController.go": "43f946a1be57261e6a80390653aa0a25783c21c9ac52af4d35fc91c94e56fc69"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/api/client",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"address\":\"127.0.0.1\",\"chain\":\"127.0.0.1\",\"peer\":\"127.0.0.1:0\"}"
+      }
+    }
+  ]
+}

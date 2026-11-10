@@ -3,6 +3,7 @@ use super::go_test_construction::GoTestConstruction;
 use super::go_typed_exchange::GoTypedExchange;
 use super::{Edit, Method, Module, Type, render};
 use crate::go_source::GoFile;
+use crate::sorted_json::SortedJson;
 use serde_json::Value;
 use std::fmt::Write as _;
 
@@ -177,7 +178,7 @@ fn property_fields(
     name_key: &str,
 ) -> Result<String, String> {
     let mut rendered = Vec::new();
-    for (field, descriptor) in fields {
+    for (field, descriptor) in SortedJson::entries(fields) {
         rendered.push(property_field(field, descriptor, name_key)?);
     }
     Ok(rendered.join(", "))
@@ -273,7 +274,7 @@ fn validation(declaration: &Type, output: &mut String) -> Result<(), String> {
         .as_object()
         .ok_or("Missing Go validation fields")?;
     let mut rendered = Vec::new();
-    for (name, rules) in fields {
+    for (name, rules) in SortedJson::entries(fields) {
         rendered.push(validation_field(name, rules)?);
     }
     let _ = writeln!(
@@ -689,7 +690,7 @@ fn argument_names(exchange: &Value, key: &str) -> String {
         return String::new();
     };
     let mut pairs = Vec::new();
-    for (name, index) in entries {
+    for (name, index) in SortedJson::entries(entries) {
         pairs.push(format!(
             "{{Name: {}, Argument: {}}}",
             quoted(name),

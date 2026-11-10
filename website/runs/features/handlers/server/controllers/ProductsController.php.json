@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "handler": "features/handlers/server/controllers/ProductsController.php",
+  "inputs": {
+    "features/handlers/server/controllers/ProductsController.php": "a46657c2f614a24b0153f01d75125d258d3caed1827b72c338f736609e00af17",
+    "features/handlers/server/models/Product.php": "a9a8cb8018cc48951ba5c30eeed22fba5736146294dd234bf984dc162661581c"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/products",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "[{\"name\":\"anvil\"}]"
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/products",
+        "headers": {},
+        "body": "{\"name\":\"snippet\"}"
+      },
+      "response": {
+        "status": 201,
+        "contentType": "application/json",
+        "body": "{\"name\":\"snippet\"}"
+      }
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "handler": "docs/annotations/gateways-yon/server/controllers/ReportController.dart",
+  "inputs": {
+    "docs/annotations/gateways-yon/server/controllers/ReportController.dart": "64caf5d1739b5b58cb9e3544e9493bf71b4f9fcdb4877a34e61632b04e369c39",
+    "docs/annotations/gateways-yon/server/helpers/forecast.py": "89498b67665c74b190c68829c6e6245c3f3666efe623643c8bcc6d2c5c5311cc",
+    "docs/annotations/gateways-yon/server/models/Report.dart": "811fd701cc29979ac2a8fe98d986e9b52383d0dc938fd930820012d80b6f4e25",
+    "docs/annotations/gateways-yon/server/remotes/ReportClient.dart": "b02083997cd2062e3d510a1a857352b4f98bebf24ac669967b3444141c302c4d",
+    "docs/annotations/gateways-yon/server/services/ReportService.py": "a6e85ea14e83023f58823a3976b51f2ca58aae74f9cf6f3e979d9fa501ae0bda"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/report",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"summary\":{\"language\":\"python\",\"period\":\"2026-Q3\",\"total\":42},\"forecast\":{\"growth\":[1.5,1.5],\"months\":2}}"
+      }
+    }
+  ]
+}

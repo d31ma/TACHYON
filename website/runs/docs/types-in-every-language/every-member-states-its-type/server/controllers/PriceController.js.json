@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "handler": "docs/types-in-every-language/every-member-states-its-type/server/controllers/PriceController.js",
+  "inputs": {
+    "docs/types-in-every-language/every-member-states-its-type/server/application.json": "60e7f198d50d11da6e32265a65aa132b78ebb6e7f421313e2323a6b0304ad040",
+    "docs/types-in-every-language/every-member-states-its-type/server/controllers/PriceController.js": "8d9c8129acd301da15e218b9b2fa9a1cb4613185822c08163cd1de3863c69fca",
+    "docs/types-in-every-language/every-member-states-its-type/server/models/Price.js": "b10ec8281af41e1c2eb1734ae15a43275d1cb3a0877c3ad61de016116b2c955a",
+    "docs/types-in-every-language/every-member-states-its-type/server/services/PriceService.js": "b4995fa4c99697a9794687a0e16f0226bb915741f117e6dc7b59c8449d882ca8"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/price",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"amount\":60,\"currency\":\"EUR\"}"
+      }
+    }
+  ]
+}

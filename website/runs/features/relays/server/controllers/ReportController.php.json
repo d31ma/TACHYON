@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "handler": "features/relays/server/controllers/ReportController.php",
+  "inputs": {
+    "features/relays/server/controllers/ReportController.php": "978b44f35e4db9a4c5375b1f99e12ad0cbff0c484b0780a9b3faacc00f330feb",
+    "features/relays/server/relays/report.pl": "40744ecf75d032ec9dc0f4dee865c1f15d1658175a1c8ae9f978e8160a7dd85b"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/report",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"language\":\"Perl\",\"route\":\"/report\"}"
+      }
+    }
+  ]
+}

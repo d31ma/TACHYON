@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "handler": "docs/strict-annotation-layout/yon-eleven-language-implementations/server/controllers/MoneyController.groovy",
+  "inputs": {
+    "docs/strict-annotation-layout/yon-eleven-language-implementations/server/controllers/MoneyController.groovy": "75a29f4ea276c0420e531477fe182b685851ba099f94b6d99d05268570f81cbb",
+    "docs/strict-annotation-layout/yon-eleven-language-implementations/server/models/Money.groovy": "814d9c909038c6e9d4aa88cfb29a353157850b4b8c22295882c6d9db6df7e59d",
+    "docs/strict-annotation-layout/yon-eleven-language-implementations/server/services/MoneyService.groovy": "938c38bd9a4fb02b0976a0cb09188dc883bf7a26a54356ce5e6d7db62a09dc55"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/money",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"amount\":42}"
+      }
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "handler": "docs/application-configuration/access-from-every-yon-language/server/controllers/ConfigurationController.py",
+  "inputs": {
+    "docs/application-configuration/access-from-every-yon-language/server/application.json": "9595f0144805a443ce2bbefc311ac77a753577f831f0910e22ca026f569ad2a4",
+    "docs/application-configuration/access-from-every-yon-language/server/controllers/ConfigurationController.py": "bb7d177a030454249e9d4ad0e3d8fd4feddb2ae91fa37f1e05fcbc0c2769d497",
+    "docs/application-configuration/access-from-every-yon-language/server/models/CatalogSettings.py": "a870623faa19895d4b0236cb7a5de356847124b815a3c9d214d3b2667abfe1e6",
+    "docs/application-configuration/access-from-every-yon-language/server/models/Configuration.py": "07549590f35b0462c35738ee6be67ec6cb308152bb170bacbb28dd6e7aabceb4",
+    "docs/application-configuration/access-from-every-yon-language/server/models/Endpoint.py": "61e7d77050127195ea902859f3dba3e8efe2e84d0965c658a0bb11c97ce50c50"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/configuration",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"pageSize\":20,\"port\":0}"
+      }
+    }
+  ]
+}

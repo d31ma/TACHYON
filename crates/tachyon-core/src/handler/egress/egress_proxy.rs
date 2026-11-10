@@ -2,6 +2,7 @@ use super::EgressTunnel;
 use crate::Failure;
 use crate::failure::diagnostic;
 use crate::safety::DeclaredHosts;
+use crate::sorted_json::SortedJson;
 use std::collections::HashSet;
 use std::io::ErrorKind;
 use std::net::SocketAddr;
@@ -108,10 +109,10 @@ impl EgressProxy {
     fn report_accept_failure(error: &std::io::Error) {
         eprintln!(
             "{}",
-            serde_json::json!({
+            SortedJson::text(&serde_json::json!({
                 "event": "handler.egress_accept_failed",
                 "reason": error.kind().to_string(),
-            })
+            }))
         );
     }
 

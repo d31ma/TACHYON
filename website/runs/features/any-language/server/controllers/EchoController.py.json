@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "handler": "features/any-language/server/controllers/EchoController.py",
+  "inputs": {
+    "features/any-language/server/controllers/EchoController.py": "73e92cce51b04b2f6fff3a86b6e19c0e8eac2f9ae935adb0e5527a57ca826815",
+    "features/any-language/server/models/Message.py": "ebe9f90ea52c910485ac684a8e9ddf95511d303c3e463eb59d1488f9bcddc5ec"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "POST",
+        "path": "/echo",
+        "headers": {},
+        "body": "{\"level\":4,\"name\":\"snippet\"}"
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"name\":\"snippet\",\"level\":4}"
+      }
+    }
+  ]
+}

@@ -2,6 +2,7 @@ use super::super::mapper::Plan;
 use super::super::testing::Unit;
 use super::java_test_construction::JavaTestConstruction;
 use super::{Edit, Method, Module, Type, block, concrete_edit, declared_fields, render};
+use crate::sorted_json::SortedJson;
 pub(crate) use java_page_runtime::JavaPageRuntime;
 pub(crate) use java_runtime_sections::JavaRuntimeSections;
 use java_typed_client::JavaTypedClient;
@@ -185,7 +186,7 @@ fn value_bindings(type_declaration: &Type) -> Result<String, String> {
         return Ok(String::new());
     };
     let mut descriptors = Vec::new();
-    for (field, descriptor) in policy {
+    for (field, descriptor) in SortedJson::entries(policy) {
         descriptors.push(property_descriptor(field, descriptor, "path")?);
     }
     Ok(format!(
@@ -203,8 +204,8 @@ fn properties_case(type_declaration: &Type) -> Result<String, String> {
         .get("fields")
         .and_then(Value::as_object)
         .ok_or("Properties fields missing")?;
-    let descriptors = fields
-        .iter()
+    let descriptors = SortedJson::entries(fields)
+        .into_iter()
         .map(|(name, field)| property_descriptor(name, field, "name"))
         .collect::<Result<Vec<_>, _>>()?;
     Ok(format!(
@@ -279,7 +280,7 @@ fn validation_policy(type_declaration: &Type) -> Result<String, String> {
         .and_then(Value::as_object)
         .ok_or("Checked fields missing")?;
     let mut rules = Vec::new();
-    for (name, rule) in fields {
+    for (name, rule) in SortedJson::entries(fields) {
         rules.push(validation_rule(name, rule)?);
     }
     Ok(format!(
@@ -628,7 +629,7 @@ fn argument_pair_list(exchange: &Value, key: &str) -> String {
         return String::new();
     };
     let mut pairs = Vec::new();
-    for (name, index) in entries {
+    for (name, index) in SortedJson::entries(entries) {
         pairs.push(format!(
             "new Object[]{{{}, {}}}",
             quote(name),
@@ -1092,11 +1093,11 @@ fn property_entries(unit: &Unit) -> String {
         return String::new();
     };
     let mut pairs = Vec::new();
-    for (key, value) in entries {
+    for (key, value) in SortedJson::entries(entries) {
         let name = key.replace('.', "_").to_uppercase();
         let text = value
             .as_str()
-            .map_or_else(|| value.to_string(), str::to_owned);
+            .map_or_else(|| SortedJson::text(value), str::to_owned);
         pairs.push(format!(
             "java.util.Map.entry({}, {})",
             quote(&name),

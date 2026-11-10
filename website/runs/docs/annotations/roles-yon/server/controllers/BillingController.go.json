@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "handler": "docs/annotations/roles-yon/server/controllers/BillingController.go",
+  "inputs": {
+    "docs/annotations/roles-yon/server/controllers/BillingController.go": "aeacfaa577c46aab4a6092a2f9afed463dbe6df4485e977397ccc88300ae0236",
+    "docs/annotations/roles-yon/server/delegates/BillingDelegate.go": "6c80d65c9e60c5f5209c427c669029d069335a41543ea105e30130f5bfae596c",
+    "docs/annotations/roles-yon/server/entities/BillingEntity.go": "c2746e0051de92098c7c61c3e85f42ed5d92d378cfbe0000bc72bff5460cf891",
+    "docs/annotations/roles-yon/server/models/Bill.go": "3d2bfc9a203fef52cd66705ef9ce8d99770ecfee0487445a47fa0ce8b8f3c86b",
+    "docs/annotations/roles-yon/server/remotes/BillingClient.go": "8079472d7eff67987706119dbf51c66e9510091f4537f4f0f5bf9b7309cc89a8",
+    "docs/annotations/roles-yon/server/services/BillingService.go": "56babd9223ade0e7a51660eb227fc6624dc730f5aeff0bd68b02f9c18db0616e",
+    "docs/annotations/roles-yon/server/setups/BillingSetup.go": "508b7e17d3eca7537392597536dc8cd113d5395519a61fe4f244002b53e9d097",
+    "docs/annotations/roles-yon/server/stores/BillingStore.go": "9f2df17e5faf6c7321b722732d62b39885fa12cbdb4a73d444a6c698040eb069"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/billing",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"total\":42}"
+      }
+    }
+  ]
+}

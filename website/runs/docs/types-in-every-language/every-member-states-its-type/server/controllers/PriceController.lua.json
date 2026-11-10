@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "handler": "docs/types-in-every-language/every-member-states-its-type/server/controllers/PriceController.lua",
+  "inputs": {
+    "docs/types-in-every-language/every-member-states-its-type/server/application.json": "60e7f198d50d11da6e32265a65aa132b78ebb6e7f421313e2323a6b0304ad040",
+    "docs/types-in-every-language/every-member-states-its-type/server/controllers/PriceController.lua": "cefd6ff9ec2c6748f5ea9fcbb4d65e917499459d28f863dace385f8441a0334c",
+    "docs/types-in-every-language/every-member-states-its-type/server/models/Price.lua": "def17b5dd1357bc6e2a340b83eabb58ba20c4b02afad20182ab03b8d6df88b78",
+    "docs/types-in-every-language/every-member-states-its-type/server/services/PriceService.lua": "4bcfc994b71558be55005b4b477978450aa3380162dcce83568fb21ba4c6f5fc"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/price",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"amount\":60,\"currency\":\"EUR\"}"
+      }
+    }
+  ]
+}

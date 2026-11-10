@@ -100,6 +100,48 @@ The workflow never creates or moves a tag. It never overwrites a release
 asset. If a verification fails, the draft stays non-public so that people can
 investigate.
 
+### Website
+
+The Linux x64 verification job also bundles the website with the downloaded
+binary (`cd website && bun run bundle`) and packages `website/dist/web` as a
+deterministic `tachyon-site-<version>.zip` with a `site-version.json` inside.
+This step may fail without blocking the binary release. After the release is
+public, the `site-release` job attests the zip and attaches it and its
+`.sha256` to the release. It never replaces an existing asset.
+
+The site's Run buttons show the recorded runs in `website/runs/`, and the
+bundle publishes only those. So before the release branch is cut, record the
+examples on the release commit (`TAC_SNIPPETS_RECORD=1 bun run
+verify:snippets`, with every server toolchain and Redis) and commit the
+recordings to `develop`, replacing the contents of `website/runs/`. A
+recording whose example files changed since it was recorded is left out of the
+site (see "Recorded runs" in `website/README.md`).
+
+Staging (`staging.tachyon.del.ma`) is hosted on Floci on kestrel and is reachable
+only on the tailnet and the CITADEL LAN. kestrel's pull deployer deploys the
+release's zip there, probes it, and sets the commit status `site-staging/floci`
+on the release commit, with the description
+`<version> <first 12 hex of the zip SHA-256>`.
+
+When `Stable Release` succeeds for a tag push, `site-deploy.yml` checks the zip's
+SHA-256 and waits up to 20 minutes for that status to be `success` for exactly
+this zip. It stops at once on `failure` or `error`. It then deploys the same zip
+to Amplify `production` (`tachyon.del.ma`) and probes it. If the production
+probes fail, it redeploys the version production served before and fails the
+run. To roll back or redeploy without waiting for staging, run:
+
+```sh
+gh workflow run site-deploy.yml -f version=<version> -f target=production
+```
+
+The deploy job runs in GitHub environment `site-production` (limited to `main`)
+and assumes `tachyon-site-deploy-production` through OIDC. It reads the commit
+status with its own token (`statuses: read`). The role, the Amplify app and its
+headers are defined in d31ma/PaaS (`infra/tachyon/amplify`,
+`docs/runbooks/site-deploy.md`). App id, role and probes are in
+`.github/site-deploy.json`. `scripts/site-deploy.mjs` does the packaging, the
+staging wait, the deployment and the probes; `bun run test:site-deploy` tests it.
+
 ### Dry Run
 
 Before a release PR, run the workflow's dry run on the branch you mean to

@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "handler": "docs/annotations/retries-yon/server/controllers/OrdersController.rs",
+  "inputs": {
+    "docs/annotations/retries-yon/server/controllers/OrdersController.rs": "c7b5b42974d4fe3b7ad26d81e507ac453bbdbaa920b2e3685d722f5d6be7b60e",
+    "docs/annotations/retries-yon/server/models/OrderReport.rs": "2aec59e85ff981de3e488f268b915aab8431c4e3f5890c227597b0f7be26a2f2",
+    "docs/annotations/retries-yon/server/services/OrdersService.rs": "afcb4774a317eca0f94c5f94d889ad4dc3fe5b2c841250b3432ed9449297ccec",
+    "docs/annotations/retries-yon/server/setups/OrdersSetup.rs": "eba72370acfea2d9a52d55876ce6f135aa91a360db953a1c7ba94f17ca3fad0b"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/orders",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"submitted\":{\"attempts\":3,\"id\":\"A-1\"},\"report\":{\"attempts\":3,\"id\":\"A-1\"}}"
+      }
+    }
+  ]
+}

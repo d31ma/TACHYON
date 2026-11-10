@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "handler": "docs/annotations/injection-yon/server/controllers/LedgerController.groovy",
+  "inputs": {
+    "docs/annotations/injection-yon/server/controllers/LedgerController.groovy": "d3c470de451f10742507892d157700ef93bb2391e97b1578d24ba4048a68fbc7",
+    "docs/annotations/injection-yon/server/delegates/LedgerAmountsDelegate.groovy": "ca7126bcc55805c3da8ae19f0ae3ed864377cede8776cf44df2224b0bfe01bb0",
+    "docs/annotations/injection-yon/server/delegates/LedgerDelegate.groovy": "c7175c86d3675ccf2e54084d8885e3942e47e9107fdbc254fece12bc656824de",
+    "docs/annotations/injection-yon/server/models/Ledger.groovy": "763945a7a8a91c68287dca5513a04689d110c01a87244c71c4bbe913275353a7",
+    "docs/annotations/injection-yon/server/services/LedgerService.groovy": "d600cd74a6b0e48b40eb8e7b661476a8b0991f0fed08484ec92c349433a78558"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/ledger",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"total\":42}"
+      }
+    }
+  ]
+}

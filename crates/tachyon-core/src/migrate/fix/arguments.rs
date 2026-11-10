@@ -4,6 +4,7 @@ use super::edits::TextEdit;
 use super::markers::{Marker, MarkerLine};
 use super::python_parameters::PythonParameterEdits;
 use super::scan::SourceText;
+use crate::sorted_json::SortedJson;
 use serde_json::{Map, Value};
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
@@ -171,7 +172,7 @@ impl<'a> ArgumentConversion<'a> {
         let (before, after) = reference.split_once(configuration).unwrap_or(("", ""));
         let partition = arguments
             .get("partition")
-            .map(|partition| format!(", {{\"partition\":{partition}}}"))
+            .map(|partition| format!(", {{\"partition\":{}}}", SortedJson::text(partition)))
             .unwrap_or_default();
         let tail = format!("{after}{partition}");
         let written = &self.text.source[start..end];
@@ -205,7 +206,11 @@ impl<'a> ArgumentConversion<'a> {
         };
         let mut options = arguments.clone();
         options.remove("entity");
-        let replacement = format!("{}, {}", self.reference(entity), Value::Object(options));
+        let replacement = format!(
+            "{}, {}",
+            self.reference(entity),
+            SortedJson::text(&Value::Object(options))
+        );
         Self::replace_arguments(marker, &replacement, plan);
     }
 
@@ -228,7 +233,7 @@ impl<'a> ArgumentConversion<'a> {
         };
         let mut options = arguments.clone();
         options.remove("id");
-        Self::replace_arguments(marker, &Value::Object(options).to_string(), plan);
+        Self::replace_arguments(marker, &SortedJson::text(&Value::Object(options)), plan);
         let indent = Marker::indentation(&self.text, field_line);
         let id_marker = Marker::spelled(self.extension, "Id", "");
         if self.extension == "py" {
@@ -285,7 +290,7 @@ impl<'a> ArgumentConversion<'a> {
             Some(Some(0)) => {
                 let mut options = arguments.clone();
                 options.remove("argument");
-                Self::replace_arguments(marker, &Value::Object(options).to_string(), plan);
+                Self::replace_arguments(marker, &SortedJson::text(&Value::Object(options)), plan);
             }
             Some(_) => plan.steps.push(self.step(
                 marker,
@@ -440,7 +445,7 @@ impl ArgumentConversion<'_> {
         }));
         let mut options = arguments.clone();
         options.remove("arguments");
-        Self::replace_arguments(marker, &Value::Object(options).to_string(), plan);
+        Self::replace_arguments(marker, &SortedJson::text(&Value::Object(options)), plan);
     }
 
     fn own_parameter<'p>(own_parameters: &'p [String], index: &Value) -> Option<&'p String> {
@@ -554,7 +559,7 @@ impl ArgumentConversion<'_> {
         let marker = Self::marker_text(
             extension,
             "PageDefaults",
-            &Value::Object(options).to_string(),
+            &SortedJson::text(&Value::Object(options)),
         );
         edits.markers.entry(index).or_default().push(marker);
         Some(MarkerChange::Remove)
@@ -572,7 +577,9 @@ impl ArgumentConversion<'_> {
         }
         let mut options = arguments.clone();
         options.remove("pageArgument");
-        Some(MarkerChange::Rewrite(Value::Object(options).to_string()))
+        Some(MarkerChange::Rewrite(SortedJson::text(&Value::Object(
+            options,
+        ))))
     }
 }
 
@@ -700,7 +707,7 @@ impl ArgumentConversion<'_> {
             return;
         };
         let options = Self::settings_options(arguments, fields, self.extension);
-        Self::replace_arguments(marker, &Value::Object(options).to_string(), plan);
+        Self::replace_arguments(marker, &SortedJson::text(&Value::Object(options)), plan);
         let indent = Marker::indentation(&self.text, self.text.line_start(declaration));
         plan.edits.push(TextEdit::replace(
             body.start,
@@ -785,7 +792,7 @@ impl ArgumentConversion<'_> {
 
     fn settings_fields(&self, fields: &Map<String, Value>) -> Option<Vec<String>> {
         let mut lines = Vec::new();
-        for (field, descriptor) in fields {
+        for (field, descriptor) in SortedJson::entries(fields) {
             lines.extend(self.settings_field_lines(field, descriptor)?);
         }
         Some(lines)
@@ -796,7 +803,7 @@ impl ArgumentConversion<'_> {
             .iter()
             .filter_map(|(bound, name)| {
                 let value = descriptor.get(*bound);
-                value.map(|value| Marker::spelled(self.extension, name, &value.to_string()))
+                value.map(|value| Marker::spelled(self.extension, name, &SortedJson::text(value)))
             })
             .collect();
         let declaration = self.settings_field(field, descriptor)?;
@@ -892,7 +899,7 @@ impl SettingsTypes {
             Value::Number(number) if kind == "number" && number.is_i64() => {
                 format!("{number}.0")
             }
-            _ => value.to_string(),
+            _ => SortedJson::text(value),
         }
     }
 

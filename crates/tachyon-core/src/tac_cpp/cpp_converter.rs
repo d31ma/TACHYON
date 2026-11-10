@@ -3,6 +3,7 @@ use super::{
     CppMemberKind, CppModel, CppParameter, CppTypeText,
 };
 use crate::Failure;
+use crate::sorted_json::SortedJson;
 use serde_json::{Map, Value};
 use std::collections::BTreeSet;
 use std::path::Path;
@@ -486,9 +487,12 @@ impl<'a> CppConverter<'a> {
                 })
             })
             .unwrap_or_else(|| {
-                filled
-                    .then_some(())
-                    .ok_or_else(|| format!("the constant {constant} cannot fill {held}"))
+                filled.then_some(()).ok_or_else(|| {
+                    format!(
+                        "the constant {} cannot fill {held}",
+                        SortedJson::text(constant)
+                    )
+                })
             })
     }
 
@@ -612,7 +616,7 @@ impl<'a> CppConverter<'a> {
             |constant| {
                 format!(
                     "constant<decltype(result.{field})>({})",
-                    Self::literal(&constant.to_string())
+                    Self::literal(&SortedJson::text(constant))
                 )
             },
         )
@@ -661,7 +665,7 @@ impl<'a> CppConverter<'a> {
             |constant| {
                 format!(
                     "::tachyon::json::JsonNode::parse({})",
-                    Self::literal(&constant.to_string())
+                    Self::literal(&SortedJson::text(constant))
                 )
             },
         )

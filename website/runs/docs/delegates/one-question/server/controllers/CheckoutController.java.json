@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "handler": "docs/delegates/one-question/server/controllers/CheckoutController.java",
+  "inputs": {
+    "docs/delegates/one-question/server/controllers/CheckoutController.java": "80992d61b6f079d8346c41c148d030e98f546fcba7b79fe13a6f3894898fb426",
+    "docs/delegates/one-question/server/delegates/TaxDelegate.java": "57c95858ee4625c25d573394e4c53727bf8f8cd274946348d15e93ec5e7e85b1",
+    "docs/delegates/one-question/server/delegates/TaxRateDelegate.java": "25e7bdf56d24ccf9d6406ae1929017bbfea12c76ce1a1640ddb99f5d39addad1",
+    "docs/delegates/one-question/server/models/Receipt.java": "bcd3640400c13cbc72dc9898559fe2c3ac6d540c4f521b2d0cfe077999f3fa91",
+    "docs/delegates/one-question/server/services/CheckoutService.java": "e0a08237082a919c89e6e3075ce3582aa7713d6dafbfbcc352fa2cde6067d555"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/checkout",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"total\":42}"
+      }
+    }
+  ]
+}

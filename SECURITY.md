@@ -32,8 +32,9 @@ release supported.
 
 ## Supported Versions
 
-The Rust rewrite has finished engineering phases 0–7. Version `26.35.07` is
-still a release candidate. It has no supported tier and no preview tier. The
+The Rust rewrite has finished engineering phases 0–7. 26.46.02 is the latest
+release; no target is promoted to supported yet. It has no supported tier and
+no preview tier. The
 public release notes list the supported released versions of the existing
 implementation. `docs/SUPPORT_TIERS.md` lists the evidence that a Rust target
 needs before it can move to a higher tier.

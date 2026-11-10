@@ -1,5 +1,6 @@
 use super::{Input, Marker, WrittenField, WrittenMarker, WrittenQuery};
 use crate::Failure;
+use crate::sorted_json::SortedJson;
 use serde_json::{Map, Value};
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -170,7 +171,7 @@ impl<'a> WrittenPolicies<'a> {
         Ok(properties
             .as_object()
             .into_iter()
-            .flatten()
+            .flat_map(SortedJson::entries)
             .filter_map(|(path, value)| {
                 Self::property_text(value)
                     .map(|text| (path.replace('.', "_").to_ascii_uppercase(), text))
@@ -182,7 +183,7 @@ impl<'a> WrittenPolicies<'a> {
         match value {
             Value::String(text) => Some(Value::String(text.clone())),
             Value::Null => None,
-            other => Some(Value::String(other.to_string())),
+            other => Some(Value::String(SortedJson::text(other))),
         }
     }
 

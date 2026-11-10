@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "handler": "docs/yon/relaying-to-other-languages/server/controllers/ReportController.rs",
+  "inputs": {
+    "docs/yon/relaying-to-other-languages/server/controllers/ReportController.rs": "8756b2b64637a4c9502c8e3e4aa630613ad9b84dff637754abaaa2e4f05cf493",
+    "docs/yon/relaying-to-other-languages/server/relays/report.pl": "40744ecf75d032ec9dc0f4dee865c1f15d1658175a1c8ae9f978e8160a7dd85b"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/report",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"language\":\"Perl\",\"route\":\"/report\"}"
+      }
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "handler": "docs/yon/how-return-values-become-responses/server/controllers/ProductsController.java",
+  "inputs": {
+    "docs/yon/how-return-values-become-responses/server/controllers/ProductsController.java": "13d34836a78dda49c82abfe2e90528eae44e6d55aa2cd8a1972fdb9fd83af99e"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/products",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "text/html; charset=utf-8",
+        "body": "<main><h1>Products</h1><p>{not-a-template}</p><if>literal</if></main>"
+      }
+    }
+  ]
+}

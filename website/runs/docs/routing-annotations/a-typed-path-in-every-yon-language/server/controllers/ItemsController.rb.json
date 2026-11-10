@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "handler": "docs/routing-annotations/a-typed-path-in-every-yon-language/server/controllers/ItemsController.rb",
+  "inputs": {
+    "docs/routing-annotations/a-typed-path-in-every-yon-language/server/controllers/ItemsController.rb": "368996a073ee629acab95e7931f10edba4d43d736b1e72c76793a4b095390f37",
+    "docs/routing-annotations/a-typed-path-in-every-yon-language/server/models/Item.rb": "e7b7a28664407d6894411e542d478c0601eb3205ac4aa637e2ce06739ab88949"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/items/42",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"id\":42}"
+      }
+    }
+  ]
+}

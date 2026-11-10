@@ -16,6 +16,9 @@ client/
   tests/        a test unit for every service, plus separate test-only setups
   shared/       styles, the DuVay components, scripts, and the site data in data/
 content/        every code example as a real file, with the docs text (see "Code examples")
+runs/           one sample recorded run of a Yon example (see "Recorded runs")
+server/         the Yon routes that run examples live: POST /api/snippets/{id}/runs (see "Live runs")
+runner/         the snippet host and the runner image (Bun; not part of the site bundle)
 client/manifest.json   the Tac configuration: page metadata, the shared script and stylesheet,
                        the sitemap settings and the native identity (ADR 0052)
 ```
@@ -116,6 +119,124 @@ link on a docs page opens the JSON file of that topic or feature.
 `content/` is not part of the site: `ty bundle`, `ty preview` and `ty test`
 read only `client/`, `server/` and the root configuration, and the root type
 check skips it.
+
+### Recorded runs
+
+A Yon controller example with an HTTP route has a **Run** button. The button
+shows the requests that `verify:snippets` sent to the controller and the
+answers it gave: method, path, body, status, content type and response body.
+The site does not run code: it shows what the example did when the release
+was verified. A socket controller has no Run button.
+
+Every controller tab in the generated data has `"run": "<id>"`, where `<id>`
+is the first 16 hex digits of the SHA-256 hash of the controller's path under
+`content/`. The id does not depend on any recording, so the generated data in
+git stays the same. The browser loads `/shared/data/runs/<id>.json` when the
+visitor presses Run; when that file is missing, the button says "No recorded
+output in this build". On `tachyon.del.ma` and `staging.tachyon.del.ma` the
+file comes from the API origin (see Live runs), because Tac sends every HTTP
+client call there once the page has one; the runner container serves the
+same site build, recordings included. So when the API is down, the recorded
+output does not show either. A local preview loads it from its own origin.
+
+The recordings are refreshed and committed at each release. They live in
+`runs/`, at each controller's path under `content/`:
+
+1. `TAC_SNIPPETS_RECORD=1 bun run verify:snippets` records each controller
+   that passes to `.runs/` in the staging folder (`TAC_SNIPPETS_SCRATCH`, or
+   `tachyon-snippets` in the system temporary folder), at its path under
+   `content/`. Each recording keeps a SHA-256 hash of every example file the
+   run used. The release gates run this on the release commit, with every
+   server toolchain, Redis and a `ty` built with all storage features.
+2. Before the release branch is cut, the recordings replace the contents of
+   `runs/` in a commit to `develop`
+   (`rsync -a --delete <staging folder>/.runs/ runs/`).
+3. `bun run content` publishes each recording in `runs/` whose files still
+   match their hashes to `client/shared/data/runs/<id>.json`, and lists the
+   recordings it left out. An example that changed after it was recorded
+   shows "No recorded output" until the next release records it again.
+4. `bun run bundle`, which the release workflow runs, runs step 3 and then
+   `ty bundle`, which copies them into the site.
+
+`client/shared/data/runs/` is not in git. `bun run content --runs <folder>`
+publishes the recordings in another folder instead of `runs/`, for example
+fresh ones from a local `verify:snippets`.
+
+### Live runs
+
+Under the recorded output, the Run panel has a form, filled in from the
+recording, where a visitor can change the path (with a query after `?`) and
+the body, then press **Run live**. The page sends the run to
+`POST /api/snippets/{id}/runs` on the API origin. The script
+`client/shared/scripts/YonOrigin.js`, the first of `tac.scripts`, so it runs
+after the page's meta tags, chooses it from the page's host name, so
+one build works on both sites: `tachyon.del.ma` calls
+`https://api.tachyon.del.ma`, `staging.tachyon.del.ma` calls
+`https://api.staging.tachyon.del.ma`, and any other host, such as a local
+preview, calls its own origin. `tac.yon.origin` in `client/manifest.json`
+makes the build write the `tachyon-yon-origin` meta tag with the production
+API origin; the script changes the tag for the staging host and removes it on
+any other host. Tac sends the request to that origin over CORS without
+cookies. `tac.outgoing.hosts` adds both API origins to the page's
+`connect-src`. The proxy in front of the API answers
+CORS for the site origin, for the runs and for `GET /shared/data/runs/*`,
+so `server.origins` stays empty. When nothing answers, as on a static preview, the page says so and keeps the
+recorded output.
+
+A live run goes through three parts, all in one container:
+
+1. `ty start website` serves `server/`. `SnippetRunController` is `@Public`.
+   It passes the run, and the client address that `ty` puts in `X-Real-IP`
+   (`server.proxies` trusts only loopback), to the snippet host. The address
+   reaches the host as `X-Snippet-Client`. `server/application.json` lists
+   the host as `snippets.localhost` in `outgoing.hosts`; that is the only
+   loopback name a confined handler may reach. `server.hosts` lists
+   `api.tachyon.del.ma` and `api.staging.tachyon.del.ma`.
+2. The snippet host (`runner/`, run with `bun runner/main.ts`) listens on
+   `127.0.0.1:8100` and refuses other peers. It refuses an example that was
+   not staged for this build, a path that is not one of the example's routes,
+   a body over 16 KiB or more than 16 query values. It allows 10 runs a
+   minute and 200 a day for each client address (429 with `Retry-After`),
+   runs at most 4 at once with 16 waiting (503 beyond that), and stops an
+   answer at 64 KiB and a run at 10 seconds (`outcome: "timeout"`).
+3. For each example, the host starts the example's own `ty start` on first
+   use, from a copy in a temporary folder, with a cleared environment and
+   `YON_ISOLATION=process`, so every request gets a fresh process under the
+   operating system's egress confinement. An example server that has been
+   idle for 60 seconds stops and its folder is deleted; at most 4 run at once.
+
+`TAC_SNIPPETS_STAGE_RUNNABLE=<folder> bun run verify:snippets` writes each
+controller that passes to `<folder>/<id>/project`, with `runnable.json`
+(its source, language and route templates). Examples that need FYLO are
+left out. `node scripts/stage-runner-image.mjs --out <context> --ty <Linux ty>
+--runnable <folder> --website-dist <dist/web>` gathers the image context, and
+`docker buildx build --build-arg TOOLCHAIN_IMAGE=<Linux toolchain image>
+<context>` builds `runner/Dockerfile`. The image keeps only what the Yon
+handler languages need at run time, on a plain Ubuntu base of the same
+release as the toolchain image:
+
+- From the toolchain image it copies `/opt/tachyon` without Swift (Yon has no
+  Swift handlers), .NET's WebAssembly workloads and older runtimes, Rust's
+  clippy, rustfmt and WebAssembly target, nextest and sccache. Every
+  compiler stays: `ty start` checks each one and puts its version in the
+  handler cache key, so a bundled handler still needs the compiler that
+  built it.
+- From Ubuntu it installs the JDK, `php-cgi` and Lua packages that the
+  toolchain image has, so their versions stay in step with
+  `vm-setup-linux.sh`, plus clang, g++, `perl` (the relay examples) and the
+  libraries Ruby and .NET load.
+- It adds the AWS Lambda Web Adapter, `ty`, the website and the staged
+  examples. The build bundles every example and then deletes Tachyon's
+  shared copy of each compiled handler, since each example keeps its own.
+
+The container starts `bun runner/main.ts`, which starts the snippet host and
+`ty start website` on port 8000.
+
+To try it on this machine, stage some examples, run `ty bundle .` in each
+`project` folder, build the site, and run
+`SNIPPET_HOST_PROJECTS=<folder> SNIPPET_HOST_TY=<ty> SNIPPET_HOST_WEBSITE=$PWD
+WEBSITE_PORT=8040 bun runner/main.ts`; the site and its API are then at
+`http://localhost:8040`.
 
 ## Styles
 

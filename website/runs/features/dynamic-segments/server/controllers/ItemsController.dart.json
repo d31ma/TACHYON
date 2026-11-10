@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "handler": "features/dynamic-segments/server/controllers/ItemsController.dart",
+  "inputs": {
+    "features/dynamic-segments/server/controllers/ItemsController.dart": "ed04c7a013b9f6f33c0a68efb38e7d886d7151c435e11bb94ef59574f7917aa1",
+    "features/dynamic-segments/server/models/Item.dart": "4e918c3e16def019c71e1e8b6350614955cb1affc8118c0ef36f5e52798f88ea"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/items/42",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"id\":42}"
+      }
+    }
+  ]
+}

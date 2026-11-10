@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "handler": "docs/annotations/configuration-binding-yon/server/controllers/SettingsController.lua",
+  "inputs": {
+    "docs/annotations/configuration-binding-yon/example.env": "62c6f1eb70172a42e9259e4a1bb5ec889521a33cfdd8d413e7ff422f7aa287cd",
+    "docs/annotations/configuration-binding-yon/server/application.json": "2b324937d95c941f566872695032ea424611952de9f6fe849b571fcabfac70b8",
+    "docs/annotations/configuration-binding-yon/server/controllers/SettingsController.lua": "e5636eee1a7586c9a10d2efaff1761ffc72563cc535d8c9a4a65e35b584cdcbc",
+    "docs/annotations/configuration-binding-yon/server/models/Endpoint.lua": "095257997a7039bada9e653c704664cc56bff8f629e75bf363989d2218b0d5ea",
+    "docs/annotations/configuration-binding-yon/server/models/Settings.lua": "0dffdb9794d7414b07f16de6addb80ce5da06103b63acc8230b34a397198e885",
+    "docs/annotations/configuration-binding-yon/server/setups/CatalogSetup.lua": "cd115e62f89338dd02f6e2539d710088da67c407a729e6072c9d3307d62c222d"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/settings",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"profile\":\"development\",\"pageSize\":20}"
+      }
+    }
+  ]
+}

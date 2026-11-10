@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "handler": "features/handlers/server/controllers/ProductsController.py",
+  "inputs": {
+    "features/handlers/server/controllers/ProductsController.py": "f68bc04074dc95940211be92a6b84448a869c5433c0f2a053be2a582ee453072",
+    "features/handlers/server/models/Product.py": "ec3dfc39d213c74c4d3f0feada6de1a5dca960552f9cb2a85c79accc987934e7"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/products",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "[{\"name\":\"anvil\"}]"
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/products",
+        "headers": {},
+        "body": "{\"name\":\"snippet\"}"
+      },
+      "response": {
+        "status": 201,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"name\":\"snippet\"}"
+      }
+    }
+  ]
+}

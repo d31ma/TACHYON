@@ -1,6 +1,8 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { FyloStaging } from './fylo-staging.mjs'
+import { RecordedRuns } from './recorded-runs.mjs'
 
 /** @typedef {{ source: string, output: string, escapeNonAscii: boolean, omit?: string[] }} GeneratedFile */
 
@@ -8,6 +10,9 @@ export class SiteContent {
   static website = fileURLToPath(new URL('..', import.meta.url))
   static contentFolder = path.join(SiteContent.website, 'content')
   static listFile = path.join(SiteContent.contentFolder, 'generated-files.json')
+  static TEST_UNIT_PATH = /^(server|client)\/tests\/[A-Z]\w*Test\.(js|ts|py|php|java|groovy|kt|cs|fs|rs|swift|dart|go|rb|lua|hpp)$/
+  static NEEDS_FYLO = 'fylo'
+  static CHECKED_BY_TESTS = 'tests'
 
   /** @returns {GeneratedFile[]} */
   static generatedFiles() {
@@ -16,20 +21,22 @@ export class SiteContent {
 
   /**
    * @param {string} name
+   * @param {boolean} [withSources]
    * @returns {any}
    */
-  static data(name) {
+  static data(name, withSources = false) {
     const file = SiteContent.generatedFiles().find(entry => path.basename(entry.output) === name)
     if (!file) throw new Error(`website/content/generated-files.json does not list ${name}`)
-    return SiteContent.value(file)
+    return SiteContent.value(file, withSources)
   }
 
   /**
    * @param {GeneratedFile} file
+   * @param {boolean} [withSources]
    * @returns {any}
    */
-  static value(file) {
-    const value = SiteContent.load(path.join(SiteContent.contentFolder, file.source))
+  static value(file, withSources = false) {
+    const value = SiteContent.load(path.join(SiteContent.contentFolder, file.source), SiteContent.readText, withSources)
     return SiteContent.without(value, file.omit ?? [])
   }
 
@@ -66,28 +73,120 @@ export class SiteContent {
   /**
    * @param {string} jsonFile
    * @param {(file: string) => any} [readFile]
+   * @param {boolean} [withSources]
    * @returns {any}
    */
-  static load(jsonFile, readFile = SiteContent.readText) {
+  static load(jsonFile, readFile = SiteContent.readText, withSources = false) {
     const value = JSON.parse(readFileSync(jsonFile, 'utf8'))
-    return SiteContent.resolve(value, path.dirname(jsonFile), readFile)
+    return SiteContent.resolve(value, path.dirname(jsonFile), readFile, withSources)
   }
 
   /**
    * @param {any} value
    * @param {string} folder
    * @param {(file: string) => any} [readFile]
+   * @param {boolean} [withSources]
    * @returns {any}
    */
-  static resolve(value, folder, readFile = SiteContent.readText) {
-    if (Array.isArray(value)) return value.map(item => SiteContent.resolve(item, folder, readFile))
+  static resolve(value, folder, readFile = SiteContent.readText, withSources = false) {
+    if (Array.isArray(value)) return value.map(item => SiteContent.resolve(item, folder, readFile, withSources))
     if (value === null || typeof value !== 'object') return value
-    if (SiteContent.isReference(value, 'include')) return SiteContent.load(SiteContent.inside(folder, value.include), readFile)
+    if (SiteContent.isReference(value, 'include')) return SiteContent.load(SiteContent.inside(folder, value.include), readFile, withSources)
     if (SiteContent.isReference(value, 'file')) return readFile(SiteContent.inside(folder, value.file))
     /** @type {Record<string, any>} */
     const result = {}
-    for (const [key, item] of Object.entries(value)) result[key] = SiteContent.resolve(item, folder, readFile)
-    return result
+    for (const [key, item] of Object.entries(value)) result[key] = SiteContent.resolve(item, folder, readFile, withSources)
+    return SiteContent.withRecordedOnlyRuns(SiteContent.withRunDetails(result, SiteContent.snippetSource(value, folder), withSources))
+  }
+
+  /**
+   * @param {Record<string, any>} result
+   * @returns {Record<string, any>}
+   */
+  static withRecordedOnlyRuns(result) {
+    const reason = SiteContent.recordedOnlyReason(result.files)
+    if (reason === undefined) return result
+    /** @type {Record<string, any>[]} */
+    const files = result.files
+    return { ...result, files: files.map(file => SiteContent.recordedOnly(file, reason)) }
+  }
+
+  /**
+   * @param {unknown} files
+   * @returns {string | undefined}
+   */
+  static recordedOnlyReason(files) {
+    if (!Array.isArray(files)) return undefined
+    return SiteContent.reasonFor(SiteContent.textFiles(files))
+  }
+
+  /**
+   * @param {{name: string, code: string}[]} files
+   * @returns {string | undefined}
+   */
+  static reasonFor(files) {
+    if (FyloStaging.tools(files).length > 0) return SiteContent.NEEDS_FYLO
+    if (files.some(file => SiteContent.TEST_UNIT_PATH.test(file.name))) return SiteContent.CHECKED_BY_TESTS
+    return undefined
+  }
+
+  /**
+   * @param {any[]} files
+   * @returns {{name: string, code: string}[]}
+   */
+  static textFiles(files) {
+    return files.filter(file => typeof file?.code === 'string')
+  }
+
+  /**
+   * @param {Record<string, any>} file
+   * @param {string} reason
+   * @returns {Record<string, any>}
+   */
+  static recordedOnly(file, reason) {
+    if (file.run === undefined) return file
+    return { ...file, recordedOnly: reason }
+  }
+
+  /**
+   * @param {Record<string, any>} value
+   * @param {string} folder
+   * @returns {string | undefined}
+   */
+  static snippetSource(value, folder) {
+    if (typeof value.name !== 'string' || !SiteContent.isReference(value.code ?? {}, 'file')) return undefined
+    return path.relative(SiteContent.contentFolder, SiteContent.inside(folder, value.code.file)).split(path.sep).join('/')
+  }
+
+  /**
+   * @param {Record<string, any>} result
+   * @param {string | undefined} source
+   * @param {boolean} withSources
+   * @returns {Record<string, any>}
+   */
+  static withRunDetails(result, source, withSources) {
+    if (source === undefined) return result
+    return { ...result, ...SiteContent.runField(result, source), ...SiteContent.sourceField(source, withSources) }
+  }
+
+  /**
+   * @param {Record<string, any>} file
+   * @param {string} source
+   * @returns {{ run?: string }}
+   */
+  static runField(file, source) {
+    if (!RecordedRuns.isRecordable(file.name, String(file.code))) return {}
+    return { run: RecordedRuns.idFor(source) }
+  }
+
+  /**
+   * @param {string} source
+   * @param {boolean} withSources
+   * @returns {{ source?: string }}
+   */
+  static sourceField(source, withSources) {
+    if (!withSources) return {}
+    return { source }
   }
 
   /**

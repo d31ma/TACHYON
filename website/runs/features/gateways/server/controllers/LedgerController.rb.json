@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "handler": "features/gateways/server/controllers/LedgerController.rb",
+  "inputs": {
+    "features/gateways/server/controllers/LedgerController.rb": "60500fadbb57f5dde6e254a93a6fab9f61d9e1dbe1429d75cc8d438c9ea37f78",
+    "features/gateways/server/helpers/forecast.py": "88b4f91069b67a937be3a8717aaa6fcc409fa8af08dc9a5e022a050627670aca",
+    "features/gateways/server/models/Balance.rb": "7d85163941829d2411bced64dc5ff5d5c09de0f7807fda04458c1a8a03ee377f",
+    "features/gateways/server/remotes/LedgerClient.rb": "0580583130c7f7007407b794626928f9c4a6aa0ef40b0036312a3c0c21b047bb",
+    "features/gateways/server/services/LedgerService.py": "ec2f8ca304bd172d9e1ff31bc3659c3a6b7a038cc0985298f9021c4180426ee8"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/ledger",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"balance\":{\"account\":\"ACME-7\",\"balance\":1250.5,\"language\":\"python\"},\"forecast\":{\"growth\":[1.5],\"method\":\"forecast\",\"months\":1}}"
+      }
+    }
+  ]
+}

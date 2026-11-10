@@ -3,6 +3,7 @@ use super::process::{Drained, HandlerCancellation, HandlerSupervisor, ProcessRea
 use super::source::GatewaySnapshot;
 use crate::Failure;
 use crate::behavior::{GatewayDeclaration, GatewayLimits, GatewayTarget, gateway_target_failure};
+use crate::sorted_json::SortedJson;
 use command_group::{AsyncCommandGroup, AsyncGroupChild};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
@@ -374,16 +375,16 @@ impl GatewayCalls {
             Ok(result) => json!({ "result": result }),
             Err(failure) => self.failed(failure),
         };
-        let bytes = serde_json::to_vec(&answer).unwrap_or_default();
+        let bytes = SortedJson::text(&answer).into_bytes();
         if bytes.len() <= GatewayLimits::MAX_BYTES {
             return bytes;
         }
         let failed = self.failed(GatewayFailure::Adapter);
-        serde_json::to_vec(&failed).unwrap_or_default()
+        SortedJson::text(&failed).into_bytes()
     }
 
     fn failed(&self, failure: GatewayFailure) -> Value {
-        eprintln!("{}", self.failure_event(failure));
+        eprintln!("{}", SortedJson::text(&self.failure_event(failure)));
         json!({ "error": failure.name() })
     }
 
@@ -429,7 +430,7 @@ impl GatewayCalls {
         request.deadline_ms = Some(milliseconds);
         request.body = Some(HandlerBody {
             encoding: HandlerBodyEncoding::Utf8,
-            data: input.to_string(),
+            data: SortedJson::text(input),
         });
         let response = self
             .supervisor
@@ -537,7 +538,7 @@ impl GatewayCalls {
             child,
             stdout: tokio::spawn(Drained::read_all(stdout, GatewayLimits::MAX_BYTES + 1)),
             stderr: tokio::spawn(Drained::read_all(stderr, self.supervisor.stderr_limit())),
-            input: write_input(stdin, serde_json::to_vec(input).unwrap_or_default()),
+            input: write_input(stdin, SortedJson::text(input).into_bytes()),
         })
     }
 }

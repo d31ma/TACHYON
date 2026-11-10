@@ -1,0 +1,36 @@
+{
+  "schema": 1,
+  "handler": "docs/yon/what-a-controller-method-is/server/controllers/ItemsController.php",
+  "inputs": {
+    "docs/yon/what-a-controller-method-is/server/controllers/ItemsController.php": "17c40a692ef821cd9964c77a4deee3ffdb544c75e265283b407250433c72424a",
+    "docs/yon/what-a-controller-method-is/server/models/Item.php": "21b6636e4fb85f4f07e3c0769e93cf6ca790dbac41efe5f1bda8cefa88853d25",
+    "docs/yon/what-a-controller-method-is/server/models/ItemList.php": "9ad0866415be41107bfde856c4fd01b52d39260e825d71001d29d5f9fd519ca9"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/items",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"items\":[]}"
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/items",
+        "headers": {},
+        "body": "{\"name\":\"snippet\"}"
+      },
+      "response": {
+        "status": 201,
+        "contentType": "application/json",
+        "body": "{\"name\":\"snippet\"}"
+      }
+    }
+  ]
+}

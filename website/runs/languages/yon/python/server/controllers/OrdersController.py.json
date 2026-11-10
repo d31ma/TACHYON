@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "handler": "languages/yon/python/server/controllers/OrdersController.py",
+  "inputs": {
+    "languages/yon/python/server/controllers/OrdersController.py": "61779c3ffeaca064afdf79ab002374a102d225cf47fb951d2d596c56bf642666",
+    "languages/yon/python/server/models/Order.py": "48bd7e66f2560d2a20758ef9b03cce47534d88e7498660c0d0b6e8a54e75ec4c",
+    "languages/yon/python/server/models/OrderList.py": "e267c2b2aac000e4d5a19da49f20483546a627ee7b0b84aca415b7270619e164",
+    "languages/yon/python/server/services/OrderService.py": "b888b2f93d7bf15a4c1473f7ae6a9e0e2a727d023d39c14afaf10785d1ea7311"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/orders",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"orders\":[{\"sku\":\"anvil\",\"level\":4}]}"
+      }
+    }
+  ]
+}

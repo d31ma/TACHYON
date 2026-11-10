@@ -4,19 +4,21 @@ import { resolve, join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 
 class FyloRelease {
+  static version = 'v26.45.07';
+
   /** @type {Record<string, [string, string]>} */
   static targets = {
-    'linux-arm64': ['fylo-linux-arm64', 'ec161767b411b6a81d59771f43a094d4da22796c3c71301f2cc2a8f0a4db9d17'],
-    'linux-x64': ['fylo-linux-x64', '8d60479cc189afb991d969917158d93d78897dcd0ca3aa7e062be186982644e8'],
-    'darwin-arm64': ['fylo-macos-arm64', '2c78f91130863ad797cf7a6062aa1245fa638857fee63b8671fa9e2748974fa3'],
-    'darwin-x64': ['fylo-macos-x64', '551e72291a7085536f5de360807dbe93a149826f2c0e6bbd7fe56b2e34abc545'],
-    'win32-x64': ['fylo-windows-x64.exe', 'd57a612d5abb770bc3e228a08b6a628341364b19fe8c62a6418bbb178ef41f34'],
-    'win32-arm64': ['fylo-windows-x64.exe', 'd57a612d5abb770bc3e228a08b6a628341364b19fe8c62a6418bbb178ef41f34'],
+    'linux-arm64': ['fylo-linux-arm64', '45b83a0211a45bc3d50ee487867513c2c135b53bc914c728f78311f8b712667c'],
+    'linux-x64': ['fylo-linux-x64', 'c198bd3cb9651578756229eddde732ab810422c6ba5fc4a3cb4678d542bdc1cd'],
+    'darwin-arm64': ['fylo-macos-arm64', '3a9451ccfa8b95474c2cb1871d86d2aafada637d0bf31f50dbce01e1de83a868'],
+    'darwin-x64': ['fylo-macos-x64', 'f5b0f08d5ae1ee927727497203124a7287c5e6652ead54ca36ee7de84464a62a'],
+    'win32-x64': ['fylo-windows-x64.exe', '791b6095c7a191c2cd558fa4319a35a6d07c9591e76691885d6999cd3ff68d9e'],
+    'win32-arm64': ['fylo-windows-x64.exe', '791b6095c7a191c2cd558fa4319a35a6d07c9591e76691885d6999cd3ff68d9e'],
   };
 }
 
 async function downloadAsset(asset) {
-  const response = await fetch(`https://github.com/d31ma/FYLO/releases/download/v26.33.02/${asset}`, {
+  const response = await fetch(`https://github.com/d31ma/FYLO/releases/download/${FyloRelease.version}/${asset}`, {
     signal: AbortSignal.timeout(60_000),
   });
   if (!response.ok || !response.body) throw new Error(`FYLO download failed (${response.status})`);
@@ -70,7 +72,7 @@ async function main() {
   const executable = await installExecutable(directory, bytes);
   await probeExecutable(executable, directory);
   if (process.env.GITHUB_PATH) await appendFile(process.env.GITHUB_PATH, `${directory}\n`);
-  console.log(`Verified FYLO v26.33.02 ${asset}: checksum and machine protocol`);
+  console.log(`Verified FYLO ${FyloRelease.version} ${asset}: checksum and machine protocol`);
 }
 
 await main();

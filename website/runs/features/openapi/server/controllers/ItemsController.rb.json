@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "handler": "features/openapi/server/controllers/ItemsController.rb",
+  "inputs": {
+    "features/openapi/server/controllers/ItemsController.rb": "80c22dbb7f56b49640ccd1ccb7cc59a4b41eb56a7d79ee8c33d4bf6d2fdc22f7",
+    "features/openapi/server/models/Item.rb": "9c5921a06d24127dde95ef4a248ad4eca37e89d35a45e3258ea7820b32286d61"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/items/42",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"name\":\"anvil\",\"level\":42}"
+      }
+    },
+    {
+      "request": {
+        "method": "PATCH",
+        "path": "/items/42",
+        "headers": {},
+        "body": "{\"level\":4,\"name\":\"snippet\"}"
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"name\":\"snippet\",\"level\":42}"
+      }
+    }
+  ]
+}

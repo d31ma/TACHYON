@@ -1,5 +1,6 @@
 use super::super::testing::{Unit, polyglot_unit};
 use super::{Edit, Method, Module, Type, block, concrete_edit, declared_fields, render};
+use crate::sorted_json::SortedJson;
 use serde_json::{Map, Value};
 use std::fmt::Write as _;
 
@@ -36,7 +37,7 @@ pub(super) fn lower(module: &Module) -> Result<String, String> {
         records.insert(type_declaration.name.clone(), record);
     }
     edits.extend(closing_tag_removal(module));
-    let encoded_records = serde_json::to_string(&records).map_err(|error| error.to_string())?;
+    let encoded_records = SortedJson::text(&Value::Object(records));
     let runtime = include_str!("php_runtime.php")
         .replace(
             "__BEHAVIOR_RECORDS__",
@@ -196,7 +197,7 @@ fn only_policy<'a>(method: &'a Method, key: &str) -> Option<&'a Value> {
 fn mapping_body(policy: &Value, arguments: &[String]) -> String {
     let plan = format!(
         "json_decode('{}',true,32,JSON_THROW_ON_ERROR)",
-        escape_single_quoted(&policy.to_string())
+        escape_single_quoted(&SortedJson::text(policy))
     );
     let Some(result) = policy.get("result").and_then(Value::as_str) else {
         return format!(
@@ -231,7 +232,7 @@ fn validation_body(policy: &Value, arguments: &[String], original: &str) -> Stri
         .as_u64()
         .and_then(|index| usize::try_from(index).ok())
         .unwrap_or_default();
-    let schema = escape_single_quoted(&policy["schema"].to_string());
+    let schema = escape_single_quoted(&SortedJson::text(&policy["schema"]));
     let argument = &arguments[index];
     format!(
         "\n{argument} = BehaviorValidation::check(json_decode('{schema}',true,32,JSON_THROW_ON_ERROR), {argument});\n{original}\n"
@@ -273,10 +274,11 @@ fn query_argument_check(method: &Method, argument_count: usize) -> String {
 }
 
 fn test_members(unit: &Unit) -> String {
-    let cases = escape_single_quoted(
-        &super::super::ValueSource::case_table(&unit.cases, &unit.inputs).to_string(),
-    );
-    let properties = unit.flat_properties().to_string().replace('\'', "\\'");
+    let cases = escape_single_quoted(&SortedJson::text(&super::super::ValueSource::case_table(
+        &unit.cases,
+        &unit.inputs,
+    )));
+    let properties = SortedJson::text(&unit.flat_properties()).replace('\'', "\\'");
     let clear_fakes = clear_fakes(unit);
     format!(
         "\npublic mixed $behaviors = null;\n\

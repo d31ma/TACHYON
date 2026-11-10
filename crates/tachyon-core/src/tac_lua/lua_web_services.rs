@@ -7,6 +7,7 @@ use crate::failure::{diagnostic, source_span};
 use crate::lua_source::{LuaBehaviorEdits, LuaSource, LuaView};
 use crate::model_sources::ModelSources;
 use crate::ruby_source::RubyMembers;
+use crate::sorted_json::SortedJson;
 use crate::tac_ruby::{NeededServices, RubyWebServices};
 use std::path::{Path, PathBuf};
 
@@ -190,7 +191,7 @@ const transport = (text) => lua.invoke(text)
         let registered = format!(
             "\n{lowered}\n{providers}{helper_tables}{held}TacServices.register({}, {class}, {})\n",
             LuaSource::long_string(instance),
-            LuaSource::long_string(&metadata.to_string())
+            LuaSource::long_string(&SortedJson::text(&metadata))
         );
         Ok((registered, [plan.is_some(), socket].contains(&true)))
     }

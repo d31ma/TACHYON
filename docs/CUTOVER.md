@@ -3,65 +3,53 @@
 "Cutover" means making the Rust implementation Tachyon's default. The cutover
 gate is the list of conditions that must hold first.
 
-## Current status: release candidate (2026-11-09)
+## Current status: latest release, not supported (2026-11-10)
 
-Maintainer decision D1 (2026-10-31): the next version published from
-`develop` is a **release candidate**. It is not a supported release and not a
-preview. No target is promoted to `supported` or `preview`. Each target keeps
+Maintainer decisions D1 (2026-10-31) and D2 (2026-11-10): 26.46.02 is the
+latest release; no target is promoted to supported yet. It is not a supported
+release and not a preview. No target is promoted to `supported` or `preview`. Each target keeps
 the tier that [`SUPPORT_TIERS.md`](SUPPORT_TIERS.md) records for it, and a
 promotion still needs the full promotion evidence listed there.
 
-The candidate is published only after every gate in the table below has a
+The release is published only after every gate in the table below has a
 passing result on the release commit. These gates replace the open
 reconciliation gate of 2026-08-30 (below) for this version.
 
-- Release commit: the version commit on `release/26.46.01`, on top of
-  `develop` at `44e8a6fe9` with `main` (the 26.45.01 release commit)
-  merged in as `174f738b3`.
-- Version: **26.46.01**
-- The gate results below ran on 26.45.07's release commit `a17a1c79f`,
-  or on `89c8988cc` where noted, and carry over to 26.46.01 because the
-  code is the same. `release/26.45.07` was `develop` at `66ae003b2` with
-  `main` merged in, then `develop` at `eaa638cbc` (merged as `8fa6cd034`:
-  it pins the hosted runner images of `rust-ci.yml` and
-  `fuzz-scheduled.yml`) and at `91eceb505` (merged as `89c8988cc`: it
-  makes the macOS open-panel test script wait for the panel and click
-  Open). From `89c8988cc` to the 26.46.01 release commit only
-  `.github/workflows/rust-ci.yml` (Node 24.22.2 in the `macos-native`
-  job), the version text, `CHANGELOG.md`, `SUPPORT.md` and this file
-  change.
-- 26.45.07 passed these gates but was never published: in its pull
-  request (#213) the GitHub CI job "Phase 4 macOS native and mobile-web
-  parity (gates)" failed twice. The job installed no Node, so it ran the
-  `macos-15` image's Node 22.23.4, and under Node 22 the release-built
-  Java converter test traps (`RuntimeError: unreachable`). It passes on
-  Node 24 and 26. Every other job passed. `develop` at `44e8a6fe9` pins
-  Node 24.22.2 in that job.
-- 26.45.01 passed these gates on `5a6f31450` (2026-11-02), but it was never
-  published: its publish run failed in the native artifact jobs, whose
-  install, upgrade and rollback drill ran without Bun. Its results are in the
-  history of this file on `release/26.45.01`.
+- Release commit: the version commit on `release/26.46.02`, on top of
+  `develop`, which already contains `main` (the 26.46.01 release commit,
+  merged in as `9a4a04452`).
+- Version: **26.46.02**
+- The gate results below ran on `develop` between `2741f2597` and the
+  release commit, as each row names. From `2741f2597` on, no Rust code
+  changes: only documentation (`c6dca9483`), the expectations of two
+  website gates (`afed4bb7d`), the Linux compositor test script, which now
+  starts a new mutter session for each title bar test (`eb4aada47`), the
+  Android dev loop test's text matching (`a7da7576e`), the version text and
+  this file.
+- 26.46.01 was published as a release candidate (pre-release) on
+  2026-11-09. Its gate results are in the history of this file on
+  `release/26.46.01`.
 
 A **pending** cell is filled with the date, the commit and the run (a CI run
 link, or the name of the local run) when the gate runs on the release commit.
 
 | Gate | Command | Result on the release commit |
 | --- | --- | --- |
-| Rust suite on macOS, Linux and Windows | `tachyon-ci --vms develop`: fmt, clippy `-D warnings`, the full nextest suite and rustdoc `-D warnings` in every lane | **Passed** 2026-11-08 on `a17a1c79f`: macOS 5,600 of 5,600 tests (local run `ci-20261108-0701`), Linux 5,578 of 5,578 and Windows 5,454 of 5,454 (`ci-20261108-0638`). On `8fa6cd034`, `cargo nextest run -p tachyon-contracts --test repository_policy --locked`: 40 of 40 |
-| Website typing | `ty types website`, `bun run typecheck` | **Passed** 2026-11-08 on `a17a1c79f` (`ci-20261108-0718`, website group) |
-| Website content, styles and language coverage | `website/scripts/build-content.mjs --check`, `build-styles.mjs --check`, `language-coverage.mjs --strict` | **Passed** 2026-11-08 on `a17a1c79f` (`ci-20261108-0718`) |
-| Page size budget (TY1337) and responsive widths | `ty build website`, `ty preview --static`, `website/scripts/check-responsive.mjs` | **Passed** 2026-11-08 on `a17a1c79f` (`ci-20261108-0718`) |
-| Browser gates | the `bun run test:*-browser` steps of the `rust-ci.yml` browser job, and `bun run test:website-browser` | **Passed** 2026-11-08 on `a17a1c79f` (`ci-20261108-0718`, browser group). The five `package.json` gates that release-extras does not run (native-bridge-bounds, python-tac-public-assets, server-probe, remotes-socket-browser, go-page-provider-identity-browser) passed in `release-26.45.07-drill-fu11`. Branded Safari 27.2: 9 of 9 (`release-26.45.07-safari-diag2`); Safari must not be already open, because it rejects automation sessions it did not launch; branded iOS Safari: 9 of 9 (`ci-20261108-1135`) |
-| Website acceptance | `bun run test:website` | **Passed** 2026-11-08 on `a17a1c79f` (`ci-20261108-0718`) |
-| Published snippets | `website/scripts/verify-snippets.mjs --no-cache` | **Passed** 2026-11-08 on `a17a1c79f` (`ci-20261108-0718`) |
-| macOS native | `bun run test:phase4-macos` | **Passed** 2026-11-08 on `a17a1c79f` (`ci-20261108-1555`, run from Terminal.app). Every other macOS group gate passed except the macOS release app (see below). `page-services-macos` **passed** on `89c8988cc` twice in a row (`release-26.45.07-picker-merge`, run from Terminal.app, with the release ty of `ci-20261108-1830`): every page service, WindowControls and FilePicker caller (rs, swift) passed. Before the fixed open-panel test script, the FilePicker callers failed on macOS 27.2 because the script's final Return did not press Open |
-| iOS simulator | `scripts/ios/native-test.mjs` | **Passed** 2026-11-08 on `a17a1c79f` (`ci-20261108-1135`) |
-| Android emulator | `scripts/android/native-test.sh` | **Passed** 2026-11-08 on `a17a1c79f` (`ci-20261108-1328`, with `ADB_MDNS=0`) |
-| Linux GTK4 | `scripts/linux/native-test.sh`, `scripts/linux/application-state-test.sh` and the icon gate, in the pinned container | **Passed** 2026-11-08 on `a17a1c79f` (`ci-20261108-1453`, 14 of 14 linux steps) |
-| Windows WebView2 | `scripts/windows/native-test.ps1` | **Passed** 2026-11-08 on `a17a1c79f` (`ci-20261108-1135`, 16 of 16 windows steps) |
-| Native GUI tests that are ignored by default | `scripts/linux/compositor-test.sh`, `scripts/linux/wine-tests.sh`, the macOS GUI tests | **Passed** 2026-11-08 on `a17a1c79f`: compositor and Wine (20 of 20) in `ci-20261108-1453`, the macOS GUI tests in `ci-20261108-1555`, and again, 16 of 16, on `89c8988cc` with the shared open-panel script (`ci-20261108-1830`) |
-| Fuzzing | the six `rust-ci.yml` fuzz targets, 300 seconds each | **Passed** 2026-11-08 on `a17a1c79f` (`ci-20261108-0718`) |
-| Install, upgrade, rollback and uninstall | `scripts/release/lifecycle-drill.sh`, from v26.36.01 to the candidate and back to v26.36.01 | **Passed** 2026-11-08 on `a17a1c79f` (`release-26.45.07-drill-fu11`): every stage, and two packagings were bit-identical |
+| Rust suite on macOS, Linux and Windows | `tachyon-ci --vms develop`: fmt, clippy `-D warnings` (all features, default features and `--features shipped`), the full nextest suite with `--features shipped`, the storage tests with default features, on Linux also every test with all features, and rustdoc `-D warnings` in every lane | **Passed** 2026-11-10 on `2741f2597` (local run `ci-20261109-2017`): macOS 5,607 of 5,607 tests, Linux 5,585 of 5,585 (5,586 of 5,586 with all features), Windows 5,461 of 5,461, and the storage tests 39 of 39 in each lane, with FYLO 26.45.07. No test was FLAKY. On `c6dca9483`, `cargo nextest run -p tachyon-contracts --test repository_policy --locked`: 42 of 42 |
+| Website typing | `ty types website`, `bun run typecheck` | **Passed** 2026-11-10 on `c6dca9483` (`ci-20261109-2050`, website group), with the server realm's own `website/server/jsconfig.json` |
+| Website content, styles and language coverage | `website/scripts/build-content.mjs --check`, `build-styles.mjs --check`, `language-coverage.mjs --strict` | **Passed** 2026-11-10 on `c6dca9483` (`ci-20261109-2050`) |
+| Page size budget (TY1337) and responsive widths | `ty build website`, `ty preview --static`, `website/scripts/check-responsive.mjs` | **Passed** 2026-11-10: responsive widths on `c6dca9483` (`ci-20261109-2050`); the size budget and the migration check on `afed4bb7d`, which expects the new `YonOrigin.js` page script (local run `release-26.46.02/gate-expect-size`) |
+| Browser gates | the `bun run test:*-browser` steps of the `rust-ci.yml` browser job, and `bun run test:website-browser` | **Passed** 2026-11-10 on `c6dca9483` (`ci-20261109-2050`, browser group), and `website-lua-browser` on `afed4bb7d`, which compares the name and code a snippet shows (local run `release-26.46.02/gate-expect-lua`). Branded Safari 27.2: 9 of 9 on `afed4bb7d` (`ci-20261110-0456`) |
+| Website acceptance | `bun run test:website` | **Passed** 2026-11-10 on `c6dca9483` (`ci-20261109-2050`) |
+| Published snippets | `website/scripts/verify-snippets.mjs --no-cache` | **Passed** 2026-11-10 on `c6dca9483` (`ci-20261109-2050`). The 712 recorded runs it made match `website/runs` exactly |
+| macOS native | `bun run test:phase4-macos` | **Passed** 2026-11-10 on `afed4bb7d` (`ci-20261110-0456`, run as a background task with the Accessibility and Screen Recording grants and the screen unlocked): every macOS group gate except the macOS release app (see below) |
+| iOS simulator | `scripts/ios/native-test.mjs` | **Passed** 2026-11-10 on `c6dca9483` (`ci-20261109-2050`) |
+| Android emulator | `scripts/android/native-test.sh` | **Passed** 2026-11-10 on `a7da7576e` (`ci-20261110-0558`, with `ADB_MDNS=0`): every android step, including the dev loop, whose screen reading now takes the letter O for zero. Earlier runs on `c6dca9483` and `afed4bb7d` failed the dev loop on an O/0 misread and `yon-origin` under load from parallel jobs; both passed here. The limited cells below are unchanged |
+| Linux GTK4 | `scripts/linux/native-test.sh`, `scripts/linux/application-state-test.sh` and the icon gate, in the pinned container | **Passed** 2026-11-10 on `c6dca9483` (`ci-20261109-2050`) |
+| Windows WebView2 | `scripts/windows/native-test.ps1` | **Passed** 2026-11-10 on `c6dca9483` (`ci-20261109-2050`, every windows step) |
+| Native GUI tests that are ignored by default | `scripts/linux/compositor-test.sh`, `scripts/linux/wine-tests.sh`, the macOS GUI tests | **Passed** 2026-11-10: Wine on `c6dca9483` (`ci-20261109-2050`); the macOS GUI tests, 16 of 16, on `afed4bb7d` (`ci-20261110-0456`); the compositor test three times in a row on `eb4aada47` (local runs `release-26.46.02/titlebar-suite2`). Before `eb4aada47` the Wayland title bar test failed in every full run of 2026-11-10 and passed 9 of 9 alone: the tests before it left the pointer and window elsewhere in the shared mutter session |
+| Fuzzing | the six `rust-ci.yml` fuzz targets, 300 seconds each | **Passed** 2026-11-10 on `c6dca9483` (`ci-20261109-2050`) |
+| Install, upgrade, rollback and uninstall | `scripts/release/lifecycle-drill.sh`, from v26.36.01 to the release and back to v26.36.01 | **pending** (the `release-lifecycle` job of the release pull request's CI) |
 | Full CI on the `develop` to `main` pull request | `.github/workflows/rust-ci.yml` | **pending** |
 | Signed, attested and verified assets | the sign, stage and verify jobs of `.github/workflows/publish.yml` | **pending** |
 | macOS release app (Developer ID signing and notarization) | the ignored test `a_developer_id_macos_release_is_notarized_and_stapled` in `crates/tachyon-cli/tests/it/macos_release_cli.rs` | **Accepted exception** (2026-10-31): this machine has no notarization profile. v26.36.01 shipped no notarized macOS app either, only the `ty` executable with Sigstore attestations |
@@ -86,14 +74,14 @@ Passed before the release commit was chosen, on `develop` at `e5c2fc8d4`
 
 - The full nextest suite in the Linux lane (a linux/arm64 container): 5,103
   of 5,103 tests passed.
-- The release candidate blockers of 2026-10-11 that needed code are closed:
+- The release blockers of 2026-10-11 that needed code are closed:
   - the gateway runtime text test passes in that run;
   - `ty test` reports a unit that does not answer as failed and runs the other
     units;
   - a C# contract interface that is not public is refused (TY1308);
   - the website lists Java and Ruby on the browser HTTP transport.
 
-Not passed, and not claimed by this release candidate:
+Not passed, and not claimed by this release:
 
 - Before 2026-10-31 these gates had never passed on `develop`: published
   snippets, website acceptance, website browser typing, the page size budget,
@@ -102,7 +90,7 @@ Not passed, and not claimed by this release candidate:
 - No run used a physical iOS or Android device. iOS runs use the simulator
   without an Apple team ID.
 - macOS app bundles that `ty bundle --release` builds are not notarized in
-  this release candidate. The Developer ID and notarization gate is an
+  this release. The Developer ID and notarization gate is an
   accepted exception (see the table above).
 - These browser and native UI gates are limited by the test devices, not
   passed (decided 2026-11-01):
@@ -144,7 +132,7 @@ That result does not qualify the newer native architecture:
 - The reconciliation in [`RECONCILIATION.md`](RECONCILIATION.md) must pass new
   gates before a new immutable version is published. These gates cover browser,
   schema, native-host, security, and downloaded-artifact behavior. For the
-  release candidate, the gate table above is that check.
+  release, the gate table above is that check.
 - Old widget and WebAssembly results cannot replace the host and companion
   gates of ADR 0018/0019 (ADR means architecture decision record).
 

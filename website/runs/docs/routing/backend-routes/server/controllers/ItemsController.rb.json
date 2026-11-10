@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "handler": "docs/routing/backend-routes/server/controllers/ItemsController.rb",
+  "inputs": {
+    "docs/routing/backend-routes/server/controllers/ItemsController.rb": "62e82dacbe1d3d046dec9424016edbf3fe558ac554d380e6a76f88fbddcf7d2c",
+    "docs/routing/backend-routes/server/models/Item.rb": "82df80bc59421fe03500ab8d200b5910c6fc6bb984f67c4a80968d8b734bb607"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/items/42",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"name\":\"42\"}"
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/items",
+        "headers": {},
+        "body": "{\"name\":\"snippet\"}"
+      },
+      "response": {
+        "status": 201,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"name\":\"snippet\"}"
+      }
+    }
+  ]
+}

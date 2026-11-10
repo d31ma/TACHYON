@@ -1,0 +1,15 @@
+{
+  "appId": "d2n4qmh2a7hdo4",
+  "region": "ca-central-1",
+  "domain": "tachyon.del.ma",
+  "role": "arn:aws:iam::117469679339:role/tachyon-site-deploy-production",
+  "requiredHeaders": {},
+  "probes": [
+    { "path": "/", "contains": "Tachyon", "contentTypes": ["text/html"] },
+    { "path": "/docs/introduction", "contains": "Tachyon", "contentTypes": ["text/html"] },
+    { "path": "/docs/features", "contains": "Tachyon", "contentTypes": ["text/html"] },
+    { "path": "/docs/features/routing", "contains": "Tachyon", "contentTypes": ["text/html"] },
+    { "path": "/tachyon-sw.js", "contains": "self.addEventListener", "contentTypes": ["text/javascript", "application/javascript"] },
+    { "path": "/route-manifest.json", "contains": "\"routes\"", "contentTypes": ["application/json"] }
+  ]
+}

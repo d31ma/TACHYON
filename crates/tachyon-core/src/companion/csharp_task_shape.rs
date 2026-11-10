@@ -1,3 +1,4 @@
+use crate::sorted_json::SortedJson;
 use serde_json::Value;
 
 pub(super) struct CsharpTaskShape;
@@ -12,8 +13,8 @@ impl CsharpTaskShape {
 
     fn root_fields(root: &str, models: &Value) -> Result<(), String> {
         let fields = Self::record_fields(&models[root])?;
-        fields
-            .values()
+        SortedJson::values(fields)
+            .into_iter()
             .try_for_each(|field| Self::root_field(field, models))
     }
 
@@ -29,7 +30,9 @@ impl CsharpTaskShape {
         let item = kind.strip_prefix("[]").unwrap_or(kind);
         let item = item.strip_prefix('?').unwrap_or(item);
         let fields = Self::record_fields(&models[item])?;
-        fields.values().try_for_each(Self::scalar_field)
+        SortedJson::values(fields)
+            .into_iter()
+            .try_for_each(Self::scalar_field)
     }
 
     fn record_fields(model: &Value) -> Result<&serde_json::Map<String, Value>, String> {

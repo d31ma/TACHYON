@@ -174,7 +174,7 @@ fn required_foundation_documents_are_present_and_substantive()
 fn a_local_gate_builds_the_release_binary_with_the_shipped_features()
 -> Result<(), Box<dyn std::error::Error>> {
     let root = repository_root();
-    let shipped = "build --release --locked -p tachyon-cli --bin ty --features storage-all";
+    let shipped = "build --release --locked -p tachyon-cli --bin ty --features shipped";
     let artifact = fs::read_to_string(root.join("scripts/release/build-artifact.sh"))?;
     let package = fs::read_to_string(root.join("package.json"))?;
     let workflow = fs::read_to_string(root.join(".github/workflows/rust-ci.yml"))?;
@@ -335,6 +335,7 @@ fn the_workflow_folder_holds_exactly_the_parsed_workflows() -> Result<(), Box<dy
         "publish.yml",
         "ruby-runtime.yml",
         "rust-ci.yml",
+        "site-deploy.yml",
     ]
     .map(String::from);
     assert_eq!(workflow_file_names()?, BTreeSet::from(expected));
@@ -356,6 +357,12 @@ fn the_publish_workflow_parses_as_yaml_with_jobs() -> Result<(), Box<dyn std::er
 #[test]
 fn the_ruby_runtime_workflow_parses_as_yaml_with_jobs() -> Result<(), Box<dyn std::error::Error>> {
     parsed_workflow("ruby-runtime.yml")?;
+    Ok(())
+}
+
+#[test]
+fn the_site_deploy_workflow_parses_as_yaml_with_jobs() -> Result<(), Box<dyn std::error::Error>> {
+    parsed_workflow("site-deploy.yml")?;
     Ok(())
 }
 
@@ -666,7 +673,7 @@ fn stable_release_is_tag_gated_and_fail_closed() -> Result<(), Box<dyn std::erro
     );
     assert!(
         workflow
-            .contains("gh release edit \"${TAG}\" --repo \"${REPOSITORY}\" --draft=false --prerelease --latest=false")
+            .contains("gh release edit \"${TAG}\" --repo \"${REPOSITORY}\" --draft=false --latest")
     );
     assert!(workflow.contains("failed upgrade replaced the installed executable"));
     assert!(workflow.contains("./scripts/release/lifecycle-drill.sh --candidate"));
@@ -858,15 +865,35 @@ fn release_signatures_and_downloads_use_the_current_repository_name()
 }
 
 #[test]
-fn the_snippet_job_builds_ty_with_every_storage_driver() -> Result<(), Box<dyn std::error::Error>> {
+fn the_snippet_job_builds_ty_with_the_shipped_feature_set() -> Result<(), Box<dyn std::error::Error>>
+{
     let root = repository_root();
     let workflow = fs::read_to_string(root.join(".github/workflows/rust-ci.yml"))?;
     let release_build = fs::read_to_string(root.join("scripts/release/build-artifact.sh"))?;
 
-    assert!(workflow.contains("run: cargo build --locked --bin ty --features storage-all"));
+    assert!(workflow.contains("run: cargo build --locked --bin ty --features shipped"));
     assert!(workflow.contains("run: node website/scripts/verify-snippets.mjs"));
     assert!(workflow.contains("TAC_BIN: ${{ github.workspace }}/target/debug/ty"));
-    assert!(release_build.contains("--bin ty --features storage-all"));
+    assert!(release_build.contains("--bin ty --features shipped"));
+    Ok(())
+}
+
+#[test]
+fn the_shipped_feature_set_is_what_ci_tests() -> Result<(), Box<dyn std::error::Error>> {
+    let root = repository_root();
+    let workflow = fs::read_to_string(root.join(".github/workflows/rust-ci.yml"))?;
+    let cli_manifest = fs::read_to_string(root.join("crates/tachyon-cli/Cargo.toml"))?;
+
+    assert!(cli_manifest.contains("shipped = [\"storage-all\"]"));
+    assert!(workflow.contains(
+        "run: cargo nextest run --workspace --all-targets --features shipped --locked --no-tests=fail"
+    ));
+    assert!(workflow.contains(
+        "run: cargo clippy --workspace --all-targets --features shipped --locked -- -D warnings"
+    ));
+    assert!(workflow.contains(
+        "if: runner.os == 'Linux'\n        run: cargo nextest run --workspace --all-targets --all-features --locked --no-tests=fail"
+    ));
     Ok(())
 }
 
@@ -1237,7 +1264,7 @@ fn completed_phase_acceptance_is_enforced_by_ci_and_documentation()
     assert!(plan.contains("## Phase 3: Tac View Semantics"));
     assert!(plan.contains("## Phase 4: Native Vertical Slice"));
     assert!(plan.matches("Status: complete on 2026-07-26").count() >= 4);
-    assert_eq!(version.trim(), "26.46.01");
+    assert_eq!(version.trim(), "26.46.02");
     assert_eq!(version.trim(), tachyon_contracts::PRODUCT_VERSION);
     Ok(())
 }

@@ -85,8 +85,13 @@ async fn sqlite_interrupts_long_queries_and_recovers_its_worker() {
     let store = sqlite().await;
     let started = std::time::Instant::now();
     let command = json!({"operation":"sql","mode":"rows","parameters":[],"sql":"WITH RECURSIVE n(x) AS (SELECT 1 UNION ALL SELECT x+1 FROM n) SELECT sum(x) FROM n"});
-    assert!(is_rejected(&store, &command).await);
-    assert!(started.elapsed() < std::time::Duration::from_secs(8));
+    let error = store
+        .execute(&command)
+        .await
+        .err()
+        .unwrap_or_else(|| panic!("an endless query finished"));
+    assert!(started.elapsed() < ManagedStorage::OPERATION_TIMEOUT);
+    assert!(error.to_string().contains("interrupted"), "{error}");
     assert_eq!(
         execute(
             &store,

@@ -1,5 +1,6 @@
 #[cfg(any(feature = "storage-postgres", feature = "storage-mysql"))]
 use std::str::FromStr;
+use std::time::Instant;
 
 #[cfg(any(
     feature = "storage-postgres",
@@ -110,7 +111,7 @@ impl SqlStore {
         })
     }
 
-    pub(super) async fn begin(&self) -> Result<Value, Failure> {
+    pub(super) async fn begin(&self, deadline: Instant) -> Result<Value, Failure> {
         let mut open = self.transactions.lock().await;
         Self::remove_expired(&mut open);
         if open.len() >= ManagedStorage::MAX_TRANSACTIONS {
@@ -119,7 +120,7 @@ impl SqlStore {
             ));
         }
         let mut connection = self.dedicated_connection().await?;
-        run_on_dedicated(&mut connection, &self.dialect.control("begin")).await?;
+        run_on_dedicated(&mut connection, &self.dialect.control("begin"), deadline).await?;
         let id = crate::ttid::generate();
         open.insert(
             id.clone(),
@@ -131,10 +132,15 @@ impl SqlStore {
         Ok(json!({ "transaction": id }))
     }
 
-    pub(super) async fn execute_in(&self, id: &str, command: &Value) -> Result<Value, Failure> {
+    pub(super) async fn execute_in(
+        &self,
+        id: &str,
+        command: &Value,
+        deadline: Instant,
+    ) -> Result<Value, Failure> {
         let statement = self.dialect.compile(command)?;
         let mut transaction = self.take_transaction(id).await?;
-        let result = run_on_dedicated(&mut transaction.connection, &statement).await;
+        let result = run_on_dedicated(&mut transaction.connection, &statement, deadline).await;
         if result.is_ok() {
             transaction.expires = std::time::Instant::now() + ManagedStorage::TRANSACTION_TIMEOUT;
             self.transactions
@@ -145,20 +151,31 @@ impl SqlStore {
             let _ = run_on_dedicated(
                 &mut transaction.connection,
                 &self.dialect.control("rollback"),
+                deadline,
             )
             .await;
         }
         result
     }
 
-    pub(super) async fn settle(&self, id: &str, action: &str) -> Result<Value, Failure> {
+    pub(super) async fn settle(
+        &self,
+        id: &str,
+        action: &str,
+        deadline: Instant,
+    ) -> Result<Value, Failure> {
         let mut transaction = self.take_transaction(id).await?;
-        let result =
-            run_on_dedicated(&mut transaction.connection, &self.dialect.control(action)).await;
+        let result = run_on_dedicated(
+            &mut transaction.connection,
+            &self.dialect.control(action),
+            deadline,
+        )
+        .await;
         if action == "commit" && result.is_err() {
             let _ = run_on_dedicated(
                 &mut transaction.connection,
                 &self.dialect.control("rollback"),
+                deadline,
             )
             .await;
         }
@@ -202,12 +219,16 @@ impl SqlStore {
         }
     }
 
-    pub(super) async fn execute(&self, command: &Value) -> Result<Value, Failure> {
+    pub(super) async fn execute(
+        &self,
+        command: &Value,
+        deadline: Instant,
+    ) -> Result<Value, Failure> {
         let statement = self.dialect.compile(command)?;
         match &self.connection {
             #[cfg(any(feature = "storage-postgres", feature = "storage-mysql"))]
             SqlConnection::Pool(pool) => execute_sqlx(pool, &statement).await,
-            SqlConnection::Sqlite(store) => store.execute(&statement).await,
+            SqlConnection::Sqlite(store) => store.execute(&statement, deadline).await,
             #[cfg(feature = "storage-sqlserver")]
             SqlConnection::Tds(store) => {
                 let mut guard = store.connection.lock().await;
@@ -315,12 +336,13 @@ async fn connect_pool(settings: &Value, dialect: Dialect) -> Result<SqlConnectio
 async fn run_on_dedicated(
     connection: &mut DedicatedConnection,
     statement: &Statement,
+    deadline: Instant,
 ) -> Result<Value, Failure> {
     match connection {
         #[cfg(any(feature = "storage-postgres", feature = "storage-mysql"))]
         DedicatedConnection::Pool(connection) => execute_on(connection, statement).await,
         DedicatedConnection::Sqlite(connection) => {
-            super::sqlite::SqliteStore::execute_on(connection, statement).await
+            super::sqlite::SqliteStore::execute_on(connection, statement, deadline).await
         }
         #[cfg(feature = "storage-sqlserver")]
         DedicatedConnection::Tds(client) => execute_tds(client, statement).await,

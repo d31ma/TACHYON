@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "handler": "docs/storage/datasource-in-a-service/server/controllers/CatalogController.go",
+  "inputs": {
+    "docs/storage/datasource-in-a-service/server/application.json": "996ea814c84a4dd3ee601a63d20efb0f183977a704c9f0d803462c7567e311c4",
+    "docs/storage/datasource-in-a-service/server/controllers/CatalogController.go": "22030174a135da36045fa39ac81ffef61b644e3c168bde31390169400f495e8d",
+    "docs/storage/datasource-in-a-service/server/services/CatalogService.go": "b1cf99c2b01a1a37d50ceb8f3402a8b8cedbe3dc91f89b36fc4febf7d5a2ef9b"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/catalog",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "[{\"amount\":42}]"
+      }
+    }
+  ]
+}

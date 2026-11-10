@@ -1,6 +1,7 @@
 use super::ruby::RubyLowering;
 use super::{LuaBehaviorMethod, Method, Module, Prepared, render};
 use crate::Failure;
+use crate::sorted_json::SortedJson;
 use std::path::Path;
 
 pub(crate) struct LuaBehaviorPlan {
@@ -31,7 +32,7 @@ impl LuaBehaviorPlan {
 
     fn of(module: &Module) -> Result<Self, String> {
         Ok(Self {
-            records: RubyLowering::records(module)?,
+            records: RubyLowering::records(module),
             module_id: module.module_id.clone(),
             erased: render(module, Vec::new(), "")?,
             types: module.types.iter().map(|ty| ty.name.clone()).collect(),
@@ -74,7 +75,7 @@ impl LuaBehaviorPlan {
         let index = policy["argument"]
             .as_u64()
             .and_then(|index| usize::try_from(index).ok())?;
-        Some((index, policy["schema"].to_string()))
+        Some((index, SortedJson::text(&policy["schema"])))
     }
 
     fn gateway(method: &Method) -> Option<String> {

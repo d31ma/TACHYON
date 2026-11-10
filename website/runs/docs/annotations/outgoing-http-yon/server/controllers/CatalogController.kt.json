@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "handler": "docs/annotations/outgoing-http-yon/server/controllers/CatalogController.kt",
+  "inputs": {
+    "docs/annotations/outgoing-http-yon/server/controllers/CatalogController.kt": "0163293d4e7935bc6c73a67c74f62c2eac845860e77336778866f7b359189338",
+    "docs/annotations/outgoing-http-yon/server/remotes/CatalogClient.kt": "4ed6155673f92e7ebc76bae3b8efb187781364d1139ab4d3a3b6b1b3e15be54e",
+    "docs/annotations/outgoing-http-yon/server/services/CatalogService.kt": "1ff2370160d3bb6005e645fe0451b83a14b48117cbe1e33b017ac317753d522c",
+    "docs/annotations/outgoing-http-yon/server/setups/CatalogSetup.kt": "afd88b6737155af7e8f61e92471853b58b8b19770b8bec0ec76f08534f633b6f"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/catalog",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"items\":[\"anvil\"]}"
+      }
+    }
+  ]
+}

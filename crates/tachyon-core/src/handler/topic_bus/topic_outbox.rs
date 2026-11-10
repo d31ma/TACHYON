@@ -1,5 +1,6 @@
 use super::{TopicBus, TopicDelivery};
 use crate::handler::source::HandlerSource;
+use crate::sorted_json::SortedJson;
 use crate::topics::Topics;
 use serde_json::Value;
 use std::sync::Arc;
@@ -45,7 +46,7 @@ impl TopicOutbox {
             .filter(|value| value.is_object())
             .ok_or("A topic payload is a model value.")?;
         self.check_hops()?;
-        let record = serde_json::to_string(payload).map_err(|_| "Topic payload is invalid.")?;
+        let record = SortedJson::text(payload);
         Self::check_record_size(&record)?;
         self.bus.append(&slug, &record)?;
         self.bus.queue(TopicDelivery {

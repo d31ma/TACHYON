@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "handler": "docs/delegates/take-on-a-service/server/controllers/TaxController.groovy",
+  "inputs": {
+    "docs/delegates/take-on-a-service/server/controllers/TaxController.groovy": "009132bd83874fa520436c658ed92468673f45e4aadd279b995f47fc5f7de642",
+    "docs/delegates/take-on-a-service/server/delegates/TaxDelegate.groovy": "0aba213dac95664b63eeeaf56f273c7f52a453302d2da162f5c03d30b58396f0",
+    "docs/delegates/take-on-a-service/server/models/TaxAnswer.groovy": "0a81219f464f5a6b8ff9cbc57b3c2465da6486a3a2d484ff207ed4873cb49bd0",
+    "docs/delegates/take-on-a-service/server/services/TaxService.groovy": "85a2da788dfb32c4788c921c716a6afdb45834038b6da59924fa178d7ef2a16e"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/tax",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"rate\":4,\"total\":30,\"extra\":34}"
+      }
+    }
+  ]
+}

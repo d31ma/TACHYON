@@ -1,5 +1,6 @@
 use super::{Input, Marker};
 use crate::Failure;
+use crate::sorted_json::SortedJson;
 use serde_json::{Map, Value};
 use std::collections::BTreeSet;
 
@@ -141,7 +142,10 @@ pub(super) fn derive(
         let Some(Value::Object(entries)) = options.get(key) else {
             continue;
         };
-        if let Some(unknown) = entries.keys().find(|name| !known(name)) {
+        if let Some(unknown) = SortedJson::keys(entries)
+            .into_iter()
+            .find(|name| !known(name))
+        {
             return Err(input.failure(
                 at,
                 format!("Settings.{key} names '{unknown}', which is not a field of this class"),
@@ -149,7 +153,9 @@ pub(super) fn derive(
         }
     }
     if let Some(Value::Object(bounds)) = &bounds
-        && let Some(unknown) = bounds.keys().find(|name| !descriptors.contains_key(*name))
+        && let Some(unknown) = SortedJson::keys(bounds)
+            .into_iter()
+            .find(|name| !descriptors.contains_key(*name))
     {
         return Err(input.failure(
             at,
@@ -402,7 +408,7 @@ fn validate_fields(
         }
     };
     let mut names = BTreeSet::new();
-    for (field, descriptor) in fields {
+    for (field, descriptor) in SortedJson::entries(fields) {
         let name = descriptor["name"].as_str().unwrap_or_default();
         if !super::identifier(field) || !exact_environment_name(name) {
             return Err(input.failure(
@@ -590,7 +596,7 @@ fn check_value_paths(
         return Ok(());
     };
     let namespace = format!("{environment}.");
-    for descriptor in values.values() {
+    for descriptor in SortedJson::values(values) {
         let path = descriptor["path"].as_str().unwrap_or_default();
         if value_path(path).is_none() || !path.starts_with(&namespace) {
             return Err(input.failure(

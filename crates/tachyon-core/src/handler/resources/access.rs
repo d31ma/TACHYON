@@ -3,6 +3,7 @@ use super::resource_request::ResourceRequest;
 use crate::handler::gateway::GatewayCalls;
 use crate::handler::process::HandlerCancellation;
 use crate::handler::topic_bus::TopicOutbox;
+use crate::sorted_json::SortedJson;
 use crate::storage::ManagedStorage;
 use axum::http::{HeaderMap, StatusCode, header};
 use serde_json::Value;
@@ -151,7 +152,7 @@ impl Access {
             .bounded(storage.execute(command))
             .await?
             .map_err(|_| StatusCode::BAD_REQUEST)?;
-        let bytes = serde_json::to_vec(&result).map_err(|_| StatusCode::BAD_GATEWAY)?;
+        let bytes = SortedJson::text(&result).into_bytes();
         Self::check_answer_size(&bytes)?;
         Ok(bytes)
     }

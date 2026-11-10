@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "handler": "docs/yon/error-handlers-in-every-yon-language/server/controllers/OrdersController.rb",
+  "inputs": {
+    "docs/yon/error-handlers-in-every-yon-language/server/controllers/OrdersController.rb": "b170f41154a515e2945a152625f9387c203903bceee37406d4cea0e114ae67b5",
+    "docs/yon/error-handlers-in-every-yon-language/server/controllers/OrdersErrorHandler.rb": "db7767530a39145a4e6c59dc0ab1a15ea8736268dc381d5443aaeade1f70a775",
+    "docs/yon/error-handlers-in-every-yon-language/server/errors/OrderNotFound.rb": "85fbadaca2648e72e67a30558290efdcd3396965f559b4147ba23f092c878290",
+    "docs/yon/error-handlers-in-every-yon-language/server/models/Problem.rb": "0d8c9ce622ba2f2fe7fe002b0ee8dc01fa08f2d05119b6f202dbe4b7094caf1f"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/orders",
+        "headers": {}
+      },
+      "response": {
+        "status": 404,
+        "contentType": "application/json",
+        "body": "{\"code\":\"order-not-found\"}"
+      }
+    }
+  ]
+}

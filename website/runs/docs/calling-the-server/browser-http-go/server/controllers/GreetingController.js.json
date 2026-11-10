@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "handler": "docs/calling-the-server/browser-http-go/server/controllers/GreetingController.js",
+  "inputs": {
+    "docs/calling-the-server/browser-http-go/server/controllers/ClearController.js": "904973fabc4f1af937238687773f2d9c4f348c18f9b53514942545c9c796b1a2",
+    "docs/calling-the-server/browser-http-go/server/controllers/GreetingController.js": "6003ac5d39b8bc60edf211d878e41d83f0c724ce6160f7ed71a16387b111c693",
+    "docs/calling-the-server/browser-http-go/server/models/Greeting.ts": "ca082265406c88ec38e7e099cba5157947b07de27770451e0a386af3c7986f92"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/api/greeting",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"message\":\"Hello from Yon\"}"
+      }
+    }
+  ]
+}

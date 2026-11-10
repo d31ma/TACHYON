@@ -97,7 +97,8 @@
         },
         {
           "name": "server/controllers/ItemsController.js",
-          "code": "/** @import { Item } from '/models/Item.ts' */\n@RequestRoute(\"/items\")\n@Public\nclass ItemsController {\n  /**\n   * @param {number} id\n   * @returns {Item}\n   */\n  @GetRoute(\"/{id}\")\n  getItem(@FromPath id) {\n    return { id }\n  }\n}\n"
+          "code": "/** @import { Item } from '/models/Item.ts' */\n@RequestRoute(\"/items\")\n@Public\nclass ItemsController {\n  /**\n   * @param {number} id\n   * @returns {Item}\n   */\n  @GetRoute(\"/{id}\")\n  getItem(@FromPath id) {\n    return { id }\n  }\n}\n",
+          "run": "b498f13a2eacd943"
         },
         {
           "name": "server/models/Item.ts",
@@ -105,7 +106,8 @@
         },
         {
           "name": "server/controllers/ItemsController.ts",
-          "code": "import type { Item } from '/models/Item.ts'\n\n@RequestRoute(\"/items\")\n@Public\nclass ItemsController {\n  @GetRoute(\"/{id}\")\n  getItem(@FromPath id: number): Item {\n    return { id }\n  }\n}\n"
+          "code": "import type { Item } from '/models/Item.ts'\n\n@RequestRoute(\"/items\")\n@Public\nclass ItemsController {\n  @GetRoute(\"/{id}\")\n  getItem(@FromPath id: number): Item {\n    return { id }\n  }\n}\n",
+          "run": "7c2ecb5bfd30f936"
         },
         {
           "name": "server/models/Item.py",
@@ -113,7 +115,8 @@
         },
         {
           "name": "server/controllers/ItemsController.py",
-          "code": "from typing import Annotated\nfrom models import Item\n\n\n@request_route(\"/items\")\n@public\nclass ItemsController:\n    @get_route(\"/{id}\")\n    def get_item(self, id: Annotated[int, from_path]) -> Item:\n        return Item(id)\n"
+          "code": "from typing import Annotated\nfrom models import Item\n\n\n@request_route(\"/items\")\n@public\nclass ItemsController:\n    @get_route(\"/{id}\")\n    def get_item(self, id: Annotated[int, from_path]) -> Item:\n        return Item(id)\n",
+          "run": "e89aaa411a01f3b5"
         },
         {
           "name": "server/models/Item.php",
@@ -121,7 +124,8 @@
         },
         {
           "name": "server/controllers/ItemsController.php",
-          "code": "<?php\nuse Models\\Item;\n\n#[RequestRoute(\"/items\")]\n#[Public]\nclass ItemsController {\n    #[GetRoute(\"/{id}\")]\n    public function getItem(#[FromPath] int $id): Item {\n        return new Item($id);\n    }\n}\n"
+          "code": "<?php\nuse Models\\Item;\n\n#[RequestRoute(\"/items\")]\n#[Public]\nclass ItemsController {\n    #[GetRoute(\"/{id}\")]\n    public function getItem(#[FromPath] int $id): Item {\n        return new Item($id);\n    }\n}\n",
+          "run": "424cdcf7efc276f5"
         },
         {
           "name": "server/models/Item.java",
@@ -133,11 +137,13 @@
         },
         {
           "name": "server/controllers/ItemsController.java",
-          "code": "import models.Item;\n\n@RequestRoute(\"/items\")\n@Public\nclass ItemsController {\n    @GetRoute(\"/{id}\")\n    Item getItem(@FromPath long id) {\n        return new Item(id);\n    }\n}\n"
+          "code": "import models.Item;\n\n@RequestRoute(\"/items\")\n@Public\nclass ItemsController {\n    @GetRoute(\"/{id}\")\n    Item getItem(@FromPath long id) {\n        return new Item(id);\n    }\n}\n",
+          "run": "bdc37eb8c018949b"
         },
         {
           "name": "server/controllers/ItemsController.groovy",
-          "code": "import models.Item\n\n@RequestRoute(\"/items\")\n@Public\nclass ItemsController {\n    @GetRoute(\"/{id}\")\n    Item getItem(@FromPath long id) {\n        return new Item(id)\n    }\n}\n"
+          "code": "import models.Item\n\n@RequestRoute(\"/items\")\n@Public\nclass ItemsController {\n    @GetRoute(\"/{id}\")\n    Item getItem(@FromPath long id) {\n        return new Item(id)\n    }\n}\n",
+          "run": "3d4450803659d4b5"
         },
         {
           "name": "server/models/Item.kt",
@@ -145,7 +151,8 @@
         },
         {
           "name": "server/controllers/ItemsController.kt",
-          "code": "import models.Item\n\n@RequestRoute(\"/items\")\n@Public\nclass ItemsController {\n    @GetRoute(\"/{id}\")\n    fun getItem(@FromPath id: Long): Item = Item(id)\n}\n"
+          "code": "import models.Item\n\n@RequestRoute(\"/items\")\n@Public\nclass ItemsController {\n    @GetRoute(\"/{id}\")\n    fun getItem(@FromPath id: Long): Item = Item(id)\n}\n",
+          "run": "5d49a4a6aa47c13a"
         },
         {
           "name": "server/models/Item.cs",
@@ -157,11 +164,13 @@
         },
         {
           "name": "server/controllers/ItemsController.cs",
-          "code": "using Models;\n\n[RequestRoute(\"/items\")]\n[Public]\nclass ItemsController {\n    [GetRoute(\"/{id}\")]\n    public Item GetItem([FromPath] long id) {\n        return new Item(id);\n    }\n}\n"
+          "code": "using Models;\n\n[RequestRoute(\"/items\")]\n[Public]\nclass ItemsController {\n    [GetRoute(\"/{id}\")]\n    public Item GetItem([FromPath] long id) {\n        return new Item(id);\n    }\n}\n",
+          "run": "21d9de12ef2bdf89"
         },
         {
           "name": "server/controllers/ItemsController.fs",
-          "code": "open Models\n\n[<RequestRoute(\"/items\")>]\n[<Public>]\ntype ItemsController() =\n    [<GetRoute(\"/{id}\")>]\n    member this.GetItem([<FromPath>] id: int64) : Item =\n        { Id = id }\n"
+          "code": "open Models\n\n[<RequestRoute(\"/items\")>]\n[<Public>]\ntype ItemsController() =\n    [<GetRoute(\"/{id}\")>]\n    member this.GetItem([<FromPath>] id: int64) : Item =\n        { Id = id }\n",
+          "run": "1bf5b46666662f4b"
         },
         {
           "name": "server/models/Item.rs",
@@ -169,7 +178,8 @@
         },
         {
           "name": "server/controllers/ItemsController.rs",
-          "code": "use crate::models::Item;\n\n#[RequestRoute(\"/items\")]\n#[Public]\nstruct ItemsController {}\nimpl ItemsController {\n    fn new() -> Self { Self {} }\n\n    #[GetRoute(\"/{id}\")]\n    fn get_item(&self, #[FromPath] id: i64) -> Item {\n        Item { id }\n    }\n}\n"
+          "code": "use crate::models::Item;\n\n#[RequestRoute(\"/items\")]\n#[Public]\nstruct ItemsController {}\nimpl ItemsController {\n    fn new() -> Self { Self {} }\n\n    #[GetRoute(\"/{id}\")]\n    fn get_item(&self, #[FromPath] id: i64) -> Item {\n        Item { id }\n    }\n}\n",
+          "run": "a871dd2faf814e95"
         },
         {
           "name": "server/models/Item.go",
@@ -177,7 +187,8 @@
         },
         {
           "name": "server/controllers/ItemsController.go",
-          "code": "// @RequestRoute(\"/items\")\n// @Public\ntype ItemsController struct {\n}\n\n// @GetRoute(\"/{id}\")\nfunc (controller *ItemsController) GetItem(\n\t// @FromPath\n\tid int64,\n) Item {\n\treturn Item{ID: id}\n}\n"
+          "code": "// @RequestRoute(\"/items\")\n// @Public\ntype ItemsController struct {\n}\n\n// @GetRoute(\"/{id}\")\nfunc (controller *ItemsController) GetItem(\n\t// @FromPath\n\tid int64,\n) Item {\n\treturn Item{ID: id}\n}\n",
+          "run": "e704821d002c9ce5"
         },
         {
           "name": "server/models/Item.dart",
@@ -185,7 +196,8 @@
         },
         {
           "name": "server/controllers/ItemsController.dart",
-          "code": "import 'models/Item.dart';\n\n@RequestRoute(\"/items\")\n@Public\nclass ItemsController {\n  @GetRoute(\"/{id}\")\n  Item getItem(@FromPath int id) => Item(id);\n}\n"
+          "code": "import 'models/Item.dart';\n\n@RequestRoute(\"/items\")\n@Public\nclass ItemsController {\n  @GetRoute(\"/{id}\")\n  Item getItem(@FromPath int id) => Item(id);\n}\n",
+          "run": "e95c1a490efd5d80"
         },
         {
           "name": "server/models/Item.rb",
@@ -193,7 +205,8 @@
         },
         {
           "name": "server/controllers/ItemsController.rb",
-          "code": "#[RequestRoute(\"/items\")]\n#[Public]\nclass ItemsController\n  # @param id [Integer]\n  # @return [Item]\n  #[GetRoute(\"/{id}\")]\n  def get_item(\n    #[FromPath]\n    id\n  )\n    Item.new(id: id)\n  end\nend\n"
+          "code": "#[RequestRoute(\"/items\")]\n#[Public]\nclass ItemsController\n  # @param id [Integer]\n  # @return [Item]\n  #[GetRoute(\"/{id}\")]\n  def get_item(\n    #[FromPath]\n    id\n  )\n    Item.new(id: id)\n  end\nend\n",
+          "run": "477abdbc2d0945b6"
         },
         {
           "name": "server/models/Item.lua",
@@ -201,7 +214,8 @@
         },
         {
           "name": "server/controllers/ItemsController.lua",
-          "code": "-- @RequestRoute(\"/items\")\n-- @Public\n---@class ItemsController\nItemsController = {}\n\n---@param id integer\n---@return Item\n-- @GetRoute(\"/{id}\")\nfunction ItemsController:get_item(\n  -- @FromPath\n  id\n)\n  return { id = id }\nend\n"
+          "code": "-- @RequestRoute(\"/items\")\n-- @Public\n---@class ItemsController\nItemsController = {}\n\n---@param id integer\n---@return Item\n-- @GetRoute(\"/{id}\")\nfunction ItemsController:get_item(\n  -- @FromPath\n  id\n)\n  return { id = id }\nend\n",
+          "run": "c3058014b4c67e4d"
         },
         {
           "name": "server/models/Item.hpp",
@@ -209,7 +223,8 @@
         },
         {
           "name": "server/controllers/ItemsController.hpp",
-          "code": "#pragma once\n#include <cstdint>\n#include \"../models/Item.hpp\"\n\nclass [[RequestRoute(\"/items\")]] [[Public]] ItemsController {\npublic:\n    [[GetRoute(\"/{id}\")]]\n    Item getItem([[FromPath]] std::int64_t id) {\n        Item item;\n        item.id = id;\n        return item;\n    }\n};\n"
+          "code": "#pragma once\n#include <cstdint>\n#include \"../models/Item.hpp\"\n\nclass [[RequestRoute(\"/items\")]] [[Public]] ItemsController {\npublic:\n    [[GetRoute(\"/{id}\")]]\n    Item getItem([[FromPath]] std::int64_t id) {\n        Item item;\n        item.id = id;\n        return item;\n    }\n};\n",
+          "run": "64987b50c6402ecd"
         }
       ],
       "verify": "yon",
@@ -2075,7 +2090,8 @@
       "files": [
         {
           "name": "server/controllers/ProductsController.js",
-          "code": "/** @import { Product } from '/models/Product.ts' */\n@RequestRoute(\"/products\")\n@Public\nclass ProductsController {\n  /** @returns {Product[]} */\n  @GetRoute\n  getProducts() {\n    return [{ name: 'anvil' }]\n  }\n\n  /**\n   * @param {Product} product\n   * @returns {Product}\n   */\n  @PostRoute\n  @ResponseStatus(201)\n  postProduct(@FromBody product) {\n    return product\n  }\n}\n"
+          "code": "/** @import { Product } from '/models/Product.ts' */\n@RequestRoute(\"/products\")\n@Public\nclass ProductsController {\n  /** @returns {Product[]} */\n  @GetRoute\n  getProducts() {\n    return [{ name: 'anvil' }]\n  }\n\n  /**\n   * @param {Product} product\n   * @returns {Product}\n   */\n  @PostRoute\n  @ResponseStatus(201)\n  postProduct(@FromBody product) {\n    return product\n  }\n}\n",
+          "run": "a1aff526ccaae443"
         },
         {
           "name": "server/models/Product.ts",
@@ -2083,7 +2099,8 @@
         },
         {
           "name": "server/controllers/ProductsController.ts",
-          "code": "import type { Product } from '/models/Product.ts';\n\n@RequestRoute(\"/products\")\n@Public\nclass ProductsController {\n  @GetRoute\n  getProducts(): Product[] {\n    return [{ name: 'anvil' }]\n  }\n\n  @PostRoute\n  @ResponseStatus(201)\n  postProduct(@FromBody product: Product): Product {\n    return product\n  }\n}\n"
+          "code": "import type { Product } from '/models/Product.ts';\n\n@RequestRoute(\"/products\")\n@Public\nclass ProductsController {\n  @GetRoute\n  getProducts(): Product[] {\n    return [{ name: 'anvil' }]\n  }\n\n  @PostRoute\n  @ResponseStatus(201)\n  postProduct(@FromBody product: Product): Product {\n    return product\n  }\n}\n",
+          "run": "89ee7af5a80309a3"
         },
         {
           "name": "server/models/Product.py",
@@ -2091,7 +2108,8 @@
         },
         {
           "name": "server/controllers/ProductsController.py",
-          "code": "from typing import Annotated\nfrom models import Product\n\n\n@request_route(\"/products\")\n@public\nclass ProductsController:\n    @get_route\n    def get_products(self) -> list[Product]:\n        return [Product(\"anvil\")]\n\n    @post_route\n    @response_status(201)\n    def post_product(self, product: Annotated[Product, from_body]) -> Product:\n        return product\n"
+          "code": "from typing import Annotated\nfrom models import Product\n\n\n@request_route(\"/products\")\n@public\nclass ProductsController:\n    @get_route\n    def get_products(self) -> list[Product]:\n        return [Product(\"anvil\")]\n\n    @post_route\n    @response_status(201)\n    def post_product(self, product: Annotated[Product, from_body]) -> Product:\n        return product\n",
+          "run": "f7c8efaf68205e2d"
         },
         {
           "name": "server/models/Product.php",
@@ -2099,7 +2117,8 @@
         },
         {
           "name": "server/controllers/ProductsController.php",
-          "code": "<?php\nuse Models\\Product;\n\n#[RequestRoute(\"/products\")]\n#[Public]\nclass ProductsController {\n    /** @return list<Product> */\n    #[GetRoute]\n    public function getProducts(): array {\n        return [new Product('anvil')];\n    }\n\n    #[PostRoute]\n    #[ResponseStatus(201)]\n    public function postProduct(#[FromBody] Product $product): Product {\n        return $product;\n    }\n}\n"
+          "code": "<?php\nuse Models\\Product;\n\n#[RequestRoute(\"/products\")]\n#[Public]\nclass ProductsController {\n    /** @return list<Product> */\n    #[GetRoute]\n    public function getProducts(): array {\n        return [new Product('anvil')];\n    }\n\n    #[PostRoute]\n    #[ResponseStatus(201)]\n    public function postProduct(#[FromBody] Product $product): Product {\n        return $product;\n    }\n}\n",
+          "run": "5ba8e174dd0205ea"
         },
         {
           "name": "server/models/Product.java",
@@ -2111,11 +2130,13 @@
         },
         {
           "name": "server/controllers/ProductsController.java",
-          "code": "import java.util.List;\nimport models.Product;\n\n@RequestRoute(\"/products\")\n@Public\nclass ProductsController {\n    @GetRoute\n    List<Product> getProducts() {\n        return List.of(new Product(\"anvil\"));\n    }\n\n    @PostRoute\n    @ResponseStatus(201)\n    Product postProduct(@FromBody Product product) {\n        return product;\n    }\n}\n"
+          "code": "import java.util.List;\nimport models.Product;\n\n@RequestRoute(\"/products\")\n@Public\nclass ProductsController {\n    @GetRoute\n    List<Product> getProducts() {\n        return List.of(new Product(\"anvil\"));\n    }\n\n    @PostRoute\n    @ResponseStatus(201)\n    Product postProduct(@FromBody Product product) {\n        return product;\n    }\n}\n",
+          "run": "a46d32560ea97b71"
         },
         {
           "name": "server/controllers/ProductsController.groovy",
-          "code": "import java.util.List\nimport models.Product\n\n@RequestRoute(\"/products\")\n@Public\nclass ProductsController {\n    @GetRoute\n    List<Product> getProducts() {\n        return List.of(new Product(\"anvil\"))\n    }\n\n    @PostRoute\n    @ResponseStatus(201)\n    Product postProduct(@FromBody Product product) {\n        return product\n    }\n}\n"
+          "code": "import java.util.List\nimport models.Product\n\n@RequestRoute(\"/products\")\n@Public\nclass ProductsController {\n    @GetRoute\n    List<Product> getProducts() {\n        return List.of(new Product(\"anvil\"))\n    }\n\n    @PostRoute\n    @ResponseStatus(201)\n    Product postProduct(@FromBody Product product) {\n        return product\n    }\n}\n",
+          "run": "816d2cb1dfda957a"
         },
         {
           "name": "server/models/Product.kt",
@@ -2123,7 +2144,8 @@
         },
         {
           "name": "server/controllers/ProductsController.kt",
-          "code": "import models.Product\n\n@RequestRoute(\"/products\")\n@Public\nclass ProductsController {\n    @GetRoute\n    fun getProducts(): List<Product> = listOf(Product(\"anvil\"))\n\n    @PostRoute\n    @ResponseStatus(201)\n    fun postProduct(@FromBody product: Product): Product = product\n}\n"
+          "code": "import models.Product\n\n@RequestRoute(\"/products\")\n@Public\nclass ProductsController {\n    @GetRoute\n    fun getProducts(): List<Product> = listOf(Product(\"anvil\"))\n\n    @PostRoute\n    @ResponseStatus(201)\n    fun postProduct(@FromBody product: Product): Product = product\n}\n",
+          "run": "ca23e000773fe16a"
         },
         {
           "name": "server/models/Product.cs",
@@ -2135,11 +2157,13 @@
         },
         {
           "name": "server/controllers/ProductsController.cs",
-          "code": "using System.Collections.Generic;\nusing Models;\n\n[RequestRoute(\"/products\")]\n[Public]\nclass ProductsController {\n    [GetRoute]\n    public List<Product> GetProducts() {\n        return new List<Product> { new Product(\"anvil\") };\n    }\n\n    [PostRoute]\n    [ResponseStatus(201)]\n    public Product PostProduct([FromBody] Product product) {\n        return product;\n    }\n}\n"
+          "code": "using System.Collections.Generic;\nusing Models;\n\n[RequestRoute(\"/products\")]\n[Public]\nclass ProductsController {\n    [GetRoute]\n    public List<Product> GetProducts() {\n        return new List<Product> { new Product(\"anvil\") };\n    }\n\n    [PostRoute]\n    [ResponseStatus(201)]\n    public Product PostProduct([FromBody] Product product) {\n        return product;\n    }\n}\n",
+          "run": "8d53efaacb2936d4"
         },
         {
           "name": "server/controllers/ProductsController.fs",
-          "code": "open Models\n\n[<RequestRoute(\"/products\")>]\n[<Public>]\ntype ProductsController() =\n    [<GetRoute>]\n    member this.GetProducts() : Product list =\n        [ { Name = \"anvil\" } ]\n\n    [<PostRoute>]\n    [<ResponseStatus(201)>]\n    member this.PostProduct([<FromBody>] product: Product) : Product =\n        product\n"
+          "code": "open Models\n\n[<RequestRoute(\"/products\")>]\n[<Public>]\ntype ProductsController() =\n    [<GetRoute>]\n    member this.GetProducts() : Product list =\n        [ { Name = \"anvil\" } ]\n\n    [<PostRoute>]\n    [<ResponseStatus(201)>]\n    member this.PostProduct([<FromBody>] product: Product) : Product =\n        product\n",
+          "run": "b698d35fa83c26ba"
         },
         {
           "name": "server/models/Product.rs",
@@ -2147,7 +2171,8 @@
         },
         {
           "name": "server/controllers/ProductsController.rs",
-          "code": "use crate::models::Product;\n\n#[RequestRoute(\"/products\")]\n#[Public]\nstruct ProductsController {}\nimpl ProductsController {\n    fn new() -> Self { Self {} }\n\n    #[GetRoute]\n    fn get_products(&self) -> Vec<Product> {\n        vec![Product { name: String::from(\"anvil\") }]\n    }\n\n    #[PostRoute]\n    #[ResponseStatus(201)]\n    fn post_product(&self, #[FromBody] product: Product) -> Product {\n        product\n    }\n}\n"
+          "code": "use crate::models::Product;\n\n#[RequestRoute(\"/products\")]\n#[Public]\nstruct ProductsController {}\nimpl ProductsController {\n    fn new() -> Self { Self {} }\n\n    #[GetRoute]\n    fn get_products(&self) -> Vec<Product> {\n        vec![Product { name: String::from(\"anvil\") }]\n    }\n\n    #[PostRoute]\n    #[ResponseStatus(201)]\n    fn post_product(&self, #[FromBody] product: Product) -> Product {\n        product\n    }\n}\n",
+          "run": "d42f431374a08fa8"
         },
         {
           "name": "server/models/Product.go",
@@ -2155,7 +2180,8 @@
         },
         {
           "name": "server/controllers/ProductsController.go",
-          "code": "// @RequestRoute(\"/products\")\n// @Public\ntype ProductsController struct {\n}\n\n// @GetRoute\nfunc (controller *ProductsController) GetProducts() []Product {\n\treturn []Product{{Name: \"anvil\"}}\n}\n\n// @PostRoute\n// @ResponseStatus(201)\nfunc (controller *ProductsController) PostProduct(\n\t// @FromBody\n\tproduct Product,\n) Product {\n\treturn product\n}\n"
+          "code": "// @RequestRoute(\"/products\")\n// @Public\ntype ProductsController struct {\n}\n\n// @GetRoute\nfunc (controller *ProductsController) GetProducts() []Product {\n\treturn []Product{{Name: \"anvil\"}}\n}\n\n// @PostRoute\n// @ResponseStatus(201)\nfunc (controller *ProductsController) PostProduct(\n\t// @FromBody\n\tproduct Product,\n) Product {\n\treturn product\n}\n",
+          "run": "eca0ce8caa084636"
         },
         {
           "name": "server/models/Product.dart",
@@ -2163,11 +2189,13 @@
         },
         {
           "name": "server/controllers/ProductsController.dart",
-          "code": "import 'models/Product.dart';\n\n@RequestRoute(\"/products\")\n@Public\nclass ProductsController {\n  @GetRoute\n  List<Product> getProducts() => [Product('anvil')];\n\n  @PostRoute\n  @ResponseStatus(201)\n  Product postProduct(@FromBody Product product) => product;\n}\n"
+          "code": "import 'models/Product.dart';\n\n@RequestRoute(\"/products\")\n@Public\nclass ProductsController {\n  @GetRoute\n  List<Product> getProducts() => [Product('anvil')];\n\n  @PostRoute\n  @ResponseStatus(201)\n  Product postProduct(@FromBody Product product) => product;\n}\n",
+          "run": "4f87c6666b055021"
         },
         {
           "name": "server/controllers/PageController.js",
-          "code": "@RequestRoute(\"/page\")\n@Public\nclass PageController {\n  /** @returns {{ status: number, headers: Record<string, string>, body: string }} */\n  @GetRoute\n  getPage() {\n    return {\n      status: 202,\n      headers: {\n        'content-type': 'text/html; charset=utf-8',\n        'x-origin': 'controller',\n      },\n      body: '<article><h1>Unchanged HTML</h1><p>{not-a-template}</p><if>literal</if></article>',\n    }\n  }\n}\n"
+          "code": "@RequestRoute(\"/page\")\n@Public\nclass PageController {\n  /** @returns {{ status: number, headers: Record<string, string>, body: string }} */\n  @GetRoute\n  getPage() {\n    return {\n      status: 202,\n      headers: {\n        'content-type': 'text/html; charset=utf-8',\n        'x-origin': 'controller',\n      },\n      body: '<article><h1>Unchanged HTML</h1><p>{not-a-template}</p><if>literal</if></article>',\n    }\n  }\n}\n",
+          "run": "b5684aadae1d2244"
         },
         {
           "name": "server/models/Product.rb",
@@ -2175,7 +2203,8 @@
         },
         {
           "name": "server/controllers/ProductsController.rb",
-          "code": "#[RequestRoute(\"/products\")]\n#[Public]\nclass ProductsController\n  # @return [Array<Product>]\n  #[GetRoute]\n  def get_products\n    [Product.new(name: \"anvil\")]\n  end\n\n  # @param product [Product]\n  # @return [Product]\n  #[PostRoute]\n  #[ResponseStatus(201)]\n  def post_product(\n    #[FromBody]\n    product\n  )\n    product\n  end\nend\n"
+          "code": "#[RequestRoute(\"/products\")]\n#[Public]\nclass ProductsController\n  # @return [Array<Product>]\n  #[GetRoute]\n  def get_products\n    [Product.new(name: \"anvil\")]\n  end\n\n  # @param product [Product]\n  # @return [Product]\n  #[PostRoute]\n  #[ResponseStatus(201)]\n  def post_product(\n    #[FromBody]\n    product\n  )\n    product\n  end\nend\n",
+          "run": "ad79449c396e0dea"
         },
         {
           "name": "server/models/Product.lua",
@@ -2183,7 +2212,8 @@
         },
         {
           "name": "server/controllers/ProductsController.lua",
-          "code": "-- @RequestRoute(\"/products\")\n-- @Public\n---@class ProductsController\nProductsController = {}\n\n---@return Product[]\n-- @GetRoute\nfunction ProductsController:get_products()\n  return { { name = \"anvil\" } }\nend\n\n---@param product Product\n---@return Product\n-- @PostRoute\n-- @ResponseStatus(201)\nfunction ProductsController:post_product(\n  -- @FromBody\n  product\n)\n  return product\nend\n"
+          "code": "-- @RequestRoute(\"/products\")\n-- @Public\n---@class ProductsController\nProductsController = {}\n\n---@return Product[]\n-- @GetRoute\nfunction ProductsController:get_products()\n  return { { name = \"anvil\" } }\nend\n\n---@param product Product\n---@return Product\n-- @PostRoute\n-- @ResponseStatus(201)\nfunction ProductsController:post_product(\n  -- @FromBody\n  product\n)\n  return product\nend\n",
+          "run": "48b0e24c33e88fb2"
         },
         {
           "name": "server/models/Product.hpp",
@@ -2191,7 +2221,8 @@
         },
         {
           "name": "server/controllers/ProductsController.hpp",
-          "code": "#pragma once\n#include <vector>\n#include \"../models/Product.hpp\"\n\nclass [[RequestRoute(\"/products\")]] [[Public]] ProductsController {\npublic:\n    [[GetRoute]]\n    std::vector<Product> getProducts() {\n        return {Product{\"anvil\"}};\n    }\n\n    [[PostRoute]] [[ResponseStatus(201)]]\n    Product postProduct([[FromBody]] Product product) {\n        return product;\n    }\n};\n"
+          "code": "#pragma once\n#include <vector>\n#include \"../models/Product.hpp\"\n\nclass [[RequestRoute(\"/products\")]] [[Public]] ProductsController {\npublic:\n    [[GetRoute]]\n    std::vector<Product> getProducts() {\n        return {Product{\"anvil\"}};\n    }\n\n    [[PostRoute]] [[ResponseStatus(201)]]\n    Product postProduct([[FromBody]] Product product) {\n        return product;\n    }\n};\n",
+          "run": "87e712bba7062308"
         }
       ],
       "verify": "yon"
@@ -2204,7 +2235,8 @@
       "files": [
         {
           "name": "server/controllers/EchoController.js",
-          "code": "/** @import { Message } from '/models/Message.ts' */\n@RequestRoute(\"/echo\")\n@Public\nclass EchoController {\n  /**\n   * @param {Message} message\n   * @returns {Message}\n   */\n  @PostRoute\n  postEcho(@FromBody message) {\n    return message\n  }\n}\n"
+          "code": "/** @import { Message } from '/models/Message.ts' */\n@RequestRoute(\"/echo\")\n@Public\nclass EchoController {\n  /**\n   * @param {Message} message\n   * @returns {Message}\n   */\n  @PostRoute\n  postEcho(@FromBody message) {\n    return message\n  }\n}\n",
+          "run": "dfe8514a692ccfc0"
         },
         {
           "name": "server/models/Message.ts",
@@ -2212,7 +2244,8 @@
         },
         {
           "name": "server/controllers/EchoController.ts",
-          "code": "import type { Message } from '/models/Message.ts';\n\n@RequestRoute(\"/echo\")\n@Public\nclass EchoController {\n  @PostRoute\n  postEcho(@FromBody message: Message): Message {\n    return message\n  }\n}\n"
+          "code": "import type { Message } from '/models/Message.ts';\n\n@RequestRoute(\"/echo\")\n@Public\nclass EchoController {\n  @PostRoute\n  postEcho(@FromBody message: Message): Message {\n    return message\n  }\n}\n",
+          "run": "013605799a1a5f9d"
         },
         {
           "name": "server/models/Message.py",
@@ -2220,7 +2253,8 @@
         },
         {
           "name": "server/controllers/EchoController.py",
-          "code": "from typing import Annotated\nfrom models import Message\n\n\n@request_route(\"/echo\")\n@public\nclass EchoController:\n    @post_route\n    def post_echo(self, message: Annotated[Message, from_body]) -> Message:\n        return message\n"
+          "code": "from typing import Annotated\nfrom models import Message\n\n\n@request_route(\"/echo\")\n@public\nclass EchoController:\n    @post_route\n    def post_echo(self, message: Annotated[Message, from_body]) -> Message:\n        return message\n",
+          "run": "75236e5355efdd11"
         },
         {
           "name": "server/models/Message.php",
@@ -2228,7 +2262,8 @@
         },
         {
           "name": "server/controllers/EchoController.php",
-          "code": "<?php\nuse Models\\Message;\n\n#[RequestRoute(\"/echo\")]\n#[Public]\nclass EchoController {\n    #[PostRoute]\n    public function postEcho(#[FromBody] Message $message): Message {\n        return $message;\n    }\n}\n"
+          "code": "<?php\nuse Models\\Message;\n\n#[RequestRoute(\"/echo\")]\n#[Public]\nclass EchoController {\n    #[PostRoute]\n    public function postEcho(#[FromBody] Message $message): Message {\n        return $message;\n    }\n}\n",
+          "run": "28fc6828bca0f911"
         },
         {
           "name": "server/models/Message.java",
@@ -2240,11 +2275,13 @@
         },
         {
           "name": "server/controllers/EchoController.java",
-          "code": "import models.Message;\n\n@RequestRoute(\"/echo\")\n@Public\nclass EchoController {\n    @PostRoute\n    Message postEcho(@FromBody Message message) {\n        return message;\n    }\n}\n"
+          "code": "import models.Message;\n\n@RequestRoute(\"/echo\")\n@Public\nclass EchoController {\n    @PostRoute\n    Message postEcho(@FromBody Message message) {\n        return message;\n    }\n}\n",
+          "run": "aea01aa590ec7b4e"
         },
         {
           "name": "server/controllers/EchoController.groovy",
-          "code": "import models.Message\n\n@RequestRoute(\"/echo\")\n@Public\nclass EchoController {\n    @PostRoute\n    Message postEcho(@FromBody Message message) {\n        return message\n    }\n}\n"
+          "code": "import models.Message\n\n@RequestRoute(\"/echo\")\n@Public\nclass EchoController {\n    @PostRoute\n    Message postEcho(@FromBody Message message) {\n        return message\n    }\n}\n",
+          "run": "442c0fafc237b856"
         },
         {
           "name": "server/models/Message.kt",
@@ -2252,7 +2289,8 @@
         },
         {
           "name": "server/controllers/EchoController.kt",
-          "code": "import models.Message\n\n@RequestRoute(\"/echo\")\n@Public\nclass EchoController {\n    @PostRoute\n    fun postEcho(@FromBody message: Message): Message = message\n}\n"
+          "code": "import models.Message\n\n@RequestRoute(\"/echo\")\n@Public\nclass EchoController {\n    @PostRoute\n    fun postEcho(@FromBody message: Message): Message = message\n}\n",
+          "run": "e5a50b30c6979551"
         },
         {
           "name": "server/models/Message.cs",
@@ -2264,11 +2302,13 @@
         },
         {
           "name": "server/controllers/EchoController.cs",
-          "code": "using Models;\n\n[RequestRoute(\"/echo\")]\n[Public]\nclass EchoController {\n    [PostRoute]\n    public Message PostEcho([FromBody] Message message) {\n        return message;\n    }\n}\n"
+          "code": "using Models;\n\n[RequestRoute(\"/echo\")]\n[Public]\nclass EchoController {\n    [PostRoute]\n    public Message PostEcho([FromBody] Message message) {\n        return message;\n    }\n}\n",
+          "run": "edff0c2434c8e65f"
         },
         {
           "name": "server/controllers/EchoController.fs",
-          "code": "open Models\n\n[<RequestRoute(\"/echo\")>]\n[<Public>]\ntype EchoController() =\n    [<PostRoute>]\n    member this.PostEcho([<FromBody>] message: Message) : Message =\n        message\n"
+          "code": "open Models\n\n[<RequestRoute(\"/echo\")>]\n[<Public>]\ntype EchoController() =\n    [<PostRoute>]\n    member this.PostEcho([<FromBody>] message: Message) : Message =\n        message\n",
+          "run": "135834fc3e559cb8"
         },
         {
           "name": "server/models/Message.rs",
@@ -2276,7 +2316,8 @@
         },
         {
           "name": "server/controllers/EchoController.rs",
-          "code": "use crate::models::Message;\n\n#[RequestRoute(\"/echo\")]\n#[Public]\nstruct EchoController {}\nimpl EchoController {\n    fn new() -> Self { Self {} }\n\n    #[PostRoute]\n    fn post_echo(&self, #[FromBody] message: Message) -> Message {\n        message\n    }\n}\n"
+          "code": "use crate::models::Message;\n\n#[RequestRoute(\"/echo\")]\n#[Public]\nstruct EchoController {}\nimpl EchoController {\n    fn new() -> Self { Self {} }\n\n    #[PostRoute]\n    fn post_echo(&self, #[FromBody] message: Message) -> Message {\n        message\n    }\n}\n",
+          "run": "71dafc3c05c931da"
         },
         {
           "name": "server/models/Message.go",
@@ -2284,7 +2325,8 @@
         },
         {
           "name": "server/controllers/EchoController.go",
-          "code": "// @RequestRoute(\"/echo\")\n// @Public\ntype EchoController struct {\n}\n\n// @PostRoute\nfunc (controller *EchoController) PostEcho(\n\t// @FromBody\n\tmessage Message,\n) Message {\n\treturn message\n}\n"
+          "code": "// @RequestRoute(\"/echo\")\n// @Public\ntype EchoController struct {\n}\n\n// @PostRoute\nfunc (controller *EchoController) PostEcho(\n\t// @FromBody\n\tmessage Message,\n) Message {\n\treturn message\n}\n",
+          "run": "9c12357eae6b2f00"
         },
         {
           "name": "server/models/Message.dart",
@@ -2292,7 +2334,8 @@
         },
         {
           "name": "server/controllers/EchoController.dart",
-          "code": "import 'models/Message.dart';\n\n@RequestRoute(\"/echo\")\n@Public\nclass EchoController {\n  @PostRoute\n  Message postEcho(@FromBody Message message) => message;\n}\n"
+          "code": "import 'models/Message.dart';\n\n@RequestRoute(\"/echo\")\n@Public\nclass EchoController {\n  @PostRoute\n  Message postEcho(@FromBody Message message) => message;\n}\n",
+          "run": "84b0b8b5b4e931a0"
         },
         {
           "name": "resolution",
@@ -2304,7 +2347,8 @@
         },
         {
           "name": "server/controllers/EchoController.rb",
-          "code": "#[RequestRoute(\"/echo\")]\n#[Public]\nclass EchoController\n  # @param message [Message]\n  # @return [Message]\n  #[PostRoute]\n  def post_echo(\n    #[FromBody]\n    message\n  )\n    message\n  end\nend\n"
+          "code": "#[RequestRoute(\"/echo\")]\n#[Public]\nclass EchoController\n  # @param message [Message]\n  # @return [Message]\n  #[PostRoute]\n  def post_echo(\n    #[FromBody]\n    message\n  )\n    message\n  end\nend\n",
+          "run": "93811b85a65b0ab6"
         },
         {
           "name": "server/models/Message.lua",
@@ -2312,7 +2356,8 @@
         },
         {
           "name": "server/controllers/EchoController.lua",
-          "code": "-- @RequestRoute(\"/echo\")\n-- @Public\n---@class EchoController\nEchoController = {}\n\n---@param message Message\n---@return Message\n-- @PostRoute\nfunction EchoController:post_echo(\n  -- @FromBody\n  message\n)\n  return message\nend\n"
+          "code": "-- @RequestRoute(\"/echo\")\n-- @Public\n---@class EchoController\nEchoController = {}\n\n---@param message Message\n---@return Message\n-- @PostRoute\nfunction EchoController:post_echo(\n  -- @FromBody\n  message\n)\n  return message\nend\n",
+          "run": "9fb98883536bc209"
         },
         {
           "name": "server/models/Message.hpp",
@@ -2320,7 +2365,8 @@
         },
         {
           "name": "server/controllers/EchoController.hpp",
-          "code": "#pragma once\n#include \"../models/Message.hpp\"\n\nclass [[RequestRoute(\"/echo\")]] [[Public]] EchoController {\npublic:\n    [[PostRoute]]\n    Message postEcho([[FromBody]] Message message) {\n        return message;\n    }\n};\n"
+          "code": "#pragma once\n#include \"../models/Message.hpp\"\n\nclass [[RequestRoute(\"/echo\")]] [[Public]] EchoController {\npublic:\n    [[PostRoute]]\n    Message postEcho([[FromBody]] Message message) {\n        return message;\n    }\n};\n",
+          "run": "6168452c970f721e"
         }
       ],
       "verify": "yon-direct"
@@ -2336,7 +2382,7 @@
       "files": [
         {
           "name": "server/relays/report.pl",
-          "code": "use strict;\nuse warnings;\nuse JSON::PP;\n\nmy $input = do { local $/; <STDIN> };\nmy $request = decode_json($input || '{}');\nmy $body = encode_json({ language => 'Perl', route => $request->{route} });\nprint encode_json({ status => 200, headers => { 'content-type' => ['application/json'] }, body => $body });\n"
+          "code": "use strict;\nuse warnings;\nuse JSON::PP;\n\nmy $json = JSON::PP->new->canonical;\nmy $input = do { local $/; <STDIN> };\nmy $request = $json->decode($input || '{}');\nmy $body = $json->encode({ language => 'Perl', route => $request->{route} });\nprint $json->encode({ status => 200, headers => { 'content-type' => ['application/json'] }, body => $body });\n"
         },
         {
           "name": "relaying",
@@ -2344,59 +2390,73 @@
         },
         {
           "name": "server/controllers/ReportController.js",
-          "code": "@RequestRoute(\"/report\")\n@Public\nclass ReportController {\n  /**\n   * @param {Request} request\n   * @returns {Promise<Response>}\n   */\n  @GetRoute\n  getReport(request) {\n    return relay(['perl', 'server/relays/report.pl'], request)\n  }\n}\n"
+          "code": "@RequestRoute(\"/report\")\n@Public\nclass ReportController {\n  /**\n   * @param {Request} request\n   * @returns {Promise<Response>}\n   */\n  @GetRoute\n  getReport(request) {\n    return relay(['perl', 'server/relays/report.pl'], request)\n  }\n}\n",
+          "run": "4ab38642b0babff4"
         },
         {
           "name": "server/controllers/ReportController.ts",
-          "code": "@RequestRoute(\"/report\")\n@Public\nclass ReportController {\n  @GetRoute\n  getReport(request: Request): Promise<Response> {\n    return relay(['perl', 'server/relays/report.pl'], request)\n  }\n}\n"
+          "code": "@RequestRoute(\"/report\")\n@Public\nclass ReportController {\n  @GetRoute\n  getReport(request: Request): Promise<Response> {\n    return relay(['perl', 'server/relays/report.pl'], request)\n  }\n}\n",
+          "run": "5f74fe18fe639de4"
         },
         {
           "name": "server/controllers/ReportController.py",
-          "code": "@request_route(\"/report\")\n@public\nclass ReportController:\n    @get_route\n    def get_report(self, request: object) -> object:\n        return relay((\"perl\", \"server/relays/report.pl\"), request)\n"
+          "code": "@request_route(\"/report\")\n@public\nclass ReportController:\n    @get_route\n    def get_report(self, request: object) -> object:\n        return relay((\"perl\", \"server/relays/report.pl\"), request)\n",
+          "run": "a1397e0ddd1ecca9"
         },
         {
           "name": "server/controllers/ReportController.php",
-          "code": "<?php\n#[RequestRoute(\"/report\")]\n#[Public]\nclass ReportController {\n    #[GetRoute]\n    public function getReport(): void {\n        Yon::relay(['perl', 'server/relays/report.pl']);\n    }\n}\n"
+          "code": "<?php\n#[RequestRoute(\"/report\")]\n#[Public]\nclass ReportController {\n    #[GetRoute]\n    public function getReport(): void {\n        Yon::relay(['perl', 'server/relays/report.pl']);\n    }\n}\n",
+          "run": "e04ee89c2fd54486"
         },
         {
           "name": "server/controllers/ReportController.java",
-          "code": "import com.sun.net.httpserver.HttpExchange;\n\n@RequestRoute(\"/report\")\n@Public\nclass ReportController {\n    @GetRoute\n    void getReport(HttpExchange exchange) throws java.io.IOException {\n        Yon.relay(java.util.List.of(\"perl\", \"server/relays/report.pl\"), exchange);\n    }\n}\n"
+          "code": "import com.sun.net.httpserver.HttpExchange;\n\n@RequestRoute(\"/report\")\n@Public\nclass ReportController {\n    @GetRoute\n    void getReport(HttpExchange exchange) throws java.io.IOException {\n        Yon.relay(java.util.List.of(\"perl\", \"server/relays/report.pl\"), exchange);\n    }\n}\n",
+          "run": "6c6f95237e8db1ee"
         },
         {
           "name": "server/controllers/ReportController.groovy",
-          "code": "import com.sun.net.httpserver.HttpExchange\n\n@RequestRoute(\"/report\")\n@Public\nclass ReportController {\n    @GetRoute\n    void getReport(HttpExchange exchange) throws java.io.IOException {\n        Yon.relay(java.util.List.of(\"perl\", \"server/relays/report.pl\"), exchange)\n    }\n}\n"
+          "code": "import com.sun.net.httpserver.HttpExchange\n\n@RequestRoute(\"/report\")\n@Public\nclass ReportController {\n    @GetRoute\n    void getReport(HttpExchange exchange) throws java.io.IOException {\n        Yon.relay(java.util.List.of(\"perl\", \"server/relays/report.pl\"), exchange)\n    }\n}\n",
+          "run": "a8bfa3bd889da4ca"
         },
         {
           "name": "server/controllers/ReportController.kt",
-          "code": "import com.sun.net.httpserver.HttpExchange\n\n@RequestRoute(\"/report\")\n@Public\nclass ReportController {\n    @GetRoute\n    fun getReport(exchange: HttpExchange) =\n        Yon.relay(listOf(\"perl\", \"server/relays/report.pl\"), exchange)\n}\n"
+          "code": "import com.sun.net.httpserver.HttpExchange\n\n@RequestRoute(\"/report\")\n@Public\nclass ReportController {\n    @GetRoute\n    fun getReport(exchange: HttpExchange) =\n        Yon.relay(listOf(\"perl\", \"server/relays/report.pl\"), exchange)\n}\n",
+          "run": "776d1c0e2be68ce6"
         },
         {
           "name": "server/controllers/ReportController.cs",
-          "code": "[RequestRoute(\"/report\")]\n[Public]\nclass ReportController {\n    [GetRoute]\n    public HttpResponseMessage GetReport(HttpRequestMessage request) {\n        return Yon.Relay(new[] { \"perl\", \"server/relays/report.pl\" }, request);\n    }\n}\n"
+          "code": "[RequestRoute(\"/report\")]\n[Public]\nclass ReportController {\n    [GetRoute]\n    public HttpResponseMessage GetReport(HttpRequestMessage request) {\n        return Yon.Relay(new[] { \"perl\", \"server/relays/report.pl\" }, request);\n    }\n}\n",
+          "run": "5f84a7df4733f6bd"
         },
         {
           "name": "server/controllers/ReportController.fs",
-          "code": "open System.Net.Http\n\n[<RequestRoute(\"/report\")>]\n[<Public>]\ntype ReportController() =\n    [<GetRoute>]\n    member this.GetReport(request: HttpRequestMessage) : HttpResponseMessage =\n        Yon.Relay([| \"perl\"; \"server/relays/report.pl\" |], request)\n"
+          "code": "open System.Net.Http\n\n[<RequestRoute(\"/report\")>]\n[<Public>]\ntype ReportController() =\n    [<GetRoute>]\n    member this.GetReport(request: HttpRequestMessage) : HttpResponseMessage =\n        Yon.Relay([| \"perl\"; \"server/relays/report.pl\" |], request)\n",
+          "run": "fb98d8b2492c1fe3"
         },
         {
           "name": "server/controllers/ReportController.rs",
-          "code": "#[RequestRoute(\"/report\")]\n#[Public]\nstruct ReportController {}\nimpl ReportController {\n    fn new() -> Self { Self {} }\n\n    #[GetRoute]\n    fn get_report(&self, request: &http::Request<Vec<u8>>) -> http::Response<Vec<u8>> {\n        relay(&[\"perl\", \"server/relays/report.pl\"], request)\n    }\n}\n"
+          "code": "#[RequestRoute(\"/report\")]\n#[Public]\nstruct ReportController {}\nimpl ReportController {\n    fn new() -> Self { Self {} }\n\n    #[GetRoute]\n    fn get_report(&self, request: &http::Request<Vec<u8>>) -> http::Response<Vec<u8>> {\n        relay(&[\"perl\", \"server/relays/report.pl\"], request)\n    }\n}\n",
+          "run": "751ebfbeca60a19e"
         },
         {
           "name": "server/controllers/ReportController.go",
-          "code": "import \"net/http\"\n\n// @RequestRoute(\"/report\")\n// @Public\ntype ReportController struct {\n}\n\n// @GetRoute\nfunc (controller *ReportController) GetReport(request *http.Request) *http.Response {\n\treturn Relay([]string{\"perl\", \"server/relays/report.pl\"}, request)\n}\n"
+          "code": "import \"net/http\"\n\n// @RequestRoute(\"/report\")\n// @Public\ntype ReportController struct {\n}\n\n// @GetRoute\nfunc (controller *ReportController) GetReport(request *http.Request) *http.Response {\n\treturn Relay([]string{\"perl\", \"server/relays/report.pl\"}, request)\n}\n",
+          "run": "df79c102bbedfb93"
         },
         {
           "name": "server/controllers/ReportController.dart",
-          "code": "import 'package:shelf/shelf.dart';\n\n@RequestRoute(\"/report\")\n@Public\nclass ReportController {\n  @GetRoute\n  Future<Response> getReport(Request request) =>\n      relay(['perl', 'server/relays/report.pl'], request);\n}\n"
+          "code": "import 'package:shelf/shelf.dart';\n\n@RequestRoute(\"/report\")\n@Public\nclass ReportController {\n  @GetRoute\n  Future<Response> getReport(Request request) =>\n      relay(['perl', 'server/relays/report.pl'], request);\n}\n",
+          "run": "6758b2f5f68c3cf7"
         },
         {
           "name": "server/controllers/ReportController.rb",
-          "code": "#[RequestRoute(\"/report\")]\n#[Public]\nclass ReportController\n  # @param request [Hash]\n  # @return [Hash]\n  #[GetRoute]\n  def get_report(request)\n    relay([\"perl\", \"server/relays/report.pl\"], request)\n  end\nend\n"
+          "code": "#[RequestRoute(\"/report\")]\n#[Public]\nclass ReportController\n  # @param request [Hash]\n  # @return [Hash]\n  #[GetRoute]\n  def get_report(request)\n    relay([\"perl\", \"server/relays/report.pl\"], request)\n  end\nend\n",
+          "run": "5ad8bc2fe5bf329e"
         },
         {
           "name": "server/controllers/ReportController.hpp",
-          "code": "#pragma once\n\nclass [[RequestRoute(\"/report\")]] [[Public]] ReportController {\npublic:\n    [[GetRoute]]\n    tachyon::http::HttpResponseMessage getReport(const tachyon::http::HttpRequestMessage& request) {\n        return relay({\"perl\", \"server/relays/report.pl\"}, request);\n    }\n};\n"
+          "code": "#pragma once\n\nclass [[RequestRoute(\"/report\")]] [[Public]] ReportController {\npublic:\n    [[GetRoute]]\n    tachyon::http::HttpResponseMessage getReport(const tachyon::http::HttpRequestMessage& request) {\n        return relay({\"perl\", \"server/relays/report.pl\"}, request);\n    }\n};\n",
+          "run": "02608011f316a3eb"
         }
       ],
       "verify": "yon-relay"
@@ -2437,7 +2497,8 @@
         },
         {
           "name": "server/controllers/ReportController.js",
-          "code": "/** @import { Report } from '/models/Report.js' */\n@RequestRoute(\"/report\")\n@Public\nclass ReportController {\n  /** @type {ReportClient} */\n  @Needs\n  reportClient;\n\n  /** @returns {Promise<Report>} */\n  @GetRoute\n  async getReport() {\n    const summary = await this.reportClient.summarize('2026-Q3')\n    const forecast = await this.reportClient.forecast(3)\n    return { summary, forecast }\n  }\n}\n"
+          "code": "/** @import { Report } from '/models/Report.js' */\n@RequestRoute(\"/report\")\n@Public\nclass ReportController {\n  /** @type {ReportClient} */\n  @Needs\n  reportClient;\n\n  /** @returns {Promise<Report>} */\n  @GetRoute\n  async getReport() {\n    const summary = await this.reportClient.summarize('2026-Q3')\n    const forecast = await this.reportClient.forecast(3)\n    return { summary, forecast }\n  }\n}\n",
+          "run": "92dfd8c9ddafdd2d"
         },
         {
           "name": "server/models/Forecast.py",
@@ -2449,7 +2510,8 @@
         },
         {
           "name": "server/controllers/ForecastController.py",
-          "code": "from models import Forecast\n\n\n@request_route(\"/forecast\")\n@public\n@needs_all()\nclass ForecastController:\n    forecast_client: ForecastClient\n\n    @get_route\n    def get_forecast(self) -> Forecast:\n        summary = self.forecast_client.summary(\"2026-Q4\")\n        return Forecast(summary, self.forecast_client.forecast(2))\n"
+          "code": "from models import Forecast\n\n\n@request_route(\"/forecast\")\n@public\n@needs_all()\nclass ForecastController:\n    forecast_client: ForecastClient\n\n    @get_route\n    def get_forecast(self) -> Forecast:\n        summary = self.forecast_client.summary(\"2026-Q4\")\n        return Forecast(summary, self.forecast_client.forecast(2))\n",
+          "run": "1af3a99106b701a1"
         },
         {
           "name": "server/models/Balance.java",
@@ -2469,11 +2531,13 @@
         },
         {
           "name": "server/controllers/LedgerController.java",
-          "code": "import models.Balance;\n\n@RequestRoute(\"/ledger\")\n@Public\nclass LedgerController {\n    @Needs\n    final LedgerClient ledgerClient;\n\n    @GetRoute\n    Balance getLedger() {\n        return new Balance(ledgerClient.balance(\"ACME-7\"), ledgerClient.forecast(1L));\n    }\n}\n"
+          "code": "import models.Balance;\n\n@RequestRoute(\"/ledger\")\n@Public\nclass LedgerController {\n    @Needs\n    final LedgerClient ledgerClient;\n\n    @GetRoute\n    Balance getLedger() {\n        return new Balance(ledgerClient.balance(\"ACME-7\"), ledgerClient.forecast(1L));\n    }\n}\n",
+          "run": "8643be35ca324068"
         },
         {
           "name": "server/controllers/LedgerController.groovy",
-          "code": "import models.Balance\n\n@RequestRoute(\"/ledger\")\n@Public\nclass LedgerController {\n    @Needs\n    final LedgerClient ledgerClient\n\n    @GetRoute\n    Balance getLedger() {\n        return new Balance(ledgerClient.balance(\"ACME-7\"), ledgerClient.forecast(1L))\n    }\n}\n"
+          "code": "import models.Balance\n\n@RequestRoute(\"/ledger\")\n@Public\nclass LedgerController {\n    @Needs\n    final LedgerClient ledgerClient\n\n    @GetRoute\n    Balance getLedger() {\n        return new Balance(ledgerClient.balance(\"ACME-7\"), ledgerClient.forecast(1L))\n    }\n}\n",
+          "run": "9e47c0e2e051e750"
         },
         {
           "name": "server/remotes/ReportClient.ts",
@@ -2481,7 +2545,8 @@
         },
         {
           "name": "server/controllers/ReportController.ts",
-          "code": "import type { Report } from '/models/Report.ts'\n\n@RequestRoute(\"/report\")\n@Public\nclass ReportController {\n  @Needs\n  readonly reportClient!: ReportClient;\n\n  @GetRoute\n  async getReport(): Promise<Report> {\n    const summary = await this.reportClient.summarize('2026-Q3');\n    const forecast = await this.reportClient.forecast(3);\n    return { summary, forecast };\n  }\n}\n"
+          "code": "import type { Report } from '/models/Report.ts'\n\n@RequestRoute(\"/report\")\n@Public\nclass ReportController {\n  @Needs\n  readonly reportClient!: ReportClient;\n\n  @GetRoute\n  async getReport(): Promise<Report> {\n    const summary = await this.reportClient.summarize('2026-Q3');\n    const forecast = await this.reportClient.forecast(3);\n    return { summary, forecast };\n  }\n}\n",
+          "run": "42e76053a8acd9cc"
         },
         {
           "name": "server/models/Report.ts",
@@ -2493,7 +2558,8 @@
         },
         {
           "name": "server/controllers/LedgerController.php",
-          "code": "<?php\nuse Models\\Balance;\n\n#[RequestRoute(\"/ledger\")]\n#[Public]\nclass LedgerController {\n    #[Needs]\n    public LedgerClient $ledgerClient;\n\n    #[GetRoute]\n    public function getLedger(): Balance {\n        return new Balance($this->ledgerClient->balance('ACME-7'), $this->ledgerClient->forecast(1));\n    }\n}\n"
+          "code": "<?php\nuse Models\\Balance;\n\n#[RequestRoute(\"/ledger\")]\n#[Public]\nclass LedgerController {\n    #[Needs]\n    public LedgerClient $ledgerClient;\n\n    #[GetRoute]\n    public function getLedger(): Balance {\n        return new Balance($this->ledgerClient->balance('ACME-7'), $this->ledgerClient->forecast(1));\n    }\n}\n",
+          "run": "b82ad309a9270a2a"
         },
         {
           "name": "server/models/Balance.php",
@@ -2505,7 +2571,8 @@
         },
         {
           "name": "server/controllers/LedgerController.cs",
-          "code": "using System.Text.Json.Nodes;\nusing Models;\n\n[RequestRoute(\"/ledger\")]\n[Public]\nclass LedgerController {\n    [Needs]\n    readonly LedgerClient _ledgerClient;\n\n    [GetRoute]\n    public Ledger GetLedger() {\n        var balance = _ledgerClient.Balance(BehaviorJSON.From(\"ACME-7\"));\n        var forecast = _ledgerClient.Forecast(BehaviorJSON.From(1));\n        return new Ledger(JsonNode.Parse(balance.ToString()), JsonNode.Parse(forecast.ToString()));\n    }\n}\n"
+          "code": "using System.Text.Json.Nodes;\nusing Models;\n\n[RequestRoute(\"/ledger\")]\n[Public]\nclass LedgerController {\n    [Needs]\n    readonly LedgerClient _ledgerClient;\n\n    [GetRoute]\n    public Ledger GetLedger() {\n        var balance = _ledgerClient.Balance(BehaviorJSON.From(\"ACME-7\"));\n        var forecast = _ledgerClient.Forecast(BehaviorJSON.From(1));\n        return new Ledger(JsonNode.Parse(balance.ToString()), JsonNode.Parse(forecast.ToString()));\n    }\n}\n",
+          "run": "5973bf905ba56739"
         },
         {
           "name": "server/models/Ledger.cs",
@@ -2517,7 +2584,8 @@
         },
         {
           "name": "server/controllers/LedgerController.fs",
-          "code": "open System.Text.Json.Nodes\nopen Models\n\n[<RequestRoute(\"/ledger\")>]\n[<Public>]\ntype LedgerController(ledgerClient: LedgerClient) =\n    [<GetRoute>]\n    member this.GetLedger() : Balance =\n        let balance = ledgerClient.Balance(BehaviorJSON.From(\"ACME-7\"))\n        let forecast = ledgerClient.Forecast(BehaviorJSON.From(1))\n        { Balance = JsonNode.Parse(balance.ToString())\n          Forecast = JsonNode.Parse(forecast.ToString()) }\n"
+          "code": "open System.Text.Json.Nodes\nopen Models\n\n[<RequestRoute(\"/ledger\")>]\n[<Public>]\ntype LedgerController(ledgerClient: LedgerClient) =\n    [<GetRoute>]\n    member this.GetLedger() : Balance =\n        let balance = ledgerClient.Balance(BehaviorJSON.From(\"ACME-7\"))\n        let forecast = ledgerClient.Forecast(BehaviorJSON.From(1))\n        { Balance = JsonNode.Parse(balance.ToString())\n          Forecast = JsonNode.Parse(forecast.ToString()) }\n",
+          "run": "e06aa1bfe023fb71"
         },
         {
           "name": "server/models/Balance.fs",
@@ -2529,7 +2597,8 @@
         },
         {
           "name": "server/controllers/LedgerController.kt",
-          "code": "import models.Balance\n\n@RequestRoute(\"/ledger\")\n@Public\nclass LedgerController {\n    @Needs\n    val ledgerClient: LedgerClient\n\n    @GetRoute\n    fun getLedger(): Balance = Balance(ledgerClient.balance(\"ACME-7\"), ledgerClient.forecast(1L))\n}\n"
+          "code": "import models.Balance\n\n@RequestRoute(\"/ledger\")\n@Public\nclass LedgerController {\n    @Needs\n    val ledgerClient: LedgerClient\n\n    @GetRoute\n    fun getLedger(): Balance = Balance(ledgerClient.balance(\"ACME-7\"), ledgerClient.forecast(1L))\n}\n",
+          "run": "42c75b249a830e54"
         },
         {
           "name": "server/models/Balance.kt",
@@ -2541,7 +2610,8 @@
         },
         {
           "name": "server/controllers/LedgerController.rs",
-          "code": "use crate::models::Balance;\n\n#[RequestRoute(\"/ledger\")]\n#[Public]\nstruct LedgerController {\n    #[Needs]\n    ledger_client: std::sync::Arc<LedgerClient>,\n}\nimpl LedgerController {\n    #[GetRoute]\n    fn get_ledger(&self) -> Result<Balance, YonResourceError> {\n        let balance = self.ledger_client.balance(\"ACME-7\".into()).map_err(|_| YonResourceError)?;\n        let forecast = self.ledger_client.forecast(BehaviorValue::Number(1.0)).map_err(|_| YonResourceError)?;\n        Ok(Balance { balance: Self::json(&balance)?, forecast: Self::json(&forecast)? })\n    }\n\n    fn json(value: &BehaviorValue) -> Result<Json, YonResourceError> {\n        let text = value.to_json(1_048_576).map_err(|_| YonResourceError)?;\n        Json::parse(&text).map_err(|_| YonResourceError)\n    }\n}\n"
+          "code": "use crate::models::Balance;\n\n#[RequestRoute(\"/ledger\")]\n#[Public]\nstruct LedgerController {\n    #[Needs]\n    ledger_client: std::sync::Arc<LedgerClient>,\n}\nimpl LedgerController {\n    #[GetRoute]\n    fn get_ledger(&self) -> Result<Balance, YonResourceError> {\n        let balance = self.ledger_client.balance(\"ACME-7\".into()).map_err(|_| YonResourceError)?;\n        let forecast = self.ledger_client.forecast(BehaviorValue::Number(1.0)).map_err(|_| YonResourceError)?;\n        Ok(Balance { balance: Self::json(&balance)?, forecast: Self::json(&forecast)? })\n    }\n\n    fn json(value: &BehaviorValue) -> Result<Json, YonResourceError> {\n        let text = value.to_json(1_048_576).map_err(|_| YonResourceError)?;\n        Json::parse(&text).map_err(|_| YonResourceError)\n    }\n}\n",
+          "run": "e65717e30973fa70"
         },
         {
           "name": "server/models/Balance.rs",
@@ -2553,7 +2623,8 @@
         },
         {
           "name": "server/controllers/LedgerController.go",
-          "code": "import \"errors\"\n\n// @RequestRoute(\"/ledger\")\n// @Public\ntype LedgerController struct {\n\t// @Needs\n\tledgerClient *LedgerClient\n}\n\n// @GetRoute\nfunc (controller *LedgerController) GetLedger() (Balance, error) {\n\tbalance, balanceErr := controller.ledgerClient.Balance(\"ACME-7\")\n\tforecast, forecastErr := controller.ledgerClient.Forecast(1)\n\treturn Balance{Balance: balance, Forecast: forecast}, errors.Join(balanceErr, forecastErr)\n}\n"
+          "code": "import \"errors\"\n\n// @RequestRoute(\"/ledger\")\n// @Public\ntype LedgerController struct {\n\t// @Needs\n\tledgerClient *LedgerClient\n}\n\n// @GetRoute\nfunc (controller *LedgerController) GetLedger() (Balance, error) {\n\tbalance, balanceErr := controller.ledgerClient.Balance(\"ACME-7\")\n\tforecast, forecastErr := controller.ledgerClient.Forecast(1)\n\treturn Balance{Balance: balance, Forecast: forecast}, errors.Join(balanceErr, forecastErr)\n}\n",
+          "run": "1f82dad05efb3de5"
         },
         {
           "name": "server/models/Balance.go",
@@ -2565,7 +2636,8 @@
         },
         {
           "name": "server/controllers/LedgerController.dart",
-          "code": "import 'models/Balance.dart';\n\n@RequestRoute(\"/ledger\")\n@Public\nclass LedgerController {\n  @Needs\n  final LedgerClient ledgerClient;\n\n  @GetRoute\n  Future<Balance> getLedger() async {\n    final balance = await ledgerClient.balance('ACME-7');\n    final forecast = await ledgerClient.forecast(1);\n    return Balance(balance, forecast);\n  }\n}\n"
+          "code": "import 'models/Balance.dart';\n\n@RequestRoute(\"/ledger\")\n@Public\nclass LedgerController {\n  @Needs\n  final LedgerClient ledgerClient;\n\n  @GetRoute\n  Future<Balance> getLedger() async {\n    final balance = await ledgerClient.balance('ACME-7');\n    final forecast = await ledgerClient.forecast(1);\n    return Balance(balance, forecast);\n  }\n}\n",
+          "run": "901fb55aaf3d6f55"
         },
         {
           "name": "server/models/Balance.dart",
@@ -2577,7 +2649,8 @@
         },
         {
           "name": "server/controllers/LedgerController.rb",
-          "code": "#[RequestRoute(\"/ledger\")]\n#[Public]\nclass LedgerController\n  #[Needs]\n  # @return [LedgerClient]\n  attr_reader :ledger_client\n\n  # @return [Balance]\n  #[GetRoute]\n  def get_ledger\n    Balance.new(balance: ledger_client.balance(\"ACME-7\"), forecast: ledger_client.forecast(1))\n  end\nend\n"
+          "code": "#[RequestRoute(\"/ledger\")]\n#[Public]\nclass LedgerController\n  #[Needs]\n  # @return [LedgerClient]\n  attr_reader :ledger_client\n\n  # @return [Balance]\n  #[GetRoute]\n  def get_ledger\n    Balance.new(balance: ledger_client.balance(\"ACME-7\"), forecast: ledger_client.forecast(1))\n  end\nend\n",
+          "run": "5ba62cef2133e3d7"
         },
         {
           "name": "server/models/Balance.rb",
@@ -2589,7 +2662,8 @@
         },
         {
           "name": "server/controllers/LedgerController.lua",
-          "code": "-- @RequestRoute(\"/ledger\")\n-- @Public\n---@class LedgerController\nLedgerController = {\n  -- @Needs\n  ---@type LedgerClient\n  ledger_client = nil,\n}\n\n---@return Balance\n-- @GetRoute\nfunction LedgerController:get_ledger()\n  return {\n    balance = self.ledger_client:balance(\"ACME-7\"),\n    forecast = self.ledger_client:forecast(1),\n  }\nend\n"
+          "code": "-- @RequestRoute(\"/ledger\")\n-- @Public\n---@class LedgerController\nLedgerController = {\n  -- @Needs\n  ---@type LedgerClient\n  ledger_client = nil,\n}\n\n---@return Balance\n-- @GetRoute\nfunction LedgerController:get_ledger()\n  return {\n    balance = self.ledger_client:balance(\"ACME-7\"),\n    forecast = self.ledger_client:forecast(1),\n  }\nend\n",
+          "run": "1d5d55e93e4d0110"
         },
         {
           "name": "server/models/Balance.lua",
@@ -2601,7 +2675,8 @@
         },
         {
           "name": "server/controllers/LedgerController.hpp",
-          "code": "#pragma once\n#include \"../models/Balance.hpp\"\n#include \"../remotes/LedgerClient.hpp\"\n\nclass [[RequestRoute(\"/ledger\")]] [[Public]] LedgerController {\n    [[Needs]] LedgerClient& ledgerClient;\n\npublic:\n    [[GetRoute]]\n    Balance getLedger() {\n        return Balance{ledgerClient.balance(\"ACME-7\"), ledgerClient.forecast(1)};\n    }\n};\n"
+          "code": "#pragma once\n#include \"../models/Balance.hpp\"\n#include \"../remotes/LedgerClient.hpp\"\n\nclass [[RequestRoute(\"/ledger\")]] [[Public]] LedgerController {\n    [[Needs]] LedgerClient& ledgerClient;\n\npublic:\n    [[GetRoute]]\n    Balance getLedger() {\n        return Balance{ledgerClient.balance(\"ACME-7\"), ledgerClient.forecast(1)};\n    }\n};\n",
+          "run": "faaea58bc4f2236b"
         },
         {
           "name": "server/models/Balance.hpp",
@@ -2698,7 +2773,8 @@
         },
         {
           "name": "server/controllers/OrdersController.js",
-          "code": "@RequestRoute(\"/orders\")\n@Public\nclass OrdersController {\n  @GetRoute\n  getOrder() {\n    throw new OrderNotFound('order 42')\n  }\n}\n"
+          "code": "@RequestRoute(\"/orders\")\n@Public\nclass OrdersController {\n  @GetRoute\n  getOrder() {\n    throw new OrderNotFound('order 42')\n  }\n}\n",
+          "run": "27184396e9017869"
         },
         {
           "name": "server/errors/OrderNotFound.ts",
@@ -2714,7 +2790,8 @@
         },
         {
           "name": "server/controllers/OrdersController.ts",
-          "code": "import type { Problem } from '/models/Problem.ts'\n\n@RequestRoute(\"/orders\")\n@Public\nclass OrdersController {\n  @GetRoute\n  getOrder(): Problem {\n    throw new OrderNotFound('order 42')\n  }\n}\n"
+          "code": "import type { Problem } from '/models/Problem.ts'\n\n@RequestRoute(\"/orders\")\n@Public\nclass OrdersController {\n  @GetRoute\n  getOrder(): Problem {\n    throw new OrderNotFound('order 42')\n  }\n}\n",
+          "run": "ae4e81977aee6d1a"
         },
         {
           "name": "server/errors/OrderNotFound.py",
@@ -2730,7 +2807,8 @@
         },
         {
           "name": "server/controllers/OrdersController.py",
-          "code": "from models import Problem\n\n\n@RequestRoute(\"/orders\")\n@Public\nclass OrdersController:\n    @GetRoute\n    def get_order(self) -> Problem:\n        raise OrderNotFound(\"order 42\")\n"
+          "code": "from models import Problem\n\n\n@RequestRoute(\"/orders\")\n@Public\nclass OrdersController:\n    @GetRoute\n    def get_order(self) -> Problem:\n        raise OrderNotFound(\"order 42\")\n",
+          "run": "de7c0d746718ec21"
         },
         {
           "name": "server/errors/OrderNotFound.php",
@@ -2746,7 +2824,8 @@
         },
         {
           "name": "server/controllers/OrdersController.php",
-          "code": "<?php\nuse Models\\Problem;\n\n#[RequestRoute(\"/orders\")]\n#[Public]\nclass OrdersController {\n    #[GetRoute]\n    public function getOrder(): Problem {\n        throw new OrderNotFound('order 42');\n    }\n}\n"
+          "code": "<?php\nuse Models\\Problem;\n\n#[RequestRoute(\"/orders\")]\n#[Public]\nclass OrdersController {\n    #[GetRoute]\n    public function getOrder(): Problem {\n        throw new OrderNotFound('order 42');\n    }\n}\n",
+          "run": "b3ec8202dc10677a"
         },
         {
           "name": "server/errors/OrderNotFound.java",
@@ -2774,11 +2853,13 @@
         },
         {
           "name": "server/controllers/OrdersController.java",
-          "code": "import models.Problem;\n\n@RequestRoute(\"/orders\")\n@Public\nclass OrdersController {\n    @GetRoute\n    Problem getOrder() {\n        throw new OrderNotFound(\"order 42\");\n    }\n}\n"
+          "code": "import models.Problem;\n\n@RequestRoute(\"/orders\")\n@Public\nclass OrdersController {\n    @GetRoute\n    Problem getOrder() {\n        throw new OrderNotFound(\"order 42\");\n    }\n}\n",
+          "run": "824afb0df5ba899b"
         },
         {
           "name": "server/controllers/OrdersController.groovy",
-          "code": "import models.Problem\n\n@RequestRoute(\"/orders\")\n@Public\nclass OrdersController {\n    @GetRoute\n    Problem getOrder() {\n        throw new OrderNotFound(\"order 42\")\n    }\n}\n"
+          "code": "import models.Problem\n\n@RequestRoute(\"/orders\")\n@Public\nclass OrdersController {\n    @GetRoute\n    Problem getOrder() {\n        throw new OrderNotFound(\"order 42\")\n    }\n}\n",
+          "run": "5ace272bbad989b3"
         },
         {
           "name": "server/errors/OrderNotFound.kt",
@@ -2794,7 +2875,8 @@
         },
         {
           "name": "server/controllers/OrdersController.kt",
-          "code": "import models.Problem\n\n@RequestRoute(\"/orders\")\n@Public\nclass OrdersController {\n    @GetRoute\n    fun getOrder(): Problem {\n        throw OrderNotFound(\"order 42\")\n    }\n}\n"
+          "code": "import models.Problem\n\n@RequestRoute(\"/orders\")\n@Public\nclass OrdersController {\n    @GetRoute\n    fun getOrder(): Problem {\n        throw OrderNotFound(\"order 42\")\n    }\n}\n",
+          "run": "960181bde235ed64"
         },
         {
           "name": "server/errors/OrderNotFound.cs",
@@ -2822,11 +2904,13 @@
         },
         {
           "name": "server/controllers/OrdersController.cs",
-          "code": "using Models;\n\n[RequestRoute(\"/orders\")]\n[Public]\nclass OrdersController {\n    [GetRoute]\n    public Problem GetOrder() {\n        throw new OrderNotFound(\"order 42\");\n    }\n}\n"
+          "code": "using Models;\n\n[RequestRoute(\"/orders\")]\n[Public]\nclass OrdersController {\n    [GetRoute]\n    public Problem GetOrder() {\n        throw new OrderNotFound(\"order 42\");\n    }\n}\n",
+          "run": "a440d5eb8c84e727"
         },
         {
           "name": "server/controllers/OrdersController.fs",
-          "code": "open Models\n\n[<RequestRoute(\"/orders\")>]\n[<Public>]\ntype OrdersController() =\n    [<GetRoute>]\n    member this.GetOrder() : Problem =\n        raise (OrderNotFound(\"order 42\"))\n"
+          "code": "open Models\n\n[<RequestRoute(\"/orders\")>]\n[<Public>]\ntype OrdersController() =\n    [<GetRoute>]\n    member this.GetOrder() : Problem =\n        raise (OrderNotFound(\"order 42\"))\n",
+          "run": "f14e07b5fe0e3fef"
         },
         {
           "name": "server/errors/OrderNotFound.rs",
@@ -2842,7 +2926,8 @@
         },
         {
           "name": "server/controllers/OrdersController.rs",
-          "code": "use crate::models::Problem;\n\n#[RequestRoute(\"/orders\")]\n#[Public]\nstruct OrdersController {}\n\nimpl OrdersController {\n    fn new() -> Self {\n        Self {}\n    }\n\n    #[GetRoute]\n    fn get_order(&self) -> Result<Problem, OrderNotFound> {\n        Err(OrderNotFound)\n    }\n}\n"
+          "code": "use crate::models::Problem;\n\n#[RequestRoute(\"/orders\")]\n#[Public]\nstruct OrdersController {}\n\nimpl OrdersController {\n    fn new() -> Self {\n        Self {}\n    }\n\n    #[GetRoute]\n    fn get_order(&self) -> Result<Problem, OrderNotFound> {\n        Err(OrderNotFound)\n    }\n}\n",
+          "run": "bf07111e88c0df8e"
         },
         {
           "name": "server/errors/OrderNotFound.go",
@@ -2858,7 +2943,8 @@
         },
         {
           "name": "server/controllers/OrdersController.go",
-          "code": "import \"fmt\"\n\n// @RequestRoute(\"/orders\")\n// @Public\ntype OrdersController struct{}\n\n// @GetRoute\nfunc (controller *OrdersController) GetOrder() (Problem, error) {\n\treturn Problem{}, fmt.Errorf(\"order 42: %w\", &OrderNotFound{})\n}\n"
+          "code": "import \"fmt\"\n\n// @RequestRoute(\"/orders\")\n// @Public\ntype OrdersController struct{}\n\n// @GetRoute\nfunc (controller *OrdersController) GetOrder() (Problem, error) {\n\treturn Problem{}, fmt.Errorf(\"order 42: %w\", &OrderNotFound{})\n}\n",
+          "run": "805ccb25510c2e40"
         },
         {
           "name": "server/errors/OrderNotFound.dart",
@@ -2874,7 +2960,8 @@
         },
         {
           "name": "server/controllers/OrdersController.dart",
-          "code": "import 'models/Problem.dart';\n\n@RequestRoute(\"/orders\")\n@Public\nclass OrdersController {\n  @GetRoute\n  Problem getOrder() {\n    throw OrderNotFound('order 42');\n  }\n}\n"
+          "code": "import 'models/Problem.dart';\n\n@RequestRoute(\"/orders\")\n@Public\nclass OrdersController {\n  @GetRoute\n  Problem getOrder() {\n    throw OrderNotFound('order 42');\n  }\n}\n",
+          "run": "5972f32fc0703f15"
         },
         {
           "name": "server/errors/OrderNotFound.rb",
@@ -2890,7 +2977,8 @@
         },
         {
           "name": "server/controllers/OrdersController.rb",
-          "code": "#[RequestRoute(\"/orders\")]\n#[Public]\nclass OrdersController\n  # @return [Problem]\n  #[GetRoute]\n  def get_order\n    raise OrderNotFound, \"order 42\"\n  end\nend\n"
+          "code": "#[RequestRoute(\"/orders\")]\n#[Public]\nclass OrdersController\n  # @return [Problem]\n  #[GetRoute]\n  def get_order\n    raise OrderNotFound, \"order 42\"\n  end\nend\n",
+          "run": "c82ec3132c17f99c"
         },
         {
           "name": "server/models/Problem.lua",
@@ -2902,7 +2990,8 @@
         },
         {
           "name": "server/controllers/OrdersController.lua",
-          "code": "-- @RequestRoute(\"/orders\")\n-- @Public\n---@class OrdersController\nOrdersController = {}\n\n---@return Problem\n-- @GetRoute\nfunction OrdersController:get_order()\n  error(setmetatable({ message = \"order 42\" }, OrderNotFound))\nend\n"
+          "code": "-- @RequestRoute(\"/orders\")\n-- @Public\n---@class OrdersController\nOrdersController = {}\n\n---@return Problem\n-- @GetRoute\nfunction OrdersController:get_order()\n  error(setmetatable({ message = \"order 42\" }, OrderNotFound))\nend\n",
+          "run": "1f88c448c62ef7df"
         },
         {
           "name": "server/controllers/OrdersErrorHandler.lua",
@@ -2922,7 +3011,8 @@
         },
         {
           "name": "server/controllers/OrdersController.hpp",
-          "code": "#pragma once\n#include \"../errors/OrderNotFound.hpp\"\n#include \"../models/Problem.hpp\"\n\nclass [[RequestRoute(\"/orders\")]] [[Public]] OrdersController {\npublic:\n    [[GetRoute]]\n    Problem getOrder() {\n        throw OrderNotFound(\"order 42\");\n    }\n};\n"
+          "code": "#pragma once\n#include \"../errors/OrderNotFound.hpp\"\n#include \"../models/Problem.hpp\"\n\nclass [[RequestRoute(\"/orders\")]] [[Public]] OrdersController {\npublic:\n    [[GetRoute]]\n    Problem getOrder() {\n        throw OrderNotFound(\"order 42\");\n    }\n};\n",
+          "run": "1c7698305bb4d6c3"
         }
       ]
     },
@@ -2934,7 +3024,8 @@
       "files": [
         {
           "name": "server/controllers/ItemsController.js",
-          "code": "/** @import { Item } from '/models/Item.ts' */\n@RequestRoute(\"/items\")\n@Public\nclass ItemsController {\n  /**\n   * @param {number} id\n   * @returns {Item}\n   */\n  @GetRoute(\"/{id}\")\n  getItem(@FromPath id) {\n    return { name: 'anvil', level: id }\n  }\n\n  /**\n   * @param {number} id\n   * @param {Item} item\n   * @returns {Item}\n   */\n  @PatchRoute(\"/{id}\")\n  patchItem(@FromPath id, @FromBody item) {\n    return { name: item.name, level: id }\n  }\n}\n"
+          "code": "/** @import { Item } from '/models/Item.ts' */\n@RequestRoute(\"/items\")\n@Public\nclass ItemsController {\n  /**\n   * @param {number} id\n   * @returns {Item}\n   */\n  @GetRoute(\"/{id}\")\n  getItem(@FromPath id) {\n    return { name: 'anvil', level: id }\n  }\n\n  /**\n   * @param {number} id\n   * @param {Item} item\n   * @returns {Item}\n   */\n  @PatchRoute(\"/{id}\")\n  patchItem(@FromPath id, @FromBody item) {\n    return { name: item.name, level: id }\n  }\n}\n",
+          "run": "2431a85dc453fc23"
         },
         {
           "name": "server/models/Item.ts",
@@ -2942,7 +3033,8 @@
         },
         {
           "name": "server/controllers/ItemsController.ts",
-          "code": "import type { Item } from '/models/Item.ts';\n\n@RequestRoute(\"/items\")\n@Public\nclass ItemsController {\n  @GetRoute(\"/{id}\")\n  getItem(@FromPath id: number): Item {\n    return { name: 'anvil', level: id }\n  }\n\n  @PatchRoute(\"/{id}\")\n  patchItem(@FromPath id: number, @FromBody item: Item): Item {\n    return { name: item.name, level: id }\n  }\n}\n"
+          "code": "import type { Item } from '/models/Item.ts';\n\n@RequestRoute(\"/items\")\n@Public\nclass ItemsController {\n  @GetRoute(\"/{id}\")\n  getItem(@FromPath id: number): Item {\n    return { name: 'anvil', level: id }\n  }\n\n  @PatchRoute(\"/{id}\")\n  patchItem(@FromPath id: number, @FromBody item: Item): Item {\n    return { name: item.name, level: id }\n  }\n}\n",
+          "run": "2acc618f7720114c"
         },
         {
           "name": "server/models/Item.py",
@@ -2950,7 +3042,8 @@
         },
         {
           "name": "server/controllers/ItemsController.py",
-          "code": "from typing import Annotated\nfrom models import Item\n\n\n@request_route(\"/items\")\n@public\nclass ItemsController:\n    @get_route(\"/{id}\")\n    def get_item(self, id: Annotated[int, from_path]) -> Item:\n        return Item(\"anvil\", id)\n\n    @patch_route(\"/{id}\")\n    def patch_item(self, id: Annotated[int, from_path], item: Annotated[Item, from_body]) -> Item:\n        return Item(item.name, id)\n"
+          "code": "from typing import Annotated\nfrom models import Item\n\n\n@request_route(\"/items\")\n@public\nclass ItemsController:\n    @get_route(\"/{id}\")\n    def get_item(self, id: Annotated[int, from_path]) -> Item:\n        return Item(\"anvil\", id)\n\n    @patch_route(\"/{id}\")\n    def patch_item(self, id: Annotated[int, from_path], item: Annotated[Item, from_body]) -> Item:\n        return Item(item.name, id)\n",
+          "run": "ceee34fd94d1b2d8"
         },
         {
           "name": "server/models/Item.php",
@@ -2958,7 +3051,8 @@
         },
         {
           "name": "server/controllers/ItemsController.php",
-          "code": "<?php\nuse Models\\Item;\n\n#[RequestRoute(\"/items\")]\n#[Public]\nclass ItemsController {\n    #[GetRoute(\"/{id}\")]\n    public function getItem(#[FromPath] int $id): Item {\n        return new Item('anvil', $id);\n    }\n\n    #[PatchRoute(\"/{id}\")]\n    public function patchItem(#[FromPath] int $id, #[FromBody] Item $item): Item {\n        return new Item($item->name, $id);\n    }\n}\n"
+          "code": "<?php\nuse Models\\Item;\n\n#[RequestRoute(\"/items\")]\n#[Public]\nclass ItemsController {\n    #[GetRoute(\"/{id}\")]\n    public function getItem(#[FromPath] int $id): Item {\n        return new Item('anvil', $id);\n    }\n\n    #[PatchRoute(\"/{id}\")]\n    public function patchItem(#[FromPath] int $id, #[FromBody] Item $item): Item {\n        return new Item($item->name, $id);\n    }\n}\n",
+          "run": "5bd19e4b2fa8849b"
         },
         {
           "name": "server/models/Item.java",
@@ -2970,11 +3064,13 @@
         },
         {
           "name": "server/controllers/ItemsController.java",
-          "code": "import models.Item;\n\n@RequestRoute(\"/items\")\n@Public\nclass ItemsController {\n    @GetRoute(\"/{id}\")\n    Item getItem(@FromPath long id) {\n        return new Item(\"anvil\", id);\n    }\n\n    @PatchRoute(\"/{id}\")\n    Item patchItem(@FromPath long id, @FromBody Item item) {\n        return new Item(item.name(), id);\n    }\n}\n"
+          "code": "import models.Item;\n\n@RequestRoute(\"/items\")\n@Public\nclass ItemsController {\n    @GetRoute(\"/{id}\")\n    Item getItem(@FromPath long id) {\n        return new Item(\"anvil\", id);\n    }\n\n    @PatchRoute(\"/{id}\")\n    Item patchItem(@FromPath long id, @FromBody Item item) {\n        return new Item(item.name(), id);\n    }\n}\n",
+          "run": "b5a0387f423f5c01"
         },
         {
           "name": "server/controllers/ItemsController.groovy",
-          "code": "import models.Item\n\n@RequestRoute(\"/items\")\n@Public\nclass ItemsController {\n    @GetRoute(\"/{id}\")\n    Item getItem(@FromPath long id) {\n        return new Item(\"anvil\", id)\n    }\n\n    @PatchRoute(\"/{id}\")\n    Item patchItem(@FromPath long id, @FromBody Item item) {\n        return new Item(item.name(), id)\n    }\n}\n"
+          "code": "import models.Item\n\n@RequestRoute(\"/items\")\n@Public\nclass ItemsController {\n    @GetRoute(\"/{id}\")\n    Item getItem(@FromPath long id) {\n        return new Item(\"anvil\", id)\n    }\n\n    @PatchRoute(\"/{id}\")\n    Item patchItem(@FromPath long id, @FromBody Item item) {\n        return new Item(item.name(), id)\n    }\n}\n",
+          "run": "225c55edb410323d"
         },
         {
           "name": "server/models/Item.kt",
@@ -2982,7 +3078,8 @@
         },
         {
           "name": "server/controllers/ItemsController.kt",
-          "code": "import models.Item\n\n@RequestRoute(\"/items\")\n@Public\nclass ItemsController {\n    @GetRoute(\"/{id}\")\n    fun getItem(@FromPath id: Long): Item = Item(\"anvil\", id)\n\n    @PatchRoute(\"/{id}\")\n    fun patchItem(@FromPath id: Long, @FromBody item: Item): Item = Item(item.name, id)\n}\n"
+          "code": "import models.Item\n\n@RequestRoute(\"/items\")\n@Public\nclass ItemsController {\n    @GetRoute(\"/{id}\")\n    fun getItem(@FromPath id: Long): Item = Item(\"anvil\", id)\n\n    @PatchRoute(\"/{id}\")\n    fun patchItem(@FromPath id: Long, @FromBody item: Item): Item = Item(item.name, id)\n}\n",
+          "run": "3d5725995a86eced"
         },
         {
           "name": "server/models/Item.cs",
@@ -2994,11 +3091,13 @@
         },
         {
           "name": "server/controllers/ItemsController.cs",
-          "code": "using Models;\n\n[RequestRoute(\"/items\")]\n[Public]\nclass ItemsController {\n    [GetRoute(\"/{id}\")]\n    public Item GetItem([FromPath] long id) {\n        return new Item(\"anvil\", id);\n    }\n\n    [PatchRoute(\"/{id}\")]\n    public Item PatchItem([FromPath] long id, [FromBody] Item item) {\n        return new Item(item.Name, id);\n    }\n}\n"
+          "code": "using Models;\n\n[RequestRoute(\"/items\")]\n[Public]\nclass ItemsController {\n    [GetRoute(\"/{id}\")]\n    public Item GetItem([FromPath] long id) {\n        return new Item(\"anvil\", id);\n    }\n\n    [PatchRoute(\"/{id}\")]\n    public Item PatchItem([FromPath] long id, [FromBody] Item item) {\n        return new Item(item.Name, id);\n    }\n}\n",
+          "run": "23ede0f71461abde"
         },
         {
           "name": "server/controllers/ItemsController.fs",
-          "code": "open Models\n\n[<RequestRoute(\"/items\")>]\n[<Public>]\ntype ItemsController() =\n    [<GetRoute(\"/{id}\")>]\n    member this.GetItem([<FromPath>] id: int64) : Item =\n        { Name = \"anvil\"; Level = id }\n\n    [<PatchRoute(\"/{id}\")>]\n    member this.PatchItem([<FromPath>] id: int64, [<FromBody>] item: Item) : Item =\n        { item with Level = id }\n"
+          "code": "open Models\n\n[<RequestRoute(\"/items\")>]\n[<Public>]\ntype ItemsController() =\n    [<GetRoute(\"/{id}\")>]\n    member this.GetItem([<FromPath>] id: int64) : Item =\n        { Name = \"anvil\"; Level = id }\n\n    [<PatchRoute(\"/{id}\")>]\n    member this.PatchItem([<FromPath>] id: int64, [<FromBody>] item: Item) : Item =\n        { item with Level = id }\n",
+          "run": "02fb467cdab3eeb9"
         },
         {
           "name": "server/models/Item.rs",
@@ -3006,7 +3105,8 @@
         },
         {
           "name": "server/controllers/ItemsController.rs",
-          "code": "use crate::models::Item;\n\n#[RequestRoute(\"/items\")]\n#[Public]\nstruct ItemsController {}\nimpl ItemsController {\n    fn new() -> Self { Self {} }\n\n    #[GetRoute(\"/{id}\")]\n    fn get_item(&self, #[FromPath] id: i64) -> Item {\n        Item { name: String::from(\"anvil\"), level: id }\n    }\n\n    #[PatchRoute(\"/{id}\")]\n    fn patch_item(&self, #[FromPath] id: i64, #[FromBody] item: Item) -> Item {\n        Item { name: item.name, level: id }\n    }\n}\n"
+          "code": "use crate::models::Item;\n\n#[RequestRoute(\"/items\")]\n#[Public]\nstruct ItemsController {}\nimpl ItemsController {\n    fn new() -> Self { Self {} }\n\n    #[GetRoute(\"/{id}\")]\n    fn get_item(&self, #[FromPath] id: i64) -> Item {\n        Item { name: String::from(\"anvil\"), level: id }\n    }\n\n    #[PatchRoute(\"/{id}\")]\n    fn patch_item(&self, #[FromPath] id: i64, #[FromBody] item: Item) -> Item {\n        Item { name: item.name, level: id }\n    }\n}\n",
+          "run": "6673a74647c64eaa"
         },
         {
           "name": "server/models/Item.go",
@@ -3014,7 +3114,8 @@
         },
         {
           "name": "server/controllers/ItemsController.go",
-          "code": "// @RequestRoute(\"/items\")\n// @Public\ntype ItemsController struct {\n}\n\n// @GetRoute(\"/{id}\")\nfunc (controller *ItemsController) GetItem(\n\t// @FromPath\n\tid int64,\n) Item {\n\treturn Item{Name: \"anvil\", Level: id}\n}\n\n// @PatchRoute(\"/{id}\")\nfunc (controller *ItemsController) PatchItem(\n\t// @FromPath\n\tid int64,\n\t// @FromBody\n\titem Item,\n) Item {\n\treturn Item{Name: item.Name, Level: id}\n}\n"
+          "code": "// @RequestRoute(\"/items\")\n// @Public\ntype ItemsController struct {\n}\n\n// @GetRoute(\"/{id}\")\nfunc (controller *ItemsController) GetItem(\n\t// @FromPath\n\tid int64,\n) Item {\n\treturn Item{Name: \"anvil\", Level: id}\n}\n\n// @PatchRoute(\"/{id}\")\nfunc (controller *ItemsController) PatchItem(\n\t// @FromPath\n\tid int64,\n\t// @FromBody\n\titem Item,\n) Item {\n\treturn Item{Name: item.Name, Level: id}\n}\n",
+          "run": "7d08c7c95cfee574"
         },
         {
           "name": "server/models/Item.dart",
@@ -3022,7 +3123,8 @@
         },
         {
           "name": "server/controllers/ItemsController.dart",
-          "code": "import 'models/Item.dart';\n\n@RequestRoute(\"/items\")\n@Public\nclass ItemsController {\n  @GetRoute(\"/{id}\")\n  Item getItem(@FromPath int id) => Item('anvil', id);\n\n  @PatchRoute(\"/{id}\")\n  Item patchItem(@FromPath int id, @FromBody Item item) => Item(item.name, id);\n}\n"
+          "code": "import 'models/Item.dart';\n\n@RequestRoute(\"/items\")\n@Public\nclass ItemsController {\n  @GetRoute(\"/{id}\")\n  Item getItem(@FromPath int id) => Item('anvil', id);\n\n  @PatchRoute(\"/{id}\")\n  Item patchItem(@FromPath int id, @FromBody Item item) => Item(item.name, id);\n}\n",
+          "run": "e96755a16036b327"
         },
         {
           "name": "options",
@@ -3042,7 +3144,8 @@
         },
         {
           "name": "server/controllers/ItemsController.rb",
-          "code": "#[RequestRoute(\"/items\")]\n#[Public]\nclass ItemsController\n  # @param id [Integer]\n  # @return [Item]\n  #[GetRoute(\"/{id}\")]\n  def get_item(\n    #[FromPath]\n    id\n  )\n    Item.new(name: \"anvil\", level: id)\n  end\n\n  # @param id [Integer]\n  # @param item [Item]\n  # @return [Item]\n  #[PatchRoute(\"/{id}\")]\n  def patch_item(\n    #[FromPath]\n    id,\n    #[FromBody]\n    item\n  )\n    Item.new(name: item.name, level: id)\n  end\nend\n"
+          "code": "#[RequestRoute(\"/items\")]\n#[Public]\nclass ItemsController\n  # @param id [Integer]\n  # @return [Item]\n  #[GetRoute(\"/{id}\")]\n  def get_item(\n    #[FromPath]\n    id\n  )\n    Item.new(name: \"anvil\", level: id)\n  end\n\n  # @param id [Integer]\n  # @param item [Item]\n  # @return [Item]\n  #[PatchRoute(\"/{id}\")]\n  def patch_item(\n    #[FromPath]\n    id,\n    #[FromBody]\n    item\n  )\n    Item.new(name: item.name, level: id)\n  end\nend\n",
+          "run": "52e9ef20c3f430c8"
         },
         {
           "name": "server/models/Item.lua",
@@ -3050,7 +3153,8 @@
         },
         {
           "name": "server/controllers/ItemsController.lua",
-          "code": "-- @RequestRoute(\"/items\")\n-- @Public\n---@class ItemsController\nItemsController = {}\n\n---@param id integer\n---@return Item\n-- @GetRoute(\"/{id}\")\nfunction ItemsController:get_item(\n  -- @FromPath\n  id\n)\n  return { name = \"anvil\", level = id }\nend\n\n---@param id integer\n---@param item Item\n---@return Item\n-- @PatchRoute(\"/{id}\")\nfunction ItemsController:patch_item(\n  -- @FromPath\n  id,\n  -- @FromBody\n  item\n)\n  return { name = item.name, level = id }\nend\n"
+          "code": "-- @RequestRoute(\"/items\")\n-- @Public\n---@class ItemsController\nItemsController = {}\n\n---@param id integer\n---@return Item\n-- @GetRoute(\"/{id}\")\nfunction ItemsController:get_item(\n  -- @FromPath\n  id\n)\n  return { name = \"anvil\", level = id }\nend\n\n---@param id integer\n---@param item Item\n---@return Item\n-- @PatchRoute(\"/{id}\")\nfunction ItemsController:patch_item(\n  -- @FromPath\n  id,\n  -- @FromBody\n  item\n)\n  return { name = item.name, level = id }\nend\n",
+          "run": "8205c67865277a25"
         },
         {
           "name": "server/models/Item.hpp",
@@ -3058,7 +3162,8 @@
         },
         {
           "name": "server/controllers/ItemsController.hpp",
-          "code": "#pragma once\n#include <cstdint>\n#include \"../models/Item.hpp\"\n\nclass [[RequestRoute(\"/items\")]] [[Public]] ItemsController {\npublic:\n    [[GetRoute(\"/{id}\")]]\n    Item getItem([[FromPath]] std::int64_t id) {\n        return Item{\"anvil\", id};\n    }\n\n    [[PatchRoute(\"/{id}\")]]\n    Item patchItem([[FromPath]] std::int64_t id, [[FromBody]] Item item) {\n        return Item{item.name, id};\n    }\n};\n"
+          "code": "#pragma once\n#include <cstdint>\n#include \"../models/Item.hpp\"\n\nclass [[RequestRoute(\"/items\")]] [[Public]] ItemsController {\npublic:\n    [[GetRoute(\"/{id}\")]]\n    Item getItem([[FromPath]] std::int64_t id) {\n        return Item{\"anvil\", id};\n    }\n\n    [[PatchRoute(\"/{id}\")]]\n    Item patchItem([[FromPath]] std::int64_t id, [[FromBody]] Item item) {\n        return Item{item.name, id};\n    }\n};\n",
+          "run": "2fe26f0e98bf822b"
         }
       ]
     },
@@ -3078,7 +3183,8 @@
         },
         {
           "name": "server/controllers/TicksController.js",
-          "code": "/** @import { Tick } from '/models/Tick.ts' */\n@RequestRoute(\"/ticks\")\n@Public\nclass TicksController {\n  /** @returns {AsyncGenerator<Tick>} */\n  @StreamRoute\n  async *streamTicks() {\n    yield* this._countdown(3)\n  }\n\n  /**\n   * @param {number} start\n   * @returns {AsyncGenerator<Tick>}\n   */\n  async *_countdown(start) {\n    for (let level = start; level > 0; level -= 1) {\n      yield { sku: 'ANVIL-1', level }\n      await new Promise((resume) => setTimeout(resume, 1000))\n    }\n  }\n}\n"
+          "code": "/** @import { Tick } from '/models/Tick.ts' */\n@RequestRoute(\"/ticks\")\n@Public\nclass TicksController {\n  /** @returns {AsyncGenerator<Tick>} */\n  @StreamRoute\n  async *streamTicks() {\n    yield* this._countdown(3)\n  }\n\n  /**\n   * @param {number} start\n   * @returns {AsyncGenerator<Tick>}\n   */\n  async *_countdown(start) {\n    for (let level = start; level > 0; level -= 1) {\n      yield { sku: 'ANVIL-1', level }\n      await new Promise((resume) => setTimeout(resume, 1000))\n    }\n  }\n}\n",
+          "run": "b6172e70bcc2802c"
         },
         {
           "name": "server/models/Tick.ts",
@@ -3086,7 +3192,8 @@
         },
         {
           "name": "server/controllers/TicksController.ts",
-          "code": "import type { Tick } from '/models/Tick.ts'\n\n@RequestRoute(\"/ticks\")\n@Public\nclass TicksController {\n  @StreamRoute\n  async *streamTicks(): AsyncGenerator<Tick> {\n    yield* this.countdown(3)\n  }\n\n  private async *countdown(start: number): AsyncGenerator<Tick> {\n    for (let level = start; level > 0; level -= 1) {\n      yield { sku: 'ANVIL-1', level }\n      await new Promise((resume) => setTimeout(resume, 1000))\n    }\n  }\n}\n"
+          "code": "import type { Tick } from '/models/Tick.ts'\n\n@RequestRoute(\"/ticks\")\n@Public\nclass TicksController {\n  @StreamRoute\n  async *streamTicks(): AsyncGenerator<Tick> {\n    yield* this.countdown(3)\n  }\n\n  private async *countdown(start: number): AsyncGenerator<Tick> {\n    for (let level = start; level > 0; level -= 1) {\n      yield { sku: 'ANVIL-1', level }\n      await new Promise((resume) => setTimeout(resume, 1000))\n    }\n  }\n}\n",
+          "run": "f5fcb822b9577a9a"
         },
         {
           "name": "server/models/Tick.py",
@@ -3094,7 +3201,8 @@
         },
         {
           "name": "server/controllers/TicksController.py",
-          "code": "import time\nfrom typing import Iterator\n\nfrom models import Tick\n\n\n@request_route(\"/ticks\")\n@public\nclass TicksController:\n    @stream_route\n    def stream_ticks(self) -> Iterator[Tick]:\n        yield from self._countdown(3)\n\n    def _countdown(self, start: int) -> Iterator[Tick]:\n        for level in range(start, 0, -1):\n            yield Tick(\"ANVIL-1\", level)\n            time.sleep(1)\n"
+          "code": "import time\nfrom typing import Iterator\n\nfrom models import Tick\n\n\n@request_route(\"/ticks\")\n@public\nclass TicksController:\n    @stream_route\n    def stream_ticks(self) -> Iterator[Tick]:\n        yield from self._countdown(3)\n\n    def _countdown(self, start: int) -> Iterator[Tick]:\n        for level in range(start, 0, -1):\n            yield Tick(\"ANVIL-1\", level)\n            time.sleep(1)\n",
+          "run": "0fa7674d0860ab15"
         },
         {
           "name": "server/models/Tick.php",
@@ -3102,7 +3210,8 @@
         },
         {
           "name": "server/controllers/TicksController.php",
-          "code": "<?php\nuse Models\\Tick;\n\n#[RequestRoute(\"/ticks\")]\n#[Public]\nclass TicksController {\n    #[StreamRoute]\n    public function streamTicks(): Generator {\n        yield from $this->ticksFor(['ANVIL-1' => 3, 'ANVIL-2' => 1]);\n    }\n\n    private function ticksFor(array $levels): Generator {\n        foreach ($levels as $sku => $level) {\n            yield new Tick($sku, $level);\n        }\n    }\n}\n"
+          "code": "<?php\nuse Models\\Tick;\n\n#[RequestRoute(\"/ticks\")]\n#[Public]\nclass TicksController {\n    #[StreamRoute]\n    public function streamTicks(): Generator {\n        yield from $this->ticksFor(['ANVIL-1' => 3, 'ANVIL-2' => 1]);\n    }\n\n    private function ticksFor(array $levels): Generator {\n        foreach ($levels as $sku => $level) {\n            yield new Tick($sku, $level);\n        }\n    }\n}\n",
+          "run": "8a14f0ad5eea26d5"
         },
         {
           "name": "server/models/Tick.kt",
@@ -3110,7 +3219,8 @@
         },
         {
           "name": "server/controllers/TicksController.kt",
-          "code": "import models.Tick\n\n@RequestRoute(\"/ticks\")\n@Public\nclass TicksController {\n    @StreamRoute\n    fun streamTicks(): Sequence<Tick> = countdown(3)\n\n    private fun countdown(start: Int): Sequence<Tick> = sequence {\n        for (level in start downTo 1) {\n            yield(Tick(\"ANVIL-1\", level))\n        }\n    }\n}\n"
+          "code": "import models.Tick\n\n@RequestRoute(\"/ticks\")\n@Public\nclass TicksController {\n    @StreamRoute\n    fun streamTicks(): Sequence<Tick> = countdown(3)\n\n    private fun countdown(start: Int): Sequence<Tick> = sequence {\n        for (level in start downTo 1) {\n            yield(Tick(\"ANVIL-1\", level))\n        }\n    }\n}\n",
+          "run": "0ade538beb9fbe5f"
         },
         {
           "name": "server/models/Tick.java",
@@ -3118,7 +3228,8 @@
         },
         {
           "name": "server/controllers/TicksController.java",
-          "code": "import java.util.stream.IntStream;\nimport java.util.stream.Stream;\nimport models.Tick;\n\n@RequestRoute(\"/ticks\")\n@Public\nclass TicksController {\n    @StreamRoute\n    Stream<Tick> streamTicks() {\n        return countdown(3);\n    }\n\n    private Stream<Tick> countdown(int start) {\n        return IntStream.iterate(start, level -> level > 0, level -> level - 1)\n            .mapToObj(level -> new Tick(\"ANVIL-1\", level));\n    }\n}\n"
+          "code": "import java.util.stream.IntStream;\nimport java.util.stream.Stream;\nimport models.Tick;\n\n@RequestRoute(\"/ticks\")\n@Public\nclass TicksController {\n    @StreamRoute\n    Stream<Tick> streamTicks() {\n        return countdown(3);\n    }\n\n    private Stream<Tick> countdown(int start) {\n        return IntStream.iterate(start, level -> level > 0, level -> level - 1)\n            .mapToObj(level -> new Tick(\"ANVIL-1\", level));\n    }\n}\n",
+          "run": "bb326e8bfe6047f7"
         },
         {
           "name": "server/models/Tick.groovy",
@@ -3126,7 +3237,8 @@
         },
         {
           "name": "server/controllers/TicksController.groovy",
-          "code": "import models.Tick\n\n@RequestRoute(\"/ticks\")\n@Public\nclass TicksController {\n    @StreamRoute\n    Iterator<Tick> streamTicks() {\n        return countdown(3)\n    }\n\n    private Iterator<Tick> countdown(int start) {\n        return (start..1).collect { level -> new Tick(\"ANVIL-1\", level) }.iterator()\n    }\n}\n"
+          "code": "import models.Tick\n\n@RequestRoute(\"/ticks\")\n@Public\nclass TicksController {\n    @StreamRoute\n    Iterator<Tick> streamTicks() {\n        return countdown(3)\n    }\n\n    private Iterator<Tick> countdown(int start) {\n        return (start..1).collect { level -> new Tick(\"ANVIL-1\", level) }.iterator()\n    }\n}\n",
+          "run": "eb79f84c10f90a4b"
         },
         {
           "name": "server/models/Tick.cs",
@@ -3134,7 +3246,8 @@
         },
         {
           "name": "server/controllers/TicksController.cs",
-          "code": "using Models;\n\n[RequestRoute(\"/ticks\")]\n[Public]\nclass TicksController {\n    [StreamRoute]\n    public IAsyncEnumerable<Tick> StreamTicks() {\n        return TicksFor(new[] { \"ANVIL-1\", \"ANVIL-2\" });\n    }\n\n    private static async IAsyncEnumerable<Tick> TicksFor(string[] skus) {\n        foreach (var sku in skus) {\n            await Task.Delay(1000);\n            yield return new Tick(sku, 3);\n        }\n    }\n}\n"
+          "code": "using Models;\n\n[RequestRoute(\"/ticks\")]\n[Public]\nclass TicksController {\n    [StreamRoute]\n    public IAsyncEnumerable<Tick> StreamTicks() {\n        return TicksFor(new[] { \"ANVIL-1\", \"ANVIL-2\" });\n    }\n\n    private static async IAsyncEnumerable<Tick> TicksFor(string[] skus) {\n        foreach (var sku in skus) {\n            await Task.Delay(1000);\n            yield return new Tick(sku, 3);\n        }\n    }\n}\n",
+          "run": "37d0b6e31cef0617"
         },
         {
           "name": "server/models/Tick.fs",
@@ -3142,7 +3255,8 @@
         },
         {
           "name": "server/controllers/TicksController.fs",
-          "code": "open Models\n\n[<RequestRoute(\"/ticks\")>]\n[<Public>]\ntype TicksController() =\n    [<StreamRoute>]\n    member this.StreamTicks() : seq<Tick> =\n        TicksController.TicksFor([| \"ANVIL-1\"; \"ANVIL-2\" |])\n\n    static member private TicksFor(skus: string[]) : seq<Tick> =\n        seq {\n            for sku in skus do\n                System.Threading.Thread.Sleep(1000)\n                yield { Sku = sku; Level = 3 }\n        }\n"
+          "code": "open Models\n\n[<RequestRoute(\"/ticks\")>]\n[<Public>]\ntype TicksController() =\n    [<StreamRoute>]\n    member this.StreamTicks() : seq<Tick> =\n        TicksController.TicksFor([| \"ANVIL-1\"; \"ANVIL-2\" |])\n\n    static member private TicksFor(skus: string[]) : seq<Tick> =\n        seq {\n            for sku in skus do\n                System.Threading.Thread.Sleep(1000)\n                yield { Sku = sku; Level = 3 }\n        }\n",
+          "run": "fa93c3263dba23ec"
         },
         {
           "name": "server/models/Tick.dart",
@@ -3150,7 +3264,8 @@
         },
         {
           "name": "server/controllers/TicksController.dart",
-          "code": "import 'models/Tick.dart';\n\n@RequestRoute(\"/ticks\")\n@Public\nclass TicksController {\n  @StreamRoute\n  Stream<Tick> streamTicks() async* {\n    yield* _countdown(3);\n  }\n\n  Stream<Tick> _countdown(int start) async* {\n    for (var level = start; level >= 1; level--) {\n      yield Tick('ANVIL-1', level);\n    }\n  }\n}\n"
+          "code": "import 'models/Tick.dart';\n\n@RequestRoute(\"/ticks\")\n@Public\nclass TicksController {\n  @StreamRoute\n  Stream<Tick> streamTicks() async* {\n    yield* _countdown(3);\n  }\n\n  Stream<Tick> _countdown(int start) async* {\n    for (var level = start; level >= 1; level--) {\n      yield Tick('ANVIL-1', level);\n    }\n  }\n}\n",
+          "run": "6b16cdac6fbde686"
         },
         {
           "name": "client/remotes/TicksClient.js",
@@ -3326,7 +3441,8 @@
         },
         {
           "name": "server/controllers/TicksController.rb",
-          "code": "#[RequestRoute(\"/ticks\")]\n#[Public]\nclass TicksController\n  # @return [void]\n  #[StreamRoute]\n  def stream_ticks\n    countdown(3) { |tick| yield tick }\n  end\n\n  private\n\n  # @param start [Integer]\n  # @return [Integer]\n  def countdown(start)\n    start.downto(1) do |level|\n      yield(Tick.new(sku: \"ANVIL-1\", level: level))\n      sleep(1)\n    end\n  end\nend\n"
+          "code": "#[RequestRoute(\"/ticks\")]\n#[Public]\nclass TicksController\n  # @return [void]\n  #[StreamRoute]\n  def stream_ticks\n    countdown(3) { |tick| yield tick }\n  end\n\n  private\n\n  # @param start [Integer]\n  # @return [Integer]\n  def countdown(start)\n    start.downto(1) do |level|\n      yield(Tick.new(sku: \"ANVIL-1\", level: level))\n      sleep(1)\n    end\n  end\nend\n",
+          "run": "5016200ee0503e05"
         },
         {
           "name": "server/models/Tick.lua",
@@ -3334,7 +3450,8 @@
         },
         {
           "name": "server/controllers/TicksController.lua",
-          "code": "-- @RequestRoute(\"/ticks\")\n-- @Public\n---@class TicksController\nTicksController = {}\n\n---@return nil\n-- @StreamRoute\nfunction TicksController:stream_ticks()\n  self:_countdown(3)\nend\n\n---@param start integer\n---@return nil\nfunction TicksController:_countdown(start)\n  for level = start, 1, -1 do\n    coroutine.yield(setmetatable({ sku = \"ANVIL-1\", level = level }, Tick))\n  end\nend\n"
+          "code": "-- @RequestRoute(\"/ticks\")\n-- @Public\n---@class TicksController\nTicksController = {}\n\n---@return nil\n-- @StreamRoute\nfunction TicksController:stream_ticks()\n  self:_countdown(3)\nend\n\n---@param start integer\n---@return nil\nfunction TicksController:_countdown(start)\n  for level = start, 1, -1 do\n    coroutine.yield(setmetatable({ sku = \"ANVIL-1\", level = level }, Tick))\n  end\nend\n",
+          "run": "5d748378fa1b8eae"
         },
         {
           "name": "server/models/Tick.go",
@@ -3342,7 +3459,8 @@
         },
         {
           "name": "server/controllers/TicksController.go",
-          "code": "import \"iter\"\n\n// @RequestRoute(\"/ticks\")\n// @Public\ntype TicksController struct{}\n\n// @StreamRoute\nfunc (controller *TicksController) StreamTicks() iter.Seq[Tick] {\n\treturn controller.countdown(3)\n}\n\nfunc (controller *TicksController) countdown(start int) iter.Seq[Tick] {\n\treturn func(yield func(Tick) bool) {\n\t\tfor level := start; level >= 1; level-- {\n\t\t\tif !yield(Tick{Sku: \"ANVIL-1\", Level: level}) {\n\t\t\t\treturn\n\t\t\t}\n\t\t}\n\t}\n}\n"
+          "code": "import \"iter\"\n\n// @RequestRoute(\"/ticks\")\n// @Public\ntype TicksController struct{}\n\n// @StreamRoute\nfunc (controller *TicksController) StreamTicks() iter.Seq[Tick] {\n\treturn controller.countdown(3)\n}\n\nfunc (controller *TicksController) countdown(start int) iter.Seq[Tick] {\n\treturn func(yield func(Tick) bool) {\n\t\tfor level := start; level >= 1; level-- {\n\t\t\tif !yield(Tick{Sku: \"ANVIL-1\", Level: level}) {\n\t\t\t\treturn\n\t\t\t}\n\t\t}\n\t}\n}\n",
+          "run": "d3c33f5098b98483"
         },
         {
           "name": "server/models/Tick.rs",
@@ -3350,7 +3468,8 @@
         },
         {
           "name": "server/controllers/TicksController.rs",
-          "code": "use crate::models::Tick;\n\n#[RequestRoute(\"/ticks\")]\n#[Public]\nstruct TicksController {}\nimpl TicksController {\n    fn new() -> Self { Self {} }\n\n    #[StreamRoute]\n    fn stream_ticks(&self) -> impl Iterator<Item = Tick> + '_ {\n        self.countdown(3)\n    }\n\n    fn countdown(&self, start: i64) -> impl Iterator<Item = Tick> + '_ {\n        (1..=start).rev().map(|level| Tick { sku: String::from(\"ANVIL-1\"), level })\n    }\n}\n"
+          "code": "use crate::models::Tick;\n\n#[RequestRoute(\"/ticks\")]\n#[Public]\nstruct TicksController {}\nimpl TicksController {\n    fn new() -> Self { Self {} }\n\n    #[StreamRoute]\n    fn stream_ticks(&self) -> impl Iterator<Item = Tick> + '_ {\n        self.countdown(3)\n    }\n\n    fn countdown(&self, start: i64) -> impl Iterator<Item = Tick> + '_ {\n        (1..=start).rev().map(|level| Tick { sku: String::from(\"ANVIL-1\"), level })\n    }\n}\n",
+          "run": "7341bb97bbfc8d04"
         },
         {
           "name": "server/models/Tick.hpp",
@@ -3358,7 +3477,8 @@
         },
         {
           "name": "server/controllers/TicksController.hpp",
-          "code": "#pragma once\n#include \"../models/Tick.hpp\"\n\nclass [[RequestRoute(\"/ticks\")]] [[Public]] TicksController {\npublic:\n    [[StreamRoute]]\n    tachyon::Generator<Tick> streamTicks() {\n        return countdown(3);\n    }\n\nprivate:\n    tachyon::Generator<Tick> countdown(int start) {\n        for (int level = start; level >= 1; level--) {\n            co_yield Tick{\"ANVIL-1\", level};\n        }\n    }\n};\n"
+          "code": "#pragma once\n#include \"../models/Tick.hpp\"\n\nclass [[RequestRoute(\"/ticks\")]] [[Public]] TicksController {\npublic:\n    [[StreamRoute]]\n    tachyon::Generator<Tick> streamTicks() {\n        return countdown(3);\n    }\n\nprivate:\n    tachyon::Generator<Tick> countdown(int start) {\n        for (int level = start; level >= 1; level--) {\n            co_yield Tick{\"ANVIL-1\", level};\n        }\n    }\n};\n",
+          "run": "a25b97f60535b589"
         }
       ]
     },
@@ -3378,7 +3498,8 @@
         },
         {
           "name": "server/controllers/InventoryController.js",
-          "code": "/** @import { InventoryRecord } from '/models/InventoryRecord.js' */\n@RequestRoute(\"/inventory\")\n@Public\nclass InventoryController {\n  /** @type {ApplicationEventPublisher} */\n  @Needs\n  applicationEventPublisher;\n\n  /**\n   * @param {InventoryRecord} record\n   * @returns {InventoryRecord}\n   */\n  @PostRoute\n  postRecord(@FromBody record) {\n    this.applicationEventPublisher.publishEvent(record)\n    return record\n  }\n}\n"
+          "code": "/** @import { InventoryRecord } from '/models/InventoryRecord.js' */\n@RequestRoute(\"/inventory\")\n@Public\nclass InventoryController {\n  /** @type {ApplicationEventPublisher} */\n  @Needs\n  applicationEventPublisher;\n\n  /**\n   * @param {InventoryRecord} record\n   * @returns {InventoryRecord}\n   */\n  @PostRoute\n  postRecord(@FromBody record) {\n    this.applicationEventPublisher.publishEvent(record)\n    return record\n  }\n}\n",
+          "run": "d9a493dcf27f9ea2"
         },
         {
           "name": "server/models/InventoryRecord.ts",
@@ -3386,7 +3507,8 @@
         },
         {
           "name": "server/controllers/InventoryController.ts",
-          "code": "import type { InventoryRecord } from '/models/InventoryRecord.ts'\n\n@RequestRoute(\"/inventory\")\n@Public\nclass InventoryController {\n  @Needs\n  readonly applicationEventPublisher!: ApplicationEventPublisher\n\n  @PostRoute\n  postRecord(@FromBody record: InventoryRecord): InventoryRecord {\n    this.applicationEventPublisher.publishEvent(record)\n    return record\n  }\n}\n"
+          "code": "import type { InventoryRecord } from '/models/InventoryRecord.ts'\n\n@RequestRoute(\"/inventory\")\n@Public\nclass InventoryController {\n  @Needs\n  readonly applicationEventPublisher!: ApplicationEventPublisher\n\n  @PostRoute\n  postRecord(@FromBody record: InventoryRecord): InventoryRecord {\n    this.applicationEventPublisher.publishEvent(record)\n    return record\n  }\n}\n",
+          "run": "2efcad264e3fd8d7"
         },
         {
           "name": "server/models/InventoryRecord.py",
@@ -3394,7 +3516,8 @@
         },
         {
           "name": "server/controllers/InventoryController.py",
-          "code": "from typing import Annotated\nfrom models import InventoryRecord\n\n\n@request_route(\"/inventory\")\n@public\n@needs_all()\nclass InventoryController:\n    application_event_publisher: ApplicationEventPublisher\n\n    @post_route\n    def post_record(self, record: Annotated[InventoryRecord, from_body]) -> InventoryRecord:\n        self.application_event_publisher.publish_event(record)\n        return record\n"
+          "code": "from typing import Annotated\nfrom models import InventoryRecord\n\n\n@request_route(\"/inventory\")\n@public\n@needs_all()\nclass InventoryController:\n    application_event_publisher: ApplicationEventPublisher\n\n    @post_route\n    def post_record(self, record: Annotated[InventoryRecord, from_body]) -> InventoryRecord:\n        self.application_event_publisher.publish_event(record)\n        return record\n",
+          "run": "a8b779a8fefaee29"
         },
         {
           "name": "server/models/InventoryRecord.php",
@@ -3402,7 +3525,8 @@
         },
         {
           "name": "server/controllers/InventoryController.php",
-          "code": "<?php\nuse Models\\InventoryRecord;\n\n#[RequestRoute(\"/inventory\")]\n#[Public]\nclass InventoryController {\n    #[Needs]\n    private ApplicationEventPublisher $applicationEventPublisher;\n\n    #[PostRoute]\n    public function postRecord(#[FromBody] InventoryRecord $record): InventoryRecord {\n        $this->applicationEventPublisher->publishEvent($record);\n        return $record;\n    }\n}\n"
+          "code": "<?php\nuse Models\\InventoryRecord;\n\n#[RequestRoute(\"/inventory\")]\n#[Public]\nclass InventoryController {\n    #[Needs]\n    private ApplicationEventPublisher $applicationEventPublisher;\n\n    #[PostRoute]\n    public function postRecord(#[FromBody] InventoryRecord $record): InventoryRecord {\n        $this->applicationEventPublisher->publishEvent($record);\n        return $record;\n    }\n}\n",
+          "run": "cd62e82ea57b33a5"
         },
         {
           "name": "server/models/InventoryRecord.java",
@@ -3410,7 +3534,8 @@
         },
         {
           "name": "server/controllers/InventoryController.java",
-          "code": "import models.InventoryRecord;\n\n@RequestRoute(\"/inventory\")\n@Public\nclass InventoryController {\n    @Needs\n    ApplicationEventPublisher applicationEventPublisher;\n\n    @PostRoute\n    InventoryRecord postRecord(@FromBody InventoryRecord record) {\n        applicationEventPublisher.publishEvent(record);\n        return record;\n    }\n}\n"
+          "code": "import models.InventoryRecord;\n\n@RequestRoute(\"/inventory\")\n@Public\nclass InventoryController {\n    @Needs\n    ApplicationEventPublisher applicationEventPublisher;\n\n    @PostRoute\n    InventoryRecord postRecord(@FromBody InventoryRecord record) {\n        applicationEventPublisher.publishEvent(record);\n        return record;\n    }\n}\n",
+          "run": "8e59dc9caacc6379"
         },
         {
           "name": "server/models/InventoryRecord.groovy",
@@ -3418,7 +3543,8 @@
         },
         {
           "name": "server/controllers/InventoryController.groovy",
-          "code": "import models.InventoryRecord\n\n@RequestRoute(\"/inventory\")\n@Public\nclass InventoryController {\n    @Needs\n    ApplicationEventPublisher applicationEventPublisher\n\n    @PostRoute\n    InventoryRecord postRecord(@FromBody InventoryRecord record) {\n        applicationEventPublisher.publishEvent(record)\n        return record\n    }\n}\n"
+          "code": "import models.InventoryRecord\n\n@RequestRoute(\"/inventory\")\n@Public\nclass InventoryController {\n    @Needs\n    ApplicationEventPublisher applicationEventPublisher\n\n    @PostRoute\n    InventoryRecord postRecord(@FromBody InventoryRecord record) {\n        applicationEventPublisher.publishEvent(record)\n        return record\n    }\n}\n",
+          "run": "fb75678abe9508cb"
         },
         {
           "name": "server/models/InventoryRecord.kt",
@@ -3426,7 +3552,8 @@
         },
         {
           "name": "server/controllers/InventoryController.kt",
-          "code": "import models.InventoryRecord\n\n@RequestRoute(\"/inventory\")\n@Public\nclass InventoryController {\n    @Needs\n    lateinit var applicationEventPublisher: ApplicationEventPublisher\n\n    @PostRoute\n    fun postRecord(@FromBody record: InventoryRecord): InventoryRecord {\n        applicationEventPublisher.publishEvent(record)\n        return record\n    }\n}\n"
+          "code": "import models.InventoryRecord\n\n@RequestRoute(\"/inventory\")\n@Public\nclass InventoryController {\n    @Needs\n    lateinit var applicationEventPublisher: ApplicationEventPublisher\n\n    @PostRoute\n    fun postRecord(@FromBody record: InventoryRecord): InventoryRecord {\n        applicationEventPublisher.publishEvent(record)\n        return record\n    }\n}\n",
+          "run": "38481858b9e84ad1"
         },
         {
           "name": "server/models/InventoryRecord.cs",
@@ -3434,7 +3561,8 @@
         },
         {
           "name": "server/controllers/InventoryController.cs",
-          "code": "using Models;\n\n[RequestRoute(\"/inventory\")]\n[Public]\nclass InventoryController {\n    [Needs]\n    readonly ApplicationEventPublisher _applicationEventPublisher;\n\n    [PostRoute]\n    public InventoryRecord PostRecord([FromBody] InventoryRecord record) {\n        _applicationEventPublisher.PublishEvent(record);\n        return record;\n    }\n}\n"
+          "code": "using Models;\n\n[RequestRoute(\"/inventory\")]\n[Public]\nclass InventoryController {\n    [Needs]\n    readonly ApplicationEventPublisher _applicationEventPublisher;\n\n    [PostRoute]\n    public InventoryRecord PostRecord([FromBody] InventoryRecord record) {\n        _applicationEventPublisher.PublishEvent(record);\n        return record;\n    }\n}\n",
+          "run": "6341e89b605f0c98"
         },
         {
           "name": "server/models/InventoryRecord.rs",
@@ -3442,7 +3570,8 @@
         },
         {
           "name": "server/controllers/InventoryController.rs",
-          "code": "use crate::models::InventoryRecord;\n\n#[RequestRoute(\"/inventory\")]\n#[Public]\nstruct InventoryController {\n    #[Needs]\n    application_event_publisher: std::sync::Arc<ApplicationEventPublisher>,\n}\nimpl InventoryController {\n    #[PostRoute]\n    fn post_record(&self, #[FromBody] record: InventoryRecord) -> InventoryRecord {\n        self.application_event_publisher.publish_event(record.clone(), false);\n        record\n    }\n}\n"
+          "code": "use crate::models::InventoryRecord;\n\n#[RequestRoute(\"/inventory\")]\n#[Public]\nstruct InventoryController {\n    #[Needs]\n    application_event_publisher: std::sync::Arc<ApplicationEventPublisher>,\n}\nimpl InventoryController {\n    #[PostRoute]\n    fn post_record(&self, #[FromBody] record: InventoryRecord) -> InventoryRecord {\n        self.application_event_publisher.publish_event(record.clone(), false);\n        record\n    }\n}\n",
+          "run": "1eba0c213c63cdf2"
         },
         {
           "name": "server/models/InventoryRecord.go",
@@ -3450,7 +3579,8 @@
         },
         {
           "name": "server/controllers/InventoryController.go",
-          "code": "// @RequestRoute(\"/inventory\")\n// @Public\ntype InventoryController struct {\n\t// @Needs\n\tapplicationEventPublisher *ApplicationEventPublisher\n}\n\n// @PostRoute\nfunc (controller *InventoryController) PostRecord(\n\t// @FromBody\n\trecord InventoryRecord,\n) InventoryRecord {\n\tcontroller.applicationEventPublisher.PublishEvent(record, false)\n\treturn record\n}\n"
+          "code": "// @RequestRoute(\"/inventory\")\n// @Public\ntype InventoryController struct {\n\t// @Needs\n\tapplicationEventPublisher *ApplicationEventPublisher\n}\n\n// @PostRoute\nfunc (controller *InventoryController) PostRecord(\n\t// @FromBody\n\trecord InventoryRecord,\n) InventoryRecord {\n\tcontroller.applicationEventPublisher.PublishEvent(record, false)\n\treturn record\n}\n",
+          "run": "4a50b985e47dd6b0"
         },
         {
           "name": "server/models/InventoryRecord.dart",
@@ -3458,7 +3588,8 @@
         },
         {
           "name": "server/controllers/InventoryController.dart",
-          "code": "import 'models/InventoryRecord.dart';\n\n@RequestRoute(\"/inventory\")\n@Public\nclass InventoryController {\n  @Needs\n  final ApplicationEventPublisher applicationEventPublisher;\n\n  @PostRoute\n  InventoryRecord postRecord(@FromBody InventoryRecord record) {\n    applicationEventPublisher.publishEvent(record);\n    return record;\n  }\n}\n"
+          "code": "import 'models/InventoryRecord.dart';\n\n@RequestRoute(\"/inventory\")\n@Public\nclass InventoryController {\n  @Needs\n  final ApplicationEventPublisher applicationEventPublisher;\n\n  @PostRoute\n  InventoryRecord postRecord(@FromBody InventoryRecord record) {\n    applicationEventPublisher.publishEvent(record);\n    return record;\n  }\n}\n",
+          "run": "7765d62b98a39664"
         },
         {
           "name": "server/models/InventoryRecord.rb",
@@ -3466,7 +3597,8 @@
         },
         {
           "name": "server/controllers/InventoryController.rb",
-          "code": "#[RequestRoute(\"/inventory\")]\n#[Public]\nclass InventoryController\n  # @param record [InventoryRecord]\n  # @return [InventoryRecord]\n  #[PostRoute]\n  def post_record(\n    #[FromBody]\n    record\n  )\n    ApplicationEventPublisher.new.publish_event(record)\n    record\n  end\nend\n"
+          "code": "#[RequestRoute(\"/inventory\")]\n#[Public]\nclass InventoryController\n  # @param record [InventoryRecord]\n  # @return [InventoryRecord]\n  #[PostRoute]\n  def post_record(\n    #[FromBody]\n    record\n  )\n    ApplicationEventPublisher.new.publish_event(record)\n    record\n  end\nend\n",
+          "run": "8f0a4e9601acc656"
         },
         {
           "name": "server/models/InventoryRecord.fs",
@@ -3474,7 +3606,8 @@
         },
         {
           "name": "server/controllers/InventoryController.fs",
-          "code": "open Models\n\n[<RequestRoute(\"/inventory\")>]\n[<Public>]\ntype InventoryController(applicationEventPublisher: ApplicationEventPublisher) =\n    [<PostRoute>]\n    member this.PostRecord([<FromBody>] record: InventoryRecord) : InventoryRecord =\n        applicationEventPublisher.PublishEvent(record) |> ignore\n        record\n"
+          "code": "open Models\n\n[<RequestRoute(\"/inventory\")>]\n[<Public>]\ntype InventoryController(applicationEventPublisher: ApplicationEventPublisher) =\n    [<PostRoute>]\n    member this.PostRecord([<FromBody>] record: InventoryRecord) : InventoryRecord =\n        applicationEventPublisher.PublishEvent(record) |> ignore\n        record\n",
+          "run": "7af8ba697d545286"
         },
         {
           "name": "server/models/InventoryRecord.lua",
@@ -3482,7 +3615,8 @@
         },
         {
           "name": "server/controllers/InventoryController.lua",
-          "code": "-- @RequestRoute(\"/inventory\")\n-- @Public\n---@class InventoryController\nInventoryController = {\n  ---@type ApplicationEventPublisher\n  application_event_publisher = nil,\n}\n\n---@param record InventoryRecord\n---@return InventoryRecord\n-- @PostRoute\nfunction InventoryController:post_record(\n  -- @FromBody\n  record\n)\n  self.application_event_publisher:publish_event(record)\n  return record\nend\n"
+          "code": "-- @RequestRoute(\"/inventory\")\n-- @Public\n---@class InventoryController\nInventoryController = {\n  ---@type ApplicationEventPublisher\n  application_event_publisher = nil,\n}\n\n---@param record InventoryRecord\n---@return InventoryRecord\n-- @PostRoute\nfunction InventoryController:post_record(\n  -- @FromBody\n  record\n)\n  self.application_event_publisher:publish_event(record)\n  return record\nend\n",
+          "run": "225d0c79037d351c"
         },
         {
           "name": "server/models/InventoryRecord.hpp",
@@ -3490,7 +3624,8 @@
         },
         {
           "name": "server/controllers/InventoryController.hpp",
-          "code": "#pragma once\n#include \"../models/InventoryRecord.hpp\"\n\nclass [[RequestRoute(\"/inventory\")]] [[Public]] InventoryController {\n    ApplicationEventPublisher applicationEventPublisher;\n\npublic:\n    [[PostRoute]]\n    InventoryRecord postRecord([[FromBody]] InventoryRecord record) {\n        applicationEventPublisher.publishEvent(record);\n        return record;\n    }\n};\n"
+          "code": "#pragma once\n#include \"../models/InventoryRecord.hpp\"\n\nclass [[RequestRoute(\"/inventory\")]] [[Public]] InventoryController {\n    ApplicationEventPublisher applicationEventPublisher;\n\npublic:\n    [[PostRoute]]\n    InventoryRecord postRecord([[FromBody]] InventoryRecord record) {\n        applicationEventPublisher.publishEvent(record);\n        return record;\n    }\n};\n",
+          "run": "fe8813cfe9994365"
         },
         {
           "name": "client/pages/inventory/tac.html",

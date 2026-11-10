@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "handler": "docs/application-events/yon-all-ten-supported-languages/server/controllers/ProbeController.groovy",
+  "inputs": {
+    "docs/application-events/yon-all-ten-supported-languages/server/controllers/ProbeController.groovy": "97318dee3f6dc543db7674f9d4d6622a2773b1c63a67af00b5f97c6914d25a1f",
+    "docs/application-events/yon-all-ten-supported-languages/server/models/ProbeReady.groovy": "b58235d3fcaa9962cd386f53fc10a7982b03fb61d4b646c8aa556e5ae0d62d99",
+    "docs/application-events/yon-all-ten-supported-languages/server/services/ProbeService.groovy": "b9e630f3ed1428420ed9d1df1c4c0eed6b63bcba61d4ecfbd0ffc908db509095",
+    "docs/application-events/yon-all-ten-supported-languages/server/services/PublishService.groovy": "a1b32e1add7fbef0a37b882526a298c670697d6912d504bcea80e95156b36d8f"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/probe",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"value\":7}"
+      }
+    }
+  ]
+}

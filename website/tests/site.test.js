@@ -718,6 +718,35 @@ describe('house style', () => {
     expect(css).toContain(':root[w-theme="dark"],\n:root[w-theme="light"],\n:root[w-theme="auto"] {\n--page-background: var(--w-surface);')
   })
 
+  test('the page calls the API origin of its own site, and its own origin anywhere else', async () => {
+    const source = await read('client/shared/scripts/YonOrigin.js')
+    /** @param {string} hostname */
+    const chosen = (hostname) => {
+      const attributes = new Map([['content', 'https://api.tachyon.del.ma']])
+      const tag = { setAttribute: /** @param {string} name @param {string} value */ (name, value) => attributes.set(name, value), remove: () => attributes.clear() }
+      new Function('location', 'document', source)({ hostname }, { querySelector: () => tag })
+      return attributes.get('content')
+    }
+    expect(chosen('tachyon.del.ma')).toBe('https://api.tachyon.del.ma')
+    expect(chosen('staging.tachyon.del.ma')).toBe('https://api.staging.tachyon.del.ma')
+    expect(chosen('localhost')).toBeUndefined()
+    expect(chosen('constructor')).toBeUndefined()
+    expect(chosen('evil.tachyon.del.ma')).toBeUndefined()
+    expect(() => new Function('location', 'document', source)({ hostname: 'tachyon.del.ma' }, { querySelector: () => null })).not.toThrow()
+
+    const manifest = await readJson('client/manifest.json')
+    expect(manifest.tac.yon.origin).toBe('https://api.tachyon.del.ma')
+    expect(manifest.tac.outgoing.hosts).toEqual(['api.tachyon.del.ma', 'api.staging.tachyon.del.ma'])
+    for (const route of ['dist/web/index.html', 'dist/web/docs/index.html', 'dist/web/docs/_topic/index.html']) {
+      const html = await read(route)
+      expect(html.indexOf('<meta name="tachyon-yon-origin" content="https://api.tachyon.del.ma">'), route).toBeGreaterThan(-1)
+      expect(html.indexOf('<meta name="tachyon-yon-origin"'), route).toBeLessThan(html.indexOf('/shared/scripts/YonOrigin.js'))
+    }
+    const application = await readJson('server/application.json')
+    expect(application.server.hosts).toEqual(['api.tachyon.del.ma', 'api.staging.tachyon.del.ma'])
+    expect(application.server.origins).toBeUndefined()
+  })
+
   test('a guide page starts loading the guide text before its services start', async () => {
     const source = await read('client/shared/scripts/DocsDataPreload.js')
     const preload = new Function('location', `${source}\nreturn DocsDataPreload`)({ pathname: '/' })

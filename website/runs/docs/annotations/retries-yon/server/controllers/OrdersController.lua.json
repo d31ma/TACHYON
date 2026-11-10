@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "handler": "docs/annotations/retries-yon/server/controllers/OrdersController.lua",
+  "inputs": {
+    "docs/annotations/retries-yon/server/controllers/OrdersController.lua": "14058da5eac7bab23a56620fd284c6aef36e364e8ea217ee200009c99958ebd4",
+    "docs/annotations/retries-yon/server/models/OrderReport.lua": "6141b9239243925f697b3fca17b93923054051520bd755fa645176ca6c88ae0c",
+    "docs/annotations/retries-yon/server/services/OrdersService.lua": "8c2d412728689aa8422c25f9674e3526861382516a24f96d02a474c3433acee8",
+    "docs/annotations/retries-yon/server/setups/OrdersSetup.lua": "1c335f21f1dbbf4bfd580d532605df63a006ccfeedbfad9af213a8a470fbe0c2"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/orders",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "body": "{\"submitted\":{\"attempts\":3,\"id\":\"A-1\"},\"report\":{\"attempts\":3,\"id\":\"A-1\"}}"
+      }
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "handler": "docs/annotations/outgoing-http-yon/server/controllers/CatalogController.cs",
+  "inputs": {
+    "docs/annotations/outgoing-http-yon/server/controllers/CatalogController.cs": "39869a2924f5a78ef4f49b0fa5a848377f0be2caf01dc1f47a06110c25ea585d",
+    "docs/annotations/outgoing-http-yon/server/delegates/CatalogTransportDelegate.cs": "6717fe3dc1daae38106e321da02168abb9649982a5b2185c809cc2b0791feab2",
+    "docs/annotations/outgoing-http-yon/server/remotes/CatalogClient.cs": "1503ec978299ca65a551cdef5c7ba0b0ca1e2ff5b1c7663d2020a86950906fdc",
+    "docs/annotations/outgoing-http-yon/server/services/CatalogService.cs": "10da7fc04a4f352b5e07891f09737160f17d9f17aea36688cd6264d5d5936241",
+    "docs/annotations/outgoing-http-yon/server/setups/CatalogSetup.cs": "0e046de0bc49c66baff92bacdb24813f3bb250760ffaafa758dec7ae3075b70e"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/catalog",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "body": "{\"items\":[\"anvil\"]}"
+      }
+    }
+  ]
+}

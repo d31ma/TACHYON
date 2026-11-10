@@ -363,7 +363,7 @@ jobs:
         run: |
           set -euo pipefail
           gh release create "${TAG}" --verify-tag --draft \
-            --title "Tachyon ${VERSION} (release candidate)" --notes-file release-notes.md release/*
+            --title "Tachyon ${VERSION}" --notes-file release-notes.md release/*
 
   verify-release:
     name: Verify staged release (${{ matrix.os }})
@@ -555,6 +555,14 @@ jobs:
           echo "JAVA_HOME=${JAVA_HOME_21_X64}" >> "${GITHUB_ENV}"
           echo "${JAVA_HOME_21_X64}/bin" >> "${GITHUB_PATH}"
 
+      - name: Restore the cached download of the Swift SDK for WebAssembly
+        id: swift-wasm-sdk-cache
+        if: matrix.os == 'linux-x64'
+        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: ${{ runner.temp }}/swift-wasm-sdk-download
+          key: swift-wasm-sdk-${{ runner.os }}-${{ hashFiles('scripts/ci/install-swift-wasm-sdk.mjs') }}
+
       - name: Install the pinned Swift 6.3.3 toolchain and Swift SDK for WebAssembly for the website's Swift services
         if: matrix.os == 'linux-x64'
         shell: bash
@@ -570,13 +578,18 @@ jobs:
           tar -xzf "${archive}" -C "${RUNNER_TEMP}"
           toolchain="${RUNNER_TEMP}/swift-6.3.3-RELEASE-ubuntu24.04/usr"
           sdks="${RUNNER_TEMP}/swift-sdks"
-          "${toolchain}/bin/swift" sdk install --swift-sdks-path "${sdks}" \
-            "${release}/wasm-sdk/swift-6.3.3-RELEASE/swift-6.3.3-RELEASE_wasm.artifactbundle.tar.gz" \
-            --checksum cabfa08b73bb8ac783927ecd15fa386e99d0c139c5f232445067bcf58379cae7
+          node scripts/ci/install-swift-wasm-sdk.mjs "${toolchain}/bin/swift" "${sdks}" "${RUNNER_TEMP}/swift-wasm-sdk-download"
           sdk="${sdks}/swift-6.3.3-RELEASE_wasm.artifactbundle/swift-6.3.3-RELEASE_wasm/wasm32-unknown-wasip1"
           test -d "${sdk}/WASI.sdk"
           echo "TAC_SWIFT_WASM_COMPILER=${toolchain}/bin/swiftc" >> "${GITHUB_ENV}"
           echo "TAC_SWIFT_WASM_SDK=${sdk}" >> "${GITHUB_ENV}"
+
+      - name: Save the download of the Swift SDK for WebAssembly for reruns
+        if: matrix.os == 'linux-x64' && steps.swift-wasm-sdk-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: ${{ runner.temp }}/swift-wasm-sdk-download
+          key: swift-wasm-sdk-${{ runner.os }}-${{ hashFiles('scripts/ci/install-swift-wasm-sdk.mjs') }}
 
       - name: Install Go for the website's Go services
         if: matrix.os == 'linux-x64'
@@ -658,6 +671,32 @@ jobs:
           bun run test:runtime-browser
           "${TAC_BIN}" build website --out-dir "${RUNNER_TEMP}/tachyon-website"
           TAC_WEBSITE_OUTPUT="${RUNNER_TEMP}/tachyon-website" bun run test:website-browser
+
+      - name: Bundle and package the website for Amplify
+        id: site
+        if: matrix.os == 'linux-x64' && !inputs.dry_run
+        continue-on-error: true
+        shell: bash
+        env:
+          VERSION: ${{ needs.validate.outputs.version }}
+        run: |
+          set -euo pipefail
+          bun install --cwd website --frozen-lockfile
+          (cd website && TAC_BIN="${TAC_BIN}" bun run bundle)
+          zip_name="tachyon-site-${VERSION}.zip"
+          mkdir -p "${RUNNER_TEMP}/site"
+          sha256=$(bun scripts/site-deploy.mjs package website/dist/web "${VERSION}" "$(git rev-parse HEAD)" "${RUNNER_TEMP}/site/${zip_name}")
+          echo "${sha256}  ${zip_name}" > "${RUNNER_TEMP}/site/${zip_name}.sha256"
+          echo "${zip_name} ${sha256}"
+
+      - name: Keep the website zip for the release
+        if: steps.site.outcome == 'success'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: tachyon-site
+          path: ${{ runner.temp }}/site/
+          retention-days: 7
+          if-no-files-found: error
 
       - name: Check the downloaded Unix executable version
         if: runner.os != 'Windows'
@@ -793,4 +832,45 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
           TAG: ${{ needs.validate.outputs.tag }}
-        run: gh release edit "${TAG}" --repo "${REPOSITORY}" --draft=false --prerelease --latest=false
+        run: gh release edit "${TAG}" --repo "${REPOSITORY}" --draft=false --latest
+
+  site-release:
+    name: Attach the website zip to the published release
+    needs: [validate, publish]
+    if: always() && needs.publish.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - name: Download the website zip
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: tachyon-site
+          path: site
+
+      - name: Check the website zip checksum
+        working-directory: site
+        run: sha256sum --check --strict -- *.sha256
+
+      - name: Attest the website zip
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-path: site/tachyon-site-*.zip
+
+      - name: Attach the website zip to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          TAG: ${{ needs.validate.outputs.tag }}
+          VERSION: ${{ needs.validate.outputs.version }}
+        run: |
+          set -euo pipefail
+          zip_name="tachyon-site-${VERSION}.zip"
+          if gh release view "${TAG}" --repo "${REPOSITORY}" --json assets --jq '.assets[].name' | grep -qx "${zip_name}"; then
+            echo "::notice::${TAG} already has ${zip_name}; the released zip is kept."
+          else
+            gh release upload "${TAG}" --repo "${REPOSITORY}" "site/${zip_name}" "site/${zip_name}.sha256"
+          fi

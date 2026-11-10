@@ -253,7 +253,9 @@ struct StderrEvents;
 
 impl SignalEventWriter for StderrEvents {
     fn write(&self, event: &Value) {
-        let Ok(line) = serde_json::to_string(event) else {
+        let mut sorted = event.clone();
+        sorted.sort_all_objects();
+        let Ok(line) = serde_json::to_string(&sorted) else {
             return;
         };
         let stderr = io::stderr();
