@@ -62,11 +62,19 @@ class AndroidDevLoopTest {
     let lines = []
     while (Date.now() < deadline) {
       lines = this.screenLines()
-      const found = texts.map((text) => lines.find((line) => line.text.includes(text)))
+      const found = texts.map((text) => lines.find((line) => AndroidDevLoopTest.comparable(line.text).includes(AndroidDevLoopTest.comparable(text))))
       if (found.every(Boolean)) return { found, lines }
       await this.sleep(this.pollMilliseconds)
     }
     return { found: null, lines }
+  }
+
+  /**
+   * @param {string} text
+   * @returns {string}
+   */
+  static comparable(text) {
+    return text.replaceAll('O', '0')
   }
 
   static async wait(texts) {
