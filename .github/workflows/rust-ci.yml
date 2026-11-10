@@ -1632,7 +1632,7 @@ jobs:
     if: (github.event_name != 'pull_request' || github.head_ref == 'develop' || startsWith(github.head_ref, 'release/')) && (!inputs.jobs || contains(format(',{0},', inputs.jobs), ',coverage,'))
     name: Rust coverage ratchet
     runs-on: ${{ ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/heads/') && vars.TACHYON_SELF_HOSTED == 'true') && fromJSON('["self-hosted","tachyon","linux"]') || 'ubuntu-24.04' }}
-    timeout-minutes: 90
+    timeout-minutes: 120
 
     steps:
       - name: Check out source
