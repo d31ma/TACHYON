@@ -440,7 +440,7 @@ jobs:
 
       - name: Save the download of the Swift SDK for WebAssembly for reruns
         if: steps.swift-wasm-sdk-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/swift-wasm-sdk-download
           key: swift-wasm-sdk-${{ runner.os }}-${{ hashFiles('scripts/ci/install-swift-wasm-sdk.mjs') }}
@@ -769,7 +769,7 @@ jobs:
 
       - name: Save the download of the Swift SDK for WebAssembly for reruns
         if: steps.swift-wasm-sdk-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/swift-wasm-sdk-download
           key: swift-wasm-sdk-${{ runner.os }}-${{ hashFiles('scripts/ci/install-swift-wasm-sdk.mjs') }}
@@ -956,7 +956,7 @@ jobs:
 
       - name: Save the download of the Swift SDK for WebAssembly for reruns
         if: steps.swift-wasm-sdk-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/swift-wasm-sdk-download
           key: swift-wasm-sdk-${{ runner.os }}-${{ hashFiles('scripts/ci/install-swift-wasm-sdk.mjs') }}
