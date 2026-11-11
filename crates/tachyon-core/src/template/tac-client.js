@@ -363,8 +363,8 @@ const resolveEventArgument = async (argument, event, environment) => {
   return value
 }
 
-const bindEvent = (element, type, binding, environment) => {
-  const listener = async (event) => {
+const bindEvent = (element, type, binding, environment, key) => {
+  const handle = async (event) => {
     try {
       const arguments_ = await Promise.all(
         (binding.arguments || []).map((argument) => resolveEventArgument(argument, event, environment)),
@@ -392,6 +392,8 @@ const bindEvent = (element, type, binding, environment) => {
       markDocument('tachyonEventError', 'handler_failed')
     }
   }
+  const listener = TacEventOptions.listener(binding, handle, TacEventOptions.holder(element))
+  if (TacEventOptions.listensAbove(binding)) return TacEventOptions.defer(key, type, binding, listener)
   element.addEventListener(type, listener)
   const listeners = Elements.listeners.get(element) || []
   listeners.push({ type, listener })
@@ -415,11 +417,11 @@ class BoundAttribute {
   }
 }
 
-const applyAttributes = async (element, attributes, environment) => {
+const applyAttributes = async (element, attributes, environment, path) => {
   let safeHtml
   for (const attribute of attributes || []) {
     if (attribute.event) {
-      bindEvent(element, attribute.eventType, attribute.event, environment)
+      bindEvent(element, attribute.eventType, attribute.event, environment, `${path}|${attribute.name}`)
       continue
     }
     const value = 'expression' in attribute
@@ -1122,6 +1124,7 @@ const transferEventListeners = (element, fresh) => {
   const listeners = Elements.listeners.get(fresh) || []
   for (const { type, listener } of listeners) element.addEventListener(type, listener)
   Elements.listeners.set(element, listeners)
+  TacEventOptions.moved(element, fresh)
 }
 
 class FocusedRootUpdate {
@@ -1346,7 +1349,7 @@ const renderNode = async (node, environment, path, context) => {
   if (node.k === 'component') return renderComponent(node, environment, path)
   if (node.k !== 'element') return document.createDocumentFragment()
   const element = Elements.create(node.tag, context.namespace)
-  const safeHtml = await applyAttributes(element, node.attributes, environment)
+  const safeHtml = await applyAttributes(element, node.attributes, environment, path)
   if (!node.void && safeHtml !== undefined) element.append(TacSafeHtml.fill(element, safeHtml))
   else if (!node.void) {
     const children = node.children || []
@@ -1489,11 +1492,13 @@ const renderDocument = async (environment) => {
   Rendering.elements = new Map()
   Rendering.mounts = []
   Rendering.loopContents = new WeakMap()
+  TacEventOptions.begin()
   const focused = focusedElement()
   const editingAtStart = { element: focused, value: focused?.value }
   if (ClientView.page) commitRoot(document.body, await renderNodes(ClientView.plan.nodes || [], environment, 'body'), editingAtStart)
   for (const element of TacElements.connected) await TacElements.renderInto(element, environment, editingAtStart)
   retainComponentRoots()
+  TacEventOptions.commit()
   for (const arguments_ of Rendering.mounts) mountComponent(...arguments_)
   for (const [key, record] of Components.records) {
     if (Rendering.instanceKeys.has(key)) continue

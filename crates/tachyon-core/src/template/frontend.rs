@@ -1,4 +1,5 @@
 use super::braced_attribute::BracedAttribute;
+use super::event_name::EventName;
 use super::expression::Expression;
 use super::html_names::HtmlNames;
 use super::model::{
@@ -415,7 +416,9 @@ impl<'a> Parser<'a> {
         value: &str,
         range: SourceRange,
     ) -> Result<(String, TemplateAttribute), Failure> {
-        match event_binding(event, value, self.source_path, range) {
+        let name = EventName::parse(event)
+            .map_err(|message| self.failure(1306, range, message, EventName::HELP))?;
+        match event_binding(event, name, value, self.source_path, range) {
             Ok((marker, binding)) => {
                 let attribute = TemplateAttribute {
                     value: AttributeValue::Event(binding),
@@ -1316,11 +1319,11 @@ fn control_failure(source_path: &str, range: SourceRange, message: &str) -> Fail
 
 fn event_binding(
     event: &str,
+    name: EventName,
     value: &str,
     source_path: &str,
     range: SourceRange,
 ) -> Result<(String, EventBinding), &'static str> {
-    validate_event_name(event)?;
     let value = value.trim();
     if value.is_empty() || value.len() > TemplateFrontend::MAX_EVENT_BINDING_BYTES {
         return Err("Event binding must be 1 to 256 characters.");
@@ -1328,33 +1331,26 @@ fn event_binding(
     let marker = format!("data-tac-on-{}", event.replace(':', "__"));
     if let Some((target, operator, expression)) = split_assignment(value) {
         let binding = EventBinding {
+            event_type: name.event_type,
+            options: name.options,
             handler: String::new(),
             arguments: vec![event_argument(expression, source_path, range)?],
             assign: Some(Assignment { target, operator }),
         };
         return Ok((marker, binding));
     }
-    let (name, arguments) = handler_call(value, source_path, range)?;
-    if !is_member_path(name) {
+    let (handler, arguments) = handler_call(value, source_path, range)?;
+    if !is_member_path(handler) {
         return Err("Event handler must name one handler, as save() or basket.add().");
     }
     let binding = EventBinding {
-        handler: String::from(name),
+        event_type: name.event_type,
+        options: name.options,
+        handler: String::from(handler),
         arguments,
         assign: None,
     };
     Ok((marker, binding))
-}
-
-fn validate_event_name(event: &str) -> Result<(), &'static str> {
-    if event.is_empty() || event.len() > 64 {
-        return Err("Event name must be 1 to 64 characters.");
-    }
-    let is_allowed = |byte: u8| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b':';
-    if !event.bytes().all(is_allowed) {
-        return Err("Event name must be lowercase alphanumeric, with ':' for namespaces.");
-    }
-    Ok(())
 }
 
 fn handler_call<'a>(
@@ -1552,7 +1548,8 @@ mod tests {
     #![allow(clippy::expect_used)]
 
     use super::{
-        EventArgument, EventBinding, SourceRange, TemplateFrontend, TemplateProgram, event_binding,
+        EventArgument, EventBinding, EventName, SourceRange, TemplateFrontend, TemplateProgram,
+        event_binding,
     };
     use crate::Failure;
     use std::collections::BTreeSet;
@@ -1575,7 +1572,8 @@ mod tests {
 
     fn bind(event: &str, value: &str) -> Result<(String, EventBinding), &'static str> {
         let range = SourceRange { start: 0, end: 0 };
-        event_binding(event, value, "client/pages/tac.html", range)
+        let name = EventName::parse(event)?;
+        event_binding(event, name, value, "client/pages/tac.html", range)
     }
 
     fn binding_parts(event: &str, value: &str) -> (String, String, Vec<EventArgument>) {
@@ -1918,6 +1916,118 @@ mod tests {
                 EventArgument::Literal(String::from("null")),
             ]
         );
+    }
+
+    #[test]
+    fn event_keys_name_the_keyboard_key_they_filter() {
+        for (modifier, key) in [
+            ("escape", "Escape"),
+            ("enter", "Enter"),
+            ("space", " "),
+            ("tab", "Tab"),
+            ("up", "ArrowUp"),
+            ("down", "ArrowDown"),
+            ("left", "ArrowLeft"),
+            ("right", "ArrowRight"),
+            ("home", "Home"),
+            ("end", "End"),
+        ] {
+            let (marker, binding) =
+                bind(&format!("keydown.{modifier}"), "close()").expect(modifier);
+            assert_eq!(marker, format!("data-tac-on-keydown.{modifier}"));
+            assert_eq!(binding.event_type, "keydown");
+            assert_eq!(binding.options.key, Some(key));
+            assert_eq!(binding.options.modifier_keys, Some(vec![]));
+        }
+        let (_, released) = bind("keyup.space", "stop()").expect("keyup");
+        assert_eq!(released.options.key, Some(" "));
+    }
+
+    #[test]
+    fn event_modifier_keys_are_listed_in_one_fixed_order() {
+        let (_, binding) = bind("keydown.enter.meta.shift.ctrl.alt", "send()").expect("keys");
+        assert_eq!(
+            binding.options.modifier_keys,
+            Some(vec!["shiftKey", "ctrlKey", "altKey", "metaKey"])
+        );
+        let (_, click) = bind("click.shift", "extend()").expect("shift click");
+        assert_eq!(click.options.modifier_keys, Some(vec!["shiftKey"]));
+        assert_eq!(click.options.key, None);
+        let (_, plain) = bind("click", "go()").expect("plain");
+        assert_eq!(plain.options.modifier_keys, None);
+    }
+
+    #[test]
+    fn event_flags_and_targets_are_read_from_the_attribute_name() {
+        let (marker, binding) =
+            bind("document:keydown.escape.prevent.stop", "close()").expect("document");
+        assert_eq!(marker, "data-tac-on-document__keydown.escape.prevent.stop");
+        assert_eq!(binding.event_type, "keydown");
+        assert_eq!(binding.options.listen_on, Some("document"));
+        assert!(binding.options.prevent && binding.options.stop && !binding.options.outside);
+        let (_, window) = bind("window:resize", "measure()").expect("window");
+        assert_eq!(window.options.listen_on, Some("window"));
+        assert_eq!(window.event_type, "resize");
+        let (_, outside) = bind("click.outside", "close()").expect("outside");
+        assert!(outside.options.outside);
+        assert_eq!(outside.options.listen_on, None);
+        let (_, namespaced) = bind("update:selected", "choose()").expect("namespace");
+        assert_eq!(namespaced.event_type, "update:selected");
+    }
+
+    #[test]
+    fn event_names_may_use_hyphens_inside_the_name() {
+        let (marker, binding) = bind("w-change", "changed($event.detail)").expect("hyphen");
+        assert_eq!(marker, "data-tac-on-w-change");
+        assert_eq!(binding.event_type, "w-change");
+        for event in [
+            "-change",
+            "change-",
+            "Change",
+            "a.b",
+            "on_change",
+            "document:",
+        ] {
+            assert!(bind(event, "go()").is_err(), "{event} was accepted");
+        }
+        assert!(bind(&"a".repeat(64), "go()").is_ok());
+        assert!(bind(&"a".repeat(65), "go()").is_err());
+    }
+
+    #[test]
+    fn event_modifiers_refuse_unknown_repeated_and_conflicting_names() {
+        let unknown = bind("keydown.esc", "close()").expect_err("unknown");
+        assert!(unknown.contains("escape, enter, space"), "{unknown}");
+        assert!(unknown.contains("prevent, stop or outside"), "{unknown}");
+        assert_eq!(
+            bind("click.prevent.prevent", "go()").expect_err("repeat"),
+            "Event modifier may appear only once."
+        );
+        assert_eq!(
+            bind("keydown.up.down", "go()").expect_err("two keys"),
+            "Event binding may filter one key only."
+        );
+        assert_eq!(
+            bind("click.escape", "go()").expect_err("key on click"),
+            "Key filters apply only to keydown and keyup events."
+        );
+        assert!(
+            bind("document:click.outside", "go()")
+                .expect_err("outside on document")
+                .contains("outside modifier")
+        );
+        for event in ["click.", "click..stop", "keydown.Escape", "click.once"] {
+            assert!(bind(event, "go()").is_err(), "{event} was accepted");
+        }
+    }
+
+    #[test]
+    fn event_name_errors_explain_the_modifier_grammar() {
+        let failure = compile_without_components(r#"<button on:click.twice="go()">Go</button>"#)
+            .expect_err("unknown modifier");
+        let diagnostic = diagnostic_with_number(&failure, 1306);
+        assert!(diagnostic.message.contains("Event modifier must be one of"));
+        assert_eq!(diagnostic.help.as_deref(), Some(EventName::HELP));
     }
 
     #[test]

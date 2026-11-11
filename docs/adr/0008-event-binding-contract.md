@@ -2,6 +2,9 @@
 
 - Status: Accepted
 - Date: 2026-07-27
+- Amended by: [ADR 0114](0114-event-bindings-take-key-filters-modifiers-and-document-listeners.md)
+  adds key filters, modifier keys, `.prevent`, `.stop`, `.outside`,
+  `document:` and `window:` listeners, and hyphens in event names.
 
 ## Context
 

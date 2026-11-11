@@ -42,6 +42,16 @@ function writeFixture() {
   <button id="order" on:click="events.order(12)">Order</button>
   <button id="small" on:click="events.order(3)">Small order</button>
   <p id="trace">{events.trace}</p>
+  <div id="menu-area" on:click.outside="events.closeMenu()">
+    <button id="toggle" on:click="events.toggleMenu()">Menu</button>
+    <logic :if="events.menuOpen"><ul id="menu" on:document:keydown.escape="events.closeMenu()"><li><button id="inside">Inside</button></li></ul></logic>
+  </div>
+  <p id="menu-state">{events.menuState}</p>
+  <form on:submit.prevent="events.submitted()"><button id="submit">Send form</button></form>
+  <input id="note" aria-label="Note" on:keydown.enter.prevent="events.send()" on:keydown.shift.enter="events.newLine()">
+  <p id="sent">{events.sent}</p>
+  <div id="custom" on:w-change="events.changed($event.detail)"></div>
+  <p id="changed">{events.changedTo}</p>
 </main>
 `);
   for (const model of EventsGate.models) {
@@ -57,7 +67,17 @@ export default class EventsService {
   pair = '-'
   described = '-'
   trace = '-'
+  menuOpen = false
+  menuState = 'closed'
+  sent = '-'
+  changedTo = '-'
   increment() { this.count += 1 }
+  toggleMenu() { this.menuOpen = !this.menuOpen; this.menuState = this.menuOpen ? 'open' : 'closed' }
+  closeMenu() { this.menuOpen = false; this.menuState = 'closed' }
+  submitted() { this.sent = 'form' }
+  send() { this.sent = 'enter' }
+  newLine() { this.sent = 'shift-enter' }
+  changed(_event, detail) { this.changedTo = String(detail) }
   addBy(_event, amount) { this.count += amount }
   rename(event) { this.greeting = 'Hello ' + event.target.value }
   record(_event, value) { this.echo = String(value) }
@@ -158,8 +178,44 @@ async function checkEvents(page, origin, errors) {
   await page.waitForTimeout(200);
   expect(await page.textContent('#trace'), 'any:3,audit:3', 'condition skips the listener it guards');
 
+  await checkModifiers(page, origin);
+
   if (errors.length) fail(`console errors: ${errors.join(' | ')}`);
   else console.log('    ok   no console errors');
+}
+
+async function checkModifiers(page, origin) {
+  await page.click('#toggle');
+  await page.waitForTimeout(200);
+  expect(await page.textContent('#menu-state'), 'open', 'toggle opens the menu');
+  await page.click('#inside');
+  await page.waitForTimeout(200);
+  expect(await page.textContent('#menu-state'), 'open', 'a click inside keeps the menu open');
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(200);
+  expect(await page.textContent('#menu-state'), 'closed', 'document keydown.escape closes the menu');
+  await page.click('#toggle');
+  await page.waitForTimeout(200);
+  await page.click('#count');
+  await page.waitForTimeout(200);
+  expect(await page.textContent('#menu-state'), 'closed', 'a click outside closes the menu');
+
+  await page.click('#submit');
+  await page.waitForTimeout(200);
+  expect(await page.textContent('#sent'), 'form', 'submit.prevent runs the handler');
+  expect(page.url(), `${origin}/`, 'submit.prevent keeps the page');
+
+  await page.focus('#note');
+  await page.keyboard.press('Shift+Enter');
+  await page.waitForTimeout(200);
+  expect(await page.textContent('#sent'), 'shift-enter', 'shift.enter needs exactly Shift');
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(200);
+  expect(await page.textContent('#sent'), 'enter', 'enter does not fire with Shift held');
+
+  await page.evaluate(() => document.getElementById('custom').dispatchEvent(new CustomEvent('w-change', { detail: 'blue' })));
+  await page.waitForTimeout(200);
+  expect(await page.textContent('#changed'), 'blue', 'hyphenated custom event name');
 }
 
 async function main() {

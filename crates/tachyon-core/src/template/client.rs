@@ -56,6 +56,8 @@ impl<'a> ClientViewRenderer<'a> {
         "\n",
         include_str!("tac-native-events.js"),
         "\n",
+        include_str!("tac-event-options.js"),
+        "\n",
         include_str!("authored-root-update.js"),
         "\n",
         include_str!("tac-client.js")
@@ -689,12 +691,10 @@ impl<'a> Encoder<'a> {
                 "expression": expression_value(expression)?,
             })),
             AttributeValue::Event(binding) => {
-                let event_type = name
-                    .strip_prefix("data-tac-on-")
-                    .unwrap_or(name)
-                    .replace("__", ":");
                 self.page_bindings |= self.component_owner_depth == 0;
-                Ok(json!({ "name": name, "eventType": event_type, "event": event_value(binding)? }))
+                Ok(
+                    json!({ "name": name, "eventType": binding.event_type, "event": event_value(binding)? }),
+                )
             }
         }
     }
@@ -782,11 +782,15 @@ fn event_value(binding: &EventBinding) -> Result<Value, Failure> {
             "operator": assignment.operator,
         })
     });
-    Ok(json!({
+    let mut event = json!({
         "handler": binding.handler,
         "arguments": arguments,
         "assign": assign,
-    }))
+    });
+    if let Value::Object(members) = &mut event {
+        members.extend(binding.options.members());
+    }
+    Ok(event)
 }
 
 fn event_argument(argument: &EventArgument) -> Result<Value, Failure> {

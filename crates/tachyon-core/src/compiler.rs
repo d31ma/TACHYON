@@ -2063,6 +2063,41 @@ export default class Chat {
     }
 
     #[test]
+    fn event_modifiers_reach_the_client_plan_only_when_written() {
+        let root = tempfile::tempdir().expect("project");
+        compose(
+            root.path(),
+            "",
+            "view",
+            r#"<main on:document:keydown.escape.prevent="view.close()">
+               <div on:click.outside="view.close()" on:w-change="view.close()">
+               <input aria-label="Note" on:keydown.shift.enter.stop="view.close()"></div></main>"#,
+        );
+        hydrate_page_view(root.path());
+        service(root.path(), "ViewService", "{ close() {} }");
+
+        let result = build_default(root.path()).expect("build");
+        let index =
+            fs::read_to_string(result.output_directory().join("index.html")).expect("index");
+
+        for (member, count) in [
+            (r#""eventType":"keydown""#, 2),
+            (r#""eventType":"click""#, 1),
+            (r#""eventType":"w-change""#, 1),
+            (r#""listen":"document""#, 1),
+            (r#""key":"Escape""#, 1),
+            (r#""key":"Enter""#, 1),
+            (r#""modifierKeys":[]"#, 1),
+            (r#""modifierKeys":["shiftKey"]"#, 1),
+            (r#""prevent":true"#, 1),
+            (r#""stop":true"#, 1),
+            (r#""outside":true"#, 1),
+        ] {
+            assert_eq!(index.matches(member).count(), count, "{member} in {index}");
+        }
+    }
+
+    #[test]
     fn a_route_binding_events_without_a_client_module_fails_closed() {
         let root = tempfile::tempdir().expect("project");
         compose(

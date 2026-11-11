@@ -9,6 +9,9 @@
       "include": "values-in-braces-and-events/section.json"
     },
     {
+      "include": "keys-modifiers-and-outside-clicks/section.json"
+    },
+    {
       "include": "accessible-views/section.json"
     },
     {

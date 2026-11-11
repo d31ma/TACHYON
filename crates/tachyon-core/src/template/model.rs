@@ -1,3 +1,4 @@
+use super::event_options::EventOptions;
 use super::expression::Expression;
 use std::collections::BTreeMap;
 use tachyon_contracts::{ViewIr, ViewNode};
@@ -130,6 +131,8 @@ pub(crate) enum AttributeValue {
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct EventBinding {
+    pub(crate) event_type: String,
+    pub(crate) options: EventOptions,
     pub(crate) handler: String,
     pub(crate) arguments: Vec<EventArgument>,
     pub(crate) assign: Option<Assignment>,

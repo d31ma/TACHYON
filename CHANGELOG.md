@@ -26,6 +26,17 @@ machine contracts have their own, independent major versions.
   `&BehaviorError{Code: "HTTP_STATUS", Status: 409, Body: ...}`, so a test can
   fake an error status with a body (ADR 0117).
 
+- **Event bindings take key filters, modifiers and document listeners.**
+  `on:keydown.escape`, the arrow keys, `home`, `end`, `enter`, `space` and
+  `tab` run a handler for one key. `shift`, `ctrl`, `alt` and `meta` name the
+  held keys, which must match exactly, so `on:keydown.enter` does not run on
+  Shift+Enter. `.prevent` and `.stop` act before the handler starts, so they
+  work for Go services in WebAssembly too. `.outside` runs a handler for a
+  click outside the element. `on:document:<event>` and `on:window:<event>`
+  listen on the document or window while the element is on the page. Event
+  names may contain `-` (`on:w-change`). Unknown or repeated modifiers fail
+  with `TY1306`. Every target runs this in its web view. See ADR 0114.
+
 ### Fixed
 
 - A bound boolean on an `aria-*` attribute now writes the text `true` or

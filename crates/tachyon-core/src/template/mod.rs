@@ -13,6 +13,11 @@ mod component_style_ownership;
 #[cfg(test)]
 mod component_style_ownership_tests;
 mod context;
+mod event_name;
+mod event_options;
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod event_options_tests;
 mod expression;
 #[cfg(test)]
 #[allow(clippy::expect_used)]
