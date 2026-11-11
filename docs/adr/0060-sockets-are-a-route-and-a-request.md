@@ -326,4 +326,4 @@ messages, as for a web service.
 
 The service that holds a `SocketRequest` client now hears `SocketOpened` and
 `SocketClosed` events, so it can authenticate again after a reconnect. See
-[ADR 0121](0121-a-socket-service-hears-open-and-close-and-a-tac-service-runs-every.md).
+[ADR 0120](0120-a-socket-service-hears-open-and-close-and-a-tac-service-runs-every.md).

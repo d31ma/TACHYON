@@ -72,11 +72,11 @@ machine contracts have their own, independent major versions.
   (`path`, `reconnected`) and `SocketClosed` (`path`, `code`, `reconnecting`)
   with `@OnEvent`, so it can authenticate again after an automatic reconnect.
   Waiting messages are sent after the `SocketOpened` listeners. Every Tac
-  language except Python, which follows with ADR 0122 (ADR 0121).
+  language except Python, which follows with ADR 0122 (ADR 0120).
 - `@Every("60s")` on a Tac service method, in every Tac service language, runs it
   as a page call at that interval, skips runs while the page is hidden, runs
   once when the page is shown again, and stops when the view unmounts
-  (ADR 0121).
+  (ADR 0120).
 
 ### Fixed
 

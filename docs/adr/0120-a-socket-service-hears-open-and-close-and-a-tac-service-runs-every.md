@@ -1,4 +1,4 @@
-# ADR 0121: A Socket Service Hears Open and Close, and a Tac Service Runs Every
+# ADR 0120: A Socket Service Hears Open and Close, and a Tac Service Runs Every
 
 - Status: Accepted
 - Date: 2026-11-10
