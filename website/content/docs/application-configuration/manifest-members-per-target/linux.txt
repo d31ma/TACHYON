@@ -117,6 +117,9 @@ tac.browserApis
 tac.browserApis clipboard
   honored: the web view's navigator.clipboard; the host lets the app's own pages read text copied in other apps
 
+tac.browserApis files
+  honored: WebKitGTK's own file chooser and drops; not yet run in a native release gate
+
 tac.browserApis share
   adapted: Linux has no system share sheet, so share in the Linux app copies the url, or else the text or title, to the clipboard.
 

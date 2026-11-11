@@ -117,6 +117,9 @@ tac.browserApis
 tac.browserApis clipboard
   honored: ClipboardManager, through the host bridge; the clipboard round trip ran on the Android 15 emulator in scripts/android/browser-apis-test.mjs (RM3)
 
+tac.browserApis files
+  adapted: the host answers onShowFileChooser with the system chooser intent; Android web views get no file drops. Not yet run in a native release gate.
+
 tac.browserApis share
   adapted: share in the Android app opens the system share sheet. ShareFinished arrives when the sheet opens, because Android does not tell the app whether the user shared. The share sheet opened on the Android 15 emulator in scripts/android/browser-apis-test.mjs (RM3).
 

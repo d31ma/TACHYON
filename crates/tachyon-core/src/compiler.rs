@@ -36,6 +36,9 @@ mod foundation_values;
 mod module_code;
 mod output_path;
 mod page_composition;
+mod page_files;
+#[cfg(test)]
+mod page_files_tests;
 mod page_head;
 #[cfg(test)]
 mod page_head_tests;

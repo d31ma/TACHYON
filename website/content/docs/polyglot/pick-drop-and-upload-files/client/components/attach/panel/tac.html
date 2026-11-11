@@ -1,0 +1,7 @@
+<div data-tac-drop-zone="attachment">Drop a file here</div>
+<button type="button" on:click="attach.choose()">Choose a file</button>
+<p>{attach.name}</p>
+<p>{attach.digest}</p>
+<button type="button" on:click="attach.upload()">Upload</button>
+<p>{attach.status}</p>
+<p>{attach.problem}</p>

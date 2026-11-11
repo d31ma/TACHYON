@@ -8,11 +8,12 @@ pub(super) struct UnprovidedFilePicker;
 impl UnprovidedFilePicker {
     const NAME: &'static str = "FilePicker";
     const CODE: u16 = 1407;
-    const REFUSED: [(WebLanguage, &'static str, &'static str); 2] = [
-        (WebLanguage::Java, "java", "Java"),
-        (WebLanguage::Go, "go", "Go"),
+    const REFUSED: [(WebLanguage, &'static str, &'static str, &'static str); 2] = [
+        (WebLanguage::Java, "java", "Java", Self::HELP),
+        (WebLanguage::Go, "go", "Go", Self::GO_HELP),
     ];
     const HELP: &'static str = "Open the file picker from a JavaScript, TypeScript, Rust, Swift, C# or Kotlin service (ADR 0089), and pass what it reads to this service.";
+    const GO_HELP: &'static str = "Use the Files browser API in Go instead (ADR 0116): grant \"files\" in tac.browserApis, add a `// @Needs` field `files Files`, and call files.Pick.";
 
     pub(super) fn refuse(
         snapshot_root: &Path,
@@ -21,17 +22,17 @@ impl UnprovidedFilePicker {
     ) -> Result<(), Failure> {
         Self::REFUSED
             .iter()
-            .find(|(refused, _, _)| *refused == language)
-            .map_or(Ok(()), |(_, extension, label)| {
+            .find(|(refused, _, _, _)| *refused == language)
+            .map_or(Ok(()), |(_, extension, label, help)| {
                 chosen.iter().try_for_each(|(_, class, path)| {
-                    Self::refuse_service(snapshot_root, (extension, label), class, path)
+                    Self::refuse_service(snapshot_root, (extension, label, help), class, path)
                 })
             })
     }
 
     fn refuse_service(
         snapshot_root: &Path,
-        (extension, label): (&str, &str),
+        (extension, label, help): (&str, &str, &str),
         class: &str,
         path: &Path,
     ) -> Result<(), Failure> {
@@ -52,7 +53,7 @@ impl UnprovidedFilePicker {
                 Err(Failure::one(diagnostic(
                     Self::CODE,
                     format!("{class} needs a FilePicker, but {label} services have no FilePicker provider, so the page could never fill that field."),
-                    Some(String::from(Self::HELP)),
+                    Some(String::from(help)),
                     source_span(&relative, at, at + Self::NAME.len()),
                 )))
             })

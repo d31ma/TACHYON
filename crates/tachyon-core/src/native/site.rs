@@ -20,10 +20,12 @@ pub(crate) struct SiteSettings {
     pub(crate) elements: Vec<String>,
     pub(crate) yon_origin: Option<String>,
     pub(crate) link_hosts: Vec<String>,
+    pub(crate) outgoing_hosts: Vec<String>,
 }
 
 impl SiteSettings {
     const MAX_ORIGIN_LENGTH: usize = 256;
+    const FILES_GRANT: &'static str = "files";
 
     pub(crate) fn load(project_root: &Path) -> Result<Self, Failure> {
         let manifest = read_manifest(project_root)?;
@@ -47,6 +49,7 @@ impl SiteSettings {
         Self::validate_source_paths(tac.script_sources.keys())?;
         let cache_rules = compile_cache_rules(tac.cache)?;
         let browser_apis = super::browser_api_grants::BrowserApiGrants::checked(tac.browser_apis)?;
+        let outgoing_hosts = Self::upload_hosts(&browser_apis, tac.outgoing.as_ref())?;
         let yon_origin = tac.yon.map(super::yon_member::YonMember::into_origin);
         validate_sitemap(tac.origin.as_deref(), &tac.sitemap)?;
         let metadata = Self::resolved_metadata(tac.metadata, tac.origin.as_deref());
@@ -65,7 +68,19 @@ impl SiteSettings {
             elements: tac.elements,
             yon_origin,
             link_hosts,
+            outgoing_hosts,
         })
+    }
+
+    fn upload_hosts(
+        browser_apis: &[String],
+        outgoing: Option<&serde_json::Value>,
+    ) -> Result<Vec<String>, Failure> {
+        if !browser_apis.iter().any(|grant| grant == Self::FILES_GRANT) {
+            return Ok(Vec::new());
+        }
+        let declared = super::native_outgoing_hosts::NativeOutgoingHosts::declared(outgoing)?;
+        Ok(declared.hosts().to_vec())
     }
 
     fn resolved_metadata(mut metadata: SiteMetadata, origin: Option<&str>) -> SiteMetadata {

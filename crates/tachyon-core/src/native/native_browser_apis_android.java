@@ -5,10 +5,12 @@
   private static final String NOTIFICATION_CHANNEL = "tachyon";
   private static final int NOTIFICATION_PERMISSION_REQUEST = 7301;
   private static final int LOCATION_PERMISSION_REQUEST = 7302;
+  private static final int PAGE_FILE_REQUEST = 7303;
 
   private final java.util.HashMap<Integer, java.util.ArrayList<Runnable>> permissionWaiters =
       new java.util.HashMap<>();
   private androidx.webkit.ScriptHandler notificationPermissionScript;
+  private android.webkit.ValueCallback<Uri[]> pageFileChooser;
   private int shownNotifications = (int) ((System.currentTimeMillis() / 1000) & 0x3fffffff);
 
   private interface BrowserApiAnswer {
@@ -30,6 +32,31 @@
       askAndroidPermission(LOCATION_PERMISSION_REQUEST, LOCATION_PERMISSIONS, "geolocation",
           () -> callback.invoke(origin, holdsLocation(), false));
     }
+
+    @Override
+    public boolean onShowFileChooser(android.webkit.WebView webView,
+        android.webkit.ValueCallback<Uri[]> callback, FileChooserParams parameters) {
+      finishPageFileChooser(null);
+      pageFileChooser = callback;
+      try {
+        startActivityForResult(parameters.createIntent(), PAGE_FILE_REQUEST);
+      } catch (android.content.ActivityNotFoundException missing) {
+        finishPageFileChooser(null);
+      }
+      return true;
+    }
+  }
+
+  private boolean answerPageFileChooser(int requestCode, int resultCode, Intent data) {
+    if (requestCode != PAGE_FILE_REQUEST) return false;
+    finishPageFileChooser(android.webkit.WebChromeClient.FileChooserParams.parseResult(resultCode, data));
+    return true;
+  }
+
+  private void finishPageFileChooser(Uri[] chosen) {
+    android.webkit.ValueCallback<Uri[]> waiting = pageFileChooser;
+    pageFileChooser = null;
+    if (waiting != null) waiting.onReceiveValue(chosen);
   }
 
   private void installBrowserApis() {

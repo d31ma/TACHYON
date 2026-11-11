@@ -1,0 +1,7 @@
+{
+  "name": "Attachments",
+  "tac": {
+    "browserApis": ["files"],
+    "outgoing": { "hosts": ["uploads.example.com"] }
+  }
+}

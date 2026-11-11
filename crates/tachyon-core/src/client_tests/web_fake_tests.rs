@@ -15,6 +15,16 @@ impl Units {
     const GO_SERVICE: &str = "import \"strconv\"\n\n// @Service\ntype StampService struct {\n\t// @Needs\n\tclock Clock\n\t// @Needs\n\tconnectivity Connectivity\n}\n\nfunc (stamp *StampService) Stamp() string {\n\tnow, _ := stamp.clock.NowMs()\n\tonline, _ := stamp.connectivity.Online()\n\treturn strconv.FormatFloat(now, 'f', 0, 64) + \" \" + strconv.FormatBool(online)\n}\n";
     const GO_UNIT: &str = "import \"strings\"\n\n// @Test(StampTestSetup)\ntype StampServiceTest struct {\n\tbehaviors *BehaviorContext\n}\n\nfunc (test *StampServiceTest) uuid() error {\n\t_, err := SecureRandom{}.UUID()\n\treturn err\n}\n\nfunc (test *StampServiceTest) TestUsesTheBrowserFakes() {\n\tfakes := BrowserFakes{}\n\tfakes.Answer(\"clock\", \"now\", 1000)\n\tfakes.Answer(\"connectivity\", \"online\", false)\n\tservice := &StampService{}\n\tAssert.Equals(\"1000 false\", service.Stamp())\n}\n\nfunc (test *StampServiceTest) TestAsksForAnAnswer() {\n\terr := Assert.Throws(test.uuid)\n\tAssert.IsTrue(strings.Contains(err.Error(), \"BrowserFakes{}.Answer\"), \"a refusal that names BrowserFakes\")\n}\n";
 
+    const GO_FILES_SERVICE: &str = "// @Service\ntype StampService struct {\n\tProblem string\n\tUpload  string\n\tCount   int\n\tText    string\n\t// @Needs\n\tfiles Files\n}\n\n\
+         func (stamp *StampService) Choose() {\n\tstamp.keep(stamp.files.Pick(\".txt\", true))\n}\n\n\
+         func (stamp *StampService) Send(id string) {\n\tupload, err := stamp.files.Upload(id, \"PUT\", \"/uploads\", \"content-type: text/plain\")\n\tstamp.Upload = upload\n\tstamp.keep(err)\n}\n\n\
+         // @OnEvent\nfunc (stamp *StampService) Picked(picked FilePicked) {\n\tstamp.Count = int(picked.Count)\n}\n\n\
+         // @OnEvent\nfunc (stamp *StampService) Chunk(chunk FileChunkRead) {\n\tbytes, _ := chunk.Bytes()\n\tstamp.Text = string(bytes)\n}\n\n\
+         func (stamp *StampService) keep(problem error) {\n\tif problem != nil {\n\t\tstamp.Problem = problem.Error()\n\t}\n}\n";
+    const GO_FILES_UNIT: &str = "// @Test(StampTestSetup)\ntype StampServiceTest struct {\n\tbehaviors *BehaviorContext\n}\n\n\
+         func (test *StampServiceTest) TestUploadsWithTheBrowserFakes() {\n\tfakes := BrowserFakes{}\n\tfakes.Answer(\"files\", \"pick\", nil)\n\tfakes.Answer(\"files\", \"upload\", \"upload-1\")\n\tservice := &StampService{}\n\tservice.Choose()\n\tservice.Send(\"file-1\")\n\tAssert.Equals(\"upload-1\", service.Upload)\n\tAssert.Equals(\"\", service.Problem)\n}\n\n\
+         func (test *StampServiceTest) TestHearsTheFileModels() {\n\tservice := &StampService{}\n\tservice.Picked(FilePicked{Id: \"a\", Name: \"a.txt\", Size: 3, Media: \"text/plain\", Sha256: \"x\", Index: 0, Count: 1})\n\tservice.Chunk(FileChunkRead{Id: \"a\", Offset: 0, Size: 3, Data: \"YWJj\"})\n\tAssert.Equals(1, service.Count)\n\tAssert.Equals(\"abc\", service.Text)\n}\n";
+
     const RUBY_SETUP: &str =
         "#[TestSetup]\nclass StampTestSetup\n  def self.configure(execution)\n    {}\n  end\nend\n";
     const RUBY_SERVICE: &str = "#[Service]\nclass StampService\n  def stamp\n    \"#{Clock.new.now_ms.to_i} #{Connectivity.new.online}\"\n  end\nend\n";
@@ -140,6 +150,21 @@ fn a_go_unit_answers_the_browser_apis_with_browser_fakes() {
         return;
     }
     let files = [Units::GO_SETUP, Units::GO_SERVICE, Units::GO_UNIT];
+    let results = Units::passed("go", files);
+    assert_eq!(results.len(), 2, "{results:?}");
+}
+
+#[test]
+fn a_go_unit_fakes_the_files_browser_api_and_hears_its_models() {
+    if !Units::available("go", "version") {
+        eprintln!("skipping: go is unavailable");
+        return;
+    }
+    let files = [
+        Units::GO_SETUP,
+        Units::GO_FILES_SERVICE,
+        Units::GO_FILES_UNIT,
+    ];
     let results = Units::passed("go", files);
     assert_eq!(results.len(), 2, "{results:?}");
 }

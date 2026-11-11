@@ -1,0 +1,46 @@
+{
+  "heading": "Pick, drop and upload files",
+  "target": "web",
+  "notApplicable": [
+    "js",
+    "ts",
+    "rs",
+    "swift",
+    "java",
+    "kt",
+    "cs",
+    "fs",
+    "dart",
+    "rb",
+    "lua",
+    "py",
+    "hpp"
+  ],
+  "body": "A service can let the user choose files, read them and upload them. Grant `files` in `tac.browserApis` in `client/manifest.json`, and add a `files Files` field the way the language adds other browser APIs (in Go, a `// @Needs` field). A page that does not grant `files` loads nothing for it.\n\n| Call (Go names) | What it does | The answer arrives as |\n| --- | --- | --- |\n| `Pick(accept, multiple)` | Opens the file chooser. It needs a click or key handler. `accept` is the HTML list, such as `\".pdf,image/*\"`, with at most 32 entries; `\"\"` takes any file. | one `FilePicked { id, name, size, media, sha256, index, count }` per file, or `FilePickCancelled {}` |\n| `Read(id, offset, count)` | Reads 1 to 32,768 bytes of a held file. | `FileChunkRead { id, offset, size, data }`; `data` is base64, and Go's `Bytes()` decodes it |\n| `Release(id)` | Forgets the file. A later call with its id fails. | nothing |\n| `Upload(id, method, url, headers)` | Sends the file and returns an upload id at once. `headers` is text with one `name: value` per line. | `UploadFinished { upload, id, status, body, truncated, error }` |\n| `Cancel(upload)` | Stops an upload. | `UploadFinished` with `error` `CANCELLED` |\n\n`media` is the media type, such as `image/png`. `sha256` is the hex SHA-256 of the whole file, computed in the page before the answer. `index` and `count` say which file of the choice this is. The page holds the bytes by id, at most 256 files and 32 from one choice. The bytes leave the page only through `Upload`.\n\nAn element with `data-tac-drop-zone=\"name\"` takes dropped files. While files are dragged over it, it has the attribute `data-tac-drag-over`, so a style can mark it. Each dropped file arrives as `FileDropped`, with the same fields as `FilePicked` plus `zone`, sent to every listener, because a drop has no caller.\n\nAn upload goes to a path such as `/uploads` (on `tac.yon.origin`, or else the page's own origin) or to an `https` address whose host is in `tac.outgoing.hosts`. Anything else fails at once with `UPLOAD_ORIGIN`. The method is `PUT` (the default, also for `\"\"`) or `POST`. Headers are limited to `authorization`, `content-type`, `content-md5`, `content-disposition`, `content-encoding`, `cache-control` and names that start with `x-amz-`, `x-goog-` or `x-ms-` (`UPLOAD_HEADER`), which covers presigned storage uploads. The page sends no cookies and follows no redirect. `body` keeps at most 8,192 characters of the answer. `error` is empty when the server answered, or `UPLOAD_NETWORK`, `CANCELLED` or `DEADLINE` (15 minutes). There are no progress events.\n\nIn a test unit, answer the calls with `BrowserFakes{}.Answer(\"files\", \"upload\", \"upload-1\")`, and call the listeners with the models directly.\n\nIn a native app, the page uses the web view's own file chooser: `NSOpenPanel` on macOS, the system chooser on Android, and the web view's chooser on iOS, Windows and Linux. Drops work in the desktop apps and on iPad; Android web views get no drops.\n\nThis page shows Go. The other service languages get the same calls and events next (ADR 0116). A Go service that names `FilePicker` still stops the build with `TY1407`, which now points at `Files`.",
+  "files": [
+    {
+      "name": "client/pages/tac.html",
+      "code": {
+        "file": "client/pages/tac.html"
+      }
+    },
+    {
+      "name": "client/components/attach/panel/tac.html",
+      "code": {
+        "file": "client/components/attach/panel/tac.html"
+      }
+    },
+    {
+      "name": "client/manifest.json",
+      "code": {
+        "file": "client/manifest.json"
+      }
+    },
+    {
+      "name": "client/services/AttachService.go",
+      "code": {
+        "file": "client/services/AttachService.go"
+      }
+    }
+  ]
+}

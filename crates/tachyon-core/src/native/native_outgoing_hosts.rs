@@ -38,6 +38,10 @@ impl NativeOutgoingHosts {
         }
     }
 
+    pub(super) fn hosts(&self) -> &[String] {
+        &self.hosts
+    }
+
     pub(super) fn with_yon_origin(self, yon_origin: Option<String>) -> Self {
         Self { yon_origin, ..self }
     }

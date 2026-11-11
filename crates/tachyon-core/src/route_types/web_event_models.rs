@@ -33,6 +33,29 @@ impl WebEventModels {
                     ("timestamp", Shape::Number),
                 ],
             ),
+            Self::record("FilePicked", &Self::file_fields(&[])),
+            Self::record("FilePickCancelled", &[]),
+            Self::record("FileDropped", &Self::file_fields(&[("zone", Shape::Text)])),
+            Self::record(
+                "FileChunkRead",
+                &[
+                    ("id", Shape::Text),
+                    ("offset", Shape::Number),
+                    ("size", Shape::Number),
+                    ("data", Shape::Text),
+                ],
+            ),
+            Self::record(
+                "UploadFinished",
+                &[
+                    ("upload", Shape::Text),
+                    ("id", Shape::Text),
+                    ("status", Shape::Number),
+                    ("body", Shape::Text),
+                    ("truncated", Shape::Boolean),
+                    ("error", Shape::Text),
+                ],
+            ),
             Self::record(
                 "BrowserCallFailed",
                 &[
@@ -53,6 +76,20 @@ impl WebEventModels {
             .into_iter()
             .filter(|name| name != Self::APPLICATION_STATE)
             .collect()
+    }
+
+    fn file_fields(extra: &[(&'static str, Shape)]) -> Vec<(&'static str, Shape)> {
+        let mut fields = extra.to_vec();
+        fields.extend([
+            ("id", Shape::Text),
+            ("name", Shape::Text),
+            ("size", Shape::Number),
+            ("media", Shape::Text),
+            ("sha256", Shape::Text),
+            ("index", Shape::Number),
+            ("count", Shape::Number),
+        ]);
+        fields
     }
 
     fn record(name: &str, fields: &[(&str, Shape)]) -> (String, Model) {

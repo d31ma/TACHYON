@@ -117,6 +117,9 @@ tac.browserApis
 tac.browserApis clipboard
   honored: UIPasteboard through the host bridge (browserApi.clipboard)
 
+tac.browserApis files
+  adapted: WKWebView's own chooser picks files; drops reach the page on iPad only. Not yet run in a native release gate.
+
 tac.browserApis share
   honored: UIActivityViewController through the host bridge (browserApi.share); a tap on the iOS 26.5 simulator opened the share sheet, and closing it reported a cancelled share (RM2)
 

@@ -66,6 +66,20 @@ mod tests {
     }
 
     #[test]
+    fn a_page_file_input_opens_the_system_chooser_and_hears_its_answer() {
+        let java = AndroidBrowserApis::java(&granting(&[]));
+        assert!(java.contains("public boolean onShowFileChooser("));
+        assert!(
+            java.contains("startActivityForResult(parameters.createIntent(), PAGE_FILE_REQUEST);")
+        );
+        assert!(java.contains("FileChooserParams.parseResult(resultCode, data)"));
+        let picker = crate::native::android_file_picker::AndroidFilePicker::java(&[]);
+        assert!(
+            picker.contains("if (answerPageFileChooser(requestCode, resultCode, data)) return;")
+        );
+    }
+
+    #[test]
     fn the_manifest_asks_android_only_for_the_permissions_of_granted_apis() {
         assert_eq!(
             AndroidBrowserApis::manifest_permissions(&granting(&["clipboard", "share"])),

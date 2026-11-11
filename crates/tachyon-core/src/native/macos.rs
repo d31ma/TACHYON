@@ -875,7 +875,7 @@ private func tachyonRelayPublish(_ payload: String) {
 }
 
 @MainActor
-private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigationDelegate {
+private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigationDelegate, WKUIDelegate {
     private var window: NSWindow?
     private var webView: WKWebView?
     private var menus: MacOsMenus?
@@ -956,6 +956,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
 
         let view = MacOsTitleBarWebView(frame: .zero, configuration: configuration)
         view.navigationDelegate = self
+        view.uiDelegate = self
         view.allowsBackForwardNavigationGestures = true
         view.setValue(false, forKey: "drawsBackground")
         view.setAccessibilityIdentifier("tachyon-application")
@@ -1060,6 +1061,16 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         let mail = scheme == "mailto" && url.absoluteString.count > "mailto:".count
         if action.targetFrame?.isMainFrame != false && (web || mail) {
             NSWorkspace.shared.open(url)
+        }
+    }
+
+    func webView(_ webView: WKWebView, runOpenPanelWith parameters: WKOpenPanelParameters, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping @MainActor ([URL]?) -> Void) {
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = parameters.allowsMultipleSelection
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        panel.begin { response in
+            completionHandler(response == .OK ? panel.urls : nil)
         }
     }
 
@@ -1169,6 +1180,19 @@ mod tests {
         assert!(source.contains("__tachyonNativeHostCall"));
         assert!(!source.contains("case \"control.button\""));
         assert!(!source.contains("nodeView"));
+    }
+
+    #[test]
+    fn a_page_file_input_opens_the_system_open_panel() {
+        let source = catalog_swift_source("tacNativeInvoke(payload)");
+        assert!(source.contains("WKNavigationDelegate, WKUIDelegate {"));
+        assert!(source.contains("view.uiDelegate = self"));
+        assert!(source.contains(
+            "runOpenPanelWith parameters: WKOpenPanelParameters, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping @MainActor ([URL]?) -> Void"
+        ));
+        assert!(
+            source.contains("panel.allowsMultipleSelection = parameters.allowsMultipleSelection")
+        );
     }
 
     #[test]

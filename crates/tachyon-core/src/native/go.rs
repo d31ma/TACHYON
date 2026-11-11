@@ -31,7 +31,7 @@ impl GoServices {
     const MODULE: &str = "tachyonservices";
     const PAGE_PACKAGE: &str = "page";
     const DELEGATE_FOLDER: &str = "client/delegates";
-    const RUNTIME_FILES: [(&str, &str); 18] = [
+    const RUNTIME_FILES: [(&str, &str); 20] = [
         ("tac/prelude.go", include_str!("prelude.go")),
         ("tac/prelude_json.go", include_str!("prelude_json.go")),
         ("tac/prelude_tasks.go", include_str!("prelude_tasks.go")),
@@ -79,6 +79,11 @@ impl GoServices {
             include_str!("web_apis/window_controls.go"),
         ),
         ("tac/focus.go", include_str!("web_apis/focus.go")),
+        ("tac/files.go", include_str!("web_apis/files.go")),
+        (
+            "tac/file_chunk_read.go",
+            include_str!("web_apis/file_chunk_read.go"),
+        ),
         (
             "tac/browser_fakes.go",
             include_str!("web_apis/browser_fakes.go"),
@@ -87,7 +92,7 @@ impl GoServices {
     const WEB_ENTRY: &str = include_str!("prelude_web.go");
     const FAILURE_CODE: u16 = 1605;
     const WEB_EVENT_FILE: &str = "tac/web_event_models.go";
-    const ALIASED_TYPES: [&str; 22] = [
+    const ALIASED_TYPES: [&str; 28] = [
         "ApplicationEventPublisher",
         "Clock",
         "SecureRandom",
@@ -100,6 +105,7 @@ impl GoServices {
         "Geolocation",
         "WindowControls",
         "Focus",
+        "Files",
         "ApplicationStateChanged",
         "ConnectivityChanged",
         "VisibilityChanged",
@@ -108,6 +114,11 @@ impl GoServices {
         "ShareFinished",
         "NotificationPermissionChanged",
         "PositionFound",
+        "FilePicked",
+        "FilePickCancelled",
+        "FileDropped",
+        "FileChunkRead",
+        "UploadFinished",
         "BrowserCallFailed",
         "BrowserFakes",
     ];

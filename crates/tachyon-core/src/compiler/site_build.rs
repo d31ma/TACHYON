@@ -54,6 +54,7 @@ pub(super) struct SiteBuild<'a> {
     compress: bool,
     native: bool,
     yon_reads_tag: &'static str,
+    files_tag: String,
     phase_started: Instant,
     timings: Vec<(String, Duration)>,
     service_timings: Vec<(String, Duration)>,
@@ -105,6 +106,7 @@ impl<'a> SiteBuild<'a> {
             ] == [true, true],
             native: native_target.is_some(),
             yon_reads_tag: "",
+            files_tag: String::new(),
             phase_started,
             timings: Vec::new(),
             service_timings: Vec::new(),
@@ -129,6 +131,7 @@ impl<'a> SiteBuild<'a> {
         site: &crate::native::SiteSettings,
     ) -> Result<(), Failure> {
         self.yon_reads_tag = YonReads::tag(site);
+        self.files_tag = super::page_files::PageFiles::tag(site);
         let dependency_digest = self.route_dependency_digest();
         let routes = Self::renderable_routes(self.project, programs);
         self.add_routes(routes, previous, site, &dependency_digest)
@@ -199,6 +202,7 @@ impl<'a> SiteBuild<'a> {
             ".tachyon/register-sw.js",
             WebCompiler::SERVICE_WORKER_REGISTRATION.as_bytes().to_vec(),
         );
+        self.add_page_files_file();
         let version = ServiceWorker::version(&self.files, self.build_config_digest.as_deref());
         let python_profile =
             crate::tac_python::RuntimeProfile::for_files(self.snapshot_root, &self.files)?;
@@ -593,6 +597,7 @@ impl<'a> SiteBuild<'a> {
         }
         html = PageHead::inject_before(&html, "</head>", &super::SpeculationRules::tag());
         html = PageHead::inject_before_runtime(&html, self.yon_reads_tag);
+        html = PageHead::inject_before_runtime(&html, &self.files_tag);
         PageHead::inject_before(&html, "</body>", WebCompiler::SERVICE_WORKER_LINK)
     }
 
@@ -603,6 +608,13 @@ impl<'a> SiteBuild<'a> {
     fn add_yon_reads_file(&mut self, cache_rules: &str) {
         if !self.yon_reads_tag.is_empty() {
             self.add_file(YonReads::PATH, YonReads::script(cache_rules));
+        }
+    }
+
+    fn add_page_files_file(&mut self) {
+        if !self.files_tag.is_empty() {
+            let path = super::page_files::PageFiles::PATH;
+            self.add_file(path, super::page_files::PageFiles::script());
         }
     }
 

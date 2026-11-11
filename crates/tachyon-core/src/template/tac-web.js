@@ -9,6 +9,7 @@ class TacWebApis {
   static largestWindow = 16384
   static applicationStates = ['background', 'foreground']
   static caller = null
+  static dropEvents = ['FileDropped', 'BrowserCallFailed']
   static events = null
   static hostPermission = globalThis.__tachyonNotificationPermission ?? 'default'
   static clock = Object.freeze({
@@ -68,6 +69,7 @@ class TacWebApis {
     windowControls: TacWebApis.windowControls,
     focus: typeof TacFocus === 'function' ? TacFocus.api : {},
     nativeCapability: Object.freeze({ call: (...values) => TacNativeCapabilities.now(...values) }),
+    files: Object.freeze(Object.fromEntries(['pick', 'read', 'release', 'upload', 'cancel'].map((call) => [call, (...values) => TacWebApis.files(call, values)]))),
   })
   static installed = TacWebApis.install()
 
@@ -78,6 +80,7 @@ class TacWebApis {
         ...TacWebApis.apis,
         host: (text) => TacWebApis.answer(text),
         calling: (owner, work) => TacWebApis.calling(owner, work),
+        filesDropped: (event) => TacWebApis.dropped(event),
       }),
     })
     return true
@@ -146,6 +149,18 @@ class TacWebApis {
     const granted = document.querySelector(TacWebApis.grants)?.content.split(' ') ?? []
     if (!granted.includes(api)) throw new Error(`The ${api} browser API is not granted. Add "${api}" to tac.browserApis in client/manifest.json.`)
     if (gesture && navigator.userActivation?.isActive === false) throw new Error(`The ${api} browser API needs a user action. Call it from a click or key handler.`)
+  }
+
+  static files(call, values) {
+    TacWebApis.allowed('files', call === 'pick')
+    const owner = TacWebApis.caller
+    const files = globalThis[Symbol.for('tachyon.tac.files')]
+    if (!files) throw new Error('The files browser API did not load on this page.')
+    return files[call]((event) => TacWebApis.reply(owner, event), ...values)
+  }
+
+  static dropped([name, payload]) {
+    if (TacWebApis.dropEvents.includes(name)) TacWebApis.events?.publish(name, payload)
   }
 
   static permission() {

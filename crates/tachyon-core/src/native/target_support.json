@@ -390,6 +390,16 @@
     "android": {"reach": "honored", "how": "ClipboardManager, through the host bridge; the clipboard round trip ran on the Android 15 emulator in scripts/android/browser-apis-test.mjs (RM3)"}
   },
   {
+    "member": "tac.browserApis files",
+    "paths": ["tac.browserApis[files]"],
+    "web": {"reach": "honored", "how": "a file input and drop zones in the page; the page loads /.tachyon/tac-files.js and uploads with fetch only to tac.outgoing.hosts or its own origin (ADR 0116)"},
+    "macos": {"reach": "honored", "how": "the host answers the web view's open-panel request with NSOpenPanel; drops go to the web view; not yet run in a native release gate"},
+    "windows": {"reach": "honored", "how": "WebView2's own file chooser and drops; not yet run in a native release gate"},
+    "linux": {"reach": "honored", "how": "WebKitGTK's own file chooser and drops; not yet run in a native release gate"},
+    "ios": {"reach": "adapted", "note": "WKWebView's own chooser picks files; drops reach the page on iPad only. Not yet run in a native release gate."},
+    "android": {"reach": "adapted", "note": "the host answers onShowFileChooser with the system chooser intent; Android web views get no file drops. Not yet run in a native release gate."}
+  },
+  {
     "member": "tac.browserApis share",
     "paths": ["tac.browserApis[share]"],
     "web": {"reach": "honored", "how": "navigator.share"},

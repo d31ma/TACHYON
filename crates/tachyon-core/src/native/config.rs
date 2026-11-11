@@ -542,7 +542,7 @@ pub(crate) struct TacMember {
     #[serde(default)]
     pub(super) elements: Vec<String>,
     #[serde(default)]
-    outgoing: Option<serde_json::Value>,
+    pub(super) outgoing: Option<serde_json::Value>,
     #[serde(default)]
     pub(super) yon: Option<super::yon_member::YonMember>,
 }

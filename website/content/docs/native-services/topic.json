@@ -27,6 +27,9 @@
       "include": "../polyglot/focus-in-dialogs-and-menus/section.json"
     },
     {
+      "include": "../polyglot/pick-drop-and-upload-files/section.json"
+    },
+    {
       "include": "../polyglot/browser-apis-in-test-units/section.json"
     },
     {

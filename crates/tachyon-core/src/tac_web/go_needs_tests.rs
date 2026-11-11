@@ -220,6 +220,13 @@ fn a_go_needs_all_file_picker_field_is_refused_with_ty1407() {
         "PickerService needs a FilePicker, but Go services have no FilePicker provider, so the page could never fill that field.",
         "{failure}"
     );
+    assert!(
+        diagnostic
+            .help
+            .as_deref()
+            .is_some_and(|help| help.contains("Files browser API") && help.contains("ADR 0116")),
+        "{failure}"
+    );
     let span = &diagnostic.spans[0];
     assert_eq!(span.file, "client/services/PickerService.go", "{failure}");
     let start = usize::try_from(span.start).expect("start");

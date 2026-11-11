@@ -517,3 +517,12 @@ This amendment replaces "Go, Java, Ruby, Python and F# page services still
 have no FilePicker provider" with Dart, Go, Java, Ruby, Python and F#. In each
 of them a `NeedsAll` `FilePicker` field stays a page property, and the build
 stops with `TY1407` when the page does not pass it.
+
+## Amendment (2026-11-10): Go services pick files with `Files` (ADR 0116)
+
+Go page services still have no `FilePicker` provider, and a Go service that
+names `FilePicker` still stops the build with `TY1407`. Its help text now
+points at the `files` browser API instead
+([ADR 0116](0116-go-tac-services-pick-hold-and-upload-files.md)): grant
+`"files"` in `tac.browserApis`, add a `// @Needs` field `files Files`, and
+call `files.Pick`. The help text for Java is unchanged.

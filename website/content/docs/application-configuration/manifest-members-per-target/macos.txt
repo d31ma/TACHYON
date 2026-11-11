@@ -117,6 +117,9 @@ tac.browserApis
 tac.browserApis clipboard
   honored: NSPasteboard through the host bridge (browserApi.clipboard)
 
+tac.browserApis files
+  honored: the host answers the web view's open-panel request with NSOpenPanel; drops go to the web view; not yet run in a native release gate
+
 tac.browserApis share
   honored: NSSharingServicePicker through the host bridge (browserApi.share)
 

@@ -177,6 +177,7 @@
   @Override
   protected void onActivityResult(int requestCode, int resultCode, Intent data) {
     super.onActivityResult(requestCode, resultCode, data);
+    if (answerPageFileChooser(requestCode, resultCode, data)) return;
     if (requestCode != FILE_PICKER_REQUEST) return;
     synchronized (pickedFiles) {
       FilePickerChoice choice = filePickerChoice;

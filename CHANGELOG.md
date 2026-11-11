@@ -10,6 +10,16 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- **Go services pick, hold and upload files** (ADR 0116). Grant `files` in
+  `tac.browserApis` and add a `// @Needs` field `files Files`. `Pick` opens the
+  file chooser, and `data-tac-drop-zone` elements take dropped files; each file
+  arrives with its name, size, media type and SHA-256. The page holds the bytes by
+  file id; `Read` returns chunks of up to 32 KiB, and `Upload` sends a file
+  with `fetch` (no cookies, no redirects) only to a path on the page's or Yon's
+  origin or to an `https` host in `tac.outgoing.hosts`. The files runtime
+  (`/.tachyon/tac-files.js`) loads only on pages that grant `files`. The macOS
+  app now answers file inputs with `NSOpenPanel`, and the Android app with the
+  system chooser. `TY1407` for Go now points at `Files`.
 - **Tac services can move and trap focus.** A new `Focus` browser API
   (ADR 0115) moves focus to an element named with `data-focus`, traps Tab
   and Shift+Tab inside a container such as a dialog, and returns focus to

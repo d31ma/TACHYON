@@ -117,6 +117,9 @@ tac.browserApis
 tac.browserApis clipboard
   honored: navigator.clipboard
 
+tac.browserApis files
+  honored: a file input and drop zones in the page; the page loads /.tachyon/tac-files.js and uploads with fetch only to tac.outgoing.hosts or its own origin (ADR 0116)
+
 tac.browserApis share
   honored: navigator.share
 
