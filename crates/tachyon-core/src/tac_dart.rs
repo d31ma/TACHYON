@@ -61,7 +61,10 @@ pub(crate) async fn build_all(
     let shared = format!(
         "{}{}",
         Bridge::SHARED_LIBRARY,
-        crate::route_types::WebEventSources::dart()
+        crate::route_types::WebEventSources::dart(&crate::route_types::ClientModelNames::read(
+            snapshot_root,
+            "dart"
+        ))
     );
     let mut libraries = vec![("tachyon.dart".to_owned(), shared)];
     let mut published = Vec::new();

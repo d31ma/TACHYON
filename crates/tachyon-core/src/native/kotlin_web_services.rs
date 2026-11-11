@@ -134,7 +134,7 @@ impl KotlinWebServices {
         let program = format!(
             "{}{authored}\n{}{}{}{}{}",
             Self::TASK_IMPORT,
-            crate::route_types::WebEventSources::kotlin(),
+            crate::route_types::WebEventSources::kotlin(&models.names()),
             KotlinModelReaders::text(&texts),
             Self::PRELUDE,
             Self::WEB_APIS,

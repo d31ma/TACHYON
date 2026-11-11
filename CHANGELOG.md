@@ -117,6 +117,17 @@ machine contracts have their own, independent major versions.
   helper now uses `crypto.randomUUID` when it exists and otherwise builds a
   version 4 UUID from `crypto.getRandomValues`.
 
+- **An app model with the name of a built-in event builds again** (ADR 0065
+  amendment). Since 26.46.02, `develop` added built-in event models such as
+  `UploadFinished`, `FilePicked`, `PushReceived` and `SocketOpened` to every
+  page, so an app with its own model of that name stopped building (in Go:
+  `UploadFinished redeclared`). Now the app's own model wins in every Tac
+  language, and the build leaves out the built-in type of that name. The build
+  stops with the new `TY1376` only when an `@OnEvent` listener of that model
+  can also hear the built-in event (its browser API is granted, the page
+  always sends it, or the service holds a socket client); the message names
+  the model and says to rename it.
+
 - **`ty test` and `ty start` agree on Yon handler code** (ADR 0122). Workers,
   identity providers, socket controllers and gateways now compose the error
   types of `server/errors/`, as route controllers and test units did; before,

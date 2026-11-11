@@ -10,11 +10,13 @@ impl KotlinModelOrder {
 
     pub(super) fn text(snapshot_root: &Path) -> Result<String, Failure> {
         let models = ModelSources::read(snapshot_root, "client", "kt")?;
-        let declared = models
+        let declared: Vec<(String, Model)> = models
             .separate_files()
             .into_iter()
-            .flat_map(|(_, source)| ModelTable::declared_models("kt", &source));
-        let cases: String = WebEventModels::models()
+            .flat_map(|(_, source)| ModelTable::declared_models("kt", &source))
+            .collect();
+        let own: Vec<String> = declared.iter().map(|(name, _)| name.clone()).collect();
+        let cases: String = WebEventModels::models_except(&own)
             .into_iter()
             .chain(declared)
             .filter_map(|(name, model)| Self::case(&name, &model))

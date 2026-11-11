@@ -16,6 +16,8 @@ mod runtime_roots;
 mod runtime_settings;
 
 #[cfg(test)]
+mod app_model_name_tests;
+#[cfg(test)]
 mod backend_tests;
 #[cfg(test)]
 mod browser_api_tests;

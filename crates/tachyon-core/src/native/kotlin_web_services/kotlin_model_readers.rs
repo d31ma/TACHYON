@@ -17,13 +17,20 @@ impl KotlinModelReaders {
             reads: String::new(),
             writes: String::new(),
         };
-        readers.add_web_events();
+        readers.add_web_events(&Self::declared_names(model_files));
         readers.add_model_files(model_files);
         readers.finished()
     }
 
-    fn add_web_events(&mut self) {
-        for (name, model) in WebEventModels::models() {
+    fn declared_names(model_files: &[(String, String)]) -> Vec<String> {
+        model_files
+            .iter()
+            .flat_map(|(_, source)| ModelTable::declared_names("kt", source))
+            .collect()
+    }
+
+    fn add_web_events(&mut self, own: &[String]) {
+        for (name, model) in WebEventModels::models_except(own) {
             self.add_model(&name, &model);
         }
     }

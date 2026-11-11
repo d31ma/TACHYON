@@ -74,14 +74,14 @@ impl Preludes {
 fn every_language_declares_the_web_event_models_with_their_fields() {
     let expected = WebEventModels::models();
     let sources = [
-        ("rs", WebEventSources::rust()),
-        ("go", WebEventSources::go()),
-        ("cs", WebEventSources::csharp()),
-        ("dart", WebEventSources::dart()),
-        ("rb", WebEventSources::ruby()),
+        ("rs", WebEventSources::rust(&[])),
+        ("go", WebEventSources::go(&[])),
+        ("cs", WebEventSources::csharp(&[])),
+        ("dart", WebEventSources::dart(&[])),
+        ("rb", WebEventSources::ruby(&[])),
         (
             "swift",
-            WebEventSources::swift_used_by(&WebEventModels::names().join(" ")),
+            WebEventSources::swift_used_by(&WebEventModels::names().join(" "), &[]),
         ),
     ];
     for (extension, source) in sources {
@@ -103,7 +103,7 @@ fn every_language_declares_the_web_event_models_with_their_fields() {
 
 #[test]
 fn fsharp_declares_the_web_event_models_as_records_everyone_on_the_page_can_name() {
-    let source = WebEventSources::fsharp();
+    let source = WebEventSources::fsharp(&[]);
     assert!(source.starts_with("namespace global\n"), "{source}");
     assert!(source.contains("\ntype ConnectivityChanged = { Online: bool }\n"));
     assert!(source.contains(

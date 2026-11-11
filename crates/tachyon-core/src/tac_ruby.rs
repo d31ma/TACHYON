@@ -74,7 +74,8 @@ impl RubyWebServices {
         services: &[(String, String, PathBuf)],
     ) -> Result<String, Failure> {
         let mut program = String::from(Self::PRELUDE);
-        program.push_str(&crate::route_types::WebEventSources::ruby());
+        let own = crate::route_types::ClientModelNames::read(snapshot_root, "rb");
+        program.push_str(&crate::route_types::WebEventSources::ruby(&own));
         program.push_str(&Self::models_program(snapshot_root)?);
         for (instance, class, source) in services {
             program.push_str(&Self::service(snapshot_root, instance, class, source)?);

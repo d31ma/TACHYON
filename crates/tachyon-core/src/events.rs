@@ -7,7 +7,10 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::ops::Range;
 use std::path::Path;
 
+#[cfg(test)]
+mod app_model_name_tests;
 mod browser_streams;
+mod built_in_name_clash;
 pub(crate) mod condition;
 mod event_timer;
 #[cfg(test)]
@@ -16,6 +19,7 @@ mod held_streams;
 pub(crate) mod publications;
 pub(crate) mod yon;
 pub(crate) use browser_streams::BrowserStreams;
+use built_in_name_clash::BuiltInNameClash;
 pub(crate) use event_timer::EventTimer;
 pub(crate) use held_streams::HeldStreams;
 
@@ -211,9 +215,7 @@ pub(crate) fn describe(
     if language == "js" {
         models.add_documented(&module.source);
     }
-    if realm == "client" {
-        models.add_web_events();
-    }
+    let own = add_client_web_events(&mut models, realm);
     module.topics = models.topic_names();
     if !module.has_listeners() {
         return Ok(());
@@ -221,6 +223,7 @@ pub(crate) fn describe(
     module
         .describe_models(&models)
         .map_err(|message| failure(path, 0, message))?;
+    BuiltInNameClash::new(path, root, &own).check(module)?;
     if realm == "client" {
         module.add_topic_streams();
     }
@@ -318,6 +321,15 @@ fn failure(path: &Path, at: usize, message: impl Into<String>) -> Failure {
     let help = "Use own-line OnEvent, OnStart and OnStop annotations on named instance members, and @Needs on a field named after the resource it takes.";
     let span = source_span(&path.to_string_lossy(), at, at.saturating_add(1));
     Failure::one(diagnostic(1308, message, Some(help.into()), span))
+}
+
+fn add_client_web_events(models: &mut ModelTable, realm: &str) -> Vec<String> {
+    if realm != "client" {
+        return Vec::new();
+    }
+    let own = models.declared_web_event_names();
+    models.add_web_events();
+    own
 }
 
 fn language_of(path: &Path) -> &str {

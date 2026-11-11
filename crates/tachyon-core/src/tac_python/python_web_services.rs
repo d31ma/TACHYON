@@ -37,6 +37,7 @@ impl PythonWebServices {
         include_str!("../native/browser/tac-task-answers.js"),
         include_str!("python_host.js"),
     );
+    const TEST_UNIT_PATH: &'static str = "client/services/Unit.py";
     const EVENT_MODEL_IMPORTS: &'static str = "import sys as _tac_sys\nimport types as _tac_types\nfrom dataclasses import dataclass as _tac_dataclass\n";
 
     pub(crate) fn build(
@@ -71,7 +72,7 @@ impl PythonWebServices {
         let manual = crate::yon::ManualHelpers::read(relative, &authored)?;
         let models = ModelSources::read(root, "client", "py")?;
         let providers = Self::providers(&units, &manual, &models)?;
-        let heard = Self::heard_web_events(&units);
+        let heard = Self::heard_web_events(&units, &models.names());
         let table = ModelTable::read_realm(root, "client", "py")
             .map(|table| Self::with_web_events(table, &heard))
             .map_err(|message| PythonProviderSource::failure(relative, &message))?;
@@ -85,7 +86,9 @@ impl PythonWebServices {
     }
 
     pub(crate) fn test_unit_support(lowered: &str) -> String {
-        let heard = Self::heard_web_events(&[(PathBuf::new(), lowered.to_owned())]);
+        let unit = [(PathBuf::from(Self::TEST_UNIT_PATH), lowered.to_owned())];
+        let own = crate::route_types::ClientModelNames::of_files(&unit);
+        let heard = Self::heard_web_events(&unit, &own);
         format!(
             "{}\n{}",
             Self::web_event_models(&heard),
@@ -208,13 +211,13 @@ impl PythonWebServices {
         Ok((path, source))
     }
 
-    fn heard_web_events(units: &[(PathBuf, String)]) -> Vec<String> {
+    fn heard_web_events(units: &[(PathBuf, String)], own: &[String]) -> Vec<String> {
         let sources = units
             .iter()
             .map(|(_, source)| source.as_str())
             .collect::<Vec<_>>()
             .concat();
-        WebEventModels::names()
+        WebEventModels::names_except(own)
             .into_iter()
             .filter(|name| sources.contains(name.as_str()))
             .collect()

@@ -21,36 +21,36 @@ impl WebEventSources {
     const PYTHON: LanguageKinds = LanguageKinds::new("str", "float", "bool");
     const PYTHON_EMPTY_BODY: &'static str = "    pass\n";
 
-    pub(crate) fn rust() -> String {
-        Self::each(Self::rust_model)
+    pub(crate) fn rust(own: &[String]) -> String {
+        Self::each(own, Self::rust_model)
     }
 
-    pub(crate) fn go() -> String {
-        format!("{}{}", Self::GO_PACKAGE, Self::each(Self::go_model))
+    pub(crate) fn go(own: &[String]) -> String {
+        format!("{}{}", Self::GO_PACKAGE, Self::each(own, Self::go_model))
     }
 
-    pub(crate) fn csharp() -> String {
-        Self::each(Self::csharp_model)
+    pub(crate) fn csharp(own: &[String]) -> String {
+        Self::each(own, Self::csharp_model)
     }
 
-    pub(crate) fn fsharp() -> String {
+    pub(crate) fn fsharp(own: &[String]) -> String {
         format!(
             "{}{}",
             Self::FSHARP_NAMESPACE,
-            Self::each(Self::fsharp_model)
+            Self::each(own, Self::fsharp_model)
         )
     }
 
-    pub(crate) fn dart() -> String {
-        Self::each(Self::dart_model)
+    pub(crate) fn dart(own: &[String]) -> String {
+        Self::each(own, Self::dart_model)
     }
 
-    pub(crate) fn kotlin() -> String {
-        Self::each(Self::kotlin_model)
+    pub(crate) fn kotlin(own: &[String]) -> String {
+        Self::each(own, Self::kotlin_model)
     }
 
-    pub(crate) fn swift_used_by(source: &str) -> String {
-        WebEventModels::models()
+    pub(crate) fn swift_used_by(source: &str, own: &[String]) -> String {
+        WebEventModels::models_except(own)
             .into_iter()
             .filter(|(name, _)| source.contains(name.as_str()))
             .map(|(name, model)| Self::swift_model(&name, &Self::fields(model)))
@@ -76,8 +76,8 @@ impl WebEventSources {
             .collect()
     }
 
-    pub(crate) fn java_used_by(source: &str) -> String {
-        WebEventModels::models()
+    pub(crate) fn java_used_by(source: &str, own: &[String]) -> String {
+        WebEventModels::models_except(own)
             .into_iter()
             .filter(|(name, _)| source.contains(name.as_str()))
             .map(|(name, model)| Self::java_model(&name, &Self::fields(model)))
@@ -102,13 +102,13 @@ impl WebEventSources {
             .collect()
     }
 
-    pub(crate) fn ruby() -> String {
-        Self::each(Self::ruby_model)
+    pub(crate) fn ruby(own: &[String]) -> String {
+        Self::each(own, Self::ruby_model)
     }
 
-    fn each(write_model: fn(&str, &[ModelField]) -> String) -> String {
+    fn each(own: &[String], write_model: fn(&str, &[ModelField]) -> String) -> String {
         let mut source = String::new();
-        for (name, model) in WebEventModels::models() {
+        for (name, model) in WebEventModels::models_except(own) {
             source.push_str(&write_model(&name, &Self::fields(model)));
         }
         source

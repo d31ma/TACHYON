@@ -67,6 +67,13 @@ impl NativeCompanionInput {
     }
 }
 
+pub(super) fn own_model_names(companions: &[NativeCompanionInput], extension: &str) -> Vec<String> {
+    companions
+        .first()
+        .map(|item| crate::route_types::ClientModelNames::read(&item.snapshot_root, extension))
+        .unwrap_or_default()
+}
+
 pub(super) fn source(
     companions: &[NativeCompanionInput],
     language: NativeCompanion,

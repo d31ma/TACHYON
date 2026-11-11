@@ -56,13 +56,13 @@ impl Converters {
 
     pub(crate) fn tac_text(extension: &str, root: &Path) -> Result<String, String> {
         let files = ModelFolder::read_realm(root, "client", extension)?;
-        Ok(Self::tac_text_of(extension, files))
+        Ok(Self::tac_text_of(extension, files, root))
     }
 
-    fn tac_text_of(extension: &str, files: Vec<(String, String)>) -> String {
+    fn tac_text_of(extension: &str, files: Vec<(String, String)>, root: &Path) -> String {
         match extension {
             "rs" => super::RustTacModels::of(&files).text(),
-            "cs" => TacCSharpContext::text(&files),
+            "cs" => TacCSharpContext::text(&files, &super::ClientModelNames::read(root, "fs")),
             "swift" => SwiftCodable::text(&files),
             "dart" => DartConverters::tac_text(files),
             "lua" => crate::lua_source::LuaModels::converters(&Self::records(&files, extension)),
@@ -181,9 +181,10 @@ impl Converters {
 struct TacCSharpContext;
 
 impl TacCSharpContext {
-    fn text(files: &[(String, String)]) -> String {
+    fn text(files: &[(String, String)], fsharp_own: &[String]) -> String {
         let mut output = Self::model_lines(files);
-        Self::web_events(&mut output);
+        let own = [Self::declared_names(files), fsharp_own.to_vec()].concat();
+        Self::web_events(&mut output, &own);
         Self::finish(output)
     }
 
@@ -215,8 +216,16 @@ impl TacCSharpContext {
         output
     }
 
-    fn web_events(output: &mut String) {
-        for name in super::WebEventModels::names() {
+    fn declared_names(files: &[(String, String)]) -> Vec<String> {
+        files
+            .iter()
+            .flat_map(|(_, source)| ModelParser::models("cs", source))
+            .map(|(name, _)| name)
+            .collect()
+    }
+
+    fn web_events(output: &mut String, own: &[String]) {
+        for name in super::WebEventModels::names_except(own) {
             let _ = writeln!(
                 output,
                 "[System.Text.Json.Serialization.JsonSerializable(typeof({name}))]"
@@ -566,11 +575,20 @@ impl DartConverters {
     }
 
     fn tac_text(mut files: Vec<(String, String)>) -> String {
+        let own = Self::declared_names(&files);
         files.push((
             String::from(Self::SHARED_LIBRARY),
-            super::WebEventSources::dart(),
+            super::WebEventSources::dart(&own),
         ));
         format!("{}{}", Self::text(&files), Self::event_names(&files))
+    }
+
+    fn declared_names(files: &[(String, String)]) -> Vec<String> {
+        files
+            .iter()
+            .flat_map(|(_, source)| ModelParser::models("dart", source))
+            .map(|(name, _)| name)
+            .collect()
     }
 
     fn event_names(files: &[(String, String)]) -> String {

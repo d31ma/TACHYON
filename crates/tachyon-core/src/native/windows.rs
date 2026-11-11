@@ -404,7 +404,7 @@ fn stage_companion(
         WindowsHostGenerator::CSHARP_NATIVE_BINDINGS,
         &CsharpBrowserBindings::read_with_runtime(&authored, ""),
     );
-    let web_apis = CsharpWebApis::native();
+    let web_apis = CsharpWebApis::native(&super::registry::own_model_names(companions, "cs"));
     write(
         &project.join("TachyonCompanion.cs"),
         format!(
@@ -434,7 +434,8 @@ pub(crate) async fn web_dotnet(
     let (fsharp, runtime) = crate::fsharp_source::FsharpSource::runtime_split(fsharp);
     let fsharp_files =
         super::fsharp_web_project::FsharpWebProject::files(snapshot_root, fsharp, runtime)?;
-    let source = web_source(authored, fsharp, runtime);
+    let own = crate::route_types::ClientModelNames::read(snapshot_root, "cs");
+    let source = web_source(authored, fsharp, runtime, &own);
     let version = run_tool("dotnet", &["--version"]).await.map_err(|_| {
         native_tool_failure(
             1605,
@@ -479,7 +480,7 @@ fn web_companion_inputs(
     companions
 }
 
-fn web_source(authored: &str, fsharp: &str, runtime: &str) -> String {
+fn web_source(authored: &str, fsharp: &str, runtime: &str, own: &[String]) -> String {
     use std::fmt::Write as _;
     let prelude = WindowsHostGenerator::CSHARP_COMPANION_PRELUDE;
     let using = WindowsHostGenerator::CSHARP_COMPANION_USING;
@@ -502,7 +503,7 @@ fn web_source(authored: &str, fsharp: &str, runtime: &str) -> String {
          internal static class TacApplication {{ internal const string Id = \"web\"; }}\n\n\
          {authored}\n{prelude}\n{}\n{}{entry}",
         WindowsHostGenerator::CSHARP_BROWSER_TASKS,
-        CsharpWebApis::in_web_services(fsharp)
+        CsharpWebApis::in_web_services(fsharp, own)
     )
 }
 
@@ -1823,7 +1824,7 @@ mod tests {
 
     #[test]
     fn csharp_task_model_browser_source_retains_codec_without_native_host_tail() {
-        let browser = super::web_source("", "", "");
+        let browser = super::web_source("", "", "", &[]);
         let native = native_companion_source();
         for source in [browser.as_str(), native.as_str()] {
             assert!(source.contains("public static T ReadResult<T>"));
@@ -1843,7 +1844,7 @@ mod tests {
     fn fsharp_browser_entry_binds_detached_http_runtime_without_native_abi() {
         let authored = "namespace TachyonService0 { class PlainService {} }";
         let runtime = "namespace TachyonService1 { internal static class BehaviorBrowserHttp {} }";
-        let browser = super::web_source(authored, "namespace rec TachyonService1\n", runtime);
+        let browser = super::web_source(authored, "namespace rec TachyonService1\n", runtime, &[]);
         assert!(
             browser.contains(
                 "TachyonService1.BehaviorBrowserHttp.Capture ??= Tac.CaptureHttpTransport"
@@ -1856,7 +1857,7 @@ mod tests {
 
     #[test]
     fn dotnet_browser_tasks_have_a_distinct_export_and_keep_the_synchronous_entry() {
-        let source = super::web_source("", "", "");
+        let source = super::web_source("", "", "", &[]);
         assert!(source.contains("public static string Invoke(string request)"));
         assert!(source.contains(
             "public static System.Threading.Tasks.Task<string> InvokeAsync(string request)"
@@ -1878,7 +1879,7 @@ mod tests {
         let authored = "namespace TachyonService0 {\npublic static class BehaviorStorage { }\n}\n\
              namespace TachyonService1 {\npublic class Plain { }\n}\n\
              namespace TachyonService2 {\npublic static class BehaviorStorage { }\n}\n";
-        let source = super::web_source(authored, "", "");
+        let source = super::web_source(authored, "", "", &[]);
         assert!(source.contains("TachyonService0.BehaviorStorage.Host ??= Storage;"));
         assert!(!source.contains("TachyonService1.BehaviorStorage"));
         assert!(source.contains("TachyonService2.BehaviorStorage.Host ??= Storage;"));
@@ -1888,10 +1889,10 @@ mod tests {
     #[test]
     fn a_page_with_fsharp_services_takes_the_browser_apis_from_the_library_below_them() {
         let authored = "namespace TachyonService0 {\npublic class Plain { }\n}\n";
-        let alone = super::web_source(authored, "", "");
+        let alone = super::web_source(authored, "", "", &[]);
         assert!(alone.contains("public static class TacWebHost"));
         assert!(alone.contains("public sealed record ShareFinished();"));
-        let with_fsharp = super::web_source(authored, "namespace rec TachyonService1\n", "");
+        let with_fsharp = super::web_source(authored, "namespace rec TachyonService1\n", "", &[]);
         assert!(!with_fsharp.contains("public static class TacWebHost"));
         assert!(!with_fsharp.contains("public sealed record ShareFinished();"));
         assert!(with_fsharp.contains("TacWebHost.Ask ??= Web;"));

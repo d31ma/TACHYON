@@ -24,10 +24,12 @@ impl JavaModels {
             .into_iter()
             .map(Self::model_file)
             .collect::<Result<_, Failure>>()?;
-        files.extend(JavaWebApis::events(authored).map(|(path, source)| {
-            let models = JavaModelReader::models(&source);
-            (path, models, source)
-        }));
+        files.extend(
+            JavaWebApis::events(authored, &sources.names()).map(|(path, source)| {
+                let models = JavaModelReader::models(&source);
+                (path, models, source)
+            }),
+        );
         Ok(Self {
             files,
             authored: sources,

@@ -66,7 +66,7 @@ impl TaskOwnerFixture {
                 include_str!("browser/TacHttpInvocation.cs"),
                 include_str!("browser/TacSocketTransport.cs")
             ),
-            super::csharp_web_apis::CsharpWebApis::with_events(),
+            super::csharp_web_apis::CsharpWebApis::with_events(&[]),
             include_str!("../../tests/fixtures/behavior/TaskSignals.cs"),
             include_str!("../../tests/fixtures/behavior/TaskOwnerDriver.cs"),
         );

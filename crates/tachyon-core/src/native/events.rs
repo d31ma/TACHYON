@@ -1405,14 +1405,14 @@ mod tests {
                 NativeCompanion::CSharp,
                 include_str!("../../tests/fixtures/native-events/tac.cs"),
                 super::super::windows::companion_prelude().to_owned()
-                    + &super::super::csharp_web_apis::CsharpWebApis::native(),
+                    + &super::super::csharp_web_apis::CsharpWebApis::native(&[]),
             ),
             (
                 "rs",
                 NativeCompanion::Rust,
                 include_str!("../../tests/fixtures/native-events/tac.rs"),
                 super::super::rust::companion_prelude().to_owned()
-                    + &crate::route_types::WebEventSources::rust(),
+                    + &crate::route_types::WebEventSources::rust(&[]),
             ),
         ]
     }

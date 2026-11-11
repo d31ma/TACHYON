@@ -131,6 +131,10 @@ impl ModelSources {
         staged
     }
 
+    pub(crate) fn names(&self) -> Vec<String> {
+        crate::route_types::ClientModelNames::of_files(&self.project_files())
+    }
+
     pub(crate) fn project_files(&self) -> Vec<(PathBuf, String)> {
         self.files
             .iter()

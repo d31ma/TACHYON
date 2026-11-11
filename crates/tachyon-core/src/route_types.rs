@@ -4,6 +4,7 @@ use serde_json::{Map, Value, json};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
+mod client_model_names;
 mod converters;
 mod language_kinds;
 mod mapping_models;
@@ -16,6 +17,7 @@ use rust_tac_models::RustTacModels;
 mod php_doc;
 mod type_text;
 mod web_event_models;
+mod web_event_sender;
 mod web_event_sources;
 
 #[cfg(test)]
@@ -30,12 +32,14 @@ mod web_event_model_tests;
 #[allow(clippy::expect_used)]
 mod declared_name_tests;
 
+pub(crate) use client_model_names::ClientModelNames;
 pub(crate) use converters::{Converters, DartValues};
 pub(crate) use mapping_models::MappingModels;
 pub(crate) use model_files::RustField;
 pub(crate) use php_doc::PhpDoc;
 pub(crate) use type_text::TypeText;
 pub(crate) use web_event_models::WebEventModels;
+pub(crate) use web_event_sender::WebEventSender;
 pub(crate) use web_event_sources::WebEventSources;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
@@ -188,15 +192,23 @@ impl ModelTable {
     }
 
     pub(crate) fn add_web_events(&mut self) {
-        self.models.extend(WebEventModels::models());
+        let own = self.declared_web_event_names();
+        self.models.extend(WebEventModels::models_except(&own));
     }
 
     pub(crate) fn add_web_event(&mut self, name: &str) {
+        let own = self.declared_web_event_names();
         self.models.extend(
-            WebEventModels::models()
+            WebEventModels::models_except(&own)
                 .into_iter()
                 .filter(|(model, _)| model == name),
         );
+    }
+
+    pub(crate) fn declared_web_event_names(&self) -> Vec<String> {
+        let mut declared = WebEventModels::names();
+        declared.retain(|name| self.models.contains_key(name));
+        declared
     }
 
     pub(crate) fn declared_names(extension: &str, source: &str) -> Vec<String> {

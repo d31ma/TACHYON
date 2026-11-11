@@ -116,7 +116,9 @@ the page as WebAssembly.
   the service source (`ServiceTimers`) and the shared shell calls the exposed
   method.
 - `SocketOpened` and `SocketClosed` are reserved model names in `client/`,
-  like the other built-in event models.
+  like the other built-in event models. (Since 2026-11-11 an app model of the
+  same name wins, and `TY1376` stops the build only when a service that holds
+  a socket client listens to it; ADR 0065 amendment.)
 - Tested by `events::event_timer_tests`, the rule-table test
   `every_runs_in_every_tac_language_and_nowhere_in_yon`,
   `tac_web::go_socket_hooks_tests` (Go, with the authentication order), and

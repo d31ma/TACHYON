@@ -80,7 +80,7 @@ impl FsharpUnit {
             ),
             (
                 library.join(FsharpProject::WEB_EVENTS_FILE),
-                crate::route_types::WebEventSources::fsharp(),
+                crate::route_types::WebEventSources::fsharp(&models.names()),
             ),
             (
                 library.join(FsharpProject::MODELS_FILE),

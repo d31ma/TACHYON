@@ -21,7 +21,7 @@ impl NativeWebApis {
 
     pub(crate) fn refuse(path: &Path, source: &str) -> Result<(), Failure> {
         Self::refuse_preferences(path, source)?;
-        Self::refuse_uses(path, source, Self::uses(path, source))
+        Self::refuse_uses(path, source, Self::uses(path, source, &[]))
     }
 
     pub(crate) fn refuse_with_models(
@@ -39,20 +39,23 @@ impl NativeWebApis {
         }
     }
 
-    fn refuse_without_models(path: &Path, source: &str, _root: &Path) -> Result<(), Failure> {
-        Self::refuse(path, source)
+    fn refuse_without_models(path: &Path, source: &str, root: &Path) -> Result<(), Failure> {
+        Self::refuse_preferences(path, source)?;
+        let own = crate::route_types::ClientModelNames::read(root, Self::extension(path));
+        Self::refuse_uses(path, source, Self::uses(path, source, &own))
     }
 
     fn refuse_rust_models(path: &Path, source: &str, root: &Path) -> Result<(), Failure> {
         Self::refuse_preferences(path, source)?;
-        let uses = Self::uses(path, source);
+        let uses = Self::uses(path, source, &[]);
         let uses = super::rust_known_model_paths::RustKnownModelPaths::retain(root, source, uses)?;
         Self::refuse_uses(path, source, uses)
     }
 
-    fn uses(path: &Path, source: &str) -> Vec<Range<usize>> {
+    fn uses(path: &Path, source: &str, own: &[String]) -> Vec<Range<usize>> {
         let extension = Self::extension(path);
         let mut names = crate::route_types::WebEventModels::page_names();
+        names.retain(|name| !own.contains(name));
         names.extend(Self::clients(extension));
         let words: Vec<&str> = names.iter().map(String::as_str).collect();
         InteropFinder::new(extension, source).all_words(&words)

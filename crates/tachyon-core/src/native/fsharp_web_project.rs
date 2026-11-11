@@ -70,7 +70,7 @@ impl FsharpWebProject {
             (format!("{}/Services.fs", Self::FOLDER), services),
             (
                 format!("{}/WebEvents.fs", Self::FOLDER),
-                WebEventSources::fsharp(),
+                WebEventSources::fsharp(&models.names()),
             ),
         ];
         files.extend(FsharpBehaviorsProject::files(runtime));

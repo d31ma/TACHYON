@@ -105,7 +105,8 @@ unit), and a native target has no browser at all.
      only source: the listener model check adds it to the `client` models
      (never to the server), and `WebEventSources` writes the types for Rust,
      Go, C#, Dart and Ruby. A same-named user model is replaced by the
-     built-in one.
+     built-in one. (Reversed on 2026-11-11: the app's model wins; see the
+     amendment at the end.)
    - `Connectivity`, `PageVisibility` and `Preferences` answer at once. The
      page publishes their current values when it starts, keeps them (so a
      `replay` listener hears them first) and publishes every change
@@ -587,3 +588,69 @@ Imports in backquotes are found too, and directives only where a line comment
 starts (`annotation_layout/browser_interop.rs`). The Context's "Go
 `syscall/js`" and ADR 0045's Web Service Notes still describe the state before
 this change.
+
+## Amendment (2026-11-11): an app model wins over a built-in event model of the same name
+
+### Context
+
+Decision 5 said that a same-named user model is replaced by the built-in one.
+Each new browser API adds built-in event models (`FilePicked`,
+`UploadFinished`, `PushReceived`, `SocketOpened` and more), and each one was
+added to every page. So an app that declared its own model with one of these
+names stopped building after a Tachyon update, although it never used the new
+feature. Mesail found this with a Go model `UploadFinished`: Go reported
+`UploadFinished redeclared` (`TY1605`), and the help line said to install a
+toolchain. More built-in names will come, so one rule must cover every name in
+every Tac language.
+
+### Decision
+
+1. **An app model wins.** When `client/models/` declares a model with the name
+   of a built-in event model, the build leaves the built-in type of that name
+   out of that app: out of the listener model table (`ModelTable::add_web_events`
+   and `add_web_event` add only names the app did not declare), and out of the
+   types that `WebEventSources` writes for each language (Rust, Go page aliases,
+   C# and its JSON context, F#, Dart and its converters, Kotlin and its readers
+   and model order, Swift, Java, Ruby, Python; C++ already did this). The
+   app's own listeners then hear the app's own model, with the app's fields.
+   `ClientModelNames` reads the declared names from the files in
+   `client/models/` of the service's language, because the clash is between
+   types of one language. A natively linked C#, F#, Swift or Kotlin service
+   may use such a model too: `TY1317` no longer refuses the name of an app
+   model of its own language. Rust keeps its stricter check by model path
+   (`RustKnownModelPaths`).
+2. **A clash that matters stops the build with `TY1376`.** Each row of the
+   shared table (`WebEventModels`) names what sends the event
+   (`WebEventSender`): `Page` (the page always sends it: the three page state
+   events, `ApplicationStateChanged` and `BrowserCallFailed`), `Grant(api)`
+   (only when `tac.browserApis` grants that API: clipboard, share,
+   notifications, geolocation, files, push), or `Socket` (only to the service
+   that holds a socket client). When an `@OnEvent` method listens to an app
+   model whose built-in event can also reach it, the two would mix, so the
+   event step (`events::describe`, `BuiltInNameClash`) refuses the build. The
+   message names the model, the listener and what sends the built-in event,
+   and the help says to rename the app model.
+3. **Nothing else is refused.** An app model with a built-in name builds when
+   no listener of it can hear the built-in event, for example `UploadFinished`
+   without the `files` grant. So a new built-in name never breaks an app that
+   built before, unless the app turns on the new feature.
+4. **The Go `tac` package keeps every built-in type.** Only the page package's
+   alias (`type UploadFinished = tac.UploadFinished`) is left out, so the
+   files and push code inside `tac` still compiles.
+5. **New built-in events** need one row in `route_types/web_event_models.rs`
+   with its sender. Every language then follows this rule; no slice adds a
+   per-language exception. A row with the wrong sender only makes the check
+   stricter or looser for that one name.
+
+### Consequences
+
+- Apps that built with 26.46.02 build again, whatever new built-in names
+  `develop` adds.
+- An app that wants a built-in event must not declare a model of the same
+  name; `TY1376` says so when it matters.
+- Python services get the same types rule, but the `TY1376` check runs in the
+  shared event step, which Python's own provider step does not use yet.
+- Tested by `events::app_model_name_tests` (JavaScript, TypeScript, the grant,
+  page and socket senders), `tac_web::app_model_name_tests` (Rust, Go, C#,
+  F#, Ruby, Lua, Swift, Kotlin, Java, C++ and Dart, each built and driven
+  through the real event bus) and `tac_python::app_model_name_tests`.

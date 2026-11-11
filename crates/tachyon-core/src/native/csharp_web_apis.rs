@@ -24,22 +24,22 @@ impl CsharpWebApis {
     const LIBRARY_USINGS: &'static str = "using System.Text.Json.Nodes;\n\n";
     const BROWSER_FAKES: &'static str = include_str!("web_apis/BrowserFakes.cs");
 
-    pub(super) fn with_events() -> String {
+    pub(super) fn with_events(own: &[String]) -> String {
         format!(
             "{}{}{}{}",
             Self::BROWSER,
             Self::FILES,
             FilePickerSources::csharp_page(),
-            WebEventSources::csharp()
+            WebEventSources::csharp(own)
         )
     }
 
-    pub(super) fn in_web_services(fsharp: &str) -> String {
-        let own = fsharp.is_empty().then(Self::with_events);
-        own.unwrap_or_default()
+    pub(super) fn in_web_services(fsharp: &str, own: &[String]) -> String {
+        let alone = fsharp.is_empty().then(|| Self::with_events(own));
+        alone.unwrap_or_default()
     }
 
-    pub(super) fn native() -> String {
+    pub(super) fn native(own: &[String]) -> String {
         let source = Self::BROWSER.replace(
             include_str!("web_apis/WindowControls.cs"),
             include_str!("capabilities/WindowControls.cs"),
@@ -48,7 +48,7 @@ impl CsharpWebApis {
             "{source}{}{}{}",
             Self::FILES,
             FilePickerSources::csharp_native(),
-            WebEventSources::csharp()
+            WebEventSources::csharp(own)
         )
     }
 
@@ -73,10 +73,10 @@ mod tests {
 
     #[test]
     fn web_services_keep_their_own_browser_apis_only_without_fsharp() {
-        let own = CsharpWebApis::in_web_services("");
+        let own = CsharpWebApis::in_web_services("", &[]);
         assert!(own.contains("public static class TacWebHost"));
         assert!(own.contains("public sealed record ConnectivityChanged(bool Online);"));
-        assert!(CsharpWebApis::in_web_services("namespace rec TachyonService0\n").is_empty());
+        assert!(CsharpWebApis::in_web_services("namespace rec TachyonService0\n", &[]).is_empty());
     }
 
     #[test]

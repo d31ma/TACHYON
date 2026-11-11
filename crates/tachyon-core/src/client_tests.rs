@@ -480,7 +480,7 @@ fn go_unit_files(lowered: &str, name: &str, models: &ModelSources) -> Vec<(PathB
         ),
         (
             PathBuf::from("tac.go"),
-            crate::native::go_publisher_alias("main"),
+            crate::native::go_publisher_alias("main", &models.names()),
         ),
         (
             PathBuf::from("main.go"),
@@ -758,8 +758,8 @@ fn swift(
 ) -> Result<String, Failure> {
     let path = directory.join("Unit.swift");
     let binary = directory.join("unit");
+    let browser = crate::native::SwiftWebServices::test_unit_browser(lowered, &models.names());
     let models = models.joined_sources();
-    let browser = crate::native::SwiftWebServices::test_unit_browser(lowered);
     let wrapped = format!(
         "import Foundation\n{models}{browser}private enum TachyonTestUnit {{\n{lowered}\n}}\n\
          @main struct TachyonTestMain {{\n\
@@ -908,7 +908,12 @@ fn csharp(directory: &Path, portable: &str, lowered: &str, name: &str) -> Result
         format!(
             "{}{}",
             crate::native::CsharpWebApis::test_unit_library(),
-            crate::route_types::WebEventSources::csharp()
+            crate::route_types::WebEventSources::csharp(
+                &crate::route_types::ClientModelNames::of_files(&[(
+                    PathBuf::from("unit.cs"),
+                    lowered.to_owned()
+                )])
+            )
         ),
     )
     .map_err(|error| stage_failure(portable, &error))?;

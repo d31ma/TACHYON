@@ -159,7 +159,9 @@ impl RustCompanion {
                 "{authored}\nconst TAC_APPLICATION_ID: &str = {application_id:?};\n\
                  const TAC_YON_ORIGIN: &str = {yon_origin:?};\n{}{}",
                 Self::PRELUDE,
-                crate::route_types::WebEventSources::rust()
+                crate::route_types::WebEventSources::rust(&super::registry::own_model_names(
+                    companions, "rs"
+                ))
             )
             .as_bytes(),
         )?;

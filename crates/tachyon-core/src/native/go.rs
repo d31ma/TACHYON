@@ -130,12 +130,19 @@ impl GoServices {
         "BrowserFakes",
     ];
 
-    fn type_aliases() -> String {
+    fn type_aliases(own: &[String]) -> String {
         let mut aliases = String::new();
         for name in Self::ALIASED_TYPES {
-            let _ = write!(aliases, "type {name} = tac.{name}\n\n");
+            aliases.push_str(&Self::type_alias(name, own));
         }
         aliases
+    }
+
+    fn type_alias(name: &str, own: &[String]) -> String {
+        if own.iter().any(|declared| declared == name) {
+            return String::new();
+        }
+        format!("type {name} = tac.{name}\n\n")
     }
 
     fn page(snapshot_root: &Path, services: &[(String, String, PathBuf)]) -> Result<Self, Failure> {
@@ -306,7 +313,7 @@ impl GoServices {
             .collect::<Result<Vec<_>, Failure>>()?;
         files.extend(tables);
         files.extend(self.needs.shared_file(Self::PAGE_PACKAGE, Self::MODULE));
-        let alias = publisher_alias(Self::PAGE_PACKAGE);
+        let alias = publisher_alias(Self::PAGE_PACKAGE, &models.names());
         files.push((Path::new(Self::PAGE_PACKAGE).join("tac.go"), alias));
         files.extend(Self::model_files(models));
         Ok(files)
@@ -404,7 +411,7 @@ pub(crate) fn runtime_files() -> Vec<(PathBuf, String)> {
     }
     files.push((
         PathBuf::from(GoServices::WEB_EVENT_FILE),
-        crate::route_types::WebEventSources::go(),
+        crate::route_types::WebEventSources::go(&[]),
     ));
     files
 }
@@ -413,11 +420,11 @@ pub(crate) fn module_file() -> String {
     format!("module {}\n\ngo 1.27\n", GoServices::MODULE)
 }
 
-pub(crate) fn publisher_alias(package: &str) -> String {
+pub(crate) fn publisher_alias(package: &str, own: &[String]) -> String {
     format!(
         "package {package}\n\nimport \"{}/tac\"\n\n{}func behaviorStorageHost() func(string) string {{\n\treturn tac.Storage\n}}\n\nfunc behaviorBrowserHost() func(string) string {{\n\treturn tac.Exchange\n}}\n\nfunc behaviorSocketSend(client string, message any) error {{\n\treturn tac.SendSocket(client, message)\n}}\n",
         GoServices::MODULE,
-        GoServices::type_aliases()
+        GoServices::type_aliases(own)
     )
 }
 

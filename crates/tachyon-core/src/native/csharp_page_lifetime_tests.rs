@@ -275,7 +275,7 @@ public static class Program
         let program = format!(
             "using System;\nusing System.Collections.Generic;\nusing System.Collections;\nusing System.Globalization;\nusing System.Linq;\nusing System.Text.Json.Nodes;\nusing System.Runtime.InteropServices;\nusing System.Text.Json;\nusing System.Text;\ninternal static class TacApplication {{ internal const string Id = \"test.page-lifetime\"; }}\n{registry}\n{}\n{}\n{}",
             super::windows::companion_prelude(),
-            super::csharp_web_apis::CsharpWebApis::native(),
+            super::csharp_web_apis::CsharpWebApis::native(&[]),
             Self::CALLER
         );
         std::fs::write(root.path().join("Program.cs"), program).expect("program");

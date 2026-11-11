@@ -162,7 +162,7 @@ impl ManagedCapabilityCheck {
                 include_str!("prelude.cs"),
                 include_str!("models/TacModels.cs")
             ),
-            super::csharp_web_apis::CsharpWebApis::native(),
+            super::csharp_web_apis::CsharpWebApis::native(&[]),
             Self::CSHARP_CALLER
         );
         std::fs::write(root.path().join("Program.cs"), program).expect("program");

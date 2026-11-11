@@ -57,8 +57,8 @@ impl JavaWebApis {
             .collect()
     }
 
-    pub(super) fn events(authored: &str) -> Option<(PathBuf, String)> {
-        let records = crate::route_types::WebEventSources::java_used_by(authored);
+    pub(super) fn events(authored: &str, own: &[String]) -> Option<(PathBuf, String)> {
+        let records = crate::route_types::WebEventSources::java_used_by(authored, own);
         (!records.is_empty()).then(|| (PathBuf::from(Self::EVENTS_FILE), records))
     }
 

@@ -98,11 +98,13 @@ impl SwiftWebServices {
         let companions =
             NativeCompanionInput::web_services(snapshot_root, NativeCompanion::Swift, services);
         let authored = super::registry::source(&companions, NativeCompanion::Swift)?;
-        Self::compiled(authored, profile).await
+        let own = crate::route_types::ClientModelNames::read(snapshot_root, "swift");
+        Self::compiled(authored, &own, profile).await
     }
 
     async fn compiled(
         authored: Option<String>,
+        own: &[String],
         profile: crate::BuildProfile,
     ) -> Result<(Vec<(String, Vec<u8>)>, Option<String>), Failure> {
         let Some(authored) = authored else {
@@ -114,17 +116,17 @@ impl SwiftWebServices {
             "{authored}\n{}{}{}",
             Self::PRELUDE,
             Self::used_web_apis(&authored),
-            crate::route_types::WebEventSources::swift_used_by(&authored)
+            crate::route_types::WebEventSources::swift_used_by(&authored, own)
         );
         let built = SwiftWasmProgram::compile(&program, profile).await?;
         let note = built.note(profile);
         Ok((built.published(), note))
     }
 
-    pub(crate) fn test_unit_browser(unit: &str) -> String {
+    pub(crate) fn test_unit_browser(unit: &str, own: &[String]) -> String {
         let apis = Self::used_web_apis(unit);
         let page = Self::test_unit_page(unit, &apis);
-        let models = crate::route_types::WebEventSources::swift_used_by(unit);
+        let models = crate::route_types::WebEventSources::swift_used_by(unit, own);
         format!("{page}{apis}{models}")
     }
 
@@ -168,7 +170,7 @@ mod tests {
         let apis = SwiftWebServices::used_web_apis(authored);
         assert!(apis.contains("final class Clock"), "{apis}");
         assert!(!apis.contains("final class Geolocation"), "{apis}");
-        let models = crate::route_types::WebEventSources::swift_used_by(authored);
+        let models = crate::route_types::WebEventSources::swift_used_by(authored, &[]);
         assert_eq!(
             models,
             "\nstruct ConnectivityChanged: Codable {\n    let online: Bool\n}\n"
