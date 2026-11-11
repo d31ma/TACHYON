@@ -398,6 +398,23 @@ const bindEvent = (element, type, binding, environment) => {
   Elements.listeners.set(element, listeners)
 }
 
+class BoundAttribute {
+  static #ariaPrefix = 'aria-'
+
+  /** @param {string} name @param {unknown} value @returns {string | null} */
+  static text(name, value) {
+    if (value === null || value === undefined) return null
+    if (typeof value === 'boolean') return BoundAttribute.#booleanText(name, value)
+    return display(value)
+  }
+
+  /** @param {string} name @param {boolean} value @returns {string | null} */
+  static #booleanText(name, value) {
+    if (name.startsWith(BoundAttribute.#ariaPrefix)) return String(value)
+    return value ? '' : null
+  }
+}
+
 const applyAttributes = async (element, attributes, environment) => {
   let safeHtml
   for (const attribute of attributes || []) {
@@ -412,11 +429,11 @@ const applyAttributes = async (element, attributes, environment) => {
       safeHtml = value === false || value === null || value === undefined ? '' : String(value)
       continue
     }
-    if (value === false || value === null || value === undefined) {
+    const rendered = BoundAttribute.text(attribute.name, value)
+    if (rendered === null) {
       Elements.removeAttribute(element, attribute.name)
       continue
     }
-    const rendered = value === true ? '' : display(value)
     Elements.setAttribute(element, attribute.name, rendered)
     if (['checked', 'disabled', 'selected'].includes(attribute.name)) element[attribute.name] = Boolean(value)
     else if (attribute.name === 'value' && 'value' in element) {

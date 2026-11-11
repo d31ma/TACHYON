@@ -8,6 +8,15 @@ machine contracts have their own, independent major versions.
 
 ## [Unreleased]
 
+### Fixed
+
+- A bound boolean on an `aria-*` attribute now writes the text `true` or
+  `false`. Before, `:aria-expanded="menu.open"` wrote `aria-expanded=""` for
+  true, which a screen reader reads as false, and left the attribute out for
+  false. Strings and numbers keep their text, `null` still leaves the
+  attribute out, and other attributes such as `hidden` and `disabled` keep the
+  HTML rule (ADR 0015, amendment of 2026-11-10).
+
 ## [26.46.02] - 2026-11-10
 
 ### Highlights

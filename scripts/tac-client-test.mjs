@@ -140,8 +140,8 @@ export default class DrawerService {
 
 function writeBooleanFixtures(root) {
   write(root, 'client/pages/toggles/tac.html', '<toggle-panel />')
-  write(root, 'client/components/toggle/panel/tac.html', '<main><button id="open" on:click="togglePanel.open = true">Open</button><button id="close" on:click="togglePanel.open = false">Close</button><div id="backdrop" :hidden="!togglePanel.open">Backdrop</div><button id="save" :disabled="!togglePanel.open">Save</button></main>')
-  write(root, 'client/services/TogglePanelService.js', "@Service()\nexport default class TogglePanelService { open = false; }")
+  write(root, 'client/components/toggle/panel/tac.html', '<main><button id="open" on:click="togglePanel.open = true">Open</button><button id="close" on:click="togglePanel.open = false">Close</button><div id="backdrop" :hidden="!togglePanel.open">Backdrop</div><button id="save" :disabled="!togglePanel.open">Save</button><button id="menu" :aria-expanded="togglePanel.open" :aria-pressed="togglePanel.open" :aria-current="togglePanel.open ? \'page\' : null" :aria-busy="togglePanel.busy">Menu</button></main>')
+  write(root, 'client/services/TogglePanelService.js', "@Service()\nexport default class TogglePanelService { open = false; busy = null; }")
 }
 
 function writeSetupFixtures(root) {
@@ -210,6 +210,10 @@ function serveFixture(root) {
   })
 }
 
+function ariaState(page) {
+  return page.locator('#menu').evaluate((menu) => ['aria-expanded', 'aria-pressed', 'aria-current', 'aria-busy'].map((name) => menu.getAttribute(name)))
+}
+
 async function checkPages(browser, origin) {
   const page = await browser.newPage()
   await page.context().addCookies([{name:'private-session',value:'test-only',url:origin}])
@@ -240,9 +244,11 @@ async function checkPages(browser, origin) {
   await page.goto(`${origin}/toggles`)
   await page.waitForFunction(() => document.querySelector('#backdrop')?.hasAttribute('hidden'))
   assert.equal(await page.locator('#save').isDisabled(), true, 'a true boolean attribute is written')
+  assert.deepEqual(await ariaState(page), ['false', 'false', null, null], 'a false ARIA boolean writes "false", and null leaves the attribute out')
   await page.locator('#open').click()
   await page.waitForFunction(() => !document.querySelector('#backdrop').hasAttribute('hidden'))
   assert.equal(await page.locator('#save').isDisabled(), false, 'a false boolean attribute is left out')
+  assert.deepEqual(await ariaState(page), ['true', 'true', 'page', null], 'a true ARIA boolean writes "true", and a string keeps its text')
   await page.locator('#close').click()
   await page.waitForFunction(() => document.querySelector('#backdrop').hasAttribute('hidden'))
   await page.goto(`${origin}/providers`)
@@ -294,7 +300,7 @@ async function main() {
     browser = await chromium.launch({headless:true})
     const origin = `http://127.0.0.1:${server.address().port}`
     await checkPages(browser, origin)
-    console.log('Tac Client browser contract passed: JS, TS, annotation discovery, NeedsAll required props, boolean attributes, Inject-bound component and repository providers, one Setup for two services on a page, a TypeScript prototype service per component, prototype service disposal.')
+    console.log('Tac Client browser contract passed: JS, TS, annotation discovery, NeedsAll required props, boolean and ARIA attributes, Inject-bound component and repository providers, one Setup for two services on a page, a TypeScript prototype service per component, prototype service disposal.')
   } finally {
     await browser?.close()
     server?.closeAllConnections()

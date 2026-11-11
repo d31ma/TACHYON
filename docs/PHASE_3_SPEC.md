@@ -115,6 +115,8 @@ Escaping and output rules:
 - Dynamic attribute values are attribute-escaped.
 - `null` and `false` omit the attribute.
 - `true` emits an empty attribute.
+- On an `aria-*` attribute, `true` and `false` emit the text `true` and
+  `false`, and `null` omits the attribute (ADR 0015, amendment of 2026-11-10).
 - Strings and numbers emit text.
 
 The compiler rejects raw HTML interpolation, function calls, assignment,

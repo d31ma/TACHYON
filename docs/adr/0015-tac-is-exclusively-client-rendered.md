@@ -3,6 +3,7 @@
 - Status: Accepted
 - Date: 2026-08-10
 - Supersedes: ADR 0006, ADR 0009, ADR 0010, and the production-rendering assumptions of ADR 0013
+- Amended: 2026-10-03 (control elements), 2026-11-10 (`aria-*` booleans)
 
 ## Context
 
@@ -131,3 +132,31 @@ kept them as legacy spellings. `<switch>` and `<case>` stay unchanged.
   counted loop keeps its declaration.
 - Text inside a Yon response body is data, not a Tac view, so a response that
   contains `<if>` text is unchanged.
+
+## Amendment (2026-11-10): a bound boolean on an `aria-*` attribute writes `true` or `false`
+
+A dynamic attribute follows the HTML rule for true-or-false attributes: `true`
+writes the attribute with an empty value, and `false`, `null` and a missing
+value leave it out. That rule is wrong for WAI-ARIA. `aria-expanded`,
+`aria-pressed`, `aria-current` and the other `aria-*` states take the text
+`true` or `false`, and a screen reader reads an empty value as false. So
+`:aria-expanded="menu.open"` told a screen reader that an open menu was
+closed, and a closed menu had no state at all.
+
+- On a dynamic attribute whose name starts with `aria-`, `true` writes the
+  text `true` and `false` writes the text `false`. This covers every `aria-*`
+  attribute, such as `aria-expanded`, `aria-checked`, `aria-pressed`,
+  `aria-selected`, `aria-invalid`, `aria-current`, `aria-hidden`,
+  `aria-disabled`, `aria-busy` and `aria-modal`.
+- A string or a number keeps its text (`aria-current="page"`,
+  `aria-level="2"`). `null` and a missing value still leave the attribute out.
+- Every other attribute keeps the HTML rule, and `checked`, `disabled` and
+  `selected` still set their DOM property too.
+- A static attribute is written as authored; the build's accessibility check
+  (ADR 0074) still asks a static `aria-*` true-or-false value to be `true` or
+  `false`.
+- The one browser renderer (`BoundAttribute` in `tac-client.js`) holds the
+  rule, so it applies on the web, in every native host's web view (macOS,
+  Windows, Linux, iOS, Android) and in a component exported as a custom
+  element (ADR 0086). A service in any language returns its own boolean type,
+  such as a Go `bool` field, and needs no string helper.

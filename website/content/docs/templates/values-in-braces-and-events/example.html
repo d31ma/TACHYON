@@ -1,3 +1,4 @@
 <h1>{shell.headline}</h1>
 <button on:click="shell.refresh()">Refresh</button>
+<button :aria-expanded="shell.open" on:click="shell.toggle()">Menu</button>
 <input :value="shell.name" on:input="shell.name = $event.target.value" />

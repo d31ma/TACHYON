@@ -1,4 +1,7 @@
 mod accessibility;
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod bound_attribute_tests;
 mod braced_attribute;
 mod client;
 mod component;
