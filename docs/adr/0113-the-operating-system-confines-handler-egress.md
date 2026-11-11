@@ -190,3 +190,86 @@ such as a Go transport built from scratch, is refused by the operating system.
   refuses.
 - Filesystem, CPU and memory confinement are unchanged (process mode is still
   supervision, not a sandbox for hostile code).
+
+## Amendment (2026-11-11): one checked request per plain HTTP connection
+
+### Context
+
+For a plain `http://` request, a client sends the whole request to the
+guard in absolute form (`GET http://host:port/path HTTP/1.1`). The guard
+checked the host of the first request, connected to it, and then only copied
+bytes. Clients keep proxy connections open and reuse them for any host: Go's
+`http.Transport`, Python's urllib3 and Node.js all pool plain HTTP proxy
+connections by the proxy's address, not by the target. So a later request on
+the same connection went to the first request's host. The Mesail rewrite saw
+a mail-out `POST /jobs/deliver` answered by Keycloak's 404 page, a realtime
+push answered by the JWKS server, and a DNS check answered `503`. It is also
+a security fault: the guard never checked the later request's host, and that
+request, with its credentials, reached a service it was not meant for.
+
+Two designs were possible:
+
+1. The guard reads every request on the connection, checks each target, and
+   routes each one to its own upstream connection. That makes the guard a
+   full HTTP/1.1 proxy: it must frame every request and every answer
+   (`Content-Length`, chunked, close-delimited, `HEAD`, `204`, `304`, `1xx`)
+   to know where one exchange ends and the next begins. A framing mistake is
+   itself a way to send bytes to the wrong host.
+2. The guard carries exactly one request on each plain HTTP connection, and
+   tells both ends that the connection closes after it.
+
+### Decision
+
+The guard uses design 2. For a plain HTTP request it:
+
+- reads and checks the request head as before, and refuses a host that
+  `outgoing.hosts` does not list;
+- sends the upstream service the head in origin form with `Host` set to the
+  checked authority from the request target, and with `Connection: close`.
+  It removes the client's `Host`, `Connection`, `Keep-Alive`, `Upgrade` and
+  every `Proxy-*` field. A client can no longer name another virtual host on
+  the same address through `Host`;
+- forwards exactly one request body, framed by `Content-Length` or by
+  `Transfer-Encoding: chunked`. It answers `400` to a request whose body
+  length is unclear: both fields at once, a final coding other than
+  `chunked`, Content-Length values that differ or are not digits, a field
+  name that is not a token, or a folded field line;
+- passes `1xx` answer heads (other than `101`) through unchanged, and sends
+  the final answer head with `Connection: close` in place of the service's
+  `Connection` and `Keep-Alive` fields, so the client does not put the
+  connection back in its pool;
+- closes the whole connection when the client sends any byte after the
+  first request. A second request on the same connection, kept-alive or
+  pipelined, never reaches any service; the client gets the connection
+  closed and opens a new one, which the guard checks again;
+- half-closes the upstream connection once the client has closed its side,
+  so a service that ignores `Connection: close` does not hold a guard slot
+  until the 5-minute idle limit.
+
+`CONNECT` tunnels are unchanged: a tunnel is bound to its checked host, and
+clients pool tunnels by target host.
+
+### Consequences
+
+- Every language is fixed in the guard; no prelude changes. Go's
+  `http.Transport`, Dart's `HttpClient`, Python's urllib3 and the Node.js and
+  Bun clients pool plain HTTP proxy connections across hosts; Java's and
+  Kotlin's `HttpURLConnection` and PHP's streams do not. An HTTP/1.1 client
+  does not reuse a connection whose answer says `Connection: close`
+  (RFC 9112), so it opens a new proxy connection for the next plain HTTP
+  request. The Go and JavaScript handler tests in `outgoing_loopback` call
+  two kept-alive services in turn through the guard.
+- Each plain HTTP request opens a new loopback connection to the guard and a
+  new upstream connection. HTTPS keeps its pooled tunnels.
+- A plain HTTP upgrade (`ws://` sent in absolute form) no longer works
+  through the guard: the guard removes `Upgrade`. WebSocket clients send
+  `CONNECT` through a proxy, which still works.
+- HTTP pipelining through the guard ends the connection after the first
+  answer. No common client pipelines.
+- The regression tests `a_kept_alive_proxy_connection_cannot_carry_a_request_to_a_second_host`,
+  `a_pipelined_second_request_never_reaches_the_upstream_service`,
+  `a_chunked_request_reaches_its_own_host_and_the_answer_closes_the_connection`,
+  `a_plain_request_body_must_have_one_clear_length` and
+  `a_request_with_two_body_lengths_is_refused` keep this contract.
+- `CONNECT` tunnels still trust the client to send the checked host in TLS:
+  the guard does not read the TLS server name. That limit is unchanged.

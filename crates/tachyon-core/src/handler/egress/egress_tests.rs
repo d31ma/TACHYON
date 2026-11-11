@@ -1,9 +1,11 @@
 use super::{
-    EgressAddress, EgressConfinement, EgressEnforcement, EgressProxy, EgressPump, EgressTarget,
-    NodeProxyGate,
+    EgressAddress, EgressConfinement, EgressEnforcement, EgressFraming, EgressProxy, EgressPump,
+    EgressTarget, NodeProxyGate,
 };
 use crate::handler::{EnvironmentPolicy, HandlerRuntimePrograms};
 use crate::safety::DeclaredHosts;
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 
@@ -25,7 +27,7 @@ fn proxy_requests_name_their_host() {
     assert!(!plain.tunnel);
     assert_eq!(
         String::from_utf8(plain.head).expect("head"),
-        "GET /items?page=2 HTTP/1.1\r\nHost: api.example.com\r\n\r\n"
+        "GET /items?page=2 HTTP/1.1\r\nHost: api.example.com:8080\r\nConnection: close\r\n\r\n"
     );
     let tunnel =
         EgressTarget::read("CONNECT API.example.com:443 HTTP/1.1\r\n\r\n").expect("tunnel");
@@ -475,4 +477,218 @@ async fn an_idle_tunnel_is_closed() {
         .expect("closed when idle")
         .expect("pump task")
         .expect("pump result");
+}
+
+async fn read_head_text(stream: &mut TcpStream) -> Option<String> {
+    let mut bytes = Vec::new();
+    let mut byte = [0_u8; 1];
+    while !bytes.ends_with(b"\r\n\r\n") {
+        let read = stream.read(&mut byte).await.ok()?;
+        if read == 0 {
+            return None;
+        }
+        bytes.push(byte[0]);
+    }
+    Some(String::from_utf8_lossy(&bytes).into_owned())
+}
+
+async fn read_answer(stream: &mut TcpStream) -> String {
+    let head = read_head_text(stream).await.expect("answer head");
+    let length = head
+        .lines()
+        .find_map(|line| line.strip_prefix("Content-Length: "))
+        .and_then(|value| value.trim().parse::<usize>().ok())
+        .expect("content length");
+    let mut body = vec![0_u8; length];
+    stream.read_exact(&mut body).await.expect("body");
+    format!("{head}{}", String::from_utf8_lossy(&body))
+}
+
+async fn keep_alive_service(name: &'static str, seen: Arc<Mutex<Vec<String>>>) -> u16 {
+    let listener = TcpListener::bind("127.0.0.1:0").await.expect("service");
+    let port = listener.local_addr().expect("address").port();
+    tokio::spawn(async move {
+        while let Ok((mut stream, _)) = listener.accept().await {
+            let seen = Arc::clone(&seen);
+            tokio::spawn(async move {
+                while let Some(head) = read_head_text(&mut stream).await {
+                    seen.lock().expect("seen").push(head);
+                    let answer = format!(
+                        "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: keep-alive\r\nKeep-Alive: timeout=60\r\n\r\n{name}",
+                        name.len()
+                    );
+                    let _written = stream.write_all(answer.as_bytes()).await;
+                }
+            });
+        }
+    });
+    port
+}
+
+#[tokio::test]
+async fn a_kept_alive_proxy_connection_cannot_carry_a_request_to_a_second_host() {
+    let first_seen = Arc::new(Mutex::new(Vec::new()));
+    let second_seen = Arc::new(Mutex::new(Vec::new()));
+    let first_port = keep_alive_service("first service", Arc::clone(&first_seen)).await;
+    let second_port = keep_alive_service("second service", Arc::clone(&second_seen)).await;
+    let hosts = DeclaredHosts::listed(&["127.0.0.1"], "outgoing.hosts");
+    let guard = EgressProxy::start(hosts).await.expect("proxy");
+    let second_request = format!(
+        "GET http://127.0.0.1:{second_port}/jobs HTTP/1.1\r\nHost: 127.0.0.1:{second_port}\r\n\r\n"
+    );
+    let mut connection = TcpStream::connect(guard).await.expect("guard");
+    connection
+        .write_all(format!("POST http://127.0.0.1:{first_port}/token HTTP/1.1\r\nHost: 127.0.0.1:{first_port}\r\nConnection: keep-alive\r\nContent-Length: 0\r\n\r\n").as_bytes())
+        .await
+        .expect("first request");
+    let first = read_answer(&mut connection).await;
+    assert!(first.ends_with("first service"), "{first}");
+    assert!(first.contains("\r\nConnection: close\r\n"), "{first}");
+    assert!(
+        !first.to_ascii_lowercase().contains("keep-alive"),
+        "{first}"
+    );
+    let _sent = connection.write_all(second_request.as_bytes()).await;
+    let mut second = Vec::new();
+    let _read = tokio::time::timeout(Duration::from_secs(10), connection.read_to_end(&mut second))
+        .await
+        .expect("the guard closes the connection");
+    let second = String::from_utf8_lossy(&second);
+    assert!(!second.contains("service"), "{second}");
+    assert_eq!(first_seen.lock().expect("first").len(), 1);
+    assert!(second_seen.lock().expect("second").is_empty());
+    let mut fresh = TcpStream::connect(guard).await.expect("guard");
+    fresh
+        .write_all(second_request.as_bytes())
+        .await
+        .expect("second request");
+    let reached = read_answer(&mut fresh).await;
+    assert!(reached.ends_with("second service"), "{reached}");
+    let heads = second_seen.lock().expect("second").clone();
+    assert_eq!(
+        heads,
+        vec![format!(
+            "GET /jobs HTTP/1.1\r\nHost: 127.0.0.1:{second_port}\r\nConnection: close\r\n\r\n"
+        )]
+    );
+}
+
+async fn recording_service(seen: Arc<Mutex<Vec<u8>>>, end: &'static [u8]) -> u16 {
+    let listener = TcpListener::bind("127.0.0.1:0").await.expect("service");
+    let port = listener.local_addr().expect("address").port();
+    tokio::spawn(async move {
+        let (mut stream, _) = listener.accept().await.expect("accept");
+        let mut bytes = Vec::new();
+        let mut chunk = [0_u8; 1024];
+        while !bytes.ends_with(end) {
+            let read = stream.read(&mut chunk).await.expect("read");
+            assert!(read > 0, "the request ended early");
+            bytes.extend_from_slice(&chunk[..read]);
+        }
+        let more = tokio::time::timeout(Duration::from_millis(300), stream.read(&mut chunk)).await;
+        let extra = more.ok().and_then(Result::ok).unwrap_or(0);
+        bytes.extend_from_slice(&chunk[..extra]);
+        seen.lock().expect("seen").extend_from_slice(&bytes);
+        let answer = "HTTP/1.1 100 Continue\r\n\r\nHTTP/1.1 200 OK\r\nContent-Length: 2\r\nKeep-Alive: timeout=5\r\n\r\nok";
+        let _written = stream.write_all(answer.as_bytes()).await;
+    });
+    port
+}
+
+#[tokio::test]
+async fn a_chunked_request_reaches_its_own_host_and_the_answer_closes_the_connection() {
+    let seen = Arc::new(Mutex::new(Vec::new()));
+    let port = recording_service(Arc::clone(&seen), b"0\r\nTrailer: t\r\n\r\n").await;
+    let hosts = DeclaredHosts::listed(&["127.0.0.1"], "outgoing.hosts");
+    let proxy = format!("http://{}", EgressProxy::start(hosts).await.expect("proxy"));
+    let answer = through_proxy(
+        &proxy,
+        &format!("POST http://127.0.0.1:{port}/upload HTTP/1.1\r\nHost: evil.example\r\nProxy-Authorization: Basic eA==\r\nConnection: keep-alive\r\nTransfer-Encoding: chunked\r\nExpect: 100-continue\r\n\r\n5;name=value\r\nhello\r\n0\r\nTrailer: t\r\n\r\n"),
+    )
+    .await;
+    assert_eq!(
+        answer,
+        "HTTP/1.1 100 Continue\r\n\r\nHTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok"
+    );
+    let seen = String::from_utf8(seen.lock().expect("seen").clone()).expect("text");
+    assert_eq!(
+        seen,
+        format!(
+            "POST /upload HTTP/1.1\r\nTransfer-Encoding: chunked\r\nExpect: 100-continue\r\nHost: 127.0.0.1:{port}\r\nConnection: close\r\n\r\n5;name=value\r\nhello\r\n0\r\nTrailer: t\r\n\r\n"
+        )
+    );
+}
+
+#[tokio::test]
+async fn a_pipelined_second_request_never_reaches_the_upstream_service() {
+    let seen = Arc::new(Mutex::new(Vec::new()));
+    let port = recording_service(Arc::clone(&seen), b"hello").await;
+    let hosts = DeclaredHosts::listed(&["127.0.0.1"], "outgoing.hosts");
+    let proxy = format!("http://{}", EgressProxy::start(hosts).await.expect("proxy"));
+    let mut connection = TcpStream::connect(proxy.trim_start_matches("http://"))
+        .await
+        .expect("guard");
+    connection
+        .write_all(format!("POST http://127.0.0.1:{port}/first HTTP/1.1\r\nContent-Length: 5\r\n\r\nhelloGET http://127.0.0.1:{port}/second HTTP/1.1\r\n\r\n").as_bytes())
+        .await
+        .expect("requests");
+    let mut answer = Vec::new();
+    let _read = tokio::time::timeout(Duration::from_secs(10), connection.read_to_end(&mut answer))
+        .await
+        .expect("the guard closes the connection");
+    let answer = String::from_utf8_lossy(&answer);
+    assert!(!answer.contains("200 OK"), "{answer}");
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    let seen = String::from_utf8(seen.lock().expect("seen").clone()).expect("text");
+    assert_eq!(
+        seen,
+        format!(
+            "POST /first HTTP/1.1\r\nContent-Length: 5\r\nHost: 127.0.0.1:{port}\r\nConnection: close\r\n\r\nhello"
+        )
+    );
+}
+
+#[test]
+fn a_plain_request_body_must_have_one_clear_length() {
+    let framing = |fields: &str| {
+        EgressTarget::read(&format!(
+            "POST http://api.example/ HTTP/1.1\r\n{fields}\r\n"
+        ))
+        .map(|target| target.framing)
+    };
+    assert_eq!(framing(""), Some(EgressFraming::Length(0)));
+    assert_eq!(
+        framing("Content-Length: 5\r\n"),
+        Some(EgressFraming::Length(5))
+    );
+    assert_eq!(
+        framing("Content-Length: 5, 5\r\n"),
+        Some(EgressFraming::Length(5))
+    );
+    assert_eq!(
+        framing("Transfer-Encoding: gzip, Chunked\r\n"),
+        Some(EgressFraming::Chunked)
+    );
+    assert_eq!(framing("Content-Length: 5\r\nContent-Length: 6\r\n"), None);
+    assert_eq!(framing("Content-Length: +5\r\n"), None);
+    assert_eq!(framing("Content-Length:\r\n"), None);
+    assert_eq!(framing("Transfer-Encoding: chunked, gzip\r\n"), None);
+    assert_eq!(
+        framing("Transfer-Encoding: chunked\r\nContent-Length: 5\r\n"),
+        None
+    );
+    assert_eq!(framing("Bad Name: value\r\n"), None);
+    assert_eq!(framing("Accept: a\r\n folded\r\n"), None);
+}
+
+#[tokio::test]
+async fn a_request_with_two_body_lengths_is_refused() {
+    let hosts = DeclaredHosts::listed(&["127.0.0.1"], "outgoing.hosts");
+    let proxy = format!("http://{}", EgressProxy::start(hosts).await.expect("proxy"));
+    let refused = through_proxy(
+        &proxy,
+        "POST http://127.0.0.1:9/ HTTP/1.1\r\nTransfer-Encoding: chunked\r\nContent-Length: 5\r\n\r\n",
+    )
+    .await;
+    assert!(refused.starts_with("HTTP/1.1 400"), "{refused}");
 }

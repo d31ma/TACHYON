@@ -96,6 +96,17 @@ machine contracts have their own, independent major versions.
   (in Go, a field without `,omitempty` that is not a pointer) and why
   `ty test`, which calls methods directly, does not make that check.
 
+- **The outgoing request guard no longer sends a request to the wrong host**
+  (ADR 0113 amendment). For plain `http://` requests the guard checked only
+  the first request on a proxy connection and then copied bytes, but Go,
+  Python and Node.js reuse a proxy connection for any host. A later request
+  could reach the first request's service, with its credentials. The guard
+  now carries one checked request per plain HTTP connection: it sets `Host`
+  to the checked authority, sends `Connection: close` to the service and to
+  the client, forwards exactly one framed request body, answers `400` to a
+  body with an unclear length, and closes the connection if the client sends
+  a second request on it. `CONNECT` tunnels are unchanged.
+
 - A bound boolean on an `aria-*` attribute now writes the text `true` or
   `false`. Before, `:aria-expanded="menu.open"` wrote `aria-expanded=""` for
   true, which a screen reader reads as false, and left the attribute out for

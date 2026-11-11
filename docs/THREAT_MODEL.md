@@ -400,7 +400,10 @@ separate cybersecurity review for this reconciliation.
   to it. These keep ordinary clients working; they are not the control. A
   client that builds its own transport, a raw socket in any language, UDP,
   DNS and a Unix socket to a local daemon are refused by the operating system
-  (ADR 0113).
+  (ADR 0113). For plain `http://` requests the guard carries one
+  checked request per connection, with `Host` set to the checked authority
+  and `Connection: close` both ways, so a reused proxy connection cannot
+  reach a second host (ADR 0113 amendment).
 - **Operating-system egress confinement (ADR 0113).** While the guard is
   active, every handler process (cold, warm and streaming), every program it
   starts (relays) and every Gateway command can connect only to its server's

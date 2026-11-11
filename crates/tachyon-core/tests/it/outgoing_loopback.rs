@@ -33,6 +33,49 @@ export class ProbeController {
   }
 }
 ";
+    const GO_TWO_HOSTS: &str = r#"import (
+	"io"
+	"net/http"
+	"strings"
+)
+
+// @RequestRoute("/probe")
+// @Public
+type ProbeController struct {
+}
+
+// @GetRoute
+func (controller *ProbeController) GetProbe(
+// @FromQuery("target")
+ target string) string {
+	result := ""
+	for _, part := range strings.Split(target, ",") {
+		answer, err := http.Get(part)
+		if err != nil {
+			return result + "failed " + err.Error()
+		}
+		body, _ := io.ReadAll(answer.Body)
+		answer.Body.Close()
+		result += string(body) + ";"
+	}
+	return result
+}
+"#;
+    const JAVASCRIPT_TWO_HOSTS: &str = r"
+@RequestRoute('/probe')
+@Public
+export class ProbeController {
+  @GetRoute
+  async get(@FromQuery('target') target) {
+    let result = ''
+    for (const part of target.split(',')) {
+      const answer = await fetch(part)
+      result += `${await answer.text()};`
+    }
+    return result
+  }
+}
+";
     const GO: &str = r#"import (
 	"io"
 	"net/http"
@@ -173,6 +216,69 @@ class ProbeController {
             }
         });
         (port, connections)
+    }
+
+    async fn keep_alive_service(name: &'static str) -> (u16, Arc<AtomicUsize>) {
+        let listener = TcpListener::bind("127.0.0.1:0").await.expect("service");
+        let port = listener.local_addr().expect("address").port();
+        let requests = Arc::new(AtomicUsize::new(0));
+        let counted = Arc::clone(&requests);
+        tokio::spawn(async move {
+            while let Ok((stream, _)) = listener.accept().await {
+                tokio::spawn(Self::serve_kept_alive(stream, name, Arc::clone(&counted)));
+            }
+        });
+        (port, requests)
+    }
+
+    async fn serve_kept_alive(
+        mut stream: TcpStream,
+        name: &'static str,
+        requests: Arc<AtomicUsize>,
+    ) {
+        let mut buffered = Vec::new();
+        let mut chunk = [0_u8; 4096];
+        while let Ok(read) = stream.read(&mut chunk).await {
+            if read == 0 {
+                return;
+            }
+            buffered.extend_from_slice(&chunk[..read]);
+            while let Some(end) = buffered.windows(4).position(|window| window == b"\r\n\r\n") {
+                buffered.drain(..end + 4);
+                requests.fetch_add(1, Ordering::SeqCst);
+                let answer = format!(
+                    "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: keep-alive\r\nKeep-Alive: timeout=60\r\n\r\n{name}",
+                    name.len()
+                );
+                let _written = stream.write_all(answer.as_bytes()).await;
+            }
+        }
+    }
+
+    async fn check_two_hosts(language: &str, program: &str, file: &str, source: &str) {
+        if !Self::available(program) {
+            eprintln!("skipping {language}: {program} is unavailable");
+            return;
+        }
+        let (first, first_requests) = Self::keep_alive_service("first-service").await;
+        let (second, second_requests) = Self::keep_alive_service("second-service").await;
+        let target =
+            format!("http://api.localhost:{first}/token,http://api.localhost:{second}/jobs");
+        let answer = Self::answer_from(file, source, Self::LOCAL_NAME_SOURCE, &target).await;
+        assert!(
+            answer.contains("first-service;second-service;"),
+            "{language}: {answer}"
+        );
+        assert_eq!(
+            first_requests.load(Ordering::SeqCst),
+            1,
+            "{language}: {answer}"
+        );
+        assert_eq!(
+            second_requests.load(Ordering::SeqCst),
+            1,
+            "{language}: {answer}"
+        );
     }
 
     async fn ask(port: u16, path: &str) -> String {
@@ -326,6 +432,28 @@ async fn a_go_handler_cannot_skip_the_guard_to_reach_loopback() {
     let answer = LoopbackProbe::answer("ProbeController.go", LoopbackProbe::GO, service).await;
     LoopbackProbe::assert_guarded("Go", &answer, &connections);
     assert!(answer.contains("403 Tachyon refused"), "Go: {answer}");
+}
+
+#[tokio::test]
+async fn a_go_handler_reaches_two_kept_alive_hosts_through_the_guard_in_turn() {
+    LoopbackProbe::check_two_hosts(
+        "Go",
+        "go",
+        "ProbeController.go",
+        LoopbackProbe::GO_TWO_HOSTS,
+    )
+    .await;
+}
+
+#[tokio::test]
+async fn a_javascript_handler_reaches_two_kept_alive_hosts_through_the_guard_in_turn() {
+    LoopbackProbe::check_two_hosts(
+        "JavaScript",
+        "bun",
+        "ProbeController.js",
+        LoopbackProbe::JAVASCRIPT_TWO_HOSTS,
+    )
+    .await;
 }
 
 #[tokio::test]

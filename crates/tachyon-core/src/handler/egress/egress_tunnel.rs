@@ -1,16 +1,14 @@
-use super::{EgressAddress, EgressPump, EgressTarget};
+use super::{EgressAddress, EgressHead, EgressPump, EgressTarget};
 use crate::safety::DeclaredHosts;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
 
 pub(super) struct EgressTunnel;
 
 impl EgressTunnel {
-    const HEAD_END: &'static [u8] = b"\r\n\r\n";
     const MAX_HEAD: usize = 16 * 1024;
-    const READ_CHUNK: usize = 4096;
     const HEAD_TIMEOUT: Duration = Duration::from_secs(10);
     const ESTABLISHED: &'static [u8] = b"HTTP/1.1 200 Connection Established\r\n\r\n";
     const BAD_REQUEST: &'static str =
@@ -21,41 +19,17 @@ impl EgressTunnel {
         "HTTP/1.1 502 Bad Gateway\r\nConnection: close\r\nContent-Length: 0\r\n\r\n";
 
     pub(super) async fn serve(mut client: TcpStream, hosts: Arc<DeclaredHosts>) {
-        let head = tokio::time::timeout(Self::HEAD_TIMEOUT, Self::read_head(&mut client)).await;
+        let head = tokio::time::timeout(
+            Self::HEAD_TIMEOUT,
+            EgressHead::read(&mut client, Vec::new(), Self::MAX_HEAD),
+        )
+        .await;
         let target = Self::target(head.ok().flatten());
         let _ = Self::relay(client, target, &hosts).await;
     }
 
     pub(super) async fn refuse_busy(mut client: TcpStream) {
         let _written = client.write_all(Self::BUSY).await;
-    }
-
-    async fn read_head(client: &mut TcpStream) -> Option<(String, Vec<u8>)> {
-        let mut bytes = Vec::new();
-        let mut chunk = vec![0_u8; Self::READ_CHUNK];
-        while Self::head_end(&bytes).is_none() {
-            let read = client
-                .read(&mut chunk)
-                .await
-                .ok()
-                .filter(|read| *read > 0)?;
-            bytes.extend_from_slice(&chunk[..read]);
-            (bytes.len() <= Self::MAX_HEAD).then_some(())?;
-        }
-        Self::split_head(bytes)
-    }
-
-    fn head_end(bytes: &[u8]) -> Option<usize> {
-        bytes
-            .windows(Self::HEAD_END.len())
-            .position(|window| window == Self::HEAD_END)
-    }
-
-    fn split_head(mut bytes: Vec<u8>) -> Option<(String, Vec<u8>)> {
-        let end = Self::head_end(&bytes)? + Self::HEAD_END.len();
-        let rest = bytes.split_off(end);
-        let head = String::from_utf8(bytes).ok()?;
-        Some((head, rest))
     }
 
     fn target(head: Option<(String, Vec<u8>)>) -> Option<(EgressTarget, Vec<u8>)> {
@@ -135,8 +109,20 @@ impl EgressTunnel {
     ) -> std::io::Result<()> {
         client.write_all(Self::client_greeting(target)).await?;
         upstream.write_all(Self::upstream_head(target)).await?;
-        upstream.write_all(rest).await?;
-        EgressPump::exchange(client, upstream).await
+        Self::exchange(client, upstream, target, rest).await
+    }
+
+    async fn exchange(
+        client: &mut TcpStream,
+        upstream: &mut TcpStream,
+        target: &EgressTarget,
+        rest: &[u8],
+    ) -> std::io::Result<()> {
+        if target.tunnel {
+            upstream.write_all(rest).await?;
+            return EgressPump::exchange(client, upstream).await;
+        }
+        EgressPump::exchange_once(client, upstream, rest.to_vec(), target.framing).await
     }
 
     fn client_greeting(target: &EgressTarget) -> &'static [u8] {

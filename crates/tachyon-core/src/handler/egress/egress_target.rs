@@ -1,9 +1,12 @@
+use super::{EgressFraming, EgressHead};
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct EgressTarget {
     pub(super) host: String,
     pub(super) port: u16,
     pub(super) tunnel: bool,
     pub(super) head: Vec<u8>,
+    pub(super) framing: EgressFraming,
 }
 
 impl EgressTarget {
@@ -11,26 +14,23 @@ impl EgressTarget {
     const PLAIN_SCHEME: &'static str = "http://";
     const PLAIN_PORT: u16 = 80;
     const LINE_END: &'static str = "\r\n";
-    const PROXY_HEADER: &'static str = "proxy-";
+    const DROPPED: [&'static str; 4] = ["connection", "keep-alive", "upgrade", "host"];
+    const CLOSE: &'static str = "Connection: close";
 
     pub(super) fn read(head: &str) -> Option<Self> {
-        let (first, rest) = head.split_once(Self::LINE_END)?;
+        let (first, fields) = head.split_once(Self::LINE_END)?;
         let mut words = first.split(' ');
         let method = words.next()?;
         let target = words.next()?;
         let version = words.next()?;
-        Self::from_parts(
-            method,
-            target,
-            &format!("{version}{}{rest}", Self::LINE_END),
-        )
+        Self::from_parts(method, target, version, fields)
     }
 
-    fn from_parts(method: &str, target: &str, tail: &str) -> Option<Self> {
+    fn from_parts(method: &str, target: &str, version: &str, fields: &str) -> Option<Self> {
         if method == Self::CONNECT {
             return Self::tunnel(target);
         }
-        Self::plain(method, target, tail)
+        Self::plain(method, target, version, fields)
     }
 
     fn tunnel(authority: &str) -> Option<Self> {
@@ -40,20 +40,23 @@ impl EgressTarget {
             port: port?,
             tunnel: true,
             head: Vec::new(),
+            framing: EgressFraming::Length(0),
         })
     }
 
-    fn plain(method: &str, target: &str, tail: &str) -> Option<Self> {
+    fn plain(method: &str, target: &str, version: &str, fields: &str) -> Option<Self> {
         let rest = target.strip_prefix(Self::PLAIN_SCHEME)?;
         let split = rest.find('/').unwrap_or(rest.len());
         let (authority, path) = rest.split_at(split);
         let (host, port) = Self::authority(authority)?;
-        let head = Self::origin_head(method, Self::path_or_root(path), tail);
+        let first = format!("{method} {} {version}", Self::path_or_root(path));
+        let head = Self::origin_head(&first, authority, fields)?;
         Some(Self {
             host,
             port: port.unwrap_or(Self::PLAIN_PORT),
             tunnel: false,
             head: head.into_bytes(),
+            framing: EgressFraming::read(fields)?,
         })
     }
 
@@ -64,12 +67,9 @@ impl EgressTarget {
         path
     }
 
-    fn origin_head(method: &str, path: &str, tail: &str) -> String {
-        let lines: Vec<&str> = tail
-            .split(Self::LINE_END)
-            .filter(|line| !line.to_ascii_lowercase().starts_with(Self::PROXY_HEADER))
-            .collect();
-        format!("{method} {path} {}", lines.join(Self::LINE_END))
+    fn origin_head(first: &str, authority: &str, fields: &str) -> Option<String> {
+        let added = [format!("Host: {authority}"), String::from(Self::CLOSE)];
+        EgressHead::rebuild(first, fields, &Self::DROPPED, &added)
     }
 
     fn authority(authority: &str) -> Option<(String, Option<u16>)> {
