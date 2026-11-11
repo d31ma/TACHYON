@@ -129,9 +129,8 @@ fn every_shared_browser_api_has_a_python_client() {
     for name in WebApiClients::TYPE_NAMES {
         assert!(PythonBrowserApis::is_client(name), "{name}");
     }
-    let names = PythonBrowserApis::client_names().collect::<Vec<_>>();
     let source = PythonBrowserApis::source();
-    for name in names {
+    for name in WebApiClients::TYPE_NAMES {
         assert!(source.contains(&format!("class {name}:")), "{name}");
     }
 }

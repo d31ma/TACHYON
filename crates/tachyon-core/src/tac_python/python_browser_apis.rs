@@ -44,10 +44,6 @@ impl PythonBrowserApis {
         WebApiClients::TYPE_NAMES.contains(&type_name)
     }
 
-    pub(super) fn client_names() -> impl Iterator<Item = &'static str> {
-        WebApiClients::TYPE_NAMES.into_iter()
-    }
-
     pub(super) fn refuse(path: &Path, source: &str) -> Result<(), Failure> {
         Self::first_use(source).map_or(Ok(()), |range| Err(Self::failure(path, source, range)))
     }
