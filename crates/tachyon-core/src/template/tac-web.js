@@ -9,7 +9,7 @@ class TacWebApis {
   static largestWindow = 16384
   static applicationStates = ['background', 'foreground']
   static caller = null
-  static dropEvents = ['FileDropped', 'BrowserCallFailed']
+  static pageEvents = ['FileDropped', 'PushReceived', 'BrowserCallFailed']
   static events = null
   static hostPermission = globalThis.__tachyonNotificationPermission ?? 'default'
   static pushKey = Symbol.for('tachyon.tac.push')
@@ -94,7 +94,7 @@ class TacWebApis {
         ...TacWebApis.apis,
         host: (text) => TacWebApis.answer(text),
         calling: (owner, work) => TacWebApis.calling(owner, work),
-        filesDropped: (event) => TacWebApis.dropped(event),
+        pageEvent: (event) => TacWebApis.pageEvent(event),
       }),
     })
     return true
@@ -173,8 +173,8 @@ class TacWebApis {
     return files[call]((event) => TacWebApis.reply(owner, event), ...values)
   }
 
-  static dropped([name, payload]) {
-    if (TacWebApis.dropEvents.includes(name)) TacWebApis.events?.publish(name, payload)
+  static pageEvent([name, payload]) {
+    if (TacWebApis.pageEvents.includes(name)) TacWebApis.events?.publish(name, payload)
   }
 
   static permission() {

@@ -94,3 +94,52 @@ WebView2, WebKitGTK and the Android WebView have no Push API. Native push
 - Pages that do not grant `push` load no new bytes except the small entry in
   `tac-web.js`.
 - Native push stays a separate, later decision.
+
+## Amendment (2026-11-11): open pages hear a push (T4a)
+
+### Context
+
+Mesail treats a push as a poke: when a message arrives, the open app must
+sync at once (CADUCEUS ADR 0006). Before this amendment the push worker only
+showed the notification, so an open page learned about new mail only at its
+next poll or socket message.
+
+### Decision
+
+1. `PushReceived { tag, path, data }` is a new built-in event model, all text,
+   in the shared event table (`web_event_models.rs`), so every Tac service
+   language gets the type and can listen with `@OnEvent`.
+2. When a message arrives, the push worker still shows the notification, and
+   it also posts `{ tachyon: "PushReceived", tag, path, data }` to every open
+   window of its own origin (`clients.matchAll` with `includeUncontrolled`,
+   then a second origin check of each window's URL). The scope
+   `/.tachyon/push/` holds no page, so "the app's pages" means every window
+   of the worker's origin. The worker never posts to another origin.
+   - `tag` is the message's `tag`, or empty;
+   - `path` is the path the notification click opens, after the checks of
+     decision 5 (`/` when the message has none or a bad one);
+   - `data` is the message's optional `data` member: a string as it is, any
+     other JSON value as its JSON text, or empty. A plain-text message has
+     no `data`; its text stays the notification body.
+3. `tac-web-push.js` listens for service-worker messages and starts the
+   message queue. It accepts a message only when its `source` is the push
+   worker of the page's own origin (`scriptURL` equals
+   `<origin>/.tachyon/tac-push-sw.js`), its kind is `PushReceived`, and all
+   three fields are strings. It then publishes the event through the page's
+   shared page-event entry, which publishes only names on its allow list
+   (`FileDropped`, `PushReceived`, `BrowserCallFailed`). So the payload gets
+   the same checks as every other page event: the 64 KiB and structure limits
+   of the event bus, and each listener's model check.
+4. The page-event entry of `tac-web.js` was named `filesDropped`; it is now
+   `pageEvent`, because files and push both use it. `tac-web.js` stays within
+   its 13,500-byte budget.
+5. Nothing changes for native builds: they ship no push files, so they never
+   send `PushReceived`.
+
+### Consequences
+
+- An open page syncs on a push without waiting for a poll. A closed app still
+  only shows the notification; the next page start syncs as before.
+- Every open window of the app hears the push, each once. An app that should
+  sync from one window only must choose that window itself.
+- Messages that arrive before the page's services start are not kept.

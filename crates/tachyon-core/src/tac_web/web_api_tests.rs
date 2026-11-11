@@ -2715,7 +2715,7 @@ impl WebApis {
     const PUSH_KEY: &str =
         "BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U";
 
-    const PUSH_DRIVER: &str = r";(0, eval)(`${await readFile('./tac-web.js', 'utf8')}\nglobalThis.TacWebApis = TacWebApis`)
+    const PUSH_DRIVER: &str = r#";(0, eval)(`${await readFile('./tac-web.js', 'utf8')}\nglobalThis.TacWebApis = TacWebApis`)
 const { default: TacApplicationEvents } = await import('./application-events.mjs')
 const { default: StampService, __tachyon_event_plan__: plan } = await import('./StampService.js')
 __GRANT_STUBS__
@@ -2736,15 +2736,18 @@ await bus.initialize(stamp)
 const supported = stamp.available()
 stamp.subscribe()
 await new Promise((resolve) => setTimeout(resolve, 0))
-console.log(JSON.stringify({ supported, endpoint: stamp.endpoint, asked }))
+globalThis[Symbol.for('tachyon.tac.web')].pageEvent(['PushReceived', { tag: 'mail-7', path: '/mail/7', data: '{"thread":7}' }])
+await new Promise((resolve) => setTimeout(resolve, 0))
+console.log(JSON.stringify({ supported, endpoint: stamp.endpoint, received: stamp.received, asked }))
 process.exit(0)
-";
+"#;
 
     const RUST_PUSH: &str = r#"#[Service]
 #[derive(Default)]
 struct StampService {
     push: Push,
     endpoint: String,
+    received: String,
 }
 
 impl StampService {
@@ -2760,6 +2763,11 @@ impl StampService {
     pub fn hear_subscribed(&mut self, subscribed: PushSubscribed) {
         self.endpoint = subscribed.endpoint;
     }
+
+    #[OnEvent]
+    pub fn hear_received(&mut self, received: PushReceived) {
+        self.received = format!("{} {} {}", received.tag, received.path, received.data);
+    }
 }
 "#;
 
@@ -2768,6 +2776,7 @@ type StampService struct {
 	// @Needs
 	push     Push
 	Endpoint string
+	Received string
 }
 
 func (stamp *StampService) Available() bool {
@@ -2783,6 +2792,11 @@ func (stamp *StampService) Subscribe() {
 func (stamp *StampService) HearSubscribed(subscribed PushSubscribed) {
 	stamp.Endpoint = subscribed.Endpoint
 }
+
+// @OnEvent
+func (stamp *StampService) HearReceived(received PushReceived) {
+	stamp.Received = received.Tag + " " + received.Path + " " + received.Data
+}
 "#;
 
     const CSHARP_PUSH: &str = r#"[Service]
@@ -2790,6 +2804,7 @@ public class StampService
 {
     private readonly Push push = new();
     public string Endpoint = "";
+    public string Received = "";
 
     public bool Available() => push.Supported();
 
@@ -2800,6 +2815,12 @@ public class StampService
     {
         Endpoint = subscribed.Endpoint;
     }
+
+    [OnEvent]
+    public void HearReceived(PushReceived received)
+    {
+        Received = received.Tag + " " + received.Path + " " + received.Data;
+    }
 }
 "#;
 
@@ -2807,16 +2828,20 @@ public class StampService
 type StampService() =
     let push = Push()
     member val Endpoint: string = "" with get, set
+    member val Received: string = "" with get, set
     member this.Available() : bool = push.Supported()
     member this.Subscribe() : unit = push.Subscribe("__KEY__")
     [<OnEvent>]
     member this.HearSubscribed(subscribed: PushSubscribed) : unit = this.Endpoint <- subscribed.Endpoint
+    [<OnEvent>]
+    member this.HearReceived(received: PushReceived) : unit = this.Received <- received.Tag + " " + received.Path + " " + received.Data
 "#;
 
     const SWIFT_PUSH: &str = r#"@Service
 final class StampService {
     private let push = Push()
     var endpoint: String = ""
+    var received: String = ""
 
     func available() -> Bool {
         (try? push.supported()) ?? false
@@ -2830,6 +2855,11 @@ final class StampService {
     func hearSubscribed(_ subscribed: PushSubscribed) {
         endpoint = subscribed.endpoint
     }
+
+    @OnEvent
+    func hearReceived(_ received: PushReceived) {
+        self.received = "\(received.tag) \(received.path) \(received.data)"
+    }
 }
 "#;
 
@@ -2837,6 +2867,7 @@ final class StampService {
 class StampService {
     private val push = Push()
     var endpoint: String = ""
+    var received: String = ""
 
     fun available(): Boolean = push.supported()
 
@@ -2848,6 +2879,11 @@ class StampService {
     fun hearSubscribed(subscribed: PushSubscribed) {
         endpoint = subscribed.endpoint
     }
+
+    @OnEvent
+    fun hearReceived(pushed: PushReceived) {
+        received = pushed.tag + " " + pushed.path + " " + pushed.data
+    }
 }
 "#;
 
@@ -2855,6 +2891,7 @@ class StampService {
 class StampService {
     private final Push push = new Push();
     String endpoint = "";
+    String received = "";
 
     boolean available() {
         return push.supported();
@@ -2868,6 +2905,11 @@ class StampService {
     void hearSubscribed(PushSubscribed subscribed) {
         endpoint = subscribed.endpoint();
     }
+
+    @OnEvent
+    void hearReceived(PushReceived pushed) {
+        received = pushed.tag() + " " + pushed.path() + " " + pushed.data();
+    }
 }
 "#;
 
@@ -2876,6 +2918,7 @@ class StampService {
   @Needs()
   final Push push;
   String endpoint = '';
+  String received = '';
 
   bool available() => push.supported();
 
@@ -2885,15 +2928,21 @@ class StampService {
   void hearSubscribed(PushSubscribed subscribed) {
     endpoint = subscribed.endpoint;
   }
+
+  @OnEvent
+  void hearReceived(PushReceived pushed) {
+    received = '${pushed.tag} ${pushed.path} ${pushed.data}';
+  }
 }
 ";
 
     const RUBY_PUSH: &str = r#"#[Service]
 class StampService
-  attr_accessor :endpoint
+  attr_accessor :endpoint, :received
 
   def initialize
     @endpoint = ""
+    @received = ""
   end
 
   def available
@@ -2909,13 +2958,20 @@ class StampService
   def hear_subscribed(subscribed)
     @endpoint = subscribed.endpoint
   end
+
+  # @param pushed [PushReceived]
+  #[OnEvent]
+  def hear_received(pushed)
+    @received = [pushed.tag, pushed.path, pushed.data].join(" ")
+  end
 end
 "#;
 
-    const LUA_PUSH: &str = "-- @Service\n---@class StampService\nStampService = {\n  ---@type string\n  endpoint = \"\",\n}\n\n\
+    const LUA_PUSH: &str = "-- @Service\n---@class StampService\nStampService = {\n  ---@type string\n  endpoint = \"\",\n  ---@type string\n  received = \"\",\n}\n\n\
          ---@return boolean\nfunction StampService:available()\n  return Push:supported()\nend\n\n\
          ---@return nil\nfunction StampService:subscribe()\n  Push:subscribe(\"__KEY__\")\nend\n\n\
-         ---@param subscribed PushSubscribed\n---@return nil\n-- @OnEvent\nfunction StampService:hear_subscribed(subscribed)\n  self.endpoint = subscribed.endpoint\nend\n";
+         ---@param subscribed PushSubscribed\n---@return nil\n-- @OnEvent\nfunction StampService:hear_subscribed(subscribed)\n  self.endpoint = subscribed.endpoint\nend\n\n\
+         ---@param pushed PushReceived\n---@return nil\n-- @OnEvent\nfunction StampService:hear_received(pushed)\n  self.received = pushed.tag .. \" \" .. pushed.path .. \" \" .. pushed.data\nend\n";
 
     const CPP_PUSH: &str = r#"#pragma once
 #include <string>
@@ -2924,12 +2980,15 @@ class [[Service]] StampService {
 public:
     [[Needs]] Push& push;
     std::string endpoint;
+    std::string received;
 
     bool available() { return push.supported(); }
 
     void subscribe() { push.subscribe("__KEY__"); }
 
     [[OnEvent]] void hearSubscribed(const PushSubscribed& subscribed) { endpoint = subscribed.endpoint; }
+
+    [[OnEvent]] void hearReceived(const PushReceived& pushed) { received = pushed.tag + " " + pushed.path + " " + pushed.data; }
 };
 "#;
 
@@ -2955,6 +3014,7 @@ public:
             serde_json::json!({
                 "supported": true,
                 "endpoint": "https://push.example.com/send/1",
+                "received": "mail-7 /mail/7 {\"thread\":7}",
                 "asked": [Self::PUSH_KEY],
             })
         );

@@ -67,6 +67,14 @@ impl WebEventModels {
             ),
             Self::record("PushUnsubscribed", &[("endpoint", Shape::Text)]),
             Self::record(
+                "PushReceived",
+                &[
+                    ("tag", Shape::Text),
+                    ("path", Shape::Text),
+                    ("data", Shape::Text),
+                ],
+            ),
+            Self::record(
                 "SocketOpened",
                 &[("path", Shape::Text), ("reconnected", Shape::Boolean)],
             ),

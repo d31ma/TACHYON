@@ -10,6 +10,13 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- **Open pages hear a Web Push message** (ADR 0118 amendment). When a push
+  arrives while the app is open, every open page of the app gets the built-in
+  event `PushReceived { tag, path, data }` in every Tac service language, so
+  it can sync at once; the notification is still shown. `data` is the
+  message's optional `data` member as text. The push worker posts only to
+  windows of its own origin, and a page accepts the message only from its own
+  push worker.
 - **A Yon handler can reach a named service on a private network** (ADR 0094
   amendment). List the name in `outgoing.hosts` and add an entry such as
   `{"host": "keycloak", "networks": ["172.16.0.0/12"]}` to the new

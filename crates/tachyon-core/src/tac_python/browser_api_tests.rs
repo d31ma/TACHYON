@@ -97,7 +97,10 @@ impl BrowserApiPage {
          \x20       return self.push.supported()\n\n\
          \x20   @on_event\n\
          \x20   def subscribed(self, subscribed: PushSubscribed) -> None:\n\
-         \x20       self.endpoint = subscribed.endpoint\n",
+         \x20       self.endpoint = subscribed.endpoint\n\n\
+         \x20   @on_event\n\
+         \x20   def received(self, pushed: PushReceived) -> None:\n\
+         \x20       self.endpoint = f'{pushed.tag} {pushed.path} {pushed.data}'\n",
     )];
 
     const ALERTS_DRIVER: &'static str = "_requests = []\n\
@@ -110,6 +113,8 @@ impl BrowserApiPage {
          _report['turn_on'] = _ask('stamp', {'op': 'call', 'name': 'turnOn', 'args': []})\n\
          _report['heard'] = _ask('stamp', {'op': 'event', 'name': 'subscribed', 'value': {'endpoint': 'https://push.example/1', 'p256dh': 'key', 'auth': 'secret', 'expirationTime': 0.0}})\n\
          _report['endpoint'] = _ask('stamp', {'op': 'get', 'name': 'endpoint'})\n\
+         _report['pushed'] = _ask('stamp', {'op': 'event', 'name': 'received', 'value': {'tag': 'mail-7', 'path': '/mail/7', 'data': '{\"thread\":7}'}})\n\
+         _report['received'] = _ask('stamp', {'op': 'get', 'name': 'endpoint'})\n\
          _report['requests'] = [[item['api'], item['call'], item['args']] for item in _requests]\n";
 
     const ATTACH: [(&'static str, &'static str); 1] = [(
@@ -323,6 +328,12 @@ fn a_python_web_service_subscribes_to_web_push() {
     assert_eq!(
         report["endpoint"],
         json!({"value": "https://push.example/1"}),
+        "{report}"
+    );
+    assert_eq!(report["pushed"], json!({"value": null}), "{report}");
+    assert_eq!(
+        report["received"],
+        json!({"value": "mail-7 /mail/7 {\"thread\":7}"}),
         "{report}"
     );
     assert_eq!(

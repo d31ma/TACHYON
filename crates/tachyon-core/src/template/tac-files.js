@@ -251,7 +251,7 @@ class TacFiles {
     event.preventDefault()
     zone.removeAttribute(TacFiles.overAttribute)
     const name = zone.getAttribute(TacFiles.zoneAttribute)
-    const publish = (dropped) => globalThis[TacFiles.webKey]?.filesDropped(dropped)
+    const publish = (dropped) => globalThis[TacFiles.webKey]?.pageEvent(dropped)
     TacFiles.answer(publish, 'drop', TacFiles.hold(event.dataTransfer.files), (files) => TacFiles.events('FileDropped', files, { zone: name }))
   }
 }

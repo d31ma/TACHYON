@@ -465,6 +465,8 @@ declare global {
   interface PushSubscribed { endpoint: string; p256dh: string; auth: string; expirationTime: number; }
   /** PushUnsubscribed: a built-in event model. The page has no Web Push subscription; `endpoint` is the one that ended, or empty (ADR 0118). */
   interface PushUnsubscribed { endpoint: string; }
+  /** PushReceived: a built-in event model. A Web Push message arrived while this page was open, so the app can sync (ADR 0118). `tag` and `data` are the message's `tag` and `data` members as text (a JSON value becomes its JSON text), or empty; `path` is the same-origin path the notification opens. The notification is still shown. */
+  interface PushReceived { tag: string; path: string; data: string; }
   /** BrowserCallFailed: a built-in event model. A browser API call failed after it started (ADR 0065). */
   interface BrowserCallFailed { api: string; call: string; message: string; }
   /** FilePicked: a built-in event model, one per chosen file, sent to the caller of `Files.pick` (ADR 0116). */

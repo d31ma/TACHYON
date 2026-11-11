@@ -10,10 +10,30 @@ class TacPushWorker {
   }
 
   static show(data) {
-    const { title, body, path, tag } = TacPushWorker.message(data)
+    const message = TacPushWorker.message(data)
+    return Promise.all([TacPushWorker.notify(message), TacPushWorker.tell(message)])
+  }
+
+  static notify({ title, body, path, tag }) {
     const options = { body: String(body ?? ''), data: { path: TacPushWorker.path(path) } }
     if (tag) options.tag = String(tag)
     return self.registration.showNotification(String(title || self.location.hostname), options)
+  }
+
+  static async tell({ tag, path, data }) {
+    const received = { tachyon: 'PushReceived', tag: TacPushWorker.text(tag), path: TacPushWorker.path(path), data: TacPushWorker.text(data) }
+    const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+    for (const page of windows.filter(TacPushWorker.ownPage)) page.postMessage(received)
+  }
+
+  static ownPage(client) {
+    return new URL(client.url).origin === self.location.origin
+  }
+
+  static text(value) {
+    if (value === undefined || value === null) return ''
+    if (typeof value === 'string') return value
+    return JSON.stringify(value)
   }
 
   static message(data) {

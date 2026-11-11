@@ -1,5 +1,7 @@
 class TacWebPush {
   static key = Symbol.for('tachyon.tac.push')
+  static webKey = Symbol.for('tachyon.tac.web')
+  static received = 'PushReceived'
   static worker = '/.tachyon/tac-push-sw.js'
   static scope = '/.tachyon/push/'
   static keyBytes = 65
@@ -17,7 +19,24 @@ class TacWebPush {
         unsubscribe: () => TacWebPush.unsubscribe(),
       }),
     })
+    TacWebPush.listen(globalThis.navigator?.serviceWorker)
     return true
+  }
+
+  static listen(container) {
+    if (!container) return
+    container.addEventListener('message', (event) => TacWebPush.heard(event))
+    container.startMessages()
+  }
+
+  static heard({ source, data: message }) {
+    if (source?.scriptURL !== TacWebPush.workerUrl() || message?.tachyon !== TacWebPush.received) return
+    const fields = { tag: message.tag, path: message.path, data: message.data }
+    if (Object.values(fields).every((value) => typeof value === 'string')) globalThis[TacWebPush.webKey]?.pageEvent([TacWebPush.received, fields])
+  }
+
+  static workerUrl() {
+    return new URL(TacWebPush.worker, globalThis.location.origin).href
   }
 
   static missing() {
