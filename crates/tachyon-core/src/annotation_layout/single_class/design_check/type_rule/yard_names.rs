@@ -72,6 +72,7 @@ impl YardNames {
         "Notifications",
         "PageVisibility",
         "Preferences",
+        "Push",
         "Share",
         "TacStorage",
         "WindowControls",

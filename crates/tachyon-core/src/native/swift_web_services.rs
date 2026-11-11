@@ -55,6 +55,7 @@ impl SwiftWebServices {
             "Notifications",
             include_str!("web_apis/Notifications.swift"),
         ),
+        ("Push", include_str!("web_apis/Push.swift")),
         ("Geolocation", include_str!("web_apis/Geolocation.swift")),
         (
             "WindowControls",

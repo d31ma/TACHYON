@@ -23,20 +23,38 @@ WebView2, WebKitGTK and the Android WebView have no Push API. Native push
 
 1. `push` is a new browser API grant in `tac.browserApis`. Without it every
    push call throws the usual "not granted" error.
-2. Go services get the `Push` type, injected like `Clock` or
-   `Notifications`:
-   - `Supported() (bool, error)` answers at once;
-   - `Subscribe(applicationServerKey string) error` needs a click or key
-     handler. It takes the server's VAPID public key as base64url (65 bytes
-     that start with `0x04`), asks for notification permission, and answers
-     with the `PushSubscribed` event;
-   - `Subscription() error` answers with `PushSubscribed`, or with
-     `PushUnsubscribed` and an empty endpoint when there is none;
-   - `Unsubscribe() error` answers with `PushUnsubscribed`.
+2. Every Tac service language gets a `Push` client, injected the way it gets
+   `Notifications`, with the same four calls on one contract (the page's
+   `push` browser API):
+   - `supported` answers at once: true only in a secure web page whose
+     browser has the Push API;
+   - `subscribe(applicationServerKey)` needs a click or key handler. It takes
+     the server's VAPID public key as base64url (65 bytes that start with
+     `0x04`), asks for notification permission, and answers with the
+     `PushSubscribed` event;
+   - `subscription` answers with `PushSubscribed`, or with `PushUnsubscribed`
+     and an empty endpoint when there is none;
+   - `unsubscribe` answers with `PushUnsubscribed`.
    A failure after the call started (permission denied, the browser refused)
-   sends `BrowserCallFailed` with `api` `push`, as every browser API does.
-   JavaScript and TypeScript get the same calls as the `push` resource
-   (`@Needs push`). The other Tac languages have no `Push` type yet.
+   sends `BrowserCallFailed` with `api` `push`, as every browser API does. A
+   call the page refuses at once (no grant, no user action, a bad key, no
+   Push API) fails the way every browser call fails in that language.
+
+   | Language | How a service gets it | Calls |
+   | --- | --- | --- |
+   | JavaScript, TypeScript | `@Needs push` (`TacPush`) | `supported()`, `subscribe(key)`, `subscription()`, `unsubscribe()` |
+   | Rust | a `push: Push` field filled by `Default` | the same names; each returns `Result` |
+   | Go | a `// @Needs` field `push Push` | `Supported() (bool, error)`, `Subscribe(key) error`, `Subscription() error`, `Unsubscribe() error` |
+   | C#, F# | `new()` field, `let push = Push()` | `Supported()`, `Subscribe(key)`, `Subscription()`, `Unsubscribe()` |
+   | Kotlin, Java, Dart, C++ | `Push()`, `new Push()`, a `@Needs()` field, `[[Needs]] Push&` | `supported()`, `subscribe(key)`, `subscription()`, `unsubscribe()` |
+   | Swift | `Push()` | `supported()`, `subscribe(applicationServerKey:)`, `subscription()`, `unsubscribe()`, all `throws` |
+   | Ruby | `Push.new` | `supported`, `subscribe(key)`, `subscription`, `unsubscribe` |
+   | Lua | the global table `Push` | `Push:supported()`, `Push:subscribe(key)`, `Push:subscription()`, `Push:unsubscribe()` |
+   | Python | not supported: a Python service has no browser APIs, and `Push` stops the build with `TY1605` | none |
+
+   A Swift, Kotlin, C# or Rust service that is linked into a native app as
+   native code cannot use `Push`, like every page client: it belongs to the
+   page.
 3. `PushSubscribed { endpoint, p256dh, auth, expirationTime }` and
    `PushUnsubscribed { endpoint }` are built-in event models. The keys are
    base64url, as `PushSubscription.toJSON()` gives them, and
@@ -67,7 +85,8 @@ WebView2, WebKitGTK and the Android WebView have no Push API. Native push
 
 ## Consequences
 
-- A Go Tac app can subscribe to Web Push and send the subscription to its
+- A Tac app in any service language but Python can subscribe to Web Push
+  and send the subscription to its
   Yon server with `@HTTPClient`. The server encrypts and sends the messages
   itself; Tachyon does not send push messages.
 - Safari on iPhone and iPad offers Web Push only to an app added to the Home

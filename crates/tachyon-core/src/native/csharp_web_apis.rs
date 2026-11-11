@@ -14,6 +14,7 @@ impl CsharpWebApis {
         include_str!("web_apis/Clipboard.cs"),
         include_str!("web_apis/Share.cs"),
         include_str!("web_apis/Notifications.cs"),
+        include_str!("web_apis/Push.cs"),
         include_str!("web_apis/Geolocation.cs"),
         include_str!("web_apis/WindowControls.cs"),
         include_str!("web_apis/Focus.cs")

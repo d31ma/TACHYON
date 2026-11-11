@@ -2269,3 +2269,392 @@ async fn a_cpp_web_service_reads_the_standard_clock_and_random_device() {
     let report = WebApis::run(root.path(), &driver);
     assert_eq!(report, serde_json::json!({"seeded": true, "ticking": true}));
 }
+
+impl WebApis {
+    const PUSH_KEY: &str =
+        "BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U";
+
+    const PUSH_DRIVER: &str = r";(0, eval)(`${await readFile('./tac-web.js', 'utf8')}\nglobalThis.TacWebApis = TacWebApis`)
+const { default: TacApplicationEvents } = await import('./application-events.mjs')
+const { default: StampService, __tachyon_event_plan__: plan } = await import('./StampService.js')
+__GRANT_STUBS__
+grants.content = 'push'
+const asked = []
+const subscribed = { endpoint: 'https://push.example.com/send/1', p256dh: 'BPublic', auth: 'secret', expirationTime: 0 }
+globalThis[Symbol.for('tachyon.tac.push')] = {
+  supported: () => true,
+  subscribe: (key) => { asked.push(key); return async () => ['PushSubscribed', subscribed] },
+  subscription: () => async () => ['PushUnsubscribed', { endpoint: '' }],
+  unsubscribe: () => async () => ['PushUnsubscribed', { endpoint: '' }],
+}
+const bus = new TacApplicationEvents({ changed: () => {}, failed: () => { throw new Error('Event delivery failed') } })
+TacWebApis.events = { publish: (name, value) => bus.publish(name, value), send: (owner, name, value) => bus.send(owner, name, value) }
+const stamp = new StampService({})
+bus.attach(stamp, plan.types[0], { applicationEventPublisher: null })
+await bus.initialize(stamp)
+const supported = stamp.available()
+stamp.subscribe()
+await new Promise((resolve) => setTimeout(resolve, 0))
+console.log(JSON.stringify({ supported, endpoint: stamp.endpoint, asked }))
+process.exit(0)
+";
+
+    const RUST_PUSH: &str = r#"#[Service]
+#[derive(Default)]
+struct StampService {
+    push: Push,
+    endpoint: String,
+}
+
+impl StampService {
+    pub fn available(&self) -> bool {
+        self.push.supported().unwrap_or(false)
+    }
+
+    pub fn subscribe(&self) {
+        let _ = self.push.subscribe("__KEY__");
+    }
+
+    #[OnEvent]
+    pub fn hear_subscribed(&mut self, subscribed: PushSubscribed) {
+        self.endpoint = subscribed.endpoint;
+    }
+}
+"#;
+
+    const GO_PUSH: &str = r#"// @Service
+type StampService struct {
+	// @Needs
+	push     Push
+	Endpoint string
+}
+
+func (stamp *StampService) Available() bool {
+	supported, _ := stamp.push.Supported()
+	return supported
+}
+
+func (stamp *StampService) Subscribe() {
+	_ = stamp.push.Subscribe("__KEY__")
+}
+
+// @OnEvent
+func (stamp *StampService) HearSubscribed(subscribed PushSubscribed) {
+	stamp.Endpoint = subscribed.Endpoint
+}
+"#;
+
+    const CSHARP_PUSH: &str = r#"[Service]
+public class StampService
+{
+    private readonly Push push = new();
+    public string Endpoint = "";
+
+    public bool Available() => push.Supported();
+
+    public void Subscribe() => push.Subscribe("__KEY__");
+
+    [OnEvent]
+    public void HearSubscribed(PushSubscribed subscribed)
+    {
+        Endpoint = subscribed.Endpoint;
+    }
+}
+"#;
+
+    const FSHARP_PUSH: &str = r#"[<Service>]
+type StampService() =
+    let push = Push()
+    member val Endpoint: string = "" with get, set
+    member this.Available() : bool = push.Supported()
+    member this.Subscribe() : unit = push.Subscribe("__KEY__")
+    [<OnEvent>]
+    member this.HearSubscribed(subscribed: PushSubscribed) : unit = this.Endpoint <- subscribed.Endpoint
+"#;
+
+    const SWIFT_PUSH: &str = r#"@Service
+final class StampService {
+    private let push = Push()
+    var endpoint: String = ""
+
+    func available() -> Bool {
+        (try? push.supported()) ?? false
+    }
+
+    func subscribe() throws {
+        try push.subscribe(applicationServerKey: "__KEY__")
+    }
+
+    @OnEvent
+    func hearSubscribed(_ subscribed: PushSubscribed) {
+        endpoint = subscribed.endpoint
+    }
+}
+"#;
+
+    const KOTLIN_PUSH: &str = r#"@Service
+class StampService {
+    private val push = Push()
+    var endpoint: String = ""
+
+    fun available(): Boolean = push.supported()
+
+    fun subscribe() {
+        push.subscribe("__KEY__")
+    }
+
+    @OnEvent
+    fun hearSubscribed(subscribed: PushSubscribed) {
+        endpoint = subscribed.endpoint
+    }
+}
+"#;
+
+    const JAVA_PUSH: &str = r#"@Service
+class StampService {
+    private final Push push = new Push();
+    String endpoint = "";
+
+    boolean available() {
+        return push.supported();
+    }
+
+    void subscribe() {
+        push.subscribe("__KEY__");
+    }
+
+    @OnEvent
+    void hearSubscribed(PushSubscribed subscribed) {
+        endpoint = subscribed.endpoint();
+    }
+}
+"#;
+
+    const DART_PUSH: &str = r"@Service()
+class StampService {
+  @Needs()
+  final Push push;
+  String endpoint = '';
+
+  bool available() => push.supported();
+
+  void subscribe() => push.subscribe('__KEY__');
+
+  @OnEvent
+  void hearSubscribed(PushSubscribed subscribed) {
+    endpoint = subscribed.endpoint;
+  }
+}
+";
+
+    const RUBY_PUSH: &str = r##"#[Service]
+class StampService
+  attr_accessor :endpoint
+
+  def initialize
+    @endpoint = ""
+  end
+
+  def available
+    Push.new.supported
+  end
+
+  def subscribe
+    Push.new.subscribe("__KEY__")
+  end
+
+  # @param subscribed [PushSubscribed]
+  #[OnEvent]
+  def hear_subscribed(subscribed)
+    @endpoint = subscribed.endpoint
+  end
+end
+"##;
+
+    const LUA_PUSH: &str = "-- @Service\n---@class StampService\nStampService = {\n  ---@type string\n  endpoint = \"\",\n}\n\n\
+         ---@return boolean\nfunction StampService:available()\n  return Push:supported()\nend\n\n\
+         ---@return nil\nfunction StampService:subscribe()\n  Push:subscribe(\"__KEY__\")\nend\n\n\
+         ---@param subscribed PushSubscribed\n---@return nil\n-- @OnEvent\nfunction StampService:hear_subscribed(subscribed)\n  self.endpoint = subscribed.endpoint\nend\n";
+
+    const CPP_PUSH: &str = r#"#pragma once
+#include <string>
+
+class [[Service]] StampService {
+public:
+    [[Needs]] Push& push;
+    std::string endpoint;
+
+    bool available() { return push.supported(); }
+
+    void subscribe() { push.subscribe("__KEY__"); }
+
+    [[OnEvent]] void hearSubscribed(const PushSubscribed& subscribed) { endpoint = subscribed.endpoint; }
+};
+"#;
+
+    fn push_source(template: &str) -> String {
+        template.replace("__KEY__", Self::PUSH_KEY)
+    }
+
+    fn assert_pushed(root: &Path, fetches_files: bool) {
+        Self::write(
+            root,
+            "application-events.mjs",
+            Self::EVENTS_RUNTIME.as_bytes(),
+        );
+        let pushed = Self::PUSH_DRIVER.replace("__GRANT_STUBS__", Self::GRANT_STUBS);
+        let driver = if fetches_files {
+            format!("{}{pushed}", Self::FILE_FETCH)
+        } else {
+            pushed
+        };
+        let report = Self::run(root, &driver);
+        assert_eq!(
+            report,
+            serde_json::json!({
+                "supported": true,
+                "endpoint": "https://push.example.com/send/1",
+                "asked": [Self::PUSH_KEY],
+            })
+        );
+    }
+}
+
+#[tokio::test]
+async fn a_rust_web_service_subscribes_to_web_push() {
+    if !WebApis::node_available() || !WebApis::rust_web_target() {
+        eprintln!("skipping: node or the wasm32 Rust target is unavailable");
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    let source = WebApis::push_source(WebApis::RUST_PUSH);
+    WebApis::publish(root.path(), WebLanguage::Rust, "rs", &source).await;
+    WebApis::assert_pushed(root.path(), false);
+}
+
+#[tokio::test]
+async fn a_go_web_service_subscribes_to_web_push() {
+    let go = Command::new("go")
+        .arg("version")
+        .output()
+        .is_ok_and(|output| output.status.success());
+    if !WebApis::node_available() || !go {
+        eprintln!("skipping: node or go is unavailable");
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    let source = WebApis::push_source(WebApis::GO_PUSH);
+    WebApis::publish(root.path(), WebLanguage::Go, "go", &source).await;
+    WebApis::assert_pushed(root.path(), true);
+}
+
+fn dotnet_wasm_ready() -> bool {
+    let workload = Command::new("dotnet")
+        .args(["workload", "list"])
+        .output()
+        .is_ok_and(|output| String::from_utf8_lossy(&output.stdout).contains("wasm-tools"));
+    WebApis::node_available() && workload
+}
+
+#[tokio::test]
+async fn a_csharp_web_service_subscribes_to_web_push() {
+    if !dotnet_wasm_ready() {
+        eprintln!("skipping: node or the .NET wasm-tools workload is unavailable");
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    let source = WebApis::push_source(WebApis::CSHARP_PUSH);
+    let profile = crate::BuildProfile::Development;
+    WebApis::publish_with(root.path(), WebLanguage::CSharp, ("cs", &source), profile).await;
+    WebApis::assert_pushed(root.path(), false);
+}
+
+#[tokio::test]
+async fn an_fsharp_web_service_subscribes_to_web_push() {
+    if !dotnet_wasm_ready() {
+        eprintln!("skipping: node or the .NET wasm-tools workload is unavailable");
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    let source = WebApis::push_source(WebApis::FSHARP_PUSH);
+    let profile = crate::BuildProfile::Development;
+    WebApis::publish_with(root.path(), WebLanguage::CSharp, ("fs", &source), profile).await;
+    WebApis::assert_pushed(root.path(), false);
+}
+
+#[tokio::test]
+async fn a_dart_service_subscribes_to_web_push() {
+    if !WebApis::node_available() || !WebApis::dart_available() {
+        eprintln!("skipping: node or dart is unavailable");
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    WebApis::publish_dart(root.path(), &WebApis::push_source(WebApis::DART_PUSH)).await;
+    WebApis::assert_pushed(root.path(), true);
+}
+
+#[tokio::test]
+async fn a_ruby_web_service_subscribes_to_web_push() {
+    let unavailable = crate::tac_ruby::RubyRuntimeBuild::unavailable_reason();
+    if !WebApis::node_available() || unavailable.is_some() {
+        eprintln!("skipping: node or the Ruby runtime is unavailable: {unavailable:?}");
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    let source = WebApis::push_source(WebApis::RUBY_PUSH);
+    WebApis::publish(root.path(), WebLanguage::Ruby, "rb", &source).await;
+    WebApis::assert_pushed(root.path(), true);
+}
+
+#[tokio::test]
+async fn a_lua_web_service_subscribes_to_web_push() {
+    if lua_unavailable() {
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    let source = WebApis::push_source(WebApis::LUA_PUSH);
+    WebApis::publish(root.path(), WebLanguage::Lua, "lua", &source).await;
+    WebApis::assert_pushed(root.path(), true);
+}
+
+#[tokio::test]
+async fn a_swift_web_service_subscribes_to_web_push() {
+    let root = tempfile::tempdir().expect("project");
+    if !publish_swift(root.path(), &WebApis::push_source(WebApis::SWIFT_PUSH)).await {
+        return;
+    }
+    WebApis::assert_pushed(root.path(), true);
+}
+
+#[tokio::test]
+async fn a_kotlin_web_service_subscribes_to_web_push() {
+    if !super::kotlin_tests::kotlin_web_ready() {
+        eprintln!("skipping: kotlinc-js, the Kotlin wasm stdlib or node is unavailable");
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    let source = WebApis::push_source(WebApis::KOTLIN_PUSH);
+    WebApis::publish(root.path(), WebLanguage::Kotlin, "kt", &source).await;
+    WebApis::assert_pushed(root.path(), true);
+}
+
+#[tokio::test]
+async fn a_java_web_service_subscribes_to_web_push() {
+    let root = tempfile::tempdir().expect("project");
+    if !publish_java(root.path(), &WebApis::push_source(WebApis::JAVA_PUSH)).await {
+        return;
+    }
+    WebApis::assert_pushed(root.path(), true);
+}
+
+#[tokio::test]
+async fn a_cpp_web_service_subscribes_to_web_push() {
+    if !WebApis::node_available() || !WebApis::cpp_available() {
+        eprintln!("skipping: node or em++ is unavailable");
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    let source = WebApis::push_source(WebApis::CPP_PUSH);
+    WebApis::publish(root.path(), WebLanguage::Cpp, "hpp", &source).await;
+    WebApis::assert_pushed(root.path(), true);
+}

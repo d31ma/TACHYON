@@ -45,6 +45,7 @@ impl KotlinUnitFiles {
             "Notifications",
             include_str!("../native/web_apis/Notifications.kt"),
         ),
+        ("Push", include_str!("../native/web_apis/Push.kt")),
         (
             "Geolocation",
             include_str!("../native/web_apis/Geolocation.kt"),

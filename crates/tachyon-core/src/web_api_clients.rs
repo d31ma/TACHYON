@@ -11,6 +11,7 @@ impl WebApiClients {
         "Share",
         "Notifications",
         "Geolocation",
+        "Push",
         "WindowControls",
         "Focus",
     ];

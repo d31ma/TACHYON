@@ -34,6 +34,7 @@ impl JavaWebApis {
             "Notifications",
             include_str!("../web_apis/Notifications.java"),
         ),
+        ("Push", include_str!("../web_apis/Push.java")),
         ("Geolocation", include_str!("../web_apis/Geolocation.java")),
         (
             "WindowControls",

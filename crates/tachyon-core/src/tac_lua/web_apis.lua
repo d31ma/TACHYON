@@ -144,6 +144,24 @@ function Notifications:show(title, body)
   TacWebHost.call("notifications", "show", { title, body })
 end
 
+Push = {}
+
+function Push:supported()
+  return TacWebHost.call("push", "supported") == true
+end
+
+function Push:subscribe(application_server_key)
+  TacWebHost.call("push", "subscribe", { application_server_key })
+end
+
+function Push:subscription()
+  TacWebHost.call("push", "subscription")
+end
+
+function Push:unsubscribe()
+  TacWebHost.call("push", "unsubscribe")
+end
+
 Geolocation = {}
 
 function Geolocation:current_position()

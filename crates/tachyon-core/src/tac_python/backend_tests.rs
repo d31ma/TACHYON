@@ -175,6 +175,10 @@ fn python_page_only_clients_are_refused_at_build_time() {
             "@service\n@needs_all\nclass CounterService:\n    strings: PreferenceStrings\n",
             "PreferenceStrings",
         ),
+        (
+            "@service\nclass CounterService:\n    def start(self) -> None:\n        Push().subscribe('key')\n",
+            "Push",
+        ),
     ] {
         let failure =
             PythonProviderSource::read(Path::new("client/services/CounterService.py"), source)

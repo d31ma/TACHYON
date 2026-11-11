@@ -114,6 +114,19 @@ public:
     }
 };
 
+class Push {
+public:
+    bool supported() const { return TacWebCall::flag("push", "supported"); }
+
+    void subscribe(const std::string& applicationServerKey) const {
+        TacWebCall::answer("push", "subscribe", TacWebCall::arguments(applicationServerKey));
+    }
+
+    void subscription() const { TacWebCall::answer("push", "subscription"); }
+
+    void unsubscribe() const { TacWebCall::answer("push", "unsubscribe"); }
+};
+
 class Geolocation {
 public:
     void currentPosition() const { TacWebCall::answer("geolocation", "currentPosition"); }
@@ -145,6 +158,7 @@ using tachyon::web::Focus;
 using tachyon::web::Geolocation;
 using tachyon::web::Notifications;
 using tachyon::web::PageVisibility;
+using tachyon::web::Push;
 using tachyon::web::Preferences;
 using tachyon::web::SecureRandom;
 using tachyon::web::Share;

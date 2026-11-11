@@ -36,6 +36,7 @@ impl RubyWebServices {
         include_str!("tac_ruby/clipboard.rb"),
         include_str!("tac_ruby/share.rb"),
         include_str!("tac_ruby/notifications.rb"),
+        include_str!("tac_ruby/push.rb"),
         include_str!("tac_ruby/geolocation.rb"),
         include_str!("tac_ruby/window_controls.rb"),
         include_str!("tac_ruby/focus.rb")
