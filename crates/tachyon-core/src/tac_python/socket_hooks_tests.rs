@@ -22,7 +22,7 @@ impl PythonHooks {
     const SERVICE: &'static str = "from typing import Annotated\n\n@service\nclass ChatService:\n    chat: Annotated[ChatClient, needs]\n    opens: int = 0\n    reopens: int = 0\n    code: float = 0\n    retrying: bool = False\n    ticks: int = 0\n\n    \
          @on_event\n    def connected(self, opened: SocketOpened) -> None:\n        self.opens += 1\n        self.reopens += 1 if opened.reconnected else 0\n\n    \
          @on_event\n    def disconnected(self, closed: SocketClosed) -> None:\n        self.code = closed.code\n        self.retrying = closed.reconnecting\n\n    \
-         @every(\"30s\")\n    def refresh(self) -> None:\n        self.ticks += 1\n";
+         @every(\"30s\")\n    async def refresh(self) -> None:\n        self.ticks += 1\n";
 }
 
 #[tokio::test]
