@@ -84,10 +84,10 @@ impl BrowserApiPage {
          _report['requests'] = [[item['api'], item['call'], item['args']] for item in _requests]\n";
 
     const ALERTS: [(&'static str, &'static str); 1] = [(
-        "client/services/AlertsService.py",
+        "client/services/StampService.py",
         "from typing import Annotated\n\n\
          @service\n\
-         class AlertsService:\n\
+         class StampService:\n\
          \x20   push: Annotated[Push, needs]\n\
          \x20   endpoint: str = ''\n\n\
          \x20   def turn_on(self) -> bool:\n\
@@ -106,10 +106,10 @@ impl BrowserApiPage {
          \x20   _requests.append(request)\n\
          \x20   return json.dumps({'value': request['call'] == 'supported'})\n\
          _TacPythonRuntime.connect(_emitted.append, None, web=_web)\n\
-         _report = {'init': _ask('alerts', {'op': 'init', 'props': {}})}\n\
-         _report['turn_on'] = _ask('alerts', {'op': 'call', 'name': 'turn_on', 'args': []})\n\
-         _report['heard'] = _ask('alerts', {'op': 'event', 'name': 'subscribed', 'value': {'endpoint': 'https://push.example/1', 'p256dh': 'key', 'auth': 'secret', 'expirationTime': 0.0}})\n\
-         _report['endpoint'] = _ask('alerts', {'op': 'get', 'name': 'endpoint'})\n\
+         _report = {'init': _ask('stamp', {'op': 'init', 'props': {}})}\n\
+         _report['turn_on'] = _ask('stamp', {'op': 'call', 'name': 'turnOn', 'args': []})\n\
+         _report['heard'] = _ask('stamp', {'op': 'event', 'name': 'subscribed', 'value': {'endpoint': 'https://push.example/1', 'p256dh': 'key', 'auth': 'secret', 'expirationTime': 0.0}})\n\
+         _report['endpoint'] = _ask('stamp', {'op': 'get', 'name': 'endpoint'})\n\
          _report['requests'] = [[item['api'], item['call'], item['args']] for item in _requests]\n";
 
     fn provider(source: &str) -> PythonProviderSource {
@@ -283,7 +283,7 @@ fn a_python_web_service_subscribes_to_web_push() {
     }
     let report = PythonPage::run(
         &BrowserApiPage::ALERTS,
-        &["alerts"],
+        &["stamp"],
         BrowserApiPage::ALERTS_DRIVER,
     );
     assert_eq!(report["turn_on"], json!({"value": true}), "{report}");
