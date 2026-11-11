@@ -93,11 +93,25 @@ impl GoMarkerProofs {
         path
     }
 
-    const START_FILES: [(&str, &str); 1] = [(
-        "client/services/StartService.go",
-        "// @Service\ntype StartService struct {\n\tRequest string\n}\n\n\
-         // @OnStart\nfunc (start *StartService) Start() {\n\t_, failure := behaviorBrowserAnswer(behaviorBrowserHost()(`{}`))\n\tstart.Request = failure.Error()\n}\n",
-    )];
+    const START_FILES: [(&str, &str); 4] = [
+        (
+            "client/models/Note.go",
+            "type Note struct {\n\tText string `json:\"text\"`\n}\n",
+        ),
+        (
+            "client/setups/NoteSetup.go",
+            "// @Setup\ntype NoteSetup struct{}\n\nfunc (NoteSetup) Configure(execution *BehaviorExecution) (*BehaviorConfiguration, error) {\n\treturn NewBehaviorConfiguration(), nil\n}\n",
+        ),
+        (
+            "client/remotes/NoteClient.go",
+            "// @HTTPClient(\"/api\")\ntype NoteClient interface {\n\t// @GetRequest(\"/note\")\n\tRead() (Note, error)\n}\n",
+        ),
+        (
+            "client/services/StartService.go",
+            "// @Service\ntype StartService struct {\n\t// @Needs\n\tnoteClient *NoteClient\n\tRequest    string\n}\n\n\
+             // @OnStart\nfunc (start *StartService) Start() {\n\t_, failure := start.noteClient.Read()\n\tstart.Request = failure.Error()\n}\n",
+        ),
+    ];
 
     const START_DRIVER: &str = "import { readFile } from 'node:fs/promises'\n\
          globalThis.fetch = async (url) => new Response(await readFile(url))\n\
