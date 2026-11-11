@@ -35,7 +35,7 @@ var SocketStart func(ticket int, owner string, request string)
 
 const httpMissing = `{"error":{"code":"HTTP_MISSING"}}`
 const httpCancelled = `{"error":{"code":"CANCELLED"}}`
-const httpOutsideTask = `{"error":{"code":"HTTP_REQUEST"}}`
+const httpOutsideTask = `{"error":{"code":"HTTP_REQUEST","message":"A browser HTTP request or socket send cannot wait in OnStart, a getter or a setter. Publish an event from OnStart and make the request in an @OnEvent method."}}`
 
 func InvokeTask(text string) string {
 	if !waits(text) {
@@ -101,7 +101,7 @@ func SendSocket(client string, message any) error {
 	_ = json.Unmarshal([]byte(socketSend(string(request))), &answer)
 	failure, failed := answer["error"].(map[string]any)
 	if _, sent := answer["value"]; failed || !sent {
-		return &SocketError{Code: socketCode(failure["code"]), Message: "The socket message was not sent."}
+		return &SocketError{Code: socketCode(failure["code"]), Message: socketMessage(failure)}
 	}
 	return nil
 }
@@ -113,6 +113,13 @@ func socketSend(request string) string {
 	return awaitTicket(func(id int, owner string) {
 		SocketStart(id, owner, request)
 	})
+}
+
+func socketMessage(failure map[string]any) string {
+	if message, named := failure["message"].(string); named {
+		return message
+	}
+	return "The socket message was not sent."
 }
 
 func socketCode(code any) string {

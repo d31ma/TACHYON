@@ -1,4 +1,5 @@
 use super::ended::EndedMembers;
+use super::error_return::ErrorReturn;
 use super::finding::Finding;
 use super::method::Method;
 use super::spelling::Spelling;
@@ -94,7 +95,8 @@ impl<'r, 'a> BodyScan<'r, 'a> {
         let found = self.spelling.is_keyword(text)
             & placed
             & !self.words.after_member_access(at)
-            & !self.is_iterator_stop(at);
+            & !self.is_iterator_stop(at)
+            & !self.is_error_return(at);
         let chained = Self::CHAINED.contains(&text)
             | ((text == "if") & (self.words.text(at.wrapping_sub(1)) == "else"));
         let counts = Spelling::counts(text) & !chained;
@@ -107,6 +109,10 @@ impl<'r, 'a> BodyScan<'r, 'a> {
         self.words_follow(at, &Self::ITERATOR_STOP_CHECK)
             & (self.words.text(call) == "(")
             & self.words_follow(body, &Self::ITERATOR_STOP_BODY)
+    }
+
+    fn is_error_return(&self, at: usize) -> bool {
+        self.spelling.returns_errors() & ErrorReturn::new(self.words).matches(at)
     }
 
     fn words_follow(&self, at: usize, expected: &[&str]) -> bool {

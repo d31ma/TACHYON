@@ -61,6 +61,18 @@ machine contracts have their own, independent major versions.
   `true` or `false`. The new docs section "ARIA states from true-or-false
   fields" shows each language.
 
+### Changed
+
+- Go services may use the plain error check `if err != nil { return ..., err }`
+  (or a `%w` wrap with `fmt.Errorf`) in a public method without `TY1314`, as
+  Rust's `?` is allowed (ADR 0063, ADR 0119).
+- A Go browser HTTP request or socket send in `OnStart`, a getter or a setter
+  now fails with a message that names the event pattern to use instead.
+- The docs now say that `YON_APPLICATION_JSON` holds the settings under a
+  `yon` root, that a Go service only another Go service injects does not save
+  its `@SessionState`/`@LocalState` fields, and that Go workers get no
+  injected services (ADR 0119).
+
 ## [26.46.02] - 2026-11-10
 
 ### Highlights

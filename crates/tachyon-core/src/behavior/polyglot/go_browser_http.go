@@ -59,7 +59,14 @@ func behaviorBrowserAnswer(text string) (BehaviorValue, error) {
 
 func behaviorBrowserFailure(failure map[string]any) error {
 	status, _ := failure["status"].(float64)
-	return &BehaviorError{Code: behaviorBrowserCode(failure["code"]), Message: behaviorBrowserFailed, Status: int(status), Body: failure["body"]}
+	return &BehaviorError{Code: behaviorBrowserCode(failure["code"]), Message: behaviorBrowserMessage(failure), Status: int(status), Body: failure["body"]}
+}
+
+func behaviorBrowserMessage(failure map[string]any) string {
+	if message, named := failure["message"].(string); named {
+		return message
+	}
+	return behaviorBrowserFailed
 }
 
 func behaviorBrowserCode(code any) string {

@@ -58,6 +58,22 @@ their relatives) counts as a loop only when its lambda or block holds one of
 the constructs; `items.map(item => item.id)` and a method reference are
 fine. Optional chaining (`?.`) and Rust's `?` operator are allowed.
 
+Go has no `?` operator, so the plain Go error check that does the same job
+is allowed too (amended 2026-11-10). An `if` counts as no decision when all
+of these hold:
+
+- it reads `if err != nil {` and starts its own line;
+- the statement just before it assigns `err` (`x, err := call()` or
+  `err = call()`), even when that call spans several lines;
+- its body is one `return` statement whose last value is `err` or
+  `fmt.Errorf("<text with %w>", err)`;
+- no `else` follows it.
+
+Anything more is still a decision: another statement in the body, an
+`else`, `err == nil`, a second condition (`err != nil && ...`), a different
+returned value, a `%v` wrap, or the `if err := call(); err != nil` form.
+The rule is Go only; Swift's `if err != nil` still counts.
+
 The scanner is token based. It reuses the one-class layout token reader
 (`annotation_layout/single_class/tokens.rs`) and the lexical masks of each
 language, so strings, comments, template literals, regular expressions and

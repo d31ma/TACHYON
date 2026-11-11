@@ -93,6 +93,23 @@ impl GoMarkerProofs {
         path
     }
 
+    const START_FILES: [(&str, &str); 1] = [(
+        "client/services/StartService.go",
+        "// @Service\ntype StartService struct {\n\tRequest string\n}\n\n\
+         // @OnStart\nfunc (start *StartService) Start() {\n\t_, failure := behaviorBrowserAnswer(behaviorBrowserHost()(`{}`))\n\tstart.Request = failure.Error()\n}\n",
+    )];
+
+    const START_DRIVER: &str = "import { readFile } from 'node:fs/promises'\n\
+         globalThis.fetch = async (url) => new Response(await readFile(url))\n\
+         const { default: StartService, __tachyon_event_plan__: plan } = await import('./StartService.js')\n\
+         const { default: ApplicationEvents } = await import('./application-events.mjs')\n\
+         const bus = new ApplicationEvents({ changed: () => {}, failed: () => {} })\n\
+         const start = new StartService({})\n\
+         bus.attach(start, plan.types[0], { applicationEventPublisher: null })\n\
+         await bus.initialize(start)\n\
+         console.log(JSON.stringify({ request: start.request }))\n\
+         process.exit(0)\n";
+
     async fn publish(root: &Path, files: &[(&str, &str)], class: &str) {
         let mut source = PathBuf::new();
         for (relative, text) in files {
@@ -199,4 +216,26 @@ async fn a_go_in_background_listener_runs_after_the_publisher_returns() {
         "{report}"
     );
     assert_eq!(report["failures"], 0, "{report}");
+}
+
+#[tokio::test]
+async fn a_go_request_in_on_start_explains_why_it_cannot_wait() {
+    if !GoMarkerProofs::tools_available() {
+        assert!(
+            std::env::var_os("CI").is_none(),
+            "CI must provide go and node"
+        );
+        eprintln!("skipping: go or node is unavailable");
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    GoMarkerProofs::publish(root.path(), &GoMarkerProofs::START_FILES, "StartService").await;
+    let report = GoMarkerProofs::drive(root.path(), GoMarkerProofs::START_DRIVER);
+    assert_eq!(
+        report["request"],
+        json!(
+            "HTTP_REQUEST: A browser HTTP request or socket send cannot wait in OnStart, a getter or a setter. Publish an event from OnStart and make the request in an @OnEvent method."
+        ),
+        "{report}"
+    );
 }

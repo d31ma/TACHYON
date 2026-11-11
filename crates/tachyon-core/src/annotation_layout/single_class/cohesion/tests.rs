@@ -701,3 +701,84 @@ fn a_go_iterator_stop_check_is_not_a_decision() {
         "{decided}"
     );
 }
+
+fn go_service_messages(body: &str) -> Vec<String> {
+    let source = format!(
+        "// @Service\ntype NoteService struct {{\n\tstore *NoteStore\n}}\n\nfunc (service *NoteService) Load(id string) (Note, error) {{\n{body}}}\n"
+    );
+    messages("server/services/NoteService.go", &source)
+}
+
+#[test]
+fn a_go_error_return_is_not_a_decision() {
+    assert_eq!(
+        go_service_messages(
+            "\tnote, err := service.store.Read(id)\n\tif err != nil {\n\t\treturn Note{}, err\n\t}\n\treturn note, nil\n"
+        ),
+        Vec::<String>::new()
+    );
+}
+
+#[test]
+fn a_go_wrapped_error_return_after_a_long_call_is_not_a_decision() {
+    assert_eq!(
+        go_service_messages(
+            "\tnote, err := service.store.Read(\n\t\tid,\n\t)\n\tif err != nil {\n\t\treturn Note{}, fmt.Errorf(\"read note: %w\", err)\n\t}\n\treturn note, nil\n"
+        ),
+        Vec::<String>::new()
+    );
+}
+
+#[test]
+fn a_go_error_return_after_a_plain_assignment_is_not_a_decision() {
+    assert_eq!(
+        go_service_messages(
+            "\tvar note Note\n\terr = service.store.Fill(&note)\n\tif err != nil {\n\t\treturn note, err\n\t}\n\treturn note, nil\n"
+        ),
+        Vec::<String>::new()
+    );
+}
+
+#[test]
+fn a_go_error_check_with_another_statement_is_a_decision() {
+    assert_eq!(go_service_messages("\tnote, err := service.store.Read(id)\n\tif err != nil {\n\t\tservice.store.Forget(id)\n\t\treturn Note{}, err\n\t}\n\treturn note, nil\n").len(), 1);
+}
+
+#[test]
+fn a_go_error_check_with_an_else_is_a_decision() {
+    assert_eq!(go_service_messages("\tnote, err := service.store.Read(id)\n\tif err != nil {\n\t\treturn Note{}, err\n\t} else {\n\t\treturn note, nil\n\t}\n").len(), 1);
+}
+
+#[test]
+fn a_go_check_that_err_is_nil_is_a_decision() {
+    assert_eq!(go_service_messages("\tnote, err := service.store.Read(id)\n\tif err == nil {\n\t\treturn note, err\n\t}\n\treturn Note{}, nil\n").len(), 1);
+}
+
+#[test]
+fn a_go_error_check_that_returns_another_value_is_a_decision() {
+    assert_eq!(go_service_messages("\tnote, err := service.store.Read(id)\n\tif err != nil {\n\t\treturn Note{}, other\n\t}\n\treturn note, nil\n").len(), 1);
+}
+
+#[test]
+fn a_go_error_check_without_an_error_assignment_is_a_decision() {
+    assert_eq!(go_service_messages("\tnote := service.store.Find(id)\n\tif err != nil {\n\t\treturn note, err\n\t}\n\treturn note, nil\n").len(), 1);
+}
+
+#[test]
+fn a_go_error_check_with_more_conditions_is_a_decision() {
+    assert_eq!(go_service_messages("\tnote, err := service.store.Read(id)\n\tif err != nil && note.ID == \"\" {\n\t\treturn Note{}, err\n\t}\n\treturn note, nil\n").len(), 1);
+}
+
+#[test]
+fn a_go_error_return_that_does_not_wrap_is_a_decision() {
+    assert_eq!(go_service_messages("\tnote, err := service.store.Read(id)\n\tif err != nil {\n\t\treturn Note{}, fmt.Errorf(\"read note: %v\", err)\n\t}\n\treturn note, nil\n").len(), 1);
+}
+
+#[test]
+fn a_swift_error_check_is_still_a_decision() {
+    let source = "@Service\nfinal class NoteService {\n    func load(id: String) -> Error? {\n        let err = store.read(id)\n        if err != nil {\n            return err\n        }\n        return nil\n    }\n}\n";
+    assert_eq!(
+        messages("client/services/NoteService.swift", source).len(),
+        1
+    );
+}

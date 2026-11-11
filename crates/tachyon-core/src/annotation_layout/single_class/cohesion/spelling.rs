@@ -13,6 +13,7 @@ pub(in super::super) struct Spelling {
     containers: &'static [&'static str],
     private_words: &'static [&'static str],
     query_syntax: bool,
+    error_returns: bool,
     receiver_groups: bool,
     public_words: &'static [&'static str],
     parentheses_call: bool,
@@ -193,6 +194,7 @@ impl Spelling {
         containers: &["class"],
         private_words: &[],
         query_syntax: false,
+        error_returns: false,
         receiver_groups: false,
         public_words: &[],
         parentheses_call: true,
@@ -287,6 +289,7 @@ impl Spelling {
         heads: &["func"],
         containers: &[],
         receiver_groups: true,
+        error_returns: true,
         private_hint: "a method with a lowercase name, such as `func (service *Service) pick(value Item) Item`",
         ..Self::JAVASCRIPT
     };
@@ -391,6 +394,10 @@ impl Spelling {
 
     pub(in super::super) const fn has_query_syntax(&self) -> bool {
         self.query_syntax
+    }
+
+    pub(in super::super) const fn returns_errors(&self) -> bool {
+        self.error_returns
     }
 
     pub(in super::super) const fn has_receiver_groups(&self) -> bool {

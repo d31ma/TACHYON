@@ -547,6 +547,18 @@ Path and name rules:
 - Handlers, middleware and workers receive the snapshot as the reserved
   supervisor output `YON_APPLICATION_JSON`.
 - A value from the parent process cannot replace that output.
+- The snapshot has one root key, `yon`. The loader puts the whole file under
+  that namespace (ADR 0034), so a file with `"server":{"port":8080}` arrives as
+  `{"yon":{"server":{"port":8080}}}`. The selected profile and the `.env`
+  secrets are already merged in, and the server's host and port are filled in.
+  That is why every path in `@Setting("${yon.server.port}")` starts with
+  `yon.`. When the configuration is empty, the variable is not set; read it as
+  `{}`.
+- Pass the whole snapshot to `Behaviors.properties`/`Behaviors.values` (in Go,
+  `BehaviorsProperties[T](application)` and `BehaviorsValues[T](application)`
+  with a `// @Settings` or `// @Setting` model). They expect the `yon` root.
+  Code that reads a value by hand reads it below `yon`, for example
+  `application["yon"]["catalog"]["page"]["size"]`.
 - Changes to Yon settings, profiles or `.env` need a restart.
 - A change to `client/manifest.json` reloads Tac. It does not replace the live
   private snapshot.
