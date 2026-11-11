@@ -1,3 +1,4 @@
+mod address_ranges;
 mod app_origins;
 mod code_text;
 mod declared_hosts;
@@ -8,6 +9,8 @@ mod host_check;
 mod host_label;
 mod local_host_name;
 mod outgoing_url;
+mod private_host;
+mod private_hosts;
 mod query_argument;
 mod query_check;
 mod query_source;
@@ -34,6 +37,8 @@ mod host_tests;
 #[cfg(test)]
 mod local_host_name_tests;
 #[cfg(test)]
+mod private_hosts_tests;
+#[cfg(test)]
 #[allow(clippy::expect_used)]
 mod secret_tests;
 #[cfg(test)]
@@ -43,6 +48,7 @@ mod service_reach_tests;
 #[cfg(test)]
 mod trusted_proxies_tests;
 
+use address_ranges::AddressRanges;
 pub(crate) use app_origins::AppOrigins;
 use code_text::CodeText;
 pub(crate) use declared_hosts::DeclaredHosts;
@@ -53,6 +59,8 @@ pub(crate) use host_check::HostCheck;
 use host_label::HostLabel;
 pub use local_host_name::LocalHostName;
 use outgoing_url::OutgoingUrl;
+use private_host::PrivateHost;
+pub(crate) use private_hosts::PrivateHosts;
 use query_argument::QueryArgument;
 pub(crate) use query_check::QueryCheck;
 use query_source::QuerySource;

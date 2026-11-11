@@ -667,3 +667,73 @@ fn the_request_body_limit_defaults_to_one_mebibyte_and_accepts_up_to_twelve() {
         );
     }
 }
+
+#[test]
+fn outgoing_private_hosts_are_read_from_the_application_configuration() {
+    let config = loaded(configured(
+        r#"{"outgoing":{"hosts":["keycloak"],"private":[{"host":"keycloak","networks":["172.16.0.0/12"]}]}}"#,
+        "",
+    ));
+
+    assert!(
+        config
+            .private_hosts()
+            .admits("keycloak", [172, 18, 0, 4].into())
+    );
+    assert!(
+        !config
+            .private_hosts()
+            .admits("keycloak", [10, 0, 0, 4].into())
+    );
+}
+
+#[test]
+fn an_outgoing_private_host_missing_from_outgoing_hosts_stops_the_server() {
+    let failure = configured(
+        r#"{"outgoing":{"hosts":["router"],"private":[{"host":"keycloak","networks":["172.16.0.0/12"]}]}}"#,
+        "",
+    )
+    .err()
+    .map(|failure| failure.to_string())
+    .unwrap_or_default();
+
+    assert!(failure.contains("TY2010"), "{failure}");
+    assert!(failure.contains("yon.outgoing.hosts"), "{failure}");
+}
+
+#[test]
+fn an_outgoing_private_network_outside_the_private_ranges_stops_the_server() {
+    let failure = configured(
+        r#"{"outgoing":{"hosts":["keycloak"],"private":[{"host":"keycloak","networks":["169.254.0.0/16"]}]}}"#,
+        "",
+    )
+    .err()
+    .map(|failure| failure.to_string())
+    .unwrap_or_default();
+
+    assert!(failure.contains("TY2010"), "{failure}");
+    assert!(failure.contains("10.0.0.0/8"), "{failure}");
+}
+
+#[test]
+fn an_outgoing_private_entry_in_a_profile_is_checked_too() {
+    let root = temporary_directory();
+    write(
+        root.path(),
+        "server/application.json",
+        r#"{"outgoing":{"hosts":["keycloak"]}}"#,
+    );
+    write(
+        root.path(),
+        "server/application-docker.json",
+        r#"{"outgoing":{"private":[{"host":"keycloak","networks":["0.0.0.0/0"]}]}}"#,
+    );
+
+    let failure = load_with(root.path(), &[("YON_PROFILE", "docker")])
+        .err()
+        .map(|failure| failure.to_string())
+        .unwrap_or_default();
+
+    assert!(failure.contains("TY2010"), "{failure}");
+    assert!(failure.contains("yon.outgoing.private"), "{failure}");
+}

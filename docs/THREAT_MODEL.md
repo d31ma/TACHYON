@@ -434,7 +434,16 @@ separate cybersecurity review for this reconciliation.
   unspecified addresses from the answer, and a name left with no address gets
   `403`. So a wildcard such as `*.example.com` cannot be turned against an
   internal service by a name that points to one. Only an IP address listed in
-  `outgoing.hosts`, or a localhost name, reaches those addresses (ADR 0094). A
+  `outgoing.hosts`, or a localhost name, reaches those addresses (ADR 0094).
+  One exception is declared per name: an entry in `yon.outgoing.private`
+  names one exact listed host (never a wildcard) and the private networks it
+  may reach, each inside `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`,
+  `100.64.0.0/10` or `fc00::/7`. The guard keeps a resolved address of that
+  name only when it lies inside those networks, and checks the address it
+  connects to, so a changed DNS answer cannot leave them. Loopback,
+  link-local (including `169.254.169.254`) and the metadata addresses
+  `100.100.100.200` and `fd00:ec2::254` stay refused for every name (ADR 0094
+  amendment, 2026-11-11). A
   listed localhost name is never resolved: the guard connects it to `[::1]`
   and then `127.0.0.1`, so an `/etc/hosts` entry cannot point it elsewhere. A
   redirect is a new request through the guard, so its host is checked again.

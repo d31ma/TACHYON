@@ -3,7 +3,8 @@
 - Status: Accepted
 - Date: 2026-10-03
 - Amended by: [ADR 0113](0113-the-operating-system-confines-handler-egress.md)
-  (2026-10-31: the operating system enforces the outgoing request guard)
+  (2026-10-31: the operating system enforces the outgoing request guard);
+  the amendment of 2026-11-11 below (a named host on a private network)
 - Works with: ADR 0068 (outgoing requests go only to declared hosts: this
   ADR closes two ways around its run-time guard), ADR 0077 (the error page
   server gets the same Host check)
@@ -100,7 +101,8 @@ systemd-resolved do not resolve names under `.localhost`.
 - Several projects behind one port, chosen by `Host`.
 - A second listener on `::1` (dual stack).
 - TLS for names under `.localhost`.
-- A setting that lets a named private-network service through the guard.
+- ~~A setting that lets a named private-network service through the guard.~~
+  Done: see the amendment of 2026-11-11.
 - A repeatable `--allowed-host` flag.
 
 ## Amendment (2026-10-18): App origins and local Yon origins
@@ -145,3 +147,126 @@ Kotlin and Dart both ways: an unlisted loopback port gets `403`, and a listed
 `api.localhost` is reached.
 It passed on Linux in the cloud and on Windows 11 ARM64 (2026-10-19, see
 `docs/SUPPORT_TIERS.md`, "Yon handlers on Windows").
+
+## Amendment (2026-11-11): a named host on a private network
+
+### Context
+
+Decision 4 drops every private address from a resolved name. That is right
+for the public internet, but it blocks a Yon handler that runs in a container
+next to the services it calls. In Docker, Docker Compose or Floci's Lambda
+containers, `keycloak` and `router` are names on the container network, and
+they resolve only to private addresses such as `172.18.0.4`. Listing them in
+`outgoing.hosts` was not enough: the guard answered `403`. The two ways
+around it were poor. An IP address in `outgoing.hosts` breaks when the
+container network gives out a new address. A localhost name plus a port
+forwarder (Mesail ran `socat` in every image) adds a process to every image.
+
+The filter of decision 4 exists for two attacks, and the new setting must not
+open either of them:
+
+- server-side request forgery (SSRF): a caller makes the app send a request
+  to an internal address of the caller's choice;
+- DNS rebinding: a listed name, or a name under a listed wildcard, is pointed
+  at an internal address after the list was written.
+
+### Decision
+
+1. `server/application.json` gets `outgoing.private` (`yon.outgoing.private`),
+   a list of entries. Each entry names one host and the networks it may reach:
+
+   ```json
+   "outgoing": {
+     "hosts": ["keycloak", "router", "api.example.com"],
+     "private": [
+       { "host": "keycloak", "networks": ["172.16.0.0/12"] },
+       { "host": "router", "networks": ["172.16.0.0/12", "10.0.0.0/8"] }
+     ]
+   }
+   ```
+
+2. An entry has exactly two members, `host` and `networks`:
+   - `host` is one exact name that is also listed in `outgoing.hosts`. A
+     wildcard (`*.example.com`), an IP address and a localhost name are
+     refused. So a wildcard can never reach a private network.
+   - `networks` is a non-empty list of IP addresses or CIDR ranges. Each one
+     must lie wholly inside one private-use range: `10.0.0.0/8`,
+     `172.16.0.0/12`, `192.168.0.0/16`, `100.64.0.0/10` (shared address
+     space, used by some clusters and VPNs) or `fc00::/7` (unique local).
+     `0.0.0.0/0`, loopback, link-local and public ranges are refused.
+   - A host is named once.
+
+   A bad entry stops `ty serve`, `ty start` and `ty preview` with `TY2010`.
+   The check runs on the configuration after a `YON_PROFILE` profile is
+   merged, so a profile cannot add an unchecked entry. A bad entry is never
+   ignored.
+
+3. The guard still resolves a name once per connection and connects only to
+   the addresses it kept. It now keeps an address when it is public (as
+   before) or when it lies inside the networks of that host's entry. The
+   check runs on the address that the guard passes to `connect`, after an
+   IPv4-mapped IPv6 address is turned into its IPv4 form. There is no second
+   lookup, so a name that changes its answer cannot widen the check:
+   - a listed name without an entry that resolves to a private address still
+     gets `403`;
+   - a name with an entry that resolves outside its networks gets `403`;
+   - an answer with public and private addresses keeps only the allowed ones.
+
+4. Some addresses are never reached through a name, even inside a declared
+   network: loopback, every link-local address (all of `169.254.0.0/16`, so
+   the cloud metadata address `169.254.169.254` and the ECS task address
+   `169.254.170.2`, and `fe80::/10`), unspecified, multicast, and the cloud
+   metadata addresses that lie inside private ranges, `100.100.100.200`
+   (inside `100.64.0.0/10`) and `fd00:ec2::254` (inside `fc00::/7`). They
+   stay reachable only as before, by listing the IP address itself in
+   `outgoing.hosts`, or a localhost name for loopback. That is a separate,
+   explicit declaration.
+
+5. The first time the guard connects a host to a private address through its
+   entry, it logs one JSON line:
+   `{"address":"172.18.0.4","event":"handler.egress_private","host":"keycloak"}`.
+   The `403` for a name that resolves only to refused addresses names
+   `yon.outgoing.private` as the way to reach a private service.
+
+6. This is a Yon setting only. Pages and native apps send their requests
+   from the browser or web view, checked by `connect-src` (ADR 0068), not
+   through the guard, so `tac.outgoing.hosts` does not change.
+
+### Options considered
+
+- A flag per host (`"private": true`) that allows any private address. It is
+  shorter, but it lets a name reach every private range, for example `10/8`
+  when the app only meant a Docker network in `172.18.0.0/16`.
+- One list of networks for every listed host. A wildcard such as
+  `*.example.com` could then be pointed at an internal service, which is the
+  attack decision 4 stops.
+- Entries written inside `outgoing.hosts` as objects. Every current reader
+  of that list reads only text, so an older `ty` would skip the object
+  without a word.
+- A command-line flag or an environment variable. It is not visible in the
+  repository, and it is easy to leave on in production.
+- The IP address or a forwarder, as before. Both still work, but container
+  addresses change and a forwarder is one more process in every image.
+
+### Consequences
+
+- One change in the guard covers every Yon language. The guard runs inside
+  `ty`, and on macOS and Linux the operating system lets a handler process
+  connect only to the guard and its resource door (ADR 0113); on Windows the
+  proxy settings send every standard client to the guard. The confinement
+  rules themselves do not change.
+- Firecracker isolation keeps its own deny-only egress setting, and
+  `ty handler invoke` still runs no guard.
+- Each opted-in name can reach only its own networks. If the name's DNS is
+  taken over, it can still reach any address inside those networks, so keep
+  each list as narrow as the deployment allows, such as the one Docker
+  network the service is on.
+- Mesail can drop its `socat` forwarders and write the container names with
+  their network in the profile it uses for Docker and Floci.
+
+Tests: `handler::egress::egress_private_tests` (an opted-in name reached
+through the guard on this machine's own private address; a listed name
+without an entry refused; rebinding outside the networks, to loopback, to
+link-local and to the metadata addresses refused), `safety::private_hosts_tests`
+and the `outgoing_private` tests in `application::tests`.
+

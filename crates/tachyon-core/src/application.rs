@@ -1,6 +1,8 @@
 use crate::Failure;
 use crate::failure::diagnostic;
-use crate::safety::{AppOrigins, EnvironmentAllowlist, ServerHost, TrustedProxies};
+use crate::safety::{
+    AppOrigins, DeclaredHosts, EnvironmentAllowlist, PrivateHosts, ServerHost, TrustedProxies,
+};
 use crate::sorted_json::SortedJson;
 use cap_fs_ext::{FollowSymlinks, OpenOptionsFollowExt, OpenOptionsSyncExt};
 use cap_std::fs::{Dir, File, Metadata, OpenOptions};
@@ -33,6 +35,7 @@ pub struct ApplicationConfig {
     handler_json: Option<String>,
     topics_directory: Option<String>,
     max_request_bytes: Option<usize>,
+    private_hosts: PrivateHosts,
 }
 
 impl fmt::Debug for ApplicationConfig {
@@ -50,6 +53,8 @@ impl ApplicationConfig {
     const APPLICATION: &str = "server/application.json";
     const MAX_RESOLVED_BYTES: usize = 16_384;
     const MAX_KEYS: usize = 128;
+    const OUTGOING_HOSTS: &str = "/yon/outgoing/hosts";
+    const OUTGOING_PRIVATE: &str = "/yon/outgoing/private";
     const HOSTS_MESSAGE: &str = "yon.server.hosts must be a list of host names without scheme, port or path, such as \"app.example.com\" or \"*.example.com\".";
     const TRUSTED_PROXIES_MESSAGE: &str = "yon.server.proxies must be a list of proxy IP addresses or CIDR ranges, such as \"10.0.0.5\" or \"10.0.0.0/8\" (ADR 0096).";
     const APP_ORIGINS_MESSAGE: &str = "yon.server.origins must be a list of app origins written as a scheme and host with no path, such as \"tachyon-app://bundle\" or \"https://app.example.com\" (ADR 0103).";
@@ -138,6 +143,10 @@ impl ApplicationConfig {
         &self.app_origins
     }
 
+    pub(crate) const fn private_hosts(&self) -> &PrivateHosts {
+        &self.private_hosts
+    }
+
     pub(crate) const fn handler_environment(&self) -> &EnvironmentAllowlist {
         &self.handler_environment
     }
@@ -214,6 +223,7 @@ impl ApplicationConfig {
             Self::handler_environment_from(document.pointer("/yon/server/environment"))?;
         let topics_directory =
             Self::topics_directory_from(document.pointer("/yon/topics/directory"))?;
+        let private_hosts = Self::private_hosts_from(&document)?;
         let max_request_bytes = document
             .pointer("/yon/server/maxbody")
             .map(Self::request_bytes)
@@ -238,7 +248,13 @@ impl ApplicationConfig {
             handler_json,
             topics_directory,
             max_request_bytes,
+            private_hosts,
         })
+    }
+
+    fn private_hosts_from(document: &Value) -> Result<PrivateHosts, Failure> {
+        let hosts = DeclaredHosts::stored_hosts(document, Self::OUTGOING_HOSTS).unwrap_or_default();
+        PrivateHosts::parse(document.pointer(Self::OUTGOING_PRIVATE), &hosts).map_err(invalid)
     }
 
     fn request_bytes(value: &Value) -> Result<usize, Failure> {

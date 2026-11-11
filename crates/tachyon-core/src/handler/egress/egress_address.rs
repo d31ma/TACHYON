@@ -1,4 +1,5 @@
-use crate::safety::LocalHostName;
+use super::EgressRules;
+use crate::safety::{LocalHostName, PrivateHosts};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
 pub(super) struct EgressAddress;
@@ -22,8 +23,12 @@ impl EgressAddress {
     const DISCARD_PREFIX: [u16; 4] = [0x100, 0, 0, 0];
     const TRANSLATED_PREFIX: [u16; 6] = [0, 0, 0, 0, 0xffff, 0];
 
-    pub(super) async fn candidates(host: &str, port: u16) -> std::io::Result<Vec<SocketAddr>> {
-        Self::resolved_unless_fixed(host, port, Self::fixed(host, port)).await
+    pub(super) async fn candidates(
+        host: &str,
+        port: u16,
+        rules: &EgressRules,
+    ) -> std::io::Result<Vec<SocketAddr>> {
+        Self::resolved_unless_fixed(host, port, Self::fixed(host, port), rules).await
     }
 
     pub(super) fn is_public(address: IpAddr) -> bool {
@@ -50,14 +55,24 @@ impl EgressAddress {
         host: &str,
         port: u16,
         fixed: Option<Vec<SocketAddr>>,
+        rules: &EgressRules,
     ) -> std::io::Result<Vec<SocketAddr>> {
         if let Some(addresses) = fixed {
             return Ok(addresses);
         }
-        let resolved = tokio::net::lookup_host((host, port)).await?;
-        Ok(resolved
-            .filter(|address| Self::is_public(address.ip()))
-            .collect())
+        let resolved = rules.resolve(host, port).await?;
+        Ok(Self::kept(host, resolved, rules.hosts().private()))
+    }
+
+    fn kept(host: &str, resolved: Vec<SocketAddr>, private: &PrivateHosts) -> Vec<SocketAddr> {
+        resolved
+            .into_iter()
+            .filter(|address| Self::admits(host, address.ip(), private))
+            .collect()
+    }
+
+    fn admits(host: &str, address: IpAddr, private: &PrivateHosts) -> bool {
+        Self::is_public(address) || private.admits(host, address)
     }
 
     fn is_local_v4(address: IpAddr) -> bool {

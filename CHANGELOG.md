@@ -10,6 +10,15 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- **A Yon handler can reach a named service on a private network** (ADR 0094
+  amendment). List the name in `outgoing.hosts` and add an entry such as
+  `{"host": "keycloak", "networks": ["172.16.0.0/12"]}` to the new
+  `yon.outgoing.private`. The outgoing request guard then connects that name
+  to the addresses it resolves inside those networks, so a handler in Docker
+  or Floci can call `keycloak:8080` without a port forwarder. Every other name
+  still gets `403` for a private address; wildcards, IP addresses and
+  localhost names cannot have an entry; loopback, link-local and cloud metadata
+  addresses stay refused; and a bad entry stops the server with `TY2010`.
 - **Every Tac service language gets `Files`** (ADR 0116): JavaScript,
   TypeScript, Rust, Go, C#, F#, Swift, Kotlin, Java, Dart, Ruby, Lua, C++ and
   Python get the same calls and file events in their own style.

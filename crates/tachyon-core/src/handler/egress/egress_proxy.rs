@@ -1,4 +1,4 @@
-use super::EgressTunnel;
+use super::{EgressResolver, EgressRules, EgressTunnel};
 use crate::Failure;
 use crate::failure::diagnostic;
 use crate::safety::DeclaredHosts;
@@ -31,13 +31,17 @@ impl EgressProxy {
     const ACCEPT_PAUSE: Duration = Duration::from_millis(100);
 
     pub(crate) async fn start(hosts: DeclaredHosts) -> Result<SocketAddr, Failure> {
+        Self::start_with(EgressRules::new(hosts, EgressResolver::system())).await
+    }
+
+    pub(super) async fn start_with(rules: EgressRules) -> Result<SocketAddr, Failure> {
         let listener = TcpListener::bind((Self::LOOPBACK, 0))
             .await
             .map_err(|error| Self::failure(&error))?;
         let address = listener
             .local_addr()
             .map_err(|error| Self::failure(&error))?;
-        tokio::spawn(Self::accept(listener, Arc::new(hosts)));
+        tokio::spawn(Self::accept(listener, Arc::new(rules)));
         Ok(address)
     }
 
@@ -60,39 +64,39 @@ impl EgressProxy {
         }
     }
 
-    async fn accept(listener: TcpListener, hosts: Arc<DeclaredHosts>) {
+    async fn accept(listener: TcpListener, rules: Arc<EgressRules>) {
         let slots = Arc::new(Semaphore::new(Self::MAX_CONNECTIONS));
         let mut reported = HashSet::new();
         loop {
-            Self::take(listener.accept().await, &hosts, &slots, &mut reported).await;
+            Self::take(listener.accept().await, &rules, &slots, &mut reported).await;
         }
     }
 
     async fn take(
         accepted: std::io::Result<(TcpStream, SocketAddr)>,
-        hosts: &Arc<DeclaredHosts>,
+        rules: &Arc<EgressRules>,
         slots: &Arc<Semaphore>,
         reported: &mut HashSet<ErrorKind>,
     ) {
         match accepted {
-            Ok((stream, _)) => Self::admit(stream, hosts, slots),
+            Ok((stream, _)) => Self::admit(stream, rules, slots),
             Err(error) => Self::pause_after(&error, reported).await,
         }
     }
 
-    fn admit(stream: TcpStream, hosts: &Arc<DeclaredHosts>, slots: &Arc<Semaphore>) {
+    fn admit(stream: TcpStream, rules: &Arc<EgressRules>, slots: &Arc<Semaphore>) {
         let slot = Arc::clone(slots).try_acquire_owned().ok();
-        tokio::spawn(Self::serve_or_refuse(stream, Arc::clone(hosts), slot));
+        tokio::spawn(Self::serve_or_refuse(stream, Arc::clone(rules), slot));
     }
 
     async fn serve_or_refuse(
         stream: TcpStream,
-        hosts: Arc<DeclaredHosts>,
+        rules: Arc<EgressRules>,
         slot: Option<OwnedSemaphorePermit>,
     ) {
         match slot {
             Some(slot) => {
-                EgressTunnel::serve(stream, hosts).await;
+                EgressTunnel::serve(stream, rules).await;
                 drop(slot);
             }
             None => EgressTunnel::refuse_busy(stream).await,

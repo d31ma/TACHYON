@@ -5,6 +5,9 @@
     "hosts": ["preview.example.com", "*.tunnel.example"]
   },
   "outgoing": {
-    "hosts": ["api.localhost", "10.0.0.5", "api.example.com"]
+    "hosts": ["api.localhost", "10.0.0.5", "api.example.com", "keycloak"],
+    "private": [
+      { "host": "keycloak", "networks": ["172.16.0.0/12"] }
+    ]
   }
 }

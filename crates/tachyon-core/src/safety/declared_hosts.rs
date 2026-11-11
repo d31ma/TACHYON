@@ -1,4 +1,4 @@
-use super::HostLabel;
+use super::{HostLabel, PrivateHosts};
 use cap_std::fs::Dir;
 use serde_json::Value;
 
@@ -7,6 +7,7 @@ pub(crate) struct DeclaredHosts {
     hosts: Vec<String>,
     setting: &'static str,
     yon_origin: Option<String>,
+    private: PrivateHosts,
 }
 
 impl DeclaredHosts {
@@ -60,11 +61,20 @@ impl DeclaredHosts {
             hosts: hosts.iter().map(|host| host.to_ascii_lowercase()).collect(),
             setting,
             yon_origin: None,
+            private: PrivateHosts::default(),
         }
     }
 
     pub(crate) fn with_yon_origin(self, yon_origin: Option<String>) -> Self {
         Self { yon_origin, ..self }
+    }
+
+    pub(crate) fn with_private(self, private: PrivateHosts) -> Self {
+        Self { private, ..self }
+    }
+
+    pub(crate) const fn private(&self) -> &PrivateHosts {
+        &self.private
     }
 
     pub(crate) fn is_name_entry(entry: &str) -> bool {
@@ -82,6 +92,7 @@ impl DeclaredHosts {
             hosts: hosts.iter().map(|host| host.to_ascii_lowercase()).collect(),
             setting,
             yon_origin: None,
+            private: PrivateHosts::default(),
         }
     }
 
@@ -116,6 +127,7 @@ impl DeclaredHosts {
             hosts: Self::stored_hosts(&document, pointer).unwrap_or_default(),
             setting,
             yon_origin: Self::stored_yon_origin(&document),
+            private: PrivateHosts::default(),
         }
     }
 
@@ -124,6 +136,7 @@ impl DeclaredHosts {
             hosts: Vec::new(),
             setting,
             yon_origin: None,
+            private: PrivateHosts::default(),
         }
     }
 
@@ -132,7 +145,7 @@ impl DeclaredHosts {
         serde_json::from_slice(&bytes).ok()
     }
 
-    fn stored_hosts(document: &Value, pointer: &str) -> Option<Vec<String>> {
+    pub(crate) fn stored_hosts(document: &Value, pointer: &str) -> Option<Vec<String>> {
         let listed = document.pointer(pointer)?.as_array()?;
         Some(listed.iter().filter_map(Self::host_name).collect())
     }

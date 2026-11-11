@@ -1,4 +1,4 @@
-use super::{EgressAddress, EgressHead, EgressPump, EgressTarget};
+use super::{EgressAddress, EgressHead, EgressPump, EgressRules, EgressTarget};
 use crate::safety::DeclaredHosts;
 use std::sync::Arc;
 use std::time::Duration;
@@ -18,14 +18,14 @@ impl EgressTunnel {
     const UNREACHABLE: &'static str =
         "HTTP/1.1 502 Bad Gateway\r\nConnection: close\r\nContent-Length: 0\r\n\r\n";
 
-    pub(super) async fn serve(mut client: TcpStream, hosts: Arc<DeclaredHosts>) {
+    pub(super) async fn serve(mut client: TcpStream, rules: Arc<EgressRules>) {
         let head = tokio::time::timeout(
             Self::HEAD_TIMEOUT,
             EgressHead::read(&mut client, Vec::new(), Self::MAX_HEAD),
         )
         .await;
         let target = Self::target(head.ok().flatten());
-        let _ = Self::relay(client, target, &hosts).await;
+        let _ = Self::relay(client, target, &rules).await;
     }
 
     pub(super) async fn refuse_busy(mut client: TcpStream) {
@@ -40,10 +40,10 @@ impl EgressTunnel {
     async fn relay(
         mut client: TcpStream,
         target: Option<(EgressTarget, Vec<u8>)>,
-        hosts: &DeclaredHosts,
+        rules: &EgressRules,
     ) -> std::io::Result<()> {
-        match Self::decision(target, hosts) {
-            Ok((target, rest)) => Self::connect(client, &target, &rest, hosts).await,
+        match Self::decision(target, rules.hosts()) {
+            Ok((target, rest)) => Self::connect(client, &target, &rest, rules).await,
             Err(answer) => client.write_all(answer.as_bytes()).await,
         }
     }
@@ -71,22 +71,24 @@ impl EgressTunnel {
         client: TcpStream,
         target: &EgressTarget,
         rest: &[u8],
-        hosts: &DeclaredHosts,
+        rules: &EgressRules,
     ) -> std::io::Result<()> {
-        let upstream = Self::open(target, hosts).await;
+        let upstream = Self::open(target, rules).await;
         Self::bridge(client, upstream, target, rest).await
     }
 
-    async fn open(target: &EgressTarget, hosts: &DeclaredHosts) -> Result<TcpStream, String> {
-        let addresses = EgressAddress::candidates(&target.host, target.port)
+    async fn open(target: &EgressTarget, rules: &EgressRules) -> Result<TcpStream, String> {
+        let addresses = EgressAddress::candidates(&target.host, target.port, rules)
             .await
             .map_err(|_| String::from(Self::UNREACHABLE))?;
         let addresses = Some(addresses)
             .filter(|addresses| !addresses.is_empty())
-            .ok_or_else(|| Self::private_refusal(target, hosts))?;
-        TcpStream::connect(addresses.as_slice())
+            .ok_or_else(|| Self::private_refusal(target, rules.hosts()))?;
+        let stream = TcpStream::connect(addresses.as_slice())
             .await
-            .map_err(|_| String::from(Self::UNREACHABLE))
+            .map_err(|_| String::from(Self::UNREACHABLE))?;
+        rules.note_connection(&target.host, &stream);
+        Ok(stream)
     }
 
     async fn bridge(
@@ -150,7 +152,7 @@ impl EgressTunnel {
 
     fn private_refusal(target: &EgressTarget, hosts: &DeclaredHosts) -> String {
         let message = format!(
-            "Tachyon refused a request to {}: the name resolves only to loopback, private or link-local addresses. To reach a local or private service, list its IP address or a localhost name in {} (ADR 0094).",
+            "Tachyon refused a request to {}: the name resolves only to loopback, private or link-local addresses that are not allowed for it. To reach a service on a private network by name, add the name and its network to yon.outgoing.private; to reach a loopback service, list a localhost name or its IP address in {} (ADR 0094).",
             target.host,
             hosts.setting()
         );

@@ -1,6 +1,6 @@
 use super::{
     EgressAddress, EgressConfinement, EgressEnforcement, EgressFraming, EgressProxy, EgressPump,
-    EgressTarget, NodeProxyGate,
+    EgressResolver, EgressRules, EgressTarget, NodeProxyGate,
 };
 use crate::handler::{EnvironmentPolicy, HandlerRuntimePrograms};
 use crate::safety::DeclaredHosts;
@@ -132,7 +132,11 @@ async fn a_listed_localhost_name_reaches_loopback_without_asking_the_resolver() 
     )
     .await;
     assert!(tunnel.ends_with("reached"), "{tunnel}");
-    let candidates = EgressAddress::candidates("API.localhost.", port)
+    let rules = EgressRules::new(
+        DeclaredHosts::listed(&["api.localhost"], "outgoing.hosts"),
+        EgressResolver::system(),
+    );
+    let candidates = EgressAddress::candidates("API.localhost.", port, &rules)
         .await
         .expect("candidates");
     let expected: Vec<std::net::SocketAddr> =

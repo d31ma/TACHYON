@@ -7,6 +7,9 @@
   (local host names) and
   [ADR 0014](0014-environment-selected-yon-isolation.md)
   (environment-selected isolation)
+- See also: the 2026-11-11 amendment of ADR 0094 (`yon.outgoing.private`):
+  the guard may connect a named host to its declared private networks. The
+  confinement rules of this ADR do not change.
 
 ## Context
 

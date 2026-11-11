@@ -186,9 +186,10 @@ impl DevServer {
     ) -> Result<Self, Failure> {
         Self::validate_dev_exposure(options)?;
         let mut policy = crate::HandlerSupervisorOptions::from_environment()?;
+        let private = application.private_hosts().clone();
         policy.application = application;
         let supervisor = Arc::new(HandlerSupervisor::new(policy)?);
-        let hosts = crate::safety::DeclaredHosts::yon(&project.capability());
+        let hosts = crate::safety::DeclaredHosts::yon(&project.capability()).with_private(private);
         supervisor
             .guard_outgoing_requests(hosts, options.kind == ServerKind::Production)
             .await?;
