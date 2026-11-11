@@ -6,7 +6,7 @@ use super::csharp_stream_tests::CsharpStreams;
 use super::java_tests::java_web_ready;
 use super::kotlin_tests::kotlin_web_ready;
 use super::rust_marker_proof_tests::RustPage;
-use super::socket_hooks_harness::{SocketHooks, SocketHooksCase};
+use super::socket_hooks_shared_tests::{SocketHooks, SocketHooksCase};
 use super::swift_tests::swift_web_ready;
 
 struct LanguageHooks;

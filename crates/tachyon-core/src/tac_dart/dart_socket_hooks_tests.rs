@@ -1,7 +1,7 @@
 #![allow(clippy::expect_used)]
 
 use super::dart_stream_tests::DartStreams;
-use crate::tac_web::socket_hooks_harness::SocketHooks;
+use crate::tac_web::socket_hooks_shared_tests::SocketHooks;
 
 struct DartHooks;
 

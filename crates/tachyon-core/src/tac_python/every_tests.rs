@@ -1,6 +1,6 @@
 use super::page_tests::PythonPage;
 use crate::tac_web::WebLanguage;
-use crate::tac_web::socket_hooks_harness::{SocketHooks, SocketHooksCase};
+use crate::tac_web::socket_hooks_shared_tests::{SocketHooks, SocketHooksCase};
 
 struct PythonEvery;
 

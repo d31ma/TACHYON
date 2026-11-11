@@ -52,7 +52,8 @@ impl SocketHooks {
          await pause(50)\n\
          report.reopens = chat.reopens\n";
 
-    const TIMER_STEPS: &'static str = "await intervals[0].work()\n\
+    const TIMER_STEPS: &'static str = "if (!intervals.length) { console.log(JSON.stringify({ ...report, noTimer: plan.types[0].timers ?? null, methods: Object.getOwnPropertyNames(chat), failures })); process.exit(0) }\n\
+         await intervals[0].work()\n\
          report.ticksShown = chat.ticks\n\
          document.visibilityState = 'hidden'\n\
          await intervals[0].work()\n\

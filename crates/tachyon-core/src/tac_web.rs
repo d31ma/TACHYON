@@ -922,7 +922,7 @@ mod go_stream_tests;
 mod go_socket_hooks_tests;
 
 #[cfg(test)]
-pub(crate) mod socket_hooks_harness;
+pub(crate) mod socket_hooks_shared_tests;
 
 #[cfg(test)]
 mod socket_hooks_tests;
