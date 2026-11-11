@@ -24,7 +24,7 @@ machine contracts have their own, independent major versions.
   (ADR 0115) moves focus to an element named with `data-focus`, traps Tab
   and Shift+Tab inside a container such as a dialog, and returns focus to
   the opener on release. Every Tac service language has it except Python,
-  which gets browser APIs with ADR 0122: Go uses `// @Needs` with
+  which gets browser APIs with ADR 0121: Go uses `// @Needs` with
   `focus Focus`, JavaScript and TypeScript use `@Needs focus`, and Rust,
   C#, F#, Swift, Kotlin, Java, Dart, Ruby, Lua and C++ get a `Focus` client
   like their `Clock`. Each call runs after the next render, and a failure
@@ -64,7 +64,7 @@ machine contracts have their own, independent major versions.
   language, with the same `tac.browserApis` grants. A Python service can also
   listen for every built-in browser event model, and a Python test unit
   answers the calls with `BrowserFakes.answer`. Before, a Python service that
-  used a browser API stopped the build with `TY1605` (ADR 0122).
+  used a browser API stopped the build with `TY1605` (ADR 0121).
   the opener on release. Go services use `// @Needs` with `focus Focus`;
   JavaScript and TypeScript services use `@Needs focus`. Each call runs after
   the next render, and a failure arrives as `BrowserCallFailed`.

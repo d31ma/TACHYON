@@ -1,4 +1,4 @@
-# ADR 0122: Python Services Reach the Browser APIs Through the Page
+# ADR 0121: Python Services Reach the Browser APIs Through the Page
 
 - Status: Accepted
 - Date: 2026-11-11

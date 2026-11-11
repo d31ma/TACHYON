@@ -50,7 +50,7 @@ WebView2, WebKitGTK and the Android WebView have no Push API. Native push
    | Swift | `Push()` | `supported()`, `subscribe(applicationServerKey:)`, `subscription()`, `unsubscribe()`, all `throws` |
    | Ruby | `Push.new` | `supported`, `subscribe(key)`, `subscription`, `unsubscribe` |
    | Lua | the global table `Push` | `Push:supported()`, `Push:subscribe(key)`, `Push:subscription()`, `Push:unsubscribe()` |
-   | Python | a `needs` field `push: Annotated[Push, needs]` (ADR 0122) | `supported()`, `subscribe(key)`, `subscription()`, `unsubscribe()`; a refusal raises `RuntimeError` |
+   | Python | a `needs` field `push: Annotated[Push, needs]` (ADR 0121) | `supported()`, `subscribe(key)`, `subscription()`, `unsubscribe()`; a refusal raises `RuntimeError` |
 
    A Swift, Kotlin, C# or Rust service that is linked into a native app as
    native code cannot use `Push`, like every page client: it belongs to the

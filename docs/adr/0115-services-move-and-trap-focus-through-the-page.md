@@ -95,8 +95,9 @@ when the method runs.
        `Focus:release`; a failure is a Lua error.
      - C++: `[[Needs]] Focus& focus;` with `move`, `trap` and `release`; a
        failure throws `std::runtime_error`.
-   - Python (ADR 0122): a `needs` field `focus: Annotated[Focus, needs]`
-     with `move`, `trap` and `release`; a failure is a `RuntimeError`.
+     - Python (ADR 0121): a `needs` field `focus: Annotated[Focus, needs]`
+       with `move`, `trap` and `release`; a failure is a `RuntimeError`.
+       Its test is `tac_python::browser_api_tests`.
    - A service that is linked into a native app (Rust, C#, Swift or Kotlin
      as a native companion) has no page, so the build refuses `Focus` there
      with `TY1317`, like the other curated types.
@@ -107,7 +108,7 @@ when the method runs.
    `tac.browserApis` and no manifest member. `target_support.json` needs no
    entry (ADR 0102 lists manifest members).
 9. Targets: a Tac service that runs in the page (every Go, Dart, Ruby,
-   Lua, C++, Java, F#, JavaScript and TypeScript service, and every Rust,
+   Lua, C++, Java, F#, Python, JavaScript and TypeScript service, and every Rust,
    C#, Swift or Kotlin service that is not a native companion) works the same
    on web, macOS, Windows, Linux, iOS and Android, because the page runs in
    a browser or the platform web view (ADR 0018). The API uses only `focus()`, `getClientRects()`, `closest()`, `keydown` and
@@ -125,4 +126,4 @@ when the method runs.
   call with a `BrowserCallFailed` event, not a build error.
 - Focus calls run after the render, so a service cannot read the result at
   once. A failure arrives as an event.
-- Python services move focus through the same page host (ADR 0122).
+- Python services move focus through the same page host (ADR 0121).
