@@ -11,9 +11,8 @@ machine contracts have their own, independent major versions.
 ### Added
 
 - **Every Tac service language gets `Files`** (ADR 0116): JavaScript,
-  TypeScript, Rust, Go, C#, F#, Swift, Kotlin, Java, Dart, Ruby, Lua and C++
-  get the same calls and file events in their own style. Python gets them with
-  its browser APIs (ADR 0122).
+  TypeScript, Rust, Go, C#, F#, Swift, Kotlin, Java, Dart, Ruby, Lua, C++ and
+  Python get the same calls and file events in their own style.
 - **Go services pick, hold and upload files** (ADR 0116). Grant `files` in
   `tac.browserApis` and add a `// @Needs` field `files Files`. `Pick` opens the
   file chooser, and `data-tac-drop-zone` elements take dropped files; each file

@@ -136,7 +136,7 @@ five event models, in its own style:
 | Swift | `Files()` | `pick(accept:multiple:)`, `read(id:offset:count:)`, `release(id:)`, `upload(id:method:url:headers:)`, `cancel(upload:)`, each `throws` |
 | Kotlin, Java, Dart, C++ | `Files()`, `new Files()`, `@Needs()`, `[[Needs]] Files&` | `pick`, `read`, `release`, `upload`, `cancel` |
 | Ruby, Lua | `Files.new`, the global `Files` table | `pick`, `read`, `release`, `upload`, `cancel` |
-| Python | none yet | Python's browser APIs come with ADR 0122; until then a Python service that names `Files` stops the build with `TY1605` |
+| Python | `files: Annotated[Files, needs]` (ADR 0122) | `pick`, `read`, `release`, `upload`, `cancel`; a refusal raises `RuntimeError` |
 
 `Files` is one of the browser API types (`WebApiClients::TYPE_NAMES`), so a
 native service that is linked into an app cannot use it (`TY1317`), as with

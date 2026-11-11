@@ -27,6 +27,7 @@ impl PythonBrowserApis {
         include_str!("web_apis/push.py"),
         include_str!("web_apis/window_controls.py"),
         include_str!("web_apis/focus.py"),
+        include_str!("web_apis/files.py"),
     );
     const REGISTER: &'static str = "_TacPythonBrowserClients.register";
 

@@ -112,6 +112,39 @@ impl BrowserApiPage {
          _report['endpoint'] = _ask('stamp', {'op': 'get', 'name': 'endpoint'})\n\
          _report['requests'] = [[item['api'], item['call'], item['args']] for item in _requests]\n";
 
+    const ATTACH: [(&'static str, &'static str); 1] = [(
+        "client/services/AttachService.py",
+        "from typing import Annotated\n\n\
+         @service\n\
+         class AttachService:\n\
+         \x20   files: Annotated[Files, needs]\n\
+         \x20   name: str = ''\n\n\
+         \x20   def choose(self) -> None:\n\
+         \x20       self.files.pick('.txt', True)\n\n\
+         \x20   def store(self) -> str:\n\
+         \x20       self.files.read('file-1', 0, 3)\n\
+         \x20       upload = self.files.upload('file-1', 'PUT', '/uploads', 'content-type: text/plain')\n\
+         \x20       self.files.cancel(upload)\n\
+         \x20       self.files.release('file-1')\n\
+         \x20       return upload\n\n\
+         \x20   @on_event\n\
+         \x20   def picked(self, picked: FilePicked) -> None:\n\
+         \x20       self.name = f'{picked.name} {picked.media} {picked.sha256}'\n",
+    )];
+
+    const FILES_DRIVER: &'static str = "_requests = []\n\
+         def _web(text):\n\
+         \x20   request = json.loads(text)\n\
+         \x20   _requests.append(request)\n\
+         \x20   return json.dumps({'value': 'upload-1' if request['call'] == 'upload' else None})\n\
+         _TacPythonRuntime.connect(_emitted.append, None, web=_web)\n\
+         _call = lambda name: _ask('attach', {'op': 'call', 'name': name, 'args': []})\n\
+         _report = {'init': _ask('attach', {'op': 'init', 'props': {}})}\n\
+         _report.update({name: _call(name) for name in ['choose', 'store']})\n\
+         _report['heard'] = _ask('attach', {'op': 'event', 'name': 'picked', 'value': {'id': 'file-1', 'name': 'a.txt', 'size': 3, 'media': 'text/plain', 'sha256': 'ab12', 'index': 0, 'count': 1}})\n\
+         _report['name'] = _ask('attach', {'op': 'get', 'name': 'name'})\n\
+         _report['requests'] = [[item['api'], item['call'], item['args']] for item in _requests]\n";
+
     fn provider(source: &str) -> PythonProviderSource {
         PythonProviderSource::read(Path::new("client/services/StampService.py"), source)
             .unwrap_or_else(|error| panic!("provider: {error:?}"))
@@ -309,4 +342,37 @@ fn the_python_page_engine_gives_the_runtime_the_web_host() {
     let engine = include_str!("python_host.js");
     assert!(engine.contains("web: (text) => webHost(text)"));
     assert!(engine.contains("hosts?.socket, hosts?.web)"));
+}
+
+#[test]
+fn python_services_pick_read_and_upload_files_through_the_page() {
+    if !PythonPage::has_python() {
+        return;
+    }
+    let report = PythonPage::run(
+        &BrowserApiPage::ATTACH,
+        &["attach"],
+        BrowserApiPage::FILES_DRIVER,
+    );
+    assert_eq!(report["store"], json!({"value": "upload-1"}), "{report}");
+    assert_eq!(
+        report["name"],
+        json!({"value": "a.txt text/plain ab12"}),
+        "{report}"
+    );
+    assert_eq!(
+        report["requests"],
+        json!([
+            ["files", "pick", [".txt", true]],
+            ["files", "read", ["file-1", 0, 3]],
+            [
+                "files",
+                "upload",
+                ["file-1", "PUT", "/uploads", "content-type: text/plain"]
+            ],
+            ["files", "cancel", ["upload-1"]],
+            ["files", "release", ["file-1"]],
+        ]),
+        "{report}"
+    );
 }
