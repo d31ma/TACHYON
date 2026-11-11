@@ -20,15 +20,18 @@ impl CsharpWebApis {
         include_str!("web_apis/Focus.cs")
     );
 
-    const FILES: &'static str = include_str!("web_apis/Files.cs");
     const LIBRARY_USINGS: &'static str = "using System.Text.Json.Nodes;\n\n";
+    const FILES_AND_SPACE: &'static str = concat!(
+        include_str!("web_apis/Files.cs"),
+        include_str!("web_apis/StorageSpace.cs")
+    );
     const BROWSER_FAKES: &'static str = include_str!("web_apis/BrowserFakes.cs");
 
     pub(super) fn with_events(own: &[String]) -> String {
         format!(
             "{}{}{}{}",
             Self::BROWSER,
-            Self::FILES,
+            Self::FILES_AND_SPACE,
             FilePickerSources::csharp_page(),
             WebEventSources::csharp(own)
         )
@@ -46,7 +49,7 @@ impl CsharpWebApis {
         );
         format!(
             "{source}{}{}{}",
-            Self::FILES,
+            Self::FILES_AND_SPACE,
             FilePickerSources::csharp_native(),
             WebEventSources::csharp(own)
         )
@@ -57,7 +60,7 @@ impl CsharpWebApis {
             "{}{}{}{}",
             Self::LIBRARY_USINGS,
             Self::BROWSER,
-            Self::FILES,
+            Self::FILES_AND_SPACE,
             FilePickerSources::csharp()
         )
     }

@@ -9,7 +9,7 @@ struct WebApis;
 
 impl WebApis {
     const RUNTIME: &str = include_str!("../template/tac-web.js");
-    const MOST_RUNTIME_BYTES: usize = 13_500;
+    const MOST_RUNTIME_BYTES: usize = 15_500;
     const DRIVER_DEADLINE: std::time::Duration = std::time::Duration::from_mins(2);
 
     const RUNTIME_DRIVER: &str = ";(0, eval)(await readFile('./tac-web.js', 'utf8'))\n\
@@ -3263,3 +3263,6 @@ async fn a_cpp_web_service_picks_reads_and_uploads_files() {
     WebApis::publish(root.path(), WebLanguage::Cpp, "hpp", WebApis::CPP_FILES).await;
     WebApis::assert_files_answered(root.path(), true);
 }
+
+#[path = "storage_space_tests.rs"]
+mod storage_space_tests;

@@ -6,7 +6,13 @@ use super::linux_browser_apis::LinuxBrowserApis;
 struct LinuxBrowserApiTests;
 
 impl LinuxBrowserApiTests {
-    const ALL: [&'static str; 4] = ["clipboard", "geolocation", "notifications", "share"];
+    const ALL: [&'static str; 5] = [
+        "clipboard",
+        "geolocation",
+        "notifications",
+        "persistentStorage",
+        "share",
+    ];
     const SCRIPT: &'static str = r"const post = (capability, values) => window.webkit.messageHandlers.tachyon.postMessage({capability, payload: JSON.stringify(values)});
 const answer = async (capability, values) => {
   const reply = JSON.parse(await post(capability, values));
@@ -26,14 +32,16 @@ results.push(await answer('browserApi.notifications.show', {body: 'No title'}));
 results.push(await answer('browserApi.share.open', {title: 'Catalog', text: 'Look at this', url: 'https://example.com/item'}));
 results.push(await answer('browserApi.share.open', {}));
 results.push(await answer('browserApi.clipboard.readText', {}));
+results.push(await post('browserApi.storageSpace.estimate', {}).then((raw) => { const space = JSON.parse(raw).value; return Number.isInteger(space?.quota) && space.quota > 0 && space.persisted === true ? 'space' : 'no-space:' + raw; }));
+results.push(await answer('browserApi.storageSpace.persist', {}));
 return results.join(',');";
     const GRANTED: [&'static str; 3] = [
-        "read:from another app,written,position:51.5,-0.125,\"granted\",null,error,\"clipboard\",error,error",
+        "read:from another app,written,position:51.5,-0.125,\"granted\",null,error,\"clipboard\",error,error,space,true",
         "Order|Shipped",
         "https://example.com/item",
     ];
     const REFUSED: [&'static str; 3] = [
-        "read-refused:NotAllowedError,written,position-refused:1,\"denied\",error,error,error,error,error",
+        "read-refused:NotAllowedError,written,position-refused:1,\"denied\",error,error,error,error,error,space,error",
         "",
         "copied by the page",
     ];

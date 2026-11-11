@@ -184,6 +184,16 @@ function Push:unsubscribe()
   TacWebHost.call("push", "unsubscribe")
 end
 
+StorageSpace = {}
+
+function StorageSpace:estimate()
+  TacWebHost.call("storageSpace", "estimate")
+end
+
+function StorageSpace:persist()
+  TacWebHost.call("storageSpace", "persist")
+end
+
 Geolocation = {}
 
 function Geolocation:current_position()

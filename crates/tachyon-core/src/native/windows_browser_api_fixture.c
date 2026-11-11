@@ -51,6 +51,15 @@ static void check(const char *name, char *answer, const char *expected) {
   free(answer);
 }
 
+static void check_space(const char *name, char *answer) {
+  BOOL shaped = answer != NULL && strncmp(answer, "{\"value\":{\"quota\":", 18) == 0 && strstr(answer, ",\"persisted\":true}}") != NULL && strncmp(answer + 18, "0,", 2) != 0;
+  if (!shaped) {
+    fprintf(stderr, "%s answered %s\n", name, answer != NULL ? answer : "nothing");
+    g_failures++;
+  }
+  free(answer);
+}
+
 static void check_text(const char *name, const wchar_t *value, const wchar_t *expected) {
   BOOL same = value == NULL || expected == NULL ? value == expected : wcscmp(value, expected) == 0;
   if (!same) {
@@ -108,6 +117,9 @@ static void check_granted(void) {
   check("share of nothing", tachyon_browser_api("browserApi.share.open", "{\"title\":\"\",\"text\":null}"), "{\"error\":\"Share needs a title, text or url.\"}");
   if (g_shares != 2) { fprintf(stderr, "the share sheet opened %d times\n", g_shares); g_failures++; }
 
+  check_space("storage estimate", tachyon_browser_api("browserApi.storageSpace.estimate", "{}"));
+  check("storage persist", tachyon_browser_api("browserApi.storageSpace.persist", "{}"), "{\"value\":true}");
+
   check_state("own geolocation", tachyon_permission_state(COREWEBVIEW2_PERMISSION_KIND_GEOLOCATION, TRUE), COREWEBVIEW2_PERMISSION_STATE_ALLOW);
   check_state("foreign geolocation", tachyon_permission_state(COREWEBVIEW2_PERMISSION_KIND_GEOLOCATION, FALSE), COREWEBVIEW2_PERMISSION_STATE_DENY);
   check_state("own clipboard read", tachyon_permission_state(COREWEBVIEW2_PERMISSION_KIND_CLIPBOARD_READ, TRUE), COREWEBVIEW2_PERMISSION_STATE_ALLOW);
@@ -122,6 +134,8 @@ static void check_refused(void) {
   g_toast_answer = 1;
   check("refused permission", tachyon_browser_api("browserApi.notifications.requestPermission", "{}"), "{\"value\":\"denied\"}");
   check("refused notification", tachyon_browser_api("browserApi.notifications.show", "{\"title\":\"Order\"}"), "{\"error\":\"tac.browserApis does not grant notifications.\"}");
+  check_space("storage estimate without grants", tachyon_browser_api("browserApi.storageSpace.estimate", "{}"));
+  check("refused storage persist", tachyon_browser_api("browserApi.storageSpace.persist", "{}"), "{\"error\":\"tac.browserApis does not grant persistentStorage.\"}");
   check("refused share", tachyon_browser_api("browserApi.share.open", "{\"url\":\"https://example.com/\"}"), "{\"error\":\"tac.browserApis does not grant share.\"}");
   if (g_shares != 0) g_failures++;
   check_state("refused geolocation", tachyon_permission_state(COREWEBVIEW2_PERMISSION_KIND_GEOLOCATION, TRUE), COREWEBVIEW2_PERMISSION_STATE_DENY);

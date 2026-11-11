@@ -27,6 +27,13 @@ final class AppleBrowserApis: NSObject, UNUserNotificationCenterDelegate {
 
     func call(_ capability: String, _ request: [String: Any], _ view: WKWebView?, _ reply: @escaping (String) -> Void) {
         let parts = capability.split(separator: ".").map(String.init)
+        if parts.count == 3, parts[1] == "storageSpace" {
+            switch capability {
+            case "browserApi.storageSpace.estimate", "browserApi.storageSpace.persist": reply(AppleStorageSpace.answer(parts[2], granted))
+            default: reply(Self.failure(Self.notAnswered))
+            }
+            return
+        }
         guard parts.count == 3, Self.bridged.contains(parts[1]) else { reply(Self.failure(Self.notAnswered)); return }
         guard granted.contains(parts[1]) else {
             reply(Self.failure("The \(parts[1]) browser API is not granted. Add \"\(parts[1])\" to tac.browserApis in client/manifest.json."))

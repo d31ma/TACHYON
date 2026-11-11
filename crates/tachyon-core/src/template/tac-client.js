@@ -1699,6 +1699,7 @@ const ownerResources = (element, signal, owner) => ({
   windowControls: TacWebApis.windowControls,
   focus: TacFocus.owned(owner),
   push: TacWebApis.push,
+  storageSpace: TacWebApis.storageSpace,
   filePicker: TacNativeCapabilities.filePicker(signal),
 })
 const attachRuntime = (owner, scope, element) => {

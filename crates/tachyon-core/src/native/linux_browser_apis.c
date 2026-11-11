@@ -46,6 +46,19 @@ static gchar *tachyon_share_open(const char *payload) {
   return g_strdup("{\"value\":\"clipboard\"}");
 }
 
+static gchar *tachyon_storage_estimate(void) {
+  GFile *folder = g_file_new_for_path(g_get_user_data_dir());
+  GFileInfo *info = g_file_query_filesystem_info(folder, G_FILE_ATTRIBUTE_FILESYSTEM_FREE, NULL, NULL);
+  guint64 quota = info != NULL ? g_file_info_get_attribute_uint64(info, G_FILE_ATTRIBUTE_FILESYSTEM_FREE) : 0;
+  g_clear_object(&info);
+  g_object_unref(folder);
+  return g_strdup_printf("{\"value\":{\"quota\":%" G_GUINT64_FORMAT ",\"persisted\":true}}", quota);
+}
+
+static gchar *tachyon_storage_persist(void) {
+  return g_strdup(tachyon_browser_api_granted("persistentStorage") ? "{\"value\":true}" : "{\"error\":\"tac.browserApis does not grant persistentStorage.\"}");
+}
+
 static void tachyon_send_notification(const char *id, const char *title, const char *body) {
   GNotification *notification = g_notification_new(title);
   if (body != NULL) g_notification_set_body(notification, body);

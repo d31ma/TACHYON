@@ -132,6 +132,9 @@ tac.browserApis geolocation
 tac.browserApis push
   honored: PushManager on a push service worker at /.tachyon/push/ that shows the message and opens its same-origin path when clicked (ADR 0118); Safari on iPhone and iPad gives Web Push only to the app added to the Home Screen, iOS 16.4 and later
 
+tac.browserApis persistentStorage
+  honored: navigator.storage.persist(), persisted() and estimate() in a secure page (ADR 0123); an insecure page answers quota 0 and persisted false; Firefox asks the user, Chromium decides by itself, Safari 15.2 and later
+
 tac.browserApis preferenceStrings
   honored: localStorage
 

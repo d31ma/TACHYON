@@ -12,7 +12,13 @@ pub(super) struct BrowserApiPermissions {
 
 impl BrowserApiPermissions {
     const ASKING_APIS: [&'static str; 2] = ["geolocation", "notifications"];
-    const HOST_CHECKED: [&'static str; 4] = ["clipboard", "geolocation", "notifications", "share"];
+    const HOST_CHECKED: [&'static str; 5] = [
+        "clipboard",
+        "geolocation",
+        "notifications",
+        "persistentStorage",
+        "share",
+    ];
     const MOST_CHARACTERS: usize = 200;
     const REQUIRED: [(&'static str, NativeTarget); 4] = [
         ("geolocation", NativeTarget::Ios),

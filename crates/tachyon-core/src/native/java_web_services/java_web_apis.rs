@@ -44,6 +44,10 @@ impl JavaWebApis {
         ("Files", include_str!("../web_apis/Files.java")),
     ];
     const EVENTS_FILE: &'static str = "tachyon/TacWebEvents.java";
+    const STORAGE_CLIENTS: [(&'static str, &'static str); 1] = [(
+        "StorageSpace",
+        include_str!("../web_apis/StorageSpace.java"),
+    )];
     const EXTENSION: &'static str = "java";
 
     pub(super) fn clients(folder: &Path, authored: &str) -> Vec<(PathBuf, String)> {
@@ -51,6 +55,7 @@ impl JavaWebApis {
             .chain(
                 Self::CLIENTS
                     .iter()
+                    .chain(Self::STORAGE_CLIENTS.iter())
                     .filter(|(name, _)| Self::needed(name, authored)),
             )
             .map(|(name, text)| Self::file(folder, name, text))

@@ -146,6 +146,13 @@ public:
     void unsubscribe() const { TacWebCall::answer("push", "unsubscribe"); }
 };
 
+class StorageSpace {
+public:
+    void estimate() const { TacWebCall::answer("storageSpace", "estimate"); }
+
+    void persist() const { TacWebCall::answer("storageSpace", "persist"); }
+};
+
 class Geolocation {
 public:
     void currentPosition() const { TacWebCall::answer("geolocation", "currentPosition"); }
@@ -181,5 +188,6 @@ using tachyon::web::Push;
 using tachyon::web::Preferences;
 using tachyon::web::SecureRandom;
 using tachyon::web::Share;
+using tachyon::web::StorageSpace;
 using tachyon::web::Files;
 using tachyon::web::WindowControls;

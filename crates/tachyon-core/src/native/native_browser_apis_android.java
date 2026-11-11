@@ -94,6 +94,10 @@
   }
 
   private void browserApiCall(String capability, String payload, BrowserApiAnswer answer) {
+    if (capability.startsWith("browserApi.storageSpace.")) {
+      answer.send(storageSpace(capability));
+      return;
+    }
     String[] parts = capability.split("\\.");
     if (parts.length != 3 || !browserApiGranted(parts[1])) {
       answer.send(browserApiError("The Android app does not grant " + safeName(capability)
@@ -112,6 +116,20 @@
       }
     } catch (org.json.JSONException | RuntimeException error) {
       answer.send(browserApiError("The Android app could not run " + safeName(capability) + "."));
+    }
+  }
+
+  private String storageSpace(String capability) {
+    switch (capability) {
+      case "browserApi.storageSpace.estimate":
+        long quota = new android.os.StatFs(getFilesDir().getPath()).getAvailableBytes();
+        return browserApiValue("{\"quota\":" + quota + ",\"persisted\":true}");
+      case "browserApi.storageSpace.persist":
+        return browserApiGranted("persistentStorage") ? browserApiValue("true")
+            : browserApiError("The Android app does not grant persistentStorage."
+                + " Add it to tac.browserApis in client/manifest.json.");
+      default:
+        return browserApiError("The Android app does not answer " + safeName(capability) + ".");
     }
   }
 

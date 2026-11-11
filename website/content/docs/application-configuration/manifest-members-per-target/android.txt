@@ -132,6 +132,9 @@ tac.browserApis geolocation
 tac.browserApis push
   adapted: The Android WebView has no Web Push, and native push (APNs, FCM, WNS) is not part of Tachyon yet. A native build does not ship the push scripts: Push.Supported answers false, and Subscribe, Subscription and Unsubscribe fail with the message that Web Push needs a web browser (ADR 0118).
 
+tac.browserApis persistentStorage
+  run owed: the host answers browserApi.storageSpace with persisted true and StatFs.getAvailableBytes of the files folder; usage comes from the WebView's navigator.storage.estimate() on https://appassets.tachyon.local (ADR 0123); still to run: a StorageSpace service in the app on the Android emulator
+
 tac.browserApis preferenceStrings
   honored: the web view's localStorage, kept on disk; a write was read back after a relaunch on the Android 15 emulator in scripts/android/page-checks-test.mjs (RM3)
 

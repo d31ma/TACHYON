@@ -7,7 +7,13 @@ use std::process::Command;
 struct WindowsBrowserApiTests;
 
 impl WindowsBrowserApiTests {
-    const ALL: [&'static str; 4] = ["clipboard", "geolocation", "notifications", "share"];
+    const ALL: [&'static str; 5] = [
+        "clipboard",
+        "geolocation",
+        "notifications",
+        "persistentStorage",
+        "share",
+    ];
     const HARNESS_HEAD: &'static str = r#"#define UNICODE
 #define _UNICODE
 #define WIN32_LEAN_AND_MEAN
@@ -162,6 +168,8 @@ fn the_windows_host_decides_web_view_permissions_and_answers_bridged_calls() {
         "browserApi.share.open",
         "browserApi.notifications.requestPermission",
         "browserApi.notifications.show",
+        "browserApi.storageSpace.estimate",
+        "browserApi.storageSpace.persist",
     ] {
         assert!(source.contains(&format!(
             "if (strcmp(capability, \"{operation}\") == 0) return "

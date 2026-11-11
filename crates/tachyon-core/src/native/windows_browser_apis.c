@@ -469,11 +469,26 @@ static char *tachyon_notification_show(const char *payload) {
   return _strdup(answer);
 }
 
+static char *tachyon_storage_estimate(void) {
+  char folder[MAX_PATH];
+  ULARGE_INTEGER available = {0};
+  BOOL known = GetEnvironmentVariableA("LOCALAPPDATA", folder, MAX_PATH) != 0 && GetDiskFreeSpaceExA(folder, &available, NULL, NULL);
+  char answer[96];
+  snprintf(answer, sizeof(answer), "{\"value\":{\"quota\":%.0f,\"persisted\":true}}", known ? (double)available.QuadPart : 0.0);
+  return _strdup(answer);
+}
+
+static char *tachyon_storage_persist(void) {
+  return _strdup(tachyon_browser_api_granted("persistentStorage") ? "{\"value\":true}" : "{\"error\":\"tac.browserApis does not grant persistentStorage.\"}");
+}
+
 static char *tachyon_browser_api(const char *capability, const char *payload) {
   if (strcmp(capability, "browserApi.clipboard.writeText") == 0) return tachyon_clipboard_write(payload);
   if (strcmp(capability, "browserApi.clipboard.readText") == 0) return tachyon_clipboard_read();
   if (strcmp(capability, "browserApi.share.open") == 0) return tachyon_share_open(payload);
   if (strcmp(capability, "browserApi.notifications.requestPermission") == 0) return tachyon_notification_permission();
   if (strcmp(capability, "browserApi.notifications.show") == 0) return tachyon_notification_show(payload);
+  if (strcmp(capability, "browserApi.storageSpace.estimate") == 0) return tachyon_storage_estimate();
+  if (strcmp(capability, "browserApi.storageSpace.persist") == 0) return tachyon_storage_persist();
   return _strdup("{\"error\":\"The Windows app has no bridge for this browser API.\"}");
 }

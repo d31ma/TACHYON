@@ -117,6 +117,38 @@ impl BrowserApiPage {
          _report['received'] = _ask('stamp', {'op': 'get', 'name': 'endpoint'})\n\
          _report['requests'] = [[item['api'], item['call'], item['args']] for item in _requests]\n";
 
+    const SPACE: [(&'static str, &'static str); 1] = [(
+        "client/services/StampService.py",
+        "from typing import Annotated\n\n\
+         @service\n\
+         class StampService:\n\
+         \x20   storage_space: Annotated[StorageSpace, needs]\n\
+         \x20   usage: float = 0.0\n\
+         \x20   kept: bool = False\n\n\
+         \x20   def measure(self) -> None:\n\
+         \x20       self.storage_space.estimate()\n\
+         \x20       self.storage_space.persist()\n\n\
+         \x20   @on_event\n\
+         \x20   def estimated(self, estimated: StorageEstimated) -> None:\n\
+         \x20       self.usage = estimated.usage\n\n\
+         \x20   @on_event\n\
+         \x20   def persisted(self, persisted: StoragePersisted) -> None:\n\
+         \x20       self.kept = persisted.persisted\n",
+    )];
+
+    const SPACE_DRIVER: &'static str = "_requests = []\n\
+         def _web(text):\n\
+         \x20   _requests.append(json.loads(text))\n\
+         \x20   return json.dumps({'value': None})\n\
+         _TacPythonRuntime.connect(_emitted.append, None, web=_web)\n\
+         _report = {'init': _ask('stamp', {'op': 'init', 'props': {}})}\n\
+         _report['measure'] = _ask('stamp', {'op': 'call', 'name': 'measure', 'args': []})\n\
+         _report['estimated'] = _ask('stamp', {'op': 'event', 'name': 'estimated', 'value': {'usage': 2048.0, 'quota': 4096.0, 'persisted': False}})\n\
+         _report['persisted'] = _ask('stamp', {'op': 'event', 'name': 'persisted', 'value': {'persisted': True}})\n\
+         _report['usage'] = _ask('stamp', {'op': 'get', 'name': 'usage'})\n\
+         _report['kept'] = _ask('stamp', {'op': 'get', 'name': 'kept'})\n\
+         _report['requests'] = [[item['api'], item['call'], item['args']] for item in _requests]\n";
+
     const ATTACH: [(&'static str, &'static str); 1] = [(
         "client/services/AttachService.py",
         "from typing import Annotated\n\n\
@@ -343,6 +375,31 @@ fn a_python_web_service_subscribes_to_web_push() {
             ["push", "subscription", []],
             ["push", "unsubscribe", []],
             ["push", "supported", []],
+        ]),
+        "{report}"
+    );
+}
+
+#[test]
+fn a_python_web_service_estimates_and_persists_storage() {
+    if !PythonPage::has_python() {
+        return;
+    }
+    let report = PythonPage::run(
+        &BrowserApiPage::SPACE,
+        &["stamp"],
+        BrowserApiPage::SPACE_DRIVER,
+    );
+    assert_eq!(report["measure"], json!({"value": null}), "{report}");
+    assert_eq!(report["estimated"], json!({"value": null}), "{report}");
+    assert_eq!(report["persisted"], json!({"value": null}), "{report}");
+    assert_eq!(report["usage"], json!({"value": 2048.0}), "{report}");
+    assert_eq!(report["kept"], json!({"value": true}), "{report}");
+    assert_eq!(
+        report["requests"],
+        json!([
+            ["storageSpace", "estimate", []],
+            ["storageSpace", "persist", []],
         ]),
         "{report}"
     );

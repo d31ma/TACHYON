@@ -6,7 +6,8 @@ impl AppleBrowserApis {
     pub(super) const SWIFT: &'static str = concat!(
         include_str!("browser_apis/AppleBrowserApis.swift"),
         include_str!("browser_apis/AppleShareSheet.swift"),
-        include_str!("browser_apis/AppleCurrentPosition.swift")
+        include_str!("browser_apis/AppleCurrentPosition.swift"),
+        include_str!("browser_apis/AppleStorageSpace.swift")
     );
 
     pub(super) fn swift_grants(permissions: &BrowserApiPermissions) -> String {

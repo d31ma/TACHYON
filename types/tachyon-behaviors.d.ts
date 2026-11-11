@@ -437,6 +437,8 @@ declare global {
   interface TacGeolocation { currentPosition(): null; }
   /** Push: Web Push subscriptions (ADR 0118). Grant "push" in tac.browserApis. `subscribe` takes the base64url VAPID public key of the server, needs a click or key handler, asks for notification permission, and answers with `PushSubscribed`. `subscription` answers with `PushSubscribed`, or `PushUnsubscribed` with an empty endpoint when there is none. `unsubscribe` answers with `PushUnsubscribed`. A failure after the start sends `BrowserCallFailed`. `supported` answers false in a native app, an insecure page or a browser without the Push API. */
   interface TacPush { supported(): boolean; subscribe(applicationServerKey: string): null; subscription(): null; unsubscribe(): null; }
+  /** StorageSpace: the storage this origin uses and may use (ADR 0123). `estimate` needs no grant and answers with `StorageEstimated`. `persist` asks the browser to keep this origin's storage when the device runs low; grant "persistentStorage" in tac.browserApis; it answers with `StoragePersisted`. A native app answers from the operating system: `persisted` is true and `quota` is the free disk space. A failure sends `BrowserCallFailed`. */
+  interface TacStorageSpace { estimate(): null; persist(): null; }
   /** FilePickerResult: the status of a native file-picker call (ADR 0089), with an optional opaque handle, basename or UTF-8 text. Failure results expose no host path. */
   interface TacFilePickerResult { status: 'available' | 'selected' | 'cancelled' | 'read' | 'released' | 'denied' | 'unsupported' | 'unavailable' | 'invalid' | 'disposed' | 'tooLarge'; handle?: string; name?: string; text?: string; }
   /** FilePicker: selects one native file and reads UTF-8 text up to 65,536 bytes (ADR 0089). Grant "filePicker" in tac.nativeCapabilities. Handles belong to the owner, and `release` ends access. Picker calls in a browser tab answer `unsupported`. */
@@ -467,6 +469,10 @@ declare global {
   interface PushUnsubscribed { endpoint: string; }
   /** PushReceived: a built-in event model. A Web Push message arrived while this page was open, so the app can sync (ADR 0118). `tag` and `data` are the message's `tag` and `data` members as text (a JSON value becomes its JSON text), or empty; `path` is the same-origin path the notification opens. The notification is still shown. */
   interface PushReceived { tag: string; path: string; data: string; }
+  /** StorageEstimated: a built-in event model with the bytes this origin uses, the bytes it may use, and whether the browser keeps its storage when the device runs low (ADR 0123). An insecure web page answers 0 for `quota` and false for `persisted`. */
+  interface StorageEstimated { usage: number; quota: number; persisted: boolean; }
+  /** StoragePersisted: a built-in event model. `persisted` is true when the browser or the native app keeps this origin's storage when the device runs low (ADR 0123). */
+  interface StoragePersisted { persisted: boolean; }
   /** BrowserCallFailed: a built-in event model. A browser API call failed after it started (ADR 0065). */
   interface BrowserCallFailed { api: string; call: string; message: string; }
   /** FilePicked: a built-in event model, one per chosen file, sent to the caller of `Files.pick` (ADR 0116). */
@@ -500,6 +506,7 @@ declare global {
     windowControls: TacWindowControls;
     focus: Focus;
     push: TacPush;
+    storageSpace: TacStorageSpace;
     filePicker: TacFilePicker;
   }
   /** OnEvent: this method listens for one event model, the type of its one parameter (`placed(order: OrderPlaced)`). A payload that does not fit the model is not delivered. When the method's return type is a model, the value it returns is published as that model. Write `@OnEvent`, or `@OnEvent({ condition, id, replay })`. */

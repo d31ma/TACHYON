@@ -47,6 +47,7 @@ impl WebEventModels {
             Self::prompt_rows(),
             Self::file_rows(),
             Self::push_rows(),
+            Self::storage_rows(),
             Self::socket_and_failure_rows(),
         ]
         .concat()
@@ -170,6 +171,25 @@ impl WebEventModels {
                     ("path", Shape::Text),
                     ("data", Shape::Text),
                 ],
+            ),
+        ]
+    }
+
+    fn storage_rows() -> Vec<(WebEventSender, String, Model)> {
+        vec![
+            Self::record(
+                WebEventSender::Page,
+                "StorageEstimated",
+                &[
+                    ("usage", Shape::Number),
+                    ("quota", Shape::Number),
+                    ("persisted", Shape::Boolean),
+                ],
+            ),
+            Self::record(
+                WebEventSender::Grant("persistentStorage"),
+                "StoragePersisted",
+                &[("persisted", Shape::Boolean)],
             ),
         ]
     }

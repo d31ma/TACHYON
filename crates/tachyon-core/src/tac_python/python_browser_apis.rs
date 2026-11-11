@@ -25,6 +25,7 @@ impl PythonBrowserApis {
         include_str!("web_apis/notifications.py"),
         include_str!("web_apis/geolocation.py"),
         include_str!("web_apis/push.py"),
+        include_str!("web_apis/storage_space.py"),
         include_str!("web_apis/window_controls.py"),
         include_str!("web_apis/focus.py"),
         include_str!("web_apis/files.py"),

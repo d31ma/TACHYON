@@ -10,6 +10,11 @@ impl BrowserApiBridge {
         ("notifications", &["requestPermission", "show"]),
         ("geolocation", &["currentPosition"]),
     ];
+    #[cfg(test)]
+    const EVERY_HOST: [&'static str; 2] = [
+        "browserApi.storageSpace.estimate",
+        "browserApi.storageSpace.persist",
+    ];
     const BRIDGED: [(NativeTarget, &'static [&'static str]); 5] = [
         (
             NativeTarget::Macos,
@@ -122,7 +127,10 @@ mod tests {
                 super::super::linux::host_source().to_owned(),
             ),
         ] {
-            for operation in BrowserApiBridge::operations(target) {
+            let answered = BrowserApiBridge::operations(target)
+                .into_iter()
+                .chain(BrowserApiBridge::EVERY_HOST.map(String::from));
+            for operation in answered {
                 assert!(
                     source.contains(&operation),
                     "the {target:?} host does not answer {operation}"

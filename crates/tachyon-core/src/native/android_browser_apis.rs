@@ -4,7 +4,13 @@ pub(super) struct AndroidBrowserApis;
 
 impl AndroidBrowserApis {
     const JAVA: &'static str = include_str!("native_browser_apis_android.java");
-    const ANSWERED: [&'static str; 4] = ["clipboard", "share", "notifications", "geolocation"];
+    const ANSWERED: [&'static str; 5] = [
+        "clipboard",
+        "share",
+        "notifications",
+        "geolocation",
+        "persistentStorage",
+    ];
     const MANIFEST_PERMISSIONS: [(&'static str, &'static str); 3] = [
         ("geolocation", "android.permission.ACCESS_COARSE_LOCATION"),
         ("geolocation", "android.permission.ACCESS_FINE_LOCATION"),

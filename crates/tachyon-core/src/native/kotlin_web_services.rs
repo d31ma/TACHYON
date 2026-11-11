@@ -36,6 +36,7 @@ impl KotlinWebServices {
         include_str!("web_apis/Files.kt"),
         include_str!("web_apis/Notifications.kt"),
         include_str!("web_apis/Push.kt"),
+        include_str!("web_apis/StorageSpace.kt"),
         include_str!("web_apis/Geolocation.kt"),
         include_str!("web_apis/WindowControls.kt"),
         include_str!("web_apis/Focus.kt")

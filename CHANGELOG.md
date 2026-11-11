@@ -17,6 +17,15 @@ machine contracts have their own, independent major versions.
   message's optional `data` member as text. The push worker posts only to
   windows of its own origin, and a page accepts the message only from its own
   push worker.
+- **Services ask for persistent storage and read the space used** (ADR 0123).
+  Every Tac service language gets a `StorageSpace` client. `estimate` needs no
+  grant and answers with `StorageEstimated { usage, quota, persisted }`;
+  `persist` needs the new grant `persistentStorage` in `tac.browserApis` and
+  answers with `StoragePersisted { persisted }`. In a browser the page uses
+  `navigator.storage`; an insecure page answers quota 0. In the five native
+  apps the host answers: `persisted` is true and `quota` is the free disk
+  space. `docs/PAGE_CLIENT_CHECKLIST.md` lists every file a new page client
+  touches.
 - **A Yon handler can reach a named service on a private network** (ADR 0094
   amendment). List the name in `outgoing.hosts` and add an entry such as
   `{"host": "keycloak", "networks": ["172.16.0.0/12"]}` to the new

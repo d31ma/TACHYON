@@ -61,6 +61,11 @@ class TacWebApis {
     subscription: () => TacWebApis.pushLater('subscription', false, TacWebApis.webPush(false).subscription()),
     unsubscribe: () => TacWebApis.pushLater('unsubscribe', false, TacWebApis.webPush(false).unsubscribe()),
   })
+  static storageSpace = Object.freeze({
+    estimate: () => TacWebApis.later({ api: 'storageSpace', call: 'estimate', grant: null, gesture: false }, () => TacWebApis.space(), (space) => ['StorageEstimated', space]),
+    persist: () => TacWebApis.later({ api: 'storageSpace', call: 'persist', grant: 'persistentStorage', gesture: false }, () => TacWebApis.keep(), (persisted) => ['StoragePersisted', { persisted: persisted === true }]),
+  })
+  static spaceCounters = []
   static noPush = Object.freeze({
     supported: () => false,
     subscribe: () => TacWebApis.pushMissing(),
@@ -82,6 +87,7 @@ class TacWebApis {
     windowControls: TacWebApis.windowControls,
     focus: typeof TacFocus === 'function' ? TacFocus.api : {},
     push: TacWebApis.push,
+    storageSpace: TacWebApis.storageSpace,
     nativeCapability: Object.freeze({ call: (...values) => TacNativeCapabilities.now(...values) }),
     files: Object.freeze(Object.fromEntries(['pick', 'read', 'release', 'upload', 'cancel'].map((call) => [call, (...values) => TacWebApis.files(call, values)]))),
   })
@@ -135,8 +141,8 @@ class TacWebApis {
     }
   }
 
-  static later({ api, call, gesture, values = {} }, work, answer) {
-    TacWebApis.allowed(api, gesture)
+  static later({ api, call, grant = api, gesture, values = {} }, work, answer) {
+    TacWebApis.allowed(grant, gesture)
     const owner = TacWebApis.caller
     const failed = (error) => ['BrowserCallFailed', { api, call, message: TacWebApis.message(error) }]
     const run = TacWebApis.bridged(api) ? () => TacWebApis.bridge(api, call, values) : work
@@ -161,7 +167,7 @@ class TacWebApis {
 
   static allowed(api, gesture) {
     const granted = document.querySelector(TacWebApis.grants)?.content.split(' ') ?? []
-    if (!granted.includes(api)) throw new Error(`The ${api} browser API is not granted. Add "${api}" to tac.browserApis in client/manifest.json.`)
+    if (api !== null && !granted.includes(api)) throw new Error(`The ${api} browser API is not granted. Add "${api}" to tac.browserApis in client/manifest.json.`)
     if (gesture && navigator.userActivation?.isActive === false) throw new Error(`The ${api} browser API needs a user action. Call it from a click or key handler.`)
   }
 
@@ -197,6 +203,32 @@ class TacWebApis {
 
   static pushLater(call, gesture, work) {
     return TacWebApis.later({ api: 'push', call, gesture }, work, (event) => event)
+  }
+
+  static async space() {
+    const storage = navigator.storage
+    const page = typeof storage?.estimate === 'function' ? await storage.estimate() : null
+    const host = await TacWebApis.hostSpace('estimate')
+    const usage = page ? page.usage ?? 0 : await TacWebApis.countedSpace()
+    const persisted = host?.persisted ?? (page !== null && await storage.persisted?.() === true)
+    return { usage, quota: host?.quota ?? page?.quota ?? 0, persisted }
+  }
+
+  static async keep() {
+    return await TacWebApis.hostSpace('persist') ?? await navigator.storage?.persist?.() ?? false
+  }
+
+  static hostSpace(call) {
+    return typeof globalThis.__tachyonNativeHostCall === 'function' ? TacWebApis.bridge('storageSpace', call, {}) : null
+  }
+
+  static countSpace(counter) {
+    TacWebApis.spaceCounters.push(counter)
+  }
+
+  static async countedSpace() {
+    const counted = await Promise.all(TacWebApis.spaceCounters.map((counter) => counter()))
+    return counted.reduce((total, bytes) => total + bytes, 0)
   }
 
   static pushMissing() {

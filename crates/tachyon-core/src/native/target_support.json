@@ -440,6 +440,16 @@
     "android": {"reach": "adapted", "note": "The Android WebView has no Web Push, and native push (APNs, FCM, WNS) is not part of Tachyon yet. A native build does not ship the push scripts: Push.Supported answers false, and Subscribe, Subscription and Unsubscribe fail with the message that Web Push needs a web browser (ADR 0118)."}
   },
   {
+    "member": "tac.browserApis persistentStorage",
+    "paths": ["tac.browserApis[persistentStorage]"],
+    "web": {"reach": "honored", "how": "navigator.storage.persist(), persisted() and estimate() in a secure page (ADR 0123); an insecure page answers quota 0 and persisted false; Firefox asks the user, Chromium decides by itself, Safari 15.2 and later"},
+    "macos": {"reach": "adapted", "note": "tachyon-app:// is not a secure context, so WKWebView has no navigator.storage. The host answers browserApi.storageSpace: persisted is true (only uninstalling deletes the app's data), quota is volumeAvailableCapacityForImportantUsage of the home folder, and usage is the bytes Tachyon's own stores report, 0 until the blob store reports its size (ADR 0123). A run in a built app is still owed."},
+    "windows": {"reach": "runOwed", "how": "the host answers browserApi.storageSpace with persisted true and the free space of %LOCALAPPDATA% (GetDiskFreeSpaceEx); usage comes from WebView2's navigator.storage.estimate() on https://tachyon.local (ADR 0123)", "run": "a StorageSpace service in a WebView2 app on Windows; the browser API fixture checks the host calls under Wine and MSVC only"},
+    "linux": {"reach": "runOwed", "how": "the host answers browserApi.storageSpace with persisted true and the free space of the user data folder (GIO); usage comes from WebKitGTK's navigator.storage.estimate() on the secure tachyon:// scheme, or 0 where that WebKitGTK has no StorageManager (ADR 0123)", "run": "a StorageSpace service in the GTK app; the WebKitGTK browser API fixture checks the host calls only"},
+    "ios": {"reach": "adapted", "note": "tachyon-app:// is not a secure context, so WKWebView has no navigator.storage. The host answers browserApi.storageSpace: persisted is true (iOS deletes the app's data on uninstall, or offloads an app the user does not open), quota is volumeAvailableCapacityForImportantUsage, and usage is the bytes Tachyon's own stores report, 0 until the blob store reports its size (ADR 0123). A run in a built app is still owed."},
+    "android": {"reach": "runOwed", "how": "the host answers browserApi.storageSpace with persisted true and StatFs.getAvailableBytes of the files folder; usage comes from the WebView's navigator.storage.estimate() on https://appassets.tachyon.local (ADR 0123)", "run": "a StorageSpace service in the app on the Android emulator"}
+  },
+  {
     "member": "tac.browserApis preferenceStrings",
     "paths": ["tac.browserApis[preferenceStrings]"],
     "web": {"reach": "honored", "how": "localStorage"},

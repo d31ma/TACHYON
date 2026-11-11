@@ -650,6 +650,10 @@ static gboolean tachyon_on_host_call(WebKitUserContentManager *manager, JSCValue
     answer = tachyon_notification_permission();
   } else if (g_strcmp0(capability, "browserApi.notifications.show") == 0) {
     answer = tachyon_notification_show(payload);
+  } else if (g_strcmp0(capability, "browserApi.storageSpace.estimate") == 0) {
+    answer = tachyon_storage_estimate();
+  } else if (g_strcmp0(capability, "browserApi.storageSpace.persist") == 0) {
+    answer = tachyon_storage_persist();
   } else {
     gchar *safe = tachyon_safe_name(capability);
     answer = g_strdup_printf(
