@@ -164,7 +164,7 @@ mod tests {
                 format!("[<HTTPClient({written})>]\ntype H =\n    abstract X: unit -> unit\n"),
             ),
             (
-                "client/clients/nested/I.rb",
+                "client/remotes/nested/I.rb",
                 format!("#[HTTPClient({written})]\nclass I\nend\n"),
             ),
         ];

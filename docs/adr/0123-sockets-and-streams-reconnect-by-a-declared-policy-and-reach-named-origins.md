@@ -78,7 +78,7 @@ second server was out of reach.
   `@HTTPClient({"path": "/chat", "origin": "realtime"})`. Every request,
   stream and socket of that client goes to that origin. The build stops with
   `TY1308` when the name is not in `tac.yon.origins`; the check runs once per
-  build over `client/remotes` and `client/clients`, because only the build
+  build over the `client/remotes` folder (and its old alias), because only the build
   knows the project's manifest.
 - The page learns the names from one tag,
   `<meta name="tachyon-yon-origins" content='{"realtime":"https://rt.example.com"}'>`.
