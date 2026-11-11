@@ -25,6 +25,7 @@ class DotnetHttpChecks {
   static check(valid, message) { if (!valid) throw new Error(message) }
   /** @returns {Promise<void>} */
   static async run() {
+    Object.defineProperty(globalThis.crypto, 'randomUUID', { configurable: true, value: undefined })
     globalThis.location = new URL('https://test.example.invalid/')
     globalThis.fetch = (url, options) => DotnetHttpChecks.fetch(url, options)
     const host = new TacDotnetHttp()
@@ -75,7 +76,8 @@ await DotnetHttpChecks.run()
         let directory = tempfile::tempdir().expect("isolated HTTP host unit");
         let script = directory.path().join("DotnetHttpChecks.mjs");
         let source = format!(
-            "{}\n{}\n{}",
+            "{}\n{}\n{}\n{}",
+            include_str!("../template/tac-random-id.js"),
             include_str!("../template/tac-http.js"),
             include_str!("../native/browser/tac-dotnet-http.js"),
             Self::CHECKS

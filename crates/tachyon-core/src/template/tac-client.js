@@ -1778,7 +1778,7 @@ const drainCompanionQueue = () => {
   const queued = Array.isArray(queue) ? queue.splice(0).slice(-128) : []
   for (const signal of queued) globalThis.__tachyonCompanionPublish?.(signal)
 }
-const nativeRecord = (service) => ({ ownerId: crypto.randomUUID(), service, disposed: false })
+const nativeRecord = (service) => ({ ownerId: TacRandomId.next(), service, disposed: false })
 const nativeOwnerCall = (record) => (request) => {
   if (record.disposed && request.op !== 'dispose') throw new Error('Tac native owner disposed.')
   return nativeCall(request, record.ownerId, record.service)

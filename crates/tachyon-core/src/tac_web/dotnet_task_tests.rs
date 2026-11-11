@@ -83,7 +83,8 @@ await TaskBridgeChecks.run()
             .split_once("const transportAsync")
             .expect("distinct browser Task transport");
         let source = format!(
-            "{}\nconst transportAsync{}\n{}\n{}",
+            "{}\n{}\nconst transportAsync{}\n{}\n{}",
+            include_str!("../template/tac-random-id.js"),
             Self::BOUNDARY,
             task_engine,
             WebEngine::SHARED_TAIL,

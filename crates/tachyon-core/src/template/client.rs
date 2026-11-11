@@ -34,6 +34,8 @@ impl<'a> ClientViewRenderer<'a> {
     pub(crate) const VIEW_ROOTS: [&'static str; 2] = [Self::SHARED_DATA_ROOT, "page"];
     const MAX_CLIENT_PLAN_BYTES: usize = 10 * 1_024 * 1_024;
     pub(crate) const RUNTIME: &'static str = concat!(
+        include_str!("tac-random-id.js"),
+        "\n",
         include_str!("application-events.js"),
         "\n",
         include_str!("tac-storage.js"),

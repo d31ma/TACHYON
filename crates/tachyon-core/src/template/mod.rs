@@ -29,6 +29,9 @@ mod model;
 #[allow(clippy::expect_used)]
 mod native_events_tests;
 mod owner_method_binding;
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod random_id_tests;
 pub(crate) mod required_fields;
 mod rust_private_read;
 mod script_service_references;

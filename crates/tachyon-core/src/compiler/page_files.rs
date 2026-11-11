@@ -7,6 +7,8 @@ impl PageFiles {
     pub(super) const PATH: &'static str = ".tachyon/tac-files.js";
     const GRANT: &'static str = "files";
     const SOURCE: &'static str = concat!(
+        include_str!("../template/tac-random-id.js"),
+        "\n",
         include_str!("../template/tac-sha256.js"),
         "\n",
         include_str!("../template/tac-files.js")

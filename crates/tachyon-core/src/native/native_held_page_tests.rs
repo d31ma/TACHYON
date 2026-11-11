@@ -38,6 +38,7 @@ globalThis.__tachyonNativeHostCall = (capability, payload) => {
 const client = await readFile('./tac-client.js', 'utf8')
 const between = (start, end) => client.slice(client.indexOf(start), client.indexOf(end))
 const source = [
+  await readFile('./tac-random-id.js', 'utf8'),
   between('class NativeState {', 'class NativeTasks {'),
   between('const webStorage = ', 'const persistScope = '),
   between('const nativeHost = ', 'if (nativeHost()) {'),
@@ -90,6 +91,8 @@ process.exit(0)
         let root = tempfile::tempdir().expect("page");
         let client = include_str!("../template/tac-client.js");
         std::fs::write(root.path().join("tac-client.js"), client).expect("client");
+        let random_id = include_str!("../template/tac-random-id.js");
+        std::fs::write(root.path().join("tac-random-id.js"), random_id).expect("random id");
         std::fs::write(root.path().join("drive.mjs"), Self::DRIVER).expect("driver");
         let output = NodeDriver::output(
             NodeDriver::command()

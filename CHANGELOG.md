@@ -103,6 +103,13 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- **Pages in the macOS and iOS apps no longer fail where they need a random
+  id.** These apps serve the page from `tachyon-app://`, which is not a secure
+  context, so `crypto.randomUUID` is missing there. Picking a file, starting a
+  native service and starting a C# HTTP call each called it directly. A shared
+  helper now uses `crypto.randomUUID` when it exists and otherwise builds a
+  version 4 UUID from `crypto.getRandomValues`.
+
 - **`ty test` and `ty start` agree on Yon handler code** (ADR 0122). Workers,
   identity providers, socket controllers and gateways now compose the error
   types of `server/errors/`, as route controllers and test units did; before,

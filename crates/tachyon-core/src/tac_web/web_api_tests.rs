@@ -1493,12 +1493,15 @@ process.exit(0)
     }
 
     const FILES_RUNTIME: &str = concat!(
+        include_str!("../template/tac-random-id.js"),
+        "\n",
         include_str!("../template/tac-sha256.js"),
         "\n",
         include_str!("../template/tac-files.js")
     );
 
-    const FILES_DRIVER: &str = r#"const inputs = []
+    const FILES_DRIVER: &str = r#"Object.defineProperty(globalThis.crypto, 'randomUUID', { configurable: true, value: undefined })
+const inputs = []
 const uploads = []
 const grants = { content: 'files' }
 globalThis.location = new URL('https://app.example.com/notes')

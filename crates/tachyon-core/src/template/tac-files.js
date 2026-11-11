@@ -90,7 +90,7 @@ class TacFiles {
 
   static async described(file) {
     const sha256 = await TacFiles.digest(file)
-    const id = crypto.randomUUID()
+    const id = TacRandomId.next()
     TacFiles.held.set(id, file)
     return { id, name: String(file.name).slice(0, TacFiles.mostText), size: file.size, media: String(file.type).slice(0, TacFiles.mostText), sha256 }
   }
@@ -137,7 +137,7 @@ class TacFiles {
     const file = TacFiles.file(id)
     const init = { method: TacFiles.method(method), headers: TacFiles.headers(headers), body: file }
     const url = TacFiles.target(address)
-    const upload = crypto.randomUUID()
+    const upload = TacRandomId.next()
     const control = new AbortController()
     const timer = setTimeout(() => control.abort('DEADLINE'), TacFiles.uploadDeadline)
     TacFiles.uploads.set(upload, control)

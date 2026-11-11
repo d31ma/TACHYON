@@ -37,7 +37,7 @@ class TacDotnetHttp {
   /** @param {string} text @param {DotnetHttpEndpoint | undefined} endpoint @param {string | undefined} code @returns {string} */
   #reserve(text, endpoint, code) {
     if (code) return JSON.stringify({ error: { code } })
-    const id = crypto.randomUUID()
+    const id = TacRandomId.next()
     this.#tickets.set(id, endpoint.start(text))
     return id
   }
