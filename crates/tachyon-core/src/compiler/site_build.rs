@@ -18,6 +18,7 @@ use super::setup_sharing::SetupSharing;
 use super::shared_assets::SharedAssets;
 use super::tool_build::ToolBuild;
 use super::web_artifact_manifest::WebArtifactManifest;
+use super::web_push::WebPush;
 use super::yon_reads::YonReads;
 use super::{BuildOptions, BuildProfile, BuildResult, WebCompiler};
 use crate::failure::diagnostic;
@@ -55,6 +56,7 @@ pub(super) struct SiteBuild<'a> {
     native: bool,
     yon_reads_tag: &'static str,
     files_tag: String,
+    web_push_tag: &'static str,
     phase_started: Instant,
     timings: Vec<(String, Duration)>,
     service_timings: Vec<(String, Duration)>,
@@ -107,6 +109,7 @@ impl<'a> SiteBuild<'a> {
             native: native_target.is_some(),
             yon_reads_tag: "",
             files_tag: String::new(),
+            web_push_tag: "",
             phase_started,
             timings: Vec::new(),
             service_timings: Vec::new(),
@@ -132,6 +135,7 @@ impl<'a> SiteBuild<'a> {
     ) -> Result<(), Failure> {
         self.yon_reads_tag = YonReads::tag(site);
         self.files_tag = super::page_files::PageFiles::tag(site);
+        self.web_push_tag = WebPush::tag(site, self.native);
         let dependency_digest = self.route_dependency_digest();
         let routes = Self::renderable_routes(self.project, programs);
         self.add_routes(routes, previous, site, &dependency_digest)
@@ -215,6 +219,7 @@ impl<'a> SiteBuild<'a> {
             .replace("__PUBLIC_ASSETS__", &public_assets);
         self.add_file("tachyon-sw.js", service_worker.into_bytes());
         self.add_yon_reads_file(cache_rules);
+        self.add_web_push_files();
         let state = Self::pretty_json(&self.next_state, "incremental build state")?;
         self.add_file(".tachyon/build-state.json", state);
         Ok(())
@@ -598,6 +603,7 @@ impl<'a> SiteBuild<'a> {
         html = PageHead::inject_before(&html, "</head>", &super::SpeculationRules::tag());
         html = PageHead::inject_before_runtime(&html, self.yon_reads_tag);
         html = PageHead::inject_before_runtime(&html, &self.files_tag);
+        html = PageHead::inject_before_runtime(&html, self.web_push_tag);
         PageHead::inject_before(&html, "</body>", WebCompiler::SERVICE_WORKER_LINK)
     }
 
@@ -615,6 +621,14 @@ impl<'a> SiteBuild<'a> {
         if !self.files_tag.is_empty() {
             let path = super::page_files::PageFiles::PATH;
             self.add_file(path, super::page_files::PageFiles::script());
+        }
+    }
+
+    fn add_web_push_files(&mut self) {
+        if !self.web_push_tag.is_empty() {
+            for (path, bytes) in WebPush::files() {
+                self.add_file(path, bytes);
+            }
         }
     }
 

@@ -1,0 +1,56 @@
+{
+  "heading": "Web Push subscriptions",
+  "target": "web",
+  "notApplicable": [
+    "py",
+    "rs",
+    "swift",
+    "java",
+    "kt",
+    "cs",
+    "fs",
+    "dart",
+    "rb",
+    "lua",
+    "hpp"
+  ],
+  "body": "Web Push lets the server tell the user about something new while the page is closed. Grant `push` in `tac.browserApis`. A Go service adds a `// @Needs` field `push Push`; JavaScript and TypeScript use `@Needs push`.\n\n| Call (Go name) | Needs a click or key handler | The answer |\n| --- | --- | --- |\n| `Supported()` | No | `true` or `false` at once |\n| `Subscribe(applicationServerKey)` | Yes | `PushSubscribed { endpoint, p256dh, auth, expirationTime }` |\n| `Subscription()` | No | `PushSubscribed`, or `PushUnsubscribed` with an empty `endpoint` |\n| `Unsubscribe()` | No | `PushUnsubscribed { endpoint }` |\n\n`Subscribe` takes the server's VAPID public key as base64url: 65 bytes that start with `0x04`. It asks for notification permission first. Send the fields of `PushSubscribed` to your Yon server, for example with an `@HTTPClient`; the server encrypts each message (RFC 8291) and sends it to `endpoint`. Tachyon does not send push messages. When the user says no, the service gets `BrowserCallFailed` with `api` `push`.\n\nA build that grants `push` ships a second service worker, `/.tachyon/tac-push-sw.js`, with the scope `/.tachyon/push/`. It never caches pages. It shows each message as a notification. Send the message as JSON: `{\"title\": \"New mail\", \"body\": \"From Ana\", \"path\": \"/mail/7\", \"tag\": \"mail-7\"}`. Plain text becomes the body, and the host name is the title when none is given. A click on the notification focuses a window that is already on `path`, or opens it. Only a path on the same origin is opened; any other value opens `/`.\n\nWeb Push needs HTTPS or `localhost`. On iPhone and iPad, Safari gives Web Push only to an app added to the Home Screen, from iOS 16.4. A native app (macOS, Windows, Linux, iOS and Android) has no Web Push: `Supported()` answers `false`, and the other calls fail with \"Web Push needs a web browser. The native app has no Push API.\" Native push (APNs, FCM) is not part of Tachyon yet.\n\nOnly Go, JavaScript and TypeScript services have `Push` today. Rust, Swift, Java, Kotlin, C#, F#, Dart, Ruby, Lua and C++ services have no `Push` type yet, so those tabs are missing, and Python has no browser APIs.",
+  "files": [
+    {
+      "name": "client/pages/tac.html",
+      "code": {
+        "file": "client/pages/tac.html"
+      }
+    },
+    {
+      "name": "client/components/mail/alerts/tac.html",
+      "code": {
+        "file": "client/components/mail/alerts/tac.html"
+      }
+    },
+    {
+      "name": "client/manifest.json",
+      "code": {
+        "file": "client/manifest.json"
+      }
+    },
+    {
+      "name": "client/services/AlertsService.js",
+      "code": {
+        "file": "client/services/AlertsService.js"
+      }
+    },
+    {
+      "name": "client/services/AlertsService.ts",
+      "code": {
+        "file": "client/services/AlertsService.ts"
+      }
+    },
+    {
+      "name": "client/services/AlertsService.go",
+      "code": {
+        "file": "client/services/AlertsService.go"
+      }
+    }
+  ]
+}

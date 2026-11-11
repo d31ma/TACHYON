@@ -132,3 +132,4 @@ design. Decide routine implementation choices in code review, not in an ADR.
 - [117. Go HTTP Clients Read JSON Error Bodies](0117-go-http-clients-read-json-error-bodies.md)
 - [119. Go Edge Contracts for Tac and Yon](0119-go-edge-contracts-for-tac-and-yon.md)
 - [122. Python Services Reach the Browser APIs Through the Page](0122-python-services-reach-the-browser-apis-through-the-page.md)
+- [118. Tac Pages Subscribe to Web Push](0118-tac-pages-subscribe-to-web-push.md)

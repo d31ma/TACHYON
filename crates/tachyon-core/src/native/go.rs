@@ -74,6 +74,7 @@ impl GoServices {
             "tac/geolocation.go",
             include_str!("web_apis/geolocation.go"),
         ),
+        ("tac/push.go", include_str!("web_apis/push.go")),
         (
             "tac/window_controls.go",
             include_str!("web_apis/window_controls.go"),
@@ -92,7 +93,7 @@ impl GoServices {
     const WEB_ENTRY: &str = include_str!("prelude_web.go");
     const FAILURE_CODE: u16 = 1605;
     const WEB_EVENT_FILE: &str = "tac/web_event_models.go";
-    const ALIASED_TYPES: [&str; 28] = [
+    const ALIASED_TYPES: [&str; 30] = [
         "ApplicationEventPublisher",
         "Clock",
         "SecureRandom",
@@ -106,6 +107,7 @@ impl GoServices {
         "WindowControls",
         "Focus",
         "Files",
+        "Push",
         "ApplicationStateChanged",
         "ConnectivityChanged",
         "VisibilityChanged",
@@ -119,6 +121,8 @@ impl GoServices {
         "FileDropped",
         "FileChunkRead",
         "UploadFinished",
+        "PushSubscribed",
+        "PushUnsubscribed",
         "BrowserCallFailed",
         "BrowserFakes",
     ];

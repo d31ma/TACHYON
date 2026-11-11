@@ -1663,6 +1663,7 @@ const ownerResources = (element, signal, owner) => ({
   geolocation: TacWebApis.geolocation,
   windowControls: TacWebApis.windowControls,
   focus: TacFocus.owned(owner),
+  push: TacWebApis.push,
   filePicker: TacNativeCapabilities.filePicker(signal),
 })
 const attachRuntime = (owner, scope, element) => {

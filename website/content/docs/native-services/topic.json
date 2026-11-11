@@ -30,6 +30,9 @@
       "include": "../polyglot/pick-drop-and-upload-files/section.json"
     },
     {
+      "include": "../polyglot/web-push-subscriptions/section.json"
+    },
+    {
       "include": "../polyglot/browser-apis-in-test-units/section.json"
     },
     {

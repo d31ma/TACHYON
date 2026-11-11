@@ -248,6 +248,7 @@ impl EventResource {
         "geolocation",
         "windowControls",
         "focus",
+        "push",
         "filePicker",
     ];
     const RENAMED_NAMES: [(&str, &str); 4] = [

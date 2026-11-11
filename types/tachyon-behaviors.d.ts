@@ -418,6 +418,8 @@ declare global {
   interface TacNotifications { permission(): NotificationPermission; requestPermission(): null; show(title: string, body: string): null; }
   /** Geolocation: the position of the device (ADR 0065). Grant "geolocation" in tac.browserApis. `currentPosition` answers with `PositionFound` or `BrowserCallFailed`. */
   interface TacGeolocation { currentPosition(): null; }
+  /** Push: Web Push subscriptions (ADR 0118). Grant "push" in tac.browserApis. `subscribe` takes the base64url VAPID public key of the server, needs a click or key handler, asks for notification permission, and answers with `PushSubscribed`. `subscription` answers with `PushSubscribed`, or `PushUnsubscribed` with an empty endpoint when there is none. `unsubscribe` answers with `PushUnsubscribed`. A failure after the start sends `BrowserCallFailed`. `supported` answers false in a native app, an insecure page or a browser without the Push API. */
+  interface TacPush { supported(): boolean; subscribe(applicationServerKey: string): null; subscription(): null; unsubscribe(): null; }
   /** FilePickerResult: the status of a native file-picker call (ADR 0089), with an optional opaque handle, basename or UTF-8 text. Failure results expose no host path. */
   interface TacFilePickerResult { status: 'available' | 'selected' | 'cancelled' | 'read' | 'released' | 'denied' | 'unsupported' | 'unavailable' | 'invalid' | 'disposed' | 'tooLarge'; handle?: string; name?: string; text?: string; }
   /** FilePicker: selects one native file and reads UTF-8 text up to 65,536 bytes (ADR 0089). Grant "filePicker" in tac.nativeCapabilities. Handles belong to the owner, and `release` ends access. Picker calls in a browser tab answer `unsupported`. */
@@ -442,6 +444,10 @@ declare global {
   interface NotificationPermissionChanged { permission: NotificationPermission; }
   /** PositionFound: a built-in event model with the position that `Geolocation.currentPosition` found (ADR 0065). */
   interface PositionFound { latitude: number; longitude: number; accuracy: number; timestamp: number; }
+  /** PushSubscribed: a built-in event model with the Web Push subscription the server needs to send messages (ADR 0118). `p256dh` and `auth` are base64url keys; `expirationTime` is milliseconds since 1970, or 0 when it has none. */
+  interface PushSubscribed { endpoint: string; p256dh: string; auth: string; expirationTime: number; }
+  /** PushUnsubscribed: a built-in event model. The page has no Web Push subscription; `endpoint` is the one that ended, or empty (ADR 0118). */
+  interface PushUnsubscribed { endpoint: string; }
   /** BrowserCallFailed: a built-in event model. A browser API call failed after it started (ADR 0065). */
   interface BrowserCallFailed { api: string; call: string; message: string; }
   interface TacResourceMap {
@@ -463,6 +469,7 @@ declare global {
     geolocation: TacGeolocation;
     windowControls: TacWindowControls;
     focus: Focus;
+    push: TacPush;
     filePicker: TacFilePicker;
   }
   /** OnEvent: this method listens for one event model, the type of its one parameter (`placed(order: OrderPlaced)`). A payload that does not fit the model is not delivered. When the method's return type is a model, the value it returns is published as that model. Write `@OnEvent`, or `@OnEvent({ condition, id, replay })`. */

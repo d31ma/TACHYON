@@ -1,0 +1,6 @@
+{
+  "name": "Mail alerts",
+  "tac": {
+    "browserApis": ["push"]
+  }
+}

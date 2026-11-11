@@ -10,6 +10,7 @@ impl BrowserApiGrants {
         "geolocation",
         "notifications",
         "preferenceStrings",
+        "push",
         "share",
     ];
     const META_NAME: &'static str = "tachyon-browser-apis";

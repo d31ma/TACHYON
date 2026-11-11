@@ -57,6 +57,16 @@ impl WebEventModels {
                 ],
             ),
             Self::record(
+                "PushSubscribed",
+                &[
+                    ("endpoint", Shape::Text),
+                    ("p256dh", Shape::Text),
+                    ("auth", Shape::Text),
+                    ("expirationTime", Shape::Number),
+                ],
+            ),
+            Self::record("PushUnsubscribed", &[("endpoint", Shape::Text)]),
+            Self::record(
                 "BrowserCallFailed",
                 &[
                     ("api", Shape::Text),

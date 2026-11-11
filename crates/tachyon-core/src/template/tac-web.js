@@ -12,6 +12,7 @@ class TacWebApis {
   static dropEvents = ['FileDropped', 'BrowserCallFailed']
   static events = null
   static hostPermission = globalThis.__tachyonNotificationPermission ?? 'default'
+  static pushKey = Symbol.for('tachyon.tac.push')
   static clock = Object.freeze({
     now: () => Date.now(),
     monotonic: () => performance.now(),
@@ -54,6 +55,18 @@ class TacWebApis {
     resize: (width, height) => TacWebApis.window('resize', TacWebApis.windowSize(width, height)),
     setTitle: (text) => TacWebApis.window('title', { title: String(text) }, 'setTitle'),
   })
+  static push = Object.freeze({
+    supported: () => TacWebApis.webPush(false).supported(),
+    subscribe: (key) => TacWebApis.pushLater('subscribe', true, TacWebApis.webPush(true).subscribe(key)),
+    subscription: () => TacWebApis.pushLater('subscription', false, TacWebApis.webPush(false).subscription()),
+    unsubscribe: () => TacWebApis.pushLater('unsubscribe', false, TacWebApis.webPush(false).unsubscribe()),
+  })
+  static noPush = Object.freeze({
+    supported: () => false,
+    subscribe: () => TacWebApis.pushMissing(),
+    subscription: () => TacWebApis.pushMissing(),
+    unsubscribe: () => TacWebApis.pushMissing(),
+  })
   static apis = Object.freeze({
     clock: TacWebApis.clock,
     secureRandom: TacWebApis.secureRandom,
@@ -68,6 +81,7 @@ class TacWebApis {
     geolocation: TacWebApis.geolocation,
     windowControls: TacWebApis.windowControls,
     focus: typeof TacFocus === 'function' ? TacFocus.api : {},
+    push: TacWebApis.push,
     nativeCapability: Object.freeze({ call: (...values) => TacNativeCapabilities.now(...values) }),
     files: Object.freeze(Object.fromEntries(['pick', 'read', 'release', 'upload', 'cancel'].map((call) => [call, (...values) => TacWebApis.files(call, values)]))),
   })
@@ -174,6 +188,19 @@ class TacWebApis {
     if (TacWebApis.bridged('notifications')) return TacWebApis.later({ api: 'notifications', call: 'show', gesture: false, values }, null, () => null)
     new Notification(values.title, { body: values.body })
     return null
+  }
+
+  static webPush(gesture) {
+    TacWebApis.allowed('push', gesture)
+    return globalThis[TacWebApis.pushKey] ?? TacWebApis.noPush
+  }
+
+  static pushLater(call, gesture, work) {
+    return TacWebApis.later({ api: 'push', call, gesture }, work, (event) => event)
+  }
+
+  static pushMissing() {
+    throw new Error('Web Push needs a web browser. The native app has no Push API.')
   }
 
   static windowGrants() {

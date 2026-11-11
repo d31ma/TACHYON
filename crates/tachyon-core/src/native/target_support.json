@@ -430,6 +430,16 @@
     "android": {"reach": "honored", "how": "the web view's navigator.geolocation, after the host asks for ACCESS_FINE_LOCATION through WebChromeClient; the question and a test-provider position ran on the Android 15 emulator in scripts/android/browser-apis-test.mjs (RM3)"}
   },
   {
+    "member": "tac.browserApis push",
+    "paths": ["tac.browserApis[push]"],
+    "web": {"reach": "honored", "how": "PushManager on a push service worker at /.tachyon/push/ that shows the message and opens its same-origin path when clicked (ADR 0118); Safari on iPhone and iPad gives Web Push only to the app added to the Home Screen, iOS 16.4 and later"},
+    "macos": {"reach": "adapted", "note": "The WKWebView of the macOS app has no Web Push, and native push (APNs, FCM, WNS) is not part of Tachyon yet. A native build does not ship the push scripts: Push.Supported answers false, and Subscribe, Subscription and Unsubscribe fail with the message that Web Push needs a web browser (ADR 0118)."},
+    "windows": {"reach": "adapted", "note": "The WebView2 of the Windows app has no Web Push, and native push (APNs, FCM, WNS) is not part of Tachyon yet. A native build does not ship the push scripts: Push.Supported answers false, and Subscribe, Subscription and Unsubscribe fail with the message that Web Push needs a web browser (ADR 0118)."},
+    "linux": {"reach": "adapted", "note": "The WebKitGTK web view of the Linux app has no Web Push, and native push (APNs, FCM, WNS) is not part of Tachyon yet. A native build does not ship the push scripts: Push.Supported answers false, and Subscribe, Subscription and Unsubscribe fail with the message that Web Push needs a web browser (ADR 0118)."},
+    "ios": {"reach": "adapted", "note": "The WKWebView of the iOS app has no Web Push, and native push (APNs, FCM, WNS) is not part of Tachyon yet. A native build does not ship the push scripts: Push.Supported answers false, and Subscribe, Subscription and Unsubscribe fail with the message that Web Push needs a web browser (ADR 0118)."},
+    "android": {"reach": "adapted", "note": "The Android WebView has no Web Push, and native push (APNs, FCM, WNS) is not part of Tachyon yet. A native build does not ship the push scripts: Push.Supported answers false, and Subscribe, Subscription and Unsubscribe fail with the message that Web Push needs a web browser (ADR 0118)."}
+  },
+  {
     "member": "tac.browserApis preferenceStrings",
     "paths": ["tac.browserApis[preferenceStrings]"],
     "web": {"reach": "honored", "how": "localStorage"},

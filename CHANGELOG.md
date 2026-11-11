@@ -35,6 +35,13 @@ machine contracts have their own, independent major versions.
   reads it into a model. A Setup or TestSetup adapter can answer
   `&BehaviorError{Code: "HTTP_STATUS", Status: 409, Body: ...}`, so a test can
   fake an error status with a body (ADR 0117).
+- **Web Push for Tac pages.** Grant `push` in `tac.browserApis`, and a Go
+  service gets the `Push` type: `Subscribe` with the server's VAPID key
+  answers with a `PushSubscribed` event that holds the endpoint and keys the
+  server needs. A separate push service worker shows each message and opens
+  its same-origin path when clicked. JavaScript and TypeScript get the same
+  calls through the `push` resource. Native apps answer that Web Push needs a
+  web browser (ADR 0118).
 
 - **Event bindings take key filters, modifiers and document listeners.**
   `on:keydown.escape`, the arrow keys, `home`, `end`, `enter`, `space` and

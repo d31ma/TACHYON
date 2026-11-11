@@ -105,6 +105,9 @@ mod view_transition_guard;
 mod web_artifact_manifest;
 #[cfg(test)]
 mod worker_registration_tests;
+mod web_push;
+#[cfg(test)]
+mod web_push_tests;
 mod yon_reads;
 #[cfg(test)]
 mod yon_reads_tests;
@@ -337,7 +340,9 @@ const loopback = host === 'localhost'
 if ('serviceWorker' in navigator) {
   if (loopback || typeof globalThis.__tachyonNativeHostCall === 'function')
     navigator.serviceWorker.getRegistrations()
-      .then((registrations) => registrations.forEach((registration) => registration.unregister()))
+      .then((registrations) => registrations
+        .filter((registration) => !String(registration.scope).endsWith('/.tachyon/push/'))
+        .forEach((registration) => registration.unregister()))
       .catch(() => {})
   else {
     const replaced = Boolean(navigator.serviceWorker.controller)
