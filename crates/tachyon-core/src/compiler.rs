@@ -103,11 +103,11 @@ pub(crate) mod utility_module;
 mod utility_module_tests;
 mod view_transition_guard;
 mod web_artifact_manifest;
-#[cfg(test)]
-mod worker_registration_tests;
 mod web_push;
 #[cfg(test)]
 mod web_push_tests;
+#[cfg(test)]
+mod worker_registration_tests;
 mod yon_reads;
 #[cfg(test)]
 mod yon_reads_tests;

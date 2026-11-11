@@ -103,7 +103,11 @@ console.log(JSON.stringify({ events: Object.keys(handlers).sort(), effects }))
     fn run(driver: &str) -> serde_json::Value {
         let root = tempfile::tempdir().expect("root");
         let [(_, page), (_, worker)] = WebPush::files();
-        Self::write(root.path(), "tac-web.js", include_str!("../template/tac-web.js").as_bytes());
+        Self::write(
+            root.path(),
+            "tac-web.js",
+            include_str!("../template/tac-web.js").as_bytes(),
+        );
         Self::write(root.path(), "tac-web-push.js", &page);
         Self::write(root.path(), "tac-push-sw.js", &worker);
         Self::write(root.path(), "drive.mjs", driver.as_bytes());
@@ -138,8 +142,20 @@ fn a_push_grant_subscribes_through_the_push_worker_and_answers_with_events() {
         serde_json::json!([{"value": false}, {"error": missing}])
     );
     assert_eq!(answers["supported"], serde_json::json!({"value": true}));
-    for started in ["empty", "subscribe", "sameKey", "otherKey", "subscription", "unsubscribe", "denied"] {
-        assert_eq!(answers[started], serde_json::json!({"value": null}), "{started}: {report}");
+    for started in [
+        "empty",
+        "subscribe",
+        "sameKey",
+        "otherKey",
+        "subscription",
+        "unsubscribe",
+        "denied",
+    ] {
+        assert_eq!(
+            answers[started],
+            serde_json::json!({"value": null}),
+            "{started}: {report}"
+        );
     }
     let bad_key = "The Web Push server key must be a base64url VAPID public key: 65 bytes that start with 0x04.";
     assert_eq!(answers["badKey"]["error"], bad_key);
@@ -185,10 +201,16 @@ fn a_push_grant_subscribes_through_the_push_worker_and_answers_with_events() {
         ]),
         "{report}"
     );
-    assert_eq!(effects["unsubscribed"], 2, "one key change and one unsubscribe: {report}");
+    assert_eq!(
+        effects["unsubscribed"], 2,
+        "one key change and one unsubscribe: {report}"
+    );
     assert_eq!(effects["visible"], true);
     let worker = serde_json::json!(["/.tachyon/tac-push-sw.js", "/.tachyon/push/"]);
-    assert_eq!(effects["registered"], serde_json::json!([worker, worker, worker]));
+    assert_eq!(
+        effects["registered"],
+        serde_json::json!([worker, worker, worker])
+    );
 }
 
 #[test]
@@ -203,9 +225,8 @@ fn the_push_worker_shows_messages_and_opens_only_same_origin_paths() {
         serde_json::json!(["install", "notificationclick", "push"])
     );
     let effects = &report["effects"];
-    let home = |title: &str, body: &str| {
-        serde_json::json!([title, {"body": body, "data": {"path": "/"}}])
-    };
+    let home =
+        |title: &str, body: &str| serde_json::json!([title, {"body": body, "data": {"path": "/"}}]);
     assert_eq!(
         effects["shown"],
         serde_json::json!([
@@ -275,10 +296,16 @@ fn only_a_web_build_that_grants_push_ships_the_push_scripts() {
     assert!(page.contains(r#"content="push""#), "{page}");
     assert_eq!(shipped, [true, true]);
     let (page, shipped) = built(true);
-    assert!(!page.contains("tac-web-push"), "a native page has no Web Push: {page}");
+    assert!(
+        !page.contains("tac-web-push"),
+        "a native page has no Web Push: {page}"
+    );
     assert_eq!(shipped, [false, false]);
     manifest(r#""share""#);
     let (page, shipped) = built(false);
-    assert!(!page.contains("tac-web-push"), "no grant, no push module: {page}");
+    assert!(
+        !page.contains("tac-web-push"),
+        "no grant, no push module: {page}"
+    );
     assert_eq!(shipped, [false, false]);
 }
