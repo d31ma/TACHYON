@@ -84,19 +84,32 @@ impl CppStreamRequest {
         ] == [true, true, true, true, true];
         fits.then_some(())
             .ok_or_else(|| CppFailure::unreadable(path, member.name_at, Self::FORM))?;
-        Self::own_path(member)
+        Self::checked_path(member)
             .map(drop)
-            .ok_or_else(|| CppFailure::unreadable(path, member.name_at, Self::PATH_FORM))
+            .map_err(|message| CppFailure::unreadable(path, member.name_at, &message))
     }
 
     fn own_path(member: &CppMember) -> Option<(String, Option<ReconnectPolicy>)> {
+        Self::checked_path(member).ok()
+    }
+
+    fn checked_path(member: &CppMember) -> Result<(String, Option<ReconnectPolicy>), String> {
         let marker = member
             .markers
             .iter()
-            .find(|marker| Self::MARKERS.contains(&marker.name.as_str()))?;
-        StreamArguments::read(&marker.name, marker.arguments.trim())
-            .ok()
-            .filter(|(own, _)| [own.is_empty(), own.starts_with('/')].contains(&true))
+            .find(|marker| Self::MARKERS.contains(&marker.name.as_str()))
+            .ok_or_else(|| String::from(Self::PATH_FORM))?;
+        let read = StreamArguments::read(&marker.name, marker.arguments.trim())
+            .map_err(|message| format!("{}. {message}", Self::PATH_FORM))?;
+        Self::slash_first(read)
+    }
+
+    fn slash_first(
+        read: (String, Option<ReconnectPolicy>),
+    ) -> Result<(String, Option<ReconnectPolicy>), String> {
+        let fits = [read.0.is_empty(), read.0.starts_with('/')].contains(&true);
+        fits.then_some(read)
+            .ok_or_else(|| String::from(Self::PATH_FORM))
     }
 
     fn check_one_socket(path: &Path, streams: &[&CppMember]) -> Result<(), Failure> {

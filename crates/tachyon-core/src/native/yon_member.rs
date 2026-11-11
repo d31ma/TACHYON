@@ -27,6 +27,7 @@ impl YonMember {
     const COUNT_MESSAGE: &'static str = "Manifest tac.yon.origins names at most 8 origins.";
 
     pub(crate) fn validate(&self, outgoing: Option<&serde_json::Value>) -> Result<(), Failure> {
+        self.check_not_empty()?;
         self.origin
             .iter()
             .try_for_each(|origin| Self::check_origin(origin))?;
@@ -66,6 +67,13 @@ impl YonMember {
         url::Url::parse(origin)
             .ok()
             .is_some_and(|address| Self::has_local_host(&address))
+    }
+
+    fn check_not_empty(&self) -> Result<(), Failure> {
+        let empty = [self.origin.is_none(), self.origins.is_empty()] == [true, true];
+        (!empty)
+            .then_some(())
+            .ok_or_else(|| config_failure(Self::ORIGIN_MESSAGE))
     }
 
     fn check_origin(origin: &str) -> Result<(), Failure> {
@@ -304,6 +312,13 @@ mod tests {
             sources,
             "https://rt.example.com:8443 wss://rt.example.com:8443"
         );
+    }
+
+    #[test]
+    fn a_yon_member_names_at_least_one_origin() {
+        let yon: YonMember = serde_json::from_str("{}").expect("yon member");
+        let text = yon.validate(None).expect_err("empty").to_string();
+        assert!(text.contains("tac.yon.origin"), "{text}");
     }
 
     #[test]

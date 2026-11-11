@@ -26,6 +26,19 @@ machine contracts have their own, independent major versions.
   apps the host answers: `persisted` is true and `quota` is the free disk
   space. `docs/PAGE_CLIENT_CHECKLIST.md` lists every file a new page client
   touches.
+- **Sockets and streams reconnect by a declared policy and reach named
+  origins** (ADR 0123). `@SocketRequest` and `@StreamRequest` take
+  `{"path": "/ws", "reconnect": {"maxTries": 0, "delayMs": 1000,
+  "maxDelayMs": 30000, "jitterMs": 1000}}` in every Tac language; `maxTries`
+  0 means no limit. The count restarts when the connection opens, an offline
+  page does not count tries, and the page reconnects at once when it is online
+  or shown again. Without a policy nothing changes (1, 2, 4, 8 and 16 seconds).
+  `tac.yon.origins` in `client/manifest.json` names other servers, such as
+  `{"realtime": "https://rt.example.com"}`, and
+  `@HTTPClient({"path": "/chat", "origin": "realtime"})` sends that client's
+  requests, streams and sockets there. The host must be in
+  `tac.outgoing.hosts`, `connect-src` allows the origin, an undeclared name
+  stops the build, and a native release refuses a local named origin.
 - **A Yon handler can reach a named service on a private network** (ADR 0094
   amendment). List the name in `outgoing.hosts` and add an entry such as
   `{"host": "keycloak", "networks": ["172.16.0.0/12"]}` to the new

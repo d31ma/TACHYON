@@ -32,16 +32,14 @@ impl StreamArguments {
     }
 
     fn parsed(written: &str, text: &str) -> Result<Value, String> {
-        if text.is_empty() {
-            return Ok(Value::Null);
-        }
-        Self::quoted_or_object(written, text)
+        let empty = text.is_empty().then_some(Value::Null);
+        let quoted = Self::quoted(text).map(|path| Value::String(path.to_owned()));
+        empty
+            .or(quoted)
+            .map_or_else(|| Self::object(written, text), Ok)
     }
 
-    fn quoted_or_object(written: &str, text: &str) -> Result<Value, String> {
-        if let Some(path) = Self::quoted(text) {
-            return Ok(Value::String(path.to_owned()));
-        }
+    fn object(written: &str, text: &str) -> Result<Value, String> {
         crate::behavior::literal::parse(text)
             .ok()
             .filter(Value::is_object)
