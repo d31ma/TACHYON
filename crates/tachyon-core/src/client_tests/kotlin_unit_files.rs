@@ -21,7 +21,7 @@ impl KotlinUnitFiles {
         ),
     ];
     const BROWSER_FAKES: &'static str = include_str!("kotlin_browser_fakes.kt");
-    const WEB_APIS: [(&'static str, &'static str); 11] = [
+    const WEB_APIS: [(&'static str, &'static str); 12] = [
         ("Clock", include_str!("../native/web_apis/Clock.kt")),
         (
             "SecureRandom",

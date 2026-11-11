@@ -1,7 +1,7 @@
 pub(crate) struct WebApiClients;
 
 impl WebApiClients {
-    pub(crate) const TYPE_NAMES: [&'static str; 11] = [
+    pub(crate) const TYPE_NAMES: [&'static str; 12] = [
         "Clock",
         "SecureRandom",
         "Connectivity",

@@ -40,7 +40,7 @@ impl SwiftWebServices {
         include_str!("swift_web_services/TacWebHost.swift"),
         include_str!("swift_web_services/TacBrowserError.swift")
     );
-    const WEB_APIS: [(&'static str, &'static str); 12] = [
+    const WEB_APIS: [(&'static str, &'static str); 13] = [
         ("Clock", include_str!("web_apis/Clock.swift")),
         ("SecureRandom", include_str!("web_apis/SecureRandom.swift")),
         ("Connectivity", include_str!("web_apis/Connectivity.swift")),
