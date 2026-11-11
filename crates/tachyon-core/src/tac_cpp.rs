@@ -26,6 +26,7 @@ mod cpp_member_end;
 mod cpp_member_kind;
 mod cpp_member_reader;
 mod cpp_model;
+mod cpp_needed;
 mod cpp_parameter;
 mod cpp_prelude;
 mod cpp_program;

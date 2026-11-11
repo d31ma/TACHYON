@@ -18,6 +18,21 @@ final class TacNeeds {
         return needed.service;
     }
 
+    static java.util.List<String> neededNames(TacNode root) {
+        java.util.List<String> names = new java.util.ArrayList<>();
+        java.util.Set<TacNode> seen = new java.util.HashSet<>();
+        java.util.ArrayDeque<TacNode> pending = new java.util.ArrayDeque<>(root.needs);
+        seen.add(root);
+        while (!pending.isEmpty()) {
+            TacNode next = pending.removeFirst();
+            if (seen.add(next)) {
+                names.add(next.name);
+                pending.addAll(next.needs);
+            }
+        }
+        return names;
+    }
+
     static TacNode attach(String name, TacActivation owner) {
         if (TacServiceTable.shared(name)) {
             return obtain(name);

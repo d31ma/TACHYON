@@ -47,6 +47,21 @@ impl GoMarkerProofs {
          console.log(JSON.stringify({ written, afterReload, newTab, saved: Object.fromEntries(local.items) }))\n\
          process.exit(0)\n";
 
+    const NEEDED_FILES: [(&str, &str); 2] = [
+        (
+            "client/services/NotesService.go",
+            "// @Service\ntype NotesService struct {\n\t// @LocalState\n\tVisits int\n\t// @SessionState\n\tDraft string\n}\n\n\
+             func (notes *NotesService) Keep(text string) {\n\tnotes.Visits++\n\tnotes.Draft = text\n}\n",
+        ),
+        (
+            "client/services/EditorService.go",
+            "// @Service\ntype EditorService struct {\n\t// @Needs\n\tnotes *NotesService\n}\n\n\
+             func (editor *EditorService) Write(text string) {\n\teditor.notes.Keep(text)\n}\n\n\
+             func (editor *EditorService) Draft() string {\n\treturn editor.notes.Draft\n}\n\n\
+             func (editor *EditorService) Visits() int {\n\treturn editor.notes.Visits\n}\n",
+        ),
+    ];
+
     const BACKGROUND_FILES: [(&str, &str); 2] = [
         (
             "client/models/OrderPlaced.go",
@@ -252,4 +267,24 @@ async fn a_go_request_in_on_start_explains_why_it_cannot_wait() {
         ),
         "{report}"
     );
+}
+
+#[tokio::test]
+async fn a_go_service_that_another_go_service_needs_keeps_its_saved_fields() {
+    if !GoMarkerProofs::tools_available() {
+        assert!(
+            std::env::var_os("CI").is_none(),
+            "CI must provide go and node"
+        );
+        eprintln!("skipping: go or node is unavailable");
+        return;
+    }
+    let proof = super::needed_state_proof::NeededStateProof {
+        language: WebLanguage::Go,
+        files: &GoMarkerProofs::NEEDED_FILES,
+        prefix: super::needed_state_proof::NeededStateProof::FETCH,
+        setup: |_| {},
+    };
+    let report = proof.run().await;
+    super::needed_state_proof::NeededStateProof::assert_saved(&report);
 }

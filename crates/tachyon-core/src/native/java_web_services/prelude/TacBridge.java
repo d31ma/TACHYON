@@ -80,7 +80,7 @@ final class TacBridge {
         }
         TacEvents.runFor(activation);
         if (operation.equals("init")) {
-            return describe(activation.members);
+            return describe(activation.members, TacNeeds.neededNames(activation.node));
         }
         if (operation.equals("call") || operation.equals("event")) {
             TacTasks.allowWaiting(activation);
@@ -185,7 +185,7 @@ final class TacBridge {
         return NOTHING;
     }
 
-    private static String describe(java.util.Map<String, Object> members) {
+    private static String describe(java.util.Map<String, Object> members, java.util.List<String> needs) {
         java.util.List<String> fields = new java.util.ArrayList<>();
         java.util.List<String> methods = new java.util.ArrayList<>();
         java.util.List<Object> listeners = new java.util.ArrayList<>();
@@ -203,7 +203,7 @@ final class TacBridge {
         }
         return "{\"value\":{\"fields\":" + TacJsonWriter.write(fields) + ",\"methods\":"
                 + TacJsonWriter.write(methods) + ",\"listeners\":" + TacJsonWriter.write(listeners) + ",\"streams\":"
-                + TacJsonWriter.write(streams) + "}}";
+                + TacJsonWriter.write(streams) + ",\"needs\":" + TacJsonWriter.write(needs) + "}}";
     }
 
     private static void dispose(String owner) {

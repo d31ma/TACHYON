@@ -31,6 +31,7 @@ impl CppProgram {
         let registered = Self::register(&mut graph, chosen)?;
         let mut services = graph.finish();
         CppHeldStreams::attach(root, &mut services)?;
+        super::cpp_needed::CppNeeded::attach(&mut services, &registered);
         Self {
             models: Self::models(root)?,
             setups: CppSetup::read_all(root, Realm::Tac)?,

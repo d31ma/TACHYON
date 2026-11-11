@@ -93,13 +93,14 @@ impl<'a> ClientViewRenderer<'a> {
         let catalog = self.service_catalog(&reached);
         self.check_shared_data(program, &nodes)?;
         super::ViewMemberCheck::run(self.services, &nodes, &program.source_path)?;
-        let plan = json!({
+        let mut plan = json!({
             "schemaVersion": 1,
             "route": route,
             "state": initial_state,
             "services": catalog,
             "nodes": nodes,
         });
+        self.add_saved(&mut plan);
         let plan = Self::serialized_plan(program, &plan)?;
         let source_map = ViewSourceMap::v1(
             String::from(output_path),
@@ -125,6 +126,7 @@ impl<'a> ClientViewRenderer<'a> {
         let mut element = encoder.exported_component(name, component)?;
         let reached = ServiceReach::expand(self.services, &encoder.used_services);
         element["services"] = Value::Object(self.service_catalog(&reached));
+        self.add_saved(&mut element);
         used_services.extend(reached);
         Ok(element)
     }
@@ -146,6 +148,25 @@ impl<'a> ClientViewRenderer<'a> {
             catalog.insert(instance.clone(), entry);
         }
         catalog
+    }
+
+    fn add_saved(&self, plan: &mut Value) {
+        let saved = self.saved_fields();
+        if !saved.is_empty() {
+            plan["saved"] = Value::Object(saved);
+        }
+    }
+
+    fn saved_fields(&self) -> serde_json::Map<String, Value> {
+        self.services
+            .iter()
+            .filter(|(_, service)| Self::saved_inside_its_module(service))
+            .map(|(instance, service)| (instance.clone(), json!(service.stored())))
+            .collect()
+    }
+
+    fn saved_inside_its_module(service: &ServiceDefinition) -> bool {
+        [service.script_path().is_none(), service.stored().is_empty()] == [true, false]
     }
 
     fn check_shared_data(&self, program: &TemplateProgram, nodes: &[Value]) -> Result<(), Failure> {

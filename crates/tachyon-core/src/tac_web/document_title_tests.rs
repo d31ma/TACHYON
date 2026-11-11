@@ -108,6 +108,7 @@ console.log('document-title-plain-owner-lifecycle-qualified');
             Self::BEFORE,
             Self::section(source, "class Owners {", "class StoredAccessor {"),
             "const NativeState = {owners: new WeakMap()};\n",
+            Self::section(source, "class NeededServices {", "const persistScope ="),
             include_str!("../template/tac-document-title.js"),
             include_str!("../template/application-events.js"),
             Self::section(source, "const createOwner =", "const disposeManagedOwner ="),

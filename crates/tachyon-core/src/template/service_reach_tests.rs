@@ -286,3 +286,38 @@ fn binding_the_owner_to_outside_code_still_reaches_every_provider() {
         assert_eq!(page.services, services.names(), "{body}");
     }
 }
+
+#[test]
+fn a_page_plan_lists_the_saved_fields_of_services_that_live_inside_a_module() {
+    let root = tempfile::tempdir().expect("project");
+    for (relative, source) in [
+        (
+            "client/services/NotesService.go",
+            "// @Service\ntype NotesService struct {\n\t// @LocalState\n\tVisits int\n\t// @SessionState\n\tDraft string\n}\n",
+        ),
+        (
+            "client/services/PlainService.go",
+            "// @Service\ntype PlainService struct {\n\tCount int\n}\n",
+        ),
+        (
+            "client/services/DraftService.js",
+            "@Service\nexport default class DraftService {\n  @SessionState\n  draft = ''\n}\n",
+        ),
+    ] {
+        write(root.path(), relative, source);
+    }
+    let page = render(root.path(), "<p>saved</p>");
+    assert!(
+        page.html
+            .contains(r#""saved":{"notes":{"draft":"session","visits":"local"}}"#),
+        "{}",
+        page.html
+    );
+}
+
+#[test]
+fn a_page_plan_without_module_saved_fields_has_no_saved_map() {
+    let root = project();
+    let page = render(root.path(), "<reachable />");
+    assert!(!page.html.contains(r#""saved""#), "{}", page.html);
+}

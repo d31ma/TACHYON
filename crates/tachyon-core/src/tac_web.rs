@@ -838,6 +838,12 @@ export const activate = (target, service, properties, plan) => {
   hidden(target, '__tachyonStarted', () => {
     for (const [name, value, retain] of early.splice(0)) target.__tachyonPublisher.publishEvent(name, value, retain)
   })
+  hidden(target, '__tachyonNeeds', Array.isArray(declared?.needs) ? declared.needs : [])
+  hidden(target, '__tachyonHold', (name) => {
+    const held = {}
+    activate(held, name, {}, { listeners: [] })
+    return held
+  })
   hidden(target, '__tachyonDispose', () => {
     disposed = true
     released?.unregister(target)
@@ -1028,6 +1034,8 @@ mod go_topic_tests;
 
 #[cfg(test)]
 mod go_marker_proof_tests;
+#[cfg(test)]
+pub(crate) mod needed_state_proof;
 
 #[cfg(test)]
 mod stored_state_proof_tests;

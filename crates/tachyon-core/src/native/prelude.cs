@@ -220,6 +220,7 @@ public partial class Tac
         internal readonly string Owner = owner;
         internal readonly Dictionary<string, TacMember> Members = members;
         internal bool Disposed;
+        internal List<string> Needs = new();
         internal int PendingTasks;
         internal readonly System.Threading.CancellationTokenSource Cancellation = cancellation;
         internal readonly System.Threading.CancellationToken HttpLifetime = cancellation.Token;
@@ -487,6 +488,7 @@ public partial class Tac
         internal readonly string Capabilities = capabilities;
         internal readonly System.Threading.CancellationTokenSource Lifetime = lifetime;
         internal readonly object Instance = CreatedInstance;
+        internal readonly List<ServiceNode> Needed = new();
         internal bool Started;
         internal bool Disposed;
         internal List<TacMember> Hooks(bool destroy) => Members
@@ -496,6 +498,7 @@ public partial class Tac
             .ToList();
     }
     private static object CreatedInstance;
+    private static List<ServiceNode> CreatingNeeds;
     private static string CreatingRoute = "";
     internal static void Keep(object instance) => CreatedInstance = instance;
     internal static object Need(string service)
@@ -503,6 +506,7 @@ public partial class Tac
         var node = ObtainNode(CreatingRoute, service, "", CreatingCancellation, out var created);
         if (node == null) throw new InvalidOperationException("Unknown needed service.");
         if (created) PageNodes.Add(node);
+        CreatingNeeds?.Add(node);
         StartNode(node);
         return node.Instance;
     }
@@ -529,17 +533,38 @@ public partial class Tac
         var lifetime = owner.Length > 0 ? null : new System.Threading.CancellationTokenSource();
         Dictionary<string, TacMember> members = null;
         var outerRoute = CreatingRoute;
+        var outerNeeds = CreatingNeeds;
+        var needs = new List<ServiceNode>();
         CreatingRoute = route;
+        CreatingNeeds = needs;
         CreatedInstance = null;
         try {
             members = CreateMembers(capabilities, service, lifetime ?? activation);
-            return members == null ? null : new ServiceNode(route, service, owner, members, capabilities, lifetime);
+            if (members == null) return null;
+            var made = new ServiceNode(route, service, owner, members, capabilities, lifetime);
+            made.Needed.AddRange(needs);
+            return made;
         }
         finally {
             if (members == null) { NativeCapabilities.Dispose(capabilities); lifetime?.Cancel(); lifetime?.Dispose(); }
             CreatingRoute = outerRoute;
+            CreatingNeeds = outerNeeds;
             CreatedInstance = null;
         }
+    }
+    private static List<string> NeededNames(ServiceNode root)
+    {
+        var names = new List<string>();
+        var seen = new HashSet<ServiceNode> { root };
+        var pending = new Queue<ServiceNode>(root.Needed);
+        while (pending.Count > 0)
+        {
+            var next = pending.Dequeue();
+            if (!seen.Add(next)) continue;
+            names.Add(next.Service);
+            foreach (var needed in next.Needed) pending.Enqueue(needed);
+        }
+        return names;
     }
     private static void StartNode(ServiceNode node)
     {
@@ -631,7 +656,7 @@ public partial class Tac
                 catch { lifetime.Cancel(); lifetime.Dispose(); throw; }
                 finally { CreatingProps = null; }
                 if (node == null) { lifetime.Cancel(); lifetime.Dispose(); return "{\"error\":\"Unknown native service.\",\"code\":\"TY_NATIVE_SERVICE\"}"; }
-                var activation = new Activation(route, service, owner, node.Members, lifetime);
+                var activation = new Activation(route, service, owner, node.Members, lifetime) { Needs = NeededNames(node) };
                 Activations[owner] = activation; Executing = activation;
                 try {
                     if (parsed["props"] is JsonObject props)
@@ -671,7 +696,7 @@ public partial class Tac
                 }
                 return "{\"value\":{\"fields\":" + Encode(fields) + ",\"methods\":"
                     + Encode(methods) + DescribeTaskMethods(asynchronous) + ",\"listeners\":[" + string.Join(",", listeners) + "]"
-                    + DescribeStreams(streams) + "}}";
+                    + DescribeStreams(streams) + ",\"needs\":" + Encode(active.Needs) + "}}";
             }
             var name = parsed?["name"]?.GetValue<string>();
             if (name == null || !members.TryGetValue(name, out var found))

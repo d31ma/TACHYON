@@ -215,3 +215,35 @@ fn a_fsharp_needs_all_file_picker_field_is_refused_with_ty1407() {
     );
     assert_eq!(diagnostic.spans[0].start, 0, "{failure}");
 }
+
+const FSHARP_NEEDED_FILES: [(&str, &str); 2] = [
+    (
+        "client/services/NotesService.fs",
+        "[<Service>]\ntype NotesService() =\n    [<LocalState>]\n    member val Visits = 0 with get, set\n\n    \
+         [<SessionState>]\n    member val Draft = \"\" with get, set\n\n    \
+         member this.Keep(text: string) : unit =\n        this.Visits <- this.Visits + 1\n        this.Draft <- text\n",
+    ),
+    (
+        "client/services/EditorService.fs",
+        "[<Service>]\ntype EditorService() =\n    [<Needs>]\n    member val Notes : NotesService = Unchecked.defaultof<NotesService> with get, set\n\n    \
+         member this.Write(text: string) : unit =\n        this.Notes.Keep(text)\n\n    \
+         member this.Draft() : string =\n        this.Notes.Draft\n\n    \
+         member this.Visits() : int =\n        this.Notes.Visits\n",
+    ),
+];
+
+#[tokio::test]
+async fn an_fsharp_service_that_another_fsharp_service_needs_keeps_its_saved_fields() {
+    if !fsharp_web_ready() {
+        eprintln!("skipping: the .NET wasm-tools workload or node is unavailable");
+        return;
+    }
+    let proof = super::needed_state_proof::NeededStateProof {
+        language: WebLanguage::CSharp,
+        files: &FSHARP_NEEDED_FILES,
+        prefix: super::needed_state_proof::NeededStateProof::IMPORT,
+        setup: |_| {},
+    };
+    let report = proof.run().await;
+    super::needed_state_proof::NeededStateProof::assert_saved(&report);
+}

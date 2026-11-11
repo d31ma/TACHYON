@@ -36,14 +36,8 @@ five edges where Go code behaved in a way the docs did not say:
    a getter or a setter. Publish an event from OnStart and make the request
    in an @OnEvent method." An `// @OnEvent` method runs as a task, so it can
    wait; add `// @InBackground` when the publisher should not wait for it.
-2. **Saved state belongs to a service a view uses.** The page saves the
-   stored fields of the service objects it holds. A Go service that only
-   another Go service injects lives inside the WebAssembly module, so the
-   page never sees it and its stored fields are not saved. Until a later ADR
-   moves saving into the Go runtime, put `// @SessionState` and
-   `// @LocalState` fields on a service that a view uses, and pass the values
-   to the injected service through its methods. The build does not refuse a
-   stored field on an injected-only service yet.
+2. **Saved state works on a needed service.** Replaced by the section
+   "Saved fields on needed services" below.
 3. **Go workers build what they need.** A worker is one `Handler` type in
    `server/workers/`. Yon does not inject services into a Go worker (C++
    workers take `[[Needs]]`, ADR 0099 and its C++ worker plan). A Go worker
@@ -71,3 +65,65 @@ five edges where Go code behaved in a way the docs did not say:
 - Points 2 and 3 are limits, not features. Apps that need saved state on an
   injected service, or services in a Go worker, use the workarounds above
   until a later change adds them.
+
+## Saved fields on needed services
+
+This section replaces decision 2 (2026-11-11).
+
+A `@SessionState` or `@LocalState` field is saved and restored on a service
+that only another service needs, in every Tac language, as on a service that
+a view uses. The value goes to the same key in the same storage:
+`tac:service:<instance>:<page path>:<field>`, in `sessionStorage` or
+`localStorage`, as JSON of up to 64 KiB. A service that a view uses and that
+another service also needs reads and writes the same keys, so the two never
+disagree.
+
+How it works:
+
+- JavaScript, TypeScript and Dart already had it: the page fills a needed
+  field with its own singleton of that service, and binds its saved fields.
+- A WebAssembly service keeps the services it needs inside its module. Its
+  `init` answer now lists them in `needs`: the instance names of the shared
+  services that it holds through Needs, directly or through other services.
+- The page plan has a `saved` map: for each service that is not JavaScript,
+  TypeScript or Dart and has saved fields, its instance name and the
+  `local` or `session` area of each field.
+- For each listed name that `saved` names, the page opens one field-only
+  activation of that service in the same module (no events, no streams, no
+  OnStart again: the module already started it) and binds its saved fields
+  like any other service. One activation serves every service of the page
+  that needs the same instance. When the last service that needs it is
+  released, the page releases it too, so the needed service still stops when
+  its last holder stops.
+- The page saves the needed service's fields after every call, event and task
+  of the service that needs it, the same moment it saves that service's own
+  fields. It restores them when it opens the activation, right after the
+  module started the services, as for a WebAssembly service that a view uses.
+- Nothing new is stored: the same two browser storages, keys and limits.
+
+| Language | Can a browser service need another service? | Saved fields on the needed service |
+| --- | --- | --- |
+| JavaScript, TypeScript | yes (page singleton) | saved (unchanged) |
+| Dart | yes (page singleton, ADR 0033) | saved (unchanged) |
+| Go | yes, `// @Needs` | saved (runtime lists `needs`) |
+| Java | yes, `@Needs` | saved (runtime lists `needs`) |
+| F# | yes, `[<Needs>]` | saved (runtime lists `needs`) |
+| Python | yes, `Annotated[T, needs]` | saved (runtime lists `needs`) |
+| C++ | yes, `[[Needs]]` | saved (the build lists `needs`) |
+| C# | no: TY1308 | not applicable |
+| Rust, Kotlin, Swift (WebAssembly) | no: TY1406 | not applicable |
+| Ruby, Lua | no: TY2015 | not applicable |
+| Rust linked into a native app | yes, through `Arc<T>` | **not saved**: see below |
+
+Native targets (macOS, Windows, Linux, iOS, Android) run Go, Java, F#,
+Python and C++ services as WebAssembly in the platform web view (ADR 0018),
+with the same page code, so they get the same result. A Rust service linked
+into a native app can hold another Rust service through `Arc<T>`, but the
+native companion answers only the services that a view uses, so the page
+cannot reach a service that only another Rust service holds. Its saved fields
+are not saved. Put them on a service that a view uses, as before, until the
+native Rust page graph exposes needed services.
+
+Point 2 of the Context is no longer a limit, except for that native Rust
+case.
+

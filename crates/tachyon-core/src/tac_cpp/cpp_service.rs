@@ -18,6 +18,7 @@ pub(crate) struct CppService {
     pub(crate) listeners: Vec<CppListener>,
     pub(crate) behaviors: BTreeMap<String, Value>,
     pub(crate) streams: Vec<Value>,
+    pub(crate) needed: Vec<String>,
 }
 
 impl CppService {
@@ -71,6 +72,7 @@ impl CppService {
             listeners,
             behaviors,
             streams: Vec::new(),
+            needed: Vec::new(),
         })
     }
 
@@ -165,6 +167,7 @@ impl CppService {
                 "asyncMethods": asynchronous,
                 "listeners": self.listeners.iter().map(CppListener::page).collect::<Vec<_>>(),
                 "streams": self.streams,
+                "needs": self.needed,
             },
             "starts": self.hooks("OnStart"),
             "stops": self.hooks("OnStop"),

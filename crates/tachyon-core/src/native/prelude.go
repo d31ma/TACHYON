@@ -227,7 +227,7 @@ func handleOwned(request *companionRequest) string {
 	}
 	executing = activation
 	if request.operation == "init" {
-		return describe(activation.members)
+		return describe(activation.members, neededNames(activation.node))
 	}
 	if request.name == "" {
 		return `{"error":"Companion request has no member name."}`
@@ -428,7 +428,24 @@ func runInitializers(activation *ownerActivation) bool {
 	return start(activation.node)
 }
 
-func describe(members []Member) string {
+func neededNames(root *node) []any {
+	names := []any{}
+	seen := map[*node]bool{root: true}
+	pending := append([]*node{}, root.needs...)
+	for len(pending) > 0 {
+		next := pending[0]
+		pending = pending[1:]
+		if seen[next] {
+			continue
+		}
+		seen[next] = true
+		names = append(names, next.name)
+		pending = append(pending, next.needs...)
+	}
+	return names
+}
+
+func describe(members []Member, needs []any) string {
 	fields := []any{}
 	methods := []any{}
 	listeners := []any{}
@@ -444,7 +461,7 @@ func describe(members []Member) string {
 			streams = append(streams, describeStream(members[index].Stream))
 		}
 	}
-	return valueAnswer(map[string]any{"fields": fields, "methods": methods, "listeners": listeners, "streams": streams})
+	return valueAnswer(map[string]any{"fields": fields, "methods": methods, "listeners": listeners, "streams": streams, "needs": needs})
 }
 
 func describeStream(stream *Stream) map[string]any {

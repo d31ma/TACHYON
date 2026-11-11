@@ -87,3 +87,36 @@ async fn a_cpp_service_runs_its_stop_hook_when_its_owner_is_disposed() {
         "{report}"
     );
 }
+
+const CPP_NEEDED_FILES: [(&str, &str); 2] = [
+    (
+        "client/services/NotesService.hpp",
+        "#pragma once\n#include <string>\n\nclass [[Service]] NotesService {\npublic:\n    \
+         [[LocalState]] int visits = 0;\n    [[SessionState]] std::string draft;\n\n    \
+         void keep(std::string text) {\n        visits += 1;\n        draft = text;\n    }\n};\n",
+    ),
+    (
+        "client/services/EditorService.hpp",
+        "#pragma once\n#include <string>\n#include \"NotesService.hpp\"\n\nclass [[Service]] EditorService {\npublic:\n    \
+         [[Needs]] NotesService& notes;\n\n    \
+         void write(std::string text) { notes.keep(text); }\n    \
+         std::string draft() { return notes.draft; }\n    \
+         int visits() { return notes.visits; }\n};\n",
+    ),
+];
+
+#[tokio::test]
+async fn a_cpp_service_that_another_cpp_service_needs_keeps_its_saved_fields() {
+    if !CppStopPage::ready() {
+        eprintln!("skipping: em++ or node is unavailable");
+        return;
+    }
+    let proof = super::needed_state_proof::NeededStateProof {
+        language: WebLanguage::Cpp,
+        files: &CPP_NEEDED_FILES,
+        prefix: super::needed_state_proof::NeededStateProof::FETCH,
+        setup: |_| {},
+    };
+    let report = proof.run().await;
+    super::needed_state_proof::NeededStateProof::assert_saved(&report);
+}

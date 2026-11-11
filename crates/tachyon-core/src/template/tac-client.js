@@ -638,6 +638,92 @@ const bindPersistentFields = (owner, scope) => {
 }
 
 const storedPath = () => location.pathname.replace(/\/index\.html$/, '/')
+
+class NeededServices {
+  static holders = new Map()
+  static owned = new WeakMap()
+  static limit = 32
+
+  static async bind(owner, names, saved, hold) {
+    const wanted = NeededServices.wanted(names, saved)
+    const taken = []
+    for (const name of wanted) taken.push(await NeededServices.take(name, saved[name], hold))
+    if (taken.length) NeededServices.keep(owner, taken)
+    return owner
+  }
+
+  static holder(owner) {
+    return (name) => {
+      const target = owner.__tachyonHold(name)
+      return { target, dispose: () => target.__tachyonDispose?.() }
+    }
+  }
+
+  static wanted(names, saved) {
+    const listed = Array.isArray(names) ? names.slice(0, NeededServices.limit) : []
+    return listed.filter((name) => typeof name === 'string' && Object.hasOwn(saved || {}, name))
+  }
+
+  static async take(name, stored, hold) {
+    const known = NeededServices.holders.get(name)
+    if (known) return NeededServices.share(known)
+    const entry = { name, count: 1, holder: null, ready: null }
+    NeededServices.holders.set(name, entry)
+    entry.ready = NeededServices.open(entry, stored, hold)
+    await entry.ready
+    return entry
+  }
+
+  static async share(entry) {
+    entry.count += 1
+    await entry.ready
+    return entry
+  }
+
+  static async open(entry, stored, hold) {
+    try {
+      entry.holder = await hold(entry.name)
+    } catch (error) {
+      NeededServices.holders.delete(entry.name)
+      throw error
+    }
+    Owners.stored.set(entry.holder.target, stored)
+    bindPersistentFields(entry.holder.target, `service:${entry.name}:${storedPath()}`)
+  }
+
+  static keep(owner, taken) {
+    NeededServices.owned.set(owner, taken)
+    const own = owner.__tachyonStoredChanged
+    Object.defineProperty(owner, '__tachyonStoredChanged', {
+      configurable: true,
+      value: () => {
+        own?.call(owner)
+        for (const entry of taken) void NeededServices.save(entry)
+      },
+    })
+  }
+
+  static async save(entry) {
+    try {
+      await entry.ready
+      entry.holder.target.__tachyonStoredChanged?.()
+    } catch {}
+  }
+
+  static release(owner) {
+    const taken = NeededServices.owned.get(owner) || []
+    NeededServices.owned.delete(owner)
+    for (const entry of taken) NeededServices.drop(entry)
+  }
+
+  static drop(entry) {
+    entry.count -= 1
+    if (entry.count > 0 || NeededServices.holders.get(entry.name) !== entry) return
+    NeededServices.holders.delete(entry.name)
+    void entry.ready.then(() => entry.holder.dispose()).catch(() => {})
+  }
+}
+
 const persistScope = (id, properties) =>
   `${id}:${properties?.persistId ?? properties?.['persist-id'] ?? storedPath()}`
 
@@ -672,6 +758,7 @@ const releaseOwner = (owner) => {
   Owners.managed.get(owner)?.abort()
   Owners.managed.delete(owner)
   disposeNativeInstance(owner)
+  NeededServices.release(owner)
 }
 const disposeManagedOwner = (owner) => {
   for (const entry of Services.byOwner.get(owner) || []) if (!entry.shared) disposeManagedOwner(entry.instance)
@@ -680,6 +767,7 @@ const disposeManagedOwner = (owner) => {
 
 class Services {
   static catalog = ClientView.plan.services || {}
+  static saved = ClientView.plan.saved || {}
   static singletons = new Map()
   static resolved = new Map()
   static creating = new Set()
@@ -714,6 +802,7 @@ const createServiceInstance = async (name, service, properties, scope) => {
   if (service.native && nativeHost()) await bindNativeInstance(instance, name, given)
   Owners.stored.set(instance, service.stored || {})
   attachRuntime(instance, scope)
+  await NeededServices.bind(instance, instance.__tachyonNeeds, Services.saved, NeededServices.holder(instance))
   if (service.native && nativeHost()) drainCompanionQueue()
   for (const member of Runtime.graphs.get(instance) || [instance]) {
     for (const key of Object.getOwnPropertyNames(member)) {
@@ -1401,6 +1490,9 @@ class TacElements {
   static define(definition) {
     for (const [name, service] of Object.entries(definition.services || {})) {
       if (!Object.hasOwn(Services.catalog, name)) Services.catalog[name] = service
+    }
+    for (const [name, stored] of Object.entries(definition.saved || {})) {
+      if (!Object.hasOwn(Services.saved, name)) Services.saved[name] = stored
     }
     if (!customElements.get(definition.node.name)) customElements.define(definition.node.name, TacElements.elementClass(definition))
   }

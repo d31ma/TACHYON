@@ -164,7 +164,28 @@ class _TacPythonRuntime:
         listeners = [self._listener_description(listener) for listener in metadata['listeners'].values()]
         return {'fields': list(metadata['fields']), 'writable': metadata['writable'],
                 'methods': list(metadata['methods']), 'listeners': listeners,
-                'asyncMethods': self._async_methods(metadata), 'streams': metadata.get('streams', [])}
+                'asyncMethods': self._async_methods(metadata), 'streams': metadata.get('streams', []),
+                'needs': self._needs(owner)}
+
+    def _needs(self, owner):
+        instances = {provider: instance for instance, provider in self.metadata['services'].items()}
+        root = self.metadata['services'][owner.service]
+        seen = [root]
+        pending = [root]
+        while pending:
+            self._visit_needs(pending.pop(0), seen, pending)
+        return [instances[provider] for provider in seen[1:] if provider in instances]
+
+    def _visit_needs(self, name, seen, pending):
+        for provider in self._shared_providers(name):
+            if provider not in seen:
+                seen.append(provider)
+                pending.append(provider)
+
+    def _shared_providers(self, name):
+        bindings = self.graph.providers[name]['constructor']
+        needed = [binding['provider'] for binding in bindings if 'provider' in binding]
+        return [provider for provider in needed if not self.graph.providers[provider].get('prototype', False)]
 
     def _async_methods(self, metadata):
         return [name for name, method in metadata['methods'].items() if method['asynchronous']]

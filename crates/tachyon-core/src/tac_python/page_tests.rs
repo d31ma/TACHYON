@@ -362,3 +362,38 @@ async fn a_python_bool_field_writes_aria_expanded_as_true_or_false() {
     let report = PythonPage::run(root.path(), &driver);
     crate::tac_web::aria_binding_tests::AriaMenu::assert_true_or_false(&report);
 }
+
+const PYTHON_NEEDED_FILES: [(&str, &str); 2] = [
+    (
+        "client/services/NotesService.py",
+        "from typing import Annotated\n\n\n@service\nclass NotesService:\n    \
+         visits: Annotated[int, local_state] = 0\n    draft: Annotated[str, session_state] = ''\n\n    \
+         def keep(self, text: str) -> None:\n        self.visits += 1\n        self.draft = text\n",
+    ),
+    (
+        "client/services/EditorService.py",
+        "from typing import Annotated\n\n\n@service\nclass EditorService:\n    \
+         notes: Annotated[NotesService, needs]\n\n    \
+         def write(self, text: str) -> None:\n        self.notes.keep(text)\n\n    \
+         def draft(self) -> str:\n        return self.notes.draft\n\n    \
+         def visits(self) -> int:\n        return self.notes.visits\n",
+    ),
+];
+
+#[tokio::test]
+async fn a_python_service_that_another_python_service_needs_keeps_its_saved_fields() {
+    if let Some(reason) = PythonPage::skip_reason() {
+        eprintln!("skipping: {reason}");
+        return;
+    }
+    let proof = crate::tac_web::needed_state_proof::NeededStateProof {
+        language: crate::tac_web::WebLanguage::Python,
+        files: &PYTHON_NEEDED_FILES,
+        prefix: PythonPage::FILE_FETCH,
+        setup: |root| {
+            PythonPage::write(root, "client/manifest.json", PythonPage::MANIFEST);
+        },
+    };
+    let report = proof.run().await;
+    crate::tac_web::needed_state_proof::NeededStateProof::assert_saved(&report);
+}

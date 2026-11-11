@@ -79,9 +79,14 @@ machine contracts have their own, independent major versions.
 - A Go browser HTTP request or socket send in `OnStart`, a getter or a setter
   now fails with a message that names the event pattern to use instead.
 - The docs now say that `YON_APPLICATION_JSON` holds the settings under a
-  `yon` root, that a Go service only another Go service injects does not save
-  its `@SessionState`/`@LocalState` fields, and that Go workers get no
-  injected services (ADR 0119).
+  `yon` root, and that Go workers get no injected services (ADR 0119).
+- `@SessionState` and `@LocalState` fields are now saved and restored on a
+  service that only another service needs, in Go, Java, F#, Python and C++,
+  as JavaScript, TypeScript and Dart already did. The key is the same as for
+  a service that a view uses. A WebAssembly service's `init` answer lists the
+  services it needs, and the page plan carries their saved fields (ADR 0119).
+  A Rust service linked into a native app that holds another service through
+  `Arc` still does not save that service's fields.
 
 ## [26.46.02] - 2026-11-10
 

@@ -183,3 +183,34 @@ async fn a_java_web_service_shares_the_java_service_it_needs_with_the_page() {
         );
     }
 }
+
+const JAVA_NEEDED_FILES: [(&str, &str); 2] = [
+    (
+        "client/services/NotesService.java",
+        "@Service\nclass NotesService {\n    @LocalState\n    int visits = 0;\n    @SessionState\n    String draft = \"\";\n\n    \
+         void keep(String text) {\n        visits += 1;\n        draft = text;\n    }\n}\n",
+    ),
+    (
+        "client/services/EditorService.java",
+        "@Service\nclass EditorService {\n    @Needs\n    private final NotesService notes;\n\n    \
+         void write(String text) {\n        notes.keep(text);\n    }\n\n    \
+         String draft() {\n        return notes.draft;\n    }\n\n    \
+         int visits() {\n        return notes.visits;\n    }\n}\n",
+    ),
+];
+
+#[tokio::test]
+async fn a_java_service_that_another_java_service_needs_keeps_its_saved_fields() {
+    if !java_web_ready() {
+        eprintln!("skipping: TeaVM (TAC_TEAVM_HOME), javac or node is unavailable");
+        return;
+    }
+    let proof = super::needed_state_proof::NeededStateProof {
+        language: WebLanguage::Java,
+        files: &JAVA_NEEDED_FILES,
+        prefix: super::needed_state_proof::NeededStateProof::FETCH,
+        setup: |_| {},
+    };
+    let report = proof.run().await;
+    super::needed_state_proof::NeededStateProof::assert_saved(&report);
+}
