@@ -126,3 +126,4 @@ design. Decide routine implementation choices in code review, not in an ADR.
 - [111. Yon Keeps Handler Processes Warm by Default](0111-yon-keeps-handler-processes-warm-by-default.md)
 - [112. A Delegate Takes On the Methods of Its Service](0112-a-delegate-takes-on-the-methods-of-its-service.md)
 - [113. The Operating System Confines Handler Egress](0113-the-operating-system-confines-handler-egress.md)
+- [115. Services Move and Trap Focus Through the Page](0115-services-move-and-trap-focus-through-the-page.md)

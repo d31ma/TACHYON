@@ -1,0 +1,9 @@
+<button type="button" data-focus="open" on:click="rename.open()">Rename the list</button>
+<logic :if="rename.editing">
+  <div role="dialog" aria-modal="true" aria-label="Rename the list" data-focus="dialog" tabindex="-1">
+    <label>New name <input type="text" data-focus="name" /></label>
+    <button type="button" on:click="rename.close()">Cancel</button>
+    <button type="button" on:click="rename.close()">Save</button>
+  </div>
+</logic>
+<p>{rename.problem}</p>

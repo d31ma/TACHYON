@@ -936,6 +936,9 @@ mod shipped_glue_tests;
 mod web_api_tests;
 
 #[cfg(test)]
+mod focus_tests;
+
+#[cfg(test)]
 mod preference_strings_tests;
 
 #[cfg(test)]

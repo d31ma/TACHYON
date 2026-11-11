@@ -133,6 +133,9 @@ unit), and a native target has no browser at all.
    - Synchronous failures (no grant, no user action, notifications not
      allowed) are errors of the call. Failures after the call started are
      `BrowserCallFailed` events.
+   - Amended 2026-11-10: `Focus` (move, trap and release focus; Go,
+     JavaScript and TypeScript) uses the same host and caller rule. It lives
+     in `template/tac-focus.js`; see ADR 0115.
    - `template/tac-web.js` holds all nine APIs within 8,000 bytes (the group 1
      budget of 3,000 bytes covered two APIs); a test keeps it there.
    - A service that is linked into a native app has no page. The build

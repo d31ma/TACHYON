@@ -229,7 +229,7 @@ impl EventListener {
 }
 
 impl EventResource {
-    const TAC_NAMES: [&str; 18] = [
+    const TAC_NAMES: [&str; 19] = [
         "view",
         "lifecycle",
         "resourceLoader",
@@ -247,6 +247,7 @@ impl EventResource {
         "notifications",
         "geolocation",
         "windowControls",
+        "focus",
         "filePicker",
     ];
     const RENAMED_NAMES: [(&str, &str); 4] = [

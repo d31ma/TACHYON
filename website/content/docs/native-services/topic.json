@@ -24,6 +24,9 @@
       "include": "../polyglot/clipboard-share-notifications-and-geolocation/section.json"
     },
     {
+      "include": "../polyglot/focus-in-dialogs-and-menus/section.json"
+    },
+    {
       "include": "../polyglot/browser-apis-in-test-units/section.json"
     },
     {

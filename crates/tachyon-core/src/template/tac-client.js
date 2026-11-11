@@ -1516,6 +1516,7 @@ const render = async () => {
     } while (Rendering.renderAgain)
     markDocument('tachyonRendered', 'client')
     delete document.documentElement.dataset.tachyonRenderError
+    TacFocus.settle()
   })().catch((error) => {
     markDocument('tachyonRenderError', 'render_failed')
     throw error
@@ -1542,8 +1543,13 @@ class Runtime {
       try { Runtime.events.send(owner, name, value) } catch { signalFailure() }
     },
   })
+  static focus = TacFocus.connect({
+    render,
+    views: (caller) => [...Components.records.values()].filter((record) => record.host?.isConnected && (Runtime.graphs.get(record.owner) || [record.owner]).includes(caller)),
+    owner: (element) => Elements.records.get(element)?.owner,
+  })
 }
-const ownerResources = (element, signal) => ({
+const ownerResources = (element, signal, owner) => ({
   view: element, lifecycle: null, applicationEventPublisher: null,
   resourceLoader: Object.freeze({ precache: precacheAssets, clearAssetCache: clearStaticCache }),
   taskScheduler: Object.freeze({ render }),
@@ -1559,6 +1565,7 @@ const ownerResources = (element, signal) => ({
   notifications: TacWebApis.notifications,
   geolocation: TacWebApis.geolocation,
   windowControls: TacWebApis.windowControls,
+  focus: TacFocus.owned(owner),
   filePicker: TacNativeCapabilities.filePicker(signal),
 })
 const attachRuntime = (owner, scope, element) => {
@@ -1576,7 +1583,7 @@ const attachRuntime = (owner, scope, element) => {
   const module = Owners.modules.get(owner)
   const graph = Runtime.graphs.get(owner) || module?.__tachyon_event_owners__?.(owner) || [owner]
   Runtime.graphs.set(owner, graph)
-  const resources = ownerResources(element, Owners.managed.get(owner)?.signal)
+  const resources = ownerResources(element, Owners.managed.get(owner)?.signal, owner)
   for (const instance of graph) {
     const metadata = TacNativeEvents.planned(instance, module?.__tachyon_event_plan__?.types?.find((type) => type.name === instance.constructor?.name) || {})
     Runtime.events.attach(instance, metadata, resources)
