@@ -1,5 +1,7 @@
 use super::{CppClass, CppFailure, CppMember, CppMemberKind, CppTypeText};
 use crate::Failure;
+use crate::behavior::ReconnectPolicy;
+use crate::events::StreamArguments;
 use std::path::Path;
 
 pub(crate) struct CppStreamRequest {
@@ -13,7 +15,7 @@ impl CppStreamRequest {
     const MARKERS: [&'static str; 2] = ["StreamRequest", "SocketRequest"];
     const SOCKET: &'static str = "SocketRequest";
     const FORM: &'static str = "A C++ [[StreamRequest]] or [[SocketRequest]] method returns void, takes the message model as its one parameter and has no body, for example `[[StreamRequest]] void receive(const Tick& tick);`. Tachyon holds the stream or socket in the page and publishes each message as that model's event for [[OnEvent]]";
-    const PATH_FORM: &'static str = "[[StreamRequest]] and [[SocketRequest]] take an optional path in quotes that starts with /, for example [[StreamRequest(\"/ticks\")]]. It is added to the [[HTTPClient]] path";
+    const PATH_FORM: &'static str = "[[StreamRequest]] and [[SocketRequest]] take an optional path in quotes that starts with /, for example [[StreamRequest(\"/ticks\")]], or an object with \"path\" and \"reconnect\", for example [[SocketRequest({\"path\": \"/chat\", \"reconnect\": {\"maxTries\": 0}})]]. The path is added to the [[HTTPClient]] path";
     const ONE_SOCKET: &'static str = "A C++ [[HTTPClient]] class has at most one [[SocketRequest]] method, because its send(message) method writes to that one socket";
     const SEND_NAME: &'static str = "A C++ [[HTTPClient]] class with a [[SocketRequest]] method gets a send(message) method from Tachyon, so none of its own methods may be named send";
     const SEND: &'static str = " public: template <typename Message> tachyon::Task<void> send(Message message) const { return tachyon::http::TacSocket::send(\"{client}\", std::move(message)); }";
@@ -54,12 +56,13 @@ impl CppStreamRequest {
     }
 
     fn read(member: &CppMember, base: &str) -> Self {
-        let own = Self::own_path(member).unwrap_or_default();
+        let (own, reconnect) = Self::own_path(member).unwrap_or_default();
         let full = format!("{base}{own}");
+        let full = [full.as_str(), "/"][usize::from(full.is_empty())].to_owned();
         let parameter = member.parameters.first();
         Self {
             method: member.name.clone(),
-            path: [full.as_str(), "/"][usize::from(full.is_empty())].to_owned(),
+            path: reconnect.map_or_else(|| full.clone(), |policy| policy.addressed(&full)),
             event: parameter.map_or_else(String::new, |parameter| {
                 CppTypeText::plain(&parameter.type_text)
             }),
@@ -86,16 +89,14 @@ impl CppStreamRequest {
             .ok_or_else(|| CppFailure::unreadable(path, member.name_at, Self::PATH_FORM))
     }
 
-    fn own_path(member: &CppMember) -> Option<String> {
-        let written = member
+    fn own_path(member: &CppMember) -> Option<(String, Option<ReconnectPolicy>)> {
+        let marker = member
             .markers
             .iter()
-            .find(|marker| Self::MARKERS.contains(&marker.name.as_str()))
-            .map_or("", |marker| marker.arguments.trim());
-        let quoted = serde_json::from_str::<String>(written)
+            .find(|marker| Self::MARKERS.contains(&marker.name.as_str()))?;
+        StreamArguments::read(&marker.name, marker.arguments.trim())
             .ok()
-            .filter(|own| own.starts_with('/'));
-        [quoted, Some(String::new())][usize::from(written.is_empty())].clone()
+            .filter(|(own, _)| [own.is_empty(), own.starts_with('/')].contains(&true))
     }
 
     fn check_one_socket(path: &Path, streams: &[&CppMember]) -> Result<(), Failure> {

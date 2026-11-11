@@ -7,6 +7,7 @@ pub(crate) struct DeclaredHosts {
     hosts: Vec<String>,
     setting: &'static str,
     yon_origin: Option<String>,
+    named_origins: Vec<String>,
     private: PrivateHosts,
 }
 
@@ -22,6 +23,7 @@ impl DeclaredHosts {
     const ANY_SUBDOMAIN: &'static str = "*.";
     const SCHEMES: [&'static str; 4] = ["https", "wss", "http", "ws"];
     const YON_ORIGIN_POINTER: &'static str = "/tac/yon/origin";
+    const YON_ORIGINS_POINTER: &'static str = "/tac/yon/origins";
 
     pub(crate) fn tac(project: &Dir) -> Self {
         Self::read(
@@ -61,12 +63,20 @@ impl DeclaredHosts {
             hosts: hosts.iter().map(|host| host.to_ascii_lowercase()).collect(),
             setting,
             yon_origin: None,
+            named_origins: Vec::new(),
             private: PrivateHosts::default(),
         }
     }
 
     pub(crate) fn with_yon_origin(self, yon_origin: Option<String>) -> Self {
         Self { yon_origin, ..self }
+    }
+
+    pub(crate) fn with_named_origins(self, named_origins: Vec<String>) -> Self {
+        Self {
+            named_origins,
+            ..self
+        }
     }
 
     pub(crate) fn with_private(self, private: PrivateHosts) -> Self {
@@ -92,6 +102,7 @@ impl DeclaredHosts {
             hosts: hosts.iter().map(|host| host.to_ascii_lowercase()).collect(),
             setting,
             yon_origin: None,
+            named_origins: Vec::new(),
             private: PrivateHosts::default(),
         }
     }
@@ -115,6 +126,7 @@ impl DeclaredHosts {
             .chain(
                 self.yon_origin
                     .iter()
+                    .chain(&self.named_origins)
                     .flat_map(|origin| Self::yon_sources(origin)),
             )
             .collect();
@@ -127,6 +139,7 @@ impl DeclaredHosts {
             hosts: Self::stored_hosts(&document, pointer).unwrap_or_default(),
             setting,
             yon_origin: Self::stored_yon_origin(&document),
+            named_origins: Self::stored_named_origins(&document),
             private: PrivateHosts::default(),
         }
     }
@@ -136,6 +149,7 @@ impl DeclaredHosts {
             hosts: Vec::new(),
             setting,
             yon_origin: None,
+            named_origins: Vec::new(),
             private: PrivateHosts::default(),
         }
     }
@@ -152,8 +166,22 @@ impl DeclaredHosts {
 
     fn stored_yon_origin(document: &Value) -> Option<String> {
         let text = document.pointer(Self::YON_ORIGIN_POINTER)?.as_str()?;
-        let address = url::Url::parse(text).ok()?;
-        let origin = address.origin();
+        Self::origin_of(text)
+    }
+
+    fn stored_named_origins(document: &Value) -> Vec<String> {
+        document
+            .pointer(Self::YON_ORIGINS_POINTER)
+            .and_then(Value::as_object)
+            .into_iter()
+            .flat_map(|origins| origins.values())
+            .filter_map(Value::as_str)
+            .filter_map(Self::origin_of)
+            .collect()
+    }
+
+    fn origin_of(text: &str) -> Option<String> {
+        let origin = url::Url::parse(text).ok()?.origin();
         origin.is_tuple().then(|| origin.ascii_serialization())
     }
 

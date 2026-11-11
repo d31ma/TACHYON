@@ -555,7 +555,21 @@ declare global {
     path?: string;
     adapter?: string;
     setup?: string;
+    /** A name from tac.yon.origins in client/manifest.json: every request, stream and socket of the client goes to that origin. */
+    origin?: string;
   }
+  /** How the page reconnects a stream or socket. maxTries 0 means no limit. */
+  interface BehaviorReconnectPolicy {
+    maxTries?: number;
+    delayMs?: number;
+    maxDelayMs?: number;
+    jitterMs?: number;
+  }
+  interface BehaviorStreamRequestOptions {
+    path?: string;
+    reconnect?: BehaviorReconnectPolicy;
+  }
+  type BehaviorStreamPathAnnotation = BehaviorStreamRequestAnnotation & ((options?: string | BehaviorStreamRequestOptions) => BehaviorStreamRequestAnnotation);
   /** RequestRoute: this class is a controller, and all its routes start with this path, like "/orders". */
   const RequestRoute: BehaviorPathAnnotation<BehaviorClassAnnotation>;
   type BehaviorAccessAnnotation = BehaviorClassAnnotation & BehaviorMethodAnnotation;
@@ -618,9 +632,9 @@ declare global {
   /** DeleteRequest: calling this method sends a DELETE request to this path (added to the class path). */
   const DeleteRequest: BehaviorPathAnnotation<BehaviorRequestMethodAnnotation>;
   /** StreamRequest: Tachyon opens a stream of server-sent events at this path (added to the class path) when the client is first used, and closes it with the component or service that uses it. Each message is checked against the model type of the method's one parameter, passed to the method, and then published as that model's event for OnEvent listeners, like `streamTicks(tick: Tick) {}`. */
-  const StreamRequest: BehaviorPathAnnotation<BehaviorStreamRequestAnnotation>;
+  const StreamRequest: BehaviorStreamPathAnnotation;
   /** SocketRequest: Tachyon opens a WebSocket at this path (added to the class path) when the client is first used, and closes it with the component or service that uses it. Each message is checked against the model type of the method's one parameter, passed to the method, and published as that model's event for OnEvent listeners, like `receive(message: ChatMessage) {}`. The client also gets `send(message)`: declare it with `declare send: SocketSend<ChatMessage>`. */
-  const SocketRequest: BehaviorPathAnnotation<BehaviorStreamRequestAnnotation>;
+  const SocketRequest: BehaviorStreamPathAnnotation;
   /** PathVariable: this argument fills a part of the request path, like {id}. */
   const PathVariable: BehaviorNamedParameterAnnotation;
   /** RequestParam: this argument is sent as a value in the query string (after `?`). */

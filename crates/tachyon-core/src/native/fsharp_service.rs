@@ -399,4 +399,23 @@ mod tests {
             "{native}"
         );
     }
+
+    #[test]
+    fn a_held_fsharp_socket_client_carries_its_origin_and_reconnect_policy() {
+        let manifest = "{\"tac\":{\"yon\":{\"origins\":{\"realtime\":\"https://rt.example.com\"}},\"outgoing\":{\"hosts\":[\"rt.example.com\"]}}}";
+        let message = "type ChatMessage = { Text: string }\n";
+        let client = "open Models\n\n[<HTTPClient({\"path\": \"/chat\", \"origin\": \"realtime\"})>]\ntype ChatClient =\n    [<SocketRequest({\"path\": \"/ws\", \"reconnect\": {\"maxTries\": 0, \"delayMs\": 500, \"maxDelayMs\": 30000}})>]\n    abstract Receive: ChatMessage -> unit\n";
+        let service = "open Models\n\n[<Service>]\ntype ChatService() =\n    [<Needs>]\n    member val ChatClient : ChatClient = Unchecked.defaultof<ChatClient> with get, set\n";
+        let others = [
+            ("client/manifest.json", manifest),
+            ("client/remotes/ChatClient.fs", client),
+            ("client/models/ChatMessage.fs", message),
+        ];
+        let body = table_with("ChatService", service, true, &others)
+            .unwrap_or_else(|failure| panic!("{failure}"));
+        assert!(
+            body.contains("/.tachyon/reconnect/0/500/30000/1000/.tachyon/origin/realtime/chat/ws"),
+            "{body}"
+        );
+    }
 }

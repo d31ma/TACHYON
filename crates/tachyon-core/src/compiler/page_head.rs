@@ -11,6 +11,7 @@ impl PageHead {
         let html = Self::with_manifest_head(site, html);
         let html = Self::with_browser_api_grants(site, html);
         let html = Self::with_yon_origin(site, html);
+        let html = Self::with_yon_origins(site, html);
         let html = Self::with_styles(site, &html);
         let html = Self::with_blocking_scripts(site, &html);
         Self::with_scripts(site, &html)
@@ -83,6 +84,14 @@ impl PageHead {
             }
             None => html,
         }
+    }
+
+    fn with_yon_origins(site: &SiteSettings, html: String) -> String {
+        if site.yon_origins.is_empty() {
+            return html;
+        }
+        let tag = YonMember::origins_meta_tag(&site.yon_origins);
+        Self::inject_before(&html, Self::HEAD_END, &tag)
     }
 
     fn with_styles(site: &SiteSettings, html: &str) -> String {

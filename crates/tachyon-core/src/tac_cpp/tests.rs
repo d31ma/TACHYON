@@ -1219,3 +1219,57 @@ one_test_per_case!(
         page_defaults => ClientPolicies::PAGE_DEFAULTS,
     ]
 );
+
+#[test]
+fn a_cpp_client_writes_its_origin_and_reconnect_policy_into_the_socket_address() {
+    let root = tempfile::tempdir().expect("project");
+    let files = [
+        (
+            "client/manifest.json",
+            "{\"tac\":{\"yon\":{\"origins\":{\"realtime\":\"https://rt.example.com\"}},\"outgoing\":{\"hosts\":[\"rt.example.com\"]}}}",
+        ),
+        (
+            "client/models/ChatMessage.hpp",
+            "#include <string>\nstruct ChatMessage {\n    std::string text;\n};\n",
+        ),
+        (
+            "client/remotes/ChatClient.hpp",
+            "class [[HTTPClient({\"path\": \"/chat\", \"origin\": \"realtime\"})]] ChatClient {\npublic:\n    [[SocketRequest({\"path\": \"/ws\", \"reconnect\": {\"maxTries\": 0, \"delayMs\": 500, \"maxDelayMs\": 30000}})]] void receive(const ChatMessage& message);\n};\n",
+        ),
+        (
+            "client/services/ChatService.hpp",
+            "class [[Service]] ChatService {\npublic:\n    [[Needs]] ChatClient& chat;\n};\n",
+        ),
+    ];
+    for (relative, source) in files {
+        let path = root.path().join(relative);
+        std::fs::create_dir_all(path.parent().expect("folder")).expect("folder");
+        std::fs::write(path, source).expect("file");
+    }
+    let chosen = [(
+        String::from("chat"),
+        String::from("ChatService"),
+        root.path().join("client/services/ChatService.hpp"),
+    )];
+    let program = super::CppProgram::read(root.path(), &chosen)
+        .expect("program")
+        .web_source();
+    assert!(
+        program.contains(
+            "\"path\":\"/.tachyon/reconnect/0/500/30000/1000/.tachyon/origin/realtime/chat/ws\""
+        ),
+        "{program}"
+    );
+}
+
+#[test]
+fn a_cpp_client_refuses_an_origin_that_is_not_a_plain_name() {
+    let refused = Sources::refusal(
+        "client/remotes/ChatClient.hpp",
+        "class [[HTTPClient({\"path\": \"/chat\", \"origin\": \"Real Time\"})]] ChatClient {\npublic:\n    [[SocketRequest]] void receive(const ChatMessage& message);\n};\n",
+    );
+    assert!(
+        refused.contains("is not a name from tac.yon.origins"),
+        "{refused}"
+    );
+}

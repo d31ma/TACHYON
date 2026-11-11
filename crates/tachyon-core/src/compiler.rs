@@ -49,6 +49,7 @@ mod page_upgrade;
 mod page_upgrade_tests;
 mod portable_path;
 mod precompression;
+mod remote_origins;
 mod route_budget;
 mod route_build_state;
 mod script_assets;
@@ -440,6 +441,7 @@ impl WebCompiler {
         let mut build = SiteBuild::discover(project, options, native_target)?;
         let site = crate::native::SiteSettings::load(build.snapshot_root)?;
         StyleSources::validate(build.snapshot_root, &site)?;
+        remote_origins::RemoteOrigins::check(build.snapshot_root, &site.yon_origins)?;
         let cache_rules = ServiceWorker::cache_rules_literal(&site.cache_rules)?;
         let programs = build.compile_route_programs()?;
         let previous = options

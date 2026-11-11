@@ -269,8 +269,10 @@ fn validate_manifest(manifest: &WebAppManifest) -> Result<(), Failure> {
         ));
     }
     manifest.browser_api_permissions().validate()?;
-    if let Some(yon) = manifest.tac.as_ref().and_then(|tac| tac.yon.as_ref()) {
-        yon.validate()?;
+    if let Some(tac) = &manifest.tac
+        && let Some(yon) = &tac.yon
+    {
+        yon.validate(tac.outgoing.as_ref())?;
     }
     let Some(application) = manifest.application() else {
         return Ok(());
@@ -632,10 +634,10 @@ impl NativeApplication {
                 .as_ref()
                 .and_then(|declared| declared.tac.as_ref()?.outgoing.as_ref()),
         )?
-        .with_yon_origin(
-            manifest
+        .with_yon(
+            &manifest
                 .and_then(|declared| declared.tac?.yon)
-                .map(super::yon_member::YonMember::into_origin),
+                .unwrap_or_default(),
         );
         Ok(application)
     }

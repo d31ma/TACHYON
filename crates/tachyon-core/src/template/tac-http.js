@@ -6,6 +6,8 @@ class TacBrowserHttp {
   static requestBytes = 1048576
   static pending = 0
   static yonOriginTag = 'meta[name="tachyon-yon-origin"]'
+  static namedOriginsTag = 'meta[name="tachyon-yon-origins"]'
+  static namedOrigin = /^\/\.tachyon\/origin\/([a-z][a-z0-9-]{0,31})(\/(?!\/).*)?$/
   static installed = TacBrowserHttp.install()
 
   static install() {
@@ -72,8 +74,10 @@ class TacBrowserHttp {
     const path = request.path
     if (typeof path !== 'string' || !path.startsWith('/') || path.startsWith('//') || /[\s\\?#%]/.test(path) || path.split('/').some((part) => part === '.' || part === '..') || new TextEncoder().encode(path).length > 2048) TacBrowserHttp.#fail('HTTP_ORIGIN')
     const yonOrigin = TacBrowserHttp.#yonOrigin()
-    const url = new URL(path, yonOrigin ?? location.href)
-    if (![location.origin, yonOrigin].includes(url.origin)) TacBrowserHttp.#fail('HTTP_ORIGIN')
+    const [, name, rest] = TacBrowserHttp.namedOrigin.exec(path) ?? []
+    const named = name ? TacBrowserHttp.#namedOrigin(name) : null
+    const url = new URL(name ? rest ?? '/' : path, named ?? yonOrigin ?? location.href)
+    if (![location.origin, yonOrigin, named].includes(url.origin)) TacBrowserHttp.#fail('HTTP_ORIGIN')
     const query = request.query ?? {}
     if (!query || typeof query !== 'object' || Array.isArray(query)) TacBrowserHttp.#fail('HTTP_QUERY')
     for (const [key, value] of Object.entries(query)) {
@@ -93,6 +97,13 @@ class TacBrowserHttp {
   static #yonOrigin() {
     const declared = globalThis.document?.querySelector?.(TacBrowserHttp.yonOriginTag)?.content
     return declared ? new URL(declared).origin : null
+  }
+
+  static #namedOrigin(name) {
+    let origins = {}
+    try { origins = JSON.parse(globalThis.document?.querySelector?.(TacBrowserHttp.namedOriginsTag)?.content ?? '{}') ?? {} } catch {}
+    if (!Object.hasOwn(origins, name)) TacBrowserHttp.#fail('HTTP_ORIGIN')
+    return new URL(origins[name]).origin
   }
 
   static #headers(values = {}) {

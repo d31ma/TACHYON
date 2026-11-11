@@ -17,11 +17,16 @@ mod event_timer;
 mod event_timer_tests;
 mod held_streams;
 pub(crate) mod publications;
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod stream_address_tests;
+mod stream_arguments;
 pub(crate) mod yon;
 pub(crate) use browser_streams::BrowserStreams;
 use built_in_name_clash::BuiltInNameClash;
 pub(crate) use event_timer::EventTimer;
 pub(crate) use held_streams::HeldStreams;
+pub(crate) use stream_arguments::StreamArguments;
 
 #[derive(Clone, Debug, Default, Serialize)]
 pub(crate) struct EventType {
@@ -1115,24 +1120,13 @@ fn stream_request(
             ),
         ));
     };
-    let text = marker.arguments.trim();
-    let quoted = text.len() >= 2
-        && ((text.starts_with('"') && text.ends_with('"'))
-            || (text.starts_with('\'') && text.ends_with('\'')));
-    if !text.is_empty() && !quoted {
-        return Err(failure(
-            path,
-            at,
-            format!(
-                "@{written} takes an optional path in quotes, like @{written}(\"/ticks\"). It is added to the @HTTPClient path"
-            ),
-        ));
-    }
-    let own = if quoted { &text[1..text.len() - 1] } else { "" };
+    let (own, reconnect) = StreamArguments::read(written, marker.arguments.trim())
+        .map_err(|message| failure(path, at, message))?;
     let mut full = format!("{base}{own}");
     if full.is_empty() {
         full.push('/');
     }
+    let full = reconnect.map_or_else(|| full.clone(), |policy| policy.addressed(&full));
     Ok(EventStream {
         method: method.name.clone(),
         path: full,

@@ -8,6 +8,14 @@ class __tachyon_ClientConfiguration {
     const declared = globalThis.document?.querySelector?.('meta[name="tachyon-yon-origin"]')?.content
     return declared ? new URL(declared).origin : null
   }
+  static namedOrigin(path) {
+    const [, name, rest] = /^\/\.tachyon\/origin\/([a-z][a-z0-9-]{0,31})(\/(?!\/).*)?$/.exec(path) ?? []
+    if (!name) return null
+    let origins = {}
+    try { origins = JSON.parse(globalThis.document?.querySelector?.('meta[name="tachyon-yon-origins"]')?.content ?? '{}') ?? {} } catch {}
+    if (!Object.hasOwn(origins, name)) throw new TypeError('Tac Client names an origin that is not in tac.yon.origins.')
+    return { origin: new URL(origins[name]).origin, path: rest ?? '/' }
+  }
   static fetch(url, init) {
     const reads = globalThis[Symbol.for('tachyon.tac.yon-reads')]
     return reads ? reads.fetch(url, init) : fetch(url, init)
@@ -19,9 +27,10 @@ class __tachyon_ClientConfiguration {
 }
 async function __tachyon_client_exchange__(request, transport) {
   const yonOrigin = __tachyon_ClientConfiguration.yonOrigin()
-  const url = new URL(request.path, yonOrigin ?? location.href)
-  if (!['http:', 'https:'].includes(url.protocol) || ![location.origin, yonOrigin].includes(url.origin) || url.username || url.password) {
-    throw new TypeError('Tac Client requires a same-origin HTTP endpoint or the tac.yon.origin endpoint.')
+  const named = __tachyon_ClientConfiguration.namedOrigin(request.path)
+  const url = new URL(named?.path ?? request.path, named?.origin ?? yonOrigin ?? location.href)
+  if (!['http:', 'https:'].includes(url.protocol) || ![location.origin, yonOrigin, named?.origin].includes(url.origin) || url.username || url.password) {
+    throw new TypeError('Tac Client requires a same-origin HTTP endpoint, the tac.yon.origin endpoint or a tac.yon.origins endpoint.')
   }
   for (const [name, value] of Object.entries(request.query)) url.searchParams.set(name, String(value))
   const headers = new Headers(request.headers)

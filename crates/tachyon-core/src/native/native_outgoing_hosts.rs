@@ -7,6 +7,7 @@ use serde_json::Value;
 pub(super) struct NativeOutgoingHosts {
     hosts: Vec<String>,
     yon_origin: Option<String>,
+    named_origins: Vec<String>,
 }
 
 impl NativeOutgoingHosts {
@@ -27,6 +28,7 @@ impl NativeOutgoingHosts {
         Ok(Self {
             hosts,
             yon_origin: None,
+            named_origins: Vec::new(),
         })
     }
 
@@ -35,6 +37,7 @@ impl NativeOutgoingHosts {
         Self {
             hosts: hosts.iter().map(|host| host.to_ascii_lowercase()).collect(),
             yon_origin: None,
+            named_origins: Vec::new(),
         }
     }
 
@@ -42,8 +45,24 @@ impl NativeOutgoingHosts {
         &self.hosts
     }
 
+    #[cfg(test)]
     pub(super) fn with_yon_origin(self, yon_origin: Option<String>) -> Self {
         Self { yon_origin, ..self }
+    }
+
+    pub(super) fn with_yon(self, yon: &super::yon_member::YonMember) -> Self {
+        Self {
+            yon_origin: yon.origin(),
+            named_origins: yon.origins().into_values().collect(),
+            ..self
+        }
+    }
+
+    pub(super) fn local_named_origin(&self) -> Option<&str> {
+        self.named_origins
+            .iter()
+            .find(|origin| super::yon_member::YonMember::is_local_origin(origin))
+            .map(String::as_str)
     }
 
     pub(super) fn yon_origin(&self) -> Option<&str> {
@@ -57,6 +76,7 @@ impl NativeOutgoingHosts {
     pub(super) fn connect_sources(&self) -> String {
         crate::safety::DeclaredHosts::named(&self.hosts, Self::SETTING)
             .with_yon_origin(self.yon_origin.clone())
+            .with_named_origins(self.named_origins.clone())
             .connect_sources()
     }
 

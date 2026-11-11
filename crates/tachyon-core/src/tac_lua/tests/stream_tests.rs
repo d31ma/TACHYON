@@ -254,3 +254,22 @@ fn the_website_lua_stream_and_socket_samples_build() {
         assert!(program.contains(expected), "{class}: {program}");
     }
 }
+
+#[test]
+fn a_lua_socket_client_carries_its_origin_and_reconnect_policy() {
+    let root = tempfile::tempdir().unwrap_or_else(|error| panic!("project: {error}"));
+    StreamPage::write_files(root.path());
+    Page::write(
+        root.path(),
+        "client/remotes/ChatClient.lua",
+        "-- @HTTPClient({\"path\":\"/chat\",\"origin\":\"realtime\"})\n---@class ChatClient\nChatClient = {}\n\n---@param message ChatMessage\n---@return nil\n-- @SocketRequest({\"path\":\"/ws\",\"reconnect\":{\"maxTries\":0,\"delayMs\":500,\"maxDelayMs\":30000}})\nfunction ChatClient:receive(message)\nend\n",
+    );
+    let program = StreamPage::program(root.path(), StreamPage::SERVICE);
+    let registration = StreamPage::registration(&program);
+    assert!(
+        registration.contains(
+            "\"path\":\"/.tachyon/reconnect/0/500/30000/1000/.tachyon/origin/realtime/chat/ws\",\"socket\":true}"
+        ),
+        "{registration}"
+    );
+}

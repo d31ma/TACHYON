@@ -3,6 +3,7 @@ use super::{
 };
 use crate::Failure;
 use crate::annotation_rules::Realm;
+use crate::behavior::RemoteOrigin;
 use crate::sorted_json::SortedJson;
 use serde_json::Value;
 use std::collections::BTreeMap;
@@ -39,8 +40,8 @@ impl<'a> CppRemote<'a> {
     const CLIENT: &'static str = "HTTPClient";
     const CLIENT_SUFFIX: &'static str = "Client";
     const SETUP_SUFFIX: &'static str = "Setup";
-    const OPTIONS: [&'static str; 3] = ["path", "adapter", "setup"];
-    const OPTIONS_FORM: &'static str = "A C++ [[HTTPClient]] takes a path in quotes, like [[HTTPClient(\"/api/orders\")]], or an object of strings with \"path\" (where requests go), \"adapter\" (the name of the HTTP adapter that sends them) and \"setup\" (the Setup whose adapters send them)";
+    const OPTIONS: [&'static str; 4] = ["path", "adapter", "setup", "origin"];
+    const OPTIONS_FORM: &'static str = "A C++ [[HTTPClient]] takes a path in quotes, like [[HTTPClient(\"/api/orders\")]], or an object of strings with \"path\" (where requests go), \"adapter\" (the name of the HTTP adapter that sends them), \"setup\" (the Setup whose adapters send them) and \"origin\" (a name from tac.yon.origins in client/manifest.json, for a server other than Yon's)";
     const PATH_FORM: &'static str = "A C++ request path is one string that starts with /, for example [[GetRequest(\"/orders/{id}\")]]";
 
     pub(crate) fn check(path: &Path, source: &str, class: &'a CppClass) -> Result<(), Failure> {
@@ -50,7 +51,9 @@ impl<'a> CppRemote<'a> {
     }
 
     pub(crate) fn base(class: &CppClass) -> String {
-        Self::option(class, "path").unwrap_or_default()
+        let path = Self::option(class, "path").unwrap_or_default();
+        Self::option(class, "origin")
+            .map_or_else(|| path.clone(), |name| RemoteOrigin::prefixed(&name, &path))
     }
 
     pub(crate) fn setup(class: &CppClass) -> String {
@@ -88,7 +91,31 @@ impl<'a> CppRemote<'a> {
         let keys = options.as_object().is_some_and(Self::known_options);
         let fits = [!marker.has_arguments(), options.is_string(), keys].contains(&true);
         fits.then_some(())
-            .ok_or_else(|| CppFailure::unreadable(path, marker.at, Self::OPTIONS_FORM))
+            .ok_or_else(|| CppFailure::unreadable(path, marker.at, Self::OPTIONS_FORM))?;
+        Self::check_written_path(path, marker, &options)?;
+        Self::check_origin(path, marker, &options)
+    }
+
+    fn check_written_path(
+        path: &Path,
+        marker: &CppAttribute,
+        options: &Value,
+    ) -> Result<(), Failure> {
+        let written = options
+            .as_str()
+            .or_else(|| options["path"].as_str())
+            .unwrap_or_default();
+        RemoteOrigin::check_written(written)
+            .map_err(|message| CppFailure::unreadable(path, marker.at, &message))
+    }
+
+    fn check_origin(path: &Path, marker: &CppAttribute, options: &Value) -> Result<(), Failure> {
+        let Some(name) = options["origin"].as_str() else {
+            return Ok(());
+        };
+        RemoteOrigin::addressed(name, "")
+            .map(drop)
+            .map_err(|message| CppFailure::unreadable(path, marker.at, &message))
     }
 
     fn known_options(object: &serde_json::Map<String, Value>) -> bool {

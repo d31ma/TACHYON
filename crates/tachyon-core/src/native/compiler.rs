@@ -242,6 +242,7 @@ impl NativeCompiler {
             NativeRouteIndex::build(project.route_graph().routes(), &application.entry_route)?;
         application.menus.validate_for(options.target, &index)?;
         super::release_packaging::ReleasePackaging::check(options.target, options.release)?;
+        Self::refuse_local_named_origin(&application, options.release)?;
         let release_note = super::release_packaging::ReleasePackaging::signing_note(
             options.target,
             options.release,
@@ -337,6 +338,26 @@ impl NativeCompiler {
             .map(|development| Self::declare_unless_release(project, development, options.release))
             .transpose()
             .map(Option::flatten)
+    }
+
+    fn refuse_local_named_origin(
+        application: &NativeApplication,
+        release: bool,
+    ) -> Result<(), Failure> {
+        let local = application
+            .outgoing
+            .local_named_origin()
+            .filter(|_| release);
+        local.map_or(Ok(()), |origin| {
+            Err(Failure::one(diagnostic(
+                1601,
+                format!("A release build cannot reach the local named origin {origin}."),
+                Some(String::from(
+                    "Point each tac.yon.origins entry in client/manifest.json at an https server before `ty bundle --release`.",
+                )),
+                None,
+            )))
+        })
     }
 
     fn declare_unless_release(

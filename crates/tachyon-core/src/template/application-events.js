@@ -15,9 +15,30 @@ class TacApplicationEvents {
     this.resetTimer = null
   }
 
+  static namedOrigin = /^\/\.tachyon\/origin\/([a-z][a-z0-9-]{0,31})(\/(?!\/).*)?$/
+  static reconnecting = /^\/\.tachyon\/reconnect\/(\d{1,3})\/(\d{1,6})\/(\d{1,6})\/(\d{1,5})(\/.*)$/
+
   yonPath(path) {
+    const [, name, rest] = TacApplicationEvents.namedOrigin.exec(path) ?? []
+    if (name) return new URL(rest ?? '/', TacApplicationEvents.origin(name)).href
     const declared = globalThis.document?.querySelector?.('meta[name="tachyon-yon-origin"]')?.content
     return declared ? new URL(path, new URL(declared).origin).href : path
+  }
+
+  static origin(name) {
+    let origins = {}
+    try { origins = JSON.parse(globalThis.document?.querySelector?.('meta[name="tachyon-yon-origins"]')?.content ?? '{}') ?? {} } catch {}
+    if (!Object.hasOwn(origins, name)) throw new TypeError('The named origin is not in tac.yon.origins.')
+    return new URL(origins[name]).origin
+  }
+
+  static policy(path) {
+    const [, tries = 5, delay = 1000, most = 16000, jitter = 0, rest = path] = TacApplicationEvents.reconnecting.exec(path) ?? []
+    return { path: rest, served: TacApplicationEvents.namedOrigin.exec(rest)?.[2] ?? rest, tries: Number(tries), delay: Number(delay), most: Number(most), jitter: Number(jitter) }
+  }
+
+  static delay(policy, tries) {
+    return Math.min(policy.most, policy.delay * 2 ** tries) + Math.floor(Math.random() * (policy.jitter + 1))
   }
 
   snapshot(value) {
@@ -295,11 +316,16 @@ class TacApplicationEvents {
   stream(owner, state, stream) {
     const socket = stream.socket, Kind = globalThis[socket ? 'WebSocket' : 'EventSource']
     if (typeof Kind !== 'function') { this.failed(); return }
+    const policy = TacApplicationEvents.policy(stream.path), path = policy.path, served = policy.served
     const entry = { ...stream, owner, state }, waiting = []
-    let source = null, timer, tries = 0, last = null, opened = false
+    let source = null, timer, tries = 0, last = null, opened = false, ended = false
+    const offline = () => globalThis.navigator?.onLine === false
+    const more = () => policy.tries === 0 || tries < policy.tries
     const close = () => { clearTimeout(timer); source?.close(); source = null }
     const wait = () => { clearTimeout(timer); if (!socket) timer = setTimeout(retry, 60000) }
-    const retry = () => { close(); if (!state.disposed && tries < 5) timer = setTimeout(open, 1000 * 2 ** tries++) }
+    const retry = () => { close(); if (!state.disposed && !offline() && more()) timer = setTimeout(open, TacApplicationEvents.delay(policy, tries++)) }
+    const resume = () => { if (!state.disposed && !source && !ended && !offline() && !TacApplicationEvents.hidden()) { tries = 0; clearTimeout(timer); open() } }
+    const end = () => { ended = true; close() }
     const receive = ({ data, lastEventId }) => {
       tries = 0
       wait()
@@ -310,34 +336,40 @@ class TacApplicationEvents {
         if (!stream.models || this.fits(stream.models, stream.event, message)) this.publish(stream.event, message)
       } catch { this.failed() }
     }
-    const open = () => {
-      if (state.disposed) return
+    const connect = () => {
       if (socket) {
-        const url = new URL(this.yonPath(stream.path), location.href)
+        const url = new URL(this.yonPath(path), location.href)
         url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
         const current = new Kind(url)
         source = current
         source.onopen = () => {
           const reconnected = opened
           opened = true
+          tries = 0
           const flush = () => { if (source === current && current.readyState === 1) for (const text of waiting.splice(0)) current.send(text) }
-          const heard = this.tell(owner, 'SocketOpened', { path: stream.path, reconnected })
+          const heard = this.tell(owner, 'SocketOpened', { path: served, reconnected })
           if (heard) void heard.then(flush, flush)
           else flush()
         }
         source.onclose = ({ code }) => {
           source = null
           const final = [1000, 1003, 1007, 1009].includes(code)
-          this.tell(owner, 'SocketClosed', { path: stream.path, code: Number.isSafeInteger(code) ? code : 1006, reconnecting: !final && !state.disposed && tries < 5 })
-          if (!final) retry()
+          this.tell(owner, 'SocketClosed', { path: served, code: Number.isSafeInteger(code) ? code : 1006, reconnecting: !final && !state.disposed && more() })
+          if (final) ended = true
+          else retry()
         }
       } else {
-        source = new Kind(this.yonPath(stream.topic && last !== null ? `${stream.path}?position=${last + 1}` : stream.path))
+        source = new Kind(this.yonPath(stream.topic && last !== null ? `${path}?position=${last + 1}` : path))
+        source.onopen = () => { tries = 0 }
         source.onerror = retry
-        source.addEventListener('end', close)
+        source.addEventListener('end', end)
       }
       source.onmessage = receive
       wait()
+    }
+    const open = () => {
+      if (state.disposed) return
+      try { connect() } catch { source = null; this.failed() }
     }
     if (socket) Object.defineProperty(owner, stream.sender ?? 'send', { configurable: true, value: async (message) => {
       this.alive(state)
@@ -345,8 +377,10 @@ class TacApplicationEvents {
       if (source?.readyState === 1) return source.send(text)
       if (waiting.length >= 16) throw new RangeError('The socket is not open.')
       waiting.push(text)
-      if (!source) { tries = 0; clearTimeout(timer); open() }
+      if (!source) { tries = 0; ended = false; clearTimeout(timer); open() }
     } })
+    globalThis.addEventListener?.('online', resume, { signal: state.controller.signal })
+    globalThis.document?.addEventListener?.('visibilitychange', resume, { signal: state.controller.signal })
     state.controller.signal.addEventListener('abort', close, { once: true })
     open()
   }

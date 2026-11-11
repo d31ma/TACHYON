@@ -2,6 +2,8 @@
 
 - Status: Accepted
 - Date: 2026-09-26
+- Amended by: [ADR 0123](0123-sockets-and-streams-reconnect-by-a-declared-policy-and-reach-named-origins.md)
+  (a declared reconnect policy; the count restarts at open)
 - Extends: [ADR 0013](0013-semantic-hot-updates.md) (server-sent events stay
   the push channel for hot updates; WebSockets are added for application
   messages that go both ways) and

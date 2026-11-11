@@ -2,6 +2,8 @@
 
 - Status: Accepted
 - Date: 2026-11-10
+- Amended by: [ADR 0123](0123-sockets-and-streams-reconnect-by-a-declared-policy-and-reach-named-origins.md)
+  (`reconnecting` follows the declared policy)
 - Extends: [ADR 0060](0060-sockets-are-a-route-and-a-request.md) (the page's
   event bus holds the `WebSocket` of a `SocketRequest` client) and
   [ADR 0028](0028-owned-application-events-and-lifecycle.md) (owned

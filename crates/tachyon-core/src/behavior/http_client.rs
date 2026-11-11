@@ -428,12 +428,12 @@ impl<'a> SourceText<'a> {
             return Ok((String::new(), default_adapter));
         }
         if let Some(path) = Self::quoted(text) {
-            return Ok((path.to_owned(), default_adapter));
+            return Ok((self.written_path(line, path)?, default_adapter));
         }
         let Ok(Value::Object(object)) = serde_json::from_str::<Value>(text) else {
             return Err(self.failure(
                 line.span.start,
-                "@HTTPClient takes a path in quotes, like @HTTPClient(\"/api/orders\"), or an object such as {\"path\": \"/api/orders\", \"adapter\": \"orders\"}",
+                "@HTTPClient takes a path in quotes, like @HTTPClient(\"/api/orders\"), or an object such as {\"path\": \"/api/orders\", \"adapter\": \"orders\", \"origin\": \"realtime\"}",
             ));
         };
         if object.contains_key("cache") {
@@ -441,8 +441,11 @@ impl<'a> SourceText<'a> {
         }
         let unknown = object
             .keys()
-            .any(|key| !matches!(key.as_str(), "path" | "adapter" | "setup"));
-        let path = object.get("path").and_then(Value::as_str).unwrap_or("");
+            .any(|key| !matches!(key.as_str(), "path" | "adapter" | "setup" | "origin"));
+        let path = self.written_path(
+            line,
+            object.get("path").and_then(Value::as_str).unwrap_or(""),
+        )?;
         let adapter = object
             .get("adapter")
             .and_then(Value::as_str)
@@ -450,10 +453,30 @@ impl<'a> SourceText<'a> {
         if unknown {
             return Err(self.failure(
                 line.span.start,
-                "@HTTPClient accepts only \"path\" (where requests go), \"adapter\" (the name of the HTTP adapter that sends them) and \"setup\" (the Setup whose adapters send them)",
+                "@HTTPClient accepts only \"path\" (where requests go), \"adapter\" (the name of the HTTP adapter that sends them), \"setup\" (the Setup whose adapters send them) and \"origin\" (a name from tac.yon.origins in client/manifest.json, for a server other than Yon's)",
             ));
         }
-        Ok((path.to_owned(), adapter))
+        Ok((self.origin_path(line, &object, path)?, adapter))
+    }
+
+    fn written_path(&self, line: &MarkerLine, path: &str) -> Result<String, Failure> {
+        crate::behavior::RemoteOrigin::check_written(path)
+            .map(|()| path.to_owned())
+            .map_err(|message| self.failure(line.span.start, message))
+    }
+
+    fn origin_path(
+        &self,
+        line: &MarkerLine,
+        object: &Map<String, Value>,
+        path: String,
+    ) -> Result<String, Failure> {
+        let Some(origin) = object.get("origin") else {
+            return Ok(path);
+        };
+        let name = origin.as_str().unwrap_or_default();
+        crate::behavior::RemoteOrigin::addressed(name, &path)
+            .map_err(|message| self.failure(line.span.start, message))
     }
 
     fn quoted(text: &str) -> Option<&str> {
