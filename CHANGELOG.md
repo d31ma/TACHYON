@@ -114,13 +114,18 @@ machine contracts have their own, independent major versions.
   as JavaScript, TypeScript and Dart already did. The key is the same as for
   a service that a view uses. A WebAssembly service's `init` answer lists the
   services it needs, and the page plan carries their saved fields (ADR 0119).
-  A Rust service linked into a native app that holds another service through
-  `Arc` still does not save that service's fields.
 - A `Schedule` worker in `server/workers/` can take services through `Needs`
   fields in every Yon language, as a controller does: Tachyon builds the
   worker from `server/services/` and the other role folders and calls its
   instance `POST` on each run. A worker with no `Needs` compiles as before
   (ADR 0119).
+- A Rust service linked into a native app now also saves and restores the
+  `#[SessionState]`/`#[LocalState]` fields of a Rust service that it holds
+  through `Arc` and that no view uses, on macOS, Windows, Linux, iOS and
+  Android, with the same key. Its `init` answer lists `needs`, and the page
+  opens a field-only activation through the holding service. Such a field is
+  a `std::sync::Mutex<T>` or `std::sync::RwLock<T>`; a plain one stops the
+  build (`TY1406`), because `Arc` gives shared access only (ADR 0119).
 
 ## [26.46.02] - 2026-11-10
 

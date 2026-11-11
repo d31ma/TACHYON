@@ -9,11 +9,15 @@ pub(super) struct RustServicePlan {
     pub(super) application: bool,
     pub(super) required: Vec<String>,
     pub(super) events: Option<EventModule>,
+    pub(super) saved: std::collections::BTreeSet<String>,
 }
 
 impl RustServicePlan {
     pub(super) fn read(path: &Path, source: &str) -> Result<Self, Failure> {
         let roles = crate::behavior::ServiceRoles::read(path, source)?;
+        let saved = crate::behavior::StoredState::fields(path, source)?
+            .into_keys()
+            .collect();
         let consumed = crate::behavior::ServiceRoles::without_roles(path, source)?;
         let events = crate::events::extract(path, &consumed, "tac")?;
         let source = events
@@ -39,6 +43,7 @@ impl RustServicePlan {
             application: roles.application.is_some(),
             required: roles.required,
             events,
+            saved,
         })
     }
 

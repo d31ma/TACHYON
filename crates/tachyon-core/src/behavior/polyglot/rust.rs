@@ -1160,6 +1160,8 @@ impl ContractService {{
 const TAC_APPLICATION_ID: &str = "org.tachyon.behavior.contract";
 fn tac_service_members(service: &str) -> Option<Vec<(&'static str, TacMember)>> {{ (service == "contract").then(tac_create) }}
 fn tac_service_required(_service: &str) -> &'static [&'static str] {{ &[] }}
+fn tac_service_needs(_service: &str) -> &'static [&'static str] {{ &[] }}
+fn tac_service_held(_held: &str) -> Option<Vec<(&'static str, TacMember)>> {{ None }}
 {prelude}
 fn main() {{
     let _ = tac_invoke_owned(r##"{{"route":"/","service":"contract","owner":"00000000-0000-4000-8000-000000000001","op":"init"}}"##);

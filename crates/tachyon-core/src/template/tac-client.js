@@ -653,8 +653,8 @@ class NeededServices {
   }
 
   static holder(owner) {
-    return (name) => {
-      const target = owner.__tachyonHold(name)
+    return async (name) => {
+      const target = await owner.__tachyonHold(name)
       return { target, dispose: () => target.__tachyonDispose?.() }
     }
   }
@@ -706,6 +706,7 @@ class NeededServices {
   static async save(entry) {
     try {
       await entry.ready
+      await entry.holder.target.__tachyonRefresh?.()
       entry.holder.target.__tachyonStoredChanged?.()
     } catch {}
   }
@@ -1776,19 +1777,42 @@ const drainCompanionQueue = () => {
   const queued = Array.isArray(queue) ? queue.splice(0).slice(-128) : []
   for (const signal of queued) globalThis.__tachyonCompanionPublish?.(signal)
 }
-const bindNativeInstance = async (owner, service, properties) => {
-  const ownerId = crypto.randomUUID()
-  const record = { ownerId, service, disposed: false }
-  const call = (request) => {
-    if (record.disposed && request.op !== 'dispose') throw new Error('Tac native owner disposed.')
-    return nativeCall(request, ownerId, service)
+const nativeRecord = (service) => ({ ownerId: crypto.randomUUID(), service, disposed: false })
+const nativeOwnerCall = (record) => (request) => {
+  if (record.disposed && request.op !== 'dispose') throw new Error('Tac native owner disposed.')
+  return nativeCall(request, record.ownerId, record.service)
+}
+const nativeFields = (declared) => (Array.isArray(declared?.fields) ? declared.fields : []).slice(0, 128).filter(nativeMember)
+
+class NativeHolders {
+  static offer(owner, declared, service) {
+    Object.defineProperty(owner, '__tachyonNeeds', { configurable: true, value: Array.isArray(declared?.needs) ? declared.needs : [] })
+    Object.defineProperty(owner, '__tachyonHold', { configurable: true, value: (name) => NativeHolders.hold(service, name) })
   }
+
+  static async hold(service, name) {
+    const target = {}
+    const record = nativeRecord(service)
+    const call = nativeOwnerCall(record)
+    const declared = await call({ op: 'init', props: {}, held: name })
+    const refresh = bindNativeFields(target, nativeFields(declared), call)
+    await refresh()
+    NativeState.owners.set(target, record)
+    Object.defineProperty(target, '__tachyonRefresh', { value: refresh })
+    Object.defineProperty(target, '__tachyonDispose', { value: () => disposeNativeInstance(target) })
+    return target
+  }
+}
+
+const bindNativeInstance = async (owner, service, properties) => {
+  const record = nativeRecord(service)
+  const call = nativeOwnerCall(record)
   let props = {}
   try { props = JSON.parse(JSON.stringify(properties ?? {})) ?? {} } catch {}
   const declared = await call({ op: 'init', props })
-  const fields = (Array.isArray(declared?.fields) ? declared.fields : []).slice(0, 128).filter(nativeMember)
-  const refreshNativeFields = bindNativeFields(owner, fields, call)
+  const refreshNativeFields = bindNativeFields(owner, nativeFields(declared), call)
   await refreshNativeFields()
+  NativeHolders.offer(owner, declared, service)
   TacNativeEvents.bind(owner, declared, call, refreshNativeFields, Services.catalog[service]?.topics)
   for (const name of (Array.isArray(declared?.methods) ? declared.methods : []).slice(0, 128)) {
     if (!nativeMember(name)) continue

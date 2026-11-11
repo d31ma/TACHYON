@@ -12,6 +12,7 @@ pub(super) struct RustPageGraph {
     service_scopes: super::rust_service_scopes::RustServiceScopes,
     utilities: BTreeSet<String>,
     remotes: Vec<crate::events::EventModule>,
+    held: super::rust_held_services::RustHeldServices,
 }
 
 impl RustPageGraph {
@@ -46,6 +47,7 @@ impl RustPageGraph {
             service_scopes: super::rust_service_scopes::RustServiceScopes::default(),
             utilities: BTreeSet::new(),
             remotes: Vec::new(),
+            held: super::rust_held_services::RustHeldServices::default(),
         };
         for (path, source) in units {
             graph.add_unit(&path, &source, &input.snapshot_root)?;
@@ -115,6 +117,7 @@ impl RustPageGraph {
             &dependencies,
         )?;
         self.arcs.extend(dependencies.clone());
+        self.held.record(name, &dependencies);
         pending.extend(dependencies);
         self.initializers.insert(name.to_owned(), initializer);
         Ok(())
@@ -266,9 +269,10 @@ impl RustPageGraph {
             .filter(|input| !input.application_provider)
             .map(|input| Ok((input.class.clone(), self.table(input)?)))
             .collect::<Result<Vec<_>, Failure>>()?;
+        let held = self.held.tables(&self.source, &self.services)?;
         let services = self
             .service_scopes
-            .wrap(&self.source, &[definitions, tables].concat())?;
+            .wrap(&self.source, &[definitions, tables, held].concat())?;
         let mut imports = BTreeSet::new();
         let models = super::registry::models_source(
             crate::project::NativeCompanion::Rust,
@@ -409,8 +413,9 @@ impl RustPageGraph {
                 .join(", ");
             let _ = writeln!(required, "{:?} => &[{fields}],", input.service);
         }
+        let held = self.held.dispatch(inputs, &self.services);
         Ok(format!(
-            "fn tac_service_members(service: &str) -> Option<Vec<(&'static str, TacMember)>> {{ let activation = NativePageServices::activation()?; let result: Result<Vec<(&'static str, TacMember)>, String> = match service {{ {entries}_ => return None }}; match result {{ Ok(members) => Some(members), Err(failure) => {{ activation.fail(failure); None }} }} }}\nfn tac_service_required(service: &str) -> &'static [&'static str] {{ match service {{ {required}_ => &[] }} }}\n#[unsafe(no_mangle)]\npub extern \"C\" fn tac_native_application_start() -> bool {{ NativeApplicationServices::start(TachyonRustServices::tac_application_providers).is_ok() }}\n#[unsafe(no_mangle)]\npub extern \"C\" fn tac_native_application_shutdown() {{ NativeApplicationServices::host_shutdown(); }}\n"
+            "{held}fn tac_service_members(service: &str) -> Option<Vec<(&'static str, TacMember)>> {{ let activation = NativePageServices::activation()?; let result: Result<Vec<(&'static str, TacMember)>, String> = match service {{ {entries}_ => return None }}; match result {{ Ok(members) => Some(members), Err(failure) => {{ activation.fail(failure); None }} }} }}\nfn tac_service_required(service: &str) -> &'static [&'static str] {{ match service {{ {required}_ => &[] }} }}\n#[unsafe(no_mangle)]\npub extern \"C\" fn tac_native_application_start() -> bool {{ NativeApplicationServices::start(TachyonRustServices::tac_application_providers).is_ok() }}\n#[unsafe(no_mangle)]\npub extern \"C\" fn tac_native_application_shutdown() {{ NativeApplicationServices::host_shutdown(); }}\n"
         ))
     }
 

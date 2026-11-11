@@ -664,8 +664,9 @@ fn tac_activate(
     if tac_active_owners().with(|slot| slot.borrow().len()) >= 256 {
         return Err(String::from("{\"error\":\"Too many native activations.\"}"));
     }
+    let held = tac_entry_text(request, "held");
     let (members, capabilities) = NativeCapabilities::create(owner, || {
-        NativePageServices::build(route, owner, || tac_service_members(service))
+        NativePageServices::build(route, owner, || tac_members_for(service, held))
     });
     let members = members.map_err(|_| {
         capabilities.dispose();
@@ -700,7 +701,32 @@ fn tac_activate(
     Ok(())
 }
 
-fn tac_describe_members(members: &[(&'static str, TacMember)]) -> String {
+fn tac_members_for(
+    service: &str,
+    held: Option<&String>,
+) -> Option<Vec<(&'static str, TacMember)>> {
+    match held {
+        None => tac_service_members(service),
+        Some(held) => tac_held_members(service, held),
+    }
+}
+
+fn tac_held_members(service: &str, held: &str) -> Option<Vec<(&'static str, TacMember)>> {
+    tac_service_needs(service)
+        .contains(&held)
+        .then(|| tac_service_held(held))
+        .flatten()
+}
+
+fn tac_describe_needs(needs: &[&str]) -> String {
+    let names = needs
+        .iter()
+        .map(|name| TacValue::Text((*name).to_owned()))
+        .collect();
+    tac_write(&TacValue::List(names))
+}
+
+fn tac_describe_members(members: &[(&'static str, TacMember)], needs: &[&str]) -> String {
     let mut fields = Vec::new();
     let mut methods = Vec::new();
     let mut tasks = Vec::new();
@@ -727,12 +753,13 @@ fn tac_describe_members(members: &[(&'static str, TacMember)]) -> String {
     }
     let exclusive = !tasks.is_empty() || listener_tasks;
     format!(
-        "{{\"value\":{{\"fields\":{},\"methods\":{},\"asyncMethods\":{},\"exclusive\":{exclusive},\"listeners\":{},\"streams\":{}}}}}",
+        "{{\"value\":{{\"fields\":{},\"methods\":{},\"asyncMethods\":{},\"exclusive\":{exclusive},\"listeners\":{},\"streams\":{},\"needs\":{}}}}}",
         tac_write(&TacValue::List(fields)),
         tac_write(&TacValue::List(methods)),
         tac_write(&TacValue::List(tasks)),
         tac_write(&TacValue::List(listeners)),
-        tac_write(&TacValue::List(streams))
+        tac_write(&TacValue::List(streams)),
+        tac_describe_needs(needs)
     )
 }
 
@@ -921,7 +948,7 @@ fn tac_handle_owned(
     }
     tac_set_executing(&activation);
     if operation == "init" {
-        return tac_describe_members(&activation.members);
+        return tac_describe_members(&activation.members, tac_service_needs(service));
     }
     let Some(name) = tac_entry_text(request, "name") else {
         return String::from("{\"error\":\"Companion request has no member name.\"}");

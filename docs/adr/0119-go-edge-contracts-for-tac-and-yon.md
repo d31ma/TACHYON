@@ -108,19 +108,36 @@ How it works:
 | C# | no: TY1308 | not applicable |
 | Rust, Kotlin, Swift (WebAssembly) | no: TY1406 | not applicable |
 | Ruby, Lua | no: TY2015 | not applicable |
-| Rust linked into a native app | yes, through `Arc<T>` | **not saved**: see below |
+| Rust linked into a native app | yes, through `Arc<T>` | saved (the native page graph lists `needs`): see below |
 
 Native targets (macOS, Windows, Linux, iOS, Android) run Go, Java, F#,
 Python and C++ services as WebAssembly in the platform web view (ADR 0018),
-with the same page code, so they get the same result. A Rust service linked
-into a native app can hold another Rust service through `Arc<T>`, but the
-native companion answers only the services that a view uses, so the page
-cannot reach a service that only another Rust service holds. Its saved fields
-are not saved. Put them on a service that a view uses, as before, until the
-native Rust page graph exposes needed services.
+with the same page code, so they get the same result.
 
-Point 2 of the Context is no longer a limit, except for that native Rust
-case.
+A Rust service linked into a native app can hold another Rust service through
+`Arc<T>` (the native page graph). It works the same way (2026-11-11):
+
+- The `init` answer of a Rust service that a view uses lists in `needs` the
+  instance names of the shared services it holds through `Arc`, directly or
+  through other services. A prototype service belongs to one owner, so it is
+  not listed.
+- The page opens the field-only activation through the service that holds
+  it: the `init` request names that service in `service` and the held service
+  in `held`. Every native host already sends a request to the Rust library by
+  its `service` name (the Swift host on macOS and iOS, the companion table on
+  Windows and Linux, the Rust service list on Android), so the request reaches
+  the library that holds the running service, with no host change.
+- The Rust library opens the activation only for a name in that service's
+  `needs`, and only on the running node: it never builds the service, and
+  OnStart does not run again. The activation has only the saved fields, with
+  no methods, events or streams. Closing it does not stop the service.
+- `Arc` gives shared access only, so a saved field on such a service is a
+  `std::sync::Mutex<T>` or `std::sync::RwLock<T>`, where `T` is a type a
+  page field can have. The page reads and restores the value through the
+  lock. A plain saved field there stops the build (`TY1406`), because the
+  page could not restore it.
+
+Point 2 of the Context is no longer a limit.
 
 ## Every Tac language: waiting in OnStart and the early error exit (items 1 and 4)
 

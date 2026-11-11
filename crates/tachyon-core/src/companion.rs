@@ -41,6 +41,7 @@ mod rust_task_member;
 pub(crate) use csharp_model_type::CsharpModelType;
 use rust_collaborators::RustCollaborators;
 mod rust_graph;
+mod rust_held_fields;
 use rust_construction::RustConstruction;
 pub(crate) use rust_graph::RustGraph;
 pub(crate) use rust_model_type::RustModelType;

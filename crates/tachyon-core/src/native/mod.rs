@@ -184,6 +184,10 @@ mod native_file_picker_limit_tests;
 #[cfg(all(test, target_os = "macos"))]
 mod native_file_picker_permission_tests;
 #[cfg(test)]
+mod native_held_fields_tests;
+#[cfg(test)]
+mod native_held_page_tests;
+#[cfg(test)]
 mod native_helper_tests;
 mod native_icon_note;
 mod native_links;
@@ -287,6 +291,7 @@ mod rust_crate_build;
 mod rust_dependency;
 #[cfg(test)]
 mod rust_filename_tests;
+mod rust_held_services;
 #[cfg(test)]
 mod rust_held_stream_tests;
 mod rust_held_streams;

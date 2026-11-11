@@ -20,6 +20,13 @@ impl NativeServiceScope {
         self.lookup(definition, true)
     }
 
+    fn held<T: Clone + 'static>(&self, definition: &NativeServiceDefinition<T>) -> Result<T, String> {
+        let scope = self.node_scope(definition.application)?;
+        let node = scope.page.borrow().node(&scope.key(definition));
+        node.ok_or_else(|| String::from("Native held service is not running."))?
+            .value()
+    }
+
     fn lookup<T: Clone + 'static>(
         &self,
         definition: &NativeServiceDefinition<T>,

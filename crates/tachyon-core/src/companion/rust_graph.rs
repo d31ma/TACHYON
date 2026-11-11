@@ -1,3 +1,4 @@
+use super::rust_held_fields::RustHeldFields;
 use super::{
     RustCollaborators, RustConstruction, block_named, blocks, declared_service, rust_owner_table,
     rust_struct_fields, unnamed_service,
@@ -65,6 +66,14 @@ impl RustGraph {
         Ok(format!(
             "pub(crate) fn tac_members_{name}(scope: &NativeServiceScope) -> ::core::result::Result<Vec<(&'static str, TacMember)>, String> {{\nlet instance = {instance};\nOk(vec![{members}])\n}}\n"
         ))
+    }
+
+    pub(crate) fn held_table(
+        source: &str,
+        path: &str,
+        saved: &std::collections::BTreeSet<String>,
+    ) -> Result<String, Failure> {
+        RustHeldFields::table(source, path, saved)
     }
 
     pub(crate) fn supports_arc(source: &str, path: &str, exposed: bool) -> Result<bool, Failure> {

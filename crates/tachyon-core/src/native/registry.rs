@@ -499,6 +499,8 @@ fn rust_dispatch(services: &[(String, String)], entries: &str) -> String {
     }
     format!(
         "\nfn tac_service_members(service: &str) -> Option<Vec<(&'static str, TacMember)>> {{\nmatch service {{\n{entries}_ => None\n}}\n}}\n\
-         fn tac_service_required(service: &str) -> &'static [&'static str] {{\nmatch service {{\n{required}_ => &[]\n}}\n}}\n"
+         fn tac_service_required(service: &str) -> &'static [&'static str] {{\nmatch service {{\n{required}_ => &[]\n}}\n}}\n\
+         fn tac_service_needs(_service: &str) -> &'static [&'static str] {{ &[] }}\n\
+         fn tac_service_held(_held: &str) -> Option<Vec<(&'static str, TacMember)>> {{ None }}\n"
     )
 }

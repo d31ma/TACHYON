@@ -186,7 +186,7 @@ fn main() {
         Self::stage_roots(root, provider, [Self::WRITER, Self::READER])
     }
 
-    fn stage_roots(
+    pub(super) fn stage_roots(
         root: &Path,
         provider: &str,
         source_roots: [&str; 2],
@@ -522,6 +522,8 @@ fn definition() -> NativeServiceDefinition<std::rc::Rc<core::cell::RefCell<Label
     }
 }
 fn tac_service_required(_: &str) -> &'static [&'static str] { &["label"] }
+fn tac_service_needs(_: &str) -> &'static [&'static str] { &[] }
+fn tac_service_held(_: &str) -> Option<Vec<(&'static str, TacMember)>> { None }
 fn tac_service_members(_: &str) -> Option<Vec<(&'static str, TacMember)>> {
     let activation = NativePageServices::activation()?;
     let value = activation.scope.obtain_root(&definition()).ok()?;
