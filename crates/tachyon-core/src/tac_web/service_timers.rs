@@ -6,26 +6,17 @@ use crate::lua_source::LuaView;
 use crate::tac_cpp::{CppFile, CppMember};
 use serde_json::{Value, json};
 use std::ffi::OsStr;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 pub(crate) struct ServiceTimers;
 
 impl ServiceTimers {
-    const MARKER_TEXT: &'static str = "Every";
+    const MARKER_WORD: &'static str = "every";
     const UNREADABLE_SOURCE: u16 = 1605;
     const REALM: &'static str = "tac";
-    const SHARED_READER: (
-        &'static str,
-        fn(&Path, &str, &str) -> Result<Vec<EventTimer>, Failure>,
-    ) = ("", Self::shared_timers);
-    const READERS: [(
-        &'static str,
-        fn(&Path, &str, &str) -> Result<Vec<EventTimer>, Failure>,
-    ); 3] = [
-        ("fs", Self::fsharp_timers),
-        ("lua", Self::lua_timers),
-        ("hpp", Self::cpp_timers),
-    ];
+    const FSHARP: &'static str = "fs";
+    const LUA: &'static str = "lua";
+    const CPP: &'static str = "hpp";
 
     pub(crate) fn read(
         snapshot_root: &Path,
@@ -35,50 +26,46 @@ impl ServiceTimers {
         let path = snapshot_root.join(source);
         let text =
             std::fs::read_to_string(&path).map_err(|error| Self::unreadable(&path, &error))?;
-        let reader = Self::reader(&path, &text);
-        reader(&path, &text, class)
+        let marked = Self::marked(&text);
+        let shared = Self::shared_timers(&path, marked, class)?;
+        let cpp = Self::cpp_timers(&path, marked)?;
+        Ok([shared, cpp].concat())
     }
 
     pub(crate) fn described(timers: &[EventTimer]) -> Value {
         Value::Array(timers.iter().map(Self::entry).collect())
     }
 
-    fn reader(
-        path: &Path,
-        text: &str,
-    ) -> fn(&Path, &str, &str) -> Result<Vec<EventTimer>, Failure> {
-        if !text.contains(Self::MARKER_TEXT) {
-            return Self::no_timers;
+    fn marked(text: &str) -> &str {
+        if text.to_ascii_lowercase().contains(Self::MARKER_WORD) {
+            return text;
         }
-        Self::by_extension(path)
-    }
-
-    fn by_extension(path: &Path) -> fn(&Path, &str, &str) -> Result<Vec<EventTimer>, Failure> {
-        let extension = path.extension().and_then(OsStr::to_str).unwrap_or_default();
-        Self::READERS
-            .iter()
-            .find(|(name, _)| *name == extension)
-            .unwrap_or(&Self::SHARED_READER)
-            .1
-    }
-
-    fn no_timers(_path: &Path, _text: &str, _class: &str) -> Result<Vec<EventTimer>, Failure> {
-        Ok(Vec::new())
+        ""
     }
 
     fn shared_timers(path: &Path, text: &str, class: &str) -> Result<Vec<EventTimer>, Failure> {
-        let module = crate::events::extract(path, text, Self::REALM)?;
+        let (view_path, view_text) = Self::view(path, text);
+        let module = crate::events::extract(&view_path, &view_text, Self::REALM)?;
         Ok(Self::owned(module, class))
     }
 
-    fn fsharp_timers(path: &Path, text: &str, class: &str) -> Result<Vec<EventTimer>, Failure> {
-        let view = FsharpView::tac(path, text);
-        Self::shared_timers(view.path(), view.text(), class)
+    fn view(path: &Path, text: &str) -> (PathBuf, String) {
+        match Self::extension(path) {
+            Self::FSHARP => {
+                let view = FsharpView::tac(path, text);
+                (view.path().to_path_buf(), view.text().to_owned())
+            }
+            Self::LUA => {
+                let view = LuaView::joined(path, text);
+                (view.path().to_path_buf(), view.text().to_owned())
+            }
+            Self::CPP => (path.to_path_buf(), String::new()),
+            _ => (path.to_path_buf(), text.to_owned()),
+        }
     }
 
-    fn lua_timers(path: &Path, text: &str, class: &str) -> Result<Vec<EventTimer>, Failure> {
-        let view = LuaView::joined(path, text);
-        Self::shared_timers(view.path(), view.text(), class)
+    fn extension(path: &Path) -> &str {
+        path.extension().and_then(OsStr::to_str).unwrap_or_default()
     }
 
     fn owned(module: Option<EventModule>, class: &str) -> Vec<EventTimer> {
@@ -90,11 +77,17 @@ impl ServiceTimers {
             .collect()
     }
 
-    fn cpp_timers(path: &Path, text: &str, _class: &str) -> Result<Vec<EventTimer>, Failure> {
+    fn cpp_timers(path: &Path, text: &str) -> Result<Vec<EventTimer>, Failure> {
+        let wanted = [Self::extension(path) == Self::CPP, !text.is_empty()];
+        if wanted != [true, true] {
+            return Ok(Vec::new());
+        }
         let file = CppFile::read(path, text)?;
-        let timers = file
-            .class
-            .members
+        Self::cpp_member_timers(path, &file.class.members)
+    }
+
+    fn cpp_member_timers(path: &Path, members: &[CppMember]) -> Result<Vec<EventTimer>, Failure> {
+        let timers = members
             .iter()
             .filter(|member| member.marked(EventTimer::MARKER))
             .map(|member| Self::cpp_timer(path, member))
