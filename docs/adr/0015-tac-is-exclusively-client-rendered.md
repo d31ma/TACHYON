@@ -160,3 +160,30 @@ closed, and a closed menu had no state at all.
   Windows, Linux, iOS, Android) and in a component exported as a custom
   element (ADR 0086). A service in any language returns its own boolean type,
   such as a Go `bool` field, and needs no string helper.
+- The contract is the same in every Tac service language. A field of the
+  language's own true-or-false type reaches the template as a JavaScript
+  boolean, and the rule above writes it:
+
+  | Language | Field |
+  | --- | --- |
+  | JavaScript, TypeScript | `expanded = false`, `expanded: boolean` |
+  | Rust | `expanded: bool` |
+  | Go | `Expanded bool` |
+  | C# | `public bool Expanded` |
+  | F# | `member val Expanded = false` |
+  | Kotlin | `var expanded: Boolean` |
+  | Java | `boolean expanded` |
+  | Swift | `var expanded: Bool` |
+  | Dart | `bool expanded` |
+  | Ruby | `@expanded = false` |
+  | Lua | `expanded = false` (`---@type boolean`) |
+  | Python | `expanded: bool = False` |
+  | C++ | `bool expanded` |
+
+  No language is left out: none needs its own code, because the page runtime
+  writes every bound attribute. Tests compile the same `MenuService` in each
+  language that builds for the web (`tac_web::aria_binding_tests`, and the
+  Python page tests) and check that `aria-expanded` reads `false`, then
+  `true` after `toggle()`; the JavaScript service runs in the browser test
+  (`scripts/tac-client-test.mjs`). The docs section "ARIA states from
+  true-or-false fields" shows the service in every language.

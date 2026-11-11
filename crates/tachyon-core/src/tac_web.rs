@@ -1004,6 +1004,9 @@ mod named_needs_tests;
 mod model_binding_tests;
 
 #[cfg(test)]
+pub(crate) mod aria_binding_tests;
+
+#[cfg(test)]
 mod converter_model_tests;
 
 #[cfg(test)]

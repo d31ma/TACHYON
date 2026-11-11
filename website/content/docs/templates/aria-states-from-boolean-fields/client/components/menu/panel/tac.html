@@ -1,0 +1,6 @@
+<nav>
+  <button type="button" aria-controls="site-links" :aria-expanded="menu.expanded" on:click="menu.toggle()">Menu</button>
+  <ul id="site-links" :hidden="!menu.expanded">
+    <li><a href="/docs">Docs</a></li>
+  </ul>
+</nav>

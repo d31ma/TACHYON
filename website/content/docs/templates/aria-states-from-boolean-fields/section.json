@@ -1,0 +1,104 @@
+{
+  "heading": "ARIA states from true-or-false fields",
+  "target": "web",
+  "body": "Bind a true-or-false field to an `aria-*` attribute, and the page writes the text `true` or `false`. A screen reader reads that text as the state: `aria-expanded=\"false\"` says the menu is closed. This works the same way in every Tac service language, because the shared page runtime writes the attribute. A Go field `Expanded bool`, a Rust field `expanded: bool` and a Python field `expanded: bool` all give the same `aria-expanded` value.\n\nOther attributes keep the HTML rule: `true` writes the attribute with an empty value, and `false` removes it, so `:hidden=\"!menu.expanded\"` hides the list while the menu is closed. A JavaScript `null` value removes any attribute, `aria-*` included. Text keeps its value: `:aria-current=\"menu.current\"` writes `page` when the field holds `page`.",
+  "axis": "language",
+  "files": [
+    {
+      "name": "client/pages/tac.html",
+      "code": {
+        "file": "client/pages/tac.html"
+      }
+    },
+    {
+      "name": "client/components/menu/panel/tac.html",
+      "code": {
+        "file": "client/components/menu/panel/tac.html"
+      }
+    },
+    {
+      "name": "client/services/MenuService.js",
+      "code": {
+        "file": "client/services/MenuService.js"
+      }
+    },
+    {
+      "name": "client/services/MenuService.ts",
+      "code": {
+        "file": "client/services/MenuService.ts"
+      }
+    },
+    {
+      "name": "client/services/MenuService.dart",
+      "code": {
+        "file": "client/services/MenuService.dart"
+      }
+    },
+    {
+      "name": "client/services/MenuService.rs",
+      "code": {
+        "file": "client/services/MenuService.rs"
+      }
+    },
+    {
+      "name": "client/services/MenuService.go",
+      "code": {
+        "file": "client/services/MenuService.go"
+      }
+    },
+    {
+      "name": "client/services/MenuService.rb",
+      "code": {
+        "file": "client/services/MenuService.rb"
+      }
+    },
+    {
+      "name": "client/services/MenuService.swift",
+      "code": {
+        "file": "client/services/MenuService.swift"
+      }
+    },
+    {
+      "name": "client/services/MenuService.kt",
+      "code": {
+        "file": "client/services/MenuService.kt"
+      }
+    },
+    {
+      "name": "client/services/MenuService.java",
+      "code": {
+        "file": "client/services/MenuService.java"
+      }
+    },
+    {
+      "name": "client/services/MenuService.cs",
+      "code": {
+        "file": "client/services/MenuService.cs"
+      }
+    },
+    {
+      "name": "client/services/MenuService.fs",
+      "code": {
+        "file": "client/services/MenuService.fs"
+      }
+    },
+    {
+      "name": "client/services/MenuService.py",
+      "code": {
+        "file": "client/services/MenuService.py"
+      }
+    },
+    {
+      "name": "client/services/MenuService.lua",
+      "code": {
+        "file": "client/services/MenuService.lua"
+      }
+    },
+    {
+      "name": "client/services/MenuService.hpp",
+      "code": {
+        "file": "client/services/MenuService.hpp"
+      }
+    }
+  ]
+}

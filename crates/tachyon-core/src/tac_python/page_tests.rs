@@ -348,3 +348,17 @@ async fn a_python_cached_browser_read_revalidates_after_its_cache_is_cleared() {
         "{report}"
     );
 }
+
+#[tokio::test]
+async fn a_python_bool_field_writes_aria_expanded_as_true_or_false() {
+    if let Some(reason) = PythonPage::skip_reason() {
+        eprintln!("skipping: {reason}");
+        return;
+    }
+    let root = tempfile::tempdir().unwrap_or_else(|error| panic!("project: {error}"));
+    let menu = crate::tac_web::aria_binding_tests::AriaMenu::PYTHON;
+    PythonPage::publish(root.path(), &[("menu", "MenuService", menu)]).await;
+    let driver = crate::tac_web::aria_binding_tests::AriaMenu::driver();
+    let report = PythonPage::run(root.path(), &driver);
+    crate::tac_web::aria_binding_tests::AriaMenu::assert_true_or_false(&report);
+}

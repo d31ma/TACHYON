@@ -27,7 +27,11 @@ machine contracts have their own, independent major versions.
   true, which a screen reader reads as false, and left the attribute out for
   false. Strings and numbers keep their text, `null` still leaves the
   attribute out, and other attributes such as `hidden` and `disabled` keep the
-  HTML rule (ADR 0015, amendment of 2026-11-10).
+  HTML rule (ADR 0015, amendment of 2026-11-10). This holds for a Tac service
+  in every language: a `bool` field in Rust, Go, C#, F#, Kotlin, Java, Swift,
+  Dart, Ruby, Lua, Python, C++, JavaScript or TypeScript writes the same
+  `true` or `false`. The new docs section "ARIA states from true-or-false
+  fields" shows each language.
 
 ## [26.46.02] - 2026-11-10
 

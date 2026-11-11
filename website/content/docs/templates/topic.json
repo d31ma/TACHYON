@@ -12,6 +12,9 @@
       "include": "accessible-views/section.json"
     },
     {
+      "include": "aria-states-from-boolean-fields/section.json"
+    },
+    {
       "include": "control-flow/section.json"
     },
     {

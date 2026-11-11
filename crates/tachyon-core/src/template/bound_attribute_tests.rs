@@ -1,6 +1,6 @@
 use crate::node_driver::NodeDriver;
 
-struct BoundAttributeDriver;
+pub(crate) struct BoundAttributeDriver;
 
 impl BoundAttributeDriver {
     const RUNTIME: &'static str = include_str!("tac-client.js");
@@ -14,13 +14,16 @@ const cases = [
 console.log(JSON.stringify(cases.map(([name, value]) => BoundAttribute.text(name, value))))
 ";
 
-    fn run() -> serde_json::Value {
-        let source = format!(
-            "{}\n{}\n{}",
+    pub(crate) fn rule() -> String {
+        format!(
+            "{}\n{}\n",
             Self::part("const display = ", "\n}\n"),
-            Self::part("class BoundAttribute {", "\n}\n"),
-            Self::HARNESS
-        );
+            Self::part("class BoundAttribute {", "\n}\n")
+        )
+    }
+
+    fn run() -> serde_json::Value {
+        let source = format!("{}{}", Self::rule(), Self::HARNESS);
         let mut command = NodeDriver::command();
         command.args(["--input-type=module", "--eval", &source]);
         let output = NodeDriver::output(&mut command).expect("node harness");

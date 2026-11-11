@@ -1594,6 +1594,78 @@
           "code": "<section aria-labelledby=\"cart-title\">\n  <h2 id=\"cart-title\">Cart</h2>\n  <img src=\"/shared/assets/cart.svg\" alt=\"\" aria-hidden=\"true\">\n  <label for=\"coupon\">Coupon code</label>\n  <input id=\"coupon\" :value=\"cart.coupon\" on:input=\"cart.coupon = $event.target.value\">\n  <button on:click=\"cart.apply()\">Apply</button>\n  <button aria-label=\"Close the cart\" on:click=\"cart.close()\">\u00d7</button>\n  <h3>Items</h3>\n  <loop :for=\"item of cart.items\">\n    <img :src=\"item.picture\" :alt=\"item.name\">\n  </loop>\n</section>\n"
         },
         {
+          "heading": "ARIA states from true-or-false fields",
+          "target": "web",
+          "body": "Bind a true-or-false field to an `aria-*` attribute, and the page writes the text `true` or `false`. A screen reader reads that text as the state: `aria-expanded=\"false\"` says the menu is closed. This works the same way in every Tac service language, because the shared page runtime writes the attribute. A Go field `Expanded bool`, a Rust field `expanded: bool` and a Python field `expanded: bool` all give the same `aria-expanded` value.\n\nOther attributes keep the HTML rule: `true` writes the attribute with an empty value, and `false` removes it, so `:hidden=\"!menu.expanded\"` hides the list while the menu is closed. A JavaScript `null` value removes any attribute, `aria-*` included. Text keeps its value: `:aria-current=\"menu.current\"` writes `page` when the field holds `page`.",
+          "axis": "language",
+          "files": [
+            {
+              "name": "client/pages/tac.html",
+              "code": "<menu-panel hydrate=\"load\" />\n"
+            },
+            {
+              "name": "client/components/menu/panel/tac.html",
+              "code": "<nav>\n  <button type=\"button\" aria-controls=\"site-links\" :aria-expanded=\"menu.expanded\" on:click=\"menu.toggle()\">Menu</button>\n  <ul id=\"site-links\" :hidden=\"!menu.expanded\">\n    <li><a href=\"/docs\">Docs</a></li>\n  </ul>\n</nav>\n"
+            },
+            {
+              "name": "client/services/MenuService.js",
+              "code": "@Service\nexport default class MenuService {\n  expanded = false\n\n  toggle() { this.expanded = !this.expanded }\n}\n"
+            },
+            {
+              "name": "client/services/MenuService.ts",
+              "code": "@Service\nexport default class MenuService {\n  expanded: boolean = false\n\n  toggle(): void { this.expanded = !this.expanded }\n}\n"
+            },
+            {
+              "name": "client/services/MenuService.dart",
+              "code": "@Service\nclass MenuService {\n  bool expanded = false;\n\n  void toggle() {\n    expanded = !expanded;\n  }\n}\n"
+            },
+            {
+              "name": "client/services/MenuService.rs",
+              "code": "#[Service]\nstruct MenuService {\n    expanded: bool,\n}\n\nimpl MenuService {\n    fn new() -> Self {\n        Self { expanded: false }\n    }\n\n    pub fn toggle(&mut self) {\n        self.expanded = !self.expanded;\n    }\n}\n"
+            },
+            {
+              "name": "client/services/MenuService.go",
+              "code": "// @Service\ntype MenuService struct {\n\tExpanded bool\n}\n\nfunc (menu *MenuService) Toggle() {\n\tmenu.Expanded = !menu.Expanded\n}\n"
+            },
+            {
+              "name": "client/services/MenuService.rb",
+              "code": "#[Service]\nclass MenuService\n  # @return [Boolean]\n  attr_reader :expanded\n\n  def initialize\n    @expanded = false\n  end\n\n  # @return [void]\n  def toggle\n    @expanded = !@expanded\n  end\nend\n"
+            },
+            {
+              "name": "client/services/MenuService.swift",
+              "code": "@Service\nfinal class MenuService {\n  var expanded: Bool = false\n\n  func toggle() { expanded = !expanded }\n}\n"
+            },
+            {
+              "name": "client/services/MenuService.kt",
+              "code": "@Service\nclass MenuService {\n  var expanded: Boolean = false\n\n  fun toggle() { expanded = !expanded }\n}\n"
+            },
+            {
+              "name": "client/services/MenuService.java",
+              "code": "@Service\nclass MenuService {\n    boolean expanded = false;\n\n    void toggle() { expanded = !expanded; }\n}\n"
+            },
+            {
+              "name": "client/services/MenuService.cs",
+              "code": "[Service]\npublic class MenuService\n{\n    public bool Expanded = false;\n\n    public void Toggle() => Expanded = !Expanded;\n}\n"
+            },
+            {
+              "name": "client/services/MenuService.fs",
+              "code": "[<Service>]\ntype MenuService() =\n    member val Expanded = false with get, set\n\n    member this.Toggle() : unit =\n        this.Expanded <- not this.Expanded\n"
+            },
+            {
+              "name": "client/services/MenuService.py",
+              "code": "@service\nclass MenuService:\n    expanded: bool = False\n\n    def toggle(self) -> None:\n        self.expanded = not self.expanded\n"
+            },
+            {
+              "name": "client/services/MenuService.lua",
+              "code": "-- @Service\n---@class MenuService\nMenuService = {\n  ---@type boolean\n  expanded = false,\n}\n\n---@return nil\nfunction MenuService:toggle()\n  self.expanded = not self.expanded\nend\n"
+            },
+            {
+              "name": "client/services/MenuService.hpp",
+              "code": "#pragma once\n\nclass [[Service]] MenuService {\npublic:\n    bool expanded = false;\n\n    void toggle() { expanded = !expanded; }\n};\n"
+            }
+          ]
+        },
+        {
           "heading": "Control flow",
           "body": "Loops, conditionals and switches are elements, so you can see the structure in the markup. A conditional is always `<logic>`: `<logic :if>`, then `<logic :else-if>`, then `<logic else>`. A loop is always `<loop :for=\"item of items\">`. `<switch>` and `<case>` choose one part by a value. There is no `<if>`, `<else>` or `<for>` element: the build stops with `TY1367` and names the form to use. `ty migrate check` lists these old elements, and `ty migrate fix --write` rewrites them, so `<for :each=\"item in items\">` becomes `<loop :for=\"item of items\">`.\n\nA loop binding (the name of the current item) exists only inside the loop. In `<loop :for=\"topic of documentation.topics()\">`, the binding `topic` has the name of a service. Inside the loop, `topic` reads the item. It does not load `TopicService`.",
           "code": "<loop :for=\"post of blog.posts\">\n  <article>{post.title}</article>\n</loop>\n<logic :if=\"blog.failed\"><p>The posts did not load.</p></logic>\n<logic :else-if=\"blog.ready\"><p>Ready.</p></logic>\n<logic else><p>Loading\u2026</p></logic>\n<switch :value=\"blog.status\">\n  <case :when=\"'loading'\"><p>Working\u2026</p></case>\n  <case default><p>Done.</p></case>\n</switch>\n"
