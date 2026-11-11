@@ -2469,7 +2469,7 @@ class StampService
     @endpoint = subscribed.endpoint
   end
 end
-"#;;
+"#;
 
     const LUA_PUSH: &str = "-- @Service\n---@class StampService\nStampService = {\n  ---@type string\n  endpoint = \"\",\n}\n\n\
          ---@return boolean\nfunction StampService:available()\n  return Push:supported()\nend\n\n\
