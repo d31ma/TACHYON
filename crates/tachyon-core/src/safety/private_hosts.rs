@@ -23,7 +23,9 @@ impl PrivateHosts {
     }
 
     pub(crate) fn admits(&self, host: &str, address: IpAddr) -> bool {
-        let host = host.trim_end_matches(Self::TRAILING_DOT).to_ascii_lowercase();
+        let host = host
+            .trim_end_matches(Self::TRAILING_DOT)
+            .to_ascii_lowercase();
         let address = address.to_canonical();
         let declared = self.declared(&host, address);
         [declared, Self::is_metadata(address)] == [true, false]
