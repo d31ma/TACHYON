@@ -1138,7 +1138,7 @@ function BehaviorBrowserHttp.value_of(answer)
     BehaviorBrowserHttp.fail("HTTP_RESPONSE")
   end
   if answer.error ~= nil then
-    BehaviorBrowserHttp.fail(BehaviorBrowserHttp.code_of(answer.error))
+    BehaviorBrowserHttp.fail(BehaviorBrowserHttp.code_of(answer.error), answer.error)
   end
   if answer.value == nil then
     BehaviorBrowserHttp.fail("HTTP_RESPONSE")
@@ -1157,8 +1157,15 @@ function BehaviorBrowserHttp.code_of(failure)
   return "HTTP_NETWORK"
 end
 
-function BehaviorBrowserHttp.fail(code)
-  BehaviorError.raise(code, "The browser HTTP request failed (" .. code .. ").")
+function BehaviorBrowserHttp.fail(code, failure)
+  BehaviorError.raise(code, BehaviorBrowserHttp.message_of(failure, "The browser HTTP request failed (" .. code .. ")."))
+end
+
+function BehaviorBrowserHttp.message_of(failure, fallback)
+  if type(failure) == "table" and type(failure.message) == "string" then
+    return failure.message
+  end
+  return fallback
 end
 
 BehaviorBrowserSocket = {
@@ -1176,7 +1183,8 @@ function BehaviorBrowserSocket.send(client, message)
   end
   local answer = YonJson.decode(TacTasks.send_socket(client, text))
   if type(answer) ~= "table" or answer.error ~= nil then
-    BehaviorBrowserSocket.fail(BehaviorBrowserSocket.code_of(type(answer) == "table" and answer.error or nil))
+    local failure = type(answer) == "table" and answer.error or nil
+    BehaviorBrowserSocket.fail(BehaviorBrowserSocket.code_of(failure), failure)
   end
   return nil
 end
@@ -1189,8 +1197,8 @@ function BehaviorBrowserSocket.code_of(failure)
   return "HTTP_NETWORK"
 end
 
-function BehaviorBrowserSocket.fail(code)
-  BehaviorError.raise(code, "The socket message was not sent (" .. code .. ").")
+function BehaviorBrowserSocket.fail(code, failure)
+  BehaviorError.raise(code, BehaviorBrowserHttp.message_of(failure, "The socket message was not sent (" .. code .. ")."))
 end
 
 BehaviorStorage = {}

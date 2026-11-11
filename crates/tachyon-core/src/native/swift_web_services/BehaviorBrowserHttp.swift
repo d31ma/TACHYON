@@ -11,7 +11,7 @@ enum BehaviorBrowserHttp {
         let text = try request.encoded(maximum: requestBytes)
         let answer = try parsed(await TacHttpTickets.exchange(text))
         let error = answer.get("error")
-        if error != .null { throw BehaviorError(code(error.get("code"))) }
+        if error != .null { throw BehaviorError(code(error.get("code")), message: try? error.get("message").text) }
         guard answer.has("value") else { throw BehaviorError(wrongAnswer) }
         return answer.get("value")
     }

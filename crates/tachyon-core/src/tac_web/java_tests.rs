@@ -403,3 +403,46 @@ async fn a_java_service_reads_the_builtin_cache_and_store_synchronously() {
         serde_json::json!([{"id": "n1", "text": "hello"}])
     );
 }
+
+#[tokio::test]
+async fn a_java_request_in_on_start_explains_why_it_cannot_wait() {
+    if !java_web_ready() {
+        eprintln!("skipping: TeaVM (TAC_TEAVM_HOME), javac or node is unavailable");
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    write(
+        root.path(),
+        "client/services/StartService.java",
+        "@Service\nclass StartService {\n    String early = \"\";\n    String socket = \"\";\n\n    \
+         @OnStart\n    void start() {\n        early = TacHttpTickets.exchange(\"{}\");\n        socket = socketFailure();\n    }\n\n    \
+         private String socketFailure() {\n        try {\n            TacSocket.send(\"chat\", \"hello\");\n            return \"\";\n        } catch (TacFailure failure) {\n            return failure.getMessage();\n        }\n    }\n}\n",
+    );
+    publish(root.path(), "start", "StartService").await;
+    let report = run_driver(
+        root.path(),
+        "import { readFile } from 'node:fs/promises'\n\
+         globalThis.fetch = async (url) => new Response(await readFile(url))\n\
+         const { default: StartService } = await import('./StartService.js')\n\
+         const start = new StartService({})\n\
+         start.__tachyonStarted()\n\
+         console.log(JSON.stringify({ early: JSON.parse(start.early), socket: start.socket }))\n\
+         process.exit(0)\n",
+    );
+    assert_eq!(
+        report["early"]["error"]["message"],
+        JavaStartFixture::MESSAGE,
+        "{report}"
+    );
+    assert_eq!(
+        report["socket"],
+        format!("HTTP_REQUEST: {}", JavaStartFixture::MESSAGE),
+        "{report}"
+    );
+}
+
+struct JavaStartFixture;
+
+impl JavaStartFixture {
+    const MESSAGE: &'static str = "A browser HTTP request or socket send cannot wait in OnStart, a getter or a setter. Publish an event from OnStart and make the request in an @OnEvent method.";
+}

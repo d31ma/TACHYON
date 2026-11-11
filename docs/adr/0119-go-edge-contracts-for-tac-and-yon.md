@@ -127,3 +127,47 @@ native Rust page graph exposes needed services.
 Point 2 of the Context is no longer a limit, except for that native Rust
 case.
 
+## Every Tac language: waiting in OnStart and the early error exit (items 1 and 4)
+
+Amended 2026-11-11. Items 1 and 4 now behave the same way in every Tac
+language that can meet them.
+
+**Item 1.** No Tac language waits for a browser HTTP request or a socket
+send in a plain `OnStart`, a getter or a setter. Where a language can still
+start such a request outside a task, the answer is the same as in Go: the
+code `HTTP_REQUEST` and the message "A browser HTTP request or socket send
+cannot wait in OnStart, a getter or a setter. Publish an event from OnStart
+and make the request in an @OnEvent method." The language's HTTP client and
+socket error keep that message. Languages whose `OnStart` may be `async`
+wait as before.
+
+**Item 4.** TY1314 allows each language's short early exit that does the job
+of Rust's `?` (ADR 0063 lists the exact shapes). Languages that report
+errors with exceptions need no exception to the rule.
+
+| Language | Item 1: a request in `OnStart` | Item 4: the early error exit |
+| --- | --- | --- |
+| JavaScript, TypeScript | An `async` `OnStart` is awaited, so the request waits. No change. | Exceptions; nothing to allow. |
+| Rust | An `async` lifecycle method is refused at build, so no request can start. A socket send without an owner fails with `HTTP_REQUEST`. No change. | `?` and `let ... else` were already allowed. |
+| Go | Fails with `HTTP_REQUEST` and the message (HTTP and socket). | `if err != nil { return ..., err }` right after `err` is set. |
+| C#, F# | `OnStart` is synchronous and an `async` one is refused, so it cannot wait. A request started without waiting faults its own task, which no caller reads. No change. | Exceptions; nothing to allow. |
+| Swift | A plain `OnStart` cannot call an `async` client: the compiler refuses it. A request that still runs outside a task fails with `HTTP_REQUEST` and the message (HTTP and socket). | `guard let x = <expression> else { return nil }`. |
+| Kotlin | A plain `OnStart` cannot call a `suspend` client: the compiler refuses it. A request that still runs outside a task fails with `HTTP_REQUEST` and the message (HTTP and socket). | `val x = <expression> ?: return null`. |
+| Java | Fails with `HTTP_REQUEST` and the message (HTTP and socket). | Exceptions; nothing to allow. |
+| Dart | An `async` `OnStart` returns a `Future`, and the page waits for it as for JavaScript. No change. | Exceptions; nothing to allow. |
+| Ruby | Fails with `HTTP_REQUEST` and the message (HTTP and socket). | Exceptions; nothing to allow. |
+| Lua | Fails with `HTTP_REQUEST` and the message (HTTP and socket). | TY1314 does not scan Lua. |
+| Python | An `async` `OnStart` is awaited, so the request waits. No change. | Exceptions; nothing to allow. |
+| C++ | `OnStart` is synchronous and a request needs `co_await`, so no request can start. A socket send without an owner fails with `HTTP_REQUEST`. No change. | TY1314 does not scan C++. |
+
+The native hosts keep their own socket answer outside a call: Kotlin and
+Swift services that run natively still fail with `HTTP_REQUEST` and "The
+socket message was not sent."
+
+Tests: Go `a_go_request_in_on_start_explains_why_it_cannot_wait`, Java
+`a_java_request_in_on_start_explains_why_it_cannot_wait`, Ruby
+`a_ruby_service_waits_for_the_browser_transport_without_blocking_the_page`,
+Lua `a_lua_call_parks_on_browser_http_until_the_answer_arrives`, and
+`tac_web::on_start_wait_tests` for the answers of every language and the
+Kotlin and Swift readers. The TY1314 shapes are in
+`annotation_layout::single_class::cohesion::tests`.

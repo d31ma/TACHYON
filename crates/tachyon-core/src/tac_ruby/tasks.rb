@@ -13,7 +13,7 @@ end
 class TacTasks
   SETTLE = "tachyon-http:settle "
   MAX_WAITING = 64
-  OUTSIDE_TASK = "{\"error\":{\"code\":\"HTTP_REQUEST\"}}"
+  OUTSIDE_TASK = "{\"error\":{\"code\":\"HTTP_REQUEST\",\"message\":\"A browser HTTP request or socket send cannot wait in OnStart, a getter or a setter. Publish an event from OnStart and make the request in an @OnEvent method.\"}}"
   TOO_MANY = "{\"error\":{\"code\":\"HTTP_CAPACITY\"}}"
   CANCELLED = { "error" => "The service was removed before its task finished.", "code" => "CANCELLED" }
 

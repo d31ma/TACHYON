@@ -85,7 +85,7 @@ private object TacTasks {
 }
 
 private object TacHttpTickets {
-    private const val OUTSIDE_TASK = "{\"error\":{\"code\":\"HTTP_REQUEST\"}}"
+    private const val OUTSIDE_TASK = "{\"error\":{\"code\":\"HTTP_REQUEST\",\"message\":\"A browser HTTP request or socket send cannot wait in OnStart, a getter or a setter. Publish an event from OnStart and make the request in an @OnEvent method.\"}}"
     private var last = 0
     private val waiting = HashMap<Int, Pair<TacRunningTask, kotlin.coroutines.Continuation<String>>>()
 
@@ -129,7 +129,7 @@ private object TacSockets {
         val failure = parsed?.get("error") as? Map<*, *>
         if (failure == null && parsed?.containsKey("value") == true) return
         val code = (failure?.get("code") as? String)?.takeIf { it in CODES } ?: "HTTP_NETWORK"
-        throw TacSocketFailure(code, "The socket message was not sent.")
+        throw TacSocketFailure(code, failure?.get("message") as? String ?: "The socket message was not sent.")
     }
 }
 

@@ -72,7 +72,27 @@ of these hold:
 Anything more is still a decision: another statement in the body, an
 `else`, `err == nil`, a second condition (`err != nil && ...`), a different
 returned value, a `%v` wrap, or the `if err := call(); err != nil` form.
-The rule is Go only; Swift's `if err != nil` still counts.
+Swift's `if err != nil` still counts.
+
+Swift and Kotlin have their own short form of the same early exit, and it is
+allowed too (amended 2026-11-11):
+
+- Swift: `guard let x = <expression> else { return }` or
+  `... else { return <value> }`, where the `guard` starts its own line, binds
+  one name with `let` or `var`, has no `,`, `&&` or `||` in its condition
+  (a `,` inside the parentheses of a call is fine), and its body is only that
+  `return`. The value is one name, literal or number, such as `nil`.
+- Kotlin: `val x = <expression> ?: return` or `... ?: return <value>`, in a
+  `val` or `var` declaration at the level of the method body, where the
+  statement ends right after the `return` or after its one name, literal or
+  number, such as `null`.
+
+Anything more is still a decision: a `guard` with a test (`guard !x.isEmpty`),
+two bindings, more statements in the `else` block, a returned call, an `?:`
+with a default value (`?: emptyList()`), or an `?: return` inside a call or
+outside a declaration. A `guard` or `?: return` of this shape in a private
+method is not a decision either. Lua and C++ services are not scanned by this
+check, so nothing changes there.
 
 The scanner is token based. It reuses the one-class layout token reader
 (`annotation_layout/single_class/tokens.rs`) and the lexical masks of each

@@ -813,7 +813,7 @@ class BehaviorBrowserHttp
 
   def self.value_of(answer)
     raise failure("HTTP_RESPONSE") unless answer.is_a?(Hash)
-    raise failure(code_of(answer["error"])) if answer.key?("error")
+    raise failure(code_of(answer["error"]), answer["error"]) if answer.key?("error")
     raise failure("HTTP_RESPONSE") unless answer.key?("value")
     answer["value"]
   end
@@ -823,8 +823,8 @@ class BehaviorBrowserHttp
     CODES.include?(code) ? code : "HTTP_NETWORK"
   end
 
-  def self.failure(code)
-    BehaviorError.new(code, "The browser HTTP request failed (#{code}).")
+  def self.failure(code, error = nil)
+    BehaviorError.new(code, BehaviorFailureText.of(error, "The browser HTTP request failed (#{code})."))
   end
 end
 
@@ -837,8 +837,9 @@ class BehaviorBrowserSocket
     text = JSON.generate(TacValues.plain(message))
     raise failure("HTTP_BODY") if text.bytesize > MAX_MESSAGE_BYTES
     answer = JSON.parse(TacTasks.send_socket(client, text))
-    raise failure(code_of(answer["error"])) unless answer.is_a?(Hash) && answer.key?("value")
-    nil
+    return nil if answer.is_a?(Hash) && answer.key?("value")
+    error = answer.is_a?(Hash) ? answer["error"] : nil
+    raise failure(code_of(error), error)
   end
 
   def self.available?
@@ -850,8 +851,15 @@ class BehaviorBrowserSocket
     CODES.include?(code) ? code : "HTTP_NETWORK"
   end
 
-  def self.failure(code)
-    BehaviorError.new(code, "The socket message was not sent (#{code}).")
+  def self.failure(code, error = nil)
+    BehaviorError.new(code, BehaviorFailureText.of(error, "The socket message was not sent (#{code})."))
+  end
+end
+
+class BehaviorFailureText
+  def self.of(error, fallback)
+    text = error.is_a?(Hash) ? error["message"] : nil
+    text.is_a?(String) ? text : fallback
   end
 end
 

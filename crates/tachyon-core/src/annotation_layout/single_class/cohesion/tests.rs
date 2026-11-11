@@ -442,7 +442,7 @@ fn swift_public_methods_only_coordinate() {
                 "if",
             ),
             (
-                "guard let first = items.first else { return nil }\n        return first",
+                "guard !items.isEmpty else { return nil }\n        return items.first",
                 "guard",
             ),
             ("return items.isEmpty ? nil : items.first", "? :"),
@@ -461,7 +461,7 @@ fn swift_public_methods_only_coordinate() {
             ),
             ("return items.first { $0.ready && $0.shown }", "first"),
         ],
-        crowded_helper: "final class ItemService {\n    private func pick(_ items: [Item]) -> Int {\n        guard let first = items.first else { return 0 }\n        return first.ready ? 1 : 2\n    }\n}\n",
+        crowded_helper: "final class ItemService {\n    private func pick(_ items: [Item]) -> Int {\n        guard !items.isEmpty else { return 0 }\n        return items[0].ready ? 1 : 2\n    }\n}\n",
         chained_helpers: "final class ItemService {\n    private func pick(_ items: [Item]) -> Int {\n        if items.isEmpty { return other(items) }\n        return 1\n    }\n\n    private func other(_ items: [Item]) -> Int {\n        return items.count > 1 ? 2 : 1\n    }\n}\n",
     });
 }
@@ -779,6 +779,181 @@ fn a_swift_error_check_is_still_a_decision() {
     let source = "@Service\nfinal class NoteService {\n    func load(id: String) -> Error? {\n        let err = store.read(id)\n        if err != nil {\n            return err\n        }\n        return nil\n    }\n}\n";
     assert_eq!(
         messages("client/services/NoteService.swift", source).len(),
+        1
+    );
+}
+
+fn kotlin_service_messages(body: &str) -> Vec<String> {
+    let source = format!(
+        "@Service\nclass NoteService(@Needs private val store: NoteStore) {{\n    fun load(id: String): Note? {{\n{body}    }}\n}}\n"
+    );
+    messages("client/services/NoteService.kt", &source)
+}
+
+fn swift_service_messages(body: &str) -> Vec<String> {
+    let source = format!(
+        "@Service\nfinal class NoteService {{\n    @Needs var store: NoteStore\n\n    func load(id: String) -> Note? {{\n{body}    }}\n}}\n"
+    );
+    messages("client/services/NoteService.swift", &source)
+}
+
+#[test]
+fn a_kotlin_elvis_return_is_not_a_decision() {
+    assert_eq!(
+        kotlin_service_messages(
+            "        val note = store.read(id) ?: return null\n        return note\n"
+        ),
+        Vec::<String>::new()
+    );
+}
+
+#[test]
+fn a_kotlin_bare_elvis_return_after_a_long_call_is_not_a_decision() {
+    assert_eq!(
+        kotlin_service_messages(
+            "        val note = store.read(\n            id,\n        ) ?: return null\n        return note\n"
+        ),
+        Vec::<String>::new()
+    );
+}
+
+#[test]
+fn a_kotlin_elvis_default_is_a_decision() {
+    assert_eq!(
+        kotlin_service_messages(
+            "        val note = store.read(id) ?: Note.empty\n        return note\n"
+        )
+        .len(),
+        1
+    );
+}
+
+#[test]
+fn a_kotlin_elvis_return_of_a_call_is_a_decision() {
+    assert_eq!(
+        kotlin_service_messages(
+            "        val note = store.read(id) ?: return store.fallback(id)\n        return note\n"
+        )
+        .len(),
+        1
+    );
+}
+
+#[test]
+fn a_kotlin_elvis_return_outside_a_declaration_is_a_decision() {
+    assert_eq!(
+        kotlin_service_messages("        store.read(id) ?: return null\n        return null\n")
+            .len(),
+        1
+    );
+}
+
+#[test]
+fn a_swift_guard_return_is_not_a_decision() {
+    assert_eq!(
+        swift_service_messages(
+            "        guard let note = store.read(id) else { return nil }\n        return note\n"
+        ),
+        Vec::<String>::new()
+    );
+}
+
+#[test]
+fn a_swift_guard_with_a_bare_return_on_its_own_lines_is_not_a_decision() {
+    assert_eq!(
+        swift_service_messages(
+            "        guard let note = try? store.read(id) else {\n            return nil\n        }\n        return note\n"
+        ),
+        Vec::<String>::new()
+    );
+}
+
+#[test]
+fn a_swift_guard_with_a_test_is_a_decision() {
+    assert_eq!(
+        swift_service_messages(
+            "        guard id.isEmpty == false else { return nil }\n        return store.read(id)\n"
+        )
+        .len(),
+        1
+    );
+}
+
+#[test]
+fn a_swift_guard_with_two_bindings_is_a_decision() {
+    assert_eq!(
+        swift_service_messages("        guard let note = store.read(id), let other = store.read(note.id) else { return nil }\n        return other\n").len(),
+        1
+    );
+}
+
+#[test]
+fn a_swift_guard_that_does_more_than_return_is_a_decision() {
+    assert_eq!(
+        swift_service_messages("        guard let note = store.read(id) else {\n            store.forget(id)\n            return nil\n        }\n        return note\n").len(),
+        1
+    );
+}
+
+#[test]
+fn a_lua_error_return_is_not_checked() {
+    let source = "-- @Service\nlocal NoteService = {}\n\nfunction NoteService:load(id)\n  local note, err = self.store:read(id)\n  if not note then\n    return nil, err\n  end\n  return note\nend\n\nreturn NoteService\n";
+    assert_eq!(
+        messages("client/services/NoteService.lua", source),
+        Vec::<String>::new()
+    );
+}
+
+#[test]
+fn a_cpp_error_return_is_not_checked() {
+    let source = "class [[Service]] NoteService {\npublic:\n  std::optional<Note> load(const std::string& id) {\n    auto note = store.read(id);\n    if (!note) {\n      return std::nullopt;\n    }\n    return note;\n  }\n};\n";
+    assert_eq!(
+        messages("client/services/NoteService.hpp", source),
+        Vec::<String>::new()
+    );
+}
+
+#[test]
+fn a_swift_guard_with_a_call_of_two_arguments_is_not_a_decision() {
+    assert_eq!(
+        swift_service_messages(
+            "        guard let note = store.read(id, 2) else { return nil }\n        return note\n"
+        ),
+        Vec::<String>::new()
+    );
+}
+
+#[test]
+fn a_swift_guard_that_joins_tests_inside_a_call_is_a_decision() {
+    assert_eq!(
+        swift_service_messages("        guard let note = store.read(id.isEmpty && other) else { return nil }\n        return note\n").len(),
+        1
+    );
+}
+
+#[test]
+fn a_swift_guard_that_returns_a_call_is_a_decision() {
+    assert_eq!(
+        swift_service_messages("        guard let note = store.read(id) else { return store.fallback(id) }\n        return note\n").len(),
+        1
+    );
+}
+
+#[test]
+fn a_kotlin_elvis_return_inside_a_call_is_a_decision() {
+    assert_eq!(
+        kotlin_service_messages(
+            "        val note = store.save(store.read(id) ?: return null)\n        return note\n"
+        )
+        .len(),
+        1
+    );
+}
+
+#[test]
+fn a_kotlin_elvis_return_with_more_after_the_value_is_a_decision() {
+    assert_eq!(
+        kotlin_service_messages("        val note = store.read(id) ?: return null.also { store.forget(id) }\n        return note\n").len(),
         1
     );
 }

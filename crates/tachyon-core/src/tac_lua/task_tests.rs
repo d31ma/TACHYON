@@ -132,7 +132,8 @@ async fn a_lua_call_parks_on_browser_http_until_the_answer_arrives() {
     TaskTests::build_page(root.path()).await;
     let report = TaskTests::report(root.path());
     assert_eq!(
-        report["early"], "{\"error\":{\"code\":\"HTTP_REQUEST\"}}",
+        report["early"],
+        "{\"error\":{\"code\":\"HTTP_REQUEST\",\"message\":\"A browser HTTP request or socket send cannot wait in OnStart, a getter or a setter. Publish an event from OnStart and make the request in an @OnEvent method.\"}}",
         "{report}"
     );
     assert_eq!(

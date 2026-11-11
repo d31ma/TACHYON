@@ -30,7 +30,7 @@ impl BrowserHttpPage {
         ),
     ];
 
-    const SERVICE: &'static str = "#[Service]\nclass GreetingService\n  #[Needs]\n  # @return [GreetingClient]\n  attr_reader :greeting_client\n\n  #[Needs]\n  # @return [OverrideClient]\n  attr_reader :override_client\n\n  # @return [String]\n  attr_reader :message, :custom, :early\n  # @return [Integer]\n  attr_reader :loads, :clears, :bumps\n\n  def initialize\n    @message = \"\"\n    @custom = \"\"\n    @early = \"\"\n    @loads = 0\n    @clears = 0\n    @bumps = 0\n  end\n\n  #[OnStart]\n  def start\n    @early = early_code\n  end\n\n  def ask\n    @loads += 1\n    @message = greeting_client.read.message\n  end\n\n  def clear\n    greeting_client.clear\n    @clears += 1\n  end\n\n  def count_all\n    greeting_client.all.length\n  end\n\n  def ask_custom\n    @custom = override_client.read.message\n  end\n\n  def bump\n    @bumps += 1\n  end\n\n  def churn\n    kept = Array.new(2000) { |index| \"x\" * (index % 64) }\n    GC.start\n    kept.length\n  end\n\n  private\n\n  def early_code\n    greeting_client.all\n    \"\"\n  rescue BehaviorError => error\n    error.behavior_code\n  end\nend\n";
+    const SERVICE: &'static str = "#[Service]\nclass GreetingService\n  #[Needs]\n  # @return [GreetingClient]\n  attr_reader :greeting_client\n\n  #[Needs]\n  # @return [OverrideClient]\n  attr_reader :override_client\n\n  # @return [String]\n  attr_reader :message, :custom, :early\n  # @return [Integer]\n  attr_reader :loads, :clears, :bumps\n\n  def initialize\n    @message = \"\"\n    @custom = \"\"\n    @early = \"\"\n    @loads = 0\n    @clears = 0\n    @bumps = 0\n  end\n\n  #[OnStart]\n  def start\n    @early = early_code\n  end\n\n  def ask\n    @loads += 1\n    @message = greeting_client.read.message\n  end\n\n  def clear\n    greeting_client.clear\n    @clears += 1\n  end\n\n  def count_all\n    greeting_client.all.length\n  end\n\n  def ask_custom\n    @custom = override_client.read.message\n  end\n\n  def bump\n    @bumps += 1\n  end\n\n  def churn\n    kept = Array.new(2000) { |index| \"x\" * (index % 64) }\n    GC.start\n    kept.length\n  end\n\n  private\n\n  def early_code\n    greeting_client.all\n    \"\"\n  rescue BehaviorError => error\n    \"#{error.behavior_code}: #{error.message}\"\n  end\nend\n";
 
     const DRIVER: &'static str = "console.info = () => {}\n\
          globalThis.indexedDB = { databases: async () => [], open: () => ({}) }\n\
@@ -135,7 +135,11 @@ async fn a_ruby_service_waits_for_the_browser_transport_without_blocking_the_pag
     let root = tempfile::tempdir().unwrap_or_else(|error| panic!("project: {error}"));
     BrowserHttpPage::publish(root.path()).await;
     let report = Page::run(root.path(), BrowserHttpPage::DRIVER);
-    assert_eq!(report["early"], "HTTP_REQUEST", "{report}");
+    assert_eq!(
+        report["early"],
+        "HTTP_REQUEST: A browser HTTP request or socket send cannot wait in OnStart, a getter or a setter. Publish an event from OnStart and make the request in an @OnEvent method.",
+        "{report}"
+    );
     assert!(!report["keys"].to_string().contains("Client"), "{report}");
     assert_eq!(report["waiting"], true, "{report}");
     assert_eq!(report["bumped"], 1, "{report}");

@@ -14,7 +14,7 @@ private object BehaviorBrowserHttp {
     suspend fun send(request: Map<String, Any?>): Any? {
         val answer = parsed(tacHttpExchange(Behaviors.json(request, REQUEST_BYTES)))
         val error = answer["error"]
-        if (error is Map<*, *>) throw Behaviors.Failure(code(error["code"]), null, FAILED)
+        if (error is Map<*, *>) throw Behaviors.Failure(code(error["code"]), null, error["message"] as? String ?: FAILED)
         if (!answer.containsKey("value")) throw Behaviors.Failure("HTTP_RESPONSE", null, FAILED)
         return answer["value"]
     }

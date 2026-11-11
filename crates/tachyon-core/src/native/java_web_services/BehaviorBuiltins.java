@@ -13,12 +13,19 @@ final class BehaviorBuiltins {
             throw httpFailure("HTTP_RESPONSE");
         }
         if (entries.get("error") instanceof java.util.Map<?, ?> error) {
-            throw httpFailure(httpCode(error.get("code")));
+            throw httpFailure(httpCode(error.get("code")), error.get("message"));
         }
         if (!entries.containsKey("value")) {
             throw httpFailure("HTTP_RESPONSE");
         }
         return entries.get("value");
+    }
+
+    private static Behaviors.Failure httpFailure(String code, Object message) {
+        if (message instanceof String text) {
+            return new Behaviors.Failure(code, null, text);
+        }
+        return httpFailure(code);
     }
 
     private static Behaviors.Failure httpFailure(String code) {

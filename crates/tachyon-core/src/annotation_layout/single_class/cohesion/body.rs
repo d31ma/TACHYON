@@ -106,25 +106,19 @@ impl<'r, 'a> BodyScan<'r, 'a> {
     fn is_iterator_stop(&self, at: usize) -> bool {
         let call = at + Self::ITERATOR_STOP_CHECK.len();
         let body = self.words.after_group(call);
-        self.words_follow(at, &Self::ITERATOR_STOP_CHECK)
+        self.words.follows(at, &Self::ITERATOR_STOP_CHECK)
             & (self.words.text(call) == "(")
-            & self.words_follow(body, &Self::ITERATOR_STOP_BODY)
+            & self.words.follows(body, &Self::ITERATOR_STOP_BODY)
     }
 
     fn is_error_return(&self, at: usize) -> bool {
-        self.spelling.returns_errors() & ErrorReturn::new(self.words).matches(at)
-    }
-
-    fn words_follow(&self, at: usize, expected: &[&str]) -> bool {
-        expected
-            .iter()
-            .enumerate()
-            .all(|(offset, word)| self.words.text(at + offset) == *word)
+        ErrorReturn::new(self.words).matches(self.spelling.error_idiom(), at)
     }
 
     fn short_circuit(&self, at: usize, conditions: &[Range<usize>]) -> Option<Finding> {
         let pair = self.words.pair(at);
-        let found = self.spelling.is_pair(pair) & self.words.value_before(at);
+        let found =
+            self.spelling.is_pair(pair) & self.words.value_before(at) & !self.is_error_return(at);
         let in_condition = conditions.iter().any(|condition| condition.contains(&at));
         found.then(|| Self::finding(at, pair, !in_condition, true))
     }

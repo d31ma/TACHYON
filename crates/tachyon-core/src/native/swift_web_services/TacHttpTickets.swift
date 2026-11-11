@@ -5,7 +5,7 @@ func tacHostHttpStart(_ ticket: Int32, _ pointer: UnsafePointer<UInt8>?, _ lengt
 func tacHostHttpCancel(_ ticket: Int32)
 
 enum TacHttpTickets {
-    static let outsideTask = "{\"error\":{\"code\":\"HTTP_REQUEST\"}}"
+    static let outsideTask = "{\"error\":{\"code\":\"HTTP_REQUEST\",\"message\":\"A browser HTTP request or socket send cannot wait in OnStart, a getter or a setter. Publish an event from OnStart and make the request in an @OnEvent method.\"}}"
     static let cancelled = "{\"error\":{\"code\":\"CANCELLED\"}}"
     nonisolated(unsafe) static var last = 0
     nonisolated(unsafe) static var waiting: [Int: (TacRunningTask, CheckedContinuation<String, Never>)] = [:]

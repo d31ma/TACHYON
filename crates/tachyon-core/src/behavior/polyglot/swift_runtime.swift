@@ -1,8 +1,9 @@
 struct BehaviorError: Error, CustomStringConvertible {
     let code: String
     let path: String?
-    init(_ code: String, path: String? = nil) { self.code = code; self.path = path.flatMap { $0.utf8.count <= 128 ? $0 : nil } }
-    var description: String { "Behavior operation failed: " + code }
+    let message: String?
+    init(_ code: String, path: String? = nil, message: String? = nil) { self.code = code; self.path = path.flatMap { $0.utf8.count <= 128 ? $0 : nil }; self.message = message }
+    var description: String { message.map { code + ": " + $0 } ?? "Behavior operation failed: " + code }
 }
 indirect enum BehaviorJSON: Equatable {
     case null, bool(Bool), number(Double), string(String), array([BehaviorJSON]), object([String: BehaviorJSON])

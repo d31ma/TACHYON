@@ -13,6 +13,6 @@ func tacSocketSend<Message: Encodable>(_ client: String, _ message: Message) asy
         name.withUTF8 { tacHostSocketStart(ticket, $0.baseAddress, Int32($0.count), pointer, length) }
     }
     guard let reply = tacParseJSON(answer) as? [String: Any?] else { throw TacSocketError(nil) }
-    if let failure = (reply["error"] ?? nil) as? [String: Any?] { throw TacSocketError((failure["code"] ?? nil) as? String) }
+    if let failure = (reply["error"] ?? nil) as? [String: Any?] { throw TacSocketError((failure["code"] ?? nil) as? String, message: (failure["message"] ?? nil) as? String) }
     guard reply.keys.contains("value") else { throw TacSocketError(nil) }
 }

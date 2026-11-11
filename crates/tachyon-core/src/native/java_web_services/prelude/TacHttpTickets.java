@@ -1,5 +1,5 @@
 final class TacHttpTickets {
-    private static final String OUTSIDE_TASK = "{\"error\":{\"code\":\"HTTP_REQUEST\"}}";
+    private static final String OUTSIDE_TASK = "{\"error\":{\"code\":\"HTTP_REQUEST\",\"message\":\"A browser HTTP request or socket send cannot wait in OnStart, a getter or a setter. Publish an event from OnStart and make the request in an @OnEvent method.\"}}";
     private static final java.util.Map<Integer, TacTask> WAITING = new java.util.HashMap<>();
     private static int last;
 

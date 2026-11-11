@@ -17,7 +17,7 @@ final class TacSocket {
         if (answer instanceof java.util.Map<?, ?> entries && entries.get("error") == null && entries.containsKey("value")) {
             return;
         }
-        throw new Failure(code(answer), NOT_SENT);
+        throw new Failure(code(answer), message(answer));
     }
 
     private static String encoded(Object message) {
@@ -34,6 +34,12 @@ final class TacSocket {
         } catch (RuntimeException problem) {
             return null;
         }
+    }
+
+    private static String message(Object answer) {
+        Object error = answer instanceof java.util.Map<?, ?> entries ? entries.get("error") : null;
+        Object text = error instanceof java.util.Map<?, ?> fields ? fields.get("message") : null;
+        return text instanceof String message ? message : NOT_SENT;
     }
 
     private static String code(Object answer) {

@@ -1,3 +1,4 @@
+use super::error_idiom::ErrorIdiom;
 use super::layout::Layout;
 
 #[allow(clippy::struct_excessive_bools)]
@@ -13,7 +14,7 @@ pub(in super::super) struct Spelling {
     containers: &'static [&'static str],
     private_words: &'static [&'static str],
     query_syntax: bool,
-    error_returns: bool,
+    error_idiom: ErrorIdiom,
     receiver_groups: bool,
     public_words: &'static [&'static str],
     parentheses_call: bool,
@@ -194,7 +195,7 @@ impl Spelling {
         containers: &["class"],
         private_words: &[],
         query_syntax: false,
-        error_returns: false,
+        error_idiom: ErrorIdiom::None,
         receiver_groups: false,
         public_words: &[],
         parentheses_call: true,
@@ -244,6 +245,7 @@ impl Spelling {
         heads: &["fun", "constructor", "init"],
         containers: &["class", "object"],
         private_words: &["private"],
+        error_idiom: ErrorIdiom::KotlinElvis,
         private_hint: "a private method, such as `private fun pick(value: Item): Item`",
         ..Self::JAVASCRIPT
     };
@@ -255,6 +257,7 @@ impl Spelling {
         heads: &["func", "init"],
         containers: &["class", "struct", "extension", "actor"],
         private_words: &["private", "fileprivate"],
+        error_idiom: ErrorIdiom::SwiftGuard,
         private_hint: "a private method, such as `private func pick(_ value: Item) -> Item`",
         ..Self::JAVASCRIPT
     };
@@ -289,7 +292,7 @@ impl Spelling {
         heads: &["func"],
         containers: &[],
         receiver_groups: true,
-        error_returns: true,
+        error_idiom: ErrorIdiom::GoErrorCheck,
         private_hint: "a method with a lowercase name, such as `func (service *Service) pick(value Item) Item`",
         ..Self::JAVASCRIPT
     };
@@ -396,8 +399,8 @@ impl Spelling {
         self.query_syntax
     }
 
-    pub(in super::super) const fn returns_errors(&self) -> bool {
-        self.error_returns
+    pub(in super::super) const fn error_idiom(&self) -> ErrorIdiom {
+        self.error_idiom
     }
 
     pub(in super::super) const fn has_receiver_groups(&self) -> bool {

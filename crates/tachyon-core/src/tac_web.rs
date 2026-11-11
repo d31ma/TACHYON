@@ -893,6 +893,8 @@ mod first_app_csharp_browser_fixture;
 #[cfg(test)]
 mod fsharp_http_browser_fixture;
 #[cfg(test)]
+mod on_start_wait_tests;
+#[cfg(test)]
 mod ordinary_browser_fixture;
 #[cfg(test)]
 mod reach_tests;

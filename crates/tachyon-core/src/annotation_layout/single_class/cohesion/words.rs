@@ -70,6 +70,31 @@ impl<'a> Words<'a> {
         !literal & (first.is_ascii_alphabetic() | (first == b'_'))
     }
 
+    pub(in super::super) fn is_simple_value(&self, at: usize) -> bool {
+        let number = self
+            .text(at)
+            .starts_with(|first: char| first.is_ascii_digit());
+        self.is_name(at) | self.is_literal(at) | number
+    }
+
+    pub(in super::super) fn follows(&self, at: usize, expected: &[&str]) -> bool {
+        expected
+            .iter()
+            .enumerate()
+            .all(|(offset, word)| self.text(at.wrapping_add(offset)) == *word)
+    }
+
+    pub(in super::super) fn statement_start(&self, at: usize, depth: usize) -> usize {
+        (0..at)
+            .rev()
+            .find(|&word| self.starts_statement_before(word, depth))
+            .unwrap_or(at)
+    }
+
+    pub(in super::super) fn ends_statement(&self, at: usize, depth: usize) -> bool {
+        self.line_start(at) | (self.depth(at) < depth) | (self.text(at) == ";")
+    }
+
     pub(in super::super) fn after_member_access(&self, at: usize) -> bool {
         let touches = self.items.get(at).is_some_and(|word| word.touches_previous);
         touches & Self::ACCESS.contains(&self.text(at.wrapping_sub(1)))
@@ -180,6 +205,11 @@ impl<'a> Words<'a> {
     fn is_wanted(&self, at: usize, depth: usize, wanted: &[&str]) -> bool {
         let named = wanted.contains(&self.text(at)) | wanted.contains(&self.pair(at));
         (self.depth(at) == depth) & named
+    }
+
+    fn starts_statement_before(&self, at: usize, depth: usize) -> bool {
+        let opens = self.line_start(at) & !Self::CLOSERS.contains(&self.text(at));
+        (self.depth(at) < depth) | (opens & (self.depth(at) == depth))
     }
 
     fn ends_expression(&self, at: usize, depth: usize, column: usize) -> bool {

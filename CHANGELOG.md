@@ -86,6 +86,15 @@ machine contracts have their own, independent major versions.
   Rust's `?` is allowed (ADR 0063, ADR 0119).
 - A Go browser HTTP request or socket send in `OnStart`, a getter or a setter
   now fails with a message that names the event pattern to use instead.
+- Swift services may use `guard let x = <expression> else { return nil }` and
+  Kotlin services `val x = <expression> ?: return null` in a public method
+  without `TY1314`: one binding and a `return` of nothing or of one plain
+  value (ADR 0063, ADR 0119).
+- A browser HTTP request or socket send that cannot wait in Kotlin, Java,
+  Swift, Ruby and Lua now fails with `HTTP_REQUEST` and the same message as
+  Go, which names the event pattern to use instead. The browser HTTP docs of
+  every Tac language say which languages can wait in an `async` `OnStart`
+  (ADR 0119).
 - The docs now say that `YON_APPLICATION_JSON` holds the settings under a
   `yon` root, and that Go workers get no injected services (ADR 0119).
 - `@SessionState` and `@LocalState` fields are now saved and restored on a
