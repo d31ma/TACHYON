@@ -3,6 +3,12 @@
   "body": "An event name can end with modifiers, each after a dot. A key modifier runs the handler only for one key: `escape`, `enter`, `space`, `tab`, `up`, `down`, `left`, `right`, `home` or `end`, on `keydown` or `keyup`. The modifier keys `shift`, `ctrl`, `alt` and `meta` name the keys that must be held, and the held keys must match exactly: `on:keydown.enter` does not run on Shift+Enter, so Shift+Enter can still add a new line. `prevent` calls `preventDefault()` and `stop` calls `stopPropagation()` before the handler starts, so `on:submit.prevent` keeps the page from reloading even when the handler is a Go method in WebAssembly. `outside` runs the handler only for an event that happens outside the element, such as a click somewhere else on the page; put the button that opens a menu inside that element. Write `document:` or `window:` before the event name to listen on the document or the window, as in `on:document:keydown.escape`. Such a listener exists only while its element is on the page, and it ignores the event that rendered it. An event name may contain `-`, as in `on:w-change`, for the custom events of web components. An unknown or repeated modifier, or two keys in one binding, fails the build with `TY1306`. The modifiers work the same for a service in every Tac language: JavaScript, TypeScript, Python, Java, Kotlin, C#, F#, Rust, Dart, Go, Swift, Ruby, Lua and C++. The browser runtime checks them before it calls the service, so the service only writes the method that the binding names, in its own style: `Close` in Go, C# and F#, `close` in the others. See ADR 0114.",
   "files": [
     {
+      "name": "client/manifest.json",
+      "code": {
+        "file": "client/manifest.json"
+      }
+    },
+    {
       "name": "client/pages/tac.html",
       "code": {
         "file": "client/pages/tac.html"

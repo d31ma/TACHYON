@@ -18,6 +18,8 @@ struct MenuLanguage {
 impl MenuLanguage {
     const SECTION: &'static str = "docs/templates/keys-modifiers-and-outside-clicks";
     const SERVICE_STEM: &'static str = "client/services/MenuService.";
+    const PYTHON: &'static str = "py";
+    const PYODIDE_WASM: &'static str = "python-web/314.0.7/pyodide.asm.wasm";
     const PLAN_MEMBERS: [&'static str; 7] = [
         r#""eventType":"keydown""#,
         r#""listen":"document""#,
@@ -30,7 +32,7 @@ impl MenuLanguage {
     const ALL: [Self; 14] = [
         Self::new("js", "node", "--version"),
         Self::new("ts", "node", "--version"),
-        Self::new("py", "python3", "--version"),
+        Self::new(Self::PYTHON, "python3", "--version"),
         Self::new("java", "javac", "--version"),
         Self::new("kt", "kotlinc", "-version"),
         Self::new("cs", "dotnet", "--version"),
@@ -53,6 +55,27 @@ impl MenuLanguage {
     }
 
     fn available(&self) -> bool {
+        self.program_found() && self.browser_runtime_found()
+    }
+
+    fn browser_runtime_found(&self) -> bool {
+        if self.extension != Self::PYTHON {
+            return true;
+        }
+        let found = tachyon_core::cache::root()
+            .join(Self::PYODIDE_WASM)
+            .is_file();
+        assert!(
+            found || std::env::var_os("CI").is_none(),
+            "CI installs the pinned Pyodide, so the Python menu must build there"
+        );
+        if !found {
+            eprintln!("skipping .py: the pinned Pyodide runtime is not in the Tachyon cache");
+        }
+        found
+    }
+
+    fn program_found(&self) -> bool {
         let found =
             Toolchain::checked(self.program, ProgramProbe::answers(self.program, self.flag));
         if !found {
