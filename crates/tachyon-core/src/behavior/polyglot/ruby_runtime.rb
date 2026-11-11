@@ -335,6 +335,7 @@ class BehaviorContext
   ADAPTER_KEYS = ["caches", "http", "entities", "authorize", "authorizeEntity"].freeze
   RESERVED_NAMES = ["__proto__", "prototype", "constructor", "behaviors", "tac"].freeze
   QUERY_RESULTS = { "find" => "array", "findOne" => "array", "count" => "count", "exists" => "boolean", "delete" => "count" }.freeze
+  ENTITY_FIELDS = { "find" => "page", "save" => "value", "delete" => "id", "load" => "value", "loaded" => "value", "unload" => "value" }.freeze
   MAX_REVALIDATIONS = 256
 
   attr_reader :partition, :adapters
@@ -456,14 +457,14 @@ class BehaviorContext
 
   def entity_operation(record, operation, value)
     BehaviorBoundary.invalid("Entity belongs to another module.") unless record.is_a?(Hash) && @records[record["name"]].equal?(record)
-    known = record.key?("entity") && record.key?("table") && ["find", "save", "delete"].include?(operation)
+    known = record.key?("entity") && record.key?("table") && ENTITY_FIELDS.key?(operation)
     BehaviorBoundary.invalid("Unknown entity operation.") unless known
     value = entity_value(record, operation, value)
     execution = start
     begin
-      field = { "find" => "page", "save" => "value", "delete" => "id" }[operation]
       command = { "operation" => operation, "entity" => record["name"], "table" => record["table"], "idField" => record["entity"]["id"] }
-      command[field] = BehaviorBoundary.copy(value)
+      partitioned(command, record["entity"])
+      command[ENTITY_FIELDS[operation]] = BehaviorBoundary.copy(value)
       joined = BehaviorOpenTransactions.of(record["entity"]["adapter"])
       command["transaction"] = joined if joined
       function = adapter("entities", record["entity"]["adapter"], "execute")
@@ -474,6 +475,11 @@ class BehaviorContext
   end
 
   private
+
+  def partitioned(command, entity)
+    field = entity["partition"]
+    command["partition"] = field if field.is_a?(String) && !field.empty?
+  end
 
   def start
     execution = BehaviorExecution.new(@partition, Behaviors.environment, @signal, @owner, @timeout_ms)
@@ -705,6 +711,7 @@ class BehaviorContext
     query["page"] = BehaviorBoundary.page({ "size" => 1 }, { "defaultSize" => 1, "maxSize" => 1, "sort" => policy["fields"] }) if single
     entity = policy["entity"]
     command = { "operation" => "query", "entity" => entity["name"], "table" => entity["table"], "idField" => entity["id"], "query" => query }
+    partitioned(command, entity)
     joined = BehaviorOpenTransactions.of(entity["adapter"])
     command["transaction"] = joined if joined
     authorize = @adapters["authorizeEntity"]
@@ -768,6 +775,8 @@ class BehaviorContext
       BehaviorBoundary.invalid("Entity value requires an object.") unless value.is_a?(Hash)
       BehaviorBoundary.entity_id(value[record["entity"]["id"]])
       value
+    when "load", "loaded", "unload"
+      BehaviorBoundary.copy(value)
     else
       BehaviorBoundary.entity_id(value)
       value
@@ -933,8 +942,12 @@ class BehaviorStorage
   def self.ask(request)
     answer = TacStorage.ask(request)
     raise BehaviorError.new("storage", "Tachyon storage did not answer.") unless answer.is_a?(Hash)
-    raise BehaviorError.new("storage", answer["error"]) if answer["error"].is_a?(String)
+    raise BehaviorError.new(code_of(answer), answer["error"]) if answer["error"].is_a?(String)
     answer["value"]
+  end
+
+  def self.code_of(answer)
+    answer["code"] == "storage_not_loaded" ? "storage_not_loaded" : "storage"
   end
 end
 
@@ -957,6 +970,20 @@ class BehaviorRepository
     unsafe = (id.is_a?(String) && (id.empty? || id.bytesize > 256)) || (id.is_a?(Integer) && id.abs > BehaviorBoundary::MAX_SAFE_INTEGER)
     BehaviorBoundary.invalid("Invalid entity identifier.") if unsafe
     @context.entity_operation(@record, "delete", id)
+  end
+
+  def load(partition)
+    @context.entity_operation(@record, "load", partition)
+    nil
+  end
+
+  def loaded(partition)
+    @context.entity_operation(@record, "loaded", partition) == true
+  end
+
+  def unload(partition)
+    @context.entity_operation(@record, "unload", partition)
+    nil
   end
 end
 

@@ -480,14 +480,15 @@ pub(super) fn resolve(
     }
     validate_query(input, at, &query)?;
     check_bindings(input, at, &query, fields, arity)?;
+    super::entity_partition::EntityPartition::check_query(input, at, entity, &query)?;
     let mut result = query.as_object().cloned().unwrap_or_default();
     if query["operation"] == "find" {
         add_id_tiebreaker(input, at, &mut result, &entity["id"])?;
     }
-    result.insert(
-        "entity".to_owned(),
-        json!({"name":entity_name,"adapter":entity["adapter"],"id":entity["id"],"table":table}),
-    );
+    let mut described =
+        json!({"name":entity_name,"adapter":entity["adapter"],"id":entity["id"],"table":table});
+    super::entity_partition::EntityPartition::add_to(entity, &mut described);
+    result.insert("entity".to_owned(), described);
     for key in ["fields", "defaultSize", "maxSize"] {
         result.insert(key.to_owned(), repository[key].clone());
     }
@@ -661,6 +662,71 @@ mod tests {
             object.remove("pageArgument");
         }
         explicit(&input(), &marker("Query", &written))
+    }
+
+    #[test]
+    fn a_partitioned_entity_needs_every_query_to_name_one_partition() {
+        let entity = json!({"adapter":"indexeddb","id":"id","partition":"status"});
+        let repository = repository_policy();
+        let resolved = |name: &str, arity: usize| {
+            resolve_binding(
+                "Product",
+                &entity,
+                "products",
+                &repository,
+                name,
+                arity,
+                None,
+            )
+        };
+        let found = resolved("findByStatusAndPrice", 2).expect("names the partition");
+        assert_eq!(
+            found["entity"],
+            json!({"name":"Product","adapter":"indexeddb","id":"id","table":"products","partition":"status"})
+        );
+        for (name, arity) in [
+            ("findByPrice", 1),
+            ("findById", 1),
+            ("findAll", 1),
+            ("deleteByPrice", 1),
+            ("countByStatusIsNull", 0),
+        ] {
+            let failure = resolved(name, arity).expect_err(name).to_string();
+            assert!(
+                failure.contains("partition field 'status'") && failure.contains("TY1308"),
+                "{name}: {failure}"
+            );
+        }
+    }
+
+    #[test]
+    fn an_entity_partition_is_a_field_name_of_the_indexeddb_adapter() {
+        let parsed = |arguments: &str| {
+            let marker = Marker {
+                name: "Entity".to_owned(),
+                arguments: arguments.to_owned(),
+                span: 0..0,
+                target: 0,
+                parameter: false,
+            };
+            super::super::entity(&input(), &marker)
+        };
+        assert_eq!(
+            parsed(r#"{"adapter":"indexeddb","partition":"room"}"#).expect("partition"),
+            json!({"adapter":"indexeddb","partition":"room"})
+        );
+        assert_eq!(
+            parsed(r#"{"adapter":"data"}"#).expect("plain"),
+            json!({"adapter":"data"})
+        );
+        for refused in [
+            r#"{"adapter":"data","partition":"room"}"#,
+            r#"{"adapter":"indexeddb","partition":"room.name"}"#,
+            r#"{"adapter":"indexeddb","partition":7}"#,
+            r#"{"adapter":"indexeddb","partition":"room","table":"x"}"#,
+        ] {
+            assert!(parsed(refused).is_err(), "{refused}");
+        }
     }
 
     #[test]

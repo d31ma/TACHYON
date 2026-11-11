@@ -133,6 +133,9 @@ impl GoServices {
         "StoragePersisted",
         "SocketOpened",
         "SocketClosed",
+        "StorePartitionLoaded",
+        "StorePartitionFailed",
+        "StoreWriteFailed",
         "BrowserCallFailed",
         "BrowserFakes",
     ];

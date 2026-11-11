@@ -14,6 +14,7 @@ mod behaviors_import;
 pub(crate) use behaviors_import::BehaviorsImport;
 mod clients;
 mod configuration;
+mod entity_partition;
 mod event_frontend;
 pub(crate) use event_frontend::event_target;
 mod gateway;
@@ -2338,8 +2339,10 @@ fn entity(input: &Input<'_>, marker: &Marker) -> Result<Value, Failure> {
             "Entity no longer names its identifier: remove \"id\" and mark the identifier field with @Id",
         ));
     }
-    let object = object(input, marker, &["adapter"])?;
+    let keys = entity_partition::EntityPartition::keys(written.as_ref());
+    let object = object(input, marker, keys)?;
     named(input, marker, &object, "adapter")?;
+    entity_partition::EntityPartition::check_entity(input, marker, &object)?;
     Ok(Value::Object(object))
 }
 

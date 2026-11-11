@@ -874,10 +874,11 @@ type BehaviorHttpAdapter interface {
 }
 
 type BehaviorEntityMetadata struct {
-	Name    string
-	Adapter string
-	Table   string
-	Id      string
+	Name      string
+	Adapter   string
+	Table     string
+	Id        string
+	Partition string
 }
 
 type BehaviorQueryPredicate struct {
@@ -908,6 +909,7 @@ type BehaviorEntityCommand struct {
 	Entity      string
 	Table       string
 	IdField     string
+	Partition   string
 	Operation   string
 	Value       BehaviorValue
 	Page        BehaviorValue
@@ -2037,7 +2039,7 @@ func behaviorHttpFailure(err error, status *BehaviorError) error {
 
 func behaviorStorageFailure(err error) bool {
 	var failure *BehaviorError
-	return errors.As(err, &failure) && failure.Code == "storage"
+	return errors.As(err, &failure) && (failure.Code == "storage" || failure.Code == "storage_not_loaded")
 }
 
 func (context *BehaviorContext) operation() (*behaviorOperation, error) {
@@ -2526,7 +2528,7 @@ func (context *BehaviorContext) Query(policy BehaviorQueryPolicy, input []Behavi
 	if !present {
 		return nil, behaviorInvalid()
 	}
-	command := &BehaviorEntityCommand{Transaction: behaviorTransactions.of(policy.Entity.Adapter), Operation: "query", Entity: policy.Entity.Name, Table: policy.Entity.Table, IdField: policy.Entity.Id, Query: query}
+	command := &BehaviorEntityCommand{Transaction: behaviorTransactions.of(policy.Entity.Adapter), Operation: "query", Entity: policy.Entity.Name, Table: policy.Entity.Table, IdField: policy.Entity.Id, Partition: policy.Entity.Partition, Query: query}
 	if err := behaviorCheckQueryCommand(command); err != nil {
 		return nil, err
 	}
@@ -2941,6 +2943,7 @@ func (repository *BehaviorRepository) execute(operationName string, value Behavi
 		Entity:      repository.metadata.Name,
 		Table:       repository.metadata.Table,
 		IdField:     repository.metadata.Id,
+		Partition:   repository.metadata.Partition,
 		Operation:   operationName,
 		Value:       value,
 		Page:        page,
@@ -2988,6 +2991,21 @@ func (repository *BehaviorRepository) Delete(id BehaviorValue) (BehaviorValue, e
 		return nil, err
 	}
 	return repository.execute("delete", nil, nil, checked)
+}
+
+func (repository *BehaviorRepository) Load(partition BehaviorValue) error {
+	_, err := repository.execute("load", partition, nil, nil)
+	return err
+}
+
+func (repository *BehaviorRepository) Loaded(partition BehaviorValue) (bool, error) {
+	answer, err := repository.execute("loaded", partition, nil, nil)
+	return answer == true, err
+}
+
+func (repository *BehaviorRepository) Unload(partition BehaviorValue) error {
+	_, err := repository.execute("unload", partition, nil, nil)
+	return err
 }
 
 func behaviorQuery(policy BehaviorQueryPolicy, args []BehaviorValue) (BehaviorValue, error) {

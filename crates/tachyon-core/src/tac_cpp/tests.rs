@@ -46,6 +46,55 @@ private:
             Err(failure) => failure.to_string(),
         }
     }
+
+    fn partitioned_store(base: &str) -> Result<super::CppProgram, crate::Failure> {
+        let root = tempfile::tempdir().expect("project");
+        let entity = "struct [[Entity({\"adapter\":\"indexeddb\",\"partition\":\"room\"}), Table(\"messages\")]] MessageEntity {\n    [[Id]] std::string id;\n    std::string room;\n};\n";
+        let store = format!(
+            "class [[Store(MessageEntity, {{\"fields\":[\"id\",\"room\"],\"defaultSize\":20,\"maxSize\":100}})]] MessageStore : public {base} {{\npublic:\n    std::vector<MessageEntity> findByRoom(const std::string& room);\n}};\n"
+        );
+        for (relative, source) in [
+            ("client/entities/MessageEntity.hpp", entity),
+            ("client/stores/MessageStore.hpp", store.as_str()),
+        ] {
+            let path = root.path().join(relative);
+            std::fs::create_dir_all(path.parent().expect("folder")).expect("folder");
+            std::fs::write(path, source).expect("file");
+        }
+        super::CppProgram::tested(root.path())
+    }
+}
+
+#[test]
+fn a_partitioned_store_cannot_extend_repository() {
+    let Err(failure) =
+        Sources::partitioned_store("tachyon::Repository<MessageEntity, std::string>")
+    else {
+        panic!("a partitioned Store extended Repository");
+    };
+    assert!(
+        failure.to_string().contains("cannot extend Repository"),
+        "{failure}"
+    );
+}
+
+#[test]
+fn a_partitioned_store_extends_entity_repository_and_names_its_partition() {
+    let program = Sources::partitioned_store("tachyon::EntityRepository<MessageEntity>")
+        .expect("program")
+        .web_source();
+    assert!(
+        program.contains("static const json::JsonNode& entity()"),
+        "{program}"
+    );
+    assert!(
+        program.contains(r#"\"partition\":\"room\",\"table\":\"messages\""#),
+        "{program}"
+    );
+    assert!(
+        !program.contains("static const json::JsonNode& findById()"),
+        "{program}"
+    );
 }
 
 #[test]

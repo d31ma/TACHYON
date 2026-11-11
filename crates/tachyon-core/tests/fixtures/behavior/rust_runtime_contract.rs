@@ -152,6 +152,7 @@ impl BehaviorEntity for Product {
             adapter: "data",
             table: "products",
             id: "id",
+            partition: "",
         }
     }
 }
@@ -1218,6 +1219,7 @@ impl BehaviorEntity for Entry {
             adapter: "ledger",
             table: "entries",
             id: "id",
+            partition: "",
         }
     }
 }
@@ -1229,6 +1231,7 @@ impl BehaviorEntity for Note {
             adapter: "audit",
             table: "notes",
             id: "id",
+            partition: "",
         }
     }
 }

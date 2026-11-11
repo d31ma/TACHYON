@@ -29,6 +29,8 @@ mod dart_page;
 #[cfg(test)]
 mod dart_socket_hooks_tests;
 #[cfg(test)]
+mod dart_store_partition_tests;
+#[cfg(test)]
 mod dart_stream_tests;
 mod dart_top_level;
 mod prepared_service;

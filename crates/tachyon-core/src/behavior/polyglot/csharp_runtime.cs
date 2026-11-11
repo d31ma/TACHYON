@@ -148,9 +148,11 @@ public static class BehaviorStorage {
     internal static BehaviorJSON Ask(string operation, System.Collections.Generic.Dictionary<string, BehaviorJSON> request) {
         request["op"] = BehaviorJSON.From(operation);
         var answer = BehaviorJSON.Parse(Host(BehaviorJSON.Object(request).ToString()));
-        if (answer.Has("error")) throw new BehaviorError("STORAGE", null, answer.Get("error").Text);
+        if (answer.Has("error")) throw new BehaviorError(Refused(answer.Get("code")), null, answer.Get("error").Text);
         return answer.Get("value");
     }
+    private const string NotLoaded = "storage_not_loaded";
+    private static string Refused(BehaviorJSON code) => code.Value.ValueKind == System.Text.Json.JsonValueKind.String && code.Text == NotLoaded ? NotLoaded : "STORAGE";
     internal static BehaviorCacheAdapter Cache(string name) => Available ? new BehaviorHostCache(name) : null;
     internal static BehaviorEntityAdapter Entities(string name) => Available && name == "indexeddb" ? new BehaviorHostEntities() : null;
 }
@@ -780,12 +782,16 @@ public sealed class BehaviorContext : System.IDisposable {
             if (page.Get("sort").Items.Length > 0) throw new BehaviorError("QUERY_ORDER"); query["page"] = page;
         }
         var entity = metadata.Get("entity");
-        return BehaviorJSON.Object(new System.Collections.Generic.Dictionary<string, BehaviorJSON> { ["operation"] = BehaviorJSON.From("query"), ["entity"] = entity.Get("name"), ["table"] = entity.Get("table"), ["idField"] = entity.Get("id"), ["query"] = BehaviorJSON.Object(query) });
+        return Partitioned(new System.Collections.Generic.Dictionary<string, BehaviorJSON> { ["operation"] = BehaviorJSON.From("query"), ["entity"] = entity.Get("name"), ["table"] = entity.Get("table"), ["idField"] = entity.Get("id"), ["query"] = BehaviorJSON.Object(query) }, entity);
+    }
+    private static BehaviorJSON Partitioned(System.Collections.Generic.Dictionary<string, BehaviorJSON> command, BehaviorJSON entity) {
+        if (entity.Has("partition")) command["partition"] = entity.Get("partition");
+        return BehaviorJSON.Object(command);
     }
     internal System.Threading.Tasks.Task<BehaviorJSON> ExecuteEntity(BehaviorJSON mapping, string operation, BehaviorJSON value) => Operation(async execution => {
         var adapter = EntityAdapter(mapping.Get("adapter").Text);
         var transaction = BehaviorOpenTransactions.Of(mapping.Get("adapter").Text);
-        var command = mapping.Members; command.Remove("adapter"); command["operation"] = BehaviorJSON.From(operation); command[operation == "find" ? "page" : operation == "save" ? "value" : "id"] = value;
+        var command = mapping.Members; command.Remove("adapter"); command["operation"] = BehaviorJSON.From(operation); command[operation == "find" ? "page" : operation == "delete" ? "id" : "value"] = value;
         if (transaction != null) command["transaction"] = BehaviorJSON.From(transaction);
         return await Adapter(execution, () => adapter.execute(BehaviorJSON.Object(command), execution));
     });
@@ -834,6 +840,9 @@ public sealed class BehaviorRepository {
     private static void Identifier(BehaviorJSON id) { if (id.Value.ValueKind == System.Text.Json.JsonValueKind.String) { if (id.Text.Length == 0 || System.Text.Encoding.UTF8.GetByteCount(id.Text) > 256) throw new BehaviorError("ENTITY_ID"); } else { _ = id.Integer; } }
     public System.Threading.Tasks.Task<BehaviorJSON> save(BehaviorJSON value) { Identifier(value.Get(mapping.Get("idField").Text)); value.Bound(1048576); return context.ExecuteEntity(mapping, "save", value); }
     public System.Threading.Tasks.Task<BehaviorJSON> delete(BehaviorJSON id) { Identifier(id); return context.ExecuteEntity(mapping, "delete", id); }
+    public System.Threading.Tasks.Task load(BehaviorJSON partition) => context.ExecuteEntity(mapping, "load", partition);
+    public async System.Threading.Tasks.Task<bool> loaded(BehaviorJSON partition) => (await context.ExecuteEntity(mapping, "loaded", partition)).Value.ValueKind == System.Text.Json.JsonValueKind.True;
+    public System.Threading.Tasks.Task unload(BehaviorJSON partition) => context.ExecuteEntity(mapping, "unload", partition);
 }
 
 public static class BehaviorCalls {

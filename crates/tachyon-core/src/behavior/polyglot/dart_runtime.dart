@@ -14,9 +14,8 @@ final class BehaviorError implements Exception {
         message = 'Gateway call failed.',
         status = 0,
         body = null;
-  BehaviorError.storage(this.message)
-      : code = 'STORAGE',
-        path = null,
+  BehaviorError.storage(this.message, this.code)
+      : path = null,
         status = 0,
         body = null;
   BehaviorError.answer(this.code, this.status, this.body)
@@ -257,9 +256,13 @@ final class BehaviorStorage {
   static Object? ask(String operation, Map<String, Object?> request) {
     final answer = BehaviorJson.parse(host!(BehaviorJson.encode({...request, 'op': operation})));
     final error = BehaviorJson.get(answer, 'error');
-    if (error is String) throw BehaviorError.storage(error);
+    if (error is String) throw BehaviorError.storage(error, _refused(BehaviorJson.get(answer, 'code')));
     return BehaviorJson.get(answer, 'value');
   }
+
+  static const String _notLoaded = 'storage_not_loaded';
+
+  static String _refused(Object? code) => code == _notLoaded ? _notLoaded : 'STORAGE';
 
   static BehaviorCacheAdapter? cache(String name) {
     if (!available) return null;
@@ -1377,6 +1380,7 @@ class BehaviorContext {
       'entity': BehaviorJson.get(entity, 'name'),
       'table': BehaviorJson.get(entity, 'table'),
       'idField': BehaviorJson.get(entity, 'id'),
+      if (BehaviorJson.has(entity, 'partition')) 'partition': BehaviorJson.get(entity, 'partition'),
       'query': query,
       if (joined != null) 'transaction': joined,
     };
@@ -1388,9 +1392,9 @@ class BehaviorContext {
         command['operation'] = operation;
         command[operation == 'find'
             ? 'page'
-            : operation == 'save'
-                ? 'value'
-                : 'id'] = value;
+            : operation == 'delete'
+                ? 'id'
+                : 'value'] = value;
         final joined = BehaviorOpenTransactions.of(BehaviorJson.text(BehaviorJson.get(mapping, 'adapter')));
         if (joined != null) command['transaction'] = joined;
         return _adapter(execution, () => adapter.execute(command, execution));
@@ -1476,6 +1480,12 @@ final class BehaviorRepository {
     _identifier(id);
     return _context._executeEntity(_mapping, 'delete', id);
   }
+
+  Future<void> load(Object? partition) => _context._executeEntity(_mapping, 'load', partition);
+
+  Future<bool> loaded(Object? partition) async => await _context._executeEntity(_mapping, 'loaded', partition) == true;
+
+  Future<void> unload(Object? partition) => _context._executeEntity(_mapping, 'unload', partition);
 }
 
 abstract final class BehaviorCalls {

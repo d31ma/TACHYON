@@ -264,7 +264,7 @@ These restrictions fail before any adapter runs.
 | `@UpdateCache({"method":"find"})` | Always runs the mutation. Then it stores the successful result under the key of the Cached target method in the same class. Its parameters are matched to the key parameters of `find` by name; a missing name fails the build. |
 | `@ClearCache({"method":"find"})` | Deletes the key of the Cached target method in the same class, but only after a successful mutation. Parameters are matched by name, as for UpdateCache. |
 | `@PageDefaults({"defaultSize":20,"maxSize":100,"sort":["id","name"]})` (on a parameter) | Before the method runs and before cache lookup, turns that parameter into `{page,size,offset,sort}`. It never fetches a collection and cuts it into pages. On a Store query, `@PageDefaults` without sizes marks the page parameter; the Store gives the sizes. |
-| `@Entity({"adapter":"data"})` with `@Id` on one field | Declares the model identity that `context.repository(Model)` uses through `configuration.entities.data`. The field marked `@Id` is the identifier; an Entity without exactly one `@Id` field fails the build. |
+| `@Entity({"adapter":"data"})` with `@Id` on one field | Declares the model identity that `context.repository(Model)` uses through `configuration.entities.data`. The field marked `@Id` is the identifier; an Entity without exactly one `@Id` field fails the build. A Tac `"indexeddb"` Entity may add `"partition":"<field>"` (ADR 0125). |
 | `@Table('products')` | Gives the required table mapping for an entity. The mapping cannot change. Tachyon runs no DDL, creates no schema and runs no migration. |
 | `@Store(ProductEntity, {"fields":["id","status"],"defaultSize":20,"maxSize":100})` | Declares a Store: a contract with no implementation, like a Spring Data repository interface, in the bodiless form of its language (see [Declared exchanges and queries](#declared-exchanges-and-queries)). The first argument is the Entity class: `ProductEntity.class` in Java, `ProductEntity::class` in Kotlin and PHP, `typeof(ProductEntity)` in C#, `typeof<ProductEntity>` in F#, the bare name elsewhere. Each method is a derived query (`findBy`, `countBy`, `existsBy`, `deleteBy`) or a `@Query`, and Tachyon writes it. A Store that extends `Repository<ProductEntity, Id>` also gets `findById`, `findAll`, `save` and `deleteById` (see [The Repository base](#the-repository-base)). `{"setup":"CatalogSetup"}` in the options names the Setup that builds its behavior context; the default is the store name with `Setup` instead of `Store`. `@Needs` injects the store in Yon and in Tac. A Store without an Entity, a class form where the language has a contract form, a method body, a field, a constructor or a method that is not a query fails with `TY1308`, and so does an `@AllOrNothing` method on a Store: the transaction belongs to the service that calls the store. |
 | `@Query({"operation":"find","where":[{"field":"status","operator":"eq","argument":0}],"orderBy":[]})` | Turns an empty method into an authorized, structured query to the entity adapter. Never SQL text. A `find` reads its page request from the parameter marked `@PageDefaults`. |
@@ -1037,6 +1037,35 @@ integers.
 Adapters must use parameterized operations and enforce authorization and
 tenancy. The annotations are not an ORM (object-relational mapper) and not an
 authorization system.
+
+**Partitioned tables (Tac, ADR 0125).** An `"indexeddb"` Entity can name a
+partition field: `@Entity({"adapter":"indexeddb","partition":"conversationId"})`.
+The table can then hold any number of rows; the limit of 10,000 rows applies
+to one partition (the rows with one value of that field).
+
+- Every derived query and `@Query` of its Store must compare the partition
+  field with Equals, such as `findByConversationIdAndSentAfter`; otherwise
+  the build fails with `TY1308`. Such a Store cannot extend `Repository`.
+  In C++ it extends `tachyon::EntityRepository<Entity>` instead and gets
+  `save`, `load`, `loaded` and `unload`; `tachyon::Repository<Entity, Id>`
+  extends it.
+- A JavaScript or TypeScript service needs nothing more: each query reads one
+  partition through its index.
+- A WebAssembly or Dart service reads from memory, so it loads a partition
+  first. `context.repository(Entity)` has `load(partition)`,
+  `loaded(partition)` and `unload(partition)` (Go: `Load`, `Loaded`,
+  `Unload`). `load` answers at once; the page then sends the built-in event
+  `StorePartitionLoaded { table, partition, rows }` to the service that
+  called it, or `StorePartitionFailed { table, partition, reason }` (for
+  example above 10,000 rows). Until then a read of that partition fails
+  with the error code `storage_not_loaded`. Show a "loading" state and read
+  again when the event arrives. `unload` drops the rows from memory.
+- Writes to a partition that is not loaded are allowed; they go to IndexedDB
+  in order.
+- A failed background write (for example a full storage quota) sends
+  `StoreWriteFailed { table, reason }` to the service that wrote.
+- Before a WebAssembly or Dart service starts, the page copies only the
+  tables without a partition into memory.
 
 ### Structured stores and derived queries
 

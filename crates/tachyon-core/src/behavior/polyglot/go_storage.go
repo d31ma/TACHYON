@@ -36,9 +36,16 @@ func behaviorAskHost(host func(string) string, request map[string]any) (Behavior
 		return nil, behaviorError("storage", "Tachyon storage did not answer.")
 	}
 	if message, failed := object["error"].(string); failed {
-		return nil, behaviorError("storage", message)
+		return nil, behaviorError(behaviorStorageCode(object["code"]), message)
 	}
 	return object["value"], nil
+}
+
+func behaviorStorageCode(code BehaviorValue) string {
+	if code == "storage_not_loaded" {
+		return "storage_not_loaded"
+	}
+	return "storage"
 }
 
 func (cache *behaviorHostCache) Get(key string, execution *BehaviorExecution) (*BehaviorCacheEntry, error) {
@@ -81,6 +88,9 @@ func (entities *behaviorHostEntities) Execute(command *BehaviorEntityCommand, ex
 		"page":      command.Page,
 		"id":        command.Id,
 		"query":     command.Query,
+	}
+	if command.Partition != "" {
+		sent["partition"] = command.Partition
 	}
 	if command.Transaction != "" {
 		sent["transaction"] = command.Transaction

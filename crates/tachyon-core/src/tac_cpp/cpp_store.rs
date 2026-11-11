@@ -17,7 +17,11 @@ impl CppStore {
     const QUERY: &'static str = "Query";
     const PAGE: &'static str = "PageDefaults";
     pub(crate) const BUILT_IN: &'static str = "indexeddb";
-    const CRUD: [&'static str; 3] = ["findById", "findAll", "deleteById"];
+    const CRUD: &'static [&'static str] = &["findById", "findAll", "deleteById"];
+    const NO_CRUD: &'static [&'static str] = &[];
+    const PARTITION: &'static str = "partition";
+    const REPOSITORY: &'static str = "Repository<";
+    const BEFORE_BASE: [char; 6] = [':', ',', ' ', '\t', '\n', '\r'];
     const INTEGERS: [&'static str; 7] = [
         "int",
         "long",
@@ -165,7 +169,8 @@ impl CppStore {
         let written = WrittenPolicies::new(path, source, super::CppSource::EXTENSION);
         let store = written.store(&Self::written(marker))?;
         let entity = Self::found_entity(path, marker, &store, entities)?;
-        let mut text = Self::plan(&written, marker.at, &store, entity)?;
+        let methods = Self::crud(source, class, entity);
+        let mut text = Self::plan(&written, (marker.at, methods), &store, entity)?;
         for member in &class.members {
             let query = Self::member_query(&written, &store, entity, member)?;
             Self::check_returns(path, member, &query, entity)?;
@@ -261,14 +266,44 @@ impl CppStore {
             .ok_or_else(|| CppFailure::unreadable(path, member.name_at, Self::QUERY_MARKERS))
     }
 
+    fn crud(source: &str, class: &CppClass, entity: &Value) -> &'static [&'static str] {
+        let partitioned = entity.get(Self::PARTITION).is_some();
+        let skipped = [partitioned, !Self::extends_repository(source, class)] == [true, true];
+        [Self::CRUD, Self::NO_CRUD][usize::from(skipped)]
+    }
+
+    fn extends_repository(source: &str, class: &CppClass) -> bool {
+        let head = source
+            .get(class.name_at..class.body.start)
+            .unwrap_or_default();
+        head.match_indices(Self::REPOSITORY)
+            .any(|(at, _)| head[..at].ends_with(&Self::BEFORE_BASE[..]))
+    }
+
+    fn described(entity: &Value) -> Value {
+        let mut described = json!({
+            "name": entity["name"],
+            "adapter": entity["adapter"],
+            "id": entity["id"],
+            "table": entity["table"]
+        });
+        if let Some(partition) = entity.get(Self::PARTITION) {
+            described[Self::PARTITION] = partition.clone();
+        }
+        described
+    }
+
     fn plan(
         written: &WrittenPolicies<'_>,
-        at: usize,
+        (at, methods): (usize, &[&str]),
         store: &Value,
         entity: &Value,
     ) -> Result<String, Failure> {
-        let mut functions = String::new();
-        for method in Self::CRUD {
+        let described = Value::String(SortedJson::text(&Self::described(entity))).to_string();
+        let mut functions = format!(
+            "    static const json::JsonNode& entity() {{\n        static const json::JsonNode described = json::JsonNode::parse({described});\n        return described;\n    }}\n"
+        );
+        for &method in methods {
             let resolved = written.resolve_query(
                 store,
                 entity,

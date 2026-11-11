@@ -104,6 +104,8 @@ declare global {
   interface BehaviorEntityOptions {
     /** The entity adapter that stores this class. In Tac, "indexeddb" keeps the rows in the browser's IndexedDB with no adapter code; any other name comes from the Setup's `entities`. */
     adapter: 'indexeddb' | (string & {});
+    /** The partition field of an "indexeddb" Entity (ADR 0125). Every Store query must compare it with Equals. A JavaScript or TypeScript service reads one partition through the field's index; a WebAssembly or Dart service loads a partition with the repository's `load` before it reads it. */
+    partition?: string;
   }
 
   interface BehaviorRepositoryOptions<Record = object> {
@@ -473,6 +475,12 @@ declare global {
   interface StorageEstimated { usage: number; quota: number; persisted: boolean; }
   /** StoragePersisted: a built-in event model. `persisted` is true when the browser or the native app keeps this origin's storage when the device runs low (ADR 0123). */
   interface StoragePersisted { persisted: boolean; }
+  /** StorePartitionLoaded: a built-in event model. The rows of one partition of a Store table are in memory, sent to the caller of the repository's `load` (ADR 0125). `partition` is the partition value as text; `rows` is how many rows it holds. */
+  interface StorePartitionLoaded { table: string; partition: string; rows: number; }
+  /** StorePartitionFailed: a built-in event model. One partition of a Store table could not load, for example because it holds more than 10000 rows (ADR 0125). */
+  interface StorePartitionFailed { table: string; partition: string; reason: string; }
+  /** StoreWriteFailed: a built-in event model. A Store write that a WebAssembly or Dart service made did not reach IndexedDB, for example because the storage quota is full (ADR 0125). */
+  interface StoreWriteFailed { table: string; reason: string; }
   /** BrowserCallFailed: a built-in event model. A browser API call failed after it started (ADR 0065). */
   interface BrowserCallFailed { api: string; call: string; message: string; }
   /** FilePicked: a built-in event model, one per chosen file, sent to the caller of `Files.pick` (ADR 0116). */

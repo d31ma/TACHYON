@@ -23,12 +23,20 @@ impl BehaviorHost {
             return Err(behavior_error("storage", "Tachyon storage did not answer."));
         };
         if let Some(BehaviorValue::String(message)) = object.remove("error") {
-            return Err(BehaviorError {
-                path: Some(message),
-                ..BehaviorError::new("storage", "Tachyon storage refused the request.")
-            });
+            return Err(BehaviorHost::refused(object.remove("code"), message));
         }
         Ok(object.remove("value").unwrap_or(BehaviorValue::Null))
+    }
+
+    fn refused(code: Option<BehaviorValue>, message: String) -> BehaviorError {
+        let code = match code {
+            Some(BehaviorValue::String(code)) if code == "storage_not_loaded" => "storage_not_loaded",
+            _ => "storage",
+        };
+        BehaviorError {
+            path: Some(message),
+            ..BehaviorError::new(code, "Tachyon storage refused the request.")
+        }
     }
 
     fn optional(value: Option<&BehaviorValue>) -> BehaviorValue {
@@ -140,6 +148,9 @@ impl BehaviorEntityAdapter for BehaviorHostEntities {
         sent.insert(String::from("entity"), BehaviorValue::from(command.entity));
         sent.insert(String::from("table"), BehaviorValue::from(command.table));
         sent.insert(String::from("idField"), BehaviorValue::from(command.id_field));
+        if !command.partition.is_empty() {
+            sent.insert(String::from("partition"), BehaviorValue::from(command.partition));
+        }
         sent.insert(String::from("operation"), BehaviorValue::from(command.operation));
         sent.insert(String::from("value"), BehaviorHost::optional(command.value.as_ref()));
         sent.insert(String::from("page"), BehaviorHost::optional(command.page.as_ref()));

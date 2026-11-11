@@ -114,12 +114,7 @@ impl DetachedCsharp {
 
     fn entity_line(type_declaration: &Type) -> Option<String> {
         let entity = type_declaration.entity.as_ref()?;
-        let mapping = serde_json::json!({
-            "entity": type_declaration.name,
-            "adapter": entity["adapter"],
-            "idField": entity["id"],
-            "table": type_declaration.table
-        });
+        let mapping = csharp::entity_mapping(type_declaration, entity);
         Some(Self::named_line("entity", &type_declaration.name, &mapping))
     }
 

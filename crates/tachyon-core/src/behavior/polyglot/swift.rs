@@ -73,12 +73,15 @@ fn policy_line(type_declaration: &Type) -> String {
 }
 
 fn entity_line(type_declaration: &Type, entity: &Value) -> String {
-    let mapping = serde_json::json!({
+    let mut mapping = serde_json::json!({
         "entity": type_declaration.name,
         "adapter": entity["adapter"],
         "idField": entity["id"],
         "table": type_declaration.table
     });
+    if let Some(partition) = entity.get("partition") {
+        mapping["partition"] = partition.clone();
+    }
     format!(
         "if ObjectIdentifier(entity) == ObjectIdentifier({}.self) {{ return try BehaviorJSON.parse({}) }}\n",
         type_declaration.name,

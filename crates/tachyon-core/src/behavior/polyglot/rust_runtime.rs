@@ -438,6 +438,7 @@ pub struct BehaviorEntityMetadata {
     pub adapter: &'static str,
     pub table: &'static str,
     pub id: &'static str,
+    pub partition: &'static str,
 }
 #[derive(Clone)]
 pub struct BehaviorQueryPredicate {
@@ -466,6 +467,7 @@ pub struct BehaviorEntityCommand {
     pub entity: &'static str,
     pub table: &'static str,
     pub id_field: &'static str,
+    pub partition: &'static str,
     pub operation: &'static str,
     pub value: Option<BehaviorValue>,
     pub page: Option<BehaviorValue>,
@@ -651,7 +653,7 @@ impl BehaviorOperation<'_> {
     fn adapter<T>(&self, call: impl FnOnce() -> BehaviorResult<T>) -> BehaviorResult<T> {
         self.execution.check()?;
         let value = call().map_err(|error| {
-            if error.code == "storage" {
+            if matches!(error.code, "storage" | "storage_not_loaded") {
                 error
             } else {
                 behavior_error("adapter", "Behavior adapter failed.")
@@ -1533,6 +1535,7 @@ impl BehaviorContext {
             entity: policy.entity.name,
             table: policy.entity.table,
             id_field: policy.entity.id,
+            partition: policy.entity.partition,
             query: Some(query),
             value: None,
             page: None,
@@ -2250,6 +2253,7 @@ impl BehaviorRepository {
             entity: self.metadata.name,
             table: self.metadata.table,
             id_field: self.metadata.id,
+            partition: self.metadata.partition,
             operation,
             value,
             page,
@@ -2280,6 +2284,18 @@ impl BehaviorRepository {
     pub fn delete(&self, id: BehaviorValue) -> BehaviorResult<BehaviorValue> {
         behavior_entity_id(&id)?;
         self.execute("delete", None, None, Some(id))
+    }
+    pub fn load(&self, partition: impl Into<BehaviorValue>) -> BehaviorResult<()> {
+        self.execute("load", Some(partition.into()), None, None)
+            .map(|_| ())
+    }
+    pub fn loaded(&self, partition: impl Into<BehaviorValue>) -> BehaviorResult<bool> {
+        let answer = self.execute("loaded", Some(partition.into()), None, None)?;
+        Ok(answer == BehaviorValue::Bool(true))
+    }
+    pub fn unload(&self, partition: impl Into<BehaviorValue>) -> BehaviorResult<()> {
+        self.execute("unload", Some(partition.into()), None, None)
+            .map(|_| ())
     }
 }
 fn behavior_query(

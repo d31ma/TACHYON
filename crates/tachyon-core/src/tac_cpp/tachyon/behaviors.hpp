@@ -44,7 +44,7 @@ public:
             throw TacCodedError("Tachyon storage did not answer.", "storage");
         }
         if (answer["error"].getValueKind() == json::JsonValueKind::String) {
-            throw TacCodedError(answer["error"].getValue<std::string>(), "storage");
+            throw TacCodedError(answer["error"].getValue<std::string>(), refusedCode(answer["code"]));
         }
         return answer["value"];
     }
@@ -56,6 +56,14 @@ public:
             }
         }
         return false;
+    }
+
+private:
+    static constexpr const char* NOT_LOADED = "storage_not_loaded";
+
+    static std::string refusedCode(const json::JsonNode& code) {
+        bool notLoaded = code.getValueKind() == json::JsonValueKind::String && code.getValue<std::string>() == NOT_LOADED;
+        return notLoaded ? NOT_LOADED : "storage";
     }
 };
 

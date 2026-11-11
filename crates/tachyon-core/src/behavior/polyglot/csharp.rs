@@ -115,17 +115,25 @@ pub(super) fn configuration_line(type_declaration: &Type) -> String {
 }
 
 fn entity_line(type_declaration: &Type, entity: &Value) -> String {
-    let mapping = serde_json::json!({
-        "entity": type_declaration.name,
-        "adapter": entity["adapter"],
-        "idField": entity["id"],
-        "table": type_declaration.table
-    });
+    let mapping = entity_mapping(type_declaration, entity);
     format!(
         "if (entity == typeof({})) return BehaviorJSON.Parse({});\n",
         type_declaration.name,
         quote(&SortedJson::text(&mapping))
     )
+}
+
+pub(super) fn entity_mapping(type_declaration: &Type, entity: &Value) -> Value {
+    let mut mapping = serde_json::json!({
+        "entity": type_declaration.name,
+        "adapter": entity["adapter"],
+        "idField": entity["id"],
+        "table": type_declaration.table
+    });
+    if let Some(partition) = entity.get("partition") {
+        mapping["partition"] = partition.clone();
+    }
+    mapping
 }
 
 fn constructor_edit(type_declaration: &Type, fields: &[String]) -> Result<Edit, String> {

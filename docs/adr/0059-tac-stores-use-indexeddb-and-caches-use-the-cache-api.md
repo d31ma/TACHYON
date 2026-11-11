@@ -328,3 +328,13 @@ ASCII and in two-byte text, the kept value, and the held-service path), and
 `tac_web/stored_state_proof_tests.rs`, where a Dart, Go and Rust service each
 refuse an oversized assignment and an oversized value set by their own
 method, while the saved session value stays `chapter one`.
+
+## Amendment (2026-11-11): tables load by partition (ADR 0125)
+
+[ADR 0125](0125-store-tables-load-by-partition.md) changes items 1 and 4. An
+`"indexeddb"` Entity may name a partition field. The 10,000-row limit then
+applies to one partition, not to the table. Before a WebAssembly or Dart
+service starts, the page copies only the tables without a partition; a
+service loads a partition with `load` and hears `StorePartitionLoaded`. A
+failed background write now sends `StoreWriteFailed` instead of only writing
+to the console.

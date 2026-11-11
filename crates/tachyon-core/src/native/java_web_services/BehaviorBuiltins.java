@@ -1,5 +1,6 @@
 final class BehaviorBuiltins {
     private static final String INDEXED_DB = "indexeddb";
+    private static final String NOT_LOADED = "storage_not_loaded";
     private static final String HTTP_FAILED = "The browser HTTP request failed (";
     private static final java.util.Set<String> HTTP_CODES = java.util.Set.of(
             "HTTP_REQUEST", "HTTP_ORIGIN", "HTTP_HEADER", "HTTP_QUERY", "HTTP_BODY", "HTTP_LIMIT", "HTTP_RESPONSE",
@@ -87,7 +88,12 @@ final class BehaviorBuiltins {
 
     private static final class BrowserEntities implements Behaviors.EntityAdapter {
         public Object execute(java.util.Map<String, Object> command, Behaviors.Execution execution) {
-            return TacStorage.ask(Behaviors.record("op", "entity", "command", command));
+            java.util.Map<?, ?> answer = TacStorage.answer(Behaviors.record("op", "entity", "command", command));
+            Object error = answer.get("error");
+            if (error != null && NOT_LOADED.equals(answer.get("code"))) {
+                throw new Behaviors.Failure(NOT_LOADED, null, error.toString());
+            }
+            return TacStorage.value(answer);
         }
     }
 }

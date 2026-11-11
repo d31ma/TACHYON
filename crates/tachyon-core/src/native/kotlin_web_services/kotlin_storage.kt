@@ -7,14 +7,17 @@ private object TacBrowserStorage {
     const val INDEXED_DB = "indexeddb"
     private const val NO_ANSWER = "Tachyon storage did not answer."
     private const val REFUSED = "Tachyon storage refused the request."
+    private const val NOT_LOADED = "storage_not_loaded"
 
     fun ask(request: Map<String, Any?>): Any? {
         val answer = tacParseJson(tacHostStorage(Behaviors.json(request))) as? Map<*, *>
             ?: throw Behaviors.Failure("storage", null, NO_ANSWER)
         val error = answer["error"]
-        if (error != null) throw Behaviors.Failure("storage", error.toString(), REFUSED)
+        if (error != null) throw Behaviors.Failure(refusal(answer["code"]), error.toString(), REFUSED)
         return answer["value"]
     }
+
+    private fun refusal(code: Any?): String = if (code == NOT_LOADED) NOT_LOADED else "storage"
 }
 
 private class TacBrowserCache(private val name: String) : Behaviors.CacheAdapter {

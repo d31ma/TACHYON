@@ -39,6 +39,17 @@ machine contracts have their own, independent major versions.
   requests, streams and sockets there. The host must be in
   `tac.outgoing.hosts`, `connect-src` allows the origin, an undeclared name
   stops the build, and a native release refuses a local named origin.
+- **Store tables load by partition** (ADR 0125). An `"indexeddb"` Entity can
+  name a partition field, such as
+  `@Entity({"adapter":"indexeddb","partition":"conversationId"})`. The table
+  can then hold any number of rows; 10,000 rows is now the limit of one
+  partition. Every Store query must compare the partition field with Equals
+  (`TY1308` otherwise). WebAssembly and Dart services call `load`, `loaded`
+  and `unload` on `context.repository(Entity)` and hear
+  `StorePartitionLoaded` or `StorePartitionFailed`; a read of a partition
+  that is not loaded fails with `storage_not_loaded`. The page no longer
+  copies partitioned tables into memory at start, and a failed background
+  write sends `StoreWriteFailed` instead of only a console message.
 - **A Yon handler can reach a named service on a private network** (ADR 0094
   amendment). List the name in `outgoing.hosts` and add an entry such as
   `{"host": "keycloak", "networks": ["172.16.0.0/12"]}` to the new

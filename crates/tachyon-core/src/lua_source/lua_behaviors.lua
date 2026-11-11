@@ -550,6 +550,8 @@ end
 BehaviorContext = {
   ADAPTER_GROUPS = { "caches", "http", "entities" },
   ADAPTER_KEYS = { "caches", "http", "entities", "authorize", "authorizeEntity" },
+  ENTITY_FIELDS = { find = "page", save = "value", delete = "id", load = "value", loaded = "value", unload = "value" },
+  PARTITION_CALLS = { load = true, loaded = true, unload = true },
   READS = { GET = true, HEAD = true },
   TRANSPORT_HEADERS = { host = true, connection = true, ["content-length"] = true, ["transfer-encoding"] = true, cookie = true },
   HEADER_NAME = "^[!#$%%&'*+.^_`|~%w-]+$",
@@ -693,19 +695,25 @@ function BehaviorContext:entity_operation(record, operation, value)
   if not owned then
     BehaviorBoundary.invalid("Entity belongs to another module.")
   end
-  local known = record.entity ~= nil and record.table ~= nil and (operation == "find" or operation == "save" or operation == "delete")
+  local known = record.entity ~= nil and record.table ~= nil and BehaviorContext.ENTITY_FIELDS[operation] ~= nil
   if not known then
     BehaviorBoundary.invalid("Unknown entity operation.")
   end
   value = self:entity_value(record, operation, value)
   return self:run(function(execution)
-    local field = ({ find = "page", save = "value", delete = "id" })[operation]
     local command = { operation = operation, entity = record.name, table = record.table, idField = record.entity.id }
-    command[field] = BehaviorBoundary.copy(value)
+    BehaviorContext.partitioned(command, record.entity)
+    command[BehaviorContext.ENTITY_FIELDS[operation]] = BehaviorBoundary.copy(value)
     command.transaction = BehaviorOpenTransactions.of(record.entity.adapter)
     local action = self:adapter("entities", record.entity.adapter, "execute")
     return BehaviorBoundary.copy(BehaviorBoundary.adapter(action, { command, execution, n = 2 }, execution))
   end)
+end
+
+function BehaviorContext.partitioned(command, entity)
+  if type(entity.partition) == "string" and entity.partition ~= "" then
+    command.partition = entity.partition
+  end
 end
 
 function BehaviorContext:start()
@@ -1022,6 +1030,7 @@ function BehaviorContext:query(policy, arguments, execution)
   end
   local entity = policy.entity
   local command = { operation = "query", entity = entity.name, table = entity.table, idField = entity.id, query = query }
+  BehaviorContext.partitioned(command, entity)
   command.transaction = BehaviorOpenTransactions.of(entity.adapter)
   local authorize = self.adapters.authorizeEntity
   local built_in = authorize == nil and self:builtin("entities", entity.adapter)
@@ -1123,6 +1132,9 @@ function BehaviorContext:entity_value(record, operation, value)
     end
     BehaviorBoundary.entity_id(value[record.entity.id])
     return value
+  end
+  if BehaviorContext.PARTITION_CALLS[operation] then
+    return BehaviorBoundary.copy(value)
   end
   BehaviorBoundary.entity_id(value)
   return value
@@ -1278,7 +1290,7 @@ end
 function BehaviorStorage.ask(request)
   local answer = TacWebHost.ask(request)
   if type(answer.error) == "string" then
-    BehaviorError.raise("storage", answer.error)
+    BehaviorError.raise(BehaviorStorage.code_of(answer), answer.error)
   end
   if type(answer.error) == "table" then
     BehaviorError.raise("storage", "Tachyon storage did not answer.")
@@ -1287,6 +1299,13 @@ function BehaviorStorage.ask(request)
     return nil
   end
   return answer.value
+end
+
+function BehaviorStorage.code_of(answer)
+  if answer.code == "storage_not_loaded" then
+    return "storage_not_loaded"
+  end
+  return "storage"
 end
 
 BehaviorRepository = {}
@@ -1307,6 +1326,18 @@ end
 
 function BehaviorRepository:delete(id)
   return self.context:entity_operation(self.record, "delete", id)
+end
+
+function BehaviorRepository:load(partition)
+  self.context:entity_operation(self.record, "load", partition)
+end
+
+function BehaviorRepository:loaded(partition)
+  return self.context:entity_operation(self.record, "loaded", partition) == true
+end
+
+function BehaviorRepository:unload(partition)
+  self.context:entity_operation(self.record, "unload", partition)
 end
 
 BehaviorValidation = {

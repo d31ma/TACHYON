@@ -181,8 +181,9 @@ final class Behaviors {
         }
     }
     static final class Entity {
-        final String name, adapter, table, id;
-        Entity(String name, String adapter, String table, String id) { this.name = name; this.adapter = adapter; this.table = table; this.id = id; }
+        final String name, adapter, table, id, partition;
+        Entity(String name, String adapter, String table, String id) { this(name, adapter, table, id, ""); }
+        Entity(String name, String adapter, String table, String id, String partition) { this.name = name; this.adapter = adapter; this.table = table; this.id = id; this.partition = partition; }
     }
     static Context create(String name, Options options) {
         Execution execution = new Execution(options, null); execution.check();
@@ -575,8 +576,8 @@ final class Behaviors {
                 java.util.Map<String, Object> query = queryDescriptor(kind, fields, where, orderBy, input, defaultSize, maxSize);
                 String transaction = OpenTransactions.of(entity.adapter);
                 java.util.Map<String, Object> command = map(copy(transaction == null
-                    ? record("operation", "query", "entity", entity.name, "table", entity.table, "idField", entity.id, "query", query)
-                    : record("operation", "query", "entity", entity.name, "table", entity.table, "idField", entity.id, "query", query, "transaction", transaction), 1048576));
+                    ? entityRecord(entity, "query", "query", query)
+                    : entityRecord(entity, "query", "query", query, "transaction", transaction), 1048576));
                 if (!builtinEntities(entity.adapter)) {
                     Authorization authorize = configuration.authorizeEntity;
                     if (authorize == null) throw fail("authorization");
@@ -586,7 +587,7 @@ final class Behaviors {
                 }
                 EntityAdapter adapter = entityAdapter(entity.adapter); if (adapter == null) throw fail("entity-adapter");
                 Object result;
-                try { result = adapter.execute(command, execution); } catch (RuntimeException error) { throw fail("entity-adapter"); }
+                try { result = adapter.execute(command, execution); } catch (Failure error) { throw error; } catch (RuntimeException error) { throw fail("entity-adapter"); }
                 execution.check(); result = copy(result, 1048576);
                 if (kind.equals("count") || kind.equals("delete")) return integer(result, 0, 9007199254740991L, "query-result");
                 if (kind.equals("exists")) { if (!(result instanceof Boolean)) throw fail("query-result"); return result; }
@@ -715,13 +716,16 @@ final class Behaviors {
             identifier(data.get(entity.id)); return execute("save", "value", data);
         }
         Object delete(Object id) { identifier(id); return execute("delete", "id", id); }
+        void load(Object partition) { execute("load", "value", partition); }
+        boolean loaded(Object partition) { return Boolean.TRUE.equals(execute("loaded", "value", partition)); }
+        void unload(Object partition) { execute("unload", "value", partition); }
         Object execute(String operation, String key, Object value) {
             return context.operation(execution -> {
                 EntityAdapter adapter = context.entityAdapter(entity.adapter); if (adapter == null) throw fail("entity-adapter");
                 String transaction = OpenTransactions.of(entity.adapter);
                 java.util.Map<String, Object> command = transaction == null
-                    ? record("operation", operation, "entity", entity.name, "table", entity.table, "idField", entity.id, key, value)
-                    : record("operation", operation, "entity", entity.name, "table", entity.table, "idField", entity.id, key, value, "transaction", transaction);
+                    ? entityRecord(entity, operation, key, value)
+                    : entityRecord(entity, operation, key, value, "transaction", transaction);
                 try { Object result = adapter.execute(command, execution); execution.check(); return copy(result, 1048576); }
                 catch (Failure error) { throw error; } catch (RuntimeException error) { throw fail("entity-adapter"); }
             });
@@ -809,6 +813,13 @@ final class Behaviors {
     static int bytes(String value) { return value.getBytes(java.nio.charset.StandardCharsets.UTF_8).length; }
     static java.util.Map<String, Object> record(Object... pairs) {
         java.util.Map<String, Object> result = new java.util.LinkedHashMap<>();
+        for (int i = 0; i < pairs.length; i += 2) result.put((String)pairs[i], pairs[i + 1]);
+        return java.util.Collections.unmodifiableMap(result);
+    }
+    static java.util.Map<String, Object> entityRecord(Entity entity, String operation, Object... pairs) {
+        java.util.Map<String, Object> result = new java.util.LinkedHashMap<>();
+        result.put("operation", operation); result.put("entity", entity.name); result.put("table", entity.table); result.put("idField", entity.id);
+        if (!entity.partition.isEmpty()) result.put("partition", entity.partition);
         for (int i = 0; i < pairs.length; i += 2) result.put((String)pairs[i], pairs[i + 1]);
         return java.util.Collections.unmodifiableMap(result);
     }

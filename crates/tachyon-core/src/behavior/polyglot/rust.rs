@@ -339,9 +339,10 @@ fn entity(declaration: &Type, output: &mut String) -> Result<(), String> {
         .table
         .as_deref()
         .ok_or_else(|| String::from("Rust Entity requires Table"))?;
+    let partition = entity["partition"].as_str().unwrap_or_default();
     let _ = writeln!(
         output,
-        "impl BehaviorEntity for {} {{ fn behavior_entity() -> BehaviorEntityMetadata {{ BehaviorEntityMetadata {{ name: {:?}, adapter: {adapter:?}, table: {table:?}, id: {id:?} }} }} }}",
+        "impl BehaviorEntity for {} {{ fn behavior_entity() -> BehaviorEntityMetadata {{ BehaviorEntityMetadata {{ name: {:?}, adapter: {adapter:?}, table: {table:?}, id: {id:?}, partition: {partition:?} }} }} }}",
         declaration.name, declaration.name
     );
     Ok(())
@@ -917,11 +918,12 @@ fn query_policy(value: &Value) -> Result<String, String> {
         .ok_or("Missing Rust query ordering")?;
     let order = query_order(order)?;
     Ok(format!(
-        "BehaviorQueryPolicy {{ entity: BehaviorEntityMetadata {{ name: {:?}, adapter: {:?}, id: {:?}, table: {:?} }}, fields: vec![{fields}], default_size: {}, max_size: {}, operation: {:?}, predicates: vec![{predicates}], order_by: vec![{order}], page_argument: {} }}",
+        "BehaviorQueryPolicy {{ entity: BehaviorEntityMetadata {{ name: {:?}, adapter: {:?}, id: {:?}, table: {:?}, partition: {:?} }}, fields: vec![{fields}], default_size: {}, max_size: {}, operation: {:?}, predicates: vec![{predicates}], order_by: vec![{order}], page_argument: {} }}",
         string(entity, "name")?,
         string(entity, "adapter")?,
         string(entity, "id")?,
         string(entity, "table")?,
+        entity["partition"].as_str().unwrap_or_default(),
         number(value, "defaultSize")?,
         number(value, "maxSize")?,
         string(value, "operation")?,

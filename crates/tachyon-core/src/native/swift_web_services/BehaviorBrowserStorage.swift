@@ -25,7 +25,11 @@ enum BehaviorBrowserStorage {
             throw BehaviorError("STORAGE_MISSING")
         }
         let answer = try BehaviorJSON.parse(text)
-        guard !answer.has("error") else { throw BehaviorError("STORAGE_REFUSED") }
+        guard !answer.has("error") else { throw refused(answer.get("code")) }
         return answer.get("value")
+    }
+
+    private static func refused(_ code: BehaviorJSON) -> BehaviorError {
+        BehaviorError(code == .string("storage_not_loaded") ? "storage_not_loaded" : "STORAGE_REFUSED")
     }
 }

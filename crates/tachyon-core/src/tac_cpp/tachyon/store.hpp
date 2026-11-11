@@ -52,7 +52,21 @@ public:
         return run(entity, command);
     }
 
+    static json::JsonNode onPartition(const json::JsonNode& entity, const char* operation, const json::JsonNode& partition) {
+        partitionValue(partition);
+        json::JsonNode command = TacStore::command(entity, operation);
+        command["value"] = partition;
+        return run(entity, command);
+    }
+
 private:
+    static void partitionValue(const json::JsonNode& partition) {
+        json::JsonValueKind kind = partition.getValueKind();
+        if (kind != json::JsonValueKind::String && kind != json::JsonValueKind::Number) {
+            throw TacBehaviorData::invalid();
+        }
+    }
+
     static json::JsonNode predicates(const json::JsonNode& plan, const std::vector<json::JsonNode>& arguments, std::vector<bool>& used) {
         json::JsonArray where;
         for (const json::JsonNode& predicate : plan["where"].items()) {
@@ -173,6 +187,9 @@ private:
         command["entity"] = entity["name"];
         command["table"] = entity["table"];
         command["idField"] = entity["id"];
+        if (TacBehaviorData::present(entity["partition"])) {
+            command["partition"] = entity["partition"];
+        }
         command["value"] = nullptr;
         command["page"] = nullptr;
         command["id"] = nullptr;
@@ -196,8 +213,29 @@ private:
     }
 };
 
+template <typename Entity>
+class EntityRepository {
+public:
+    Entity save(const Entity& entity) {
+        return json::JsonCodec<Entity>::fromJson(TacStore::save(TacStorePlan<Entity>::entity(), json::JsonCodec<Entity>::toJson(entity)));
+    }
+
+    void load(const json::JsonNode& partition) {
+        TacStore::onPartition(TacStorePlan<Entity>::entity(), "load", partition);
+    }
+
+    bool loaded(const json::JsonNode& partition) {
+        json::JsonNode answer = TacStore::onPartition(TacStorePlan<Entity>::entity(), "loaded", partition);
+        return answer.getValueKind() == json::JsonValueKind::True;
+    }
+
+    void unload(const json::JsonNode& partition) {
+        TacStore::onPartition(TacStorePlan<Entity>::entity(), "unload", partition);
+    }
+};
+
 template <typename Entity, typename Id>
-class Repository {
+class Repository : public EntityRepository<Entity> {
 public:
     std::optional<Entity> findById(const Id& id) {
         return TacStore::query<std::optional<Entity>>(TacStorePlan<Entity>::findById(), {json::JsonCodec<Id>::toJson(id)});
@@ -213,11 +251,6 @@ public:
 
     long long deleteById(const Id& id) {
         return TacStore::query<long long>(TacStorePlan<Entity>::deleteById(), {json::JsonCodec<Id>::toJson(id)});
-    }
-
-    Entity save(const Entity& entity) {
-        const json::JsonNode& plan = TacStorePlan<Entity>::findById();
-        return json::JsonCodec<Entity>::fromJson(TacStore::save(plan["entity"], json::JsonCodec<Entity>::toJson(entity)));
     }
 };
 

@@ -131,7 +131,7 @@ fn configuration_case(type_declaration: &Type) -> String {
 
 fn entity_case(type_declaration: &Type, entity: &Value) -> Result<String, String> {
     Ok(format!(
-        "case {}: return new Entity({}, {}, {}, {});",
+        "case {}: return new Entity({}, {}, {}, {}, {});",
         quote(&type_declaration.name),
         quote(&type_declaration.name),
         string(entity, "adapter")?,
@@ -141,7 +141,8 @@ fn entity_case(type_declaration: &Type, entity: &Value) -> Result<String, String
                 .as_deref()
                 .ok_or("Entity requires Table")?
         ),
-        string(entity, "id")?
+        string(entity, "id")?,
+        partition(entity)
     ))
 }
 
@@ -806,11 +807,12 @@ fn query_body(type_declaration: &Type, method: &Method, query: &Value) -> Result
         _ => "null".to_owned(),
     };
     Ok(format!(
-        "return this.behaviors.query(new Behaviors.Entity({}, {}, {}, {}), {}, new String[]{{{}}}, new Object[][]{{{}}}, new String[][]{{{}}}, {page}, {}, {});",
+        "return this.behaviors.query(new Behaviors.Entity({}, {}, {}, {}, {}), {}, new String[]{{{}}}, new Object[][]{{{}}}, new String[][]{{{}}}, {page}, {}, {});",
         string(entity, "name")?,
         string(entity, "adapter")?,
         string(entity, "table")?,
         string(entity, "id")?,
+        partition(entity),
         string(query, "operation")?,
         strings(query, "fields")?,
         predicates.join(", "),
@@ -1036,6 +1038,10 @@ fn string(value: &Value, key: &str) -> Result<String, String> {
         .and_then(Value::as_str)
         .map(quote)
         .ok_or_else(|| format!("Invalid {key}"))
+}
+
+fn partition(entity: &Value) -> String {
+    quote(entity["partition"].as_str().unwrap_or_default())
 }
 
 fn quote(value: &str) -> String {

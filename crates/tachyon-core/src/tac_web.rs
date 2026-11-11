@@ -1070,6 +1070,26 @@ mod go_marker_proof_tests;
 pub(crate) mod needed_state_proof;
 
 #[cfg(test)]
+mod store_partition_cpp_tests;
+#[cfg(test)]
+mod store_partition_csharp_tests;
+#[cfg(test)]
+mod store_partition_go_tests;
+#[cfg(test)]
+mod store_partition_java_tests;
+#[cfg(test)]
+mod store_partition_kotlin_tests;
+#[cfg(test)]
+mod store_partition_lua_tests;
+#[cfg(test)]
+mod store_partition_python_tests;
+#[cfg(test)]
+mod store_partition_ruby_tests;
+#[cfg(test)]
+mod store_partition_swift_tests;
+#[cfg(test)]
+pub(crate) mod store_partition_tests;
+#[cfg(test)]
 mod stored_state_proof_tests;
 
 #[cfg(test)]
@@ -1348,7 +1368,7 @@ mod tests {
              process.exit(0)\n";
     }
 
-    fn web_assembly_target_installed() -> bool {
+    pub(super) fn web_assembly_target_installed() -> bool {
         let Ok(output) = Command::new("rustc")
             .args([
                 "--print",
@@ -1384,18 +1404,18 @@ mod tests {
         crate::required_toolchain::RequiredToolchain::checked("the .NET wasm-tools workload", found)
     }
 
-    fn node_available() -> bool {
+    pub(super) fn node_available() -> bool {
         crate::node_driver::NodeDriver::available()
     }
 
-    fn write_service(root: &Path, relative: &str, source: &str) -> PathBuf {
+    pub(super) fn write_service(root: &Path, relative: &str, source: &str) -> PathBuf {
         let path = root.join(relative);
         std::fs::create_dir_all(path.parent().expect("parent")).expect("directory");
         std::fs::write(&path, source).expect("service");
         path
     }
 
-    async fn build_and_publish(
+    pub(super) async fn build_and_publish(
         root: &Path,
         instance: &str,
         class: &str,
@@ -1432,7 +1452,7 @@ mod tests {
         (published.notes, size)
     }
 
-    fn run_driver(root: &Path, script: &str) -> serde_json::Value {
+    pub(super) fn run_driver(root: &Path, script: &str) -> serde_json::Value {
         std::fs::write(root.join("drive.mjs"), script).expect("driver");
         let output = crate::node_driver::NodeDriver::output(
             crate::node_driver::NodeDriver::command()

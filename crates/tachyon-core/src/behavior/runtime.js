@@ -675,7 +675,7 @@ function __tachyon_create_behaviors__(registrations, environment, moduleId) {
         query.page = page
       }
       if (single) query.page = normalizePage({ size: 1 }, { defaultSize: 1, maxSize: 1, sort: policy.fields })
-      const command = freeze({ operation: 'query', entity: policy.entity.name, table: policy.entity.table, idField: policy.entity.id, query, ...this.#joined(policy.entity.adapter) })
+      const command = freeze({ operation: 'query', entity: policy.entity.name, table: policy.entity.table, idField: policy.entity.id, ...partitionOf(policy.entity), query, ...this.#joined(policy.entity.adapter) })
       const authorize = this.#configuration?.authorizeEntity
       const builtin = this.#builtin('entities', policy.entity.adapter)
       if (typeof authorize !== 'function' && !builtin) invalid('Store query requires entity authorization.')
@@ -759,7 +759,7 @@ function __tachyon_create_behaviors__(registrations, environment, moduleId) {
       if (!record?.entity) invalid('Store requires a registered behavior entity.')
       const run = (details) => this.#perform(async (operation) => {
         const adapter = this.#adapter('entities', record.entity.adapter, 'execute')
-        const command = freeze({ entity: record.name, table: record.entity.table, idField: record.entity.id, ...details, ...this.#joined(record.entity.adapter) })
+        const command = freeze({ entity: record.name, table: record.entity.table, idField: record.entity.id, ...partitionOf(record.entity), ...details, ...this.#joined(record.entity.adapter) })
         return json(await operation.call(() => adapter.execute(command, operation.execution), true))
       })
       return Object.freeze({
@@ -821,12 +821,15 @@ function __tachyon_create_behaviors__(registrations, environment, moduleId) {
   function declareStorage(record) {
     const storage = environment === 'tac' ? globalThis[Symbol.for('tachyon.tac.storage')] : undefined
     if (!storage) return
-    if (record.entity?.adapter === 'indexeddb') storage.declare(record.entity.table, record.entity.id, [])
+    if (record.entity?.adapter === 'indexeddb') storage.declare(record.entity.table, record.entity.id, [], record.entity.partition ?? '')
     for (const method of record.methods) {
       const query = method.query
       if (query?.entity.adapter !== 'indexeddb') continue
-      storage.declare(query.entity.table, query.entity.id, [...query.where, ...query.orderBy].map((entry) => entry.field))
+      storage.declare(query.entity.table, query.entity.id, [...query.where, ...query.orderBy].map((entry) => entry.field), query.entity.partition ?? '')
     }
+  }
+  function partitionOf(entity) {
+    return entity.partition ? { partition: entity.partition } : {}
   }
   function storageFailure(error) {
     const storage = environment === 'tac' ? globalThis[Symbol.for('tachyon.tac.storage')] : undefined

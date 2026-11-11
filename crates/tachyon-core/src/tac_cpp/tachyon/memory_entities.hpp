@@ -10,6 +10,12 @@ public:
         if (operation == "transaction") {
             return transaction(command);
         }
+        if (operation == "load" || operation == "unload") {
+            return json::JsonNode(nullptr);
+        }
+        if (operation == "loaded") {
+            return true;
+        }
         Tables* staged = pending(command);
         std::string table = command["table"].getValue<std::string>();
         std::string idField = command["idField"].getValue<std::string>();

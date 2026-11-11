@@ -1,5 +1,10 @@
 class TacStorageError extends Error {
   name = 'TacStorageError'
+
+  constructor(message, code) {
+    super(message)
+    this.code = code
+  }
 }
 
 class TacCacheStorage {
@@ -152,6 +157,7 @@ class TacCacheStorage {
 
 class TacEntityStorage {
   static databaseName = 'tachyon-store'
+  static partitionIndex = 'tachyon:partition'
   static scanLimit = 10000
   static maxTransactions = 64
   static wanted = new Map()
@@ -162,17 +168,20 @@ class TacEntityStorage {
   static counter = 0
   static adapter = Object.freeze({ execute: (command) => TacEntityStorage.execute(command) })
 
-  static declare(table, id, fields) {
-    const entry = TacEntityStorage.wanted.get(table) ?? { id, indexes: new Set() }
+  static declare(table, id, fields, partition = '') {
+    const entry = TacEntityStorage.wanted.get(table) ?? { id, indexes: new Set(), partition }
     if (entry.id !== id) {
       throw new TacStorageError(`Two entities keep rows in the IndexedDB store '${table}' but use different id fields ('${entry.id}' and '${id}'). Give one of them its own Table.`)
+    }
+    if (entry.partition !== partition) {
+      throw new TacStorageError(`Two entities keep rows in the IndexedDB store '${table}' but split it by different partition fields ('${entry.partition}' and '${partition}'). Give one of them its own Table.`)
     }
     for (const field of fields) if (field !== id) entry.indexes.add(field)
     TacEntityStorage.wanted.set(table, entry)
   }
 
   static schemaKey() {
-    return JSON.stringify([...TacEntityStorage.wanted].map(([table, entry]) => [table, entry.id, [...entry.indexes].sort()]).sort())
+    return JSON.stringify([...TacEntityStorage.wanted].map(([table, entry]) => [table, entry.id, entry.partition, [...entry.indexes].sort()]).sort())
   }
 
   static database() {
@@ -222,9 +231,16 @@ class TacEntityStorage {
       if (!database.objectStoreNames.contains(table)) return true
       const store = database.transaction(table, 'readonly').objectStore(table)
       TacEntityStorage.checkKey(table, store.keyPath, entry.id)
+      TacEntityStorage.checkPartition(table, TacEntityStorage.partitionedBy(store), entry.partition)
+      if (TacEntityStorage.partitionedBy(store) !== entry.partition) return true
       for (const field of entry.indexes) if (!store.indexNames.contains(field)) return true
     }
     return false
+  }
+
+  static partitionedBy(store) {
+    if (!store.indexNames.contains(TacEntityStorage.partitionIndex)) return ''
+    return store.index(TacEntityStorage.partitionIndex).keyPath
   }
 
   static upgrade(database, transaction) {
@@ -234,7 +250,21 @@ class TacEntityStorage {
         : database.createObjectStore(table, { keyPath: entry.id })
       TacEntityStorage.checkKey(table, store.keyPath, entry.id)
       for (const field of entry.indexes) if (!store.indexNames.contains(field)) store.createIndex(field, field)
+      TacEntityStorage.indexPartition(table, store, entry.partition)
     }
+  }
+
+  static indexPartition(table, store, field) {
+    const stored = TacEntityStorage.partitionedBy(store)
+    TacEntityStorage.checkPartition(table, stored, field)
+    if (stored === field) return
+    if (stored) store.deleteIndex(TacEntityStorage.partitionIndex)
+    store.createIndex(TacEntityStorage.partitionIndex, field)
+  }
+
+  static checkPartition(table, stored, wanted) {
+    if (!stored || wanted) return
+    throw new TacStorageError(`The IndexedDB store '${table}' keeps its rows by the partition field '${stored}', but the entity has no partition now. Add "partition":"${stored}" to its @Entity, or give the entity a new Table name.`)
   }
 
   static checkKey(table, stored, wanted) {
@@ -259,7 +289,7 @@ class TacEntityStorage {
 
   static async execute(command) {
     if (command.operation === 'transaction') return TacEntityStorage.transaction(command)
-    TacEntityStorage.declare(command.table, command.idField, [])
+    TacEntityStorage.declare(command.table, command.idField, [], command.partition ?? '')
     const pending = command.transaction === undefined ? null : TacEntityStorage.transactions.get(command.transaction)
     if (command.transaction !== undefined && !pending) throw new TacStorageError('The IndexedDB transaction is not open.')
     if (command.operation === 'save') return TacEntityStorage.save(command, pending)
@@ -333,13 +363,12 @@ class TacEntityStorage {
   static async rows(command, where, pending) {
     const database = await TacEntityStorage.database()
     const store = database.transaction(command.table, 'readonly').objectStore(command.table)
-    const indexed = where.find((predicate) => TacEntityStorage.usesIndex(store, predicate))
-    const source = indexed ? store.index(indexed.field) : store
+    const partition = TacEntityPartitions.predicate(command, where)
+    const indexed = partition ?? where.find((predicate) => TacEntityStorage.usesIndex(store, predicate))
+    const source = partition ? store.index(TacEntityStorage.partitionIndex) : indexed ? store.index(indexed.field) : store
     const range = indexed ? TacEntityStorage.range(indexed) : null
     const found = await TacEntityStorage.answer(source.getAll(range, TacEntityStorage.scanLimit + 1))
-    if (found.length > TacEntityStorage.scanLimit) {
-      throw new TacStorageError(`The IndexedDB store '${command.table}' has more than ${TacEntityStorage.scanLimit} rows to read for this query. Add a Store query that compares a string or number field, so Tachyon can use that field's index.`)
-    }
+    if (found.length > TacEntityStorage.scanLimit) throw TacEntityStorage.tooMany(command.table, partition)
     const staged = pending?.get(command.table)
     if (!staged) return found
     const merged = new Map(found.map((row) => [row[command.idField], row]))
@@ -348,6 +377,11 @@ class TacEntityStorage {
       else merged.set(id, row)
     }
     return [...merged.values()]
+  }
+
+  static tooMany(table, partition) {
+    if (partition) return new TacStorageError(`The partition '${partition.value}' of the IndexedDB store '${table}' has more than ${TacEntityStorage.scanLimit} rows. A partition holds at most ${TacEntityStorage.scanLimit} rows.`)
+    return new TacStorageError(`The IndexedDB store '${table}' has more than ${TacEntityStorage.scanLimit} rows to read for this query. Add a Store query that compares a string or number field, so Tachyon can use that field's index.`)
   }
 
   static usesIndex(store, predicate) {
@@ -449,8 +483,9 @@ class TacEntityMirror {
     const database = await TacEntityStorage.database()
     for (const table of database.objectStoreNames) {
       const store = database.transaction(table, 'readonly').objectStore(table)
-      const rows = await TacEntityStorage.answer(store.getAll(null, TacEntityStorage.scanLimit + 1))
       TacEntityMirror.keys.set(table, store.keyPath)
+      if (TacEntityPartitions.found(table, TacEntityStorage.partitionedBy(store))) continue
+      const rows = await TacEntityStorage.answer(store.getAll(null, TacEntityStorage.scanLimit + 1))
       if (rows.length > TacEntityStorage.scanLimit) { TacEntityMirror.oversized.add(table); continue }
       TacEntityMirror.tables.set(table, new Map(rows.map((row) => [row[store.keyPath], row])))
     }
@@ -465,6 +500,7 @@ class TacEntityMirror {
 
   static execute(command) {
     if (command.operation === 'transaction') return TacEntityMirror.transaction(command)
+    if (TacEntityPartitions.calls.includes(command.operation)) return TacEntityPartitions.call(command)
     const rows = TacEntityMirror.rows(command)
     const pending = command.transaction == null ? null : TacEntityMirror.transactions.get(command.transaction)
     if (command.transaction != null && !pending) throw new TacStorageError('The IndexedDB transaction is not open.')
@@ -485,6 +521,8 @@ class TacEntityMirror {
     const table = command.table
     if (!TacEntityMirror.loaded) throw new TacStorageError('Tachyon could not load the IndexedDB rows for this page, so this service cannot read its Store.')
     TacEntityStorage.checkKey(table, TacEntityMirror.keys.get(table) ?? command.idField, command.idField)
+    if (command.partition) return TacEntityPartitions.rows(command)
+    TacEntityStorage.checkPartition(table, TacEntityPartitions.tables.get(table)?.field ?? '', '')
     const rows = TacEntityMirror.tables.get(table) ?? new Map()
     if (TacEntityMirror.oversized.has(table) || rows.size > TacEntityStorage.scanLimit) {
       throw new TacStorageError(`The IndexedDB store '${table}' has more than ${TacEntityStorage.scanLimit} rows. A WebAssembly or native Tac service reads its Store from memory, so keep this Table below that size or move the Store to a JavaScript or TypeScript service.`)
@@ -532,6 +570,7 @@ class TacEntityMirror {
 
   static apply(writes) {
     for (const [table, rows] of writes) {
+      TacEntityPartitions.apply(table, rows)
       const mirrored = TacEntityMirror.tables.get(table)
       if (!mirrored) continue
       for (const [id, row] of rows) {
@@ -542,13 +581,153 @@ class TacEntityMirror {
   }
 
   static persist(writes) {
+    const owner = TacEntityPartitions.caller()
     TacEntityMirror.writing = TacEntityMirror.writing
       .then(() => TacEntityStorage.commit(writes))
-      .catch((error) => { console.error(error) })
+      .catch((error) => TacEntityMirror.failed(writes, error, owner))
+  }
+
+  static failed(writes, error, owner) {
+    console.error(error)
+    for (const table of writes.keys()) TacEntityPartitions.notify(owner, 'StoreWriteFailed', { table, reason: TacEntityPartitions.reason(error) })
   }
 
   static settled() {
     return TacEntityMirror.writing
+  }
+}
+
+class TacEntityPartitions {
+  static calls = ['load', 'loaded', 'unload']
+  static tables = new Map()
+
+  static found(table, field) {
+    if (field) TacEntityPartitions.tables.set(table, TacEntityPartitions.empty(field))
+    return Boolean(field)
+  }
+
+  static empty(field) {
+    return { field, loaded: new Map(), loading: new Map() }
+  }
+
+  static of(command) {
+    if (!command.partition) throw new TacStorageError(`The entity '${command.entity}' has no partition field, so its Store cannot ${command.operation} a partition. Add "partition" to its @Entity.`)
+    TacEntityStorage.declare(command.table, command.idField, [], command.partition)
+    TacEntityMirror.tables.delete(command.table)
+    TacEntityMirror.oversized.delete(command.table)
+    const state = TacEntityPartitions.tables.get(command.table)
+    if (state?.field === command.partition) return state
+    const fresh = TacEntityPartitions.empty(command.partition)
+    TacEntityPartitions.tables.set(command.table, fresh)
+    return fresh
+  }
+
+  static value(value) {
+    if (typeof value === 'string' || (typeof value === 'number' && Number.isFinite(value))) return value
+    throw new TacStorageError('A partition value must be a string or a number.')
+  }
+
+  static predicate(command, where) {
+    if (!command.partition) return undefined
+    return where.find((predicate) => predicate.field === command.partition && predicate.operator === 'eq')
+  }
+
+  static rows(command) {
+    const state = TacEntityPartitions.of(command)
+    if (command.operation === 'save') TacEntityPartitions.value(command.value[state.field])
+    if (command.operation === 'save' || command.operation === 'delete') return new Map()
+    const predicate = TacEntityPartitions.predicate(command, command.query?.where ?? [])
+    if (!predicate) throw new TacStorageError(`The IndexedDB store '${command.table}' is split by '${state.field}'. Read it with a Store query that compares ${state.field}.`)
+    const rows = state.loaded.get(predicate.value)
+    if (rows) return rows
+    throw new TacStorageError(`The partition '${predicate.value}' of the IndexedDB store '${command.table}' is not loaded. Call load(${JSON.stringify(predicate.value)}) on its repository, and read it after the StorePartitionLoaded event.`, 'storage_not_loaded')
+  }
+
+  static call(command) {
+    const state = TacEntityPartitions.of(command)
+    const partition = TacEntityPartitions.value(command.value)
+    if (command.operation === 'loaded') return state.loaded.has(partition)
+    if (command.operation === 'unload') return TacEntityPartitions.unload(command.table, state, partition)
+    TacEntityPartitions.load(command, state, partition)
+    return null
+  }
+
+  static load(command, state, partition) {
+    const waiting = state.loading.get(partition)
+    if (waiting) { waiting.owners.push(TacEntityPartitions.caller()); return }
+    const loading = { late: [], owners: [TacEntityPartitions.caller()] }
+    state.loading.set(partition, loading)
+    TacEntityMirror.writing = TacEntityMirror.writing
+      .then(() => TacEntityPartitions.read(command.table, partition))
+      .then((found) => TacEntityPartitions.finish(command, state, partition, loading, found), (error) => TacEntityPartitions.stop(command.table, state, partition, loading, error))
+      .catch((error) => { console.error(error) })
+  }
+
+  static async read(table, partition) {
+    const database = await TacEntityStorage.database()
+    const index = database.transaction(table, 'readonly').objectStore(table).index(TacEntityStorage.partitionIndex)
+    return TacEntityStorage.answer(index.getAll(IDBKeyRange.only(partition), TacEntityStorage.scanLimit + 1))
+  }
+
+  static current(table, state, partition, loading) {
+    return TacEntityPartitions.tables.get(table) === state && state.loading.get(partition) === loading
+  }
+
+  static finish(command, state, partition, loading, found) {
+    if (!TacEntityPartitions.current(command.table, state, partition, loading)) return
+    if (found.length > TacEntityStorage.scanLimit) return TacEntityPartitions.stop(command.table, state, partition, loading, new Error(`The partition has more than ${TacEntityStorage.scanLimit} rows.`))
+    state.loading.delete(partition)
+    const rows = new Map(found.map((row) => [row[command.idField], row]))
+    for (const [id, row] of loading.late) TacEntityPartitions.place(rows, state.field, partition, id, row)
+    state.loaded.set(partition, rows)
+    for (const owner of loading.owners) TacEntityPartitions.notify(owner, 'StorePartitionLoaded', { table: command.table, partition: String(partition), rows: rows.size })
+  }
+
+  static stop(table, state, partition, loading, error) {
+    if (!TacEntityPartitions.current(table, state, partition, loading)) return
+    state.loading.delete(partition)
+    state.loaded.delete(partition)
+    TacEntityPartitions.failed(table, partition, loading, TacEntityPartitions.reason(error))
+  }
+
+  static failed(table, partition, loading, reason) {
+    for (const owner of loading.owners) TacEntityPartitions.notify(owner, 'StorePartitionFailed', { table, partition: String(partition), reason })
+  }
+
+  static unload(table, state, partition) {
+    const loading = state.loading.get(partition)
+    state.loading.delete(partition)
+    state.loaded.delete(partition)
+    if (loading) TacEntityPartitions.failed(table, partition, loading, 'The partition was unloaded before it finished loading.')
+    return null
+  }
+
+  static place(rows, field, partition, id, row) {
+    rows.delete(id)
+    if (row !== null && row[field] === partition) rows.set(id, row)
+  }
+
+  static apply(table, rows) {
+    const state = TacEntityPartitions.tables.get(table)
+    if (!state) return
+    for (const [id, row] of rows) {
+      for (const loading of state.loading.values()) loading.late.push([id, row])
+      for (const [partition, loaded] of state.loaded) TacEntityPartitions.place(loaded, state.field, partition, id, row)
+    }
+  }
+
+  static reason(error) {
+    return String(error?.message || error?.name || error)
+  }
+
+  static caller() {
+    return typeof TacWebApis === 'undefined' ? null : TacWebApis.caller ?? null
+  }
+
+  static notify(owner, name, value) {
+    const events = typeof TacWebApis === 'undefined' ? null : TacWebApis.events
+    if (owner === null) events?.publish(name, value)
+    else events?.send(owner, name, value)
   }
 }
 
@@ -557,7 +736,7 @@ class TacStorageHost {
     try {
       return JSON.stringify({ value: TacStorageHost.run(JSON.parse(text)) ?? null })
     } catch (error) {
-      return JSON.stringify({ error: error instanceof TacStorageError ? error.message : 'Tachyon storage failed.' })
+      return JSON.stringify(error instanceof TacStorageError ? { error: error.message, code: error.code } : { error: 'Tachyon storage failed.' })
     }
   }
 

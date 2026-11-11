@@ -29,7 +29,7 @@ fn main() {
     ]);
     println!("{:?}", application.behavior_property_inputs().expect("inputs"));
     let policy = BehaviorQueryPolicy {
-        entity: BehaviorEntityMetadata { name: "Product", adapter: "main", table: "products", id: "id" },
+        entity: BehaviorEntityMetadata { name: "Product", adapter: "main", table: "products", id: "id", partition: "" },
         fields: vec!["id", "name"],
         default_size: 1,
         max_size: 1,

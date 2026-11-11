@@ -1012,6 +1012,7 @@ class _BehaviorContext:
             query['page'] = _behavior_page({'size': 1}, {'defaultSize': 1, 'maxSize': 1, 'sort': policy['fields']})
         entity = policy['entity']
         command = {'operation': 'query', 'entity': entity['name'], 'table': entity['table'], 'idField': entity['id'], 'query': query}
+        _behavior_partitioned(command, entity)
         joined = _BehaviorOpenTransactions.of(entity['adapter'])
         if joined is not None:
             command['transaction'] = joined
@@ -1083,8 +1084,13 @@ class _BehaviorHostAdapters:
         if type(answer) is not dict:
             raise BehaviorError('storage', 'Tachyon storage did not answer.')
         if type(answer.get('error')) is str:
-            raise BehaviorError('storage', answer['error'])
+            raise BehaviorError(_BehaviorHostAdapters.code_of(answer), answer['error'])
         return answer.get('value')
+    @staticmethod
+    def code_of(answer):
+        if answer.get('code') == 'storage_not_loaded':
+            return 'storage_not_loaded'
+        return 'storage'
 
 class _BehaviorModels:
     @staticmethod
@@ -1276,24 +1282,20 @@ class _BehaviorRestCall:
             self.context.active -= 1
 
 class _BehaviorRepository:
+    FIELDS = {'find': 'page', 'save': 'value', 'delete': 'id', 'load': 'value', 'loaded': 'value', 'unload': 'value'}
     def __init__(self, context, record):
         self.context = context
         self.record = record
     async def _execute(self, operation, value):
-        if operation not in ('find', 'save', 'delete'):
+        if operation not in _BehaviorRepository.FIELDS:
             _behavior_invalid('Unknown entity operation.')
         context = self.context
         record = self.record
         execution = context._begin()
         try:
             command = {'operation': operation, 'entity': record['name'], 'table': record['table'], 'idField': record['entity']['id']}
-            copied = _behavior_copy(value)
-            if operation == 'find':
-                command['page'] = copied
-            elif operation == 'save':
-                command['value'] = copied
-            else:
-                command['id'] = copied
+            _behavior_partitioned(command, record['entity'])
+            command[_BehaviorRepository.FIELDS[operation]] = _behavior_copy(value)
             joined = _BehaviorOpenTransactions.of(record['entity']['adapter'])
             if joined is not None:
                 command['transaction'] = joined
@@ -1317,6 +1319,17 @@ class _BehaviorRepository:
     async def delete(self, identifier):
         _behavior_entity_id(identifier)
         return await self._execute('delete', identifier)
+    async def load(self, partition):
+        await self._execute('load', partition)
+    async def loaded(self, partition):
+        return await self._execute('loaded', partition) is True
+    async def unload(self, partition):
+        await self._execute('unload', partition)
+
+def _behavior_partitioned(command, entity):
+    partition = entity.get('partition')
+    if type(partition) is str and partition:
+        command['partition'] = partition
 
 def _behavior_valid_entity_id(identifier):
     if type(identifier) is str:

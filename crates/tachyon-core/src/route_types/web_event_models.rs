@@ -49,8 +49,37 @@ impl WebEventModels {
             Self::push_rows(),
             Self::storage_rows(),
             Self::socket_and_failure_rows(),
+            Self::store_rows(),
         ]
         .concat()
+    }
+
+    fn store_rows() -> Vec<(WebEventSender, String, Model)> {
+        vec![
+            Self::record(
+                WebEventSender::Page,
+                "StorePartitionLoaded",
+                &[
+                    ("table", Shape::Text),
+                    ("partition", Shape::Text),
+                    ("rows", Shape::Number),
+                ],
+            ),
+            Self::record(
+                WebEventSender::Page,
+                "StorePartitionFailed",
+                &[
+                    ("table", Shape::Text),
+                    ("partition", Shape::Text),
+                    ("reason", Shape::Text),
+                ],
+            ),
+            Self::record(
+                WebEventSender::Page,
+                "StoreWriteFailed",
+                &[("table", Shape::Text), ("reason", Shape::Text)],
+            ),
+        ]
     }
 
     fn page_rows() -> Vec<(WebEventSender, String, Model)> {

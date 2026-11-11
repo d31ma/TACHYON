@@ -246,24 +246,20 @@ fn entity(declaration: &Type, output: &mut String) -> Result<(), String> {
         output,
         "\nfunc ({}) behaviorEntity() BehaviorEntityMetadata {{\n\treturn {}\n}}",
         declaration.name,
-        entity_metadata(
-            &declaration.name,
-            string(entity, "adapter")?,
-            table,
-            string(entity, "id")?
-        )
+        entity_metadata(&declaration.name, table, entity)?
     );
     Ok(())
 }
 
-fn entity_metadata(name: &str, adapter: &str, table: &str, id: &str) -> String {
-    format!(
-        "BehaviorEntityMetadata{{Name: {}, Adapter: {}, Table: {}, Id: {}}}",
+fn entity_metadata(name: &str, table: &str, entity: &Value) -> Result<String, String> {
+    Ok(format!(
+        "BehaviorEntityMetadata{{Name: {}, Adapter: {}, Table: {}, Id: {}, Partition: {}}}",
         quoted(name),
-        quoted(adapter),
+        quoted(string(entity, "adapter")?),
         quoted(table),
-        quoted(id)
-    )
+        quoted(string(entity, "id")?),
+        quoted(entity["partition"].as_str().unwrap_or_default())
+    ))
 }
 
 fn validation(declaration: &Type, output: &mut String) -> Result<(), String> {
@@ -792,12 +788,7 @@ fn query_policy(value: &Value) -> Result<String, String> {
         .ok_or("Missing Go query ordering")?;
     let mut text = format!(
         "BehaviorQueryPolicy{{Entity: {}, Fields: []string{{{}}}, DefaultSize: {}, MaxSize: {}, Operation: {}, Predicates: []BehaviorQueryPredicate{{{}}}, OrderBy: []BehaviorQuerySort{{{}}}",
-        entity_metadata(
-            string(entity, "name")?,
-            string(entity, "adapter")?,
-            string(entity, "table")?,
-            string(entity, "id")?
-        ),
+        entity_metadata(string(entity, "name")?, string(entity, "table")?, entity)?,
         quoted_strings(fields, "Invalid Go query field")?,
         number(value, "defaultSize")?,
         number(value, "maxSize")?,

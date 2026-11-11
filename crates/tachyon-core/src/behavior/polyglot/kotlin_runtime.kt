@@ -87,7 +87,7 @@ object Behaviors {
         if (metadata.body >= 0) descriptor["body"] = pick(metadata.body)
         return descriptor
     }
-    class Entity(val name: String, val adapter: String, val table: String, val id: String)
+    class Entity(val name: String, val adapter: String, val table: String, val id: String, val partition: String = "")
     fun create(name: String, options: Options): Context {
         val execution = Execution(options, null)
         execution.check()
@@ -477,11 +477,11 @@ object Behaviors {
         fun query(entity: Entity, kind: String, fields: Array<String>, where: Array<Array<Any?>>, orderBy: Array<Array<String>>, input: Any?, defaultSize: Int, maxSize: Int): Any? = operation { execution ->
             val query = queryDescriptor(kind, fields, where, orderBy, input, defaultSize, maxSize)
             val joined = OpenTransactions.of(entity.adapter)
-            val command = map(copy(if (joined == null) record("operation" to "query", "entity" to entity.name, "table" to entity.table, "idField" to entity.id, "query" to query)
-                else record("operation" to "query", "entity" to entity.name, "table" to entity.table, "idField" to entity.id, "query" to query, "transaction" to joined), 1048576))
+            val command = map(copy(if (joined == null) entityRecord(entity, "query", "query" to query)
+                else entityRecord(entity, "query", "query" to query, "transaction" to joined), 1048576))
             allowEntity(command, entity, execution)
             val adapter = entityAdapter(entity.adapter)
-            val raw = try { adapter.execute(command, execution) } catch (_: RuntimeException) { fail("entity-adapter") }
+            val raw = try { adapter.execute(command, execution) } catch (error: Failure) { throw error } catch (_: RuntimeException) { fail("entity-adapter") }
             execution.check()
             val result = copy(raw, 1048576)
             when (kind) {
@@ -538,8 +538,8 @@ object Behaviors {
         internal fun persist(entity: Entity, operation: String, key: String, value: Any?): Any? = operation { execution ->
             val adapter = entityAdapter(entity.adapter)
             val joined = OpenTransactions.of(entity.adapter)
-            val command = if (joined == null) record("operation" to operation, "entity" to entity.name, "table" to entity.table, "idField" to entity.id, key to value)
-                else record("operation" to operation, "entity" to entity.name, "table" to entity.table, "idField" to entity.id, key to value, "transaction" to joined)
+            val command = if (joined == null) entityRecord(entity, operation, key to value)
+                else entityRecord(entity, operation, key to value, "transaction" to joined)
             try { val result = adapter.execute(command, execution); execution.check(); copy(result, 1048576) }
             catch (error: Failure) { throw error } catch (_: RuntimeException) { fail("entity-adapter") }
         }
@@ -580,6 +580,9 @@ object Behaviors {
         fun find(input: Map<String, Any?> = emptyMap()): Any? = context.persist(entity, "find", "page", page(input, 20, 100, arrayOf(entity.id)))
         fun save(value: Any?): Any? { val data = map(copy(value, 1048576)); identifier(data[entity.id]); return context.persist(entity, "save", "value", data) }
         fun delete(id: Any?): Any? { identifier(id); return context.persist(entity, "delete", "id", id) }
+        fun load(partition: Any?) { context.persist(entity, "load", "value", partition) }
+        fun loaded(partition: Any?): Boolean = context.persist(entity, "loaded", "value", partition) == true
+        fun unload(partition: Any?) { context.persist(entity, "unload", "value", partition) }
     }
     private fun identifier(value: Any?) {
         if (value is String) { if (value.isEmpty() || bytes(value) > 256) fail("entity-id"); return }
@@ -661,6 +664,12 @@ object Behaviors {
     }
     private fun bytes(value: String): Int = value.toByteArray(Charsets.UTF_8).size
     private fun record(vararg pairs: Pair<String, Any?>): Map<String, Any?> = java.util.Collections.unmodifiableMap(linkedMapOf(*pairs))
+    private fun entityRecord(entity: Entity, operation: String, vararg pairs: Pair<String, Any?>): Map<String, Any?> {
+        val command = linkedMapOf<String, Any?>("operation" to operation, "entity" to entity.name, "table" to entity.table, "idField" to entity.id)
+        if (entity.partition.isNotEmpty()) command["partition"] = entity.partition
+        command.putAll(pairs)
+        return java.util.Collections.unmodifiableMap(command)
+    }
     private fun map(value: Any?): Map<String, Any?> {
         if (value !is Map<*, *>) fail("json-value")
         val result = linkedMapOf<String, Any?>()

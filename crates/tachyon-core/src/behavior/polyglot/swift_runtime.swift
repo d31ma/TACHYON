@@ -714,13 +714,14 @@ final class BehaviorContext {
         }
         let entity = metadata.get("entity")
         var command: [String: BehaviorJSON] = ["operation": .string("query"), "entity": entity.get("name"), "table": entity.get("table"), "idField": entity.get("id"), "query": .object(query)]
+        if entity.has("partition") { command["partition"] = entity.get("partition") }
         if let joined = try BehaviorOpenTransactions.open[entity.get("adapter").text] { command["transaction"] = .string(joined) }
         return .object(command)
     }
     fileprivate func executeEntity(_ mapping: BehaviorJSON, operation: String, value: BehaviorJSON) async throws -> BehaviorJSON {
         try await self.operation { execution in
             let adapter = try self.entities(mapping.get("adapter").text)
-            var command = try mapping.members; command.removeValue(forKey: "adapter"); command["operation"] = .string(operation); command[operation == "find" ? "page" : operation == "save" ? "value" : "id"] = value
+            var command = try mapping.members; command.removeValue(forKey: "adapter"); command["operation"] = .string(operation); command[operation == "find" ? "page" : operation == "delete" ? "id" : "value"] = value
             if let joined = try BehaviorOpenTransactions.open[mapping.get("adapter").text] { command["transaction"] = .string(joined) }
             return try await self.adapter(execution, { try await adapter.execute(.object(command), execution) })
         }
@@ -779,6 +780,9 @@ struct BehaviorRepository {
     }
     func save(_ value: BehaviorJSON) async throws -> BehaviorJSON { try identifier(value.get(mapping.get("idField").text)); _ = try value.encoded(); return try await context.executeEntity(mapping, operation: "save", value: value) }
     func delete(_ id: BehaviorJSON) async throws -> BehaviorJSON { try identifier(id); return try await context.executeEntity(mapping, operation: "delete", value: id) }
+    func load(_ partition: BehaviorJSON) async throws { _ = try await context.executeEntity(mapping, operation: "load", value: partition) }
+    func loaded(_ partition: BehaviorJSON) async throws -> Bool { try await context.executeEntity(mapping, operation: "loaded", value: partition) == .bool(true) }
+    func unload(_ partition: BehaviorJSON) async throws { _ = try await context.executeEntity(mapping, operation: "unload", value: partition) }
 }
 
 enum BehaviorCalls {
