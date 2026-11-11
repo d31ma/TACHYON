@@ -15,8 +15,9 @@ impl<'a> JavaClassReader<'a> {
     const SHAPE_CODE: u16 = 1405;
     const OWNER_CODE: u16 = 1406;
     const CLASS: &'static str = "class";
-    const MARKERS: [&'static str; 8] = [
+    const MARKERS: [&'static str; 9] = [
         "@OnStart",
+        "@Every",
         "@OnStop",
         "@OnEvent",
         "@Order",

@@ -27,10 +27,17 @@ impl JavaDeclaration {
     const HIDDEN: [&'static str; 2] = ["private", "static"];
     const NESTED_TYPES: [&'static str; 4] = ["class", "interface", "enum", "record"];
     const LIFECYCLE: [(&'static str, bool); 2] = [("OnStart", false), ("OnStop", true)];
-    const MARKERS: [&'static str; 5] =
-        ["OnStart", "OnStop", "OnEvent", "LocalState", "SessionState"];
-    const KNOWN: [&'static str; 11] = [
+    const MARKERS: [&'static str; 6] = [
         "OnStart",
+        "OnStop",
+        "OnEvent",
+        "Every",
+        "LocalState",
+        "SessionState",
+    ];
+    const KNOWN: [&'static str; 12] = [
+        "OnStart",
+        "Every",
         "OnStop",
         "OnEvent",
         "Order",
@@ -48,7 +55,7 @@ impl JavaDeclaration {
     const READ_ONLY: &'static str = "final";
     const OPENERS: [char; 4] = ['<', '(', '[', '{'];
     const CLOSERS: [char; 4] = ['>', ')', ']', '}'];
-    const SUPPORTED: &'static str = "Java web services support @OnStart, @OnStop, @OnEvent, @Order and @InBackground on methods, @LocalState, @SessionState and @Needs on fields, and the behavior annotations such as @Cached, @ClearCache and @AllOrNothing.";
+    const SUPPORTED: &'static str = "Java web services support @OnStart, @OnStop, @OnEvent, @Every, @Order and @InBackground on methods, @LocalState, @SessionState and @Needs on fields, and the behavior annotations such as @Cached, @ClearCache and @AllOrNothing.";
     const VALUES: &'static str = "A Java web service passes int, long, double, float, boolean, their boxed types, String, Object, the models in client/models, and List and Map with String keys of these to the page.";
 
     pub(super) fn parse(header: &str) -> Self {

@@ -1028,18 +1028,18 @@ impl AnnotationRules {
         .code(2015),
     ];
 
-    const TIMER_RULES: &'static [Rule] = &[
-        Rule::new(
-            "Every",
-            Self::METHOD,
-            "runs the method again and again in the page after a fixed time, while the page is shown",
-        )
-        .needs_arguments()
-        .instance()
-        .reach(Self::TAC, Self::NOWHERE)
-        .clashes(Self::LIFECYCLE)
-        .advice("@Every runs in the page, in a Tac service. On the server, use @Schedule on a Yon worker"),
-    ];
+    const TIMER_RULES: &'static [Rule] = &[Rule::new(
+        "Every",
+        Self::METHOD,
+        "runs the method again and again in the page after a fixed time, while the page is shown",
+    )
+    .needs_arguments()
+    .instance()
+    .reach(Self::TAC, Self::NOWHERE)
+    .clashes(Self::LIFECYCLE)
+    .advice(
+        "@Every runs in the page, in a Tac service. On the server, use @Schedule on a Yon worker",
+    )];
 
     pub(crate) fn rules() -> impl Iterator<Item = &'static Rule> {
         Self::ALL
