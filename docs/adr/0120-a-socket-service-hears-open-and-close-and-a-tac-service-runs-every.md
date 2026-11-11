@@ -87,7 +87,7 @@ need a page call. Applications refreshed tokens before each call and on
 | Dart | `@Every('60s')` on a public method | `@OnEvent` method |
 | Ruby | `#[Every("60s")]` | `#[OnEvent]` method with a YARD `@param` type |
 | Lua | `-- @Every("60s")` | `-- @OnEvent` function with a `---@param` type |
-| Python | `@every("60s")` | Not yet: a Python service cannot name the page's built-in event models until ADR 0122 gives Python Tac services the browser APIs |
+| Python | `@every("60s")` | `@on_event` method with a `SocketOpened` parameter (built-in models since ADR 0122) |
 | C++ | `[[Every("60s")]]` on a public method | `[[OnEvent]]` method |
 
 The WebAssembly languages (Go, Rust, C#, F#, Swift, Kotlin, Java, C++,
@@ -124,4 +124,4 @@ the page as WebAssembly.
   event bus with a fake `WebSocket`, fake intervals and a fake page
   visibility (`tac_web::socket_hooks_tests` for JavaScript, Rust, C#, F#,
   Swift, Kotlin, Java and C++; `tac_dart::dart_socket_hooks_tests`;
-  `tac_ruby` and `tac_lua` `socket_hooks_tests`; `tac_python::every_tests`).
+  `tac_ruby`, `tac_lua` and `tac_python` `socket_hooks_tests`).

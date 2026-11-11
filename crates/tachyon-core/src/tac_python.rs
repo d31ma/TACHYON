@@ -28,8 +28,6 @@ mod converter_tests;
 #[cfg(test)]
 mod delegate_base_tests;
 #[cfg(test)]
-mod every_tests;
-#[cfg(test)]
 mod host_tests;
 #[cfg(test)]
 mod lifecycle_tests;
@@ -41,6 +39,8 @@ mod notices_tests;
 mod page_tests;
 #[cfg(test)]
 mod saved_values_tests;
+#[cfg(test)]
+mod socket_hooks_tests;
 #[cfg(test)]
 mod stream_tests;
 #[cfg(all(test, unix))]
