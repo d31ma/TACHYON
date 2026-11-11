@@ -5,7 +5,7 @@ pub(super) struct JavaWebApis;
 impl JavaWebApis {
     const HOST: (&'static str, &'static str) =
         ("TacWebHost", include_str!("prelude/TacWebHost.java"));
-    const CLIENTS: [(&'static str, &'static str); 14] = [
+    const CLIENTS: [(&'static str, &'static str); 15] = [
         (
             "PreferenceStrings",
             include_str!("../web_apis/PreferenceStrings.java"),
