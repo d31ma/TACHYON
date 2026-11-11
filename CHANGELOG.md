@@ -47,7 +47,9 @@ machine contracts have their own, independent major versions.
   `focus Focus`, JavaScript and TypeScript use `@Needs focus`, and Rust,
   C#, F#, Swift, Kotlin, Java, Dart, Ruby, Lua and C++ get a `Focus` client
   like their `Clock`. Each call runs after the next render, and a failure
-  arrives as `BrowserCallFailed`.
+  arrives as `BrowserCallFailed`. An element that passes focus to a child (a
+  shadow host with `delegatesFocus`, or a custom element that focuses an
+  inner field) counts as focused, so the move does not report a failure.
 - Tac HTTP clients read JSON error bodies in every Tac service language. When
   the server answers an error status with `application/json` or
   `application/problem+json`, the call fails with `HTTP_STATUS`, its status

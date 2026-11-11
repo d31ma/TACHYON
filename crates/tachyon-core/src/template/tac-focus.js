@@ -123,7 +123,7 @@ class TacFocus {
 
   static #focus(element, name) {
     element.focus()
-    if (TacFocus.#active() !== element) throw new Error(`The element with data-focus="${name}" cannot take focus. Use a button, a link or a form field, or add tabindex="-1".`)
+    if (!TacFocus.#inside(element, TacFocus.#active())) throw new Error(`The element with data-focus="${name}" cannot take focus. Use a button, a link or a form field, or add tabindex="-1".`)
   }
 
   static #first(container) {

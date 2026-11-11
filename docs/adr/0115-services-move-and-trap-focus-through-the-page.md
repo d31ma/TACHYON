@@ -2,6 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-11-10
+- Amended: 2026-11-11 (focus inside the named element counts as a success)
 - Preserves: [ADR 0045](0045-go-is-a-service-language.md) (Go runs in the
   page as WebAssembly), [ADR 0065](0065-webassembly-services-reach-the-browser-through-tachyon.md)
   (curated browser APIs, the caller rule and `BrowserCallFailed`) and
@@ -127,3 +128,17 @@ when the method runs.
 - Focus calls run after the render, so a service cannot read the result at
   once. A failure arrives as an event.
 - Python services move focus through the same page host (ADR 0121).
+
+## Amendment (2026-11-11): focus inside the element counts
+
+`move` and the first focus of `trap` succeed when focus ends on the named
+element or inside it after `focus()`. "Inside" follows parent nodes and
+crosses shadow roots to their host. So a shadow host with `delegatesFocus`,
+or a custom element whose `focus()` focuses an inner field (such as DuVay's
+`w-text-field`), counts as focused. Before this amendment the page compared
+the focused element with the named element only, so these moves sent a false
+`BrowserCallFailed` "cannot take focus" although focus did move. The failure
+stays for an element where focus does not end on it or inside it. The browser
+check `scripts/focus-browser-test.mjs` runs both cases in Chromium, Firefox
+and WebKit, and `tac_web::focus_tests` runs a shadow host target for every
+service language that builds there.

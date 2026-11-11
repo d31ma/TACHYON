@@ -39,6 +39,23 @@ class FakeElement {
     return this.all().filter((element) => ['button', 'input'].includes(element.tag) || 'tabindex' in element.attributes)
   }
 }
+class FakePassingElement extends FakeElement {
+  focus() { this.children[0].focus() }
+}
+class FakeShadowHost extends FakeElement {
+  constructor(tag, attributes, inner) {
+    super(tag, attributes)
+    this.inner = inner
+    this.shadowRoot = { host: this, parentNode: null, activeElement: null }
+    inner.parentNode = this.shadowRoot
+  }
+  focus() {
+    const before = document.activeElement
+    document.activeElement = this
+    this.shadowRoot.activeElement = this.inner
+    if (before !== this) fire('focusin', { target: this, composedPath: () => [this.inner, this.shadowRoot, this] })
+  }
+}
 ";
 
     const CHECKS: &'static str = r"
@@ -126,6 +143,21 @@ records.set(label, 'component')
 ask(owner, 'move', ['label'])
 TacFocus.settle()
 equal('cannot take focus', failure().split('\x22label\x22 ')[1]?.slice(0, 17), 'not focusable')
+const passed = new FakeElement('input', {})
+const passing = new FakePassingElement('passing-field', { 'data-focus': 'passing' }, [passed])
+host.add(passing)
+records.set(passing, 'component')
+ask(owner, 'move', ['passing'])
+TacFocus.settle()
+equal(passed, document.activeElement, 'a move to an element that passes focus lands on its child')
+const inner = new FakeElement('input', {})
+const shadow = new FakeShadowHost('shadow-field', { 'data-focus': 'shadow' }, inner)
+host.add(shadow)
+records.set(shadow, 'component')
+ask(owner, 'move', ['shadow'])
+TacFocus.settle()
+equal(inner, shadow.shadowRoot.activeElement, 'a move to a shadow host lands inside its shadow root')
+equal(0, sent.length, 'focus inside the named element is a success')
 const foreign = new FakeElement('button', { 'data-focus': 'foreign' })
 host.add(foreign)
 ask(owner, 'move', ['foreign'])
@@ -214,13 +246,16 @@ console.log('focus-fixture-passed')
 const equal = (expected, actual, label) => { if (expected !== actual) throw new Error(`${label}: expected ${expected}, got ${actual}`) }
 const clean = (answer) => answer === undefined || answer === null || answer === '' || answer === '<nil>'
 const field = new FakeElement('input', {})
-const save = new FakeElement('button', { 'data-focus': 'save' })
+const saveButton = new FakeElement('button', {})
+const save = new FakeShadowHost('save-field', { 'data-focus': 'save' }, saveButton)
 const dialog = new FakeElement('div', { 'data-focus': 'dialog' }, [field, save])
 const opener = new FakeElement('button', {})
 const host = new FakeElement('tachyon-component', {}, [opener, dialog])
 globalThis.fetch = async (url) => new Response(await readFile(url))
 const { default: FocusService } = await import('./FocusService.js')
 const service = new FocusService({})
+const failures = []
+TacWebApis.events = { send: (owner, name, value) => failures.push(value.message) }
 TacFocus.connect({
   render: () => Promise.resolve(),
   views: (caller) => caller === service ? [{ owner: 'component', host }] : [],
@@ -234,9 +269,11 @@ equal(field, document.activeElement, 'the trap focuses the first stop')
 equal(true, clean(await service.pick()), 'move')
 TacFocus.settle()
 equal(save, document.activeElement, 'the move focuses save')
+equal(saveButton, save.shadowRoot.activeElement, 'focus lands inside the shadow root of save')
 equal(true, clean(await service.shut()), 'release')
 TacFocus.settle()
 equal(opener, document.activeElement, 'the release returns focus')
+equal('', failures.join(' | '), 'no focus failure reaches the service')
 console.log('focus-service-passed')
 process.exit(0)
 ";
