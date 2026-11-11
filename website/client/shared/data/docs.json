@@ -1590,8 +1590,73 @@
         },
         {
           "heading": "Keys, modifiers and outside clicks",
-          "body": "An event name can end with modifiers, each after a dot. A key modifier runs the handler only for one key: `escape`, `enter`, `space`, `tab`, `up`, `down`, `left`, `right`, `home` or `end`, on `keydown` or `keyup`. The modifier keys `shift`, `ctrl`, `alt` and `meta` name the keys that must be held, and the held keys must match exactly: `on:keydown.enter` does not run on Shift+Enter, so Shift+Enter can still add a new line. `prevent` calls `preventDefault()` and `stop` calls `stopPropagation()` before the handler starts, so `on:submit.prevent` keeps the page from reloading even when the handler is a Go method in WebAssembly. `outside` runs the handler only for an event that happens outside the element, such as a click somewhere else on the page; put the button that opens a menu inside that element. Write `document:` or `window:` before the event name to listen on the document or the window, as in `on:document:keydown.escape`. Such a listener exists only while its element is on the page, and it ignores the event that rendered it. An event name may contain `-`, as in `on:w-change`, for the custom events of web components. An unknown or repeated modifier, or two keys in one binding, fails the build with `TY1306`. The modifiers work the same for a service in every language, because the browser runtime checks them before it calls the service. See ADR 0114.",
-          "code": "<div class=\"menu\" on:click.outside=\"menu.close()\">\n  <button aria-haspopup=\"menu\" on:click=\"menu.toggle()\">Options</button>\n  <logic :if=\"menu.open\">\n    <ul role=\"menu\" on:document:keydown.escape=\"menu.close()\">\n      <li role=\"none\"><button role=\"menuitem\" on:click=\"menu.pick('rename')\">Rename</button></li>\n    </ul>\n  </logic>\n</div>\n<form on:submit.prevent=\"composer.send()\">\n  <textarea aria-label=\"Message\" on:keydown.enter.prevent=\"composer.send()\" on:input=\"composer.text = $event.target.value\"></textarea>\n</form>\n<color-picker on:w-change=\"theme.choose($event.detail)\"></color-picker>\n"
+          "body": "An event name can end with modifiers, each after a dot. A key modifier runs the handler only for one key: `escape`, `enter`, `space`, `tab`, `up`, `down`, `left`, `right`, `home` or `end`, on `keydown` or `keyup`. The modifier keys `shift`, `ctrl`, `alt` and `meta` name the keys that must be held, and the held keys must match exactly: `on:keydown.enter` does not run on Shift+Enter, so Shift+Enter can still add a new line. `prevent` calls `preventDefault()` and `stop` calls `stopPropagation()` before the handler starts, so `on:submit.prevent` keeps the page from reloading even when the handler is a Go method in WebAssembly. `outside` runs the handler only for an event that happens outside the element, such as a click somewhere else on the page; put the button that opens a menu inside that element. Write `document:` or `window:` before the event name to listen on the document or the window, as in `on:document:keydown.escape`. Such a listener exists only while its element is on the page, and it ignores the event that rendered it. An event name may contain `-`, as in `on:w-change`, for the custom events of web components. An unknown or repeated modifier, or two keys in one binding, fails the build with `TY1306`. The modifiers work the same for a service in every Tac language: JavaScript, TypeScript, Python, Java, Kotlin, C#, F#, Rust, Dart, Go, Swift, Ruby, Lua and C++. The browser runtime checks them before it calls the service, so the service only writes the method that the binding names, in its own style: `Close` in Go, C# and F#, `close` in the others. See ADR 0114.",
+          "files": [
+            {
+              "name": "client/pages/tac.html",
+              "code": "<menu-panel hydrate=\"load\" />\n"
+            },
+            {
+              "name": "client/components/menu/panel/tac.html",
+              "code": "<div class=\"menu\" on:click.outside=\"menu.close()\">\n  <button type=\"button\" aria-haspopup=\"menu\" on:click=\"menu.toggle()\">Options</button>\n  <logic :if=\"menu.expanded\">\n    <ul role=\"menu\" on:document:keydown.escape.prevent=\"menu.close()\">\n      <li role=\"none\"><button type=\"button\" role=\"menuitem\" on:click=\"menu.close()\">Rename</button></li>\n    </ul>\n  </logic>\n</div>\n"
+            },
+            {
+              "name": "client/services/MenuService.js",
+              "code": "@Service\nexport default class MenuService {\n  expanded = false;\n\n  toggle() {\n    this.expanded = !this.expanded;\n  }\n\n  close() {\n    this.expanded = false;\n  }\n}\n"
+            },
+            {
+              "name": "client/services/MenuService.ts",
+              "code": "@Service\nexport default class MenuService {\n  expanded: boolean = false;\n\n  toggle(): void {\n    this.expanded = !this.expanded;\n  }\n\n  close(): void {\n    this.expanded = false;\n  }\n}\n"
+            },
+            {
+              "name": "client/services/MenuService.py",
+              "code": "@service\nclass MenuService:\n    expanded: bool = False\n\n    def toggle(self) -> None:\n        self.expanded = not self.expanded\n\n    def close(self) -> None:\n        self.expanded = False\n"
+            },
+            {
+              "name": "client/services/MenuService.java",
+              "code": "@Service\nclass MenuService {\n    boolean expanded = false;\n\n    void toggle() {\n        expanded = !expanded;\n    }\n\n    void close() {\n        expanded = false;\n    }\n}\n"
+            },
+            {
+              "name": "client/services/MenuService.kt",
+              "code": "@Service\nclass MenuService {\n    var expanded: Boolean = false\n\n    fun toggle() {\n        expanded = !expanded\n    }\n\n    fun close() {\n        expanded = false\n    }\n}\n"
+            },
+            {
+              "name": "client/services/MenuService.cs",
+              "code": "[Service]\npublic class MenuService\n{\n    public bool Expanded = false;\n\n    public void Toggle()\n    {\n        Expanded = !Expanded;\n    }\n\n    public void Close()\n    {\n        Expanded = false;\n    }\n}\n"
+            },
+            {
+              "name": "client/services/MenuService.fs",
+              "code": "[<Service>]\ntype MenuService() =\n    member val Expanded : bool = false with get, set\n\n    member this.Toggle() : unit =\n        this.Expanded <- not this.Expanded\n\n    member this.Close() : unit =\n        this.Expanded <- false\n"
+            },
+            {
+              "name": "client/services/MenuService.rs",
+              "code": "#[Service]\n#[derive(Default)]\nstruct MenuService {\n    expanded: bool,\n}\n\nimpl MenuService {\n    pub fn toggle(&mut self) {\n        self.expanded = !self.expanded;\n    }\n\n    pub fn close(&mut self) {\n        self.expanded = false;\n    }\n}\n"
+            },
+            {
+              "name": "client/services/MenuService.dart",
+              "code": "@Service\nclass MenuService {\n  bool expanded = false;\n\n  void toggle() {\n    expanded = !expanded;\n  }\n\n  void close() {\n    expanded = false;\n  }\n}\n"
+            },
+            {
+              "name": "client/services/MenuService.go",
+              "code": "// @Service\ntype MenuService struct {\n\tExpanded bool\n}\n\nfunc (service *MenuService) Toggle() {\n\tservice.Expanded = !service.Expanded\n}\n\nfunc (service *MenuService) Close() {\n\tservice.Expanded = false\n}\n"
+            },
+            {
+              "name": "client/services/MenuService.swift",
+              "code": "@Service\nfinal class MenuService {\n    var expanded: Bool = false\n\n    func toggle() {\n        expanded = !expanded\n    }\n\n    func close() {\n        expanded = false\n    }\n}\n"
+            },
+            {
+              "name": "client/services/MenuService.rb",
+              "code": "#[Service]\nclass MenuService\n  # @return [Boolean]\n  attr_reader :expanded\n\n  def initialize\n    @expanded = false\n  end\n\n  # @return [void]\n  def toggle\n    @expanded = !@expanded\n  end\n\n  # @return [void]\n  def close\n    @expanded = false\n  end\nend\n"
+            },
+            {
+              "name": "client/services/MenuService.lua",
+              "code": "-- @Service\n---@class MenuService\nMenuService = {\n  ---@type boolean\n  expanded = false,\n}\n\n---@return nil\nfunction MenuService:toggle()\n  self.expanded = not self.expanded\nend\n\n---@return nil\nfunction MenuService:close()\n  self.expanded = false\nend\n"
+            },
+            {
+              "name": "client/services/MenuService.hpp",
+              "code": "#pragma once\n\nclass [[Service]] MenuService {\npublic:\n    bool expanded = false;\n\n    void toggle() {\n        expanded = !expanded;\n    }\n\n    void close() {\n        expanded = false;\n    }\n};\n"
+            }
+          ]
         },
         {
           "heading": "Accessible views",

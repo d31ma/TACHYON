@@ -59,6 +59,7 @@ mod sockets;
 mod stop_hooks;
 mod structure_validation;
 mod support;
+mod tac_event_modifiers;
 mod tac_fsharp_behaviors;
 mod tac_fsharp_checks;
 mod tac_fsharp_context;

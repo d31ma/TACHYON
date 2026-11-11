@@ -98,6 +98,36 @@ Android System WebView 118 or newer. So every target supports the whole
 contract. Nothing is declared in the manifest, so ADR 0102's reach table
 gets no new row.
 
+### Every Tac language
+
+The contract is the same in every Tac service language, because the template
+compiler and the one browser runtime own it. A service only writes the method
+that a binding names, in its own style. The view always calls it in lower
+camel case (`menu.close()`).
+
+| Language | The method `menu.close()` calls | The field `menu.expanded` reads |
+| --- | --- | --- |
+| JavaScript, TypeScript | `close()` | `expanded` |
+| Python | `def close(self) -> None` | `expanded: bool` |
+| Java | `void close()` | `boolean expanded` |
+| Kotlin | `fun close()` | `var expanded: Boolean` |
+| C# | `public void Close()` | `public bool Expanded` |
+| F# | `member this.Close() : unit` | `member val Expanded : bool` |
+| Rust | `pub fn close(&mut self)` | `expanded: bool` |
+| Dart | `void close()` | `bool expanded` |
+| Go | `func (service *MenuService) Close()` | `Expanded bool` |
+| Swift | `func close()` | `var expanded: Bool` |
+| Ruby | `def close` | `attr_reader :expanded` |
+| Lua | `function MenuService:close()` | `expanded = false` |
+| C++ | `void close()` | `bool expanded` |
+
+No language needs a new type, marker or test fake for this ADR: the filters,
+`.prevent`, `.stop`, `.outside` and the document and window listeners run
+before the runtime calls the service. No language is unsupported. The website
+section "Keys, modifiers and outside clicks" shows the same menu in all
+fourteen languages, and `tests/it/tac_event_modifiers.rs` builds it once per
+language and checks the compiled plan.
+
 ### Limits
 
 - Modifiers apply to `on:` bindings on HTML elements. An `on:` binding on a
@@ -137,6 +167,8 @@ every event (`pointerdown`, `focusin`) and keeps the name rule simple.
 - [x] Exact modifier keys, `.prevent`, `.stop`, `.outside` and the
   document/window listener lifecycle are tested in the runtime
   (`template::event_options_tests`).
+- [x] The menu example builds in every Tac language with the same event
+  plan (`tests/it/tac_event_modifiers.rs`).
 - [x] Chromium runs a menu (Escape and outside click), a form with
   `submit.prevent`, a composer (Enter and Shift+Enter) and a hyphenated
   custom event (`scripts/events-browser-test.mjs`).

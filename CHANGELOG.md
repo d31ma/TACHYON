@@ -45,7 +45,9 @@ machine contracts have their own, independent major versions.
   click outside the element. `on:document:<event>` and `on:window:<event>`
   listen on the document or window while the element is on the page. Event
   names may contain `-` (`on:w-change`). Unknown or repeated modifiers fail
-  with `TY1306`. Every target runs this in its web view. See ADR 0114.
+  with `TY1306`. Every target runs this in its web view, and every Tac
+  service language gets it: the website shows the same menu in all fourteen
+  languages, and a test builds it once per language. See ADR 0114.
 
 - Python Tac services can use Tachyon's browser APIs: `Clock`,
   `SecureRandom`, `Connectivity`, `PageVisibility`, `Preferences`,

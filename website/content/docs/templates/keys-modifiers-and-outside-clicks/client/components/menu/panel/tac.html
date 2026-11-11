@@ -1,0 +1,8 @@
+<div class="menu" on:click.outside="menu.close()">
+  <button type="button" aria-haspopup="menu" on:click="menu.toggle()">Options</button>
+  <logic :if="menu.expanded">
+    <ul role="menu" on:document:keydown.escape.prevent="menu.close()">
+      <li role="none"><button type="button" role="menuitem" on:click="menu.close()">Rename</button></li>
+    </ul>
+  </logic>
+</div>
