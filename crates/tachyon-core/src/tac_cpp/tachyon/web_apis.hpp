@@ -94,6 +94,15 @@ public:
     }
 };
 
+class Focus {
+public:
+    void move(const std::string& target) const { TacWebCall::answer("focus", "move", TacWebCall::arguments(target)); }
+
+    void trap(const std::string& container) const { TacWebCall::answer("focus", "trap", TacWebCall::arguments(container)); }
+
+    void release() const { TacWebCall::answer("focus", "release"); }
+};
+
 class Notifications {
 public:
     std::string permission() const { return TacWebCall::text("notifications", "permission"); }
@@ -132,6 +141,7 @@ public:
 using tachyon::web::Clipboard;
 using tachyon::web::Clock;
 using tachyon::web::Connectivity;
+using tachyon::web::Focus;
 using tachyon::web::Geolocation;
 using tachyon::web::Notifications;
 using tachyon::web::PageVisibility;

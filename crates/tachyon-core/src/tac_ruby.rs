@@ -37,7 +37,8 @@ impl RubyWebServices {
         include_str!("tac_ruby/share.rb"),
         include_str!("tac_ruby/notifications.rb"),
         include_str!("tac_ruby/geolocation.rb"),
-        include_str!("tac_ruby/window_controls.rb")
+        include_str!("tac_ruby/window_controls.rb"),
+        include_str!("tac_ruby/focus.rb")
     );
     const BEHAVIOR_RUNTIME: &'static str = include_str!("behavior/polyglot/ruby_runtime.rb");
     pub(crate) const RUNTIME_PATH: &'static str = "ruby/tachyon-ruby.wasm";

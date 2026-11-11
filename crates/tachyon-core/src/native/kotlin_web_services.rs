@@ -35,7 +35,8 @@ impl KotlinWebServices {
         include_str!("web_apis/Share.kt"),
         include_str!("web_apis/Notifications.kt"),
         include_str!("web_apis/Geolocation.kt"),
-        include_str!("web_apis/WindowControls.kt")
+        include_str!("web_apis/WindowControls.kt"),
+        include_str!("web_apis/Focus.kt")
     );
 
     const JVM_SHIMS: [(&'static str, &'static str); 4] = [

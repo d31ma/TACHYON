@@ -66,7 +66,8 @@ impl RustCompanion {
         include_str!("web_apis/share.rs"),
         include_str!("web_apis/notifications.rs"),
         include_str!("web_apis/geolocation.rs"),
-        include_str!("web_apis/window_controls.rs")
+        include_str!("web_apis/window_controls.rs"),
+        include_str!("web_apis/focus.rs")
     );
     const BEHAVIOR_HTTP_STUB: &str = include_str!("../behavior/polyglot/behavior_native_http.rs");
     const BEHAVIOR_HTTP: &str = concat!(

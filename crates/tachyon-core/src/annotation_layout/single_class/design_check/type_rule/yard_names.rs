@@ -59,7 +59,7 @@ impl YardNames {
         "SecureRandom",
         "Data",
     ];
-    const FRAMEWORK_CLASSES: [&'static str; 15] = [
+    const FRAMEWORK_CLASSES: [&'static str; 16] = [
         "ApplicationEventPublisher",
         "DataSource",
         "RedisTemplate",
@@ -75,6 +75,7 @@ impl YardNames {
         "Share",
         "TacStorage",
         "WindowControls",
+        "Focus",
     ];
 
     pub(super) fn problems(class: &ClassFile, known: &KnownClasses) -> Vec<DesignProblem> {

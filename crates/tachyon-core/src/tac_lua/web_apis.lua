@@ -116,6 +116,20 @@ function Share:open(title, text, url)
   TacWebHost.call("share", "open", { title, text, url })
 end
 
+Focus = {}
+
+function Focus:move(target)
+  TacWebHost.call("focus", "move", { target })
+end
+
+function Focus:trap(container)
+  TacWebHost.call("focus", "trap", { container })
+end
+
+function Focus:release()
+  TacWebHost.call("focus", "release")
+end
+
 Notifications = {}
 
 function Notifications:permission()

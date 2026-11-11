@@ -15,7 +15,8 @@ impl CsharpWebApis {
         include_str!("web_apis/Share.cs"),
         include_str!("web_apis/Notifications.cs"),
         include_str!("web_apis/Geolocation.cs"),
-        include_str!("web_apis/WindowControls.cs")
+        include_str!("web_apis/WindowControls.cs"),
+        include_str!("web_apis/Focus.cs")
     );
 
     const LIBRARY_USINGS: &'static str = "using System.Text.Json.Nodes;\n\n";

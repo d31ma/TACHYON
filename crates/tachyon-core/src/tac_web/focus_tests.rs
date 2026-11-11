@@ -152,39 +152,92 @@ equal(save, document.activeElement, 'the queue drains in order')
 console.log('focus-fixture-passed')
 ";
 
-    const GO_SERVICE: &'static str = "import \"fmt\"\n\n// @Service\ntype StampService struct {\n\t// @Needs\n\tfocus Focus\n}\n\n\
-         func (stamp *StampService) Open() string {\n\treturn fmt.Sprint(stamp.focus.Trap(\"dialog\"))\n}\n\n\
-         func (stamp *StampService) Pick() string {\n\treturn fmt.Sprint(stamp.focus.Move(\"save\"))\n}\n\n\
-         func (stamp *StampService) Close() string {\n\treturn fmt.Sprint(stamp.focus.Release())\n}\n\n\
-         func (stamp *StampService) Bad() string {\n\treturn fmt.Sprint(stamp.focus.Move(\"1bad\"))\n}\n";
+    const GO: &'static str = "import \"fmt\"\n\n// @Service\ntype FocusService struct {\n\t// @Needs\n\tfocus Focus\n}\n\n\
+         func (service *FocusService) Open() string {\n\treturn fmt.Sprint(service.focus.Trap(\"dialog\"))\n}\n\n\
+         func (service *FocusService) Pick() string {\n\treturn fmt.Sprint(service.focus.Move(\"save\"))\n}\n\n\
+         func (service *FocusService) Shut() string {\n\treturn fmt.Sprint(service.focus.Release())\n}\n\n\
+         func (service *FocusService) Bad() string {\n\treturn fmt.Sprint(service.focus.Move(\"1bad\"))\n}\n";
 
-    const GO_CHECKS: &'static str = r"
+    const RUST: &'static str = "#[Service]\n#[derive(Default)]\nstruct FocusService {\n    focus: Focus,\n}\n\n\
+         impl FocusService {\n    \
+         pub fn open(&self) -> String {\n        self.focus.trap(\"dialog\").err().unwrap_or_default()\n    }\n\n    \
+         pub fn pick(&self) -> String {\n        self.focus.move_to(\"save\").err().unwrap_or_default()\n    }\n\n    \
+         pub fn shut(&self) -> String {\n        self.focus.release().err().unwrap_or_default()\n    }\n}\n";
+
+    const CSHARP: &'static str = "[Service]\npublic class FocusService\n{\n    \
+         private readonly Focus focus = new();\n\n    \
+         public void Open() => focus.Trap(\"dialog\");\n\n    \
+         public void Pick() => focus.Move(\"save\");\n\n    \
+         public void Shut() => focus.Release();\n}\n";
+
+    const FSHARP: &'static str = "[<Service>]\ntype FocusService() =\n    let focus = Focus()\n\n    \
+         member this.Open() : unit = focus.Trap(\"dialog\")\n\n    \
+         member this.Pick() : unit = focus.Move(\"save\")\n\n    \
+         member this.Shut() : unit = focus.Release()\n";
+
+    const SWIFT: &'static str = "@Service\nfinal class FocusService {\n    private let focus = Focus()\n\n    \
+         func open() throws {\n        try focus.trap(\"dialog\")\n    }\n\n    \
+         func pick() throws {\n        try focus.move(\"save\")\n    }\n\n    \
+         func shut() throws {\n        try focus.release()\n    }\n}\n";
+
+    const KOTLIN: &'static str = "@Service\nclass FocusService {\n    private val focus = Focus()\n\n    \
+         fun open() {\n        focus.trap(\"dialog\")\n    }\n\n    \
+         fun pick() {\n        focus.move(\"save\")\n    }\n\n    \
+         fun shut() {\n        focus.release()\n    }\n}\n";
+
+    const JAVA: &'static str = "@Service\nclass FocusService {\n    private final Focus focus = new Focus();\n\n    \
+         void open() {\n        focus.trap(\"dialog\");\n    }\n\n    \
+         void pick() {\n        focus.move(\"save\");\n    }\n\n    \
+         void shut() {\n        focus.release();\n    }\n}\n";
+
+    const DART: &'static str = "@Service()\nclass FocusService {\n  @Needs()\n  final Focus focus;\n\n  \
+         void open() => focus.trap('dialog');\n\n  \
+         void pick() => focus.move('save');\n\n  \
+         void shut() => focus.release();\n}\n";
+
+    const RUBY: &'static str = "#[Service]\nclass FocusService\n  \
+         def open\n    Focus.new.trap(\"dialog\")\n  end\n\n  \
+         def pick\n    Focus.new.move(\"save\")\n  end\n\n  \
+         def shut\n    Focus.new.release\n  end\nend\n";
+
+    const LUA: &'static str = "-- @Service\n---@class FocusService\nFocusService = {}\n\n\
+         ---@return nil\nfunction FocusService:open()\n  Focus:trap(\"dialog\")\nend\n\n\
+         ---@return nil\nfunction FocusService:pick()\n  Focus:move(\"save\")\nend\n\n\
+         ---@return nil\nfunction FocusService:shut()\n  Focus:release()\nend\n";
+
+    const CPP: &'static str = "#pragma once\n\nclass [[Service]] FocusService {\npublic:\n    [[Needs]] Focus& focus;\n\n    \
+         void open() { focus.trap(\"dialog\"); }\n\n    \
+         void pick() { focus.move(\"save\"); }\n\n    \
+         void shut() { focus.release(); }\n};\n";
+
+    const SERVICE_CHECKS: &'static str = r"
 const equal = (expected, actual, label) => { if (expected !== actual) throw new Error(`${label}: expected ${expected}, got ${actual}`) }
+const clean = (answer) => answer === undefined || answer === null || answer === '' || answer === '<nil>'
 const field = new FakeElement('input', {})
 const save = new FakeElement('button', { 'data-focus': 'save' })
 const dialog = new FakeElement('div', { 'data-focus': 'dialog' }, [field, save])
 const opener = new FakeElement('button', {})
 const host = new FakeElement('tachyon-component', {}, [opener, dialog])
 globalThis.fetch = async (url) => new Response(await readFile(url))
-const { default: StampService } = await import('./StampService.js')
-const stamp = new StampService({})
+const { default: FocusService } = await import('./FocusService.js')
+const service = new FocusService({})
 TacFocus.connect({
   render: () => Promise.resolve(),
-  views: (caller) => caller === stamp ? [{ owner: 'component', host }] : [],
+  views: (caller) => caller === service ? [{ owner: 'component', host }] : [],
   owner: (element) => host.all().includes(element) ? 'component' : null,
 })
-equal(true, stamp.bad().startsWith('A focus name'), 'a bad name is a Go error')
+if (typeof service.bad === 'function') equal(true, service.bad().startsWith('A focus name'), 'a bad name fails the call')
 opener.focus()
-equal('<nil>', stamp.open(), 'trap')
+equal(true, clean(await service.open()), 'trap')
 TacFocus.settle()
-equal(field, document.activeElement, 'the Go trap focuses the first stop')
-equal('<nil>', stamp.pick(), 'move')
+equal(field, document.activeElement, 'the trap focuses the first stop')
+equal(true, clean(await service.pick()), 'move')
 TacFocus.settle()
-equal(save, document.activeElement, 'the Go move focuses save')
-equal('<nil>', stamp.close(), 'release')
+equal(save, document.activeElement, 'the move focuses save')
+equal(true, clean(await service.shut()), 'release')
 TacFocus.settle()
-equal(opener, document.activeElement, 'the Go release returns focus')
-console.log('focus-go-passed')
+equal(opener, document.activeElement, 'the release returns focus')
+console.log('focus-service-passed')
 process.exit(0)
 ";
 
@@ -200,43 +253,89 @@ process.exit(0)
         Self::execute(root.path(), &program)
     }
 
-    async fn run_go() -> String {
+    async fn run_service(
+        language: super::WebLanguage,
+        relative: &str,
+        source: &str,
+        profile: crate::BuildProfile,
+    ) -> String {
         let root = tempfile::tempdir().expect("fixture");
-        let path = root.path().join("client/services/StampService.go");
-        std::fs::create_dir_all(path.parent().expect("parent")).expect("services");
-        std::fs::write(&path, Self::GO_SERVICE).expect("service");
+        let path = Self::write(root.path(), relative, source.as_bytes());
         let services = [(
-            String::from("stamp"),
-            String::from("StampService"),
-            super::WebLanguage::Go,
+            String::from("focus"),
+            String::from("FocusService"),
+            language,
             path,
         )];
         let jobs = super::BuildJobs::new(1);
-        let published =
-            super::build_all(root.path(), &services, &jobs, crate::BuildProfile::Release)
-                .await
-                .expect("build");
+        let published = super::build_all(root.path(), &services, &jobs, profile)
+            .await
+            .expect("build");
         for (name, bytes) in published.files {
-            let file = root.path().join(name);
-            std::fs::create_dir_all(file.parent().expect("parent")).expect("folder");
-            std::fs::write(file, bytes).expect("module");
+            Self::write(root.path(), &name, &bytes);
         }
+        Self::drive(root.path())
+    }
+
+    async fn run_dart() -> String {
+        let root = tempfile::tempdir().expect("fixture");
+        let path = Self::write(
+            root.path(),
+            "client/services/FocusService.dart",
+            Self::DART.as_bytes(),
+        );
+        let services = [("FocusService", path.as_path())];
+        let instances = std::collections::BTreeSet::from([String::from("focus")]);
+        let profile = crate::BuildProfile::Release;
+        let modules = crate::tac_dart::build_all(root.path(), &services, &instances, profile)
+            .await
+            .expect("build");
+        for (name, bytes) in modules {
+            Self::write(root.path(), &name, &bytes);
+        }
+        Self::write(root.path(), "package.json", b"{\"type\":\"module\"}");
+        Self::drive(root.path())
+    }
+
+    fn drive(root: &std::path::Path) -> String {
         let program = [
             "import { readFile } from 'node:fs/promises'",
             Self::PAGE,
             include_str!("../template/tac-focus.js"),
             include_str!("../template/tac-web.js"),
-            Self::GO_CHECKS,
+            Self::SERVICE_CHECKS,
         ]
         .join("\n");
-        Self::execute(root.path(), &program)
+        Self::execute(root, &program)
     }
 
-    fn go_available() -> bool {
-        std::process::Command::new("go")
-            .arg("version")
+    fn write(root: &std::path::Path, relative: &str, bytes: &[u8]) -> std::path::PathBuf {
+        let path = root.join(relative);
+        std::fs::create_dir_all(path.parent().expect("parent")).expect("folder");
+        std::fs::write(&path, bytes).expect("file");
+        path
+    }
+
+    fn answers(program: &str, argument: &str) -> bool {
+        crate::program_probe::ProgramProbe::answers(program, argument)
+            && crate::node_driver::NodeDriver::available()
+    }
+
+    fn rust_web_target() -> bool {
+        std::process::Command::new("rustc")
+            .args(["--print", "target-libdir", "--target"])
+            .arg(crate::native::RustCompanion::WEB_TARGET)
             .output()
-            .is_ok_and(|output| output.status.success())
+            .is_ok_and(|output| {
+                std::path::Path::new(String::from_utf8_lossy(&output.stdout).trim()).is_dir()
+            })
+    }
+
+    fn skipped(ready: bool, language: &str) -> bool {
+        if !ready {
+            eprintln!("skipping: the {language} toolchain or node is unavailable");
+        }
+        !ready
     }
 
     fn execute(root: &std::path::Path, program: &str) -> String {
@@ -265,9 +364,164 @@ fn focus_moves_traps_tab_and_returns_focus_after_the_render() {
 
 #[tokio::test]
 async fn a_go_service_moves_traps_and_releases_focus_through_the_page() {
-    if !crate::node_driver::NodeDriver::available() || !FocusFixture::go_available() {
-        eprintln!("skipping: node or go is unavailable");
+    if FocusFixture::skipped(FocusFixture::answers("go", "version"), "Go") {
         return;
     }
-    assert!(FocusFixture::run_go().await.contains("focus-go-passed"));
+    let report = FocusFixture::run_service(
+        super::WebLanguage::Go,
+        "client/services/FocusService.go",
+        FocusFixture::GO,
+        crate::BuildProfile::Release,
+    )
+    .await;
+    assert!(report.contains("focus-service-passed"), "{report}");
+}
+
+#[tokio::test]
+async fn a_rust_service_moves_traps_and_releases_focus_through_the_page() {
+    let ready = FocusFixture::rust_web_target() && crate::node_driver::NodeDriver::available();
+    if FocusFixture::skipped(ready, "Rust wasm32") {
+        return;
+    }
+    let report = FocusFixture::run_service(
+        super::WebLanguage::Rust,
+        "client/services/FocusService.rs",
+        FocusFixture::RUST,
+        crate::BuildProfile::Release,
+    )
+    .await;
+    assert!(report.contains("focus-service-passed"), "{report}");
+}
+
+#[tokio::test]
+async fn a_csharp_service_moves_traps_and_releases_focus_through_the_page() {
+    if FocusFixture::skipped(super::fsharp_tests::fsharp_web_ready(), ".NET wasm-tools") {
+        return;
+    }
+    let report = FocusFixture::run_service(
+        super::WebLanguage::CSharp,
+        "client/services/FocusService.cs",
+        FocusFixture::CSHARP,
+        crate::BuildProfile::Development,
+    )
+    .await;
+    assert!(report.contains("focus-service-passed"), "{report}");
+}
+
+#[tokio::test]
+async fn an_fsharp_service_moves_traps_and_releases_focus_through_the_page() {
+    if FocusFixture::skipped(super::fsharp_tests::fsharp_web_ready(), ".NET wasm-tools") {
+        return;
+    }
+    let report = FocusFixture::run_service(
+        super::WebLanguage::CSharp,
+        "client/services/FocusService.fs",
+        FocusFixture::FSHARP,
+        crate::BuildProfile::Release,
+    )
+    .await;
+    assert!(report.contains("focus-service-passed"), "{report}");
+}
+
+#[tokio::test]
+async fn a_swift_service_moves_traps_and_releases_focus_through_the_page() {
+    if FocusFixture::skipped(super::swift_tests::swift_web_ready(), "Swift WebAssembly") {
+        return;
+    }
+    let report = FocusFixture::run_service(
+        super::WebLanguage::Swift,
+        "client/services/FocusService.swift",
+        FocusFixture::SWIFT,
+        crate::BuildProfile::Development,
+    )
+    .await;
+    assert!(report.contains("focus-service-passed"), "{report}");
+}
+
+#[tokio::test]
+async fn a_kotlin_service_moves_traps_and_releases_focus_through_the_page() {
+    if FocusFixture::skipped(super::kotlin_tests::kotlin_web_ready(), "Kotlin/Wasm") {
+        return;
+    }
+    let report = FocusFixture::run_service(
+        super::WebLanguage::Kotlin,
+        "client/services/FocusService.kt",
+        FocusFixture::KOTLIN,
+        crate::BuildProfile::Development,
+    )
+    .await;
+    assert!(report.contains("focus-service-passed"), "{report}");
+}
+
+#[tokio::test]
+async fn a_java_service_moves_traps_and_releases_focus_through_the_page() {
+    if FocusFixture::skipped(super::java_tests::java_web_ready(), "TeaVM") {
+        return;
+    }
+    let report = FocusFixture::run_service(
+        super::WebLanguage::Java,
+        "client/services/FocusService.java",
+        FocusFixture::JAVA,
+        crate::BuildProfile::Development,
+    )
+    .await;
+    assert!(report.contains("focus-service-passed"), "{report}");
+}
+
+#[tokio::test]
+async fn a_dart_service_moves_traps_and_releases_focus_through_the_page() {
+    if FocusFixture::skipped(FocusFixture::answers("dart", "--version"), "Dart") {
+        return;
+    }
+    let report = FocusFixture::run_dart().await;
+    assert!(report.contains("focus-service-passed"), "{report}");
+}
+
+#[tokio::test]
+async fn a_ruby_service_moves_traps_and_releases_focus_through_the_page() {
+    let unavailable = crate::tac_ruby::RubyRuntimeBuild::unavailable_reason();
+    let ready = unavailable.is_none() && crate::node_driver::NodeDriver::available();
+    if FocusFixture::skipped(ready, "Ruby WebAssembly") {
+        return;
+    }
+    let report = FocusFixture::run_service(
+        super::WebLanguage::Ruby,
+        "client/services/FocusService.rb",
+        FocusFixture::RUBY,
+        crate::BuildProfile::Release,
+    )
+    .await;
+    assert!(report.contains("focus-service-passed"), "{report}");
+}
+
+#[tokio::test]
+async fn a_lua_service_moves_traps_and_releases_focus_through_the_page() {
+    let unavailable = crate::tac_lua::LuaRuntimeBuild::unavailable_reason();
+    let ready = unavailable.is_none() && crate::node_driver::NodeDriver::available();
+    if FocusFixture::skipped(ready, "Lua WebAssembly") {
+        return;
+    }
+    let report = FocusFixture::run_service(
+        super::WebLanguage::Lua,
+        "client/services/FocusService.lua",
+        FocusFixture::LUA,
+        crate::BuildProfile::Release,
+    )
+    .await;
+    assert!(report.contains("focus-service-passed"), "{report}");
+}
+
+#[tokio::test]
+async fn a_cpp_service_moves_traps_and_releases_focus_through_the_page() {
+    if FocusFixture::skipped(FocusFixture::answers("em++", "--version"), "Emscripten") {
+        return;
+    }
+    let report = FocusFixture::run_service(
+        super::WebLanguage::Cpp,
+        "client/services/FocusService.hpp",
+        FocusFixture::CPP,
+        crate::BuildProfile::Release,
+    )
+    .await;
+    assert!(report.contains("focus-service-passed"), "{report}");
 }

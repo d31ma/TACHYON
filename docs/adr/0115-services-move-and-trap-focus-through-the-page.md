@@ -75,17 +75,43 @@ when the method runs.
      answers a call (the same fakes as the other curated APIs).
    - JavaScript and TypeScript: `@Needs focus` (type `Focus` in
      `tachyon-behaviors.d.ts`), with `move`, `trap` and `release`.
-   - Rust, C#, F#, Swift, Kotlin, Java, Dart, Ruby, Lua, C++ and Python get no
-     client in this change. Their shared list of curated types
-     (`web_api_clients.rs`) is unchanged, so they answer as before. A later
-     change can add a client in the same way.
+   - Every other Tac service language gets a thin `Focus` client over its
+     existing page host, in the style of its `Clock` client. `Focus` joins
+     `WebApiClients::TYPE_NAMES`, the list every language reads. A failure of
+     the call itself uses the language's usual browser API error:
+     - Rust: a `Focus` field that `Default` fills, with
+       `move_to(&str) -> Result<(), String>` (`move` is a Rust keyword),
+       `trap(&str)` and `release()`.
+     - C# and F# (one shared C# client): `Move(string)`, `Trap(string)` and
+       `Release()`; a failure is an `InvalidOperationException`.
+     - Swift: `move(_:)`, `trap(_:)` and `release()`, which throw.
+     - Kotlin and Java: `move`, `trap` and `release`; a failure is an
+       `IllegalStateException`.
+     - Dart: an `@Needs()` field `final Focus focus;` with `move`, `trap`
+       and `release`; a failure is a `StateError`.
+     - Ruby: `Focus.new` with `move`, `trap` and `release`; a failure is a
+       `RuntimeError`.
+     - Lua: the table `Focus` with `Focus:move`, `Focus:trap` and
+       `Focus:release`; a failure is a Lua error.
+     - C++: `[[Needs]] Focus& focus;` with `move`, `trap` and `release`; a
+       failure throws `std::runtime_error`.
+   - Python: coming with ADR 0122, which gives Python services browser APIs.
+     Until then a Python service that names `Focus` stops the build with
+     `TY1605`, like every other curated browser API.
+   - A service that is linked into a native app (Rust, C#, Swift or Kotlin
+     as a native companion) has no page, so the build refuses `Focus` there
+     with `TY1317`, like the other curated types.
+   - Each language has a test that builds a small service with the
+     language's real toolchain and drives it in Node against the shared page
+     runtime (`tac_web::focus_tests`).
 8. No permission and no user action are needed, so `Focus` has no grant in
    `tac.browserApis` and no manifest member. `target_support.json` needs no
    entry (ADR 0102 lists manifest members).
-9. Targets: Go is never a native companion, so a Go Tac service always runs
-   as WebAssembly in the page. On web, macOS, Windows, Linux, iOS and Android
-   the page runs in a browser or the platform web view (ADR 0018), and the
-   API uses only `focus()`, `getClientRects()`, `closest()`, `keydown` and
+9. Targets: a Tac service that runs in the page (every Go, Dart, Ruby,
+   Lua, C++, Java, F#, JavaScript and TypeScript service, and every Rust,
+   C#, Swift or Kotlin service that is not a native companion) works the same
+   on web, macOS, Windows, Linux, iOS and Android, because the page runs in
+   a browser or the platform web view (ADR 0018). The API uses only `focus()`, `getClientRects()`, `closest()`, `keydown` and
    `focusin`, which every native web view floor has (ADR 0108). Focus works
    the same on every target.
 10. Size: `tac-web.js` only adds one guarded entry. Its budget test moves from
@@ -100,5 +126,4 @@ when the method runs.
   call with a `BrowserCallFailed` event, not a build error.
 - Focus calls run after the render, so a service cannot read the result at
   once. A failure arrives as an event.
-- Other service languages still need a JavaScript or TypeScript service to
-  move focus.
+- Python services cannot move focus until ADR 0122 lands.

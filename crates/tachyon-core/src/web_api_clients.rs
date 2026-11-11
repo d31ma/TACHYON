@@ -1,7 +1,7 @@
 pub(crate) struct WebApiClients;
 
 impl WebApiClients {
-    pub(crate) const TYPE_NAMES: [&'static str; 10] = [
+    pub(crate) const TYPE_NAMES: [&'static str; 11] = [
         "Clock",
         "SecureRandom",
         "Connectivity",
@@ -12,6 +12,7 @@ impl WebApiClients {
         "Notifications",
         "Geolocation",
         "WindowControls",
+        "Focus",
     ];
 
     pub(crate) const NATIVE_CAPABILITIES: [&'static str; 2] = ["FilePicker", "WindowControls"];

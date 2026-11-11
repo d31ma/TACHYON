@@ -10,12 +10,15 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
-- **Go Tac services can move and trap focus.** A new `Focus` browser API
+- **Tac services can move and trap focus.** A new `Focus` browser API
   (ADR 0115) moves focus to an element named with `data-focus`, traps Tab
   and Shift+Tab inside a container such as a dialog, and returns focus to
-  the opener on release. Go services use `// @Needs` with `focus Focus`;
-  JavaScript and TypeScript services use `@Needs focus`. Each call runs after
-  the next render, and a failure arrives as `BrowserCallFailed`.
+  the opener on release. Every Tac service language has it except Python,
+  which gets browser APIs with ADR 0122: Go uses `// @Needs` with
+  `focus Focus`, JavaScript and TypeScript use `@Needs focus`, and Rust,
+  C#, F#, Swift, Kotlin, Java, Dart, Ruby, Lua and C++ get a `Focus` client
+  like their `Clock`. Each call runs after the next render, and a failure
+  arrives as `BrowserCallFailed`.
 
 ### Fixed
 
