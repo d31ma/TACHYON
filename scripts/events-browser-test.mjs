@@ -72,7 +72,7 @@ export default class EventsService {
   sent = '-'
   changedTo = '-'
   increment() { this.count += 1 }
-  toggleMenu() { this.menuOpen = !this.menuOpen; this.menuState = this.menuOpen ? 'open' : 'closed' }
+  toggleMenu() { this.menuOpen = !this.menuOpen; this.menuState = this.#stateOf(this.menuOpen) }
   closeMenu() { this.menuOpen = false; this.menuState = 'closed' }
   submitted() { this.sent = 'form' }
   send() { this.sent = 'enter' }
@@ -108,6 +108,7 @@ export default class EventsService {
   @OnEvent
   @InBackground()
   async audit(value) { this.#note('audit:' + value.total) }
+  #stateOf(open) { return open ? 'open' : 'closed' }
   #typeOf(passed) { return passed?.type ?? 'missing' }
   #note(entry) { this.trace = this.trace ? this.trace + ',' + entry : entry }
 }
