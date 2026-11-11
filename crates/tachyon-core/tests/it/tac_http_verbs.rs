@@ -22,6 +22,7 @@ impl HttpVerbProject {
     ];
     const VERBS: [&'static str; 3] = ["put", "patch", "delete"];
     const POSTED: [&'static str; 3] = ["ts", "rs", "swift"];
+    const ERROR_BODIES: [&'static str; 1] = ["go"];
 
     const VERSION_FLAGS: [(&'static str, &'static str); 3] =
         [("kotlinc", "-version"), ("go", "version"), ("lua", "-v")];
@@ -59,6 +60,11 @@ impl HttpVerbProject {
         let expected: Vec<&str> = Self::VERBS
             .into_iter()
             .chain(Self::POSTED.contains(&extension).then_some("post"))
+            .chain(
+                Self::ERROR_BODIES
+                    .contains(&extension)
+                    .then_some("errorbody"),
+            )
             .collect();
         let verbs: Vec<String> = report
             .cases

@@ -2,6 +2,7 @@ class TacBrowserHttp {
   static key = Symbol.for('tachyon.tac.http')
   static mostRequests = 64
   static mostBytes = 1048576
+  static problemTypes = ['application/json', 'application/problem+json']
   static requestBytes = 1048576
   static pending = 0
   static yonOriginTag = 'meta[name="tachyon-yon-origin"]'
@@ -27,9 +28,15 @@ class TacBrowserHttp {
       if (new TextEncoder().encode(answer).length > TacBrowserHttp.mostBytes) TacBrowserHttp.#fail('HTTP_LIMIT')
       return answer
     } catch (error) {
-      const code = TacBrowserHttp.#code(error, controller)
-      return JSON.stringify({ error: code === 'HTTP_STATUS' ? { code, status: error.status } : { code } })
+      return TacBrowserHttp.#failure(TacBrowserHttp.#code(error, controller), error)
     }
+  }
+
+  static #failure(code, error) {
+    if (code !== 'HTTP_STATUS') return JSON.stringify({ error: { code } })
+    const answer = JSON.stringify({ error: { code, status: error.status, body: error.body } })
+    if (new TextEncoder().encode(answer).length <= TacBrowserHttp.mostBytes) return answer
+    return JSON.stringify({ error: { code, status: error.status } })
   }
 
   static #code(error, controller) {
@@ -38,7 +45,7 @@ class TacBrowserHttp {
     return allowed.includes(error?.code) ? error.code : 'HTTP_NETWORK'
   }
 
-  static #fail(code, status) { throw Object.assign(new Error('Browser HTTP failed.'), { code, status }) }
+  static #fail(code, status, body) { throw Object.assign(new Error('Browser HTTP failed.'), { code, status, body }) }
 
   static #request(text) {
     if (typeof text !== 'string' || new TextEncoder().encode(text).length > TacBrowserHttp.requestBytes) TacBrowserHttp.#fail('HTTP_REQUEST')
@@ -124,7 +131,7 @@ class TacBrowserHttp {
       if (remaining <= 0) { controller.abort('DEADLINE'); TacBrowserHttp.#fail('HTTP_REQUEST') }
       const response = await TacBrowserHttp.#fetch(request.url, { method: request.method, headers: request.headers, body: request.body,
         credentials: 'omit', redirect: 'error', mode: request.mode, cache: request.cache, signal: controller.signal })
-      if (!response.ok) TacBrowserHttp.#fail('HTTP_STATUS', response.status)
+      if (!response.ok) TacBrowserHttp.#fail('HTTP_STATUS', response.status, await TacBrowserHttp.#problem(response, request.limit))
       const text = await TacBrowserHttp.#read(response, request.limit)
       if (controller.signal.aborted) TacBrowserHttp.#fail('HTTP_REQUEST')
       if (!text.trim()) return null
@@ -133,6 +140,16 @@ class TacBrowserHttp {
       TacBrowserHttp.#json(value)
       return value
     } finally { clearTimeout(timer); TacBrowserHttp.pending -= 1 }
+  }
+
+  static async #problem(response, limit) {
+    const type = (response.headers?.get('content-type') ?? '').split(';')[0].trim().toLowerCase()
+    if (!TacBrowserHttp.problemTypes.includes(type)) return undefined
+    try {
+      const value = JSON.parse(await TacBrowserHttp.#read(response, limit))
+      TacBrowserHttp.#json(value)
+      return value ?? undefined
+    } catch { return undefined }
   }
 
   static async #read(response, limit) {

@@ -48,14 +48,18 @@ func behaviorBrowserAnswer(text string) (BehaviorValue, error) {
 		return nil, behaviorError("HTTP_RESPONSE", behaviorBrowserFailed)
 	}
 	if failure, failed := object["error"].(map[string]any); failed {
-		status, _ := failure["status"].(float64)
-		return nil, &BehaviorError{Code: behaviorBrowserCode(failure["code"]), Message: behaviorBrowserFailed, Status: int(status)}
+		return nil, behaviorBrowserFailure(failure)
 	}
 	value, present := object["value"]
 	if !present {
 		return nil, behaviorError("HTTP_RESPONSE", behaviorBrowserFailed)
 	}
 	return behaviorChecked(value, 1048576)
+}
+
+func behaviorBrowserFailure(failure map[string]any) error {
+	status, _ := failure["status"].(float64)
+	return &BehaviorError{Code: behaviorBrowserCode(failure["code"]), Message: behaviorBrowserFailed, Status: int(status), Body: failure["body"]}
 }
 
 func behaviorBrowserCode(code any) string {

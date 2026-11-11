@@ -958,6 +958,72 @@ func checkHttpInvocation(context *BehaviorContext) {
 	expect(response == "transport", "the exchange answers")
 }
 
+type Problem struct{}
+
+func (Problem) Exchange(request *BehaviorHttpRequest, execution *BehaviorExecution) (BehaviorValue, error) {
+	failures := map[string]error{
+		"/conflict": &BehaviorError{Code: "HTTP_STATUS", Message: "private adapter text", Status: 409, Body: map[string]any{"reason": "taken"}},
+		"/success":  &BehaviorError{Code: "HTTP_STATUS", Status: 200, Body: map[string]any{"reason": "taken"}},
+		"/unsafe":   &BehaviorError{Code: "HTTP_STATUS", Status: 422, Body: math.NaN()},
+		"/plain":    errors.New("private adapter text"),
+	}
+	return nil, failures[request.Path]
+}
+
+type ProblemSetup struct{}
+
+func (ProblemSetup) behaviorConditions() BehaviorConfigurationConditions {
+	return BehaviorConfigurationConditions{}
+}
+
+func (ProblemSetup) behaviorConfigure(execution *BehaviorExecution) (*BehaviorConfiguration, error) {
+	config := NewBehaviorConfiguration()
+	config.Http["problems"] = Problem{}
+	return config, nil
+}
+
+type Conflict struct {
+	Reason string `json:"reason"`
+}
+
+func problemCall(context *BehaviorContext, path string) error {
+	exchange := plainPolicy()
+	exchange.Http = &BehaviorHttpPolicy{Client: "problems", Method: "GET", Path: path}
+	_, err := context.Invoke(exchange, []BehaviorValue{}, func([]BehaviorValue) (BehaviorValue, error) {
+		return emptyObject(), nil
+	})
+	return err
+}
+
+func checkBrowserErrorBody() {
+	_, err := behaviorBrowserAnswer(`{"error":{"code":"HTTP_STATUS","status":422,"body":{"reason":"taken"}}}`)
+	var conflict Conflict
+	expect(BehaviorErrorBody(err, &conflict) && conflict.Reason == "taken", "an error body decodes into a model")
+	expect(BehaviorErrorStatus(err) == 422, "an error body keeps its status")
+	_, err = behaviorBrowserAnswer(`{"error":{"code":"HTTP_STATUS","status":403}}`)
+	expect(!BehaviorErrorBody(err, &Conflict{}), "a status without a body has no error body")
+	_, err = behaviorBrowserAnswer(`{"error":{"code":"HTTP_STATUS","status":422,"body":["taken"]}}`)
+	expect(!BehaviorErrorBody(err, &Conflict{}), "a body of the wrong shape does not decode")
+	expect(!BehaviorErrorBody(errors.New("plain"), &Conflict{}), "a plain error has no error body")
+	expect(!BehaviorErrorBody(nil, &Conflict{}), "no error has no error body")
+}
+
+func checkAdapterErrorBody() {
+	context := must(BehaviorsCreate[ProblemSetup](NewBehaviorOptions("problems", NewBehaviorSignal())))
+	err := problemCall(context, "/conflict")
+	var conflict Conflict
+	expectCode(err, "HTTP_STATUS", "an adapter status passes through")
+	expect(BehaviorErrorStatus(err) == 409, "an adapter status keeps its number")
+	expect(BehaviorErrorBody(err, &conflict) && conflict.Reason == "taken", "an adapter error body decodes into a model")
+	expect(!strings.Contains(err.Error(), "private"), "the adapter's own message stays private")
+	for _, path := range []string{"/success", "/unsafe", "/plain"} {
+		failure := problemCall(context, path)
+		expectCode(failure, "adapter", "an adapter failure that is not a valid HTTP status stays an adapter failure: "+path)
+		expect(!strings.Contains(failure.Error(), "private"), "an adapter failure message stays private: "+path)
+	}
+	context.Dispose()
+}
+
 func checkRejectedValues() {
 	_, err := behaviorChecked(math.NaN(), 1024)
 	expect(err != nil, "NaN fails")
@@ -1187,6 +1253,8 @@ func main() {
 	checkJoinedTransaction()
 	checkHttpInvocation(context)
 	checkBrowserStatus()
+	checkBrowserErrorBody()
+	checkAdapterErrorBody()
 	checkRejectedValues()
 	negativeContracts(context)
 	signal.Abort()

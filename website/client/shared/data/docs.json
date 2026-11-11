@@ -5615,7 +5615,7 @@
             "lua",
             "hpp"
           ],
-          "summary": "A Go service gets its HTTPClient with `// @Needs` above a field such as `greetingClient *GreetingClient`, and calls it like any Go function: `greeting, err := service.greetingClient.Read()`. Tachyon runs each call of a service method in its own goroutine, so the call waits for the server while the page keeps working; a method that waits returns a promise to the page. `GreetingSetup` adds no adapter, so the request goes to the server of the page: the same origin, without cookies. The answer is read into the `Greeting` model from `client/models` with its `json` tags, and a request body model is written with them as `encoding/json` writes it: `omitempty` leaves out an empty string or a nil pointer instead of sending `\"\"` or `null`, `omitzero` leaves out a zero value (an `IsZero` method decides when there is one), `string` sends a number or a bool as text, and `json:\"-\"` leaves the field out; an answer of another shape gives an error whose code is `HTTP_RESPONSE`, and a failed request gives the code of the browser transport, such as `HTTP_STATUS`; `BehaviorErrorStatus(err)` gives the status number of an `HTTP_STATUS` answer, such as 404. `Cached` lets the browser cache answer a read, and after a successful `ClearCache` the next read asks the server again. `OverrideSetup` gives `OverrideClient` its own adapter, and that adapter answers instead of the network. Removing the component or leaving the page cancels the request: the page stops the service at once and runs its `OnStop`, the method gets the error code `CANCELLED` afterwards, and a call the method makes after that also gets `CANCELLED` without reaching the server. A getter, a setter or an `OnStart` method cannot wait for the server: the call fails with `HTTP_REQUEST`. A test unit has no browser transport (`HTTP_MISSING`). In a test, `test.construct(service)` fills the `Needs` fields from the `// @Fake` fields of the test; an empty Fake client field gets a client made with `NewGreetingClientWith`, so the TestSetup adapter answers. The server half of this example is a plain JavaScript controller. A controller in TypeScript, Python, PHP, Java, Groovy, C#, F#, Kotlin, Rust, Go, Dart, Ruby, Lua or C++ answers in the same way (see Controllers), so this section shows only the browser side in other languages.",
+          "summary": "A Go service gets its HTTPClient with `// @Needs` above a field such as `greetingClient *GreetingClient`, and calls it like any Go function: `greeting, err := service.greetingClient.Read()`. Tachyon runs each call of a service method in its own goroutine, so the call waits for the server while the page keeps working; a method that waits returns a promise to the page. `GreetingSetup` adds no adapter, so the request goes to the server of the page: the same origin, without cookies. The answer is read into the `Greeting` model from `client/models` with its `json` tags, and a request body model is written with them as `encoding/json` writes it: `omitempty` leaves out an empty string or a nil pointer instead of sending `\"\"` or `null`, `omitzero` leaves out a zero value (an `IsZero` method decides when there is one), `string` sends a number or a bool as text, and `json:\"-\"` leaves the field out; an answer of another shape gives an error whose code is `HTTP_RESPONSE`, and a failed request gives the code of the browser transport, such as `HTTP_STATUS`; `BehaviorErrorStatus(err)` gives the status number of an `HTTP_STATUS` answer, such as 404. `BehaviorErrorBody(err, &model)` reads a JSON error body into a model (see the next section). `Cached` lets the browser cache answer a read, and after a successful `ClearCache` the next read asks the server again. `OverrideSetup` gives `OverrideClient` its own adapter, and that adapter answers instead of the network. Removing the component or leaving the page cancels the request: the page stops the service at once and runs its `OnStop`, the method gets the error code `CANCELLED` afterwards, and a call the method makes after that also gets `CANCELLED` without reaching the server. A getter, a setter or an `OnStart` method cannot wait for the server: the call fails with `HTTP_REQUEST`. A test unit has no browser transport (`HTTP_MISSING`). In a test, `test.construct(service)` fills the `Needs` fields from the `// @Fake` fields of the test; an empty Fake client field gets a client made with `NewGreetingClientWith`, so the TestSetup adapter answers. The server half of this example is a plain JavaScript controller. A controller in TypeScript, Python, PHP, Java, Groovy, C#, F#, Kotlin, Rust, Go, Dart, Ruby, Lua or C++ answers in the same way (see Controllers), so this section shows only the browser side in other languages.",
           "files": [
             {
               "name": "client/components/greeting/panel/tac.html",
@@ -5666,6 +5666,77 @@
             {
               "name": "server/models/Greeting.ts",
               "code": "export interface Greeting {\n  message: string;\n}\n"
+            }
+          ]
+        },
+        {
+          "heading": "Go reads an error body into a model",
+          "notApplicable": [
+            "ts",
+            "py",
+            "php",
+            "java",
+            "groovy",
+            "cs",
+            "fs",
+            "kt",
+            "rs",
+            "go",
+            "dart",
+            "rb",
+            "lua",
+            "hpp"
+          ],
+          "summary": "When the server answers with an error status, a Go client call returns an error whose code is `HTTP_STATUS`. `BehaviorErrorStatus(err)` gives the status number, such as 422. When the answer's media type is `application/json` or `application/problem+json`, the browser transport also passes its JSON body, and `BehaviorErrorBody(err, &problem)` reads that body into a model with its `json` tags, as `encoding/json` reads it. It returns `false`, and leaves the model as it was, when the error has no body or the body has another shape. Here the server checks the order with `Check` and answers 422 with a problem body (RFC 9457): its `title`, its `status` and one entry per broken rule in `errors`. The page shows the title and how many rules the order broke. The transport keeps the body out when the answer has another media type, is not valid JSON, is `null`, holds a number that is not safe in JavaScript, or is larger than the request's answer limit (1 MiB at most): the error then has the status only. A test fake gives the same error: a TestSetup adapter returns `&BehaviorError{Code: \"HTTP_STATUS\", Status: 409, Body: map[string]any{\"reason\": \"taken\"}}`, and the call gets `HTTP_STATUS`, the status and the body, but not the adapter's own message. An adapter error with another code, or with a status outside 400 to 599, stays the error code `adapter`. Only Go reads the body; the other languages keep the error code only (ADR 0117). The server half of this example is a plain JavaScript controller. A controller in TypeScript, Python, PHP, Java, Groovy, C#, F#, Kotlin, Rust, Go, Dart, Ruby, Lua or C++ answers in the same way (see Validation), so this section shows only the browser side in other languages.",
+          "files": [
+            {
+              "name": "client/components/order/form/tac.html",
+              "code": "<main>\n  <button id=\"send\" on:click=\"order.send()\">Send an invalid order</button>\n  <p id=\"status\">{order.status}</p>\n  <p id=\"title\">{order.title}</p>\n  <p id=\"mistakes\">{order.mistakes}</p>\n</main>\n"
+            },
+            {
+              "name": "client/manifest.json",
+              "code": "{\"tac\":{\"visibility\":{\"check\":false},\"budgets\":{\"check\":false}}}\n"
+            },
+            {
+              "name": "client/models/OrderInput.go",
+              "code": "type OrderInput struct {\n\tName  string `json:\"name\"`\n\tLevel int    `json:\"level\"`\n}\n"
+            },
+            {
+              "name": "client/models/Problem.go",
+              "code": "type Problem struct {\n\tTitle  string         `json:\"title\"`\n\tStatus int            `json:\"status\"`\n\tErrors []ProblemEntry `json:\"errors\"`\n}\n"
+            },
+            {
+              "name": "client/models/ProblemEntry.go",
+              "code": "type ProblemEntry struct {\n\tField string `json:\"field\"`\n\tRule  string `json:\"rule\"`\n}\n"
+            },
+            {
+              "name": "client/pages/tac.html",
+              "code": "<order-form />\n"
+            },
+            {
+              "name": "client/remotes/OrderClient.go",
+              "code": "// @HTTPClient(\"/api\")\ntype OrderClient interface {\n\t// @PostRequest(\"/orders\")\n\tSend(\n\t\t// @RequestBody\n\t\torder OrderInput,\n\t) (OrderInput, error)\n}\n"
+            },
+            {
+              "name": "client/services/OrderService.go",
+              "code": "// @Service\ntype OrderService struct {\n\t// @Needs\n\torderClient *OrderClient\n\tStatus      int\n\tTitle       string\n\tMistakes    int\n}\n\nfunc (service *OrderService) Send() error {\n\t_, err := service.orderClient.Send(OrderInput{Name: \"\", Level: 12})\n\tvar problem Problem\n\tBehaviorErrorBody(err, &problem)\n\tservice.Status = BehaviorErrorStatus(err)\n\tservice.Title = problem.Title\n\tservice.Mistakes = len(problem.Errors)\n\treturn nil\n}\n"
+            },
+            {
+              "name": "client/setups/OrderSetup.go",
+              "code": "// @Setup\ntype OrderSetup struct{}\n\nfunc (OrderSetup) Configure(execution *BehaviorExecution) (*BehaviorConfiguration, error) {\n\treturn NewBehaviorConfiguration(), nil\n}\n"
+            },
+            {
+              "name": "server/controllers/OrdersController.js",
+              "code": "@RequestRoute(\"/api/orders\")\n@Public\nclass OrdersController {\n  /** @type {OrderService} */\n  @Needs\n  orderService;\n  /**\n   * @param {any} order\n   * @returns {any}\n   */\n  @PostRoute\n  postOrders(@FromBody order) {\n    return this.orderService.accept(order);\n  }\n}\n",
+              "run": "d318dfed77ac429f"
+            },
+            {
+              "name": "server/models/OrderInput.js",
+              "code": "@Checked\nexport default class OrderInput {\n  /** @type {string} */\n  @NotEmpty\n  @Length({\"min\":1,\"max\":80})\n  name;\n  /** @type {number} */\n  @Required\n  @Min(1)\n  @Max(9)\n  level;\n}\n"
+            },
+            {
+              "name": "server/services/OrderService.js",
+              "code": "@Service\nexport default class OrderService {\n  /**\n   * @param {OrderInput} order\n   * @returns {OrderInput}\n   */\n  accept(@Check order) {\n    return order;\n  }\n}\n"
             }
           ]
         },
@@ -6304,7 +6375,7 @@
         },
         {
           "heading": "What the browser transport allows",
-          "body": "The browser transport of Dart, Rust, Go, Kotlin, Swift, Java, Ruby, Python, Lua, C#, F# and C++ clients has fixed limits, so one page cannot flood the server or read too much:\n\nA request, with its path, query, headers and body, may hold at most 1 MiB (1,048,576 bytes); a larger one fails with `HTTP_REQUEST`. An answer may hold at most 1 MiB. A larger answer fails with `HTTP_LIMIT`.\n\nA page may have at most 64 requests waiting at the same time; one more fails with `HTTP_CAPACITY`. A request waits at most 60 seconds.\n\nThe request must go to the origin of the page. Another origin fails with `HTTP_ORIGIN`. A redirect fails too.\n\nThe browser sends no cookies and no other credentials. The transport refuses the headers `Cookie`, `Host`, `Origin`, `Referer`, `Connection`, `Content-Length` and `Transfer-Encoding`, and every header that starts with `Sec-` or `Proxy-`, with `HTTP_HEADER`.\n\nA request is not kept in the browser cache, except a public read marked `Cached`. A request with an `Authorization` header is never kept.\n\nAn answer that does not have the shape of the model fails with `HTTP_RESPONSE` (a Lua client does not check the model), and an answer with an error status fails with `HTTP_STATUS`. The transport gives the page the status number with that code but never the body of the answer; in Go, `BehaviorErrorStatus(err)` reads it, such as 404. Removing the component that started a request cancels it (ADR 0090)."
+          "body": "The browser transport of Dart, Rust, Go, Kotlin, Swift, Java, Ruby, Python, Lua, C#, F# and C++ clients has fixed limits, so one page cannot flood the server or read too much:\n\nA request, with its path, query, headers and body, may hold at most 1 MiB (1,048,576 bytes); a larger one fails with `HTTP_REQUEST`. An answer may hold at most 1 MiB. A larger answer fails with `HTTP_LIMIT`.\n\nA page may have at most 64 requests waiting at the same time; one more fails with `HTTP_CAPACITY`. A request waits at most 60 seconds.\n\nThe request must go to the origin of the page. Another origin fails with `HTTP_ORIGIN`. A redirect fails too.\n\nThe browser sends no cookies and no other credentials. The transport refuses the headers `Cookie`, `Host`, `Origin`, `Referer`, `Connection`, `Content-Length` and `Transfer-Encoding`, and every header that starts with `Sec-` or `Proxy-`, with `HTTP_HEADER`.\n\nA request is not kept in the browser cache, except a public read marked `Cached`. A request with an `Authorization` header is never kept.\n\nAn answer that does not have the shape of the model fails with `HTTP_RESPONSE` (a Lua client does not check the model), and an answer with an error status fails with `HTTP_STATUS`. The transport gives the page the status number with that code; in Go, `BehaviorErrorStatus(err)` reads it, such as 404. It passes the body of an error answer only when the body is JSON (`application/json` or `application/problem+json`), within the answer limit, and only Go reads it, with `BehaviorErrorBody(err, &model)` (ADR 0117). Any other error body stays out. Removing the component that started a request cancels it (ADR 0090)."
         }
       ]
     },

@@ -8,6 +8,9 @@ func (OrdersTestSetup) Configure(execution *BehaviorExecution) (*BehaviorConfigu
 }
 
 func (OrdersTestSetup) Exchange(request *BehaviorHttpRequest, execution *BehaviorExecution) (BehaviorValue, error) {
+	if request.Path == "/api/claims/a-7" {
+		return nil, &BehaviorError{Code: "HTTP_STATUS", Message: "private fake text", Status: 409, Body: map[string]any{"reason": "taken", "holder": "south"}}
+	}
 	header := ""
 	for _, value := range request.Headers {
 		header, _ = value.(string)

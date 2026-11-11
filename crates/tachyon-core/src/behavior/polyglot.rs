@@ -2834,10 +2834,10 @@ mod gateway_runtime_tests {
             "cc88ab21098dfb5ba96b25693cb88db7224ea540314011c2644cedce3fa57adb"
         );
         let go = super::gateway_unit_runtime("go", "").expect("Go runtime");
-        assert_eq!(go.len(), 91_806);
+        assert_eq!(go.len(), 93_116);
         assert_eq!(
             digest(&go),
-            "f5423862d4e4fa737235a5bf3304c7f036f1a50f8b185b25d571d25cfb5c9359"
+            "32279277da962dc6865ffae1f0a470aeb957dc6d88ee124f0819f8ac380d86e5"
         );
     }
 

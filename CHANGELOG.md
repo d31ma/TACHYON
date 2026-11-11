@@ -19,6 +19,12 @@ machine contracts have their own, independent major versions.
   C#, F#, Swift, Kotlin, Java, Dart, Ruby, Lua and C++ get a `Focus` client
   like their `Clock`. Each call runs after the next render, and a failure
   arrives as `BrowserCallFailed`.
+- Go Tac HTTP clients read JSON error bodies. When the server answers an
+  error status with `application/json` or `application/problem+json`, the
+  browser transport passes the body, and `BehaviorErrorBody(err, &model)`
+  reads it into a model. A Setup or TestSetup adapter can answer
+  `&BehaviorError{Code: "HTTP_STATUS", Status: 409, Body: ...}`, so a test can
+  fake an error status with a body (ADR 0117).
 
 ### Fixed
 

@@ -24,6 +24,7 @@ type BehaviorError struct {
 	Message    string
 	Path       string
 	Status     int
+	Body       BehaviorValue
 	violations []behaviorViolation
 }
 
@@ -67,6 +68,23 @@ func BehaviorErrorCode(err error) string {
 		return failure.Code
 	}
 	return ""
+}
+
+func BehaviorErrorBody(err error, model any) bool {
+	return behaviorBodyDecoded(behaviorErrorBodyText(err), model)
+}
+
+func behaviorErrorBodyText(err error) []byte {
+	var failure *BehaviorError
+	if !errors.As(err, &failure) || failure.Body == nil {
+		return nil
+	}
+	text, _ := json.Marshal(failure.Body)
+	return text
+}
+
+func behaviorBodyDecoded(text []byte, model any) bool {
+	return text != nil && json.Unmarshal(text, model) == nil
 }
 
 func BehaviorErrorPath(err error) string {
@@ -1981,6 +1999,42 @@ func behaviorAllowEntity(command *BehaviorEntityCommand, execution *BehaviorExec
 	return true, nil
 }
 
+func behaviorHttpExchange(adapter BehaviorHttpAdapter, request *BehaviorHttpRequest, execution *BehaviorExecution) (BehaviorValue, error) {
+	var status *BehaviorError
+	answer, err := behaviorAdapterCall(execution, func() (BehaviorValue, error) {
+		value, failure := adapter.Exchange(request, execution)
+		status = behaviorHttpStatus(failure)
+		return value, failure
+	})
+	if err != nil {
+		return nil, behaviorHttpFailure(err, status)
+	}
+	return behaviorChecked(answer, 1048576)
+}
+
+func behaviorHttpStatus(err error) *BehaviorError {
+	var failure *BehaviorError
+	if !errors.As(err, &failure) || failure.Code != "HTTP_STATUS" || failure.Status < 400 || failure.Status > 599 {
+		return nil
+	}
+	return behaviorHttpStatusCopy(failure)
+}
+
+func behaviorHttpStatusCopy(failure *BehaviorError) *BehaviorError {
+	body, err := behaviorChecked(failure.Body, 1048576)
+	if err != nil {
+		return nil
+	}
+	return &BehaviorError{Code: "HTTP_STATUS", Message: "The HTTP request failed.", Status: failure.Status, Body: body}
+}
+
+func behaviorHttpFailure(err error, status *BehaviorError) error {
+	if status == nil || BehaviorErrorCode(err) != "adapter" {
+		return err
+	}
+	return status
+}
+
 func behaviorStorageFailure(err error) bool {
 	var failure *BehaviorError
 	return errors.As(err, &failure) && failure.Code == "storage"
@@ -2374,13 +2428,7 @@ func (context *BehaviorContext) execute(operation *behaviorOperation, policy Beh
 	if !present {
 		return behaviorDefaultExchange(request, operation, policy.KeyArgs != nil && http.Method == "GET")
 	}
-	answer, err := behaviorAdapterCall(operation.execution, func() (BehaviorValue, error) {
-		return adapter.Exchange(request, operation.execution)
-	})
-	if err != nil {
-		return nil, err
-	}
-	return behaviorChecked(answer, 1048576)
+	return behaviorHttpExchange(adapter, request, operation.execution)
 }
 
 func (context *BehaviorContext) authorize(operation *behaviorOperation, policy BehaviorMethodPolicy, selected []BehaviorValue, intent string) error {
@@ -2870,13 +2918,7 @@ func (call *BehaviorRestCall) Retrieve() (BehaviorValue, error) {
 	if !present {
 		return nil, behaviorInvalid()
 	}
-	answer, err := behaviorAdapterCall(operation.execution, func() (BehaviorValue, error) {
-		return adapter.Exchange(request, operation.execution)
-	})
-	if err != nil {
-		return nil, err
-	}
-	return behaviorChecked(answer, 1048576)
+	return behaviorHttpExchange(adapter, request, operation.execution)
 }
 
 type BehaviorRepository struct {

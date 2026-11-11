@@ -52,6 +52,22 @@ class BrowserHttpRuntimeCheck {
     const refused = await answer(BrowserHttpRuntimeCheck.request())
     assert.deepEqual(refused.error, { code: 'HTTP_STATUS', status: 403 })
     assert.ok(!JSON.stringify(refused).includes('private'), 'the answer body stays out')
+    const problem = (text, type = 'application/problem+json; charset=utf-8') => async () => new Response(text, { status: 422, headers: { 'content-type': type } })
+    environment.fetch = problem('{"title":"Invalid","errors":[{"field":"name"}]}')
+    assert.deepEqual((await answer(BrowserHttpRuntimeCheck.request())).error, { code: 'HTTP_STATUS', status: 422, body: { title: 'Invalid', errors: [{ field: 'name' }] } })
+    environment.fetch = problem('{"reason":"taken"}', 'Application/JSON')
+    assert.deepEqual((await answer(BrowserHttpRuntimeCheck.request())).error.body, { reason: 'taken' }, 'a JSON error body is read')
+    environment.fetch = problem('{"reason":"taken"}', 'text/plain')
+    assert.deepEqual((await answer(BrowserHttpRuntimeCheck.request())).error, { code: 'HTTP_STATUS', status: 422 }, 'a body that is not JSON stays out')
+    for (const [text, why] of [['not JSON', 'invalid JSON'], ['null', 'a null body'], ['', 'an empty body'], ['{"big":9007199254740993}', 'an unsafe number']]) {
+      environment.fetch = problem(text)
+      assert.deepEqual((await answer(BrowserHttpRuntimeCheck.request())).error, { code: 'HTTP_STATUS', status: 422 }, `${why} keeps the status without a body`)
+    }
+    environment.fetch = problem('{"reason":"taken"}')
+    assert.deepEqual((await answer(BrowserHttpRuntimeCheck.request({ maxResponseBytes: 8 }))).error, { code: 'HTTP_STATUS', status: 422 }, 'a body over the request limit keeps the status without a body')
+    const stalled = (signal) => ({ read: () => new Promise((_, reject) => signal.addEventListener('abort', () => reject(new Error('stopped')), { once: true })), cancel: async () => {}, releaseLock: () => {} })
+    environment.fetch = async (_, options) => ({ ok: false, status: 422, headers: new Headers({ 'content-type': 'application/json' }), body: { getReader: () => stalled(options.signal) } })
+    assert.deepEqual((await answer(BrowserHttpRuntimeCheck.request({ deadline: Date.now() + 15 }))).error, { code: 'DEADLINE' }, 'a deadline while reading an error body still answers DEADLINE')
     environment.fetch = async (url, options) => { calls.push({ url, options }); return new Response('{}') }
     const large = 'x'.repeat(900000)
     assert.deepEqual((await answer(BrowserHttpRuntimeCheck.request({ method: 'POST', body: { large } }))).value, {})
@@ -96,7 +112,7 @@ class BrowserHttpRuntimeCheck {
     waiting.forEach(ticket => ticket.cancel())
     await Promise.all(waiting.map(ticket => ticket.answer))
     assert.equal(environment.http.pending, 0)
-    console.log('browser HTTP host: async answer, same-origin, credentials/cache policy, query/body/header rules, limits, cancellation, deadlines and sanitized errors pass')
+    console.log('browser HTTP host: async answer, same-origin, credentials/cache policy, query/body/header rules, limits, cancellation, deadlines and sanitized errors and JSON error bodies pass')
   }
 }
 

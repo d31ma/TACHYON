@@ -1,0 +1,94 @@
+{
+  "heading": "Go reads an error body into a model",
+  "notApplicable": [
+    "ts",
+    "py",
+    "php",
+    "java",
+    "groovy",
+    "cs",
+    "fs",
+    "kt",
+    "rs",
+    "go",
+    "dart",
+    "rb",
+    "lua",
+    "hpp"
+  ],
+  "summary": "When the server answers with an error status, a Go client call returns an error whose code is `HTTP_STATUS`. `BehaviorErrorStatus(err)` gives the status number, such as 422. When the answer's media type is `application/json` or `application/problem+json`, the browser transport also passes its JSON body, and `BehaviorErrorBody(err, &problem)` reads that body into a model with its `json` tags, as `encoding/json` reads it. It returns `false`, and leaves the model as it was, when the error has no body or the body has another shape. Here the server checks the order with `Check` and answers 422 with a problem body (RFC 9457): its `title`, its `status` and one entry per broken rule in `errors`. The page shows the title and how many rules the order broke. The transport keeps the body out when the answer has another media type, is not valid JSON, is `null`, holds a number that is not safe in JavaScript, or is larger than the request's answer limit (1 MiB at most): the error then has the status only. A test fake gives the same error: a TestSetup adapter returns `&BehaviorError{Code: \"HTTP_STATUS\", Status: 409, Body: map[string]any{\"reason\": \"taken\"}}`, and the call gets `HTTP_STATUS`, the status and the body, but not the adapter's own message. An adapter error with another code, or with a status outside 400 to 599, stays the error code `adapter`. Only Go reads the body; the other languages keep the error code only (ADR 0117). The server half of this example is a plain JavaScript controller. A controller in TypeScript, Python, PHP, Java, Groovy, C#, F#, Kotlin, Rust, Go, Dart, Ruby, Lua or C++ answers in the same way (see Validation), so this section shows only the browser side in other languages.",
+  "files": [
+    {
+      "name": "client/components/order/form/tac.html",
+      "code": {
+        "file": "client/components/order/form/tac.html"
+      }
+    },
+    {
+      "name": "client/manifest.json",
+      "code": {
+        "file": "client/manifest.json"
+      }
+    },
+    {
+      "name": "client/models/OrderInput.go",
+      "code": {
+        "file": "client/models/OrderInput.go"
+      }
+    },
+    {
+      "name": "client/models/Problem.go",
+      "code": {
+        "file": "client/models/Problem.go"
+      }
+    },
+    {
+      "name": "client/models/ProblemEntry.go",
+      "code": {
+        "file": "client/models/ProblemEntry.go"
+      }
+    },
+    {
+      "name": "client/pages/tac.html",
+      "code": {
+        "file": "client/pages/tac.html"
+      }
+    },
+    {
+      "name": "client/remotes/OrderClient.go",
+      "code": {
+        "file": "client/remotes/OrderClient.go"
+      }
+    },
+    {
+      "name": "client/services/OrderService.go",
+      "code": {
+        "file": "client/services/OrderService.go"
+      }
+    },
+    {
+      "name": "client/setups/OrderSetup.go",
+      "code": {
+        "file": "client/setups/OrderSetup.go"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.js",
+      "code": {
+        "file": "server/controllers/OrdersController.js"
+      }
+    },
+    {
+      "name": "server/models/OrderInput.js",
+      "code": {
+        "file": "server/models/OrderInput.js"
+      }
+    },
+    {
+      "name": "server/services/OrderService.js",
+      "code": {
+        "file": "server/services/OrderService.js"
+      }
+    }
+  ]
+}

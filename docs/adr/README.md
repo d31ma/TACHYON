@@ -127,3 +127,4 @@ design. Decide routine implementation choices in code review, not in an ADR.
 - [112. A Delegate Takes On the Methods of Its Service](0112-a-delegate-takes-on-the-methods-of-its-service.md)
 - [113. The Operating System Confines Handler Egress](0113-the-operating-system-confines-handler-egress.md)
 - [115. Services Move and Trap Focus Through the Page](0115-services-move-and-trap-focus-through-the-page.md)
+- [117. Go HTTP Clients Read JSON Error Bodies](0117-go-http-clients-read-json-error-bodies.md)

@@ -15,3 +15,7 @@ func (service *OrderService) Change() (SentRequest, error) {
 func (service *OrderService) Remove() (SentRequest, error) {
 	return service.ordersClient.Remove("a-7", "duplicate")
 }
+
+func (service *OrderService) Claim() (SentRequest, error) {
+	return service.ordersClient.Claim("a-7", map[string]any{"item": "saw"})
+}

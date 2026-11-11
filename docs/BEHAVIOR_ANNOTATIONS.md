@@ -1854,8 +1854,14 @@ Go markers; the command leaves other languages' attributes alone.
   `values` and `repository` are the functions `BehaviorsCreate[T]`,
   `BehaviorsValidate[T]`, `BehaviorsProperties[T]`, `BehaviorsValues[T]` and
   `BehaviorsRepository[T]`.
-- A behavior error is `*BehaviorError{Code, Message, Path}`.
-  `BehaviorErrorCode(err)` reads its code.
+- A behavior error is `*BehaviorError{Code, Message, Path, Status, Body}`.
+  `BehaviorErrorCode(err)` reads its code. An HTTP client call that gets an
+  error status fails with the code `HTTP_STATUS`: `BehaviorErrorStatus(err)`
+  reads the status number, and `BehaviorErrorBody(err, &model)` reads a JSON
+  error body into a model and returns whether it could. A Setup or TestSetup
+  adapter returns `&BehaviorError{Code: "HTTP_STATUS", Status: 422, Body: ...}`
+  to answer with an error status and a body
+  ([ADR 0117](adr/0117-go-http-clients-read-json-error-bodies.md)).
 - A declaration without a body, such as a derived query or a Convert method, is a
   method with an empty body or a method of a Go `interface`.
 - Go has no constructor. Tachyon builds a managed type as `&T{}` and assigns

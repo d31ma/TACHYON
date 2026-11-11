@@ -440,6 +440,10 @@ An `HTTP_STATUS` failure now carries the status number:
 still stays out. Go reads it with `BehaviorErrorStatus(err)`, from the new
 `Status` field of `BehaviorError`; the other languages keep the code only.
 
+[ADR 0117](0117-go-http-clients-read-json-error-bodies.md) (2026-11-10) lets
+a JSON error body through as `error.body`, which Go reads with
+`BehaviorErrorBody(err, &model)`.
+
 ## Go streams and sockets — 2026-10-11
 
 A Go HTTPClient interface method may carry `// @StreamRequest` or

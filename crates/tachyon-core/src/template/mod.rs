@@ -3,6 +3,9 @@ mod accessibility;
 #[allow(clippy::expect_used)]
 pub(crate) mod bound_attribute_tests;
 mod braced_attribute;
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod browser_http_runtime_tests;
 mod client;
 mod component;
 mod component_slots;

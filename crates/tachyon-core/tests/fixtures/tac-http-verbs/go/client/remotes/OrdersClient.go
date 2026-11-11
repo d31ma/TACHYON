@@ -25,4 +25,11 @@ type OrdersClient interface {
 		// @RequestHeader("X-Reason")
 		reason string,
 	) (SentRequest, error)
+	// @PutRequest("/claims/{id}")
+	Claim(
+		// @PathVariable("id")
+		id string,
+		// @RequestBody
+		claim BehaviorValue,
+	) (SentRequest, error)
 }
