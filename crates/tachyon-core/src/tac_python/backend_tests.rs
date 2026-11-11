@@ -165,15 +165,15 @@ fn python_async_methods_and_async_start_build_but_async_stop_is_pending() {
 }
 
 #[test]
-fn python_browser_apis_are_refused_at_build_time() {
+fn python_page_only_clients_are_refused_at_build_time() {
     for (source, name) in [
         (
-            "@service\nclass CounterService:\n    def stamp(self) -> int:\n        return Clock().now()\n",
-            "Clock",
+            "@service\nclass CounterService:\n    def title(self) -> str:\n        return DocumentTitle().read()\n",
+            "DocumentTitle",
         ),
         (
-            "@service\n@needs_all\nclass CounterService:\n    random: SecureRandom\n",
-            "SecureRandom",
+            "@service\n@needs_all\nclass CounterService:\n    strings: PreferenceStrings\n",
+            "PreferenceStrings",
         ),
     ] {
         let failure =
@@ -186,8 +186,7 @@ fn python_browser_apis_are_refused_at_build_time() {
             "{failure}"
         );
     }
-    let quoted =
-        "@service\nclass CounterService:\n    label: str = 'Clock'\n    # Clock comes later\n";
+    let quoted = "@service\nclass CounterService:\n    label: str = 'DocumentTitle'\n    # DocumentTitle comes later\n";
     assert!(
         PythonProviderSource::read(Path::new("client/services/CounterService.py"), quoted).is_ok()
     );
@@ -300,7 +299,7 @@ fn python_missing_opt_in_profile_is_reported_by_doctor_without_installing() {
 pub(super) struct PythonPage;
 
 impl PythonPage {
-    const OWNERS: [(&'static str, &'static str); 7] = [
+    const OWNERS: [(&'static str, &'static str); 8] = [
         ("shelf", "00000000-0000-4000-8000-000000000001"),
         ("checkout", "00000000-0000-4000-8000-000000000002"),
         ("audit", "00000000-0000-4000-8000-000000000003"),
@@ -308,6 +307,7 @@ impl PythonPage {
         ("tally", "00000000-0000-4000-8000-000000000005"),
         ("state", "00000000-0000-4000-8000-000000000006"),
         ("catalog", "00000000-0000-4000-8000-000000000007"),
+        ("stamp", "00000000-0000-4000-8000-000000000008"),
     ];
     const SHELF: [(&'static str, &'static str); 3] = [
         (
@@ -699,22 +699,22 @@ fn a_python_needs_all_file_picker_field_is_refused_with_ty1407() {
 }
 
 #[test]
-fn python_window_controls_field_is_refused_with_ty1605() {
-    let source = "@service\n@needs_all\nclass CounterService:\n    controls: WindowControls\n";
+fn python_document_title_field_is_refused_with_ty1605() {
+    let source = "@service\n@needs_all\nclass CounterService:\n    title: DocumentTitle\n";
     let failure =
         PythonProviderSource::read(Path::new("client/services/CounterService.py"), source)
             .err()
-            .unwrap_or_else(|| panic!("WindowControls belongs to the page"));
+            .unwrap_or_else(|| panic!("DocumentTitle belongs to the page"));
     let diagnostic = &failure.diagnostics()[0];
     assert_eq!(diagnostic.code.number(), 1605, "{failure}");
     assert_eq!(
         diagnostic.message,
-        "Python Tac services cannot use `WindowControls`: it belongs to the page.",
+        "Python Tac services cannot use `DocumentTitle`: it belongs to the page.",
         "{failure}"
     );
     let span = &diagnostic.spans[0];
     assert_eq!(span.file, "client/services/CounterService.py", "{failure}");
     let start = usize::try_from(span.start).unwrap_or_else(|error| panic!("start: {error}"));
     let end = usize::try_from(span.end).unwrap_or_else(|error| panic!("end: {error}"));
-    assert_eq!(&source[start..end], "WindowControls", "{failure}");
+    assert_eq!(&source[start..end], "DocumentTitle", "{failure}");
 }

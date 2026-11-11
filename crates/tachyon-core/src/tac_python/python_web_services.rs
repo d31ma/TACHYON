@@ -1,4 +1,5 @@
 use super::RuntimeProfile;
+use super::python_browser_apis::PythonBrowserApis;
 use super::python_build::PythonBuild;
 use super::python_graph_guard::PythonGraphGuard;
 use super::python_held_streams::PythonHeldStreams;
@@ -7,7 +8,7 @@ use super::runtime_assets::RuntimeAssets;
 use crate::Failure;
 use crate::annotation_modules::Module;
 use crate::model_sources::ModelSources;
-use crate::route_types::{ModelTable, WebEventModels};
+use crate::route_types::{ModelTable, WebEventModels, WebEventSources};
 use crate::sorted_json::SortedJson;
 use serde_json::{Map, Value, json};
 use std::collections::BTreeSet;
@@ -36,7 +37,7 @@ impl PythonWebServices {
         include_str!("../native/browser/tac-task-answers.js"),
         include_str!("python_host.js"),
     );
-    const APPLICATION_STATE_MODEL: &'static str = "import sys as _tac_sys\nimport types as _tac_types\nfrom dataclasses import dataclass as _tac_dataclass\n\n\n@_tac_dataclass\nclass ApplicationStateChanged:\n    state: str\n\n\n_tac_sys.modules.setdefault(\"models\", _tac_types.ModuleType(\"models\")).ApplicationStateChanged = ApplicationStateChanged\n";
+    const EVENT_MODEL_IMPORTS: &'static str = "import sys as _tac_sys\nimport types as _tac_types\nfrom dataclasses import dataclass as _tac_dataclass\n";
 
     pub(crate) fn build(
         root: &Path,
@@ -70,17 +71,26 @@ impl PythonWebServices {
         let manual = crate::yon::ManualHelpers::read(relative, &authored)?;
         let models = ModelSources::read(root, "client", "py")?;
         let providers = Self::providers(&units, &manual, &models)?;
-        let hears_state = Self::hears_application_state(&units);
+        let heard = Self::heard_web_events(&units);
         let table = ModelTable::read_realm(root, "client", "py")
-            .map(|table| Self::with_application_state(table, hears_state))
+            .map(|table| Self::with_web_events(table, &heard))
             .map_err(|message| PythonProviderSource::failure(relative, &message))?;
         let mut descriptions = Self::descriptions(&providers, &table)?;
         PythonHeldStreams::read(&providers, &table)?.describe(&mut descriptions)?;
         PythonGraphGuard::check(&descriptions)?;
         let metadata = Self::metadata(services, &descriptions, &table);
         let source = Self::prepared(relative, units, &providers)?;
-        let staged = Self::lowered(relative, &source, &models, hears_state)?;
+        let staged = Self::lowered(relative, &source, &models, &heard)?;
         Self::configured(&staged, &providers, &metadata)
+    }
+
+    pub(crate) fn test_unit_support(lowered: &str) -> String {
+        let heard = Self::heard_web_events(&[(PathBuf::new(), lowered.to_owned())]);
+        format!(
+            "{}\n{}",
+            Self::web_event_models(&heard),
+            PythonBrowserApis::source()
+        )
     }
 
     fn require_profile(root: &Path) -> Result<(), Failure> {
@@ -198,31 +208,41 @@ impl PythonWebServices {
         Ok((path, source))
     }
 
-    fn hears_application_state(units: &[(PathBuf, String)]) -> bool {
-        units
+    fn heard_web_events(units: &[(PathBuf, String)]) -> Vec<String> {
+        let sources = units
             .iter()
-            .any(|(_, source)| source.contains(WebEventModels::APPLICATION_STATE))
+            .map(|(_, source)| source.as_str())
+            .collect::<Vec<_>>()
+            .concat();
+        WebEventModels::names()
+            .into_iter()
+            .filter(|name| sources.contains(name.as_str()))
+            .collect()
     }
 
-    fn with_application_state(mut table: ModelTable, hears_state: bool) -> ModelTable {
-        if hears_state {
-            table.add_web_event(WebEventModels::APPLICATION_STATE);
+    fn with_web_events(mut table: ModelTable, heard: &[String]) -> ModelTable {
+        for name in heard {
+            table.add_web_event(name);
         }
         table
     }
 
-    fn application_state_model(hears_state: bool) -> &'static str {
-        if hears_state {
-            return Self::APPLICATION_STATE_MODEL;
+    fn web_event_models(heard: &[String]) -> String {
+        if heard.is_empty() {
+            return String::new();
         }
-        ""
+        format!(
+            "{}{}",
+            Self::EVENT_MODEL_IMPORTS,
+            WebEventSources::python_named(heard)
+        )
     }
 
     fn lowered(
         entry: &Path,
         source: &str,
         models: &ModelSources,
-        hears_state: bool,
+        heard: &[String],
     ) -> Result<String, Failure> {
         let metadata = models.metadata();
         let assembled = metadata.assembled(entry, source)?;
@@ -231,7 +251,7 @@ impl PythonWebServices {
         let imports = Self::model_imports(models);
         let bridge = format!(
             "from __future__ import annotations\n{}{imports}",
-            Self::application_state_model(hears_state)
+            Self::web_event_models(heard)
         );
         let program = Module::with_models(
             entry,
@@ -277,8 +297,9 @@ impl PythonWebServices {
             )
         })?;
         Ok(format!(
-            "{program}\n{}\n{import}\n_TacPythonRuntime.configure({{{types}}}, _tac_json.loads({metadata}), {models})\n",
-            Self::PRELUDE
+            "{program}\n{}\n{}\n{import}\n_TacPythonRuntime.configure({{{types}}}, _tac_json.loads({metadata}), {models})\n",
+            Self::PRELUDE,
+            PythonBrowserApis::source()
         ))
     }
     fn model_namespace(metadata: &Value) -> (&'static str, &'static str) {

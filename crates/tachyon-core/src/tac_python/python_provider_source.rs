@@ -21,6 +21,7 @@ pub(super) struct PythonProviderSource {
 
 impl PythonProviderSource {
     const PUBLISHER_TYPE: &'static str = "ApplicationEventPublisher";
+    const INJECTED_KEYS: [&'static str; 2] = ["provider", "browserApi"];
     const CONTRACT_FOLDERS: [&'static str; 3] =
         ["client/stores", "client/remotes", "client/converters"];
 
@@ -188,8 +189,14 @@ impl PythonProviderSource {
             })?;
         let written = field["type"].as_str().unwrap_or_default();
         self.require_qualifier(name, providers)?;
-        self.bind_provider(field, providers)
+        Self::bind_browser_api(field, written)
+            .or_else(|| self.bind_provider(field, providers))
             .map_or_else(|| self.bind_property(field, written, models), Ok)
+    }
+
+    fn bind_browser_api(field: &Value, written: &str) -> Option<Value> {
+        PythonBrowserApis::is_client(written)
+            .then(|| json!({ "browserApi": written, "name": field["name"] }))
     }
 
     fn bind_provider(&self, field: &Value, providers: &BTreeSet<String>) -> Option<Value> {
@@ -245,7 +252,7 @@ impl PythonProviderSource {
     ) -> Result<Map<String, Value>, Failure> {
         let injected = constructor
             .iter()
-            .filter(|binding| binding.get("provider").is_some())
+            .filter(|binding| Self::injected_binding(binding))
             .filter_map(|binding| binding["name"].as_str())
             .collect::<BTreeSet<_>>();
         self.members["fields"]
@@ -258,8 +265,15 @@ impl PythonProviderSource {
             .collect()
     }
 
+    fn injected_binding(binding: &Value) -> bool {
+        Self::INJECTED_KEYS
+            .iter()
+            .any(|key| binding.get(key).is_some())
+    }
+
     fn field(&self, field: &Value, models: &ModelTable) -> Result<(String, Value), Failure> {
         let written = field["type"].as_str().unwrap_or_default();
+        self.require_needs_for_browser_api(written)?;
         let shape = TypeText::shape("py", written)
             .map_err(|message| Self::failure(&self.path, &message))?;
         self.require_model(&shape, models)?;
@@ -267,6 +281,18 @@ impl PythonProviderSource {
             field["page"].as_str().unwrap_or_default().to_owned(),
             json!({ "name": field["name"], "shape": shape, "immutable": field["immutable"] }),
         ))
+    }
+
+    fn require_needs_for_browser_api(&self, written: &str) -> Result<(), Failure> {
+        if PythonBrowserApis::is_client(written) {
+            return Err(Self::failure(
+                &self.path,
+                &format!(
+                    "Mark the {written} field with needs, such as `field: Annotated[{written}, needs]`; the page then gives the service its browser client."
+                ),
+            ));
+        }
+        Ok(())
     }
 
     fn methods(&self, models: &ModelTable) -> Result<Map<String, Value>, Failure> {

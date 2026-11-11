@@ -1,0 +1,246 @@
+use super::backend_tests::PythonPage;
+use super::python_browser_apis::PythonBrowserApis;
+use super::python_provider_source::PythonProviderSource;
+use crate::route_types::ModelTable;
+use crate::web_api_clients::WebApiClients;
+use serde_json::json;
+use std::collections::BTreeSet;
+use std::path::Path;
+
+struct BrowserApiPage;
+
+impl BrowserApiPage {
+    const STAMP: [(&'static str, &'static str); 1] = [(
+        "client/services/StampService.py",
+        "from typing import Annotated\n\n\
+         @service\n\
+         class StampService:\n\
+         \x20   clock: Annotated[Clock, needs]\n\
+         \x20   secure_random: Annotated[SecureRandom, needs]\n\
+         \x20   connectivity: Annotated[Connectivity, needs]\n\
+         \x20   page_visibility: Annotated[PageVisibility, needs]\n\
+         \x20   preferences: Annotated[Preferences, needs]\n\
+         \x20   clipboard: Annotated[Clipboard, needs]\n\
+         \x20   share: Annotated[Share, needs]\n\
+         \x20   notifications: Annotated[Notifications, needs]\n\
+         \x20   geolocation: Annotated[Geolocation, needs]\n\
+         \x20   window_controls: Annotated[WindowControls, needs]\n\
+         \x20   place: str = ''\n\n\
+         \x20   def times(self) -> str:\n\
+         \x20       return f'{self.clock.now_ms()} {self.clock.monotonic_ms()} {self.clock.time_zone()}'\n\n\
+         \x20   def random(self) -> str:\n\
+         \x20       return f'{list(self.secure_random.bytes(4))} {self.secure_random.uuid()}'\n\n\
+         \x20   def status(self) -> str:\n\
+         \x20       return f'{self.connectivity.online()} {self.page_visibility.visible()} {self.preferences.scheme()} {self.preferences.motion()} {self.preferences.language()}'\n\n\
+         \x20   def consent(self) -> str:\n\
+         \x20       self.clipboard.write_text('atlas')\n\
+         \x20       self.clipboard.read_text()\n\
+         \x20       self.share.open('Atlas', 'A map', 'https://example.com/atlas')\n\
+         \x20       self.notifications.request_permission()\n\
+         \x20       self.notifications.show('Atlas', 'Ready')\n\
+         \x20       self.geolocation.current_position()\n\
+         \x20       return self.notifications.permission()\n\n\
+         \x20   def window(self) -> bool:\n\
+         \x20       self.window_controls.minimize()\n\
+         \x20       self.window_controls.maximize()\n\
+         \x20       self.window_controls.fullscreen()\n\
+         \x20       self.window_controls.close()\n\
+         \x20       self.window_controls.resize(800, 600)\n\
+         \x20       self.window_controls.set_title('Atlas')\n\
+         \x20       return self.window_controls.granted('close')\n\n\
+         \x20   def refused(self) -> str:\n\
+         \x20       try:\n\
+         \x20           self.secure_random.bytes(65537)\n\
+         \x20       except RuntimeError as error:\n\
+         \x20           return str(error)\n\
+         \x20       return ''\n\n\
+         \x20   @on_event\n\
+         \x20   def found(self, found: PositionFound) -> None:\n\
+         \x20       self.place = f'{found.latitude},{found.longitude}'\n",
+    )];
+
+    const DRIVER: &'static str = "_requests = []\n\
+         _answers = {'clock.now': 1000, 'clock.monotonic': 5.5, 'clock.timeZone': 'Europe/Paris',\n\
+         \x20   'secureRandom.bytes': [1, 2, 3, 4], 'secureRandom.uuid': 'uuid-1', 'connectivity.online': False,\n\
+         \x20   'pageVisibility.visible': True, 'preferences.scheme': 'dark', 'preferences.motion': 'reduce',\n\
+         \x20   'preferences.language': 'fr', 'notifications.permission': 'granted', 'windowControls.granted': True}\n\
+         def _web(text):\n\
+         \x20   request = json.loads(text)\n\
+         \x20   _requests.append(request)\n\
+         \x20   if request['args'] == [65537]:\n\
+         \x20       return json.dumps({'error': 'At most 65536 random bytes.'})\n\
+         \x20   return json.dumps({'value': _answers.get(request['api'] + '.' + request['call'])})\n\
+         _TacPythonRuntime.connect(_emitted.append, None, web=_web)\n\
+         _call = lambda name: _ask('stamp', {'op': 'call', 'name': name, 'args': []})\n\
+         _report = {'init': _ask('stamp', {'op': 'init', 'props': {}})}\n\
+         _report.update({name: _call(name) for name in ['times', 'random', 'status', 'consent', 'window', 'refused']})\n\
+         _report['heard'] = _ask('stamp', {'op': 'event', 'name': 'found', 'value': {'latitude': 1.5, 'longitude': 2.5, 'accuracy': 3.0, 'timestamp': 4.0}})\n\
+         _report['place'] = _ask('stamp', {'op': 'get', 'name': 'place'})\n\
+         _report['requests'] = [[item['api'], item['call'], item['args']] for item in _requests]\n";
+
+    fn provider(source: &str) -> PythonProviderSource {
+        PythonProviderSource::read(Path::new("client/services/StampService.py"), source)
+            .unwrap_or_else(|error| panic!("provider: {error:?}"))
+    }
+
+    fn models() -> ModelTable {
+        let root = tempfile::tempdir().unwrap_or_else(|error| panic!("project: {error}"));
+        ModelTable::read_realm(root.path(), "client", "py")
+            .unwrap_or_else(|error| panic!("models: {error}"))
+    }
+}
+
+#[test]
+fn every_shared_browser_api_has_a_python_client() {
+    for name in WebApiClients::TYPE_NAMES {
+        assert!(PythonBrowserApis::is_client(name), "{name}");
+    }
+    let names = PythonBrowserApis::client_names().collect::<Vec<_>>();
+    let source = PythonBrowserApis::source();
+    for name in names {
+        assert!(source.contains(&format!("class {name}:")), "{name}");
+    }
+}
+
+#[test]
+fn python_needs_browser_api_fields_are_given_by_the_page() {
+    let provider = BrowserApiPage::provider(
+        "from typing import Annotated\n\n@service\nclass StampService:\n    clock: Annotated[Clock, needs]\n    label: str = ''\n",
+    );
+    let description = provider
+        .describe(&BTreeSet::new(), &BrowserApiPage::models())
+        .unwrap_or_else(|error| panic!("browser API binding: {error:?}"));
+    assert_eq!(
+        description["constructor"],
+        json!([{"browserApi": "Clock", "name": "clock"}])
+    );
+    assert!(
+        description["fields"].get("clock").is_none(),
+        "{description}"
+    );
+    assert_eq!(description["fields"]["label"]["shape"], "text");
+}
+
+#[test]
+fn a_python_needs_all_browser_api_field_is_given_by_the_page() {
+    let provider = BrowserApiPage::provider(
+        "@service\n@needs_all\nclass StampService:\n    random: SecureRandom\n    title: str\n",
+    );
+    let description = provider
+        .describe(&BTreeSet::new(), &BrowserApiPage::models())
+        .unwrap_or_else(|error| panic!("needs all binding: {error:?}"));
+    assert_eq!(
+        description["constructor"][0],
+        json!({"browserApi": "SecureRandom", "name": "random"})
+    );
+    assert_eq!(description["constructor"][1]["shape"], "text");
+}
+
+#[test]
+fn a_python_browser_api_field_without_needs_says_how_to_mark_it() {
+    let provider = BrowserApiPage::provider(
+        "@service\nclass StampService:\n    clock: Clock\n    label: str = ''\n",
+    );
+    let failure = provider
+        .describe(&BTreeSet::new(), &BrowserApiPage::models())
+        .err()
+        .unwrap_or_else(|| panic!("a plain field is not given by the page"));
+    assert_eq!(failure.diagnostics()[0].code.number(), 1605, "{failure}");
+    assert!(
+        failure.to_string().contains("Annotated[Clock, needs]"),
+        "{failure}"
+    );
+}
+
+#[test]
+fn a_needs_all_browser_api_field_is_injected_instead_of_a_page_property() {
+    let root = tempfile::tempdir().unwrap_or_else(|error| panic!("project: {error}"));
+    let path = root.path().join("client/services/StampService.py");
+    std::fs::create_dir_all(path.parent().unwrap_or(root.path()))
+        .unwrap_or_else(|error| panic!("folder: {error}"));
+    std::fs::write(
+        &path,
+        "@service\n@needs_all\nclass StampService:\n    clock: Clock\n    title: str\n",
+    )
+    .unwrap_or_else(|error| panic!("source: {error}"));
+    let registry = crate::template::ServiceRegistry::discover(root.path())
+        .unwrap_or_else(|error| panic!("registry: {error:?}"));
+    let service = registry
+        .get("stamp")
+        .unwrap_or_else(|| panic!("stamp service"));
+    assert_eq!(service.required(), ["title"]);
+    assert_eq!(service.injected(), ["clock"]);
+}
+
+#[test]
+fn python_services_reach_every_browser_api_through_the_page() {
+    if !PythonPage::has_python() {
+        return;
+    }
+    let report = PythonPage::run(&BrowserApiPage::STAMP, &["stamp"], BrowserApiPage::DRIVER);
+    assert_eq!(
+        report["init"]["value"]["fields"],
+        json!(["place"]),
+        "{report}"
+    );
+    assert_eq!(
+        report["times"],
+        json!({"value": "1000.0 5.5 Europe/Paris"}),
+        "{report}"
+    );
+    assert_eq!(report["random"], json!({"value": "[1, 2, 3, 4] uuid-1"}));
+    assert_eq!(
+        report["status"],
+        json!({"value": "False True dark reduce fr"})
+    );
+    assert_eq!(report["consent"], json!({"value": "granted"}), "{report}");
+    assert_eq!(report["window"], json!({"value": true}), "{report}");
+    assert_eq!(
+        report["refused"],
+        json!({"value": "At most 65536 random bytes."})
+    );
+    assert_eq!(report["heard"], json!({"value": null}), "{report}");
+    assert_eq!(report["place"], json!({"value": "1.5,2.5"}), "{report}");
+    assert_eq!(
+        report["requests"],
+        json!([
+            ["clock", "now", []],
+            ["clock", "monotonic", []],
+            ["clock", "timeZone", []],
+            ["secureRandom", "bytes", [4]],
+            ["secureRandom", "uuid", []],
+            ["connectivity", "online", []],
+            ["pageVisibility", "visible", []],
+            ["preferences", "scheme", []],
+            ["preferences", "motion", []],
+            ["preferences", "language", []],
+            ["clipboard", "writeText", ["atlas"]],
+            ["clipboard", "readText", []],
+            [
+                "share",
+                "open",
+                ["Atlas", "A map", "https://example.com/atlas"]
+            ],
+            ["notifications", "requestPermission", []],
+            ["notifications", "show", ["Atlas", "Ready"]],
+            ["geolocation", "currentPosition", []],
+            ["notifications", "permission", []],
+            ["windowControls", "minimize", []],
+            ["windowControls", "maximize", []],
+            ["windowControls", "fullscreen", []],
+            ["windowControls", "close", []],
+            ["windowControls", "resize", [800, 600]],
+            ["windowControls", "setTitle", ["Atlas"]],
+            ["windowControls", "granted", ["close"]],
+            ["secureRandom", "bytes", [65537]],
+        ]),
+        "{report}"
+    );
+}
+
+#[test]
+fn the_python_page_engine_gives_the_runtime_the_web_host() {
+    let engine = include_str!("python_host.js");
+    assert!(engine.contains("web: (text) => webHost(text)"));
+    assert!(engine.contains("hosts?.socket, hosts?.web)"));
+}

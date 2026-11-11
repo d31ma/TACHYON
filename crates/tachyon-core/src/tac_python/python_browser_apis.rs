@@ -3,12 +3,51 @@ use crate::web_api_clients::WebApiClients;
 use std::ops::Range;
 use std::path::Path;
 
-pub(super) struct PythonBrowserApis;
+pub(crate) struct PythonBrowserApis;
 
 impl PythonBrowserApis {
     const EXTENSION: &'static str = "py";
     const NAME_JOINER: char = '_';
-    const HELP: &'static str = "The Pyodide runtime has no browser API adapter yet. Use this API in a JavaScript, TypeScript or compiled service, and pass the value to the Python service as an argument.";
+    const HELP: &'static str = "This browser API has no Python client. Use it in a JavaScript, TypeScript or compiled service, and pass the value to the Python service as an argument.";
+    const SUPPORT: [&'static str; 3] = [
+        include_str!("web_apis/python_web_host.py"),
+        include_str!("web_apis/browser_fakes.py"),
+        include_str!("web_apis/python_browser_clients.py"),
+    ];
+    const CLIENTS: [(&'static str, &'static str); 10] = [
+        ("Clock", include_str!("web_apis/clock.py")),
+        ("SecureRandom", include_str!("web_apis/secure_random.py")),
+        ("Connectivity", include_str!("web_apis/connectivity.py")),
+        (
+            "PageVisibility",
+            include_str!("web_apis/page_visibility.py"),
+        ),
+        ("Preferences", include_str!("web_apis/preferences.py")),
+        ("Clipboard", include_str!("web_apis/clipboard.py")),
+        ("Share", include_str!("web_apis/share.py")),
+        ("Notifications", include_str!("web_apis/notifications.py")),
+        ("Geolocation", include_str!("web_apis/geolocation.py")),
+        (
+            "WindowControls",
+            include_str!("web_apis/window_controls.py"),
+        ),
+    ];
+    const REGISTER: &'static str = "_TacPythonBrowserClients.register";
+
+    pub(crate) fn source() -> String {
+        let support = Self::SUPPORT.join("\n");
+        let clients = Self::CLIENTS.map(|(_, source)| source).join("\n");
+        let names = Self::CLIENTS.map(|(name, _)| name).join(", ");
+        format!("{support}\n{clients}\n{}({names})\n", Self::REGISTER)
+    }
+
+    pub(super) fn is_client(type_name: &str) -> bool {
+        Self::client_names().any(|name| name == type_name)
+    }
+
+    pub(super) fn client_names() -> impl Iterator<Item = &'static str> {
+        Self::CLIENTS.into_iter().map(|(name, _)| name)
+    }
 
     pub(super) fn refuse(path: &Path, source: &str) -> Result<(), Failure> {
         Self::first_use(source).map_or(Ok(()), |range| Err(Self::failure(path, source, range)))
@@ -27,6 +66,7 @@ impl PythonBrowserApis {
     fn first_use(source: &str) -> Option<Range<usize>> {
         let code = crate::lexical::code_mask(Self::EXTENSION, source).code;
         WebApiClients::client_type_names()
+            .filter(|name| !Self::is_client(name))
             .flat_map(|name| {
                 source
                     .match_indices(name)

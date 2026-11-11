@@ -21,9 +21,11 @@ class _TacPythonRuntime:
         cls.instance = cls(types, metadata, models)
 
     @classmethod
-    def connect(cls, emit, done=None, storage=None, http=None, socket=None):
+    def connect(cls, emit, done=None, storage=None, http=None, socket=None, web=None):
         cls.instance.emit = emit
         cls.instance.tasks.done = done
+        if web is not None:
+            _tac_builtins.TacWeb = web
         if storage is not None:
             _tac_builtins.TacStorage = storage
         if http is not None:

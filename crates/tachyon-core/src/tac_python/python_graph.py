@@ -94,6 +94,11 @@ class _TacPythonGraph:
         return value
 
     def _argument(self, binding, owner):
+        if 'browserApi' in binding:
+            return _TacPythonBrowserClients.client(binding['browserApi'])
+        return self._managed(binding, owner)
+
+    def _managed(self, binding, owner):
         if 'provider' in binding:
             return self.acquire(binding['provider'], owner)
         return self._property(binding, owner)

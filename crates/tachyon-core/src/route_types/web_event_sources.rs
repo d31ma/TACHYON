@@ -54,6 +54,12 @@ impl WebEventSources {
         flag: "bool",
     };
     const GO_PACKAGE: &'static str = "package tac\n";
+    const PYTHON: LanguageKinds = LanguageKinds {
+        text: "str",
+        number: "float",
+        flag: "bool",
+    };
+    const PYTHON_EMPTY_BODY: &'static str = "    pass\n";
 
     pub(crate) fn rust() -> String {
         Self::each(Self::rust_model)
@@ -125,6 +131,14 @@ impl WebEventSources {
                 let source = Self::cpp_model(&name, &Self::fields(model));
                 (name, source)
             })
+            .collect()
+    }
+
+    pub(crate) fn python_named(names: &[String]) -> String {
+        WebEventModels::models()
+            .into_iter()
+            .filter(|(name, _)| names.contains(name))
+            .map(|(name, model)| Self::python_model(&name, &Self::fields(model)))
             .collect()
     }
 
@@ -292,6 +306,23 @@ impl WebEventSources {
             format!("    {kind} {field}{{}};\n")
         });
         format!("struct {name} {{\n{declared}}};\n")
+    }
+
+    fn python_model(name: &str, fields: &[ModelField]) -> String {
+        let declared = Self::lines(&Self::PYTHON, fields, |kind, field| {
+            format!("    {field}: {kind}\n")
+        });
+        let body = Self::python_body(&declared);
+        format!(
+            "\n\n@_tac_dataclass\nclass {name}:\n{body}\n\n_tac_sys.modules.setdefault(\"models\", _tac_types.ModuleType(\"models\")).{name} = {name}\n"
+        )
+    }
+
+    fn python_body(declared: &str) -> &str {
+        if declared.is_empty() {
+            return Self::PYTHON_EMPTY_BODY;
+        }
+        declared
     }
 
     fn ruby_model(name: &str, fields: &[ModelField]) -> String {

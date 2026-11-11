@@ -29,8 +29,9 @@ impl PythonUnit {
 
     fn program(lowered: &str, name: &str) -> String {
         let unit = serde_json::to_string(name).unwrap_or_default();
+        let support = crate::tac_python::PythonWebServices::test_unit_support(lowered);
         format!(
-            "{lowered}\n\
+            "{lowered}\n{support}\n\
              class _TacTestMain:\n\
              \x20   @staticmethod\n\
              \x20   async def report():\n\

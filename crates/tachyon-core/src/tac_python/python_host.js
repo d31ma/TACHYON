@@ -10,7 +10,7 @@ class TacPythonHost {
 
   static retain(type, hosts) {
     try {
-      type.connect(hosts?.emit, hosts?.done, hosts?.storage, hosts?.http, hosts?.socket)
+      type.connect(hosts?.emit, hosts?.done, hosts?.storage, hosts?.http, hosts?.socket, hosts?.web)
       return TacPythonHost.copyMethods(type)
     } finally {
       type.destroy()
@@ -90,6 +90,7 @@ const pythonHost = await TacPythonHost.start(__TAC_PYTHON_PROGRAM__, {
   storage: (text) => storageHost ? storageHost(text) : JSON.stringify({ error: 'Tachyon storage is not on this page.' }),
   http: (text) => (globalThis[Symbol.for('tachyon.tac.http')]?.start ?? pythonHttpMissing)(text),
   socket: (owner, text) => socketHost(owner, text),
+  web: (text) => webHost(text),
 })
 const transport = (text) => pythonHost.exchange(text)
 /** @param {string} text @returns {Promise<string>} */
