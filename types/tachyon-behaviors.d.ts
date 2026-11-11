@@ -429,6 +429,8 @@ declare global {
   interface TacClipboard { writeText(text: string): null; readText(): null; }
   /** Share: opens the share sheet of the device (ADR 0065). Grant "share" in tac.browserApis and call it from a click or key handler. Answers with `ShareFinished` or `BrowserCallFailed`. */
   interface TacShare { open(title: string, text: string, url: string): null; }
+  /** Files: picks, holds, reads and uploads files (ADR 0116). Grant "files" in tac.browserApis; call `pick` from a click or key handler. `upload` returns the upload id and goes only to a path on the page's origin or to an https host in tac.outgoing.hosts; `headers` is one `name: value` per line. */
+  interface TacFiles { pick(accept: string, multiple: boolean): null; read(id: string, offset: number, count: number): null; release(id: string): null; upload(id: string, method: string, url: string, headers: string): string; cancel(upload: string): null; }
   /** Notifications: asks for permission and shows notifications (ADR 0065). Grant "notifications" in tac.browserApis. `requestPermission` needs a click or key handler and answers with `NotificationPermissionChanged`. */
   interface TacNotifications { permission(): NotificationPermission; requestPermission(): null; show(title: string, body: string): null; }
   /** Geolocation: the position of the device (ADR 0065). Grant "geolocation" in tac.browserApis. `currentPosition` answers with `PositionFound` or `BrowserCallFailed`. */
@@ -465,6 +467,16 @@ declare global {
   interface PushUnsubscribed { endpoint: string; }
   /** BrowserCallFailed: a built-in event model. A browser API call failed after it started (ADR 0065). */
   interface BrowserCallFailed { api: string; call: string; message: string; }
+  /** FilePicked: a built-in event model, one per chosen file, sent to the caller of `Files.pick` (ADR 0116). */
+  interface FilePicked { id: string; name: string; size: number; media: string; sha256: string; index: number; count: number; }
+  /** FilePickCancelled: a built-in event model. The user closed the file chooser without a file (ADR 0116). */
+  interface FilePickCancelled {}
+  /** FileDropped: a built-in event model, one per file dropped on a `data-tac-drop-zone` element, sent to every listener (ADR 0116). */
+  interface FileDropped { zone: string; id: string; name: string; size: number; media: string; sha256: string; index: number; count: number; }
+  /** FileChunkRead: a built-in event model with base64 `data` that `Files.read` read (ADR 0116). */
+  interface FileChunkRead { id: string; offset: number; size: number; data: string; }
+  /** UploadFinished: a built-in event model with the answer to `Files.upload` (ADR 0116). */
+  interface UploadFinished { upload: string; id: string; status: number; body: string; truncated: boolean; error: string; }
   interface TacResourceMap {
     view: HTMLElement;
     lifecycle: AbortSignal;
@@ -480,6 +492,7 @@ declare global {
     documentTitle: DocumentTitle;
     clipboard: TacClipboard;
     share: TacShare;
+    files: TacFiles;
     notifications: TacNotifications;
     geolocation: TacGeolocation;
     windowControls: TacWindowControls;

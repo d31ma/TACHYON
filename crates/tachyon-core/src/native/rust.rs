@@ -64,6 +64,7 @@ impl RustCompanion {
         include_str!("web_apis/preferences.rs"),
         include_str!("web_apis/clipboard.rs"),
         include_str!("web_apis/share.rs"),
+        include_str!("web_apis/files.rs"),
         include_str!("web_apis/notifications.rs"),
         include_str!("web_apis/push.rs"),
         include_str!("web_apis/geolocation.rs"),

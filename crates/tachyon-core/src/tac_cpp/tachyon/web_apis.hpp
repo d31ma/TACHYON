@@ -103,6 +103,25 @@ public:
     void release() const { TacWebCall::answer("focus", "release"); }
 };
 
+class Files {
+public:
+    void pick(const std::string& accept, bool multiple) const {
+        TacWebCall::answer("files", "pick", TacWebCall::arguments(accept, multiple));
+    }
+
+    void read(const std::string& id, long long offset, int count) const {
+        TacWebCall::answer("files", "read", TacWebCall::arguments(id, offset, count));
+    }
+
+    void release(const std::string& id) const { TacWebCall::answer("files", "release", TacWebCall::arguments(id)); }
+
+    std::string upload(const std::string& id, const std::string& method, const std::string& url, const std::string& headers) const {
+        return TacWebCall::answer("files", "upload", TacWebCall::arguments(id, method, url, headers)).getValue<std::string>();
+    }
+
+    void cancel(const std::string& upload) const { TacWebCall::answer("files", "cancel", TacWebCall::arguments(upload)); }
+};
+
 class Notifications {
 public:
     std::string permission() const { return TacWebCall::text("notifications", "permission"); }
@@ -162,4 +181,5 @@ using tachyon::web::Push;
 using tachyon::web::Preferences;
 using tachyon::web::SecureRandom;
 using tachyon::web::Share;
+using tachyon::web::Files;
 using tachyon::web::WindowControls;

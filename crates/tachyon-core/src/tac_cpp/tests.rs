@@ -1137,7 +1137,7 @@ fn a_file_picker_needs_field_is_refused_with_ty1372() {
     assert!(
         diagnostic
             .message
-            .contains("(Clock, SecureRandom, Connectivity, PageVisibility, Preferences, Clipboard, Share, Notifications, Geolocation, WindowControls, Focus)"),
+            .contains("(Clock, SecureRandom, Connectivity, PageVisibility, Preferences, Clipboard, Share, Notifications, Geolocation, WindowControls, Focus, Files)"),
         "{failure}"
     );
     assert_eq!(

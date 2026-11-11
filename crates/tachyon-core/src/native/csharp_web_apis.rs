@@ -13,6 +13,7 @@ impl CsharpWebApis {
         include_str!("web_apis/Preferences.cs"),
         include_str!("web_apis/Clipboard.cs"),
         include_str!("web_apis/Share.cs"),
+        include_str!("web_apis/Files.cs"),
         include_str!("web_apis/Notifications.cs"),
         include_str!("web_apis/Push.cs"),
         include_str!("web_apis/Geolocation.cs"),

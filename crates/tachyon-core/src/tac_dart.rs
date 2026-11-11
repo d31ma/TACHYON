@@ -517,6 +517,7 @@ Future<void> Function(Object?) tachyonSocketSender(Map<String, Object> graph, St
         include_str!("tac_dart/preferences.dart"),
         include_str!("tac_dart/clipboard.dart"),
         include_str!("tac_dart/share.dart"),
+        include_str!("tac_dart/files.dart"),
         include_str!("tac_dart/notifications.dart"),
         include_str!("tac_dart/push.dart"),
         include_str!("tac_dart/geolocation.dart"),

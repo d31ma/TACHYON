@@ -51,6 +51,7 @@ impl SwiftWebServices {
         ("Preferences", include_str!("web_apis/Preferences.swift")),
         ("Clipboard", include_str!("web_apis/Clipboard.swift")),
         ("Share", include_str!("web_apis/Share.swift")),
+        ("Files", include_str!("web_apis/Files.swift")),
         (
             "Notifications",
             include_str!("web_apis/Notifications.swift"),

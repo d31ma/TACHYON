@@ -130,6 +130,28 @@ function Focus:release()
   TacWebHost.call("focus", "release")
 end
 
+Files = {}
+
+function Files:pick(accept, multiple)
+  TacWebHost.call("files", "pick", { accept, multiple })
+end
+
+function Files:read(id, offset, count)
+  TacWebHost.call("files", "read", { id, offset, count })
+end
+
+function Files:release(id)
+  TacWebHost.call("files", "release", { id })
+end
+
+function Files:upload(id, method, url, headers)
+  return tostring(TacWebHost.call("files", "upload", { id, method, url, headers }))
+end
+
+function Files:cancel(upload)
+  TacWebHost.call("files", "cancel", { upload })
+end
+
 Notifications = {}
 
 function Notifications:permission()

@@ -69,6 +69,15 @@ impl Units {
     const FSHARP_WINDOW_SERVICE: &str = "[<Service>]\ntype StampService() =\n    let windowControls = WindowControls()\n\n    member this.Allowed() : bool = windowControls.Granted(\"minimize\")\n";
     const FSHARP_WINDOW_UNIT: &str = "[<Test(typeof<StampTestSetup>, {\"partition\":\"tests\"})>]\ntype StampServiceTest() =\n    member this.testUsesTheFakeWindow() : unit =\n        BrowserFakes.Answer(\"windowControls\", \"granted\", true)\n        Assert.isTrue(StampService().Allowed(), \"the fake window answers\")\n";
 
+    const JS_FILES_SERVICE: &str = "@Service\nexport default class StampService {\n  @Needs\n  files;\n\n  store(id) {\n    return this.files.upload(id, 'PUT', '/uploads', 'content-type: text/plain');\n  }\n}\n";
+    const JS_FILES_UNIT: &str = "@Test(StampTestSetup)\nexport default class StampServiceTest {\n  @Fake\n  files;\n\n  async testUploadsWithTheFake() {\n    this.files = { upload: (id) => `upload of ${id}` };\n    const service = this.construct(StampService);\n    Assert.equals('upload of a', service.store('a'));\n  }\n}\n";
+    const TS_FILES_SERVICE: &str = "@Service\nexport default class StampService {\n  @Needs\n  files!: TacFiles;\n\n  store(id: string): string {\n    return this.files.upload(id, 'PUT', '/uploads', 'content-type: text/plain');\n  }\n}\n";
+    const TS_FILES_UNIT: &str = "@Test(StampTestSetup)\nexport default class StampServiceTest {\n  @Fake\n  files!: TacFiles;\n\n  async testUploadsWithTheFake(): Promise<void> {\n    this.files = { pick: () => null, read: () => null, release: () => null, cancel: () => null, upload: (id: string) => `upload of ${id}` };\n    const service = this.construct(StampService);\n    Assert.equals('upload of a', service.store('a'));\n  }\n}\n";
+    const FSHARP_FILES_SERVICE: &str = "[<Service>]\ntype StampService() =\n    let files = Files()\n    member val Name : string = \"\" with get, set\n\n    member this.Store(id: string) : string = files.Upload(id, \"PUT\", \"/uploads\", \"content-type: text/plain\")\n\n    [<OnEvent>]\n    member this.Hear(picked: FilePicked) : unit =\n        this.Name <- picked.Name\n";
+    const FSHARP_FILES_UNIT: &str = "[<Test(typeof<StampTestSetup>, {\"partition\":\"tests\"})>]\ntype StampServiceTest() =\n    member this.testUploadsWithTheFake() : unit =\n        BrowserFakes.Answer(\"files\", \"upload\", \"upload-1\")\n        Assert.equals(\"upload-1\", StampService().Store(\"a\"))\n";
+    const KOTLIN_FILES_SERVICE: &str = "@Service\nclass StampService {\n    private val files = Files()\n\n    fun store(id: String): String = files.upload(id, \"PUT\", \"/uploads\", \"content-type: text/plain\")\n\n    fun choose() {\n        files.pick(\".txt\", false)\n    }\n}\n";
+    const KOTLIN_FILES_UNIT: &str = "@Test(StampTestSetup::class)\nclass StampServiceTest {\n    fun testUploadsWithTheFake() {\n        BrowserFakes.answer(\"files\", \"upload\", \"upload-1\")\n        BrowserFakes.answer(\"files\", \"pick\", null)\n        val service = StampService()\n        service.choose()\n        Assert.equals(\"upload-1\", service.store(\"a\"))\n    }\n}\n";
+
     const KOTLIN_SETUP: &str = "@TestSetup\nclass StampTestSetup {\n    companion object {\n        fun configure(execution: Behaviors.Execution): Behaviors.Configuration = Behaviors.Configuration()\n    }\n}\n";
     const KOTLIN_WINDOW_SERVICE: &str = "@Service\nclass StampService {\n    private val windowControls = WindowControls()\n\n    fun allowed(): Boolean = windowControls.granted(\"minimize\")\n\n    fun shrink() {\n        windowControls.minimize()\n    }\n}\n";
     const KOTLIN_WINDOW_UNIT: &str = "@Test(StampTestSetup::class)\nclass StampServiceTest {\n    fun testUsesTheFakeWindow() {\n        BrowserFakes.answer(\"windowControls\", \"granted\", true)\n        BrowserFakes.answer(\"windowControls\", \"minimize\", null)\n        val service = StampService()\n        service.shrink()\n        Assert.isTrue(service.allowed(), \"the fake window answers\")\n    }\n\n    fun testAsksForAnAnswer() {\n        val error = Assert.throws { WindowControls().close() }\n        Assert.isTrue(error.message.orEmpty().contains(\"BrowserFakes.answer\"), \"a refusal that names BrowserFakes.answer\")\n    }\n}\n";
@@ -341,4 +350,63 @@ fn a_typescript_unit_fakes_the_window_controls() {
     ];
     let results = Units::passed("ts", files);
     assert_eq!(results, [(String::from("testUsesTheFakeWindow"), true)]);
+}
+
+#[test]
+fn a_unit_fakes_the_files_browser_api_in_javascript_typescript_fsharp_and_kotlin() {
+    let cases = [
+        (
+            "node",
+            "--version",
+            "js",
+            [
+                Units::JS_SETUP,
+                Units::JS_FILES_SERVICE,
+                Units::JS_FILES_UNIT,
+            ],
+        ),
+        (
+            "node",
+            "--version",
+            "ts",
+            [
+                Units::TS_SETUP,
+                Units::TS_FILES_SERVICE,
+                Units::TS_FILES_UNIT,
+            ],
+        ),
+        (
+            "dotnet",
+            "--version",
+            "fs",
+            [
+                Units::FSHARP_SETUP,
+                Units::FSHARP_FILES_SERVICE,
+                Units::FSHARP_FILES_UNIT,
+            ],
+        ),
+    ];
+    for (program, flag, extension, files) in cases {
+        if !Units::available(program, flag) {
+            eprintln!("skipping {extension}: {program} is unavailable");
+            continue;
+        }
+        let results = Units::passed(extension, files);
+        assert_eq!(results.len(), 1, "{extension}: {results:?}");
+    }
+    if crate::kotlin_home::KotlinHome::command("kotlinc")
+        .arg("-version")
+        .output()
+        .is_err()
+    {
+        assert!(std::env::var_os("CI").is_none(), "CI must provide kotlinc");
+        eprintln!("skipping kt: kotlinc is unavailable");
+        return;
+    }
+    let files = [
+        Units::KOTLIN_SETUP,
+        Units::KOTLIN_FILES_SERVICE,
+        Units::KOTLIN_FILES_UNIT,
+    ];
+    assert_eq!(Units::passed("kt", files).len(), 1);
 }

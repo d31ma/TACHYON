@@ -74,6 +74,7 @@ impl YardNames {
         "Preferences",
         "Push",
         "Share",
+        "Files",
         "TacStorage",
         "WindowControls",
         "Focus",

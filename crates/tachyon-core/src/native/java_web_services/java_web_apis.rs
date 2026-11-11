@@ -30,6 +30,7 @@ impl JavaWebApis {
         ("Preferences", include_str!("../web_apis/Preferences.java")),
         ("Clipboard", include_str!("../web_apis/Clipboard.java")),
         ("Share", include_str!("../web_apis/Share.java")),
+        ("Files", include_str!("../web_apis/Files.java")),
         (
             "Notifications",
             include_str!("../web_apis/Notifications.java"),

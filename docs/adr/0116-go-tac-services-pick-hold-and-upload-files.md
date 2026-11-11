@@ -1,4 +1,4 @@
-# ADR 0116: Go Tac Services Pick, Hold and Upload Files
+# ADR 0116: Tac Services Pick, Hold and Upload Files
 
 - Status: Accepted
 - Date: 2026-11-10
@@ -124,8 +124,23 @@ now says to use `Files` instead. Java keeps its old help text.
 
 ### Languages
 
-Go gets `Files` first. The other service languages get the same calls and
-models in a second step of this decision, each in its own style.
+Every Tac service language gets `Files` with the same five calls and the same
+five event models, in its own style:
+
+| Language | Field | Calls |
+| --- | --- | --- |
+| JavaScript, TypeScript | `@Needs files` (`TacFiles` in TypeScript) | `pick`, `read`, `release`, `upload`, `cancel` |
+| Rust | `files: Files` | `pick`, `read`, `release`, `upload`, `cancel`, each a `Result` |
+| Go | `// @Needs` field `files Files` | `Pick`, `Read`, `Release`, `Upload`, `Cancel`, each with an `error` |
+| C#, F# | `new()` / `Files()` | `Pick`, `Read`, `Release`, `Upload`, `Cancel` |
+| Swift | `Files()` | `pick(accept:multiple:)`, `read(id:offset:count:)`, `release(id:)`, `upload(id:method:url:headers:)`, `cancel(upload:)`, each `throws` |
+| Kotlin, Java, Dart, C++ | `Files()`, `new Files()`, `@Needs()`, `[[Needs]] Files&` | `pick`, `read`, `release`, `upload`, `cancel` |
+| Ruby, Lua | `Files.new`, the global `Files` table | `pick`, `read`, `release`, `upload`, `cancel` |
+| Python | none yet | Python's browser APIs come with ADR 0122; until then a Python service that names `Files` stops the build with `TY1605` |
+
+`Files` is one of the browser API types (`WebApiClients::TYPE_NAMES`), so a
+native service that is linked into an app cannot use it (`TY1317`), as with
+the other browser APIs.
 
 ## Consequences
 

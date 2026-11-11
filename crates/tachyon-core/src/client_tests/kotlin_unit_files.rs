@@ -41,6 +41,7 @@ impl KotlinUnitFiles {
         ),
         ("Clipboard", include_str!("../native/web_apis/Clipboard.kt")),
         ("Share", include_str!("../native/web_apis/Share.kt")),
+        ("Files", include_str!("../native/web_apis/Files.kt")),
         (
             "Notifications",
             include_str!("../native/web_apis/Notifications.kt"),

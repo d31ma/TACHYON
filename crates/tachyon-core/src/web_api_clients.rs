@@ -14,6 +14,7 @@ impl WebApiClients {
         "Push",
         "WindowControls",
         "Focus",
+        "Files",
     ];
 
     pub(crate) const NATIVE_CAPABILITIES: [&'static str; 2] = ["FilePicker", "WindowControls"];

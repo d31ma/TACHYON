@@ -227,7 +227,7 @@ impl RequiredFields {
         local_classes: &BTreeSet<String>,
     ) -> bool {
         field.marked
-            || injectable.contains(&field.name)
+            || Self::injected_by_name(&field.name, injectable)
             || field.name == crate::companion::lower_first(Self::PUBLISHER)
             || local_classes
                 .iter()
@@ -240,6 +240,11 @@ impl RequiredFields {
                         || injectable.contains(word)
                         || local_classes.contains(word)
                 })
+    }
+
+    fn injected_by_name(name: &str, injectable: &BTreeSet<String>) -> bool {
+        let type_name = crate::web_api_clients::WebApiClients::is_client_type(name);
+        injectable.contains(name) && !type_name
     }
 
     fn ruby_fields(code: &str) -> Vec<DeclaredField> {
@@ -647,6 +652,19 @@ mod tests {
             class,
             &injectable,
         )
+    }
+
+    #[test]
+    fn a_csharp_field_named_like_a_browser_api_type_stays_a_prop() {
+        let injectable = BTreeSet::from([String::from("Files"), String::from("Share")]);
+        let source = "[Service]\npublic class SnippetService\n{\n    public required List<string> Files;\n    public required string Share;\n}\n";
+        let props = RequiredFields::props(
+            Path::new("client/services/SnippetService.cs"),
+            source,
+            "SnippetService",
+            &injectable,
+        );
+        assert_eq!(props, ["files", "share"]);
     }
 
     #[test]

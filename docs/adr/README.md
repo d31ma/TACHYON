@@ -128,7 +128,7 @@ design. Decide routine implementation choices in code review, not in an ADR.
 - [113. The Operating System Confines Handler Egress](0113-the-operating-system-confines-handler-egress.md)
 - [114. Event Bindings Take Key Filters, Modifiers and Document Listeners](0114-event-bindings-take-key-filters-modifiers-and-document-listeners.md)
 - [115. Services Move and Trap Focus Through the Page](0115-services-move-and-trap-focus-through-the-page.md)
-- [116. Go Tac Services Pick, Hold and Upload Files](0116-go-tac-services-pick-hold-and-upload-files.md)
+- [116. Tac Services Pick, Hold and Upload Files](0116-go-tac-services-pick-hold-and-upload-files.md)
 - [117. Go HTTP Clients Read JSON Error Bodies](0117-go-http-clients-read-json-error-bodies.md)
 - [118. Tac Pages Subscribe to Web Push](0118-tac-pages-subscribe-to-web-push.md)
 - [119. Go Edge Contracts for Tac and Yon](0119-go-edge-contracts-for-tac-and-yon.md)

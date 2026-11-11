@@ -256,6 +256,7 @@ impl EventResource {
         "focus",
         "push",
         "filePicker",
+        "files",
     ];
     const RENAMED_NAMES: [(&str, &str); 4] = [
         ("element", "view"),

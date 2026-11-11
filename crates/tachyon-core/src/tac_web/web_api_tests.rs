@@ -1492,6 +1492,447 @@ process.exit(0)
         );
     }
 
+    const FILES_RUNTIME: &str = concat!(
+        include_str!("../template/tac-sha256.js"),
+        "\n",
+        include_str!("../template/tac-files.js")
+    );
+
+    const FILES_DRIVER: &str = r#"const inputs = []
+const uploads = []
+const grants = { content: 'files' }
+globalThis.location = new URL('https://app.example.com/notes')
+globalThis.document = { visibilityState: 'visible', addEventListener: () => {}, querySelector: (selector) => selector === 'meta[name="tachyon-browser-apis"]' ? grants : null, createElement: () => ({ handlers: {}, files: [], addEventListener(name, handler) { this.handlers[name] = handler }, click() { inputs.push(this) } }) }
+Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { onLine: true, language: 'en', userActivation: { isActive: true } } })
+const loadFile = globalThis.fetch
+globalThis.fetch = async (url, init) => { if (!init?.method) return loadFile(url); uploads.push([init.method, url, init.headers]); return new Response('stored', { status: 201 }) }
+;(0, eval)(await readFile('./tac-files.js', 'utf8'))
+;(0, eval)(`${await readFile('./tac-web.js', 'utf8')}\nglobalThis.TacWebApis = TacWebApis`)
+const { default: TacApplicationEvents } = await import('./application-events.mjs')
+const { default: StampService, __tachyon_event_plan__: plan } = await import('./StampService.js')
+const bus = new TacApplicationEvents({ changed: () => {}, failed: () => { throw new Error('Event delivery failed') } })
+TacWebApis.events = { publish: (name, value) => bus.publish(name, value), send: (owner, name, value) => bus.send(owner, name, value) }
+const stamp = new StampService({})
+bus.attach(stamp, plan.types[0], { applicationEventPublisher: null })
+await bus.initialize(stamp)
+const settle = async () => { for (let round = 0; round < 20; round += 1) await new Promise((resolve) => setTimeout(resolve, 0)) }
+stamp.choose()
+inputs[0].files = [new File(['abc'], 'a.txt', { type: 'text/plain' })]
+inputs[0].handlers.change()
+await settle()
+stamp.store()
+stamp.peek()
+await settle()
+console.log(JSON.stringify({ name: stamp.name, media: stamp.media, data: stamp.data, status: stamp.status, upload: String(stamp.upload).length, uploads }))
+process.exit(0)
+"#;
+
+    const RUST_FILES: &str = r#"#[Service]
+#[derive(Default)]
+struct StampService {
+    files: Files,
+    name: String,
+    media: String,
+    data: String,
+    status: f64,
+    upload: String,
+    chosen: String,
+}
+
+impl StampService {
+    pub fn choose(&self) {
+        let _ = self.files.pick(".txt", false);
+    }
+
+    pub fn store(&mut self) {
+        let headers = "content-type: text/plain";
+        self.upload = self.files.upload(&self.chosen, "PUT", "/uploads", headers).unwrap_or_default();
+    }
+
+    pub fn peek(&self) {
+        let _ = self.files.read(&self.chosen, 0, 3);
+    }
+
+    #[OnEvent]
+    pub fn hear_picked(&mut self, picked: FilePicked) {
+        self.name = picked.name;
+        self.media = picked.media;
+        self.chosen = picked.id;
+    }
+
+    #[OnEvent]
+    pub fn hear_chunk(&mut self, chunk: FileChunkRead) {
+        self.data = chunk.data;
+    }
+
+    #[OnEvent]
+    pub fn hear_upload(&mut self, finished: UploadFinished) {
+        self.status = finished.status;
+    }
+}
+"#;
+
+    const GO_FILES: &str = r#"// @Service
+type StampService struct {
+	// @Needs
+	files  Files
+	Name   string
+	Media  string
+	Data   string
+	Status float64
+	Upload string
+	Chosen string
+}
+
+func (stamp *StampService) Choose() {
+	_ = stamp.files.Pick(".txt", false)
+}
+
+func (stamp *StampService) Store() {
+	stamp.Upload, _ = stamp.files.Upload(stamp.Chosen, "PUT", "/uploads", "content-type: text/plain")
+}
+
+func (stamp *StampService) Peek() {
+	_ = stamp.files.Read(stamp.Chosen, 0, 3)
+}
+
+// @OnEvent
+func (stamp *StampService) HearPicked(picked FilePicked) {
+	stamp.Name = picked.Name
+	stamp.Media = picked.Media
+	stamp.Chosen = picked.Id
+}
+
+// @OnEvent
+func (stamp *StampService) HearChunk(chunk FileChunkRead) {
+	stamp.Data = chunk.Data
+}
+
+// @OnEvent
+func (stamp *StampService) HearUpload(finished UploadFinished) {
+	stamp.Status = finished.Status
+}
+"#;
+
+    const CPP_FILES: &str = r#"#pragma once
+#include <string>
+
+class [[Service]] StampService {
+public:
+    [[Needs]] Files& files;
+    std::string name;
+    std::string media;
+    std::string data;
+    double status = 0;
+    std::string upload;
+    std::string chosen;
+
+    void choose() { files.pick(".txt", false); }
+
+    void store() { upload = files.upload(chosen, "PUT", "/uploads", "content-type: text/plain"); }
+
+    void peek() { files.read(chosen, 0, 3); }
+
+    [[OnEvent]] void hearPicked(const FilePicked& picked) {
+        name = picked.name;
+        media = picked.media;
+        chosen = picked.id;
+    }
+
+    [[OnEvent]] void hearChunk(const FileChunkRead& chunk) { data = chunk.data; }
+
+    [[OnEvent]] void hearUpload(const UploadFinished& finished) { status = finished.status; }
+};
+"#;
+
+    const SWIFT_FILES: &str = r#"@Service
+final class StampService {
+    private let files = Files()
+    var name: String = ""
+    var media: String = ""
+    var data: String = ""
+    var status: Double = 0
+    var upload: String = ""
+    var chosen: String = ""
+
+    func choose() throws {
+        try files.pick(accept: ".txt", multiple: false)
+    }
+
+    func store() throws {
+        upload = try files.upload(id: chosen, method: "PUT", url: "/uploads", headers: "content-type: text/plain")
+    }
+
+    func peek() throws {
+        try files.read(id: chosen, offset: 0, count: 3)
+    }
+
+    @OnEvent
+    func hearPicked(_ picked: FilePicked) {
+        name = picked.name
+        media = picked.media
+        chosen = picked.id
+    }
+
+    @OnEvent
+    func hearChunk(_ chunk: FileChunkRead) {
+        data = chunk.data
+    }
+
+    @OnEvent
+    func hearUpload(_ finished: UploadFinished) {
+        status = finished.status
+    }
+}
+"#;
+
+    const JAVA_FILES: &str = r#"@Service
+class StampService {
+    private final Files files = new Files();
+    String name = "";
+    String media = "";
+    String data = "";
+    double status = 0;
+    String upload = "";
+    String chosen = "";
+
+    void choose() {
+        files.pick(".txt", false);
+    }
+
+    void store() {
+        upload = files.upload(chosen, "PUT", "/uploads", "content-type: text/plain");
+    }
+
+    void peek() {
+        files.read(chosen, 0, 3);
+    }
+
+    @OnEvent
+    void hearPicked(FilePicked picked) {
+        name = picked.name();
+        media = picked.media();
+        chosen = picked.id();
+    }
+
+    @OnEvent
+    void hearChunk(FileChunkRead chunk) {
+        data = chunk.data();
+    }
+
+    @OnEvent
+    void hearUpload(UploadFinished finished) {
+        status = finished.status();
+    }
+}
+"#;
+
+    const CSHARP_FILES: &str = r#"[Service]
+public class StampService
+{
+    private readonly Files files = new();
+    public string Name = "";
+    public string Media = "";
+    public string Data = "";
+    public double Status = 0;
+    public string Upload = "";
+    public string Chosen = "";
+
+    public void Choose() => files.Pick(".txt", false);
+
+    public void Store() => Upload = files.Upload(Chosen, "PUT", "/uploads", "content-type: text/plain");
+
+    public void Peek() => files.Read(Chosen, 0, 3);
+
+    [OnEvent]
+    public void HearPicked(FilePicked picked)
+    {
+        Name = picked.Name;
+        Media = picked.Media;
+        Chosen = picked.Id;
+    }
+
+    [OnEvent]
+    public void HearChunk(FileChunkRead chunk)
+    {
+        Data = chunk.Data;
+    }
+
+    [OnEvent]
+    public void HearUpload(UploadFinished finished)
+    {
+        Status = finished.Status;
+    }
+}
+"#;
+
+    const DART_FILES: &str = r"@Service()
+class StampService {
+  @Needs()
+  final Files files;
+  String name = '';
+  String media = '';
+  String data = '';
+  double status = 0;
+  String upload = '';
+  String chosen = '';
+
+  void choose() => files.pick('.txt', false);
+
+  void store() {
+    upload = files.upload(chosen, 'PUT', '/uploads', 'content-type: text/plain');
+  }
+
+  void peek() => files.read(chosen, 0, 3);
+
+  @OnEvent
+  void hearPicked(FilePicked picked) {
+    name = picked.name;
+    media = picked.media;
+    chosen = picked.id;
+  }
+
+  @OnEvent
+  void hearChunk(FileChunkRead chunk) {
+    data = chunk.data;
+  }
+
+  @OnEvent
+  void hearUpload(UploadFinished finished) {
+    status = finished.status;
+  }
+}
+";
+
+    const RUBY_FILES: &str = r#"#[Service]
+class StampService
+  attr_accessor :name, :media, :data, :status, :upload, :chosen
+
+  def initialize
+    @name = ""
+    @media = ""
+    @data = ""
+    @status = 0.0
+    @upload = ""
+    @chosen = ""
+  end
+
+  def choose
+    Files.new.pick(".txt", false)
+  end
+
+  def store
+    @upload = Files.new.upload(@chosen, "PUT", "/uploads", "content-type: text/plain")
+  end
+
+  def peek
+    Files.new.read(@chosen, 0, 3)
+  end
+
+  # @param picked [FilePicked]
+  #[OnEvent]
+  def hear_picked(picked)
+    @name = picked.name
+    @media = picked.media
+    @chosen = picked.id
+  end
+
+  # @param chunk [FileChunkRead]
+  #[OnEvent]
+  def hear_chunk(chunk)
+    @data = chunk.data
+  end
+
+  # @param finished [UploadFinished]
+  #[OnEvent]
+  def hear_upload(finished)
+    @status = finished.status
+  end
+end
+"#;
+
+    const LUA_FILES: &str = r#"-- @Service
+---@class StampService
+StampService = {
+  ---@type string
+  name = "",
+  ---@type string
+  media = "",
+  ---@type string
+  data = "",
+  ---@type number
+  status = 0.0,
+  ---@type string
+  upload = "",
+  ---@type string
+  chosen = "",
+}
+
+---@return nil
+function StampService:choose()
+  Files:pick(".txt", false)
+end
+
+---@return nil
+function StampService:store()
+  self.upload = Files:upload(self.chosen, "PUT", "/uploads", "content-type: text/plain")
+end
+
+---@return nil
+function StampService:peek()
+  Files:read(self.chosen, 0, 3)
+end
+
+---@param picked FilePicked
+---@return nil
+-- @OnEvent
+function StampService:hear_picked(picked)
+  self.name = picked.name
+  self.media = picked.media
+  self.chosen = picked.id
+end
+
+---@param chunk FileChunkRead
+---@return nil
+-- @OnEvent
+function StampService:hear_chunk(chunk)
+  self.data = chunk.data
+end
+
+---@param finished UploadFinished
+---@return nil
+-- @OnEvent
+function StampService:hear_upload(finished)
+  self.status = finished.status
+end
+"#;
+
+    fn assert_files_answered(root: &Path, fetches_files: bool) {
+        Self::write(
+            root,
+            "application-events.mjs",
+            Self::EVENTS_RUNTIME.as_bytes(),
+        );
+        Self::write(root, "tac-files.js", Self::FILES_RUNTIME.as_bytes());
+        let driver = if fetches_files {
+            format!("{}{}", Self::FILE_FETCH, Self::FILES_DRIVER)
+        } else {
+            String::from(Self::FILES_DRIVER)
+        };
+        let report = Self::run(root, &driver);
+        assert_eq!(
+            report,
+            serde_json::json!({
+                "name": "a.txt",
+                "media": "text/plain",
+                "data": "YWJj",
+                "status": 201,
+                "upload": 36,
+                "uploads": [["PUT", "https://app.example.com/uploads", { "content-type": "text/plain" }]],
+            })
+        );
+    }
+
     fn assert_answered(root: &Path, fetches_files: bool) {
         Self::assert_answered_by(root, fetches_files, Self::PROMPTS_DRIVER);
     }
@@ -2657,4 +3098,105 @@ async fn a_cpp_web_service_subscribes_to_web_push() {
     let source = WebApis::push_source(WebApis::CPP_PUSH);
     WebApis::publish(root.path(), WebLanguage::Cpp, "hpp", &source).await;
     WebApis::assert_pushed(root.path(), true);
+}
+
+#[tokio::test]
+async fn a_rust_web_service_picks_reads_and_uploads_files() {
+    if !WebApis::node_available() || !WebApis::rust_web_target() {
+        eprintln!("skipping: node or the wasm32 Rust target is unavailable");
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    WebApis::publish(root.path(), WebLanguage::Rust, "rs", WebApis::RUST_FILES).await;
+    WebApis::assert_files_answered(root.path(), false);
+}
+
+#[tokio::test]
+async fn a_go_web_service_picks_reads_and_uploads_files() {
+    let go = Command::new("go")
+        .arg("version")
+        .output()
+        .is_ok_and(|output| output.status.success());
+    if !WebApis::node_available() || !go {
+        eprintln!("skipping: node or go is unavailable");
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    WebApis::publish(root.path(), WebLanguage::Go, "go", WebApis::GO_FILES).await;
+    WebApis::assert_files_answered(root.path(), true);
+}
+
+#[tokio::test]
+async fn a_csharp_web_service_picks_reads_and_uploads_files() {
+    if !dotnet_wasm_ready() {
+        eprintln!("skipping: node or the .NET wasm-tools workload is unavailable");
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    let source = ("cs", WebApis::CSHARP_FILES);
+    let profile = crate::BuildProfile::Development;
+    WebApis::publish_with(root.path(), WebLanguage::CSharp, source, profile).await;
+    WebApis::assert_files_answered(root.path(), false);
+}
+
+#[tokio::test]
+async fn a_dart_service_picks_reads_and_uploads_files() {
+    if !WebApis::node_available() || !WebApis::dart_available() {
+        eprintln!("skipping: node or dart is unavailable");
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    WebApis::publish_dart(root.path(), WebApis::DART_FILES).await;
+    WebApis::assert_files_answered(root.path(), true);
+}
+
+#[tokio::test]
+async fn a_ruby_web_service_picks_reads_and_uploads_files() {
+    let unavailable = crate::tac_ruby::RubyRuntimeBuild::unavailable_reason();
+    if !WebApis::node_available() || unavailable.is_some() {
+        eprintln!("skipping: node or the Ruby runtime is unavailable: {unavailable:?}");
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    WebApis::publish(root.path(), WebLanguage::Ruby, "rb", WebApis::RUBY_FILES).await;
+    WebApis::assert_files_answered(root.path(), true);
+}
+
+#[tokio::test]
+async fn a_lua_web_service_picks_reads_and_uploads_files() {
+    if lua_unavailable() {
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    WebApis::publish(root.path(), WebLanguage::Lua, "lua", WebApis::LUA_FILES).await;
+    WebApis::assert_files_answered(root.path(), true);
+}
+
+#[tokio::test]
+async fn a_swift_web_service_picks_reads_and_uploads_files() {
+    let root = tempfile::tempdir().expect("project");
+    if !publish_swift(root.path(), WebApis::SWIFT_FILES).await {
+        return;
+    }
+    WebApis::assert_files_answered(root.path(), true);
+}
+
+#[tokio::test]
+async fn a_java_web_service_picks_reads_and_uploads_files() {
+    let root = tempfile::tempdir().expect("project");
+    if !publish_java(root.path(), WebApis::JAVA_FILES).await {
+        return;
+    }
+    WebApis::assert_files_answered(root.path(), true);
+}
+
+#[tokio::test]
+async fn a_cpp_web_service_picks_reads_and_uploads_files() {
+    if !WebApis::node_available() || !WebApis::cpp_available() {
+        eprintln!("skipping: node or em++ is unavailable");
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    WebApis::publish(root.path(), WebLanguage::Cpp, "hpp", WebApis::CPP_FILES).await;
+    WebApis::assert_files_answered(root.path(), true);
 }

@@ -1660,6 +1660,7 @@ const ownerResources = (element, signal, owner) => ({
   documentTitle: TacDocumentTitle.owned(signal),
   clipboard: TacWebApis.clipboard,
   share: TacWebApis.share,
+  files: TacWebApis.apis.files,
   notifications: TacWebApis.notifications,
   geolocation: TacWebApis.geolocation,
   windowControls: TacWebApis.windowControls,
