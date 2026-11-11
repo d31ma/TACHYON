@@ -13,7 +13,7 @@ impl NativeUiHostSources {
         super.init()
     }
 ";
-    const DELEGATE: &str = "private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigationDelegate {\n";
+    const DELEGATE: &str = "private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigationDelegate, WKUIDelegate {\n";
     const NATIVE_REPLY: &str = "const reply=await globalThis.__tachyonNativeHostCall('companion.invoke',JSON.stringify({route:'/',service:'liveCounter',owner:'6F9619FF-8B86-D011-B42D-00C04FC964FF',op:'call',name:'read',args:[],fixtureDelay:true})); if(JSON.parse(reply).value!==1)throw new Error('Native state changed'); return 'reply-kept'";
 
     pub(super) fn host(original: &str) -> Result<String, Failure> {
