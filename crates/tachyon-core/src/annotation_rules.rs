@@ -754,16 +754,6 @@ impl AnnotationRules {
         .instance()
         .reach(Self::TAC, Self::YON_ROLES)
         .clashes(Self::LIFECYCLE),
-        Rule::new(
-            "Every",
-            Self::METHOD,
-            "runs the method again and again in the page after a fixed time, while the page is shown",
-        )
-        .needs_arguments()
-        .instance()
-        .reach(Self::TAC_TIMER, Self::NOWHERE)
-        .clashes(Self::LIFECYCLE)
-        .advice("@Every runs in JavaScript, TypeScript and Go Tac services. In another Tac language, listen for VisibilityChanged; on the server, use @Schedule"),
         Rule::retired(
             "Resource",
             "Needs",
@@ -1039,8 +1029,24 @@ impl AnnotationRules {
         .code(2015),
     ];
 
+    const TIMER_RULES: &'static [Rule] = &[
+        Rule::new(
+            "Every",
+            Self::METHOD,
+            "runs the method again and again in the page after a fixed time, while the page is shown",
+        )
+        .needs_arguments()
+        .instance()
+        .reach(Self::TAC_TIMER, Self::NOWHERE)
+        .clashes(Self::LIFECYCLE)
+        .advice("@Every runs in JavaScript, TypeScript and Go Tac services. In another Tac language, listen for VisibilityChanged; on the server, use @Schedule"),
+    ];
+
     pub(crate) fn rules() -> impl Iterator<Item = &'static Rule> {
-        Self::ALL.iter().chain(Self::ACCESS_RULES)
+        Self::ALL
+            .iter()
+            .chain(Self::ACCESS_RULES)
+            .chain(Self::TIMER_RULES)
     }
 
     pub(crate) fn check(path: &Path, source: &str) -> Result<(), Failure> {

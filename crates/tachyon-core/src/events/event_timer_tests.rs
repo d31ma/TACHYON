@@ -1,6 +1,7 @@
 #![allow(clippy::expect_used)]
 
 use super::{EventTimer, extract};
+use std::fmt::Write as _;
 use std::path::Path;
 
 fn timers(source: &str) -> Vec<EventTimer> {
@@ -70,7 +71,7 @@ fn an_every_method_with_a_parameter_or_a_bad_duration_is_refused() {
 fn a_type_has_at_most_eight_every_methods() {
     let mut source = String::from("export default class ClockService {\n");
     for index in 0..=EventTimer::MOST_TIMERS {
-        source.push_str(&format!("  @Every('1m')\n  refresh{index}() {{}}\n"));
+        let _ = write!(source, "  @Every('1m')\n  refresh{index}() {{}}\n");
     }
     source.push_str("}\n");
     let message = refusal(&source);
