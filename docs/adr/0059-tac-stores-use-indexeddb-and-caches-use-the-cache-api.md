@@ -292,3 +292,39 @@ on both (`docs/SUPPORT_TIERS.md`):
   ran inside WebView2 on the signed-in desktop; a linked Rust service's
   `#[LocalState]` field, set by its own method, still read `Visits 1` after
   a page reload, while a JavaScript field went back to `fresh`.
+
+## Amendment (2026-11-11): an oversized stored field fails loudly
+
+Item 3 keeps its 64 KiB limit for a `@LocalState` or `@SessionState` value
+(the JSON text, counted in UTF-8 bytes). Before this amendment the runtime
+skipped a larger value without a word: the page went on showing it, and a
+reload brought back the last value that fitted. Now the write throws a
+`RangeError` that names the storage key, the size and the limit, and points
+to a Store table for large data.
+
+- An assignment to a stored field (from the page or from JavaScript or
+  TypeScript service code) throws before it changes the field, so the field
+  and its saved copy keep their last value.
+- A value that a service method sets (a WebAssembly, Dart, Ruby, Python or
+  Lua service, or a native companion) is already in the service when the
+  page saves it after the method. The method call then throws, or its
+  promise rejects, and the saved copy keeps its last value. The next save
+  that fits writes again.
+- A service that another service holds through `@Needs` reports the error
+  as a rejected promise (an unhandled rejection in the browser console). A
+  failed refresh of that service stays quiet, as before.
+- Reading is unchanged: a saved value larger than 64 KiB, or one that is not
+  JSON, is ignored and the field keeps its default.
+- A storage write that the browser refuses (a full quota, or storage turned
+  off) is still skipped without an error; this amendment covers only the
+  size limit.
+
+The limit is not raised. Large structured data belongs in Store rows and
+large binary data in a blob store, as the offline-first plan for Mesail
+(requests T1, T2 and T12) recommends.
+
+Tests: `template/stored_field_limit_tests.rs` (the exact 64 KiB boundary in
+ASCII and in two-byte text, the kept value, and the held-service path), and
+`tac_web/stored_state_proof_tests.rs`, where a Dart, Go and Rust service each
+refuse an oversized assignment and an oversized value set by their own
+method, while the saved session value stays `chapter one`.

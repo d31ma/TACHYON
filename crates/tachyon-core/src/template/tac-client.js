@@ -542,22 +542,52 @@ const webStorage = (persistent) => {
   try { return persistent ? localStorage : sessionStorage } catch { return null }
 }
 
-const fitsStorage = (raw) => raw.length <= 65536 && new TextEncoder().encode(raw).byteLength <= 65536
+class StoredFields {
+  static mostBytes = 65536
+
+  static fits(raw) {
+    return raw.length <= StoredFields.mostBytes && StoredFields.bytes(raw) <= StoredFields.mostBytes
+  }
+
+  static bytes(raw) {
+    return new TextEncoder().encode(raw).byteLength
+  }
+
+  static json(value) {
+    try { return JSON.stringify(value) } catch { return undefined }
+  }
+
+  static check(key, raw) {
+    if (raw === undefined || StoredFields.fits(raw)) return
+    throw new RangeError(StoredFields.tooLarge(key, raw))
+  }
+
+  static tooLarge(key, raw) {
+    return `Tac did not save the stored field '${key}': its JSON is ${StoredFields.bytes(raw)} bytes, ` +
+      `and a @LocalState or @SessionState value holds at most ${StoredFields.mostBytes} bytes (64 KiB). ` +
+      'Keep large data in a Store table.'
+  }
+
+  static write(store, key, value, raw) {
+    try {
+      if (value === undefined) store.removeItem(key)
+      else if (raw !== undefined) store.setItem(key, raw)
+    } catch {}
+  }
+}
 
 const readStoredField = (store, key, fallback) => {
   try {
     const raw = store.getItem(key)
-    if (raw === null || !fitsStorage(raw)) return fallback
+    if (raw === null || !StoredFields.fits(raw)) return fallback
     return JSON.parse(raw)
   } catch { return fallback }
 }
 
 const writeStoredField = (store, key, value) => {
-  try {
-    if (value === undefined) { store.removeItem(key); return }
-    const raw = JSON.stringify(value)
-    if (raw !== undefined && fitsStorage(raw)) store.setItem(key, raw)
-  } catch {}
+  const raw = StoredFields.json(value)
+  StoredFields.check(key, raw)
+  StoredFields.write(store, key, value, raw)
 }
 
 class Owners {
@@ -584,13 +614,16 @@ class StoredAccessor {
     this.saved = JSON.stringify(read.call(owner))
   }
   save() {
+    let value
+    let raw
     try {
-      const value = this.read.call(this.owner)
-      const raw = JSON.stringify(value)
-      if (raw === this.saved) return
-      this.saved = raw
-      writeStoredField(this.store, this.key, value)
-    } catch {}
+      value = this.read.call(this.owner)
+      raw = JSON.stringify(value)
+    } catch { return }
+    if (raw === this.saved) return
+    StoredFields.check(this.key, raw)
+    this.saved = raw
+    StoredFields.write(this.store, this.key, value, raw)
   }
 }
 
@@ -616,7 +649,7 @@ const bindPersistentFields = (owner, scope) => {
         configurable: true,
         enumerable: true,
         get,
-        set: (value) => { set.call(owner, value); accessor.save() },
+        set: (value) => { StoredFields.check(key, StoredFields.json(value)); set.call(owner, value); accessor.save() },
       })
       continue
     }
@@ -625,7 +658,7 @@ const bindPersistentFields = (owner, scope) => {
       configurable: true,
       enumerable: true,
       get: () => current,
-      set: (value) => { current = value; writeStoredField(store, key, value) },
+      set: (value) => { writeStoredField(store, key, value); current = value },
     })
   }
   if (accessors.length) {
@@ -707,8 +740,8 @@ class NeededServices {
     try {
       await entry.ready
       await entry.holder.target.__tachyonRefresh?.()
-      entry.holder.target.__tachyonStoredChanged?.()
-    } catch {}
+    } catch { return }
+    entry.holder.target.__tachyonStoredChanged?.()
   }
 
   static release(owner) {

@@ -45,6 +45,9 @@ mod shipped_script;
 #[allow(clippy::expect_used)]
 pub(crate) mod shipped_script_tests;
 mod slotted_children;
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod stored_field_limit_tests;
 mod view_member_check;
 #[cfg(test)]
 #[allow(clippy::expect_used)]

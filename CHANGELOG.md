@@ -103,6 +103,13 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- **An oversized `@LocalState` or `@SessionState` value fails loudly**
+  (ADR 0059 amendment). The 64 KiB limit stays. A larger value was skipped
+  without a word, so a reload brought back an older value. Now an assignment
+  throws a `RangeError` that names the key, the size and the limit, and keeps
+  the field's last value; a service method that sets such a value throws, or
+  its promise rejects, and the saved copy keeps its last value.
+
 - **Pages in the macOS and iOS apps no longer fail where they need a random
   id.** These apps serve the page from `tachyon-app://`, which is not a secure
   context, so `crypto.randomUUID` is missing there. Picking a file, starting a

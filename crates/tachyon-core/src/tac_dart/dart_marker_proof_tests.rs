@@ -89,7 +89,8 @@ impl DartMarkerProofs {
         "client/services/DraftService.dart",
         "@Service\nclass DraftService {\n  @LocalState\n  int visits = 0;\n  @SessionState\n  String draft = '';\n\n  \
          int visit() {\n    visits += 1;\n    return visits;\n  }\n\n  \
-         void write(String text) {\n    draft = text;\n  }\n}\n",
+         void write(String text) {\n    draft = text;\n  }\n\n  \
+         void grow(int times) {\n    draft = 'x' * times;\n  }\n}\n",
     );
 
     const STATE_SERVICES: [(&'static str, &'static str); 1] =
@@ -117,12 +118,15 @@ impl DartMarkerProofs {
          const page = open(tab)\n\
          await page.visit(); await page.visit()\n\
          await page.write('chapter one')\n\
+         const refused = { assigned: '', grown: '' }\n\
+         try { page.draft = 'x'.repeat(70000) } catch (error) { refused.assigned = error.name }\n\
+         try { await page.grow(70000) } catch (error) { refused.grown = error.name }\n\
          const written = { saved: Object.fromEntries(local.items), session: Object.fromEntries(tab.items) }\n\
          const reloaded = open(tab)\n\
          const afterReload = { visits: reloaded.visits, draft: reloaded.draft, visit: await reloaded.visit() }\n\
          const other = open(new MemoryStorage())\n\
          const newTab = { visits: other.visits, draft: other.draft }\n\
-         console.log(JSON.stringify({ written, afterReload, newTab, saved: Object.fromEntries(local.items), session: Object.fromEntries(tab.items) }))\n\
+         console.log(JSON.stringify({ refused, written, afterReload, newTab, saved: Object.fromEntries(local.items), session: Object.fromEntries(tab.items) }))\n\
          process.exit(0)\n";
 
     const RETRY_FILES: [(&'static str, &'static str); 4] = [

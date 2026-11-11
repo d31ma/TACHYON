@@ -140,7 +140,8 @@ impl RustMarkerProofs {
         "client/services/DraftService.rs",
         "#[Service]\n#[derive(Default)]\npub struct DraftService {\n    #[LocalState]\n    visits: i64,\n    #[SessionState]\n    draft: String,\n}\n\n\
          impl DraftService {\n    pub fn visit(&mut self) -> i64 {\n        self.visits += 1;\n        self.visits\n    }\n\n    \
-         pub fn write(&mut self, text: String) {\n        self.draft = text;\n    }\n}\n",
+         pub fn write(&mut self, text: String) {\n        self.draft = text;\n    }\n\n    \
+         pub fn grow(&mut self, times: i64) {\n        self.draft = \"x\".repeat(times as usize);\n    }\n}\n",
     );
 
     const STATE_DRIVER: &'static str = "import { readFile } from 'node:fs/promises'\n\
@@ -165,12 +166,15 @@ impl RustMarkerProofs {
          const page = open(tab)\n\
          await page.visit(); await page.visit()\n\
          await page.write('chapter one')\n\
+         const refused = { assigned: '', grown: '' }\n\
+         try { page.draft = 'x'.repeat(70000) } catch (error) { refused.assigned = error.name }\n\
+         try { await page.grow(70000) } catch (error) { refused.grown = error.name }\n\
          const written = { saved: Object.fromEntries(local.items), session: Object.fromEntries(tab.items) }\n\
          const reloaded = open(tab)\n\
          const afterReload = { visits: reloaded.visits, draft: reloaded.draft, visit: await reloaded.visit() }\n\
          const other = open(new MemoryStorage())\n\
          const newTab = { visits: other.visits, draft: other.draft }\n\
-         console.log(JSON.stringify({ written, afterReload, newTab, saved: Object.fromEntries(local.items) }))\n\
+         console.log(JSON.stringify({ refused, written, afterReload, newTab, saved: Object.fromEntries(local.items) }))\n\
          process.exit(0)\n";
 
     const CACHE_FILES: [(&'static str, &'static str); 4] = [

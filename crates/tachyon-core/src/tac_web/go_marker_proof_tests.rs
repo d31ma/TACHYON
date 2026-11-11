@@ -11,9 +11,10 @@ pub(super) struct GoMarkerProofs;
 impl GoMarkerProofs {
     const STATE_FILES: [(&str, &str); 1] = [(
         "client/services/DraftService.go",
-        "// @Service\ntype DraftService struct {\n\t// @LocalState\n\tVisits int\n\t// @SessionState\n\tDraft string\n}\n\n\
+        "import \"strings\"\n\n// @Service\ntype DraftService struct {\n\t// @LocalState\n\tVisits int\n\t// @SessionState\n\tDraft string\n}\n\n\
          func (draft *DraftService) Visit() int {\n\tdraft.Visits++\n\treturn draft.Visits\n}\n\n\
-         func (draft *DraftService) Write(text string) {\n\tdraft.Draft = text\n}\n",
+         func (draft *DraftService) Write(text string) {\n\tdraft.Draft = text\n}\n\n\
+         func (draft *DraftService) Grow(times int) {\n\tdraft.Draft = strings.Repeat(\"x\", times)\n}\n",
     )];
 
     const STATE_DRIVER: &str = "import { readFile } from 'node:fs/promises'\n\
@@ -39,12 +40,15 @@ impl GoMarkerProofs {
          const page = open(tab)\n\
          await page.visit(); await page.visit()\n\
          await page.write('chapter one')\n\
+         const refused = { assigned: '', grown: '' }\n\
+         try { page.draft = 'x'.repeat(70000) } catch (error) { refused.assigned = error.name }\n\
+         try { await page.grow(70000) } catch (error) { refused.grown = error.name }\n\
          const written = { saved: Object.fromEntries(local.items), session: Object.fromEntries(tab.items) }\n\
          const reloaded = open(tab)\n\
          const afterReload = { visits: reloaded.visits, draft: reloaded.draft, visit: await reloaded.visit() }\n\
          const other = open(new MemoryStorage())\n\
          const newTab = { visits: other.visits, draft: other.draft }\n\
-         console.log(JSON.stringify({ written, afterReload, newTab, saved: Object.fromEntries(local.items) }))\n\
+         console.log(JSON.stringify({ refused, written, afterReload, newTab, saved: Object.fromEntries(local.items) }))\n\
          process.exit(0)\n";
 
     const NEEDED_FILES: [(&str, &str); 2] = [

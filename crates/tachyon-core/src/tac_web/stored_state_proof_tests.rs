@@ -25,6 +25,11 @@ async fn a_service_writes_its_local_state_to_page_storage_and_restores_it_in(lan
         return;
     };
     assert_eq!(
+        report["refused"],
+        json!({"assigned": "RangeError", "grown": "RangeError"}),
+        "{report}"
+    );
+    assert_eq!(
         report["written"],
         json!({
             "saved": {"tac:service:draft:/:visits": "2"},
