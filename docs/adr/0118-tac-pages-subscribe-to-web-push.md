@@ -50,7 +50,7 @@ WebView2, WebKitGTK and the Android WebView have no Push API. Native push
    | Swift | `Push()` | `supported()`, `subscribe(applicationServerKey:)`, `subscription()`, `unsubscribe()`, all `throws` |
    | Ruby | `Push.new` | `supported`, `subscribe(key)`, `subscription`, `unsubscribe` |
    | Lua | the global table `Push` | `Push:supported()`, `Push:subscribe(key)`, `Push:subscription()`, `Push:unsubscribe()` |
-   | Python | coming with ADR 0122, which gives Python services browser APIs; until it lands, `Push` stops the build with `TY1605` | the same calls, after ADR 0122 |
+   | Python | a `needs` field `push: Annotated[Push, needs]` (ADR 0122) | `supported()`, `subscribe(key)`, `subscription()`, `unsubscribe()`; a refusal raises `RuntimeError` |
 
    A Swift, Kotlin, C# or Rust service that is linked into a native app as
    native code cannot use `Push`, like every page client: it belongs to the
@@ -85,9 +85,8 @@ WebView2, WebKitGTK and the Android WebView have no Push API. Native push
 
 ## Consequences
 
-- A Tac app in any service language can subscribe to Web Push (Python
-  after ADR 0122) and send the subscription to its
-  Yon server with `@HTTPClient`. The server encrypts and sends the messages
+- A Tac app in any service language can subscribe to Web Push and send the
+  subscription to its Yon server with `@HTTPClient`. The server encrypts and sends the messages
   itself; Tachyon does not send push messages.
 - Safari on iPhone and iPad offers Web Push only to an app added to the Home
   Screen, from iOS 16.4. `Supported` answers false elsewhere on those

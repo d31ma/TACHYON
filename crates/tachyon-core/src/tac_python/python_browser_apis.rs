@@ -14,7 +14,7 @@ impl PythonBrowserApis {
         include_str!("web_apis/browser_fakes.py"),
         include_str!("web_apis/python_browser_clients.py"),
     ];
-    const CLIENTS: [(&'static str, &'static str); 11] = [
+    const CLIENTS: [(&'static str, &'static str); 12] = [
         ("Clock", include_str!("web_apis/clock.py")),
         ("SecureRandom", include_str!("web_apis/secure_random.py")),
         ("Connectivity", include_str!("web_apis/connectivity.py")),
@@ -27,6 +27,7 @@ impl PythonBrowserApis {
         ("Share", include_str!("web_apis/share.py")),
         ("Notifications", include_str!("web_apis/notifications.py")),
         ("Geolocation", include_str!("web_apis/geolocation.py")),
+        ("Push", include_str!("web_apis/push.py")),
         (
             "WindowControls",
             include_str!("web_apis/window_controls.py"),

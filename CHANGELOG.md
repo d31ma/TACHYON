@@ -36,8 +36,8 @@ machine contracts have their own, independent major versions.
   `&BehaviorError{Code: "HTTP_STATUS", Status: 409, Body: ...}`, so a test can
   fake an error status with a body (ADR 0117).
 - **Web Push for Tac pages.** Grant `push` in `tac.browserApis`, and every
-  Tac service language gets a `Push` client (Python comes with ADR 0122): `subscribe` with
-  the server's VAPID key answers with a `PushSubscribed` event that holds the
+  Tac service language gets a `Push` client: `subscribe` with the server's
+  VAPID key answers with a `PushSubscribed` event that holds the
   endpoint and keys the server needs. A separate push service worker shows
   each message and opens its same-origin path when clicked. Native apps
   answer that Web Push needs a web browser (ADR 0118).
