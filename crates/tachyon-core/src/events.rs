@@ -557,7 +557,10 @@ fn read_markers(
         }
         let stays_for_the_client =
             matches!(marker.name.as_str(), "StreamRequest" | "SocketRequest");
-        remember_method(output, method);
+        let stays_callable = marker.name == EventTimer::MARKER;
+        if !stays_callable {
+            remember_method(output, method);
+        }
         if !stays_for_the_client {
             blank_marker(output, &marker.span);
         }

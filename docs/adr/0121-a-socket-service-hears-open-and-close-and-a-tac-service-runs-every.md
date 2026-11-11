@@ -57,13 +57,17 @@ need a page call. Applications refreshed tokens before each call and on
   8 `@Every` methods. The rule table refuses `@Every` in the other Tac
   languages and in Yon (use `@Schedule`), and with `OnStart`, `OnStop` or
   `OnEvent` on the same method.
-- The event plan lists the timers as `timers: [{ method, every }]`. The bus
-  starts them after `OnStart`. Each run is a page call: a JavaScript method
-  runs through the bus, and a Go method runs as a Go task through the same
-  `event` operation as a listener, so it may call an `HTTPClient` or `Send`,
-  and the view renders again when it ends. Runs never overlap. A run that
-  fails or exceeds the 10-second work limit is reported like a failed
-  listener.
+- An `@Every` method stays an ordinary method of the service: the build
+  removes only the marker. The event plan lists the timers as
+  `timers: [{ method, every }]`; for a WebAssembly service the plan names the
+  authored method, and the shared shell matches it to the method that the
+  service exposes to the page (`refresh_token`, `RefreshToken` and
+  `refreshToken` are the same name). The bus starts the timers after
+  `OnStart`. Each run calls the method as a page call, the same call a click
+  handler makes, so it may call an `HTTPClient` or `Send`, and the view
+  renders again when it ends. So the method must be one that a view could call
+  (in Go, an exported method). Runs never overlap. A run that fails or exceeds
+  the 10-second work limit is reported like a failed listener.
 - While `document.visibilityState` is `hidden`, runs are skipped. When the
   page is shown again after a skipped run, the method runs once at once.
 - Disposing the owner (the component unmounts or the page goes away) clears
@@ -83,11 +87,12 @@ not hear these events, and the rule table refuses `@Every` in its languages.
 
 - A Go Tac service authenticates its socket in a `SocketOpened` listener and
   refreshes a token with `@Every`, without server prompts.
-- The Go runtime has a `Timer` member, its description lists `timers`, and the
-  shared WebAssembly shell binds each timer as `__tachyonTimer:<key>`.
+- No language runtime changes for `@Every`: the build reads the timers from
+  the service source (`ServiceTimers`) and the shared shell calls the exposed
+  method.
 - `SocketOpened` and `SocketClosed` are reserved model names in `client/`,
   like the other built-in event models.
-- Tested by `events::event_timer_tests`, `native::go_events`, the rule-table
+- Tested by `events::event_timer_tests`, the rule-table
   test `every_runs_in_javascript_typescript_and_go_tac_services_only` and
   `tac_web::go_socket_hooks_tests`, which builds a Go service and drives the
   real event bus with a fake `WebSocket`, fake intervals and a fake page

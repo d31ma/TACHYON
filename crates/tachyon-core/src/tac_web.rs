@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 pub(crate) use topic_streams::TopicStreams;
 
+mod service_timers;
 mod topic_streams;
 mod unprovided_file_picker;
 
@@ -224,8 +225,9 @@ async fn build_language(
         WebEngine::shared_source(&engine).into_bytes(),
     ));
     let topics = TopicStreams::read(snapshot_root, language.model_extension())?;
-    for (instance, class, _) in &chosen {
-        let service_module = module(instance, class, shared, &topics);
+    for (instance, class, source) in &chosen {
+        let timers = service_timers::ServiceTimers::read(snapshot_root, source, class)?;
+        let service_module = module(instance, class, shared, &topics, &timers);
         published.push((format!("{class}.js"), service_module.into_bytes()));
     }
     Ok((language, published, started.elapsed(), note))
@@ -266,7 +268,13 @@ fn ruby_engine(
     Ok(WebEngine::RUBY_ENGINE.replace("__RUBY_PROGRAM__", &literal))
 }
 
-fn module(instance: &str, class: &str, shared: &str, topics: &serde_json::Value) -> String {
+fn module(
+    instance: &str,
+    class: &str,
+    shared: &str,
+    topics: &serde_json::Value,
+    timers: &[crate::events::EventTimer],
+) -> String {
     let plan = serde_json::json!({ "types": [{
         "name": class,
         "post_construct": "__tachyonStarted",
@@ -274,6 +282,7 @@ fn module(instance: &str, class: &str, shared: &str, topics: &serde_json::Value)
         "resources": [{ "field": "__tachyonPublisher", "name": "applicationEventPublisher" }],
         "listeners": [],
         "topics": topics,
+        "timers": service_timers::ServiceTimers::described(timers),
     }] });
     let plan = SortedJson::text(&plan);
     let instance = serde_json::to_string(instance).unwrap_or_default();
@@ -768,13 +777,11 @@ const heldStreams = (streams) => streams.slice(0, 16)
   .filter((stream) => typeof stream?.path === 'string' && stream.path.startsWith('/') && !stream.path.startsWith('//'))
   .map(({ client, path, event, socket, models }) => ({ method: '__tachyonStream', path, event, socket: socket === true, models, topic: false, ...(socket === true ? { sender: `__tachyonSend:${client}` } : {}) }))
 
-const listen = (target, hear, plan, listeners, streams, timers) => {
+const listen = (target, hear, plan, listeners, streams) => {
   if (!plan.listeners.length) {
     plan.listeners = listeners.map((listener) => ({ ...listener, method: `__tachyonListen:${listener.key}` }))
     plan.streams = [...heldStreams(streams), ...topicStreams(plan, listeners)]
   }
-  plan.timers = timers.map((timer) => ({ method: `__tachyonTimer:${timer.key}`, every: timer.every }))
-  for (const timer of timers) hidden(target, `__tachyonTimer:${timer.key}`, () => hear({ op: 'event', name: timer.key, value: null }, true))
   hidden(target, '__tachyonStream', () => {})
   for (const listener of listeners) {
     const name = listener.key
@@ -782,6 +789,12 @@ const listen = (target, hear, plan, listeners, streams, timers) => {
       ? (value) => hear({ op: 'event', name, value }, true)
       : (value) => { hear({ op: 'event', name, value }, false) })
   }
+}
+
+const sameName = (left, right) => left.replaceAll('_', '').toLowerCase() === right.replaceAll('_', '').toLowerCase()
+
+const repeating = (plan, methods) => {
+  plan.timers = (plan.timers ?? []).map((timer) => ({ ...timer, method: methods.find((name) => sameName(name, timer.name)) ?? timer.name }))
 }
 
 export const activate = (target, service, properties, plan) => {
@@ -834,7 +847,8 @@ export const activate = (target, service, properties, plan) => {
     return exclusive ? queue(() => startTask(request)) : changeAsync(request)
   }
   const hear = (request, task) => task ? queue(() => exclusive ? startTask(request) : changeAsync(request)) : changeGated(request)
-  listen(target, hear, plan, declared?.listeners ?? [], Array.isArray(declared?.streams) ? declared.streams : [], Array.isArray(declared?.timers) ? declared.timers : [])
+  listen(target, hear, plan, declared?.listeners ?? [], Array.isArray(declared?.streams) ? declared.streams : [])
+  repeating(plan, declared?.methods ?? [])
   const dispose = { op: 'dispose', route: 'web', service, owner }
   released?.register(target, dispose, target)
   hidden(target, '__tachyonStarted', () => {
@@ -2059,7 +2073,7 @@ mod tests {
     #[test]
     fn a_service_module_addresses_its_instance() {
         let topics = serde_json::json!({ "ClockTicked": "/.tachyon/topics/clock-ticked" });
-        let source = module("clock", "ClockService", "tachyon-rust.js", &topics);
+        let source = module("clock", "ClockService", "tachyon-rust.js", &topics, &[]);
         assert!(source.contains("export default class ClockService {"));
         assert!(source.contains("\"topics\":{\"ClockTicked\":\"/.tachyon/topics/clock-ticked\"}"));
         assert!(
