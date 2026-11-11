@@ -1,6 +1,8 @@
 use crate::Failure;
 use crate::companion::go::{GoResults, masked_code, parameter_types};
-use crate::events::{EventListener, EventMethod, EventModule, EventStream, EventType, HeldStreams};
+use crate::events::{
+    EventListener, EventMethod, EventModule, EventStream, EventTimer, EventType, HeldStreams,
+};
 use crate::go_source::{self, GoMethod};
 use crate::sorted_json::SortedJson;
 use std::collections::BTreeSet;
@@ -177,12 +179,33 @@ fn entry(target: &EventTarget<'_>, metadata: &EventType, path: &Path) -> Result<
     if let Some(listener) = listener {
         return Ok(listener_entry(target, listener, &key, &parameters, results));
     }
+    let timer = metadata
+        .timers
+        .iter()
+        .find(|timer| timer.method == target.event.name);
+    if let Some(timer) = timer {
+        return Ok(timer_entry(target, timer, &key, results));
+    }
     let destroy = metadata.pre_destroy.as_ref() == Some(&target.event.name);
     let call = format!("instance.{}()", target.event.name);
     Ok(format!(
         "\t\t{{Name: {key:?}, Destroy: {destroy}, Hook: func() error {{\n\t\t\t{}\n\t\t}}}},\n",
         results.hook(&call)
     ))
+}
+
+fn timer_entry(
+    target: &EventTarget<'_>,
+    timer: &EventTimer,
+    key: &str,
+    results: GoResults,
+) -> String {
+    let call = format!("instance.{}()", target.event.name);
+    format!(
+        "\t\t{{Name: {key:?}, Timer: &tac.Timer{{Every: {}, Invoke: func() error {{\n\t\t\t{}\n\t\t}}}}}},\n",
+        timer.every,
+        results.hook(&call)
+    )
 }
 
 fn listener_entry(
@@ -306,6 +329,22 @@ mod tests {
         let events = entries(module.as_ref(), "QuietService", path).expect("entries");
         assert!(events.entries.is_empty(), "{}", events.entries);
         assert!(events.excluded.is_empty());
+    }
+
+    #[test]
+    fn an_every_method_becomes_a_hidden_timer_entry() {
+        let source = "type ProbeService struct {\n\tCount int\n}\n\n// @Every(\"90s\")\nfunc (probe *ProbeService) Refresh() error {\n\treturn nil\n}\n";
+        let path = Path::new(Fixtures::PATH);
+        let module = crate::events::extract(path, source, "tac").expect("events");
+        let events = entries(module.as_ref(), "ProbeService", path).expect("entries");
+        assert_eq!(events.excluded, ["Refresh"]);
+        assert!(
+            events.entries.contains(
+                "Timer: &tac.Timer{Every: 90000, Invoke: func() error {\n\t\t\treturn instance.Refresh()\n\t\t}}},"
+            ),
+            "{}",
+            events.entries
+        );
     }
 
     #[test]

@@ -125,11 +125,43 @@ class TacApplicationEvents {
       try {
         const result = owner[method](this.snapshot(value))
         if (typeof result?.then !== 'function') { complete(result); return }
-        void this.settle(result, state).then(complete, () => { if (!state.disposed) this.failed() })
+        return this.settle(result, state).then(complete, () => { if (!state.disposed) this.failed() })
       } catch { this.failed() }
     }
-    if (asynchronous) queueMicrotask(invoke)
-    else invoke()
+    if (!asynchronous) return invoke()
+    return new Promise((resolve) => queueMicrotask(() => resolve(invoke())))
+  }
+
+  tell(owner, name, value) {
+    const heard = (this.owners.get(owner)?.listeners || []).filter((listener) => listener.event === name)
+    return heard.length ? Promise.all(heard.map((listener) => this.deliver(listener, value))) : null
+  }
+
+  static hidden() {
+    return globalThis.document?.visibilityState === 'hidden'
+  }
+
+  repeat(owner, state) {
+    for (const timer of (state.metadata.timers || []).slice(0, 16)) this.every(owner, state, timer)
+  }
+
+  every(owner, state, { method, every }) {
+    if (typeof owner[method] !== 'function' || !Number.isSafeInteger(every) || every < 1000) { this.failed(); return }
+    let running = false, missed = false
+    const tick = async () => {
+      if (running || state.disposed) return
+      missed = TacApplicationEvents.hidden()
+      if (missed) return
+      running = true
+      try {
+        await this.settle(Promise.resolve().then(() => owner[method]()), state)
+        this.changed()
+      } catch { if (!state.disposed) this.failed() } finally { running = false }
+    }
+    const shown = () => { if (missed && !TacApplicationEvents.hidden()) void tick() }
+    const timer = setInterval(tick, every)
+    globalThis.document?.addEventListener?.('visibilitychange', shown, { signal: state.controller.signal })
+    state.controller.signal.addEventListener('abort', () => clearInterval(timer), { once: true })
   }
 
   attach(owner, metadata, resources) {
@@ -241,6 +273,7 @@ class TacApplicationEvents {
     if (method) await this.settle(Promise.resolve().then(() => {
       if (!state.disposed) return owner[method]()
     }), state)
+    if (!state.disposed) this.repeat(owner, state)
   }
 
   topic(state, stream) {
@@ -263,7 +296,7 @@ class TacApplicationEvents {
     const socket = stream.socket, Kind = globalThis[socket ? 'WebSocket' : 'EventSource']
     if (typeof Kind !== 'function') { this.failed(); return }
     const entry = { ...stream, owner, state }, waiting = []
-    let source = null, timer, tries = 0, last = null
+    let source = null, timer, tries = 0, last = null, opened = false
     const close = () => { clearTimeout(timer); source?.close(); source = null }
     const wait = () => { clearTimeout(timer); if (!socket) timer = setTimeout(retry, 60000) }
     const retry = () => { close(); if (!state.disposed && tries < 5) timer = setTimeout(open, 1000 * 2 ** tries++) }
@@ -282,9 +315,22 @@ class TacApplicationEvents {
       if (socket) {
         const url = new URL(this.yonPath(stream.path), location.href)
         url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
-        source = new Kind(url)
-        source.onopen = () => { for (const text of waiting.splice(0)) source.send(text) }
-        source.onclose = ({ code }) => { source = null; if (![1000, 1003, 1007, 1009].includes(code)) retry() }
+        const current = new Kind(url)
+        source = current
+        source.onopen = () => {
+          const reconnected = opened
+          opened = true
+          const flush = () => { if (source === current && current.readyState === 1) for (const text of waiting.splice(0)) current.send(text) }
+          const heard = this.tell(owner, 'SocketOpened', { path: stream.path, reconnected })
+          if (heard) void heard.then(flush, flush)
+          else flush()
+        }
+        source.onclose = ({ code }) => {
+          source = null
+          const final = [1000, 1003, 1007, 1009].includes(code)
+          this.tell(owner, 'SocketClosed', { path: stream.path, code: Number.isSafeInteger(code) ? code : 1006, reconnecting: !final && !state.disposed && tries < 5 })
+          if (!final) retry()
+        }
       } else {
         source = new Kind(this.yonPath(stream.topic && last !== null ? `${stream.path}?position=${last + 1}` : stream.path))
         source.onerror = retry

@@ -9,10 +9,14 @@ use std::path::Path;
 
 mod browser_streams;
 pub(crate) mod condition;
+mod event_timer;
+#[cfg(test)]
+mod event_timer_tests;
 mod held_streams;
 pub(crate) mod publications;
 pub(crate) mod yon;
 pub(crate) use browser_streams::BrowserStreams;
+pub(crate) use event_timer::EventTimer;
 pub(crate) use held_streams::HeldStreams;
 
 #[derive(Clone, Debug, Default, Serialize)]
@@ -24,6 +28,8 @@ pub(crate) struct EventType {
     pub resources: Vec<EventResource>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub streams: Vec<EventStream>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub timers: Vec<EventTimer>,
 }
 #[derive(Clone, Debug, Serialize)]
 pub(crate) struct EventStream {
@@ -796,6 +802,7 @@ fn annotation(line: &str) -> Option<(&'static str, &str)> {
         "socketrequest" => "SocketRequest",
         "onstart" => "OnStart",
         "onstop" => "OnStop",
+        "every" => EventTimer::MARKER,
         "resource" => "Resource",
         "order" => "Order",
         "inbackground" => "InBackground",
@@ -944,6 +951,9 @@ fn apply(
     let at = marker.span.start;
     if matches!(name, "OnStart" | "OnStop") {
         return lifecycle(path, event_type, method, marker);
+    }
+    if name == EventTimer::MARKER {
+        return EventTimer::add(path, event_type, method, &marker.arguments, at);
     }
     if name == "AutowiredResource" {
         let object = metadata_object(path, &marker.arguments, at)?;

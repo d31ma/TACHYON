@@ -21,6 +21,9 @@
       "include": "../polyglot/background-and-foreground/section.json"
     },
     {
+      "include": "../polyglot/run-a-method-every-few-seconds/section.json"
+    },
+    {
       "include": "../polyglot/clipboard-share-notifications-and-geolocation/section.json"
     },
     {

@@ -321,3 +321,9 @@ live owner fails with `HTTP_REQUEST`, a message over 64 KiB with
 `HTTP_BODY`, and a C# companion with no host emitter with `HTTP_MISSING`.
 The send does not wait for the socket to open: the page queues up to 16
 messages, as for a web service.
+
+## Amendment (2026-11-10): the owner hears open and close
+
+The service that holds a `SocketRequest` client now hears `SocketOpened` and
+`SocketClosed` events, so it can authenticate again after a reconnect. See
+[ADR 0121](0121-a-socket-service-hears-open-and-close-and-a-tac-service-runs-every.md).

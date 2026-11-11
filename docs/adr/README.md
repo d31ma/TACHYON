@@ -133,3 +133,4 @@ design. Decide routine implementation choices in code review, not in an ADR.
 - [119. Go Edge Contracts for Tac and Yon](0119-go-edge-contracts-for-tac-and-yon.md)
 - [122. Python Services Reach the Browser APIs Through the Page](0122-python-services-reach-the-browser-apis-through-the-page.md)
 - [118. Tac Pages Subscribe to Web Push](0118-tac-pages-subscribe-to-web-push.md)
+- [121. A Socket Service Hears Open and Close, and a Tac Service Runs Every](0121-a-socket-service-hears-open-and-close-and-a-tac-service-runs-every.md)

@@ -8,6 +8,9 @@
   "sections": [
     {
       "include": "../routing-annotations/sockets/section.json"
+    },
+    {
+      "include": "when-the-socket-opens-and-closes/section.json"
     }
   ]
 }

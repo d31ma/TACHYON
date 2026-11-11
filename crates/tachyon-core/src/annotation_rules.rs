@@ -312,6 +312,7 @@ impl AnnotationRules {
     const TAC_VALUE_SOURCE: &'static [&'static str] = &[
         "js", "ts", "rs", "kt", "cs", "go", "rb", "dart", "swift", "lua", "hpp", "py", "java", "fs",
     ];
+    const TAC_TIMER: &'static [&'static str] = &["js", "ts", "go"];
     const NOWHERE: &'static [&'static str] = &[];
     const TYPE: &'static [Target] = &[Target::Type];
     const METHOD: &'static [Target] = &[Target::Method];
@@ -364,7 +365,7 @@ impl AnnotationRules {
         "RequestHeader",
     ];
     const CACHE_CHANGES: &'static [&'static str] = &["Cached", "ClearCache", "UpdateCache"];
-    const LIFECYCLE: &'static [&'static str] = &["OnStart", "OnStop", "OnEvent"];
+    const LIFECYCLE: &'static [&'static str] = &["OnStart", "OnStop", "OnEvent", "Every"];
     const HELPER_ADVICE: &'static str = "Tac Delegate supports JavaScript, TypeScript, Dart, compiled Rust, C++, Swift, the synchronous Python ownership adapter, Go Delegates owned by the service that needs or creates them, Ruby Delegates that their service creates on first use, Kotlin, Java, C# and F# Needs fields (each needing class makes its own Delegate), Lua Delegates that their service builds with itself, and caller-owned C#/F# composition with new. Ruby, Kotlin, Java, C#, F# and Lua Delegates have no OnStart, OnStop or OnEvent. A Swift Delegate is built by the field that needs it, so it has an init() without arguments. C# and F# Delegates have no NeedsAll or Lifetime. F# Delegates require an ordinary primary constructor, and their Needs properties name other Delegates or the page service that the Delegate takes on.";
     const RUBY_NEEDS_ADVICE: &'static str = "A Ruby NeedsAll class lists each field as `attr_reader :order_store` and writes no `initialize`; a Ruby class that needs default values writes a plain `initialize` and no NeedsAll";
 
@@ -753,6 +754,16 @@ impl AnnotationRules {
         .instance()
         .reach(Self::TAC, Self::YON_ROLES)
         .clashes(Self::LIFECYCLE),
+        Rule::new(
+            "Every",
+            Self::METHOD,
+            "runs the method again and again in the page after a fixed time, while the page is shown",
+        )
+        .needs_arguments()
+        .instance()
+        .reach(Self::TAC_TIMER, Self::NOWHERE)
+        .clashes(Self::LIFECYCLE)
+        .advice("@Every runs in JavaScript, TypeScript and Go Tac services. In another Tac language, listen for VisibilityChanged; on the server, use @Schedule"),
         Rule::retired(
             "Resource",
             "Needs",

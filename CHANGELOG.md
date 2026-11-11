@@ -65,6 +65,17 @@ machine contracts have their own, independent major versions.
   listen for every built-in browser event model, and a Python test unit
   answers the calls with `BrowserFakes.answer`. Before, a Python service that
   used a browser API stopped the build with `TY1605` (ADR 0122).
+  the opener on release. Go services use `// @Needs` with `focus Focus`;
+  JavaScript and TypeScript services use `@Needs focus`. Each call runs after
+  the next render, and a failure arrives as `BrowserCallFailed`.
+- A Tac service that holds a `SocketRequest` client hears `SocketOpened`
+  (`path`, `reconnected`) and `SocketClosed` (`path`, `code`, `reconnecting`)
+  with `@OnEvent`, so it can authenticate again after an automatic reconnect.
+  Waiting messages are sent after the `SocketOpened` listeners (ADR 0121).
+- `@Every("60s")` on a JavaScript, TypeScript or Go Tac service method runs it
+  as a page call at that interval, skips runs while the page is hidden, runs
+  once when the page is shown again, and stops when the view unmounts
+  (ADR 0121).
 
 ### Fixed
 

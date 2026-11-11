@@ -1351,3 +1351,21 @@ fn java_tac_accepts_named_beside_needs() {
 fn fsharp_tac_accepts_named() {
     TacFamilies::accepts_every_family("fs", &TacFamilies::FSHARP_NAMED);
 }
+
+#[test]
+fn every_runs_in_javascript_typescript_and_go_tac_services_only() {
+    for language in ["js", "ts", "go"] {
+        assert!(
+            AnnotationRules::checked_refusal("Every", language, Realm::Tac).is_none(),
+            "{language}"
+        );
+    }
+    for language in ["rs", "kt", "cs", "swift", "dart"] {
+        let refusal = AnnotationRules::checked_refusal("Every", language, Realm::Tac)
+            .unwrap_or_else(|| panic!("{language} must refuse @Every"));
+        assert!(refusal.contains("VisibilityChanged"), "{refusal}");
+    }
+    let refusal = AnnotationRules::checked_refusal("Every", "ts", Realm::Yon)
+        .expect("Yon code uses @Schedule");
+    assert!(refusal.contains("@Schedule"), "{refusal}");
+}

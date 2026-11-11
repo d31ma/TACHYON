@@ -1035,6 +1035,7 @@ pub(crate) fn framework_marker_names() -> impl Iterator<Item = &'static str> {
         "OnEvent",
         "OnStart",
         "OnStop",
+        "Every",
         "Resource",
         "Order",
         "InBackground",
