@@ -37,29 +37,25 @@ impl<'r, 'a> ErrorReturn<'r, 'a> {
     }
 
     fn returns_only_error(&self, body: Range<usize>) -> bool {
-        let value = self.error_value_start(body.end.wrapping_sub(1));
+        let last = body.end.wrapping_sub(1);
+        let wrap_start = last.wrapping_sub(Self::WRAP_LENGTH - 1);
+        let plain = (self.words.text(last) == Self::ERROR_NAME) & self.starts_value(last);
+        let wrapped = self.is_wrapped_error(wrap_start) & self.starts_value(wrap_start);
         (self.words.text(body.start) == Self::RETURN)
             & self.is_single_statement(body)
-            & Self::VALUE_STARTS.contains(&self.words.text(value.wrapping_sub(1)))
+            & (plain | wrapped)
     }
 
-    fn error_value_start(&self, last: usize) -> usize {
-        if self.words.text(last) == Self::ERROR_NAME {
-            return last;
-        }
-        self.wrapped_error_start(last.wrapping_sub(Self::WRAP_LENGTH - 1))
+    fn starts_value(&self, at: usize) -> bool {
+        Self::VALUE_STARTS.contains(&self.words.text(at.wrapping_sub(1)))
     }
 
-    fn wrapped_error_start(&self, start: usize) -> usize {
+    fn is_wrapped_error(&self, start: usize) -> bool {
         let message = start.wrapping_add(Self::WRAP_HEAD.len());
-        let wrapped = self.follows(start, &Self::WRAP_HEAD)
+        self.follows(start, &Self::WRAP_HEAD)
             & self.words.is_literal(message)
             & self.words.text(message).contains(Self::WRAP_VERB)
-            & self.follows(message.wrapping_add(1), &Self::WRAP_TAIL);
-        if wrapped {
-            return start;
-        }
-        usize::MAX
+            & self.follows(message.wrapping_add(1), &Self::WRAP_TAIL)
     }
 
     fn is_single_statement(&self, body: Range<usize>) -> bool {

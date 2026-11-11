@@ -555,7 +555,7 @@ Path and name rules:
   `yon.`. When the configuration is empty, the variable is not set; read it as
   `{}`.
 - Pass the whole snapshot to `Behaviors.properties`/`Behaviors.values` (in Go,
-  `BehaviorsProperties[T](application)` and `BehaviorsValues[T](application)`
+  `BehaviorsProperties[T]` and `BehaviorsValues[T]`, called with the snapshot,
   with a `// @Settings` or `// @Setting` model). They expect the `yon` root.
   Code that reads a value by hand reads it below `yon`, for example
   `application["yon"]["catalog"]["page"]["size"]`.

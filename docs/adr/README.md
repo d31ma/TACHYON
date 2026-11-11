@@ -129,5 +129,5 @@ design. Decide routine implementation choices in code review, not in an ADR.
 - [114. Event Bindings Take Key Filters, Modifiers and Document Listeners](0114-event-bindings-take-key-filters-modifiers-and-document-listeners.md)
 - [115. Services Move and Trap Focus Through the Page](0115-services-move-and-trap-focus-through-the-page.md)
 - [117. Go HTTP Clients Read JSON Error Bodies](0117-go-http-clients-read-json-error-bodies.md)
-- [122. Python Services Reach the Browser APIs Through the Page](0122-python-services-reach-the-browser-apis-through-the-page.md)
 - [119. Go Edge Contracts for Tac and Yon](0119-go-edge-contracts-for-tac-and-yon.md)
+- [122. Python Services Reach the Browser APIs Through the Page](0122-python-services-reach-the-browser-apis-through-the-page.md)
