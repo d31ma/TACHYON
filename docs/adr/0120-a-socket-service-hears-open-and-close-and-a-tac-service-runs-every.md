@@ -87,7 +87,7 @@ need a page call. Applications refreshed tokens before each call and on
 | Dart | `@Every('60s')` on a public method | `@OnEvent` method |
 | Ruby | `#[Every("60s")]` | `#[OnEvent]` method with a YARD `@param` type |
 | Lua | `-- @Every("60s")` | `-- @OnEvent` function with a `---@param` type |
-| Python | `@every("60s")` | `@on_event` method with a `SocketOpened` parameter (built-in models since ADR 0122) |
+| Python | `@every("60s")`, also on an `async def` method | `@on_event` method with a `SocketOpened` parameter (built-in models since ADR 0122). The listener is synchronous, because async `OnEvent` methods are still pending in Python, so it cannot await `send`: it records the state, and an `async def` method, such as an `@every` method, sends the message |
 | C++ | `[[Every("60s")]]` on a public method | `[[OnEvent]]` method |
 
 The WebAssembly languages (Go, Rust, C#, F#, Swift, Kotlin, Java, C++,
