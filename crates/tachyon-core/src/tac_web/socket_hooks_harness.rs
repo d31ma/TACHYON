@@ -15,9 +15,10 @@ pub(crate) struct SocketHooksCase<'a> {
 }
 
 impl SocketHooks {
-    const PAGE: &'static str = "import { readFile } from 'node:fs/promises'\n\
-         globalThis.fetch = async (url) => new Response(await readFile(url))\n\
-         globalThis.location = { href: 'http://127.0.0.1:4000/page' }\n\
+    const FILE_FETCH: &'static str = "import { readFile } from 'node:fs/promises'\n\
+         globalThis.fetch = async (url) => new Response(await readFile(url))\n";
+
+    const PAGE: &'static str = "globalThis.location = { href: 'http://127.0.0.1:4000/page' }\n\
          const shown = []\n\
          globalThis.document = { visibilityState: 'visible', querySelector: () => null, addEventListener: (name, listener) => { if (name === 'visibilitychange') shown.push(listener) } }\n\
          const intervals = [], cleared = []\n\
@@ -88,6 +89,10 @@ impl SocketHooks {
     }
 
     pub(crate) fn driver(sockets: bool, events_module: &str) -> String {
+        format!("{}{}", Self::FILE_FETCH, Self::body(sockets, events_module))
+    }
+
+    pub(crate) fn body(sockets: bool, events_module: &str) -> String {
         let steps = ["", Self::SOCKET_STEPS];
         format!(
             "{}{}{}",
@@ -95,6 +100,11 @@ impl SocketHooks {
             steps[usize::from(sockets)],
             Self::TIMER_STEPS
         )
+    }
+
+    pub(crate) async fn prepare(root: &Path, case: &SocketHooksCase<'_>) {
+        Self::publish(root, case).await;
+        Self::write_events(root);
     }
 
     pub(crate) fn check(report: &serde_json::Value, sockets: bool) {

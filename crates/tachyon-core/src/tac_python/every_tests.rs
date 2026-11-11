@@ -30,6 +30,10 @@ async fn a_python_service_runs_its_every_method_while_the_page_is_shown() {
         "client/manifest.json",
         PythonEvery::MANIFEST.as_bytes(),
     );
-    let report = SocketHooks::run(root.path(), &case).await;
+    SocketHooks::prepare(root.path(), &case).await;
+    let report = PythonPage::run(
+        root.path(),
+        &SocketHooks::body(false, "application-events.mjs"),
+    );
     SocketHooks::check(&report, false);
 }
