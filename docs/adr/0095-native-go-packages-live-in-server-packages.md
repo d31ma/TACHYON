@@ -2,6 +2,9 @@
 
 - Status: Accepted
 - Date: 2026-10-03
+- Amended by: [ADR 0122](0122-ty-test-and-ty-start-agree-on-yon-handler-code.md):
+  a `@FromBody`, socket message or `@HandlesError` type may come from a
+  package here; Tachyon copies its import into the generated handler files
 - Works with: [ADR 0091](0091-role-folders-allow-nesting-and-require-explicit-registration.md)
   (role folders need explicit markers; this ADR gives plain native Go code a
   place outside them), [ADR 0064](0064-code-is-not-duplicated.md) (plain

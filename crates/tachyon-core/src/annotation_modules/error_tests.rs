@@ -15,6 +15,14 @@ impl Sources {
         std::fs::write(path, source).expect("source");
     }
 
+    fn composed(entry: &str, source: &str) -> String {
+        let root = Self::project();
+        Self::write(root.path(), entry, source);
+        assemble(root.path(), Path::new(entry), source, "yon")
+            .expect(entry)
+            .expect("composed error types")
+    }
+
     fn project() -> tempfile::TempDir {
         let root = tempfile::tempdir().expect("project");
         Self::write(
@@ -64,18 +72,44 @@ fn controller_composes_error_handlers_and_plain_errors_but_not_other_controllers
 }
 
 #[test]
-fn worker_does_not_compose_global_controller_error_sources() {
+fn worker_composes_error_types_but_not_error_handlers() {
+    let composed = Sources::composed("server/workers/Job.js", "class Handler { GET() {} }");
+    assert!(composed.contains("class OrderNotFound"));
+    assert!(!composed.contains("class OrdersErrorHandler"));
+}
+
+#[test]
+fn identity_provider_composes_error_types_but_not_error_handlers() {
+    let composed = Sources::composed(
+        "server/controllers/AppIdentityProvider.js",
+        "@IdentityProvider\nclass AppIdentityProvider {\nidentify(request) {}\n}\n",
+    );
+    assert!(composed.contains("class OrderNotFound"));
+    assert!(!composed.contains("class OrdersErrorHandler"));
+}
+
+#[test]
+fn socket_controller_composes_error_types() {
+    let composed = Sources::composed(
+        "server/controllers/FeedController.js",
+        "@SocketRoute(\"/feed\")\n@Public\nclass FeedController {\n@OnMessage\nreceive(message) {}\n}\n",
+    );
+    assert!(composed.contains("class OrderNotFound"));
+}
+
+#[test]
+fn client_service_never_composes_server_error_types() {
     let root = Sources::project();
-    let source = "class Handler { GET() {} }";
-    Sources::write(root.path(), "server/workers/Job.js", source);
+    let source = "@Service\nclass CartService {}\n";
+    Sources::write(root.path(), "client/services/CartService.js", source);
     let composed = assemble(
         root.path(),
-        Path::new("server/workers/Job.js"),
+        Path::new("client/services/CartService.js"),
         source,
-        "yon",
+        "tac",
     )
-    .expect("worker");
-    assert!(composed.is_none());
+    .expect("client service");
+    assert!(composed.is_none_or(|text| !text.contains("class OrderNotFound")));
 }
 
 #[test]

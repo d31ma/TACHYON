@@ -168,8 +168,12 @@ impl IdentityProject {
                 "type Identity struct {\n\tUser  string   `json:\"user\"`\n\tRoles []string `json:\"roles\"`\n}\n",
             ),
             (
+                "server/errors/UnknownUser.go",
+                "type UnknownUser struct{}\n\nfunc (failure UnknownUser) Error() string {\n\treturn \"unknown user\"\n}\n",
+            ),
+            (
                 "server/controllers/AppIdentityProvider.go",
-                "import \"strings\"\n\n// @IdentityProvider\ntype AppIdentityProvider struct {\n}\n\nfunc (provider *AppIdentityProvider) Identify(\n// @FromHeader(\"x-test-user\")\n user string, \n// @FromHeader(\"x-test-roles\")\n roles string) Identity {\n\treturn Identity{User: user, Roles: strings.Split(roles, \",\")}\n}\n",
+                "import \"strings\"\n\n// @IdentityProvider\ntype AppIdentityProvider struct {\n}\n\nfunc (provider *AppIdentityProvider) Identify(\n// @FromHeader(\"x-test-user\")\n user string, \n// @FromHeader(\"x-test-roles\")\n roles string) Identity {\n\tvar _ error = UnknownUser{}\n\treturn Identity{User: user, Roles: strings.Split(roles, \",\")}\n}\n",
             ),
         ],
     };

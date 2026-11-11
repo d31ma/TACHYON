@@ -25,6 +25,7 @@ mod forwarded_headers;
 mod gateway_classes;
 mod gateway_commands;
 mod go_markers;
+mod go_package_types;
 mod go_streams;
 mod handler_process;
 mod host_names;

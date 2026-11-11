@@ -108,7 +108,7 @@ async fn go_behaviors_compose_with_yon_injection() {
 }
 
 #[tokio::test]
-async fn a_scheduled_go_worker_runs_without_its_marker() {
+async fn a_scheduled_go_worker_runs_without_its_marker_and_uses_server_errors() {
     if !go_usable() {
         return;
     }
@@ -118,9 +118,16 @@ async fn a_scheduled_go_worker_runs_without_its_marker() {
     std::fs::create_dir_all(path.parent().expect("parent")).expect("folders");
     std::fs::write(
         &path,
-        "// @Schedule({\"fixedDelaySeconds\":30})\ntype Handler struct{}\n\nfunc (Handler) POST() any {\n\treturn map[string]any{\"beat\": true}\n}\n",
+        "// @Schedule({\"fixedDelaySeconds\":30})\ntype Handler struct{}\n\nfunc (Handler) POST() any {\n\tvar _ error = BeatSkipped{}\n\treturn map[string]any{\"beat\": true}\n}\n",
     )
     .expect("worker");
+    let errors = project.path().join("server/errors/BeatSkipped.go");
+    std::fs::create_dir_all(errors.parent().expect("parent")).expect("folders");
+    std::fs::write(
+        &errors,
+        "type BeatSkipped struct{}\n\nfunc (failure BeatSkipped) Error() string {\n\treturn \"beat skipped\"\n}\n",
+    )
+    .expect("error type");
     let source = HandlerSource::discover(project.path(), relative).expect("worker discovery");
     let supervisor =
         HandlerSupervisor::new(HandlerSupervisorOptions::default()).expect("supervisor");

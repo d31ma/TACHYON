@@ -530,7 +530,7 @@ impl Module {
         let captured = read_module_text(&root, entry, Module::MAX_SOURCE)?;
         crate::annotation_layout::FolderRoleCheck::check(entry, &captured)?;
         crate::annotation_layout::validate_transformed(entry, source)?;
-        let include_errors = environment == "yon"
+        let include_error_handlers = environment == "yon"
             && entry.starts_with("server/controllers")
             && crate::annotation_layout::has_route_controller(entry, source)?;
         let worker_services =
@@ -539,7 +539,7 @@ impl Module {
             &root,
             entry,
             extension,
-            include_errors,
+            include_error_handlers,
             native_services,
             worker_services,
         )?;
@@ -900,7 +900,7 @@ fn discover_paths(
     root: &Dir,
     entry: &Path,
     extension: &str,
-    include_errors: bool,
+    include_error_handlers: bool,
     native_services: bool,
     worker_services: bool,
 ) -> Result<Vec<PathBuf>, Failure> {
@@ -915,18 +915,16 @@ fn discover_paths(
         if service && folder == "services" && !native_services {
             continue;
         }
-        if folder != "controllers" || include_errors || tested_controllers {
+        if folder != "controllers" || include_error_handlers || tested_controllers {
             discovery.search_role_folder(&shared_directory, &shared_parent.join(folder), folder)?;
         }
-    }
-    if include_errors || tested_controllers {
-        discovery.search_role_folder(&shared_directory, &shared_parent.join("errors"), "errors")?;
     }
     let realm = entry
         .components()
         .next()
         .map_or(Path::new(""), |part| Path::new(part.as_os_str()));
     let realm_directory = open_parent(root, &realm.join("entry"))?;
+    discovery.search_server_errors(&realm_directory, realm)?;
     if realm != Path::new("client") {
         discovery.search_role_folder(&realm_directory, &realm.join("utils"), "utils")?;
     }
@@ -992,6 +990,13 @@ impl<'a> Discovery<'a> {
     ) -> Result<(), Failure> {
         (realm == Path::new("client"))
             .then(|| self.search_shared_utilities(directory))
+            .transpose()
+            .map(|_| ())
+    }
+
+    fn search_server_errors(&mut self, directory: &Dir, realm: &Path) -> Result<(), Failure> {
+        (realm == Path::new(Self::SERVER_REALM))
+            .then(|| self.search_role_folder(directory, &realm.join("errors"), "errors"))
             .transpose()
             .map(|_| ())
     }
@@ -1071,6 +1076,7 @@ impl<'a> Discovery<'a> {
 
     const MAX_ENTRIES: usize = 4096;
     const MAX_DEPTH: usize = 32;
+    const SERVER_REALM: &'static str = "server";
 
     fn new(extension: &'a str) -> Self {
         Self {

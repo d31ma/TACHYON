@@ -1,15 +1,17 @@
 use super::RouteCalls;
-use crate::yon::GoStreamResult;
+use crate::go_source::GoFile;
 use crate::yon::error_calls::ErrorCalls;
 use crate::yon::go_container::{GoContainer, GoRouteResult};
 use crate::yon::plan::{ParameterSource, Plan, Route};
+use crate::yon::{GoImports, GoStreamResult};
 use std::fmt::Write as _;
 
 pub(super) struct GoRoutes;
 
 impl GoRoutes {
     pub(super) fn functions(plan: &Plan, stripped: &str) -> Result<String, String> {
-        let mut output = String::new();
+        let imports = GoImports::for_types(stripped, &Self::argument_types(plan))?;
+        let mut output = format!("\n{}routes\npackage main\n{imports}", GoFile::MARKER);
         let parameters = ErrorCalls::parameters(plan, "go");
         let error_arguments = ErrorCalls::arguments(plan, "go");
         for verb in RouteCalls::verbs(plan) {
@@ -61,6 +63,16 @@ impl GoRoutes {
             )
         })?;
         Ok(format!("return {}({call}), nil", stream.wrapper()))
+    }
+
+    fn argument_types(plan: &Plan) -> Vec<&str> {
+        RouteCalls::verbs(plan)
+            .into_iter()
+            .flat_map(|verb| RouteCalls::routes_for(plan, verb))
+            .flat_map(|route| &route.parameters)
+            .filter(|parameter| parameter.source != ParameterSource::Request)
+            .map(|parameter| parameter.type_text.as_str())
+            .collect()
     }
 
     fn arguments(route: &Route) -> String {

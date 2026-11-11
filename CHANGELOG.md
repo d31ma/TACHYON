@@ -85,6 +85,17 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- **`ty test` and `ty start` agree on Yon handler code** (ADR 0122). Workers,
+  identity providers, socket controllers and gateways now compose the error
+  types of `server/errors/`, as route controllers and test units did; before,
+  a Go identity provider or worker that used one failed with `TY2004` at
+  `ty start`. A Go `@FromBody`, socket message or `@HandlesError` type from
+  another package, such as `core.Order` from `server/packages`, now compiles
+  under `ty start` and `ty bundle`; before, it failed with "undefined: core".
+  The docs now say which request-body fields are required in each language
+  (in Go, a field without `,omitempty` that is not a pointer) and why
+  `ty test`, which calls methods directly, does not make that check.
+
 - A bound boolean on an `aria-*` attribute now writes the text `true` or
   `false`. Before, `:aria-expanded="menu.open"` wrote `aria-expanded=""` for
   true, which a screen reader reads as false, and left the attribute out for

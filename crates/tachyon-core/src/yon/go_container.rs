@@ -84,7 +84,9 @@ impl GoContainer {
         controller: usize,
         methods: &SocketMethods,
     ) -> Result<String, String> {
-        let mut text = format!("{}container\npackage main\n", GoFile::MARKER);
+        let kind = SocketCalls::message_type(plan).unwrap_or("any");
+        let imports = crate::yon::GoImports::for_types(stripped, &[kind])?;
+        let mut text = format!("{}container\npackage main\n{imports}", GoFile::MARKER);
         text.push_str(&Self::providers(plan, dependencies));
         let _ = write!(
             text,
@@ -117,7 +119,6 @@ impl GoContainer {
                 "\nfunc (endpoint __YonSocketEndpoint) {event}({parameters}) error {{\n{body}\n}}\n"
             );
         }
-        let kind = SocketCalls::message_type(plan).unwrap_or("any");
         let call = format!("endpoint.target.{}(session, message)", methods.message);
         let body = Self::socket_body(stripped, &plan.controller, &methods.message, &call)?;
         let _ = write!(

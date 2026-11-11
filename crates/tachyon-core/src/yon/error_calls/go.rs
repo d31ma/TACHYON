@@ -1,12 +1,14 @@
 use super::{ErrorCalls, Plan, RouteCalls};
 use crate::go_source::GoFile;
+use crate::yon::GoImports;
 use crate::yon::go_container::{GoContainer, GoRouteResult};
 use crate::yon::plan::ErrorMethod;
 use std::fmt::Write as _;
 
 pub(super) fn functions(plan: &Plan, stripped: &str) -> Result<String, String> {
     let parameters = ErrorCalls::parameters(plan, "go");
-    let mut source = format!("\n{}errors\npackage main\n", GoFile::MARKER);
+    let imports = GoImports::for_types(stripped, &concrete_types(plan))?;
+    let mut source = format!("\n{}errors\npackage main\n{imports}", GoFile::MARKER);
     if plan.errors.iter().any(is_concrete) {
         source.push_str("import __yonErrors \"errors\"\n");
     }
@@ -24,6 +26,14 @@ pub(super) fn functions(plan: &Plan, stripped: &str) -> Result<String, String> {
     }
     source.push_str("\t}\n\treturn nil, failure\n}\n");
     Ok(source)
+}
+
+fn concrete_types(plan: &Plan) -> Vec<&str> {
+    plan.errors
+        .iter()
+        .filter(|method| is_concrete(method))
+        .map(|method| method.error_type.as_str())
+        .collect()
 }
 
 fn is_concrete(method: &ErrorMethod) -> bool {
