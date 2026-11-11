@@ -17675,7 +17675,7 @@
           "heading": "Scheduling: Yon",
           "axis": "language",
           "summary": "Schedule declares how often a worker runs, next to the code that runs, instead of in .tachyonrc. The worker gets the same supervisor, deadlines and bounds that a controller already gets.",
-          "body": "A worker under server/workers is a Handler class that the runtime calls with POST on a timer. Like a Spring @Scheduled method, POST takes no parameter and returns nothing. Schedule takes fixedDelaySeconds (from 1 to 86400) and the optional initialDelaySeconds (from 0 to 86400). By default, initialDelaySeconds is one full interval. A .tachyonrc worker has always worked this way. There is no cron field. A cron expression is a calendar schedule written as text. It needs a parser and a time zone policy, and the runtime has neither. A limited worker really needs only a fixed delay. A source declares its cadence (how often it runs) in exactly one place: the annotation or .tachyonrc. Declaring both fails with TY1502. The annotation is removed before the worker compiles. So a worker that declares nothing else gets no extra runtime code at all. Tac has no equivalent. A browser page has no supervisor (a process that runs and watches other work) to run a separate timer. So this annotation exists in only one realm. In Lua the marker is a comment line, `-- @Schedule({...})`, above the Handler table. In C++ the marker stands after the class key, `class [[Schedule({...})]] Handler`, and POST is an instance method (ADR 0099). A Go worker gets no injected services: `// @Needs` works in services and controllers, not in `server/workers/`. A Go worker builds the values it needs in its POST method (ADR 0119).",
+          "body": "A worker under server/workers is a Handler class that the runtime calls with POST on a timer. Like a Spring @Scheduled method, POST takes no parameter and returns nothing. Schedule takes fixedDelaySeconds (from 1 to 86400) and the optional initialDelaySeconds (from 0 to 86400). By default, initialDelaySeconds is one full interval. A .tachyonrc worker has always worked this way. There is no cron field. A cron expression is a calendar schedule written as text. It needs a parser and a time zone policy, and the runtime has neither. A limited worker really needs only a fixed delay. A source declares its cadence (how often it runs) in exactly one place: the annotation or .tachyonrc. Declaring both fails with TY1502. The annotation is removed before the worker compiles. So a worker that declares nothing else gets no extra runtime code at all. Tac has no equivalent. A browser page has no supervisor (a process that runs and watches other work) to run a separate timer. So this annotation exists in only one realm. In Lua the marker is a comment line, `-- @Schedule({...})`, above the Handler table. In C++ the marker stands after the class key, `class [[Schedule({...})]] Handler`, and POST is an instance method (ADR 0099). A worker can take services, in every Yon language. Mark a field with Needs, written the way a controller of that language writes it, and Tachyon builds the worker like a controller: it finds the providers in server/services and the other role folders under server, fills the fields, and calls POST on the new object on every run (ADR 0119). POST is then an instance method with no parameters, as a controller route method is: in C# the class is not static, in Kotlin it is a class and not an object, in Rust POST takes &self, and in Python it has no @staticmethod. In F#, a worker can take its services as primary constructor values, as in settle.fs. A worker with no Needs stays exactly as before, with no extra runtime code. The settle worker below needs LedgerService. Its POST returns the ledger total; the runtime ignores the value a worker returns and only reports a failure.",
           "files": [
             {
               "name": "server/workers/reconcile.js",
@@ -17740,6 +17740,126 @@
             {
               "name": "server/workers/reconcile.hpp",
               "code": "#pragma once\n\nclass [[Schedule({\"fixedDelaySeconds\":300,\"initialDelaySeconds\":30})]] Handler {\npublic:\n    void POST() {}\n};\n"
+            },
+            {
+              "name": "server/workers/settle.js",
+              "code": "@Schedule({\"fixedDelaySeconds\":300})\nexport class Handler {\n  /** @type {LedgerService} */\n  @Needs\n  ledgerService;\n\n  /** @returns {number} */\n  POST() {\n    return this.ledgerService.total();\n  }\n}\n"
+            },
+            {
+              "name": "server/services/LedgerService.js",
+              "code": "@Service\nexport default class LedgerService {\n  /** @returns {number} */\n  total() {\n    return 42;\n  }\n}\n"
+            },
+            {
+              "name": "server/workers/settle.ts",
+              "code": "@Schedule({\"fixedDelaySeconds\":300})\nexport class Handler {\n  @Needs\n  ledgerService!: LedgerService;\n\n  POST(): number {\n    return this.ledgerService.total();\n  }\n}\n"
+            },
+            {
+              "name": "server/services/LedgerService.ts",
+              "code": "@Service\nexport default class LedgerService {\n  total(): number {\n    return 42;\n  }\n}\n"
+            },
+            {
+              "name": "server/workers/settle.py",
+              "code": "from typing import Annotated\n\n\n@schedule({\"fixedDelaySeconds\":300})\nclass Handler:\n    ledger: Annotated[LedgerService, needs]\n\n    def POST(self) -> int:\n        return self.ledger.total()\n"
+            },
+            {
+              "name": "server/services/LedgerService.py",
+              "code": "@service\nclass LedgerService:\n    def total(self) -> int:\n        return 42\n"
+            },
+            {
+              "name": "server/workers/settle.php",
+              "code": "<?php\n#[Schedule({\"fixedDelaySeconds\":300})]\nclass Handler {\n  #[Needs]\n  private LedgerService $ledger;\n\n  public function POST(): int { return $this->ledger->total(); }\n}\n"
+            },
+            {
+              "name": "server/services/LedgerService.php",
+              "code": "<?php\n#[Service]\nclass LedgerService {\n  public function total(): int { return 42; }\n}\n"
+            },
+            {
+              "name": "server/workers/settle.java",
+              "code": "@Schedule({\"fixedDelaySeconds\":300})\nclass Handler {\n  @Needs\n  LedgerService ledger;\n\n  int POST() { return ledger.total(); }\n}\n"
+            },
+            {
+              "name": "server/services/LedgerService.java",
+              "code": "@Service\nclass LedgerService {\n  int total() { return 42; }\n}\n"
+            },
+            {
+              "name": "server/workers/settle.groovy",
+              "code": "@Schedule({\"fixedDelaySeconds\":300})\nclass Handler {\n  @Needs\n  LedgerService ledger\n\n  int POST() { return ledger.total() }\n}\n"
+            },
+            {
+              "name": "server/services/LedgerService.groovy",
+              "code": "@Service\nclass LedgerService {\n  int total() { return 42 }\n}\n"
+            },
+            {
+              "name": "server/workers/settle.kt",
+              "code": "@Schedule({\"fixedDelaySeconds\":300})\nclass Handler {\n  @Needs\n  val ledger: LedgerService\n\n  fun POST(): Int = ledger.total()\n}\n"
+            },
+            {
+              "name": "server/services/LedgerService.kt",
+              "code": "@Service\nclass LedgerService {\n  fun total(): Int = 42\n}\n"
+            },
+            {
+              "name": "server/workers/settle.cs",
+              "code": "[Schedule({\"fixedDelaySeconds\":300})]\nclass Handler {\n  [Needs]\n  LedgerService _ledger;\n\n  public int POST() { return _ledger.Total(); }\n}\n"
+            },
+            {
+              "name": "server/services/LedgerService.cs",
+              "code": "[Service]\nclass LedgerService {\n  public int Total() { return 42; }\n}\n"
+            },
+            {
+              "name": "server/workers/settle.fs",
+              "code": "[<Schedule({\"fixedDelaySeconds\":300})>]\ntype Handler(ledger: LedgerService) =\n    member this.POST() : int = ledger.Total()\n"
+            },
+            {
+              "name": "server/services/LedgerService.fs",
+              "code": "[<Service>]\ntype LedgerService() =\n    member this.Total() : int = 42\n"
+            },
+            {
+              "name": "server/workers/settle.rs",
+              "code": "#[Schedule({\"fixedDelaySeconds\":300})]\nstruct Handler {\n    #[Needs]\n    ledger: std::sync::Arc<LedgerService>,\n}\nimpl Handler {\n    fn POST(&self) -> i64 {\n        self.ledger.total()\n    }\n}\n"
+            },
+            {
+              "name": "server/services/LedgerService.rs",
+              "code": "#[Service]\nstruct LedgerService {}\nimpl LedgerService {\n    fn new() -> Self {\n        Self {}\n    }\n\n    fn total(&self) -> i64 {\n        42\n    }\n}\n"
+            },
+            {
+              "name": "server/workers/settle.go",
+              "code": "// @Schedule({\"fixedDelaySeconds\":300})\ntype Handler struct {\n\t// @Needs\n\tledger *LedgerService\n}\n\nfunc (worker *Handler) POST() int {\n\treturn worker.ledger.Total()\n}\n"
+            },
+            {
+              "name": "server/services/LedgerService.go",
+              "code": "// @Service\ntype LedgerService struct{}\n\nfunc (service *LedgerService) Total() int {\n\treturn 42\n}\n"
+            },
+            {
+              "name": "server/workers/settle.dart",
+              "code": "@Schedule({\"fixedDelaySeconds\":300})\nclass Handler {\n  @Needs\n  final LedgerService ledger;\n\n  int POST() {\n    return ledger.total();\n  }\n}\n"
+            },
+            {
+              "name": "server/services/LedgerService.dart",
+              "code": "@Service\nclass LedgerService {\n  int total() {\n    return 42;\n  }\n}\n"
+            },
+            {
+              "name": "server/workers/settle.rb",
+              "code": "#[Schedule({\"fixedDelaySeconds\":300})]\nclass Handler\n  #[Needs]\n  # @return [LedgerService]\n  attr_reader :ledger\n\n  # @return [Integer]\n  def POST\n    ledger.total\n  end\nend\n"
+            },
+            {
+              "name": "server/services/LedgerService.rb",
+              "code": "#[Service]\nclass LedgerService\n  # @return [Integer]\n  def total\n    42\n  end\nend\n"
+            },
+            {
+              "name": "server/workers/settle.lua",
+              "code": "-- @Schedule({\"fixedDelaySeconds\":300})\n---@class Handler\nHandler = {\n  -- @Needs\n  ---@type LedgerService\n  ledger = nil,\n}\n\n---@return integer\nfunction Handler:POST()\n  return self.ledger:total()\nend\n"
+            },
+            {
+              "name": "server/services/LedgerService.lua",
+              "code": "-- @Service\n---@class LedgerService\nLedgerService = {}\n\n---@return integer\nfunction LedgerService:total()\n  return 42\nend\n"
+            },
+            {
+              "name": "server/workers/settle.hpp",
+              "code": "#pragma once\n\nclass [[Schedule({\"fixedDelaySeconds\":300})]] Handler {\n    [[Needs]] LedgerService& ledger;\n\npublic:\n    int POST() { return ledger.total(); }\n};\n"
+            },
+            {
+              "name": "server/services/LedgerService.hpp",
+              "code": "#pragma once\n\nclass [[Service]] LedgerService {\npublic:\n    int total() const { return 42; }\n};\n"
             }
           ]
         },

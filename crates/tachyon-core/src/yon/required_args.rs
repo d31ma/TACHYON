@@ -508,7 +508,8 @@ fn append_managed(
     let managed = markers
         .iter()
         .any(|marker| managed_role(&marker.name) && accepts_arguments(marker));
-    if !managed {
+    let worker = crate::yon::WorkerRoot::is_root(input.path, &item.name);
+    if !managed && !worker {
         return Ok(());
     }
     if output.len() >= 128 {

@@ -12,6 +12,7 @@ pub(crate) struct ShadowWriter<'a> {
 }
 
 impl<'a> ShadowWriter<'a> {
+    const SCHEDULE: &'static str = "Schedule";
     const ROLES: [&'static str; 8] = [
         "Service",
         "Store",
@@ -175,9 +176,14 @@ impl<'a> ShadowWriter<'a> {
         let managed = self
             .attributes
             .iter()
-            .any(|name| Self::ROLES.contains(&name.as_str()));
+            .map(String::as_str)
+            .any(Self::is_managing);
         let header = TypeHeader::read(self.lines[index].trimmed(), &body, managed);
         self.open_type(index, header);
+    }
+
+    fn is_managing(name: &str) -> bool {
+        Self::ROLES.contains(&name) || name == Self::SCHEDULE
     }
 
     fn write_exception(&mut self, index: usize) {

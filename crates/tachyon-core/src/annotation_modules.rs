@@ -398,7 +398,7 @@ impl Module {
         let captured = read_module_text(&root, entry, Self::MAX_SOURCE)?;
         crate::annotation_layout::FolderRoleCheck::check(entry, &captured)?;
         crate::annotation_layout::validate_transformed(entry, source)?;
-        let mut paths = discover_paths(&root, entry, extension, false, true)?;
+        let mut paths = discover_paths(&root, entry, extension, false, true, false)?;
         paths.extend(Discovery::native_contract_paths(&root, extension)?);
         let mut converters =
             crate::declared_contract::ConverterModelTable::new(snapshot_root, "tac", extension);
@@ -533,7 +533,16 @@ impl Module {
         let include_errors = environment == "yon"
             && entry.starts_with("server/controllers")
             && crate::annotation_layout::has_route_controller(entry, source)?;
-        let paths = discover_paths(&root, entry, extension, include_errors, native_services)?;
+        let worker_services =
+            environment == "yon" && crate::yon::WorkerRoot::injects(entry, source);
+        let paths = discover_paths(
+            &root,
+            entry,
+            extension,
+            include_errors,
+            native_services,
+            worker_services,
+        )?;
         Self::require_source_bound(entry, source)?;
         let mut converters = crate::declared_contract::ConverterModelTable::new(
             snapshot_root,
@@ -893,10 +902,11 @@ fn discover_paths(
     extension: &str,
     include_errors: bool,
     native_services: bool,
+    worker_services: bool,
 ) -> Result<Vec<PathBuf>, Failure> {
     let entry_directory = entry.parent().unwrap_or_else(|| Path::new(""));
     let service = entry_directory.starts_with("client/services");
-    let routed = entry_directory.starts_with("server/controllers");
+    let routed = entry_directory.starts_with("server/controllers") || worker_services;
     let tested_controllers = tests_controllers(entry);
     let shared_parent = shared_role_parent(entry_directory, service, routed);
     let shared_directory = open_parent(root, &shared_parent.join("entry"))?;

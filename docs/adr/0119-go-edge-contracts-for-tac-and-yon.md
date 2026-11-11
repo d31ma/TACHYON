@@ -38,12 +38,8 @@ five edges where Go code behaved in a way the docs did not say:
    wait; add `// @InBackground` when the publisher should not wait for it.
 2. **Saved state works on a needed service.** Replaced by the section
    "Saved fields on needed services" below.
-3. **Go workers build what they need.** A worker is one `Handler` type in
-   `server/workers/`. Yon does not inject services into a Go worker (C++
-   workers take `[[Needs]]`, ADR 0099 and its C++ worker plan). A Go worker
-   creates the values it needs in its own method, or calls a route of its
-   own application. Injection into Go workers needs its own change to the
-   worker plan and the Go container.
+3. **Workers get injected services.** Replaced on 2026-11-11 by the section
+   "Workers get injected services in every Yon language" below.
 4. **The Go error check is not a decision.** ADR 0063 now allows, in Go
    only, `if err != nil {` right after the statement that assigns `err`,
    whose body is one `return` that ends with `err` or
@@ -62,9 +58,8 @@ five edges where Go code behaved in a way the docs did not say:
   no longer needs a private helper.
 - A Go `OnStart` that needs data starts the request through an event; the
   error now names that pattern.
-- Points 2 and 3 are limits, not features. Apps that need saved state on an
-  injected service, or services in a Go worker, use the workarounds above
-  until a later change adds them.
+- Points 2 and 3 of the Context are no longer limits: see the sections
+  below (one native Rust case stays, as the saved-fields section says).
 
 ## Saved fields on needed services
 
@@ -171,3 +166,92 @@ Lua `a_lua_call_parks_on_browser_http_until_the_answer_arrives`, and
 `tac_web::on_start_wait_tests` for the answers of every language and the
 Kotlin and Swift readers. The TY1314 shapes are in
 `annotation_layout::single_class::cohesion::tests`.
+
+## Workers get injected services in every Yon language (2026-11-11)
+
+This section replaces decision 3. A worker is still one type named `Handler`
+in `server/workers/` with a `POST` method and one `Schedule` marker. A worker
+may now declare `Needs` fields, in the same spelling as a controller of its
+language. Tachyon then builds the worker like a controller: it finds the
+providers in `server/services/` and the other role folders under `server/`,
+fills the fields, and calls `POST` on the built object on every tick. `POST`
+is then an instance method that takes no parameters, as a controller route
+method is an instance method. Lifetimes work as they do for a controller: the
+worker object lives for one run, and singletons live for the process.
+
+A worker with no `Needs` is unchanged: Tachyon compiles its source as before,
+with no container code, and its `POST` may stay static where the language
+allows it. C++ workers keep their own plan (ADR 0099), which already took
+`[[Needs]]` references.
+
+How it works: when the worker declares a `Needs` marker (or, in F#, takes
+primary constructor values), Tachyon renames the code word `Handler` in the
+worker to the generated name `YonWork`, treats `YonWork` as a request-scoped
+controller with one `POST` route that has no URL, and emits the usual
+`Handler` dispatcher that resolves `YonWork` from the container. So no
+language runtime changed. A worker that already uses the name `YonWork` fails
+with TY2015.
+
+| Language | Needs field in a worker | POST |
+| --- | --- | --- |
+| JavaScript | `@Needs ledgerService;` (lowerCamel provider name) | `POST() {}` |
+| TypeScript | `@Needs ledgerService!: LedgerService;` | `POST(): number {}` |
+| Python | `ledger: Annotated[LedgerService, needs]` | `def POST(self)` |
+| PHP | `#[Needs] private LedgerService $ledger;` | `public function POST()` |
+| Java | `@Needs LedgerService ledger;` | `int POST()` |
+| Groovy | `@Needs LedgerService ledger` | `int POST()` |
+| Kotlin | `@Needs val ledger: LedgerService` in a `class` (not `object`) | `fun POST()` |
+| C# | `[Needs] LedgerService _ledger;` in a non-static class | `public int POST()` |
+| F# | `type Handler(ledger: LedgerService) =` (primary constructor values) | `member this.POST()` |
+| Rust | `#[Needs] ledger: std::sync::Arc<LedgerService>` | `fn POST(&self)` |
+| Dart | `@Needs final LedgerService ledger;` | `int POST()` |
+| Go | `// @Needs` above `ledger *LedgerService` | `func (worker *Handler) POST()` |
+| Ruby | `#[Needs]` and `# @return [LedgerService]` above `attr_reader :ledger` | `def POST` |
+| Lua | `-- @Needs` and `---@type LedgerService` above `ledger = nil,` | `function Handler:POST()` |
+| C++ | `[[Needs]] LedgerService& ledger;` (ADR 0099) | `void POST()` |
+
+Swift is a Tac language only, so it has no workers.
+
+Go example:
+
+```go
+// @Schedule({"fixedDelaySeconds":300})
+type Handler struct {
+	// @Needs
+	ledger *LedgerService
+}
+
+func (worker *Handler) POST() {
+	worker.ledger.Settle()
+}
+```
+
+Java example:
+
+```java
+@Schedule({"fixedDelaySeconds":300})
+class Handler {
+  @Needs
+  LedgerService ledger;
+
+  void POST() {
+    ledger.settle();
+  }
+}
+```
+
+Python example:
+
+```python
+from typing import Annotated
+
+
+@schedule({"fixedDelaySeconds":300})
+class Handler:
+    ledger: Annotated[LedgerService, needs]
+
+    def POST(self) -> None:
+        self.ledger.settle()
+```
+
+The website section "Scheduling: Yon" shows the worker in every language.

@@ -136,6 +136,49 @@ async fn a_scheduled_go_worker_runs_without_its_marker() {
     assert_eq!(response.body.expect("body").data, r#"{"beat":true}"#);
 }
 
+#[tokio::test]
+async fn a_scheduled_go_worker_gets_its_needed_service() {
+    if !go_usable() {
+        return;
+    }
+    let project = tempfile::tempdir().expect("project");
+    for (relative, source) in GoWorkerNeeds::FILES {
+        let path = project.path().join(relative);
+        std::fs::create_dir_all(path.parent().expect("parent")).expect("folders");
+        std::fs::write(&path, source).expect("source");
+    }
+    let source =
+        HandlerSource::discover(project.path(), GoWorkerNeeds::WORKER).expect("worker discovery");
+    let supervisor =
+        HandlerSupervisor::new(HandlerSupervisorOptions::default()).expect("supervisor");
+    let response = supervisor
+        .invoke(
+            &source,
+            &HandlerRequest::route("go_worker", "/", HttpMethod::Post),
+            &HandlerCancellation::default(),
+        )
+        .await
+        .expect("invocation");
+    assert!(response.error.is_none(), "{:?}", response.error);
+    assert_eq!(response.body.expect("body").data, r#"{"total":42}"#);
+}
+
+struct GoWorkerNeeds;
+
+impl GoWorkerNeeds {
+    const WORKER: &str = "server/workers/reconcile.go";
+    const FILES: [(&str, &str); 2] = [
+        (
+            "server/services/LedgerService.go",
+            "// @Service\ntype LedgerService struct{}\n\nfunc (service *LedgerService) Total() int {\n\treturn 42\n}\n",
+        ),
+        (
+            Self::WORKER,
+            "// @Schedule({\"fixedDelaySeconds\":30})\ntype Handler struct {\n\t// @Needs\n\tledger *LedgerService\n}\n\nfunc (worker *Handler) POST() any {\n\treturn map[string]any{\"total\": worker.ledger.Total()}\n}\n",
+        ),
+    ];
+}
+
 pub(super) struct GoInjection;
 
 impl GoInjection {

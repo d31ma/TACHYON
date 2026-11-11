@@ -179,14 +179,20 @@ impl<'p> LuaLowering<'p> {
         RouteCalls::routes_for(self.plan, verb)
             .iter()
             .fold(String::new(), |mut checks, route| {
-                let _ = write!(
-                    checks,
-                    "{indent}if route == {} then\n{indent}  return {}\n{indent}end\n",
-                    RouteCalls::pattern(route),
-                    Self::call(route)
-                );
+                checks.push_str(&Self::route_check(route, indent));
                 checks
             })
+    }
+
+    fn route_check(route: &Route, indent: &str) -> String {
+        let call = Self::call(route);
+        let checked = format!(
+            "{indent}if route == {} then\n{indent}  return {call}\n{indent}end\n",
+            RouteCalls::pattern(route)
+        );
+        let direct = format!("{indent}do return {call} end\n");
+        let mut forms = [checked, direct];
+        std::mem::take(&mut forms[usize::from(route.pattern.is_none())])
     }
 
     fn call(route: &Route) -> String {

@@ -16,6 +16,49 @@ pub(super) struct MappedRoutes {
 
 impl MappedRoutes {
     const RECEIVERS: [(&'static str, &'static str); 2] = [("py", "self"), ("rs", "&self")];
+    const WORKER_METHOD: &'static str = "POST";
+    const WORKER_MARKER: &'static str = "Schedule";
+    const WORKER_SHAPE: &'static str = "A worker that declares Needs builds its Handler like a controller, so POST must be one instance method that takes no parameters, for example `void POST()` and not `static void POST()`";
+
+    pub(super) fn worker(input: &Input<'_>, managed: &ManagedType) -> Result<Route, Failure> {
+        let methods = super::named_methods(input, managed, &[Self::WORKER_METHOD])?;
+        let start = Self::worker_method(input, managed, &methods)?;
+        let markers = MethodMarkers {
+            verb: Self::WORKER_METHOD,
+            written: Self::WORKER_MARKER,
+            path: String::new(),
+            status: None,
+            stream: false,
+            at: start,
+            documentation: RouteMarker::documentation_before(
+                input,
+                &Declaration {
+                    annotations: Vec::new(),
+                    start,
+                },
+            ),
+        };
+        let mut found = Self {
+            routes: Vec::new(),
+            markers: Vec::new(),
+        };
+        let route = found.method_route(input, start, &markers, "/")?;
+        Ok(Route {
+            pattern: None,
+            ..route
+        })
+    }
+
+    fn worker_method(
+        input: &Input<'_>,
+        managed: &ManagedType,
+        methods: &[usize],
+    ) -> Result<usize, Failure> {
+        methods
+            .first()
+            .copied()
+            .ok_or_else(|| input.failure(managed.declaration, Self::WORKER_SHAPE))
+    }
 
     fn base_path(input: &Input<'_>, declarations: &[Declaration]) -> Result<String, Failure> {
         declarations

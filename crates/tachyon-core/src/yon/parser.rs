@@ -19,6 +19,7 @@ mod parameter_markers;
 mod routes;
 mod ruby;
 mod sockets;
+mod worker_plan;
 
 pub(crate) struct Parsed {
     pub plan: Plan,
@@ -226,6 +227,9 @@ fn build_plan(
     if sockets::uses_socket_route(declarations) {
         return build_socket_plan(input, declarations, types, controller);
     }
+    if super::WorkerRoot::is_root(input.path, &controller) {
+        return worker_plan::WorkerPlan::build(input, types, controller);
+    }
     if !routes::uses_request_route(declarations) {
         return Err(input.failure(
             0,
@@ -407,6 +411,11 @@ fn declarations(input: &Input<'_>) -> Result<Vec<Declaration>, Failure> {
             }
             declarations.push(Declaration {
                 annotations: std::mem::take(&mut pending),
+                start,
+            });
+        } else if worker_plan::WorkerPlan::declares_root(input, trimmed) {
+            declarations.push(Declaration {
+                annotations: Vec::new(),
                 start,
             });
         }
@@ -871,11 +880,15 @@ fn provider(
     declaration: &Declaration,
     name: String,
 ) -> Result<Provider, Failure> {
-    let roles = declaration
+    let mut roles = declaration
         .annotations
         .iter()
         .filter_map(|annotation| role(&annotation.name))
         .collect::<Vec<_>>();
+    let worker = super::WorkerRoot::is_root(input.path, &name);
+    if roles.is_empty() && worker {
+        roles.push(Role::Controller);
+    }
     if roles.len() != 1 {
         return Err(input.failure(
             declaration.start,
@@ -899,6 +912,7 @@ fn provider(
             "needs" => dependencies = injection_arguments(input, annotation)?,
             name if self::role(name).is_some() && annotation.arguments.is_empty() => {},
             routes::RouteMarker::CLASS | sockets::SocketMarker::CLASS => {},
+            "schedule" if worker => {},
             name if access_marker::AccessMarker::is_name(name) && role == Role::Controller => {},
             _ => return Err(input.failure(annotation.span.start, "Type annotations accept one role, @Lifetime and @Needs only; paths belong to filesystem routing")),
         }

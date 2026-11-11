@@ -20,7 +20,7 @@ impl SharedUtilityDiscovery {
         }
         let directory =
             super::open_entry_root(root.path(), &entry, extension, "tac").expect("entry root");
-        let paths = super::discover_paths(&directory, &entry, extension, false, false)
+        let paths = super::discover_paths(&directory, &entry, extension, false, false, false)
             .expect("composed paths");
         (paths, utility)
     }

@@ -83,6 +83,7 @@ mod warm_lua;
 mod warm_php;
 mod warm_ruby;
 mod warm_rust;
+mod worker_needs;
 mod yon_annotations_discovery;
 mod yon_compiled_annotations;
 mod yon_cpp;

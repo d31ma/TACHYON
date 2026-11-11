@@ -108,7 +108,7 @@ machine contracts have their own, independent major versions.
   every Tac language say which languages can wait in an `async` `OnStart`
   (ADR 0119).
 - The docs now say that `YON_APPLICATION_JSON` holds the settings under a
-  `yon` root, and that Go workers get no injected services (ADR 0119).
+  `yon` root (ADR 0119).
 - `@SessionState` and `@LocalState` fields are now saved and restored on a
   service that only another service needs, in Go, Java, F#, Python and C++,
   as JavaScript, TypeScript and Dart already did. The key is the same as for
@@ -116,6 +116,11 @@ machine contracts have their own, independent major versions.
   services it needs, and the page plan carries their saved fields (ADR 0119).
   A Rust service linked into a native app that holds another service through
   `Arc` still does not save that service's fields.
+- A `Schedule` worker in `server/workers/` can take services through `Needs`
+  fields in every Yon language, as a controller does: Tachyon builds the
+  worker from `server/services/` and the other role folders and calls its
+  instance `POST` on each run. A worker with no `Needs` compiles as before
+  (ADR 0119).
 
 ## [26.46.02] - 2026-11-10
 

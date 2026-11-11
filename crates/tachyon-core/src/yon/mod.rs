@@ -11,6 +11,8 @@ pub(crate) mod plan;
 mod required_args;
 pub(crate) mod route_access;
 pub(crate) mod route_calls;
+mod worker_root;
+pub(crate) use worker_root::WorkerRoot;
 
 pub(crate) use required_args::prepare as prepare_required_args;
 pub(crate) use required_args::required_fields;

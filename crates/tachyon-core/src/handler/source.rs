@@ -911,6 +911,8 @@ fn lower_annotation_entry(
     has_modules: bool,
 ) -> Result<LoweredEntry, Failure> {
     reject_shebang(contents, portable)?;
+    let worker = crate::yon::WorkerRoot::renamed(relative_source, contents)?;
+    let contents = worker.as_deref().unwrap_or(contents);
     crate::convention::check_handler(relative_source, contents)?;
     lower_annotated_source(models_root, relative_source, contents, has_modules)
 }
