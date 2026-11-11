@@ -29,3 +29,14 @@ function OrderServiceTest:test_delete_sends_the_path_and_the_header_without_a_bo
   Assert.equals("duplicate", sent.header)
   Assert.equals("none", sent.item)
 end
+
+function OrderServiceTest:test_error_body_is_read_into_a_model()
+  local failure = Assert.throws(function()
+    return self:construct(OrderService):claim()
+  end)
+  local conflict = BehaviorError.body_of(failure, ClaimConflict)
+  Assert.equals("HTTP_STATUS", failure.behavior_code)
+  Assert.equals(409, BehaviorError.status_of(failure))
+  Assert.equals("taken", conflict.reason)
+  Assert.equals("south", conflict.holder)
+end

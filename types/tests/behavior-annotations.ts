@@ -70,6 +70,9 @@ class ProductInput {
 class FactoryChecks {
   static boundSettings: Record<string, BehaviorJsonValue> = Behaviors.properties(CatalogSettings, { yon: { catalog: { size: 20 } } });
   static validatedInput: Record<string, BehaviorJsonValue> = Behaviors.validate(ProductInput, { name: 'Product', price: 10 });
+  static conflict: BehaviorError = Behaviors.httpError(409, { reason: 'taken' });
+  static conflictStatus: number = Behaviors.errorStatus(FactoryChecks.conflict);
+  static conflictBody: { reason: string } | null = Behaviors.errorBody<{ reason: string }>(FactoryChecks.conflict);
 }
 void FactoryChecks;
 

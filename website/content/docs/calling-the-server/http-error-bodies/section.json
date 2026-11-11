@@ -1,0 +1,551 @@
+{
+  "heading": "Reading an error body into a model",
+  "axis": "language",
+  "notApplicable": [
+    "ts",
+    "py",
+    "php",
+    "java",
+    "groovy",
+    "cs",
+    "fs",
+    "kt",
+    "rs",
+    "go",
+    "dart",
+    "rb",
+    "lua",
+    "hpp"
+  ],
+  "summary": "When the server answers with an error status, a client call fails with the error code `HTTP_STATUS`. Every Tac service language reads the status number, such as 422, and, when the answer's media type is `application/json` or `application/problem+json`, reads the JSON body into a model with the same reader it uses for a success answer. Here the server checks the order with `Check` and answers 422 with a problem body (RFC 9457): its `title`, its `status` and one entry per broken rule in `errors`. The page shows the status, the title and how many rules the order broke. Go reads the body with `BehaviorErrorBody(err, &problem)` and the status with `BehaviorErrorStatus(err)`; Rust with `error.body_as::<Problem>()` and `error.status`; C# with `error.TryReadBody(out Problem problem)` and `error.Status`; F# with `TacMappingModels.errorBodyProblem error`; Swift with `Behaviors.errorBody(error, as: Problem.self)`; Kotlin with `Behaviors.errorBody<Problem>(error)`; Java with `Behaviors.errorBody(error, TacModels::readProblem)`; Dart with `BehaviorErrors.body(error, tachyonReadModelProblem)`; Ruby, Python and Lua with `BehaviorError.body_of(error, Problem)`; C++ with `error.readBodyFromJson<Problem>()`; JavaScript and TypeScript with `Behaviors.errorBody(error)` and `Behaviors.errorStatus(error)`. Each reader answers \"no body\" (`false`, `null`, `None`, `nil` or an empty optional) when the error has no body or the body has another shape. JavaScript, TypeScript and Lua do not check the body's field types. The transport leaves the body out when the answer has another media type, is not valid JSON, is `null`, holds a number that is not safe in JavaScript, or is larger than the request's answer limit (1 MiB at most): the error then has the status only. A test fake answers the same way: a TestSetup adapter returns or throws the language's error with `HTTP_STATUS`, a status from 400 to 599 and a body, for example `&BehaviorError{Code: \"HTTP_STATUS\", Status: 409, Body: body}` in Go or `Behaviors.httpError(409, body)` in JavaScript. The call gets the status and the body, never the adapter's own message. Native Rust and native C# services keep the status only (ADR 0117). The server half of this example is a plain JavaScript controller. A controller in TypeScript, Python, PHP, Java, Groovy, C#, F#, Kotlin, Rust, Go, Dart, Ruby, Lua or C++ answers a failed `Check` in the same way (see Validation), so this section shows only the browser side in other languages.",
+  "files": [
+    {
+      "name": "client/pages/tac.html",
+      "code": {
+        "file": "client/pages/tac.html"
+      }
+    },
+    {
+      "name": "client/components/order/form/tac.html",
+      "code": {
+        "file": "client/components/order/form/tac.html"
+      }
+    },
+    {
+      "name": "client/manifest.json",
+      "code": {
+        "file": "client/manifest.json"
+      }
+    },
+    {
+      "name": "client/services/OrderService.js",
+      "code": {
+        "file": "client/services/OrderService.js"
+      }
+    },
+    {
+      "name": "client/remotes/OrderClient.js",
+      "code": {
+        "file": "client/remotes/OrderClient.js"
+      }
+    },
+    {
+      "name": "client/models/Problem.js",
+      "code": {
+        "file": "client/models/Problem.js"
+      }
+    },
+    {
+      "name": "client/models/ProblemEntry.js",
+      "code": {
+        "file": "client/models/ProblemEntry.js"
+      }
+    },
+    {
+      "name": "client/models/OrderInput.js",
+      "code": {
+        "file": "client/models/OrderInput.js"
+      }
+    },
+    {
+      "name": "client/services/OrderService.ts",
+      "code": {
+        "file": "client/services/OrderService.ts"
+      }
+    },
+    {
+      "name": "client/remotes/OrderClient.ts",
+      "code": {
+        "file": "client/remotes/OrderClient.ts"
+      }
+    },
+    {
+      "name": "client/models/Problem.ts",
+      "code": {
+        "file": "client/models/Problem.ts"
+      }
+    },
+    {
+      "name": "client/models/ProblemEntry.ts",
+      "code": {
+        "file": "client/models/ProblemEntry.ts"
+      }
+    },
+    {
+      "name": "client/models/OrderInput.ts",
+      "code": {
+        "file": "client/models/OrderInput.ts"
+      }
+    },
+    {
+      "name": "client/services/OrderService.go",
+      "code": {
+        "file": "client/services/OrderService.go"
+      }
+    },
+    {
+      "name": "client/remotes/OrderClient.go",
+      "code": {
+        "file": "client/remotes/OrderClient.go"
+      }
+    },
+    {
+      "name": "client/models/Problem.go",
+      "code": {
+        "file": "client/models/Problem.go"
+      }
+    },
+    {
+      "name": "client/models/ProblemEntry.go",
+      "code": {
+        "file": "client/models/ProblemEntry.go"
+      }
+    },
+    {
+      "name": "client/models/OrderInput.go",
+      "code": {
+        "file": "client/models/OrderInput.go"
+      }
+    },
+    {
+      "name": "client/setups/OrderSetup.go",
+      "code": {
+        "file": "client/setups/OrderSetup.go"
+      }
+    },
+    {
+      "name": "client/services/OrderService.rs",
+      "code": {
+        "file": "client/services/OrderService.rs"
+      }
+    },
+    {
+      "name": "client/remotes/OrderClient.rs",
+      "code": {
+        "file": "client/remotes/OrderClient.rs"
+      }
+    },
+    {
+      "name": "client/models/Problem.rs",
+      "code": {
+        "file": "client/models/Problem.rs"
+      }
+    },
+    {
+      "name": "client/models/ProblemEntry.rs",
+      "code": {
+        "file": "client/models/ProblemEntry.rs"
+      }
+    },
+    {
+      "name": "client/models/OrderInput.rs",
+      "code": {
+        "file": "client/models/OrderInput.rs"
+      }
+    },
+    {
+      "name": "client/setups/OrderSetup.rs",
+      "code": {
+        "file": "client/setups/OrderSetup.rs"
+      }
+    },
+    {
+      "name": "client/services/OrderService.cs",
+      "code": {
+        "file": "client/services/OrderService.cs"
+      }
+    },
+    {
+      "name": "client/remotes/OrderClient.cs",
+      "code": {
+        "file": "client/remotes/OrderClient.cs"
+      }
+    },
+    {
+      "name": "client/models/Problem.cs",
+      "code": {
+        "file": "client/models/Problem.cs"
+      }
+    },
+    {
+      "name": "client/models/ProblemEntry.cs",
+      "code": {
+        "file": "client/models/ProblemEntry.cs"
+      }
+    },
+    {
+      "name": "client/models/OrderInput.cs",
+      "code": {
+        "file": "client/models/OrderInput.cs"
+      }
+    },
+    {
+      "name": "client/setups/OrderSetup.cs",
+      "code": {
+        "file": "client/setups/OrderSetup.cs"
+      }
+    },
+    {
+      "name": "client/services/OrderService.fs",
+      "code": {
+        "file": "client/services/OrderService.fs"
+      }
+    },
+    {
+      "name": "client/remotes/OrderClient.fs",
+      "code": {
+        "file": "client/remotes/OrderClient.fs"
+      }
+    },
+    {
+      "name": "client/models/Problem.fs",
+      "code": {
+        "file": "client/models/Problem.fs"
+      }
+    },
+    {
+      "name": "client/models/ProblemEntry.fs",
+      "code": {
+        "file": "client/models/ProblemEntry.fs"
+      }
+    },
+    {
+      "name": "client/models/OrderInput.fs",
+      "code": {
+        "file": "client/models/OrderInput.fs"
+      }
+    },
+    {
+      "name": "client/setups/OrderSetup.fs",
+      "code": {
+        "file": "client/setups/OrderSetup.fs"
+      }
+    },
+    {
+      "name": "client/services/OrderService.swift",
+      "code": {
+        "file": "client/services/OrderService.swift"
+      }
+    },
+    {
+      "name": "client/remotes/OrderClient.swift",
+      "code": {
+        "file": "client/remotes/OrderClient.swift"
+      }
+    },
+    {
+      "name": "client/models/Problem.swift",
+      "code": {
+        "file": "client/models/Problem.swift"
+      }
+    },
+    {
+      "name": "client/models/ProblemEntry.swift",
+      "code": {
+        "file": "client/models/ProblemEntry.swift"
+      }
+    },
+    {
+      "name": "client/models/OrderInput.swift",
+      "code": {
+        "file": "client/models/OrderInput.swift"
+      }
+    },
+    {
+      "name": "client/setups/OrderSetup.swift",
+      "code": {
+        "file": "client/setups/OrderSetup.swift"
+      }
+    },
+    {
+      "name": "client/services/OrderService.kt",
+      "code": {
+        "file": "client/services/OrderService.kt"
+      }
+    },
+    {
+      "name": "client/remotes/OrderClient.kt",
+      "code": {
+        "file": "client/remotes/OrderClient.kt"
+      }
+    },
+    {
+      "name": "client/models/Problem.kt",
+      "code": {
+        "file": "client/models/Problem.kt"
+      }
+    },
+    {
+      "name": "client/models/ProblemEntry.kt",
+      "code": {
+        "file": "client/models/ProblemEntry.kt"
+      }
+    },
+    {
+      "name": "client/models/OrderInput.kt",
+      "code": {
+        "file": "client/models/OrderInput.kt"
+      }
+    },
+    {
+      "name": "client/setups/OrderSetup.kt",
+      "code": {
+        "file": "client/setups/OrderSetup.kt"
+      }
+    },
+    {
+      "name": "client/services/OrderService.java",
+      "code": {
+        "file": "client/services/OrderService.java"
+      }
+    },
+    {
+      "name": "client/remotes/OrderClient.java",
+      "code": {
+        "file": "client/remotes/OrderClient.java"
+      }
+    },
+    {
+      "name": "client/models/Problem.java",
+      "code": {
+        "file": "client/models/Problem.java"
+      }
+    },
+    {
+      "name": "client/models/ProblemEntry.java",
+      "code": {
+        "file": "client/models/ProblemEntry.java"
+      }
+    },
+    {
+      "name": "client/models/OrderInput.java",
+      "code": {
+        "file": "client/models/OrderInput.java"
+      }
+    },
+    {
+      "name": "client/setups/OrderSetup.java",
+      "code": {
+        "file": "client/setups/OrderSetup.java"
+      }
+    },
+    {
+      "name": "client/services/OrderService.dart",
+      "code": {
+        "file": "client/services/OrderService.dart"
+      }
+    },
+    {
+      "name": "client/remotes/OrderClient.dart",
+      "code": {
+        "file": "client/remotes/OrderClient.dart"
+      }
+    },
+    {
+      "name": "client/models/Problem.dart",
+      "code": {
+        "file": "client/models/Problem.dart"
+      }
+    },
+    {
+      "name": "client/models/ProblemEntry.dart",
+      "code": {
+        "file": "client/models/ProblemEntry.dart"
+      }
+    },
+    {
+      "name": "client/models/OrderInput.dart",
+      "code": {
+        "file": "client/models/OrderInput.dart"
+      }
+    },
+    {
+      "name": "client/setups/OrderSetup.dart",
+      "code": {
+        "file": "client/setups/OrderSetup.dart"
+      }
+    },
+    {
+      "name": "client/services/OrderService.rb",
+      "code": {
+        "file": "client/services/OrderService.rb"
+      }
+    },
+    {
+      "name": "client/remotes/OrderClient.rb",
+      "code": {
+        "file": "client/remotes/OrderClient.rb"
+      }
+    },
+    {
+      "name": "client/models/Problem.rb",
+      "code": {
+        "file": "client/models/Problem.rb"
+      }
+    },
+    {
+      "name": "client/models/ProblemEntry.rb",
+      "code": {
+        "file": "client/models/ProblemEntry.rb"
+      }
+    },
+    {
+      "name": "client/models/OrderInput.rb",
+      "code": {
+        "file": "client/models/OrderInput.rb"
+      }
+    },
+    {
+      "name": "client/setups/OrderSetup.rb",
+      "code": {
+        "file": "client/setups/OrderSetup.rb"
+      }
+    },
+    {
+      "name": "client/services/OrderService.py",
+      "code": {
+        "file": "client/services/OrderService.py"
+      }
+    },
+    {
+      "name": "client/remotes/OrderClient.py",
+      "code": {
+        "file": "client/remotes/OrderClient.py"
+      }
+    },
+    {
+      "name": "client/models/Problem.py",
+      "code": {
+        "file": "client/models/Problem.py"
+      }
+    },
+    {
+      "name": "client/models/ProblemEntry.py",
+      "code": {
+        "file": "client/models/ProblemEntry.py"
+      }
+    },
+    {
+      "name": "client/models/OrderInput.py",
+      "code": {
+        "file": "client/models/OrderInput.py"
+      }
+    },
+    {
+      "name": "client/setups/OrderSetup.py",
+      "code": {
+        "file": "client/setups/OrderSetup.py"
+      }
+    },
+    {
+      "name": "client/services/OrderService.lua",
+      "code": {
+        "file": "client/services/OrderService.lua"
+      }
+    },
+    {
+      "name": "client/remotes/OrderClient.lua",
+      "code": {
+        "file": "client/remotes/OrderClient.lua"
+      }
+    },
+    {
+      "name": "client/models/Problem.lua",
+      "code": {
+        "file": "client/models/Problem.lua"
+      }
+    },
+    {
+      "name": "client/models/ProblemEntry.lua",
+      "code": {
+        "file": "client/models/ProblemEntry.lua"
+      }
+    },
+    {
+      "name": "client/models/OrderInput.lua",
+      "code": {
+        "file": "client/models/OrderInput.lua"
+      }
+    },
+    {
+      "name": "client/setups/OrderSetup.lua",
+      "code": {
+        "file": "client/setups/OrderSetup.lua"
+      }
+    },
+    {
+      "name": "client/services/OrderService.hpp",
+      "code": {
+        "file": "client/services/OrderService.hpp"
+      }
+    },
+    {
+      "name": "client/remotes/OrderClient.hpp",
+      "code": {
+        "file": "client/remotes/OrderClient.hpp"
+      }
+    },
+    {
+      "name": "client/models/Problem.hpp",
+      "code": {
+        "file": "client/models/Problem.hpp"
+      }
+    },
+    {
+      "name": "client/models/ProblemEntry.hpp",
+      "code": {
+        "file": "client/models/ProblemEntry.hpp"
+      }
+    },
+    {
+      "name": "client/models/OrderInput.hpp",
+      "code": {
+        "file": "client/models/OrderInput.hpp"
+      }
+    },
+    {
+      "name": "client/setups/OrderSetup.hpp",
+      "code": {
+        "file": "client/setups/OrderSetup.hpp"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.js",
+      "code": {
+        "file": "server/controllers/OrdersController.js"
+      }
+    },
+    {
+      "name": "server/services/OrderService.js",
+      "code": {
+        "file": "server/services/OrderService.js"
+      }
+    },
+    {
+      "name": "server/models/OrderInput.js",
+      "code": {
+        "file": "server/models/OrderInput.js"
+      }
+    }
+  ]
+}

@@ -6,18 +6,54 @@ import 'dart:math' as behavior_math;
 final class BehaviorError implements Exception {
   BehaviorError(this.code, [String? path])
       : path = path != null && behavior_convert.utf8.encode(path).length <= 128 ? path : null,
-        message = 'Behavior operation failed: $code';
+        message = 'Behavior operation failed: $code',
+        status = 0,
+        body = null;
   BehaviorError.gateway(this.code)
       : path = null,
-        message = 'Gateway call failed.';
+        message = 'Gateway call failed.',
+        status = 0,
+        body = null;
   BehaviorError.storage(this.message)
       : code = 'STORAGE',
-        path = null;
+        path = null,
+        status = 0,
+        body = null;
+  BehaviorError.answer(this.code, this.status, this.body)
+      : path = null,
+        message = 'Behavior operation failed: $code';
+  BehaviorError.http(int status, [Object? body]) : this.answer('HTTP_STATUS', status, body);
   final String code;
   final String? path;
   final String message;
+  final int status;
+  final Object? body;
   @override
   String toString() => message;
+}
+
+abstract final class BehaviorErrors {
+  static String code(Object? error) => error is BehaviorError ? error.code : '';
+
+  static int status(Object? error) => error is BehaviorError ? error.status : 0;
+
+  static T? body<T>(Object? error, T Function(Object?) read) {
+    if (error is! BehaviorError || error.body == null) return null;
+    try {
+      return read(error.body);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static BehaviorError _adapterStatus(BehaviorError error) {
+    if (error.status < 400 || error.status > 599) return BehaviorError('ADAPTER_FAILED');
+    try {
+      return BehaviorError.http(error.status, BehaviorJson.parse(BehaviorJson.encode(error.body)));
+    } on BehaviorError {
+      return BehaviorError('ADAPTER_FAILED');
+    }
+  }
 }
 
 final class BehaviorViolation {
@@ -194,13 +230,17 @@ abstract final class BehaviorBrowserHttp {
     final text = BehaviorJson.encode(request, 1048576);
     final answer = BehaviorJson.parse(await send(text, execution.signal));
     execution.check();
-    if (BehaviorJson.has(answer, 'error')) {
-      final code = BehaviorJson.get(BehaviorJson.get(answer, 'error'), 'code');
-      const allowed = ['HTTP_REQUEST', 'HTTP_ORIGIN', 'HTTP_HEADER', 'HTTP_QUERY', 'HTTP_BODY', 'HTTP_LIMIT', 'HTTP_RESPONSE', 'HTTP_STATUS', 'HTTP_CAPACITY', 'HTTP_NETWORK', 'HTTP_MISSING', 'CANCELLED', 'DEADLINE'];
-      throw BehaviorError(allowed.contains(code) ? code as String : 'HTTP_NETWORK');
-    }
+    if (BehaviorJson.has(answer, 'error')) throw _failure(BehaviorJson.get(answer, 'error'));
     if (!BehaviorJson.has(answer, 'value')) throw BehaviorError('HTTP_RESPONSE');
     return BehaviorJson.from(BehaviorJson.get(answer, 'value'));
+  }
+
+  static BehaviorError _failure(Object? error) {
+    final code = BehaviorJson.get(error, 'code');
+    final status = BehaviorJson.get(error, 'status');
+    const allowed = ['HTTP_REQUEST', 'HTTP_ORIGIN', 'HTTP_HEADER', 'HTTP_QUERY', 'HTTP_BODY', 'HTTP_LIMIT', 'HTTP_RESPONSE', 'HTTP_STATUS', 'HTTP_CAPACITY', 'HTTP_NETWORK', 'HTTP_MISSING', 'CANCELLED', 'DEADLINE'];
+    return BehaviorError.answer(allowed.contains(code) ? code as String : 'HTTP_NETWORK', status is int ? status : 0,
+        BehaviorJson.get(error, 'body'));
   }
 }
 
@@ -856,6 +896,16 @@ class BehaviorContext {
     return result;
   }
 
+  Future<Object?> _httpAdapter(BehaviorExecution execution, bool configured, Future<Object?> Function() body) async {
+    try {
+      return await _adapter(execution, body);
+    } on BehaviorError catch (error) {
+      if (!configured || error.code != 'HTTP_STATUS') rethrow;
+      execution.check();
+      throw BehaviorErrors._adapterStatus(error);
+    }
+  }
+
   Object? _method(String type, String method) {
     final metadata = BehaviorJson.get(BehaviorJson.get(Behaviors.registration(type), 'methods'), method);
     if (metadata == null) throw BehaviorError('METHOD_UNKNOWN');
@@ -1123,11 +1173,12 @@ class BehaviorContext {
     final policy = BehaviorJson.get(metadata, 'httpExchange');
     final method = BehaviorJson.text(BehaviorJson.get(policy, 'method'));
     if ((method == 'GET' || method == 'HEAD') && BehaviorJson.has(result, 'body')) throw BehaviorError('HTTP_BODY');
-    final client = _adapters.http[BehaviorJson.text(BehaviorJson.get(policy, 'client'))] ?? BehaviorBrowserHttp.adapter ?? (throw BehaviorError('HTTP_MISSING'));
+    final configured = _adapters.http[BehaviorJson.text(BehaviorJson.get(policy, 'client'))];
+    final client = configured ?? BehaviorBrowserHttp.adapter ?? (throw BehaviorError('HTTP_MISSING'));
     final request = _request(result, method, BehaviorJson.text(BehaviorJson.get(policy, 'path')), execution);
     if (method == 'GET' && BehaviorJson.has(metadata, 'cacheable')) request['publicRead'] = true;
     if (BehaviorJson.get(metadata, '_httpRevalidate') == true) request['revalidate'] = true;
-    return _adapter(execution, () => client.exchange(request, execution));
+    return _httpAdapter(execution, configured != null, () => client.exchange(request, execution));
   }
 
   static final RegExp _token = RegExp(r"^[!#$%&'*+.^_`|~0-9A-Za-z-]+$");
@@ -1183,9 +1234,10 @@ class BehaviorContext {
         BehaviorJson.keys(descriptor, const ['query', 'headers', 'body']);
         _validateHttp(descriptor);
         if ((method == 'GET' || method == 'HEAD') && BehaviorJson.has(descriptor, 'body')) throw BehaviorError('HTTP_BODY');
-        final client = _adapters.http[name] ?? BehaviorBrowserHttp.adapter ?? (throw BehaviorError('HTTP_MISSING'));
+        final configured = _adapters.http[name];
+        final client = configured ?? BehaviorBrowserHttp.adapter ?? (throw BehaviorError('HTTP_MISSING'));
         final request = _request(descriptor, method, path, execution);
-        return _adapter(execution, () => client.exchange(request, execution));
+        return _httpAdapter(execution, configured != null, () => client.exchange(request, execution));
       });
 
   static bool _safePath(String path) {

@@ -52,11 +52,19 @@ internal sealed class BehaviorBrowserHttpAdapter : BehaviorHTTPAdapter, System.I
     {
         switch (answer.Has("error"), answer.Has("value"))
         {
-            case (true, _): throw new BehaviorError(code);
+            case (true, _): throw Failure(answer.Get("error"), code);
             case (false, true): return answer.Get("value");
             default: throw new BehaviorError("HTTP_RESPONSE");
         }
     }
+
+    private static BehaviorError Failure(BehaviorJSON error, string code) => new BehaviorError(code, Status(error), Body(error));
+
+    private static int Status(BehaviorJSON error) => Numbered(error.Get("status").Value) ? error.Get("status").Value.GetInt32() : 0;
+
+    private static bool Numbered(System.Text.Json.JsonElement status) => status.ValueKind == System.Text.Json.JsonValueKind.Number && status.TryGetInt32(out _);
+
+    private static BehaviorJSON Body(BehaviorJSON error) => error.Has("body") ? error.Get("body") : null;
 
     private static string Code(string value) => Codes.Contains(value) ? value : "HTTP_NETWORK";
 }

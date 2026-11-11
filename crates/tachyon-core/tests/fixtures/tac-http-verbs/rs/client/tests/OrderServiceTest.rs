@@ -1,3 +1,5 @@
+use crate::models::ClaimConflict;
+
 #[Test(OrdersTestSetup, {"partition":"tac-http-verbs"})]
 struct OrderServiceTest {
     behaviors: std::cell::RefCell<Option<BehaviorContext>>,
@@ -54,5 +56,16 @@ impl OrderServiceTest {
         Assert::equals("/api/orders/a-7", sent.path);
         Assert::equals("duplicate", sent.header);
         Assert::equals("none", sent.item);
+    }
+
+    async fn testErrorBodyIsReadIntoAModel(&self) {
+        let service: OrderService = self.construct();
+        let error = service.claim().await.err().unwrap_or_else(|| BehaviorError::new("none", "none"));
+        let conflict: ClaimConflict = error.body_as().unwrap_or_default();
+        Assert::equals("HTTP_STATUS", error.code);
+        Assert::equals(409, error.status);
+        Assert::equals("The HTTP request failed.", error.message);
+        Assert::equals("taken", conflict.reason);
+        Assert::equals("south", conflict.holder);
     }
 }

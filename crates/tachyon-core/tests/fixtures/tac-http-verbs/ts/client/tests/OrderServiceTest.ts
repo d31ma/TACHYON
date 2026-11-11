@@ -1,3 +1,5 @@
+import type { ClaimConflict } from '/models/ClaimConflict.ts'
+
 @Test(OrdersTestSetup, {"partition":"tac-http-verbs"})
 export default class OrderServiceTest {
   @Fake
@@ -38,5 +40,14 @@ export default class OrderServiceTest {
     Assert.equals('/api/orders/a-7', sent.path);
     Assert.equals('duplicate', sent.header);
     Assert.equals('none', sent.item);
+  }
+
+  async testErrorBodyIsReadIntoAModel(): Promise<void> {
+    const error = await Assert.throws(() => this.service().claim()) as BehaviorError;
+    const conflict = Behaviors.errorBody<ClaimConflict>(error);
+    Assert.equals('HTTP_STATUS', error.code);
+    Assert.equals('The HTTP request failed.', error.message);
+    Assert.equals(409, Behaviors.errorStatus(error));
+    Assert.equals({ reason: 'taken', holder: 'south' }, conflict);
   }
 }

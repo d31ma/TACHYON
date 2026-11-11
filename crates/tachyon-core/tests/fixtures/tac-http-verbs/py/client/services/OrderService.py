@@ -15,3 +15,6 @@ class OrderService:
 
     async def remove(self) -> SentRequest:
         return await self.orders_client.remove('a-7', 'duplicate')
+
+    async def claim(self) -> SentRequest:
+        return await self.orders_client.claim('a-7', {'item': 'saw'})

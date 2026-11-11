@@ -41,4 +41,16 @@ class OrdersClient
     reason
   )
   end
+
+  # @param id [String]
+  # @param claim [Hash]
+  # @return [SentRequest]
+  #[PutRequest("/claims/{id}")]
+  def claim(
+    #[PathVariable("id")]
+    id,
+    #[RequestBody]
+    claim
+  )
+  end
 end

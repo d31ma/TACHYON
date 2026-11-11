@@ -76,6 +76,7 @@ final class Config {
             return store.allowed
         }
         adapters.http["catalog"] = BehaviorHTTPAdapter { request, execution in
+            try await ProblemAnswers.thrown(request.get("headers").get("X-Problem"))
             guard request.get("redirect") == .string("error"), request.get("credentials") == .string("omit"), request.get("maxResponseBytes") == .number(1_048_576) else { throw BehaviorError("TRANSPORT_BOUNDS") }
             return .object(["transport": .bool(true)])
         }
@@ -104,6 +105,25 @@ final class Config {
             }
         }
         return adapters
+    }
+}
+struct Conflict: Decodable {
+    let reason: String
+}
+struct PlainFailure: Error {}
+enum ProblemAnswers {
+    static func thrown(_ name: BehaviorJSON) async throws {
+        switch name {
+        case .string("conflict"): throw BehaviorError("HTTP_STATUS", status: 409, body: .object(["reason": .string("taken")]))
+        case .string("bare"): throw BehaviorError("HTTP_STATUS", status: 404)
+        case .string("success"): throw BehaviorError("HTTP_STATUS", status: 200, body: .object(["reason": .string("taken")]))
+        case .string("unsafe"): throw BehaviorError("HTTP_STATUS", status: 422, body: .number(.nan))
+        case .string("plain"): throw PlainFailure()
+        case .string("late"):
+            try? await Task.sleep(nanoseconds: 30_000_000)
+            throw BehaviorError("HTTP_STATUS", status: 409, body: .object(["reason": .string("taken")]))
+        default: return
+        }
     }
 }
 enum NativeBehaviorTests {
@@ -379,6 +399,27 @@ enum NativeBehaviorTests {
         try await expectError("SECOND_WRITE") { _ = try await settleInTransaction(service, store, "broken") }
         try check(memory.ledger == ["begin", "save@t2", "save@t2", "rollback:t2"], "JOINED_ROLLBACK")
     }
+    static func problemCall(_ context: BehaviorContext, _ name: String) async throws {
+        _ = try await context.invoke("Catalog", "remote", arguments: []) { .object(["headers": .object(["X-Problem": .string(name)])]) }
+    }
+    static func statusError(_ context: BehaviorContext, _ name: String) async throws -> BehaviorError {
+        do { try await problemCall(context, name) } catch let error as BehaviorError where error.code == "HTTP_STATUS" { return error }
+        throw BehaviorError("EXPECTED_HTTP_STATUS")
+    }
+    static func checkAdapterErrorBody(_ context: BehaviorContext, _ signal: BehaviorSignal) async throws {
+        let conflict = try await statusError(context, "conflict")
+        try check(Behaviors.errorStatus(conflict) == 409, "ERROR_STATUS")
+        try check(Behaviors.errorBody(conflict, as: Conflict.self)?.reason == "taken", "ERROR_BODY")
+        let bare = try await statusError(context, "bare")
+        try check(Behaviors.errorStatus(bare) == 404 && Behaviors.errorBody(bare, as: Conflict.self) == nil, "ERROR_WITHOUT_BODY")
+        for name in ["success", "unsafe", "plain"] { try await expectError("ADAPTER_FAILED") { try await problemCall(context, name) } }
+        let short = try Behaviors.create(Config.self, partition: "tenant-one", signal: signal, timeoutMs: 10)
+        defer { short.dispose() }
+        try await expectError("DEADLINE") { try await problemCall(short, "late") }
+        let wrongShape = BehaviorError("HTTP_STATUS", status: 422, body: .array([.string("taken")]))
+        try check(Behaviors.errorBody(wrongShape, as: Conflict.self) == nil, "ERROR_BODY_SHAPE")
+        try check(Behaviors.errorStatus(PlainFailure()) == 0 && Behaviors.errorBody(PlainFailure(), as: Conflict.self) == nil, "PLAIN_ERROR")
+    }
     static func run() async throws {
         let signal = BehaviorSignal()
         let context = try Behaviors.create(Config.self, partition: "tenant-one", signal: signal)
@@ -398,6 +439,7 @@ enum NativeBehaviorTests {
         try await checkCacheEvict(context, argument, normalized)
         try await checkRejectedMutations(context, signal, argument, replacement)
         try await checkHttpCachePut(context, argument, normalized)
+        try await checkAdapterErrorBody(context, signal)
         try await checkInterruptedMutations(signal, argument, replacement)
         try await checkQueries(context, signal)
         try await checkJoinedTransaction(signal, Config.store)

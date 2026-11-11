@@ -8,6 +8,7 @@ class OrdersTestSetup {
 
   static Future<Object?> _echo(Object? request, BehaviorExecution execution) async {
     final sent = request as Map;
+    if (sent['path'] == '/api/claims/a-7') throw BehaviorError.http(409, {'reason': 'taken', 'holder': 'south'});
     final body = sent['body'];
     return <String, Object?>{
       'method': sent['method'],

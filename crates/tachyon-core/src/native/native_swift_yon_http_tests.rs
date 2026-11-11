@@ -25,7 +25,7 @@ impl SwiftYonProject {
         ),
         (
             "client/services/GreetingService.swift",
-            "@Service\nfinal class GreetingService {\n    @Needs\n    private let greetingClient: GreetingClient\n\n    func ask() async throws -> String {\n        try await greetingClient.getGreeting().message\n    }\n\n    func save() async throws -> String {\n        try await greetingClient.saveGreeting(message: \"from Swift\").message\n    }\n\n    func missing() async -> String {\n        do {\n            return try await greetingClient.missing().message\n        } catch let error as BehaviorError {\n            return error.code\n        } catch {\n            return \"other\"\n        }\n    }\n}\n",
+            "@Service\nfinal class GreetingService {\n    @Needs\n    private let greetingClient: GreetingClient\n\n    func ask() async throws -> String {\n        try await greetingClient.getGreeting().message\n    }\n\n    func save() async throws -> String {\n        try await greetingClient.saveGreeting(message: \"from Swift\").message\n    }\n\n    func missing() async -> String {\n        do {\n            return try await greetingClient.missing().message\n        } catch let error as BehaviorError {\n            return error.code + \":\" + String(Behaviors.errorStatus(error)) + \":\" + (Behaviors.errorBody(error, as: Greeting.self)?.message ?? \"none\")\n        } catch {\n            return \"other\"\n        }\n    }\n}\n",
         ),
     ];
     const CALLER: &'static str = "@main\nstruct CompanionCaller {\n    static let request = \"{\\\"route\\\":\\\"/\\\",\\\"owner\\\":\\\"6F9619FF-8B86-D011-B42D-00C04FC964FF\\\",\\\"service\\\":\\\"greeting\\\",\"\n\n    static func main() {\n        print(tacNativeInvoke(request + \"\\\"op\\\":\\\"init\\\"}\"))\n        for name in [\"ask\", \"save\", \"missing\"] {\n            print(tacNativeInvoke(request + \"\\\"op\\\":\\\"call\\\",\\\"name\\\":\\\"\" + name + \"\\\",\\\"args\\\":[]}\"))\n        }\n    }\n}\n";
@@ -92,7 +92,7 @@ impl SwiftYonProject {
         std::io::Read::read_exact(&mut reader, &mut body).expect("body");
         let received = format!("{head}\n{}", String::from_utf8_lossy(&body));
         let (status, answer) = if head.starts_with("GET /api/missing ") {
-            ("404 Not Found", String::from("{}"))
+            ("404 Not Found", String::from("{\"message\":\"gone\"}"))
         } else if head.starts_with("POST /api/greeting ") {
             (
                 "200 OK",
@@ -168,7 +168,10 @@ fn a_linked_swift_http_client_reaches_the_declared_yon_origin() {
         printed.contains("{\"value\":\"Saved from Swift\"}"),
         "{printed}"
     );
-    assert!(printed.contains("{\"value\":\"HTTP_STATUS\"}"), "{printed}");
+    assert!(
+        printed.contains("{\"value\":\"HTTP_STATUS:404:gone\"}"),
+        "{printed}"
+    );
     assert!(
         received.contains("get /api/greeting http/1.1"),
         "{received}"

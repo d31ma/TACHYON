@@ -1,5 +1,7 @@
 from typing import Annotated
 
+from models import ClaimConflict
+
 
 @Test(OrdersTestSetup, {"partition":"tac-http-verbs"})
 class OrderServiceTest:
@@ -30,3 +32,11 @@ class OrderServiceTest:
         Assert.equals('/api/orders/a-7', sent.path)
         Assert.equals('duplicate', sent.header)
         Assert.equals('none', sent.item)
+
+    async def test_error_body_is_read_into_a_model(self) -> None:
+        error = await Assert.throws(lambda: self.service().claim())
+        conflict = BehaviorError.body_of(error, ClaimConflict)
+        Assert.equals('HTTP_STATUS', error.code)
+        Assert.equals(409, BehaviorError.status_of(error))
+        Assert.equals('taken', conflict.reason)
+        Assert.equals('south', conflict.holder)

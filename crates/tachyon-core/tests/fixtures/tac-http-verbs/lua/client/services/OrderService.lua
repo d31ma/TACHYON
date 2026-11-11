@@ -20,3 +20,8 @@ end
 function OrderService:remove()
   return self.orders_client:remove("a-7", "duplicate")
 end
+
+---@return SentRequest
+function OrderService:claim()
+  return self.orders_client:claim("a-7", { item = "saw" })
+end

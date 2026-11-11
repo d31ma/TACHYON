@@ -22,7 +22,7 @@ pub(super) fn lower(module: &Module) -> Result<String, String> {
         &module.types,
         super::super::TestAssert::KOTLIN,
     ));
-    render(module, edits, &runtime)
+    render(module, edits, &runtime).map(super::KotlinBuiltins::with_error_body)
 }
 
 #[derive(Default)]

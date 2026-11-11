@@ -82,6 +82,14 @@ class TacValues
     raise wrong_shape
   end
 
+  def self.model_of(model, value)
+    return nil unless value.is_a?(Hash) && model.is_a?(Class)
+    read = answer(model.name.to_s.split("::").last, value)
+    read.is_a?(model) ? read : nil
+  rescue StandardError
+    nil
+  end
+
   def self.wrong_shape
     BehaviorError.new("HTTP_RESPONSE", WRONG_SHAPE)
   end

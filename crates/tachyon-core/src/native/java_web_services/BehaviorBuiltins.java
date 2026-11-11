@@ -13,7 +13,7 @@ final class BehaviorBuiltins {
             throw httpFailure("HTTP_RESPONSE");
         }
         if (entries.get("error") instanceof java.util.Map<?, ?> error) {
-            throw httpFailure(httpCode(error.get("code")), error.get("message"));
+            throw httpFailure(error);
         }
         if (!entries.containsKey("value")) {
             throw httpFailure("HTTP_RESPONSE");
@@ -21,15 +21,27 @@ final class BehaviorBuiltins {
         return entries.get("value");
     }
 
-    private static Behaviors.Failure httpFailure(String code, Object message) {
+    private static String httpMessage(String code, Object message) {
         if (message instanceof String text) {
-            return new Behaviors.Failure(code, null, text);
+            return text;
         }
-        return httpFailure(code);
+        return HTTP_FAILED + code + ").";
     }
 
     private static Behaviors.Failure httpFailure(String code) {
         return new Behaviors.Failure(code, null, HTTP_FAILED + code + ").");
+    }
+
+    private static Behaviors.Failure httpFailure(java.util.Map<?, ?> error) {
+        String code = httpCode(error.get("code"));
+        return new Behaviors.Failure(code, null, httpMessage(code, error.get("message")), httpStatus(error.get("status")), error.get("body"));
+    }
+
+    private static int httpStatus(Object status) {
+        if (status instanceof Number number) {
+            return number.intValue();
+        }
+        return 0;
     }
 
     private static String httpCode(Object named) {

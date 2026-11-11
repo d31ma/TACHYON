@@ -2,10 +2,12 @@ struct BehaviorError: Error, CustomStringConvertible {
     let code: String
     let path: String?
     let message: String?
-    init(_ code: String, path: String? = nil, message: String? = nil) { self.code = code; self.path = path.flatMap { $0.utf8.count <= 128 ? $0 : nil }; self.message = message }
+    let status: Int
+    let body: BehaviorJSON?
+    init(_ code: String, path: String? = nil, message: String? = nil, status: Int = 0, body: BehaviorJSON? = nil) { self.code = code; self.path = path.flatMap { $0.utf8.count <= 128 ? $0 : nil }; self.message = message; self.status = status; self.body = body }
     var description: String { message.map { code + ": " + $0 } ?? "Behavior operation failed: " + code }
 }
-indirect enum BehaviorJSON: Equatable {
+indirect enum BehaviorJSON: Equatable, Sendable {
     case null, bool(Bool), number(Double), string(String), array([BehaviorJSON]), object([String: BehaviorJSON])
     static func parse(_ source: String) throws -> BehaviorJSON {
         guard source.utf8.count <= 1_048_576 else { throw BehaviorError("JSON_LIMIT") }
@@ -157,6 +159,16 @@ enum Behaviors {
     static var environment: String { __TAC_BEHAVIOR_ENVIRONMENT__ }
     static func answer<T: Decodable>(_ type: T.Type, _ value: BehaviorJSON) throws -> T {
         do { return try BehaviorPlatform.model(type, value) } catch { throw BehaviorError("HTTP_RESPONSE") }
+    }
+    static func errorStatus(_ error: Error) -> Int { statusNumber(error as? BehaviorError) }
+    static func errorBody<T: Decodable>(_ error: Error, as type: T.Type) -> T? { bodyModel(type, (error as? BehaviorError)?.body) }
+    private static func statusNumber(_ failure: BehaviorError?) -> Int {
+        guard let failure else { return 0 }
+        return failure.status
+    }
+    private static func bodyModel<T: Decodable>(_ type: T.Type, _ body: BehaviorJSON?) -> T? {
+        guard let body else { return nil }
+        return try? BehaviorPlatform.model(type, body)
     }
     static func registration(_ type: String) throws -> BehaviorJSON { let value = try BehaviorJSON.parse(__TAC_BEHAVIOR_REGISTRY__).get(type); guard value != .null else { throw BehaviorError("UNREGISTERED") }; return value }
     static func entity(_ entity: Any.Type) throws -> BehaviorJSON {
@@ -579,7 +591,19 @@ final class BehaviorContext {
             let reading = BehaviorBrowserRead.current; request["publicRead"] = .bool(reading.publicRead); request["revalidate"] = .bool(reading.revalidate)
             return try await adapter(execution, { [request] in try await BehaviorPlatform.exchange(.object(request)) })
         }
-        return try await adapter(execution, { try await client.exchange(.object(request), execution) })
+        return try await exchange(client, .object(request), execution)
+    }
+    private func exchange(_ client: BehaviorHTTPAdapter, _ request: BehaviorJSON, _ execution: BehaviorExecution) async throws -> BehaviorJSON {
+        do { return try await adapter(execution, { try await client.exchange(request, execution) }) }
+        catch let error as BehaviorError where error.code == "HTTP_STATUS" { try execution.check(); throw Self.statusFailure(error) }
+    }
+    private static func statusFailure(_ error: BehaviorError) -> BehaviorError {
+        guard (400...599).contains(error.status), safeBody(error.body) else { return BehaviorError("ADAPTER_FAILED") }
+        return BehaviorError("HTTP_STATUS", status: error.status, body: error.body)
+    }
+    private static func safeBody(_ body: BehaviorJSON?) -> Bool {
+        guard let body else { return true }
+        return (try? body.encoded(maximum: 1_048_576)) != nil
     }
     private func validateHTTP(_ value: BehaviorJSON) throws {
         if value.has("headers") { for (key, value) in try value.get("headers").members {
@@ -612,7 +636,7 @@ final class BehaviorContext {
             request["method"] = .string(method); request["path"] = .string(path)
             request["redirect"] = .string("error"); request["credentials"] = .string("omit")
             request["deadline"] = .number(Double(execution.deadline)); request["maxResponseBytes"] = .number(1_048_576)
-            return try await self.adapter(execution, { try await client.exchange(.object(request), execution) })
+            return try await self.exchange(client, .object(request), execution)
         }
     }
     fileprivate static func safePath(_ path: String) -> Bool {

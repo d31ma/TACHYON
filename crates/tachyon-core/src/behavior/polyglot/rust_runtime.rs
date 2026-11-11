@@ -1,9 +1,11 @@
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct BehaviorError {
     pub code: &'static str,
     pub message: &'static str,
     pub path: Option<String>,
     pub violations: Vec<BehaviorViolation>,
+    pub status: u16,
+    pub body: Option<BehaviorValue>,
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BehaviorViolation {
@@ -11,12 +13,49 @@ pub struct BehaviorViolation {
     pub rule: &'static str,
 }
 impl BehaviorError {
+    const HTTP_STATUS: &'static str = "HTTP_STATUS";
+    const HTTP_FAILED: &'static str = "The HTTP request failed.";
+    const ADAPTER: &'static str = "adapter";
+    const ERROR_STATUSES: core::ops::RangeInclusive<u16> = 400..=599;
+    const LARGEST_BODY: usize = 1_048_576;
+
     pub fn new(code: &'static str, message: &'static str) -> Self {
         Self {
             code,
             message,
             path: None,
             violations: Vec::new(),
+            status: 0,
+            body: None,
+        }
+    }
+
+    pub fn http_status(status: u16, body: Option<BehaviorValue>) -> Self {
+        Self {
+            status,
+            body,
+            ..Self::new(Self::HTTP_STATUS, Self::HTTP_FAILED)
+        }
+    }
+
+    fn http_answer(&self) -> Option<Self> {
+        let status = [self.code == Self::HTTP_STATUS, Self::ERROR_STATUSES.contains(&self.status)];
+        (status == [true, true]).then_some(self).and_then(Self::checked_answer)
+    }
+
+    fn checked_answer(&self) -> Option<Self> {
+        let body = self.body.as_ref().map(Self::checked_body).transpose().ok()?;
+        Some(Self::http_status(self.status, body))
+    }
+
+    fn checked_body(body: &BehaviorValue) -> BehaviorResult<BehaviorValue> {
+        body.checked(Self::LARGEST_BODY)
+    }
+
+    fn http_failure(self, status: Option<Self>) -> Self {
+        match (self.code, status) {
+            (Self::ADAPTER, Some(status)) => status,
+            _ => self,
         }
     }
 }
@@ -601,6 +640,14 @@ impl Drop for BehaviorOperation<'_> {
     }
 }
 impl BehaviorOperation<'_> {
+    fn http_exchange(
+        &self,
+        call: impl FnOnce() -> BehaviorResult<BehaviorValue>,
+    ) -> BehaviorResult<BehaviorValue> {
+        let mut status = None;
+        let answer = self.adapter(|| call().inspect_err(|error| status = error.http_answer()));
+        answer.map_err(|error| error.http_failure(status))
+    }
     fn adapter<T>(&self, call: impl FnOnce() -> BehaviorResult<T>) -> BehaviorResult<T> {
         self.execution.check()?;
         let value = call().map_err(|error| {
@@ -746,10 +793,8 @@ impl Behaviors {
 }
 fn behavior_validation_error(field: &str, rule: &str) -> BehaviorError {
     BehaviorError {
-        code: "validation",
-        message: "Behavior validation failed.",
         path: Some(format!("{field}.{rule}")),
-        violations: Vec::new(),
+        ..BehaviorError::new("validation", "Behavior validation failed.")
     }
 }
 fn behavior_unicode_whitespace(character: char) -> bool {
@@ -1464,7 +1509,7 @@ impl BehaviorContext {
         request.path = path.to_owned();
         let adapter = self.http_adapter(name)?;
         operation
-            .adapter(|| adapter.exchange(&request, &operation.execution))?
+            .http_exchange(|| adapter.exchange(&request, &operation.execution))?
             .checked(1_048_576)
     }
 
@@ -1784,7 +1829,7 @@ impl BehaviorContext {
         }
         let adapter = self.http_adapter(http.client)?;
         operation
-            .adapter(|| adapter.exchange(&request, &operation.execution))?
+            .http_exchange(|| adapter.exchange(&request, &operation.execution))?
             .checked(1_048_576)
     }
     fn authorize(

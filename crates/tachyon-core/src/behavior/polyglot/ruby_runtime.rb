@@ -1,11 +1,22 @@
 unless defined?(BehaviorContext)
 class BehaviorError < StandardError
-  attr_reader :behavior_code, :path
+  attr_reader :behavior_code, :path, :status, :body
 
-  def initialize(behavior_code, message, path = nil)
+  def initialize(behavior_code, message, path = nil, status = 0, body = nil)
     super(message)
     @behavior_code = behavior_code
     @path = path
+    @status = status
+    @body = body
+  end
+
+  def self.status_of(error)
+    error.is_a?(BehaviorError) ? error.status : 0
+  end
+
+  def self.body_of(error, model)
+    return nil unless error.is_a?(BehaviorError) && Object.const_defined?(:TacValues)
+    TacValues.model_of(model, error.body)
   end
 end
 
@@ -196,6 +207,22 @@ class BehaviorBoundary
     end
     execution.check
     result
+  end
+
+  def self.http_adapter(function, arguments, execution)
+    adapter(function, arguments, execution)
+  rescue BehaviorError => error
+    raise unless error.behavior_code == "HTTP_STATUS"
+    execution.check
+    raise http_status(error)
+  end
+
+  def self.http_status(error)
+    failed = BehaviorError.new("adapter", "Behavior adapter failed.")
+    return failed unless error.status.is_a?(Integer) && error.status.between?(400, 599)
+    BehaviorError.new("HTTP_STATUS", "The HTTP request failed.", nil, error.status, copy(error.body))
+  rescue BehaviorError
+    failed
   end
 
   def self.map_value(policy, arguments)
@@ -625,7 +652,8 @@ class BehaviorContext
     custom = (@adapters["http"] || {})[policy["client"]]
     return BehaviorBrowserHttp.exchange(request, execution) if browser && custom.nil? && BehaviorBrowserHttp.available?
     function = adapter("http", policy["client"], "exchange")
-    BehaviorBoundary.copy(BehaviorBoundary.adapter(function, [request, execution], execution))
+    return BehaviorBoundary.copy(BehaviorBoundary.adapter(function, [request, execution], execution)) if custom.nil?
+    BehaviorBoundary.copy(BehaviorBoundary.http_adapter(function, [request, execution], execution))
   end
 
   def check_header(name, value)
@@ -813,7 +841,7 @@ class BehaviorBrowserHttp
 
   def self.value_of(answer)
     raise failure("HTTP_RESPONSE") unless answer.is_a?(Hash)
-    raise failure(code_of(answer["error"]), answer["error"]) if answer.key?("error")
+    raise failure_of(answer["error"]) if answer.key?("error")
     raise failure("HTTP_RESPONSE") unless answer.key?("value")
     answer["value"]
   end
@@ -825,6 +853,13 @@ class BehaviorBrowserHttp
 
   def self.failure(code, error = nil)
     BehaviorError.new(code, BehaviorFailureText.of(error, "The browser HTTP request failed (#{code})."))
+  end
+
+  def self.failure_of(error)
+    code = code_of(error)
+    found = error.is_a?(Hash) ? error : {}
+    status = found["status"].is_a?(Integer) ? found["status"] : 0
+    BehaviorError.new(code, BehaviorFailureText.of(error, "The browser HTTP request failed (#{code})."), nil, status, found["body"])
   end
 end
 

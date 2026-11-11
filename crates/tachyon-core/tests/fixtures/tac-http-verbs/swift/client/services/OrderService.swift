@@ -18,4 +18,8 @@ final class OrderService {
     func remove() async throws -> SentRequest {
         return try await ordersClient.remove(id: "a-7", reason: "duplicate")
     }
+
+    func claim() async throws -> SentRequest {
+        return try await ordersClient.claim(id: "a-7", claim: .object(["item": .string("saw")]))
+    }
 }

@@ -11,7 +11,7 @@ enum BehaviorBrowserHttp {
         let text = try request.encoded(maximum: requestBytes)
         let answer = try parsed(await TacHttpTickets.exchange(text))
         let error = answer.get("error")
-        if error != .null { throw BehaviorError(code(error.get("code")), message: try? error.get("message").text) }
+        if error != .null { throw failure(error) }
         guard answer.has("value") else { throw BehaviorError(wrongAnswer) }
         return answer.get("value")
     }
@@ -19,6 +19,20 @@ enum BehaviorBrowserHttp {
     private static func parsed(_ text: String) throws -> BehaviorJSON {
         guard let answer = try? BehaviorJSON.parse(text), case .object = answer else { throw BehaviorError(wrongAnswer) }
         return answer
+    }
+
+    private static func failure(_ error: BehaviorJSON) -> BehaviorError {
+        BehaviorError(code(error.get("code")), message: try? error.get("message").text, status: status(error.get("status")), body: body(error))
+    }
+
+    private static func status(_ number: BehaviorJSON) -> Int {
+        guard let whole = try? number.integer else { return 0 }
+        return whole
+    }
+
+    private static func body(_ error: BehaviorJSON) -> BehaviorJSON? {
+        guard error.has("body") else { return nil }
+        return error.get("body")
     }
 
     private static func code(_ named: BehaviorJSON) -> String {

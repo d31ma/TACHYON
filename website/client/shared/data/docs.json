@@ -5689,7 +5689,7 @@
             "lua",
             "hpp"
           ],
-          "summary": "A Go service gets its HTTPClient with `// @Needs` above a field such as `greetingClient *GreetingClient`, and calls it like any Go function: `greeting, err := service.greetingClient.Read()`. Tachyon runs each call of a service method in its own goroutine, so the call waits for the server while the page keeps working; a method that waits returns a promise to the page. `GreetingSetup` adds no adapter, so the request goes to the server of the page: the same origin, without cookies. The answer is read into the `Greeting` model from `client/models` with its `json` tags, and a request body model is written with them as `encoding/json` writes it: `omitempty` leaves out an empty string or a nil pointer instead of sending `\"\"` or `null`, `omitzero` leaves out a zero value (an `IsZero` method decides when there is one), `string` sends a number or a bool as text, and `json:\"-\"` leaves the field out; an answer of another shape gives an error whose code is `HTTP_RESPONSE`, and a failed request gives the code of the browser transport, such as `HTTP_STATUS`; `BehaviorErrorStatus(err)` gives the status number of an `HTTP_STATUS` answer, such as 404. `BehaviorErrorBody(err, &model)` reads a JSON error body into a model (see the next section). `Cached` lets the browser cache answer a read, and after a successful `ClearCache` the next read asks the server again. `OverrideSetup` gives `OverrideClient` its own adapter, and that adapter answers instead of the network. Removing the component or leaving the page cancels the request: the page stops the service at once and runs its `OnStop`, the method gets the error code `CANCELLED` afterwards, and a call the method makes after that also gets `CANCELLED` without reaching the server. In every Tac language, a synchronous `OnStart`, a getter and a setter cannot wait for a browser HTTP request or a socket send; to load data when the service starts, publish an event from `OnStart` and make the request in an `OnEvent` method (ADR 0119). In Go such a request fails with `HTTP_REQUEST`, and the error message names this pattern; add `// @InBackground` to the `// @OnEvent` method when the publisher should not wait for it. A test unit has no browser transport (`HTTP_MISSING`). In a test, `test.construct(service)` fills the `Needs` fields from the `// @Fake` fields of the test; an empty Fake client field gets a client made with `NewGreetingClientWith`, so the TestSetup adapter answers. The server half of this example is a plain JavaScript controller. A controller in TypeScript, Python, PHP, Java, Groovy, C#, F#, Kotlin, Rust, Go, Dart, Ruby, Lua or C++ answers in the same way (see Controllers), so this section shows only the browser side in other languages.",
+          "summary": "A Go service gets its HTTPClient with `// @Needs` above a field such as `greetingClient *GreetingClient`, and calls it like any Go function: `greeting, err := service.greetingClient.Read()`. Tachyon runs each call of a service method in its own goroutine, so the call waits for the server while the page keeps working; a method that waits returns a promise to the page. `GreetingSetup` adds no adapter, so the request goes to the server of the page: the same origin, without cookies. The answer is read into the `Greeting` model from `client/models` with its `json` tags, and a request body model is written with them as `encoding/json` writes it: `omitempty` leaves out an empty string or a nil pointer instead of sending `\"\"` or `null`, `omitzero` leaves out a zero value (an `IsZero` method decides when there is one), `string` sends a number or a bool as text, and `json:\"-\"` leaves the field out; an answer of another shape gives an error whose code is `HTTP_RESPONSE`, and a failed request gives the code of the browser transport, such as `HTTP_STATUS`; `BehaviorErrorStatus(err)` gives the status number of an `HTTP_STATUS` answer, such as 404. `BehaviorErrorBody(err, &model)` reads a JSON error body into a model (see \"Reading an error body into a model\"). `Cached` lets the browser cache answer a read, and after a successful `ClearCache` the next read asks the server again. `OverrideSetup` gives `OverrideClient` its own adapter, and that adapter answers instead of the network. Removing the component or leaving the page cancels the request: the page stops the service at once and runs its `OnStop`, the method gets the error code `CANCELLED` afterwards, and a call the method makes after that also gets `CANCELLED` without reaching the server. In every Tac language, a synchronous `OnStart`, a getter and a setter cannot wait for a browser HTTP request or a socket send; to load data when the service starts, publish an event from `OnStart` and make the request in an `OnEvent` method (ADR 0119). In Go such a request fails with `HTTP_REQUEST`, and the error message names this pattern; add `// @InBackground` to the `// @OnEvent` method when the publisher should not wait for it. A test unit has no browser transport (`HTTP_MISSING`). In a test, `test.construct(service)` fills the `Needs` fields from the `// @Fake` fields of the test; an empty Fake client field gets a client made with `NewGreetingClientWith`, so the TestSetup adapter answers. The server half of this example is a plain JavaScript controller. A controller in TypeScript, Python, PHP, Java, Groovy, C#, F#, Kotlin, Rust, Go, Dart, Ruby, Lua or C++ answers in the same way (see Controllers), so this section shows only the browser side in other languages.",
           "files": [
             {
               "name": "client/components/greeting/panel/tac.html",
@@ -5744,7 +5744,8 @@
           ]
         },
         {
-          "heading": "Go reads an error body into a model",
+          "heading": "Reading an error body into a model",
+          "axis": "language",
           "notApplicable": [
             "ts",
             "py",
@@ -5761,8 +5762,12 @@
             "lua",
             "hpp"
           ],
-          "summary": "When the server answers with an error status, a Go client call returns an error whose code is `HTTP_STATUS`. `BehaviorErrorStatus(err)` gives the status number, such as 422. When the answer's media type is `application/json` or `application/problem+json`, the browser transport also passes its JSON body, and `BehaviorErrorBody(err, &problem)` reads that body into a model with its `json` tags, as `encoding/json` reads it. It returns `false`, and leaves the model as it was, when the error has no body or the body has another shape. Here the server checks the order with `Check` and answers 422 with a problem body (RFC 9457): its `title`, its `status` and one entry per broken rule in `errors`. The page shows the title and how many rules the order broke. The transport keeps the body out when the answer has another media type, is not valid JSON, is `null`, holds a number that is not safe in JavaScript, or is larger than the request's answer limit (1 MiB at most): the error then has the status only. A test fake gives the same error: a TestSetup adapter returns `&BehaviorError{Code: \"HTTP_STATUS\", Status: 409, Body: map[string]any{\"reason\": \"taken\"}}`, and the call gets `HTTP_STATUS`, the status and the body, but not the adapter's own message. An adapter error with another code, or with a status outside 400 to 599, stays the error code `adapter`. Only Go reads the body; the other languages keep the error code only (ADR 0117). The server half of this example is a plain JavaScript controller. A controller in TypeScript, Python, PHP, Java, Groovy, C#, F#, Kotlin, Rust, Go, Dart, Ruby, Lua or C++ answers in the same way (see Validation), so this section shows only the browser side in other languages.",
+          "summary": "When the server answers with an error status, a client call fails with the error code `HTTP_STATUS`. Every Tac service language reads the status number, such as 422, and, when the answer's media type is `application/json` or `application/problem+json`, reads the JSON body into a model with the same reader it uses for a success answer. Here the server checks the order with `Check` and answers 422 with a problem body (RFC 9457): its `title`, its `status` and one entry per broken rule in `errors`. The page shows the status, the title and how many rules the order broke. Go reads the body with `BehaviorErrorBody(err, &problem)` and the status with `BehaviorErrorStatus(err)`; Rust with `error.body_as::<Problem>()` and `error.status`; C# with `error.TryReadBody(out Problem problem)` and `error.Status`; F# with `TacMappingModels.errorBodyProblem error`; Swift with `Behaviors.errorBody(error, as: Problem.self)`; Kotlin with `Behaviors.errorBody<Problem>(error)`; Java with `Behaviors.errorBody(error, TacModels::readProblem)`; Dart with `BehaviorErrors.body(error, tachyonReadModelProblem)`; Ruby, Python and Lua with `BehaviorError.body_of(error, Problem)`; C++ with `error.readBodyFromJson<Problem>()`; JavaScript and TypeScript with `Behaviors.errorBody(error)` and `Behaviors.errorStatus(error)`. Each reader answers \"no body\" (`false`, `null`, `None`, `nil` or an empty optional) when the error has no body or the body has another shape. JavaScript, TypeScript and Lua do not check the body's field types. The transport leaves the body out when the answer has another media type, is not valid JSON, is `null`, holds a number that is not safe in JavaScript, or is larger than the request's answer limit (1 MiB at most): the error then has the status only. A test fake answers the same way: a TestSetup adapter returns or throws the language's error with `HTTP_STATUS`, a status from 400 to 599 and a body, for example `&BehaviorError{Code: \"HTTP_STATUS\", Status: 409, Body: body}` in Go or `Behaviors.httpError(409, body)` in JavaScript. The call gets the status and the body, never the adapter's own message. Native Rust and native C# services keep the status only (ADR 0117). The server half of this example is a plain JavaScript controller. A controller in TypeScript, Python, PHP, Java, Groovy, C#, F#, Kotlin, Rust, Go, Dart, Ruby, Lua or C++ answers a failed `Check` in the same way (see Validation), so this section shows only the browser side in other languages.",
           "files": [
+            {
+              "name": "client/pages/tac.html",
+              "code": "<order-form />\n"
+            },
             {
               "name": "client/components/order/form/tac.html",
               "code": "<main>\n  <button id=\"send\" on:click=\"order.send()\">Send an invalid order</button>\n  <p id=\"status\">{order.status}</p>\n  <p id=\"title\">{order.title}</p>\n  <p id=\"mistakes\">{order.mistakes}</p>\n</main>\n"
@@ -5772,8 +5777,52 @@
               "code": "{\"tac\":{\"visibility\":{\"check\":false},\"budgets\":{\"check\":false}}}\n"
             },
             {
-              "name": "client/models/OrderInput.go",
-              "code": "type OrderInput struct {\n\tName  string `json:\"name\"`\n\tLevel int    `json:\"level\"`\n}\n"
+              "name": "client/services/OrderService.js",
+              "code": "@Service\nexport default class OrderService {\n  /** @type {OrderClient} */\n  @Needs\n  orderClient;\n  status = 0\n  title = ''\n  mistakes = 0\n\n  async send() {\n    await this.orderClient.send({ name: '', level: 12 }).catch((error) => this._showProblem(error))\n  }\n\n  /**\n   * @param {unknown} error\n   * @returns {void}\n   */\n  _showProblem(error) {\n    /** @type {Problem} */\n    const problem = Behaviors.errorBody(error) ?? { title: '', status: 0, errors: [] }\n    this.status = Behaviors.errorStatus(error)\n    this.title = problem.title\n    this.mistakes = problem.errors.length\n  }\n}\n"
+            },
+            {
+              "name": "client/remotes/OrderClient.js",
+              "code": "@HTTPClient(\"/api\")\nexport default class OrderClient {\n  /**\n   * @param {OrderInput} order\n   * @returns {Promise<OrderInput | void>}\n   */\n  @PostRequest(\"/orders\")\n  async send(@RequestBody order) {}\n}\n"
+            },
+            {
+              "name": "client/models/Problem.js",
+              "code": "/**\n * @typedef {Object} Problem\n * @property {string} title\n * @property {integer} status\n * @property {ProblemEntry[]} errors\n */\nexport {}\n"
+            },
+            {
+              "name": "client/models/ProblemEntry.js",
+              "code": "/**\n * @typedef {Object} ProblemEntry\n * @property {string} field\n * @property {string} rule\n */\nexport {}\n"
+            },
+            {
+              "name": "client/models/OrderInput.js",
+              "code": "/**\n * @typedef {Object} OrderInput\n * @property {string} name\n * @property {integer} level\n */\nexport {}\n"
+            },
+            {
+              "name": "client/services/OrderService.ts",
+              "code": "import type { Problem } from '/models/Problem.ts'\n\n@Service\nexport default class OrderService {\n  @Needs\n  readonly orderClient!: OrderClient;\n  status = 0\n  title = ''\n  mistakes = 0\n\n  async send() {\n    await this.orderClient.send({ name: '', level: 12 }).catch((error: unknown) => this.showProblem(error))\n  }\n\n  private showProblem(error: unknown): void {\n    const problem = Behaviors.errorBody<Problem>(error) ?? { title: '', status: 0, errors: [] }\n    this.status = Behaviors.errorStatus(error)\n    this.title = problem.title\n    this.mistakes = problem.errors.length\n  }\n}\n"
+            },
+            {
+              "name": "client/remotes/OrderClient.ts",
+              "code": "import type { OrderInput } from '/models/OrderInput.ts'\n\n@HTTPClient(\"/api\")\nexport default class OrderClient {\n  @PostRequest(\"/orders\")\n  async send(@RequestBody order: OrderInput): Promise<OrderInput | void> {}\n}\n"
+            },
+            {
+              "name": "client/models/Problem.ts",
+              "code": "import type { ProblemEntry } from '/models/ProblemEntry.ts'\n\nexport interface Problem {\n  title: string\n  status: number\n  errors: ProblemEntry[]\n}\n"
+            },
+            {
+              "name": "client/models/ProblemEntry.ts",
+              "code": "export interface ProblemEntry {\n  field: string\n  rule: string\n}\n"
+            },
+            {
+              "name": "client/models/OrderInput.ts",
+              "code": "export interface OrderInput {\n  name: string\n  level: number\n}\n"
+            },
+            {
+              "name": "client/services/OrderService.go",
+              "code": "// @Service\ntype OrderService struct {\n\t// @Needs\n\torderClient *OrderClient\n\tStatus      int\n\tTitle       string\n\tMistakes    int\n}\n\nfunc (service *OrderService) Send() error {\n\t_, err := service.orderClient.Send(OrderInput{Name: \"\", Level: 12})\n\tvar problem Problem\n\tBehaviorErrorBody(err, &problem)\n\tservice.Status = BehaviorErrorStatus(err)\n\tservice.Title = problem.Title\n\tservice.Mistakes = len(problem.Errors)\n\treturn nil\n}\n"
+            },
+            {
+              "name": "client/remotes/OrderClient.go",
+              "code": "// @HTTPClient(\"/api\")\ntype OrderClient interface {\n\t// @PostRequest(\"/orders\")\n\tSend(\n\t\t// @RequestBody\n\t\torder OrderInput,\n\t) (OrderInput, error)\n}\n"
             },
             {
               "name": "client/models/Problem.go",
@@ -5784,33 +5833,289 @@
               "code": "type ProblemEntry struct {\n\tField string `json:\"field\"`\n\tRule  string `json:\"rule\"`\n}\n"
             },
             {
-              "name": "client/pages/tac.html",
-              "code": "<order-form />\n"
-            },
-            {
-              "name": "client/remotes/OrderClient.go",
-              "code": "// @HTTPClient(\"/api\")\ntype OrderClient interface {\n\t// @PostRequest(\"/orders\")\n\tSend(\n\t\t// @RequestBody\n\t\torder OrderInput,\n\t) (OrderInput, error)\n}\n"
-            },
-            {
-              "name": "client/services/OrderService.go",
-              "code": "// @Service\ntype OrderService struct {\n\t// @Needs\n\torderClient *OrderClient\n\tStatus      int\n\tTitle       string\n\tMistakes    int\n}\n\nfunc (service *OrderService) Send() error {\n\t_, err := service.orderClient.Send(OrderInput{Name: \"\", Level: 12})\n\tvar problem Problem\n\tBehaviorErrorBody(err, &problem)\n\tservice.Status = BehaviorErrorStatus(err)\n\tservice.Title = problem.Title\n\tservice.Mistakes = len(problem.Errors)\n\treturn nil\n}\n"
+              "name": "client/models/OrderInput.go",
+              "code": "type OrderInput struct {\n\tName  string `json:\"name\"`\n\tLevel int    `json:\"level\"`\n}\n"
             },
             {
               "name": "client/setups/OrderSetup.go",
               "code": "// @Setup\ntype OrderSetup struct{}\n\nfunc (OrderSetup) Configure(execution *BehaviorExecution) (*BehaviorConfiguration, error) {\n\treturn NewBehaviorConfiguration(), nil\n}\n"
             },
             {
-              "name": "server/controllers/OrdersController.js",
-              "code": "@RequestRoute(\"/api/orders\")\n@Public\nclass OrdersController {\n  /** @type {OrderService} */\n  @Needs\n  orderService;\n  /**\n   * @param {any} order\n   * @returns {any}\n   */\n  @PostRoute\n  postOrders(@FromBody order) {\n    return this.orderService.accept(order);\n  }\n}\n",
-              "run": "d318dfed77ac429f"
+              "name": "client/services/OrderService.rs",
+              "code": "use crate::models::Problem;\n\n#[Service]\npub struct OrderService {\n    #[Needs]\n    order_client: std::sync::Arc<OrderClient>,\n    pub status: i64,\n    pub title: String,\n    pub mistakes: i64,\n}\n\nimpl OrderService {\n    pub async fn send(&mut self) -> BehaviorResult<()> {\n        let order = BehaviorValue::object([(\"name\", BehaviorValue::from(\"\")), (\"level\", BehaviorValue::from(12))]);\n        let error = self.order_client.send(order).await.err().unwrap_or_else(|| BehaviorError::new(\"none\", \"none\"));\n        let problem: Problem = error.body_as().unwrap_or_default();\n        self.status = i64::from(error.status);\n        self.title = problem.title;\n        self.mistakes = problem.errors.len() as i64;\n        Ok(())\n    }\n}\n"
             },
             {
-              "name": "server/models/OrderInput.js",
-              "code": "@Checked\nexport default class OrderInput {\n  /** @type {string} */\n  @NotEmpty\n  @Length({\"min\":1,\"max\":80})\n  name;\n  /** @type {number} */\n  @Required\n  @Min(1)\n  @Max(9)\n  level;\n}\n"
+              "name": "client/remotes/OrderClient.rs",
+              "code": "use crate::models::OrderInput;\n\n#[HTTPClient(\"/api\")]\ntrait OrderClient {\n    #[PostRequest(\"/orders\")]\n    async fn send(&self, #[RequestBody] order: BehaviorValue) -> BehaviorResult<OrderInput>;\n}\n"
+            },
+            {
+              "name": "client/models/Problem.rs",
+              "code": "use crate::models::ProblemEntry;\n#[derive(Clone, Debug, Default)]\npub struct Problem {\n    pub title: String,\n    pub status: i64,\n    pub errors: Vec<ProblemEntry>,\n}\n"
+            },
+            {
+              "name": "client/models/ProblemEntry.rs",
+              "code": "#[derive(Clone, Debug, Default)]\npub struct ProblemEntry {\n    pub field: String,\n    pub rule: String,\n}\n"
+            },
+            {
+              "name": "client/models/OrderInput.rs",
+              "code": "#[derive(Clone, Debug, Default)]\npub struct OrderInput {\n    pub name: String,\n    pub level: i64,\n}\n"
+            },
+            {
+              "name": "client/setups/OrderSetup.rs",
+              "code": "#[Setup]\nstruct OrderSetup {}\nimpl OrderSetup {\n    fn configure(_execution: &BehaviorExecution) -> BehaviorResult<BehaviorConfiguration> {\n        Ok(BehaviorConfiguration::default())\n    }\n}\n"
+            },
+            {
+              "name": "client/services/OrderService.cs",
+              "code": "[Service]\npublic sealed class OrderService\n{\n    [Needs]\n    private readonly OrderClient _orderClient;\n\n    public int Status = 0;\n    public string Title = \"\";\n    public int Mistakes = 0;\n\n    public async System.Threading.Tasks.Task send()\n    {\n        var failure = new BehaviorError(\"none\");\n        try { await _orderClient.send(BehaviorJSON.Parse(\"{\\\"name\\\":\\\"\\\",\\\"level\\\":12}\")); }\n        catch (BehaviorError error) { failure = error; }\n        failure.TryReadBody(out Models.Problem problem);\n        Status = failure.Status;\n        Title = problem?.Title ?? \"\";\n        Mistakes = problem?.Errors?.Length ?? 0;\n    }\n}\n"
+            },
+            {
+              "name": "client/remotes/OrderClient.cs",
+              "code": "[HTTPClient({\"path\":\"/api\",\"adapter\":\"orders\",\"setup\":\"OrderSetup\"})]\npublic interface OrderClient\n{\n    [PostRequest(\"/orders\")]\n    System.Threading.Tasks.Task<Models.OrderInput> send([RequestBody] BehaviorJSON order);\n}\n"
+            },
+            {
+              "name": "client/models/Problem.cs",
+              "code": "public record Problem(string Title, int Status, ProblemEntry[] Errors);\n"
+            },
+            {
+              "name": "client/models/ProblemEntry.cs",
+              "code": "public record ProblemEntry(string Field, string Rule);\n"
+            },
+            {
+              "name": "client/models/OrderInput.cs",
+              "code": "public record OrderInput(string Name, int Level);\n"
+            },
+            {
+              "name": "client/setups/OrderSetup.cs",
+              "code": "[Setup]\npublic sealed class OrderSetup\n{\n    public static BehaviorAdapters configure(BehaviorExecution execution)\n    {\n        execution.Check();\n        return new BehaviorAdapters();\n    }\n}\n"
+            },
+            {
+              "name": "client/services/OrderService.fs",
+              "code": "open System.Threading.Tasks\nopen Models\n\n[<Service>]\ntype OrderService() =\n    [<Needs>]\n    member val OrderClient : OrderClient = Unchecked.defaultof<OrderClient> with get, set\n\n    member val Status : int = 0 with get, set\n    member val Title : string = \"\" with get, set\n    member val Mistakes : int = 0 with get, set\n\n    member this.Send() : Task<unit> =\n        task {\n            let! failure = this.Failure(BehaviorJSON.Parse(\"{\\\"name\\\":\\\"\\\",\\\"level\\\":12}\"))\n            let problem = TacMappingModels.errorBodyProblem failure\n            this.Status <- failure.Status\n            this.Title <- problem |> Option.map (fun found -> found.Title) |> Option.defaultValue \"\"\n            this.Mistakes <- problem |> Option.map (fun found -> found.Errors.Length) |> Option.defaultValue 0\n        }\n\n    member private this.Failure(order) : Task<BehaviorError> =\n        task {\n            try\n                let! _ = this.OrderClient.send(order)\n                return BehaviorError(\"none\")\n            with :? BehaviorError as error ->\n                return error\n        }\n"
+            },
+            {
+              "name": "client/remotes/OrderClient.fs",
+              "code": "open System.Threading.Tasks\nopen Models\n\n[<HTTPClient(\"/api\")>]\ntype OrderClient =\n    [<PostRequest(\"/orders\")>]\n    abstract send: [<RequestBody>] order: BehaviorJSON -> Task<OrderInput>\n"
+            },
+            {
+              "name": "client/models/Problem.fs",
+              "code": "type Problem = { Title: string; Status: int; Errors: ProblemEntry list }\n"
+            },
+            {
+              "name": "client/models/ProblemEntry.fs",
+              "code": "type ProblemEntry = { Field: string; Rule: string }\n"
+            },
+            {
+              "name": "client/models/OrderInput.fs",
+              "code": "type OrderInput = { Name: string; Level: int }\n"
+            },
+            {
+              "name": "client/setups/OrderSetup.fs",
+              "code": "[<Setup>]\ntype OrderSetup() =\n    static member configure(execution: BehaviorExecution) : BehaviorAdapters =\n        execution.Check()\n        BehaviorAdapters()\n"
+            },
+            {
+              "name": "client/services/OrderService.swift",
+              "code": "@Service\nfinal class OrderService {\n    @Needs\n    private let orderClient: OrderClient\n    var status: Int = 0\n    var title: String = \"\"\n    var mistakes: Int = 0\n\n    func send() async {\n        await keepProblem { _ = try await orderClient.send(order: .object([\"name\": .string(\"\"), \"level\": .number(12)])) }\n    }\n\n    private func keepProblem(_ call: () async throws -> Void) async {\n        do {\n            try await call()\n        } catch {\n            show(error)\n        }\n    }\n\n    private func show(_ error: Error) {\n        status = Behaviors.errorStatus(error)\n        guard let problem = Behaviors.errorBody(error, as: Problem.self) else { return }\n        title = problem.title\n        mistakes = problem.errors.count\n    }\n}\n"
+            },
+            {
+              "name": "client/remotes/OrderClient.swift",
+              "code": "@HTTPClient(\"/api\")\nprotocol OrderClient {\n    @PostRequest(\"/orders\")\n    func send(@RequestBody order: BehaviorJSON) async throws -> OrderInput\n}\n"
+            },
+            {
+              "name": "client/models/Problem.swift",
+              "code": "struct Problem: Codable {\n    let title: String\n    let status: Int\n    let errors: [ProblemEntry]\n}\n"
+            },
+            {
+              "name": "client/models/ProblemEntry.swift",
+              "code": "struct ProblemEntry: Codable {\n    let field: String\n    let rule: String\n}\n"
+            },
+            {
+              "name": "client/models/OrderInput.swift",
+              "code": "struct OrderInput: Codable {\n    let name: String\n    let level: Int\n}\n"
+            },
+            {
+              "name": "client/setups/OrderSetup.swift",
+              "code": "@Setup\nfinal class OrderSetup {\n    static func configure(_ execution: BehaviorExecution) -> BehaviorAdapters {\n        BehaviorAdapters()\n    }\n}\n"
+            },
+            {
+              "name": "client/services/OrderService.kt",
+              "code": "import models.Problem\n\n@Service\nclass OrderService {\n    @Needs\n    private val orderClient: OrderClient\n    var status: Int = 0\n    var title: String = \"\"\n    var mistakes: Int = 0\n\n    suspend fun send() {\n        try {\n            orderClient.send(mapOf(\"name\" to \"\", \"level\" to 12))\n        } catch (error: Behaviors.Failure) {\n            val problem = Behaviors.errorBody<Problem>(error)\n            status = error.status\n            title = problem?.title ?: \"\"\n            mistakes = problem?.errors?.size ?: 0\n        }\n    }\n}\n"
+            },
+            {
+              "name": "client/remotes/OrderClient.kt",
+              "code": "import models.OrderInput\n\n@HTTPClient(\"/api\")\ninterface OrderClient {\n    @PostRequest(\"/orders\")\n    suspend fun send(@RequestBody order: Map<String, Any>): OrderInput\n}\n"
+            },
+            {
+              "name": "client/models/Problem.kt",
+              "code": "data class Problem(val title: String, val status: Int, val errors: List<ProblemEntry>)\n"
+            },
+            {
+              "name": "client/models/ProblemEntry.kt",
+              "code": "data class ProblemEntry(val field: String, val rule: String)\n"
+            },
+            {
+              "name": "client/models/OrderInput.kt",
+              "code": "data class OrderInput(val name: String, val level: Int)\n"
+            },
+            {
+              "name": "client/setups/OrderSetup.kt",
+              "code": "@Setup\nclass OrderSetup {\n    companion object {\n        fun configure(execution: Behaviors.Execution): Behaviors.Configuration = Behaviors.Configuration()\n    }\n}\n"
+            },
+            {
+              "name": "client/services/OrderService.java",
+              "code": "import models.Problem;\n\n@Service\nclass OrderService {\n    @Needs\n    private final OrderClient orderClient;\n    int status = 0;\n    String title = \"\";\n    int mistakes = 0;\n\n    void send() {\n        Behaviors.Failure failure = failure();\n        show(Behaviors.errorStatus(failure), problemOf(failure));\n    }\n\n    private Behaviors.Failure failure() {\n        try {\n            orderClient.send(java.util.Map.of(\"name\", \"\", \"level\", 12));\n            return new Behaviors.Failure(\"none\", null, \"no failure\", 0, null);\n        } catch (Behaviors.Failure failure) {\n            return failure;\n        }\n    }\n\n    private Problem problemOf(Behaviors.Failure failure) {\n        return Behaviors.errorBody(failure, TacModels::readProblem).orElse(new Problem(\"\", 0, java.util.List.of()));\n    }\n\n    private void show(int status, Problem problem) {\n        this.status = status;\n        title = problem.title();\n        mistakes = problem.errors().size();\n    }\n}\n"
+            },
+            {
+              "name": "client/remotes/OrderClient.java",
+              "code": "import models.OrderInput;\n\n@HTTPClient(\"/api\")\ninterface OrderClient {\n    @PostRequest(\"/orders\")\n    OrderInput send(@RequestBody Object order);\n}\n"
+            },
+            {
+              "name": "client/models/Problem.java",
+              "code": "import models.ProblemEntry;\nrecord Problem(String title, int status, java.util.List<ProblemEntry> errors) {}\n"
+            },
+            {
+              "name": "client/models/ProblemEntry.java",
+              "code": "record ProblemEntry(String field, String rule) {}\n"
+            },
+            {
+              "name": "client/models/OrderInput.java",
+              "code": "record OrderInput(String name, int level) {}\n"
+            },
+            {
+              "name": "client/setups/OrderSetup.java",
+              "code": "@Setup\nclass OrderSetup {\n    static Behaviors.Configuration configure(Behaviors.Execution execution) {\n        return new Behaviors.Configuration();\n    }\n}\n"
+            },
+            {
+              "name": "client/services/OrderService.dart",
+              "code": "@Service\nclass OrderService {\n  @Needs\n  final OrderClient orderClient;\n  int status = 0;\n  String title = '';\n  int mistakes = 0;\n\n  Future<void> send() async {\n    try {\n      await orderClient.send({'name': '', 'level': 12});\n    } on BehaviorError catch (error) {\n      final problem = BehaviorErrors.body(error, tachyonReadModelProblem);\n      status = BehaviorErrors.status(error);\n      title = problem?.title ?? '';\n      mistakes = problem?.errors.length ?? 0;\n    }\n  }\n}\n"
+            },
+            {
+              "name": "client/remotes/OrderClient.dart",
+              "code": "@HTTPClient(\"/api\")\nabstract interface class OrderClient {\n  @PostRequest(\"/orders\")\n  Future<OrderInput> send(@RequestBody Map<String, Object?> order);\n}\n"
+            },
+            {
+              "name": "client/models/Problem.dart",
+              "code": "class Problem {\n  final String title;\n  final int status;\n  final List<ProblemEntry> errors;\n\n  const Problem(this.title, this.status, this.errors);\n}\n"
+            },
+            {
+              "name": "client/models/ProblemEntry.dart",
+              "code": "class ProblemEntry {\n  final String field;\n  final String rule;\n\n  const ProblemEntry(this.field, this.rule);\n}\n"
+            },
+            {
+              "name": "client/models/OrderInput.dart",
+              "code": "class OrderInput {\n  final String name;\n  final int level;\n\n  const OrderInput(this.name, this.level);\n}\n"
+            },
+            {
+              "name": "client/setups/OrderSetup.dart",
+              "code": "@Setup\nclass OrderSetup {\n  static BehaviorAdapters configure(BehaviorExecution execution) {\n    return BehaviorAdapters();\n  }\n}\n"
+            },
+            {
+              "name": "client/services/OrderService.rb",
+              "code": "#[Service]\nclass OrderService\n  #[Needs]\n  # @return [OrderClient]\n  attr_reader :order_client\n\n  # @return [Integer]\n  attr_reader :status, :mistakes\n  # @return [String]\n  attr_reader :title\n\n  def initialize\n    @status = 0\n    @title = \"\"\n    @mistakes = 0\n  end\n\n  # @return [void]\n  def send\n    error = failure\n    show(BehaviorError.status_of(error), problem_of(error))\n  end\n\n  private\n\n  # @return [BehaviorError]\n  def failure\n    order_client.send_order({ \"name\" => \"\", \"level\" => 12 })\n    BehaviorError.new(\"none\", \"no failure\", nil)\n  rescue BehaviorError => error\n    error\n  end\n\n  # @param error [BehaviorError]\n  # @return [Problem]\n  def problem_of(error)\n    BehaviorError.body_of(error, Problem) || Problem.new(title: \"\", status: 0, errors: [])\n  end\n\n  # @param status [Integer]\n  # @param problem [Problem]\n  # @return [void]\n  def show(status, problem)\n    @status = status\n    @title = problem.title\n    @mistakes = problem.errors.length\n  end\nend\n"
+            },
+            {
+              "name": "client/remotes/OrderClient.rb",
+              "code": "#[HTTPClient(\"/api\")]\nclass OrderClient\n  # @param order [Hash]\n  # @return [OrderInput]\n  #[PostRequest(\"/orders\")]\n  def send_order(\n    #[RequestBody]\n    order\n  )\n  end\nend\n"
+            },
+            {
+              "name": "client/models/Problem.rb",
+              "code": "# @!attribute [r] title\n#   @return [String]\n# @!attribute [r] status\n#   @return [Integer]\n# @!attribute [r] errors\n#   @return [Array<ProblemEntry>]\nProblem = Data.define(:title, :status, :errors)\n"
+            },
+            {
+              "name": "client/models/ProblemEntry.rb",
+              "code": "# @!attribute [r] field\n#   @return [String]\n# @!attribute [r] rule\n#   @return [String]\nProblemEntry = Data.define(:field, :rule)\n"
+            },
+            {
+              "name": "client/models/OrderInput.rb",
+              "code": "# @!attribute [r] name\n#   @return [String]\n# @!attribute [r] level\n#   @return [Integer]\nOrderInput = Data.define(:name, :level)\n"
+            },
+            {
+              "name": "client/setups/OrderSetup.rb",
+              "code": "#[Setup]\nclass OrderSetup\n  # @param execution [BehaviorExecution]\n  # @return [Hash]\n  def self.configure(execution)\n    {}\n  end\nend\n"
+            },
+            {
+              "name": "client/services/OrderService.py",
+              "code": "from typing import Annotated\n\nfrom models import Problem\n\n\n@service\nclass OrderService:\n    order_client: Annotated[OrderClient, needs]\n    status: int = 0\n    title: str = ''\n    mistakes: int = 0\n\n    async def send(self) -> None:\n        failure = await self._failure()\n        self._show(BehaviorError.status_of(failure), self._problem(failure))\n\n    async def _failure(self) -> BehaviorError:\n        try:\n            await self.order_client.send({'name': '', 'level': 12})\n        except BehaviorError as error:\n            return error\n        return BehaviorError('none', 'no failure', None)\n\n    def _problem(self, failure: BehaviorError) -> Problem:\n        problem = BehaviorError.body_of(failure, Problem)\n        return problem if problem is not None else Problem('', 0, [])\n\n    def _show(self, status: int, problem: Problem) -> None:\n        self.status = status\n        self.title = problem.title\n        self.mistakes = len(problem.errors)\n"
+            },
+            {
+              "name": "client/remotes/OrderClient.py",
+              "code": "from typing import Annotated, Protocol\n\nfrom models import OrderInput\n\n\n@http_client(\"/api\")\nclass OrderClient(Protocol):\n    @post_request(\"/orders\")\n    async def send(self, order: Annotated[dict[str, object], request_body]) -> OrderInput: ...\n"
+            },
+            {
+              "name": "client/models/Problem.py",
+              "code": "from dataclasses import dataclass\n\nfrom models import ProblemEntry\n\n\n@dataclass\nclass Problem:\n    title: str\n    status: int\n    errors: list[ProblemEntry]\n"
+            },
+            {
+              "name": "client/models/ProblemEntry.py",
+              "code": "from dataclasses import dataclass\n\n\n@dataclass\nclass ProblemEntry:\n    field: str\n    rule: str\n"
+            },
+            {
+              "name": "client/models/OrderInput.py",
+              "code": "from dataclasses import dataclass\n\n\n@dataclass\nclass OrderInput:\n    name: str\n    level: int\n"
+            },
+            {
+              "name": "client/setups/OrderSetup.py",
+              "code": "@setup\nclass OrderSetup:\n    @staticmethod\n    def configure(execution: object) -> dict[str, object]:\n        return {}\n"
+            },
+            {
+              "name": "client/services/OrderService.lua",
+              "code": "-- @Service\n---@class OrderService\nOrderService = {\n  -- @Needs\n  ---@type OrderClient\n  order_client = nil,\n  ---@type integer\n  status = 0,\n  ---@type string\n  title = \"\",\n  ---@type integer\n  mistakes = 0,\n}\n\n---@return nil\nfunction OrderService:send()\n  local ok, failure = pcall(self.order_client.send, self.order_client, { name = \"\", level = 12 })\n  if ok then\n    return\n  end\n  local problem = BehaviorError.body_of(failure, Problem) or { title = \"\", errors = {} }\n  self.status = BehaviorError.status_of(failure)\n  self.title = problem.title or \"\"\n  self.mistakes = #(problem.errors or {})\nend\n"
+            },
+            {
+              "name": "client/remotes/OrderClient.lua",
+              "code": "-- @HTTPClient(\"/api\")\n---@class OrderClient\nOrderClient = {}\n\n---@param order table\n---@return OrderInput\n-- @PostRequest(\"/orders\")\nfunction OrderClient:send(\n  -- @RequestBody\n  order\n)\nend\n"
+            },
+            {
+              "name": "client/models/Problem.lua",
+              "code": "---@class Problem\n---@field title string\n---@field status integer\n---@field errors ProblemEntry[]\nProblem = {}\n"
+            },
+            {
+              "name": "client/models/ProblemEntry.lua",
+              "code": "---@class ProblemEntry\n---@field field string\n---@field rule string\nProblemEntry = {}\n"
+            },
+            {
+              "name": "client/models/OrderInput.lua",
+              "code": "---@class OrderInput\n---@field name string\n---@field level integer\nOrderInput = {}\n"
+            },
+            {
+              "name": "client/setups/OrderSetup.lua",
+              "code": "-- @Setup\n---@class OrderSetup\nOrderSetup = {}\n\n---@param execution table\n---@return table\nfunction OrderSetup.configure(execution)\n  return {}\nend\n"
+            },
+            {
+              "name": "client/services/OrderService.hpp",
+              "code": "#pragma once\n#include <string>\n#include \"../models/Problem.hpp\"\n#include \"../remotes/OrderClient.hpp\"\n\nclass [[Service]] OrderService {\npublic:\n    int status = 0;\n    std::string title;\n    int mistakes = 0;\n    [[Needs]] OrderClient& orderClient;\n\n    Task<void> send() {\n        tachyon::http::HttpRequestException failure(\"none\");\n        try {\n            co_await orderClient.send(OrderInput{\"\", 12});\n        } catch (const tachyon::http::HttpRequestException& error) {\n            failure = error;\n        }\n        Problem problem = failure.readBodyFromJson<Problem>().value_or(Problem{});\n        status = failure.statusCode();\n        title = problem.title;\n        mistakes = static_cast<int>(problem.errors.size());\n    }\n};\n"
+            },
+            {
+              "name": "client/remotes/OrderClient.hpp",
+              "code": "#pragma once\n#include \"../models/OrderInput.hpp\"\n\nclass [[HTTPClient(\"/api\")]] OrderClient {\npublic:\n    [[PostRequest(\"/orders\")]]\n    Task<OrderInput> send([[RequestBody]] const OrderInput& order);\n};\n"
+            },
+            {
+              "name": "client/models/Problem.hpp",
+              "code": "#pragma once\n#include <string>\n#include <vector>\n#include \"ProblemEntry.hpp\"\n\nstruct Problem {\n    std::string title;\n    int status = 0;\n    std::vector<ProblemEntry> errors;\n};\n"
+            },
+            {
+              "name": "client/models/ProblemEntry.hpp",
+              "code": "#pragma once\n#include <string>\n\nstruct ProblemEntry {\n    std::string field;\n    std::string rule;\n};\n"
+            },
+            {
+              "name": "client/models/OrderInput.hpp",
+              "code": "#pragma once\n#include <string>\n\nstruct OrderInput {\n    std::string name;\n    int level = 0;\n};\n"
+            },
+            {
+              "name": "client/setups/OrderSetup.hpp",
+              "code": "#pragma once\n\nclass [[Setup]] OrderSetup {\npublic:\n    static BehaviorAdapters configure(const BehaviorExecution&) {\n        return BehaviorAdapters();\n    }\n};\n"
+            },
+            {
+              "name": "server/controllers/OrdersController.js",
+              "code": "@RequestRoute(\"/api/orders\")\n@Public\nclass OrdersController {\n  /** @type {OrderService} */\n  @Needs\n  orderService;\n  /**\n   * @param {any} order\n   * @returns {any}\n   */\n  @PostRoute\n  postOrders(@FromBody order) {\n    return this.orderService.accept(order);\n  }\n}\n",
+              "run": "6b44ee2829eb6ba3"
             },
             {
               "name": "server/services/OrderService.js",
               "code": "@Service\nexport default class OrderService {\n  /**\n   * @param {OrderInput} order\n   * @returns {OrderInput}\n   */\n  accept(@Check order) {\n    return order;\n  }\n}\n"
+            },
+            {
+              "name": "server/models/OrderInput.js",
+              "code": "@Checked\nexport default class OrderInput {\n  /** @type {string} */\n  @NotEmpty\n  @Length({\"min\":1,\"max\":80})\n  name;\n  /** @type {number} */\n  @Required\n  @Min(1)\n  @Max(9)\n  level;\n}\n"
             }
           ]
         },
@@ -6449,7 +6754,7 @@
         },
         {
           "heading": "What the browser transport allows",
-          "body": "The browser transport of Dart, Rust, Go, Kotlin, Swift, Java, Ruby, Python, Lua, C#, F# and C++ clients has fixed limits, so one page cannot flood the server or read too much:\n\nA request, with its path, query, headers and body, may hold at most 1 MiB (1,048,576 bytes); a larger one fails with `HTTP_REQUEST`. An answer may hold at most 1 MiB. A larger answer fails with `HTTP_LIMIT`.\n\nA page may have at most 64 requests waiting at the same time; one more fails with `HTTP_CAPACITY`. A request waits at most 60 seconds.\n\nThe request must go to the origin of the page. Another origin fails with `HTTP_ORIGIN`. A redirect fails too.\n\nThe browser sends no cookies and no other credentials. The transport refuses the headers `Cookie`, `Host`, `Origin`, `Referer`, `Connection`, `Content-Length` and `Transfer-Encoding`, and every header that starts with `Sec-` or `Proxy-`, with `HTTP_HEADER`.\n\nA request is not kept in the browser cache, except a public read marked `Cached`. A request with an `Authorization` header is never kept.\n\nAn answer that does not have the shape of the model fails with `HTTP_RESPONSE` (a Lua client does not check the model), and an answer with an error status fails with `HTTP_STATUS`. The transport gives the page the status number with that code; in Go, `BehaviorErrorStatus(err)` reads it, such as 404. It passes the body of an error answer only when the body is JSON (`application/json` or `application/problem+json`), within the answer limit, and only Go reads it, with `BehaviorErrorBody(err, &model)` (ADR 0117). Any other error body stays out. Removing the component that started a request cancels it (ADR 0090)."
+          "body": "The browser transport of Dart, Rust, Go, Kotlin, Swift, Java, Ruby, Python, Lua, C#, F# and C++ clients has fixed limits, so one page cannot flood the server or read too much:\n\nA request, with its path, query, headers and body, may hold at most 1 MiB (1,048,576 bytes); a larger one fails with `HTTP_REQUEST`. An answer may hold at most 1 MiB. A larger answer fails with `HTTP_LIMIT`.\n\nA page may have at most 64 requests waiting at the same time; one more fails with `HTTP_CAPACITY`. A request waits at most 60 seconds.\n\nThe request must go to the origin of the page. Another origin fails with `HTTP_ORIGIN`. A redirect fails too.\n\nThe browser sends no cookies and no other credentials. The transport refuses the headers `Cookie`, `Host`, `Origin`, `Referer`, `Connection`, `Content-Length` and `Transfer-Encoding`, and every header that starts with `Sec-` or `Proxy-`, with `HTTP_HEADER`.\n\nA request is not kept in the browser cache, except a public read marked `Cached`. A request with an `Authorization` header is never kept.\n\nAn answer that does not have the shape of the model fails with `HTTP_RESPONSE` (a Lua client does not check the model), and an answer with an error status fails with `HTTP_STATUS`. The transport gives the page the status number with that code; in Go, `BehaviorErrorStatus(err)` reads it, such as 404. It passes the body of an error answer only when the body is JSON (`application/json` or `application/problem+json`), within the answer limit, and every Tac service language reads it into a model, for example with `BehaviorErrorBody(err, &model)` in Go (see \"Reading an error body into a model\" and ADR 0117). Any other error body stays out. Removing the component that started a request cancels it (ADR 0090)."
         }
       ]
     },

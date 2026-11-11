@@ -253,12 +253,27 @@ declare global {
     [Key in keyof Value as Value[Key] extends (...arguments_: never[]) => unknown ? never : Key]: Value[Key]
   }> & { behaviors?: BehaviorContext };
 
+  /** BehaviorError: the error a behavior call fails with. An HTTP client call that gets an error status has the code "HTTP_STATUS", the status number and, for a JSON error answer, the body. */
+  interface BehaviorError extends Error {
+    readonly name: 'BehaviorError';
+    readonly code: string;
+    readonly path: string | null;
+    readonly status?: number;
+    readonly body?: BehaviorJsonValue;
+  }
+
   interface BehaviorFactory {
     create(configuration: BehaviorConfigurationSource, options: BehaviorCreateOptions): Promise<BehaviorContext>;
     construct<Value extends BehaviorConstructor>(type: Value, values: BehaviorConstructionFields<InstanceType<Value>>): InstanceType<Value>;
     properties(type: BehaviorConstructor, values: BehaviorJsonObject): BehaviorJsonObject;
     values(type: BehaviorConstructor, application: BehaviorJsonObject): BehaviorJsonObject;
     validate(type: BehaviorConstructor, value: unknown): BehaviorJsonObject;
+    /** errorStatus: the status number (400 to 599) of an HTTP_STATUS error, or 0 for any other value. */
+    errorStatus(error: unknown): number;
+    /** errorBody: a copy of the JSON body of an HTTP_STATUS error as the model type, or null when the value is not an HTTP_STATUS error or has no body. TypeScript checks the model type; the runtime does not check its shape. */
+    errorBody<Model = BehaviorJsonValue>(error: unknown): Model | null;
+    /** httpError: an HTTP_STATUS error with this status and JSON body, for a Setup or TestSetup http adapter to throw. */
+    httpError(status: number, body?: BehaviorJsonValue): BehaviorError;
   }
 
   const Behaviors: BehaviorFactory;

@@ -29,4 +29,14 @@ class OrderServiceTest
     Assert.equals("duplicate", sent.header)
     Assert.equals("none", sent.item)
   end
+
+  # @return [void]
+  def test_error_body_is_read_into_a_model
+    error = Assert.throws { construct(OrderService).claim }
+    conflict = BehaviorError.body_of(error, ClaimConflict)
+    Assert.equals("HTTP_STATUS", error.behavior_code)
+    Assert.equals(409, BehaviorError.status_of(error))
+    Assert.equals("taken", conflict.reason)
+    Assert.equals("south", conflict.holder)
+  end
 end

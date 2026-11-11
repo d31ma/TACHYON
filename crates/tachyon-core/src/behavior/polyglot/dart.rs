@@ -534,7 +534,15 @@ Future<void> main() async {
   if (BehaviorJson.get(answer, 'message') != 'typed') throw StateError('answer');
   BehaviorBrowserHttp.host = (request, signal) async => '{"error":{"code":"HTTP_STATUS"}}';
   try { await BehaviorBrowserHttp.adapter!.exchange({}, execution); throw StateError('accepted'); }
-  on BehaviorError catch (error) { if (error.code != 'HTTP_STATUS') rethrow; }
+  on BehaviorError catch (error) { if (error.code != 'HTTP_STATUS' || BehaviorErrors.status(error) != 0) rethrow; }
+  BehaviorBrowserHttp.host = (request, signal) async => '{"error":{"code":"HTTP_STATUS","status":422,"body":{"title":"Bad"}}}';
+  try { await BehaviorBrowserHttp.adapter!.exchange({}, execution); throw StateError('accepted'); }
+  on BehaviorError catch (error) {
+    if (BehaviorErrors.status(error) != 422) throw StateError('status');
+    if (BehaviorErrors.body(error, (value) => BehaviorJson.text(BehaviorJson.get(value, 'title'))) != 'Bad') throw StateError('body');
+    if (BehaviorErrors.body(error, (value) => BehaviorJson.integer(value)) != null) throw StateError('wrong shape');
+  }
+  if (BehaviorErrors.status(StateError('plain')) != 0 || BehaviorErrors.body(42, (value) => value) != null) throw StateError('plain');
   try { BehaviorBrowserHttp.decode(42, (value) => value as String); throw StateError('accepted'); }
   on BehaviorError catch (error) { if (error.code != 'HTTP_RESPONSE') rethrow; }
   var stopped = 0;

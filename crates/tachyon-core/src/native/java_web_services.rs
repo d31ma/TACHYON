@@ -191,7 +191,7 @@ impl JavaWebServices {
         ),
     ];
     const PRELUDE_FOLDER: &'static str = "tachyon";
-    const TYPED_ANSWER: &'static str = "Behaviors.answer(";
+    const MODEL_READS: [&'static str; 2] = ["Behaviors.answer(", "TacModels"];
     const VALUE_READERS: &'static str = include_str!("java_web_services/prelude/TacValues.java");
 
     pub(crate) fn teavm_installed() -> bool {
@@ -279,11 +279,17 @@ impl JavaWebServices {
     }
 
     pub(crate) fn test_answer_readers(project: &Path, lowered: &str) -> Result<String, Failure> {
-        let needed = lowered.contains(Self::TYPED_ANSWER);
+        let needed = Self::reads_models(lowered);
         needed
             .then(|| Self::answer_readers(project))
             .transpose()
             .map(Option::unwrap_or_default)
+    }
+
+    fn reads_models(lowered: &str) -> bool {
+        Self::MODEL_READS
+            .iter()
+            .any(|marker| lowered.contains(marker))
     }
 
     fn answer_readers(project: &Path) -> Result<String, Failure> {

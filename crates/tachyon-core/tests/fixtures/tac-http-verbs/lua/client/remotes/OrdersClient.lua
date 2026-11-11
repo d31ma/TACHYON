@@ -43,3 +43,15 @@ function OrdersClient:remove(
   reason
 )
 end
+
+---@param id string
+---@param claim table
+---@return SentRequest
+-- @PutRequest("/claims/{id}")
+function OrdersClient:claim(
+  -- @PathVariable("id")
+  id,
+  -- @RequestBody
+  claim
+)
+end

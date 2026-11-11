@@ -22,7 +22,9 @@ impl HttpVerbProject {
     ];
     const VERBS: [&'static str; 3] = ["put", "patch", "delete"];
     const POSTED: [&'static str; 3] = ["ts", "rs", "swift"];
-    const ERROR_BODIES: [&'static str; 1] = ["go"];
+    const ERROR_BODIES: [&'static str; 12] = [
+        "go", "js", "ts", "rs", "hpp", "cs", "dart", "rb", "py", "lua", "kt", "swift",
+    ];
 
     const VERSION_FLAGS: [(&'static str, &'static str); 3] =
         [("kotlinc", "-version"), ("go", "version"), ("lua", "-v")];
@@ -125,4 +127,20 @@ fn at_least_one_tac_http_verb_language_toolchain_is_installed() {
         .into_iter()
         .any(|(_, program)| HttpVerbProject::tool_available(program));
     assert!(installed, "no Tac language toolchain is installed");
+}
+
+#[test]
+fn a_javascript_http_adapter_passes_only_a_checked_error_status() {
+    if !HttpVerbProject::tool_available("node") {
+        eprintln!("skipping the JavaScript HTTP status unit: node is unavailable");
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/tac-http-status/js");
+    HttpVerbProject::copy(&fixture, root.path());
+    let unit = Path::new("client/tests/ClaimServiceTest.js");
+    let report = tachyon_core::client_tests::run(root.path(), unit)
+        .unwrap_or_else(|error| panic!("js: {error:?}"));
+    assert_eq!(report.cases.len(), 7, "{report:?}");
+    assert!(report.cases.iter().all(|case| case.passed), "{report:?}");
 }

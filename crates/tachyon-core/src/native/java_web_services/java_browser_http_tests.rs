@@ -61,6 +61,8 @@ fn java_clients_and_services_reach_the_browser_transport() {
         "Object value = BehaviorBuiltins.exchange(java.util.Collections.unmodifiableMap(browser), execution);",
         "Object answer = TacJsonReader.read(TacHttpTickets.exchange(Behaviors.encode(request)));",
         "static class Failure extends TacFailure {",
+        "Failure(String code, String path, String message, int status, Object body) { super(code, message); this.path = path; this.status = status; this.body = body; }",
+        "return new Behaviors.Failure(code, null, httpMessage(code, error.get(\"message\")), httpStatus(error.get(\"status\")), error.get(\"body\"));",
         "return TacTasks.run(request);",
         "public static void tacHttpSettle(int ticket, String answer) {",
         "org.teavm.runtime.Fiber.start(() -> finish(task, TacBridge.handle(request)), true);",

@@ -8,8 +8,8 @@ impl JavaBrowserRuntime {
             "static class Failure extends TacFailure {\n",
         ),
         (
-            "Failure(String code, String path, String message) { super(message); this.code = code; this.path = path; }",
-            "Failure(String code, String path, String message) { super(code, message); this.path = path; }",
+            "Failure(String code, String path, String message, int status, Object body) { super(message); this.code = code; this.path = path; this.status = status; this.body = body; }",
+            "Failure(String code, String path, String message, int status, Object body) { super(code, message); this.path = path; this.status = status; this.body = body; }",
         ),
         ("java.util.concurrent.Semaphore", "TacPermits"),
         ("java.util.Map.copyOf(", "TacMaps.copyOf("),

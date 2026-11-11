@@ -17,6 +17,13 @@ function __tachyon_create_behaviors__(registrations, environment, moduleId) {
       this.path = path
     }
   }
+  class HttpStatusError extends BehaviorError {
+    constructor(status, body = null) {
+      super('HTTP_STATUS', 'The HTTP request failed.')
+      this.status = status
+      this.body = body
+    }
+  }
   const invalid = (message) => { throw new BehaviorError('invalid', message) }
   const integer = (value, min, max) => Number.isSafeInteger(value) && value >= min && value <= max
   const own = (object, key) => Object.prototype.hasOwnProperty.call(object, key)
@@ -279,7 +286,25 @@ function __tachyon_create_behaviors__(registrations, environment, moduleId) {
     const selected = keyArguments(method, args)
     return JSON.stringify(json([partition, record.cache.name, moduleId, record.name, method.name, selected], 4096))
   }
-  const retryable = (error) => !(error instanceof BehaviorError) || error.code === 'adapter'
+  const retryable = (error) => !(error instanceof BehaviorError) || ['adapter', 'HTTP_STATUS'].includes(error.code)
+  function httpFailure(error) {
+    if (error?.code !== 'HTTP_STATUS') return error
+    try { return checkedHttpStatus(error) } catch { return new BehaviorError('adapter', 'Behavior adapter operation failed.') }
+  }
+  function checkedHttpStatus(error) {
+    if (!integer(error.status, 400, 599)) invalid('Behavior HTTP status must be 400 to 599.')
+    return new HttpStatusError(error.status, freeze(json(error.body ?? null)))
+  }
+  async function httpExchange(adapter, command, execution) {
+    try { return await adapter.exchange(command, execution) } catch (error) { throw httpFailure(error) }
+  }
+  const isHttpStatusError = (error) => error instanceof Error && error.name === 'BehaviorError'
+    && error.code === 'HTTP_STATUS' && integer(error.status, 400, 599)
+  const errorStatus = (error) => isHttpStatusError(error) ? error.status : 0
+  function errorBody(error) {
+    if (!isHttpStatusError(error)) return null
+    try { return json(error.body ?? null) } catch { return null }
+  }
   const backoff = (policy, attempt) => {
     const delay = Math.min(policy.delayMs * policy.multiplier ** attempt, policy.maxDelayMs)
     return Math.round(delay + Math.random() * policy.jitterMs)
@@ -596,7 +621,7 @@ function __tachyon_create_behaviors__(registrations, environment, moduleId) {
       const command = Object.freeze({ ...descriptor, method: metadata.method, path: exchangePath(metadata, args),
         redirect: 'error', credentials: 'omit', signal: operation.execution.signal,
         deadline: operation.execution.deadline, maxResponseBytes: MAX_BYTES, ...shared })
-      return json(await operation.call(() => adapter.exchange(command, operation.execution), true))
+      return json(await operation.call(() => httpExchange(adapter, command, operation.execution), true))
     }
     restClient(name) {
       if (!identifier(name)) invalid('RestClient requires a configured http adapter name.')
@@ -617,7 +642,7 @@ function __tachyon_create_behaviors__(registrations, environment, moduleId) {
             const command = Object.freeze({ ...request, method, path,
               redirect: 'error', credentials: 'omit', signal: operation.execution.signal,
               deadline: operation.execution.deadline, maxResponseBytes: MAX_BYTES })
-            return json(await operation.call(() => adapter.exchange(command, operation.execution), true))
+            return json(await operation.call(() => httpExchange(adapter, command, operation.execution), true))
           }),
         }
         return Object.freeze(step)
@@ -1071,6 +1096,9 @@ function __tachyon_create_behaviors__(registrations, environment, moduleId) {
       try { return await context.initialize(Configuration, selected) }
       catch (error) { context.dispose(); throw error }
     },
+    errorStatus,
+    errorBody,
+    httpError: (status, body) => new HttpStatusError(status, body),
     properties: (Type, values) => bindProperties(Type, values),
     values: (Type, application) => bindValues(Type, application),
     validate: (Type, value) => validateData(records.get(Type)?.validated, value),

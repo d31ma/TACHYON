@@ -7,6 +7,12 @@ public:
     static BehaviorAdapters configure(const BehaviorExecution&) {
         BehaviorAdapters adapters;
         adapters.http["orders"] = [](const tachyon::http::HttpRequestMessage& request) {
+            if (request.requestUri == "/api/claims/a-7") {
+                tachyon::json::JsonObject conflict;
+                conflict["reason"] = "taken";
+                conflict["holder"] = "south";
+                throw tachyon::http::HttpRequestException("HTTP_STATUS", "private fake text", 409, tachyon::json::JsonNode(conflict));
+            }
             std::string header;
             for (const auto& [name, value] : request.headers.all()) {
                 header = value;

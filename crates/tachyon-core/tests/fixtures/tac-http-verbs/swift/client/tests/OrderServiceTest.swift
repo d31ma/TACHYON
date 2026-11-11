@@ -38,4 +38,14 @@ final class OrderServiceTest {
         try Assert.equals("duplicate", sent.header)
         try Assert.equals("none", sent.item)
     }
+
+    func testErrorBodyIsReadIntoAModel() async throws {
+        let orders: OrderService = try construct()
+        let error = try await Assert.throws { _ = try await orders.claim() }
+        let conflict = Behaviors.errorBody(error, as: ClaimConflict.self)
+        try Assert.equals("HTTP_STATUS", (error as? BehaviorError)?.code)
+        try Assert.equals(409, Behaviors.errorStatus(error))
+        try Assert.equals("taken", conflict?.reason)
+        try Assert.equals("south", conflict?.holder)
+    }
 }

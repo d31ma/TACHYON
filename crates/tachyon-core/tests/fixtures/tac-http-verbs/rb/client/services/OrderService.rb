@@ -18,4 +18,9 @@ class OrderService
   def remove
     orders_client.remove("a-7", "duplicate")
   end
+
+  # @return [SentRequest]
+  def claim
+    orders_client.claim("a-7", { "item" => "saw" })
+  end
 end

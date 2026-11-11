@@ -20,4 +20,8 @@ export default class OrderService {
   async remove(): Promise<SentRequest> {
     return this.ordersClient.remove('a-7', 'duplicate');
   }
+
+  async claim(): Promise<SentRequest> {
+    return this.ordersClient.claim('a-7', { item: 'saw' });
+  }
 }

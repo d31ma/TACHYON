@@ -90,11 +90,26 @@ impl BehaviorBrowserHttp {
         mut object: std::collections::BTreeMap<String, BehaviorValue>,
     ) -> BehaviorResult<BehaviorValue> {
         if let Some(error) = object.remove("error") {
-            return Err(behavior_error(Self::code(&error), Self::FAILED));
+            return Err(Self::failure(&error));
         }
         object
             .remove("value")
             .ok_or_else(|| behavior_error(Self::RESPONSE, Self::FAILED))
+    }
+
+    fn failure(error: &BehaviorValue) -> BehaviorError {
+        BehaviorError {
+            status: Self::status(error),
+            body: error.get("body").cloned(),
+            ..behavior_error(Self::code(error), Self::FAILED)
+        }
+    }
+
+    fn status(error: &BehaviorValue) -> u16 {
+        match error.get("status") {
+            Some(BehaviorValue::Number(status)) => *status as u16,
+            _ => 0,
+        }
     }
 
     fn code(error: &BehaviorValue) -> &'static str {

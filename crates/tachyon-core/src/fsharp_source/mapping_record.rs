@@ -30,6 +30,9 @@ impl MappingRecord {
                 "answer{name} (value: BehaviorJSON) : Models.{name} = value.Members |> ignore; {{ {} }}",
                 answers.join("; ")
             ),
+            format!(
+                "errorBody{name} (error: exn) : Models.{name} option = match error with :? BehaviorError as failure when not (isNull failure.Body) -> (try Some (answer{name} failure.Body) with _ -> None) | _ -> None"
+            ),
         ])
     }
 

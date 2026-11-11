@@ -4,12 +4,35 @@ BehaviorError.__tostring = function(failure)
   return failure.message
 end
 
-function BehaviorError.raise(behavior_code, message, path)
-  error(setmetatable({ behavior_code = behavior_code, message = message, path = path }, BehaviorError), 0)
+function BehaviorError.raise(behavior_code, message, path, status, body)
+  error(BehaviorError.new(behavior_code, message, path, status, body), 0)
+end
+
+function BehaviorError.new(behavior_code, message, path, status, body)
+  return setmetatable({ behavior_code = behavior_code, message = message, path = path, status = status, body = body },
+    BehaviorError)
 end
 
 function BehaviorError.is(failure)
   return type(failure) == "table" and getmetatable(failure) == BehaviorError
+end
+
+function BehaviorError.status_of(failure)
+  if not BehaviorError.is(failure) or math.type(failure.status) ~= "integer" then
+    return 0
+  end
+  return failure.status
+end
+
+function BehaviorError.body_of(failure, model)
+  if not BehaviorError.is(failure) or type(failure.body) ~= "table" or type(model) ~= "table" then
+    return nil
+  end
+  local ok, body = pcall(BehaviorBoundary.copy, failure.body)
+  if not ok or type(body) ~= "table" then
+    return nil
+  end
+  return YonModels.read({ model = model }, body)
 end
 
 BehaviorSignal = {}
@@ -322,6 +345,27 @@ function BehaviorBoundary.adapter(action, arguments, execution)
   end
   execution:check()
   return results[2]
+end
+
+function BehaviorBoundary.http_adapter(action, arguments, execution)
+  local ok, result = pcall(BehaviorBoundary.adapter, action, arguments, execution)
+  if ok then
+    return result
+  end
+  if not BehaviorError.is(result) or result.behavior_code ~= "HTTP_STATUS" then
+    error(result, 0)
+  end
+  execution:check()
+  error(BehaviorBoundary.http_status(result), 0)
+end
+
+function BehaviorBoundary.http_status(failure)
+  local status = BehaviorError.status_of(failure)
+  local ok, body = pcall(BehaviorBoundary.copy, failure.body)
+  if not ok or status < 400 or status > 599 then
+    return BehaviorError.new("adapter", "Behavior adapter failed.")
+  end
+  return BehaviorError.new("HTTP_STATUS", "The HTTP request failed.", nil, status, body)
 end
 
 function BehaviorBoundary.map_value(policy, arguments)
@@ -902,7 +946,10 @@ function BehaviorContext:exchange(policy, descriptor, execution)
     deadline = execution.deadline,
   }
   local action = self:adapter("http", policy.client, "exchange")
-  return BehaviorBoundary.copy(BehaviorBoundary.adapter(action, { request, execution, n = 2 }, execution))
+  if self:builtin("http", policy.client) then
+    return BehaviorBoundary.copy(BehaviorBoundary.adapter(action, { request, execution, n = 2 }, execution))
+  end
+  return BehaviorBoundary.copy(BehaviorBoundary.http_adapter(action, { request, execution, n = 2 }, execution))
 end
 
 function BehaviorContext.check_header(name, value)
@@ -1138,7 +1185,7 @@ function BehaviorBrowserHttp.value_of(answer)
     BehaviorBrowserHttp.fail("HTTP_RESPONSE")
   end
   if answer.error ~= nil then
-    BehaviorBrowserHttp.fail(BehaviorBrowserHttp.code_of(answer.error), answer.error)
+    error(BehaviorBrowserHttp.failure_of(answer.error), 0)
   end
   if answer.value == nil then
     BehaviorBrowserHttp.fail("HTTP_RESPONSE")
@@ -1155,6 +1202,15 @@ function BehaviorBrowserHttp.code_of(failure)
     return code
   end
   return "HTTP_NETWORK"
+end
+
+function BehaviorBrowserHttp.failure_of(failure)
+  local code = BehaviorBrowserHttp.code_of(failure)
+  local found = type(failure) == "table" and failure or {}
+  local status = math.type(found.status) == "integer" and found.status or 0
+  local body = found.body ~= YonNull and found.body or nil
+  local message = BehaviorBrowserHttp.message_of(failure, "The browser HTTP request failed (" .. code .. ").")
+  return BehaviorError.new(code, message, nil, status, body)
 end
 
 function BehaviorBrowserHttp.fail(code, failure)

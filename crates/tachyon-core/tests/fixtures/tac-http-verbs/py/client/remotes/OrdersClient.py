@@ -13,3 +13,6 @@ class OrdersClient(Protocol):
 
     @delete_request("/orders/{id}")
     async def remove(self, id: Annotated[str, path_variable("id")], reason: Annotated[str, request_header("X-Reason")]) -> SentRequest: ...
+
+    @put_request("/claims/{id}")
+    async def claim(self, id: Annotated[str, path_variable("id")], claim: Annotated[dict[str, str], request_body]) -> SentRequest: ...

@@ -29,12 +29,14 @@ machine contracts have their own, independent major versions.
   C#, F#, Swift, Kotlin, Java, Dart, Ruby, Lua and C++ get a `Focus` client
   like their `Clock`. Each call runs after the next render, and a failure
   arrives as `BrowserCallFailed`.
-- Go Tac HTTP clients read JSON error bodies. When the server answers an
-  error status with `application/json` or `application/problem+json`, the
-  browser transport passes the body, and `BehaviorErrorBody(err, &model)`
-  reads it into a model. A Setup or TestSetup adapter can answer
-  `&BehaviorError{Code: "HTTP_STATUS", Status: 409, Body: ...}`, so a test can
-  fake an error status with a body (ADR 0117).
+- Tac HTTP clients read JSON error bodies in every Tac service language. When
+  the server answers an error status with `application/json` or
+  `application/problem+json`, the call fails with `HTTP_STATUS`, its status
+  number and the body, and each language reads the body into a model (for
+  example `BehaviorErrorBody(err, &model)` in Go, `error.body_as::<Model>()`
+  in Rust, `Behaviors.errorBody(error)` in JavaScript). A Setup or TestSetup
+  adapter can answer with a status and a body, so a test can fake an error
+  answer. Native Rust and C# services keep the status only (ADR 0117).
 - **Web Push for Tac pages.** Grant `push` in `tac.browserApis`, and every
   Tac service language gets a `Push` client: `subscribe` with the server's
   VAPID key answers with a `PushSubscribed` event that holds the

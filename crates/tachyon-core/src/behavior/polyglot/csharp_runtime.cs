@@ -1,7 +1,10 @@
-public sealed class BehaviorError : System.Exception {
+public sealed partial class BehaviorError : System.Exception {
     public string Code { get; }
     public string Path { get; }
+    public int Status { get; }
+    public BehaviorJSON Body { get; }
     public BehaviorError(string code, string path = null) : base("Behavior operation failed: " + code) { Code = code; Path = path != null && System.Text.Encoding.UTF8.GetByteCount(path) <= 128 ? path : null; }
+    public BehaviorError(string code, int status, BehaviorJSON body, string message = null) : base(message ?? "Behavior operation failed: " + code) { Code = code; Status = status; Body = body; }
     internal BehaviorError(string code, string path, string message) : base(message) { Code = code; Path = path; }
 }
 public sealed class BehaviorJSONConverter : System.Text.Json.Serialization.JsonConverter<BehaviorJSON> {
@@ -511,6 +514,15 @@ public sealed class BehaviorContext : System.IDisposable {
     private async System.Threading.Tasks.Task<T> Adapter<T>(BehaviorExecution execution, System.Func<System.Threading.Tasks.Task<T>> action) {
         execution.Check(); T result; try { result = await action(); } catch (BehaviorError) { throw; } catch { execution.Check(); throw new BehaviorError("ADAPTER_FAILED"); } execution.Check(); if (result == null) throw new BehaviorError("ADAPTER_INVALID"); return result;
     }
+    private async System.Threading.Tasks.Task<BehaviorJSON> HttpExchange(BehaviorExecution execution, BehaviorHTTPAdapter client, BehaviorJSON request) {
+        try { return await Adapter(execution, () => client.exchange(request, execution)); }
+        catch (BehaviorError error) when (error.Code == "HTTP_STATUS" && !ReferenceEquals(client, browserHttp)) { execution.Check(); throw HttpStatusFailure(error); }
+    }
+    private static BehaviorError HttpStatusFailure(BehaviorError error) {
+        if (error.Status < 400 || error.Status > 599) return new BehaviorError("ADAPTER_FAILED");
+        try { return new BehaviorError("HTTP_STATUS", error.Status, error.Body == null ? null : BehaviorJSON.Parse(error.Body.ToString()), "The HTTP request failed."); }
+        catch (BehaviorError) { return new BehaviorError("ADAPTER_FAILED"); }
+    }
     private BehaviorHTTPAdapter HttpAdapter(string name) => adapters.http.TryGetValue(name, out var adapter) ? adapter : browserHttp ?? throw new BehaviorError("HTTP_MISSING");
     private BehaviorCacheAdapter CacheAdapter(string name) => adapters.caches.TryGetValue(name, out var cache) ? cache : BehaviorStorage.Cache(name) ?? throw new BehaviorError("CACHE_MISSING");
     private BehaviorEntityAdapter EntityAdapter(string name) => adapters.entities.TryGetValue(name, out var adapter) ? adapter : BehaviorStorage.Entities(name) ?? throw new BehaviorError("ENTITY_MISSING");
@@ -649,7 +661,7 @@ public sealed class BehaviorContext : System.IDisposable {
         if ((policy.Get("method").Text == "GET" || policy.Get("method").Text == "HEAD") && result.Has("body")) throw new BehaviorError("HTTP_BODY");
         var client = HttpAdapter(policy.Get("client").Text);
         var request = result.Members; if (!request.ContainsKey("query")) request["query"] = BehaviorJSON.Parse("{}"); if (!request.ContainsKey("headers")) request["headers"] = BehaviorJSON.Parse("{}"); request["method"] = policy.Get("method"); request["path"] = policy.Get("path"); request["redirect"] = BehaviorJSON.From("error"); request["credentials"] = BehaviorJSON.From("omit"); request["deadline"] = BehaviorJSON.From(execution.Deadline); request["maxResponseBytes"] = BehaviorJSON.From(1048576);
-        ValidateHTTP(result); BrowserCacheRequest(client, request, metadata); return await Adapter(execution, () => client.exchange(BehaviorJSON.Object(request), execution));
+        ValidateHTTP(result); BrowserCacheRequest(client, request, metadata); return await HttpExchange(execution, client, BehaviorJSON.Object(request));
     }
     private void BrowserCacheRequest(BehaviorHTTPAdapter client, System.Collections.Generic.Dictionary<string, BehaviorJSON> request, BehaviorJSON metadata)
     {
@@ -689,7 +701,7 @@ public sealed class BehaviorContext : System.IDisposable {
         request["method"] = BehaviorJSON.From(method); request["path"] = BehaviorJSON.From(path);
         request["redirect"] = BehaviorJSON.From("error"); request["credentials"] = BehaviorJSON.From("omit");
         request["deadline"] = BehaviorJSON.From(execution.Deadline); request["maxResponseBytes"] = BehaviorJSON.From(1048576);
-        return await Adapter(execution, () => client.exchange(BehaviorJSON.Object(request), execution));
+        return await HttpExchange(execution, client, BehaviorJSON.Object(request));
     });
     internal static bool SafePath(string path) {
         if (string.IsNullOrEmpty(path) || !path.StartsWith("/") || path.StartsWith("//") || path.Length > 2048) return false;

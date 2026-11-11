@@ -82,6 +82,8 @@ mod java_publisher_tests;
 #[cfg(test)]
 mod kotlin_construct_tests;
 #[cfg(test)]
+mod kotlin_http_status_tests;
+#[cfg(test)]
 mod kotlin_test_settings_tests;
 
 #[cfg(test)]

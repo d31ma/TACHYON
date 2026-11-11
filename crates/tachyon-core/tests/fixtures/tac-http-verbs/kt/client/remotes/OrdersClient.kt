@@ -10,4 +10,7 @@ interface OrdersClient {
 
     @DeleteRequest("/orders/{id}")
     suspend fun remove(@PathVariable("id") id: String, @RequestHeader("X-Reason") reason: String, @RequestParam("soft") soft: String): SentRequest
+
+    @PutRequest("/claims/{id}")
+    suspend fun claim(@PathVariable("id") id: String, @RequestBody claim: Map<String, String>): SentRequest
 }

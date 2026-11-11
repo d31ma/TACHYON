@@ -8,6 +8,7 @@ export default class OrdersTestSetup {
   }
 
   static exchange(request: { method: string, path: string, headers: Record<string, string>, body?: Order }): SentRequest {
+    if (request.path === '/api/claims/a-7') throw Behaviors.httpError(409, { reason: 'taken', holder: 'south' });
     return {
       method: request.method,
       path: request.path,

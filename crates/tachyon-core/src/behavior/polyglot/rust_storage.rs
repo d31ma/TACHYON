@@ -24,10 +24,8 @@ impl BehaviorHost {
         };
         if let Some(BehaviorValue::String(message)) = object.remove("error") {
             return Err(BehaviorError {
-                code: "storage",
-                message: "Tachyon storage refused the request.",
                 path: Some(message),
-                violations: Vec::new(),
+                ..BehaviorError::new("storage", "Tachyon storage refused the request.")
             });
         }
         Ok(object.remove("value").unwrap_or(BehaviorValue::Null))

@@ -64,10 +64,45 @@ namespace tachyon::http {
 
 class HttpRequestException : public TacCodedError {
 public:
+    static constexpr const char* HTTP_STATUS = "HTTP_STATUS";
+    static constexpr const char* FAILED = "The HTTP request failed.";
+
     explicit HttpRequestException(const std::string& code)
         : TacCodedError("The browser HTTP request failed: " + code + ".", code) {}
 
     HttpRequestException(const std::string& code, const std::string& message) : TacCodedError(message, code) {}
+
+    HttpRequestException(int status, std::optional<json::JsonNode> body)
+        : HttpRequestException(HTTP_STATUS, FAILED, status, std::move(body)) {}
+
+    HttpRequestException(const std::string& code, const std::string& message, int status, std::optional<json::JsonNode> body)
+        : TacCodedError(message, code), status(status), body(std::move(body)) {}
+
+    int statusCode() const {
+        return status;
+    }
+
+    const std::optional<json::JsonNode>& content() const {
+        return body;
+    }
+
+    template <typename T>
+    std::optional<T> readBodyFromJson() const {
+        return body.has_value() ? decoded<T>(*body) : std::nullopt;
+    }
+
+private:
+    int status = 0;
+    std::optional<json::JsonNode> body;
+
+    template <typename T>
+    static std::optional<T> decoded(const json::JsonNode& value) {
+        try {
+            return json::JsonSerializer::deserialize<T>(value);
+        } catch (const std::exception&) {
+            return std::nullopt;
+        }
+    }
 };
 
 }
@@ -208,13 +243,28 @@ public:
     static HttpResponseMessage response(const std::string& answer) {
         json::JsonNode settled = json::JsonNode::parse(answer);
         if (settled.containsKey("error")) {
-            const json::JsonNode& error = settled["error"];
-            bool named = error.getValueKind() == json::JsonValueKind::Object && error.containsKey("code");
-            throw HttpRequestException(named ? error["code"].getValue<std::string>() : "HTTP_NETWORK");
+            throw failure(settled["error"]);
         }
         HttpResponseMessage response;
         response.content = HttpContent(settled["value"].toJsonString());
         return response;
+    }
+
+    static HttpRequestException failure(const json::JsonNode& error) {
+        bool named = error.getValueKind() == json::JsonValueKind::Object && error.containsKey("code");
+        std::string code = named ? error["code"].getValue<std::string>() : "HTTP_NETWORK";
+        HttpRequestException plain(code);
+        return HttpRequestException(code, plain.what(), status(error), body(error));
+    }
+
+    static int status(const json::JsonNode& error) {
+        bool numbered = error.getValueKind() == json::JsonValueKind::Object && error.containsKey("status") && error["status"].getValueKind() == json::JsonValueKind::Number;
+        return numbered ? static_cast<int>(error["status"].getValue<double>()) : 0;
+    }
+
+    static std::optional<json::JsonNode> body(const json::JsonNode& error) {
+        bool present = error.getValueKind() == json::JsonValueKind::Object && error.containsKey("body");
+        return present ? std::optional<json::JsonNode>(error["body"]) : std::nullopt;
     }
 
     static std::string segment(const std::string& value) {

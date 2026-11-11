@@ -12,6 +12,14 @@ function respond(request, response) {
     response.setHeader('content-type', 'text/html'); response.end('<p>not JSON</p>'); return
   }
   if (mode === 'bad-json') { response.end('{'); return }
+  if (mode === 'problem') {
+    response.writeHead(409, { 'content-type': 'application/problem+json; charset=utf-8' })
+    response.end(JSON.stringify({ reason: 'taken', holder: 'south' })); return
+  }
+  if (mode === 'problem-text') {
+    response.writeHead(500, { 'content-type': 'text/plain' }); response.end('{"reason":"hidden"}'); return
+  }
+  if (mode === 'problem-huge') { response.writeHead(422); response.end(JSON.stringify('x'.repeat(1048577))); return }
   if (mode === 'empty') { response.writeHead(204); response.end(); return }
   if (mode === 'redirect') {
     response.writeHead(302, { location: '/elsewhere' }); response.end(); return
@@ -50,6 +58,13 @@ try {
   await assert.rejects(left.productsClient.all('text'))
   await assert.rejects(left.productsClient.all('bad-json'))
   assert.equal(await left.productsClient.all('empty'), null)
+  const conflict = await left.productsClient.all('problem').catch((error) => error)
+  assert.deepEqual([conflict.name, conflict.code, conflict.message, conflict.status], ['BehaviorError', 'HTTP_STATUS', 'The HTTP request failed.', 409])
+  assert.deepEqual(conflict.body, { reason: 'taken', holder: 'south' })
+  const hidden = await left.productsClient.all('problem-text').catch((error) => error)
+  assert.deepEqual([hidden.code, hidden.status, hidden.body], ['HTTP_STATUS', 500, null])
+  const huge = await left.productsClient.all('problem-huge').catch((error) => error)
+  assert.deepEqual([huge.code, huge.status, huge.body], ['HTTP_STATUS', 422, null])
   const pending = left.productsClient.all('slow')
   const rejected = assert.rejects(pending)
   await ContractServer.slowStarted

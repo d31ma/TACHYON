@@ -30,4 +30,17 @@ public sealed class OrderServiceTest
         Assert.equals("duplicate", sent.Header);
         Assert.equals("none", sent.Item);
     }
+
+    public async System.Threading.Tasks.Task testErrorBodyIsReadIntoAModel()
+    {
+        var failure = new BehaviorError("none");
+        try { await construct<OrderService>().claim(); }
+        catch (BehaviorError error) { failure = error; }
+        failure.TryReadBody(out Models.ClaimConflict conflict);
+        Assert.equals("HTTP_STATUS", failure.Code);
+        Assert.equals(409, failure.Status);
+        Assert.equals("The HTTP request failed.", failure.Message);
+        Assert.equals("taken", conflict.Reason);
+        Assert.equals("south", conflict.Holder);
+    }
 }

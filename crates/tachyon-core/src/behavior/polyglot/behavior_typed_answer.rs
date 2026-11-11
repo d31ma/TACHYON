@@ -1,5 +1,11 @@
 pub struct BehaviorTypedAnswer;
 
+impl BehaviorError {
+    pub fn body_as<T: TacModel>(&self) -> Option<T> {
+        self.body.clone().and_then(BehaviorTypedAnswer::error_body)
+    }
+}
+
 impl BehaviorTypedAnswer {
     const RESPONSE: &'static str = "HTTP_RESPONSE";
     const WRONG_SHAPE: &'static str = "The server answer does not have the shape of the model.";
@@ -18,6 +24,10 @@ impl BehaviorTypedAnswer {
 
     pub fn optional<T: TacModel>(value: BehaviorValue) -> BehaviorResult<T> {
         Self::shaped(value, Self::is_anything)
+    }
+
+    fn error_body<T: TacModel>(body: BehaviorValue) -> Option<T> {
+        Self::object(body).ok()
     }
 
     fn shaped<T: TacModel>(value: BehaviorValue, fits: fn(&BehaviorValue) -> bool) -> BehaviorResult<T> {

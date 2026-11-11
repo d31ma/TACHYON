@@ -26,4 +26,13 @@ class OrderServiceTest {
     Assert.equals('duplicate', sent.header);
     Assert.equals('none', sent.item);
   }
+
+  Future<void> testErrorBodyIsReadIntoAModel() async {
+    final error = await Assert.throws(() => construct<OrderService>(OrderService).claim());
+    final conflict = BehaviorErrors.body(error, tachyonReadModelClaimConflict);
+    Assert.equals('HTTP_STATUS', BehaviorErrors.code(error));
+    Assert.equals(409, BehaviorErrors.status(error));
+    Assert.equals('taken', conflict?.reason);
+    Assert.equals('south', conflict?.holder);
+  }
 }

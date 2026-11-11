@@ -9,6 +9,27 @@ public static partial class TacModels
     public static T ReadResultValue<T>(string json, string shape, string models) =>
         ReadResultItem<T>(ReadVerifiedNode(json, shape, models));
 
+    public static bool ReadErrorBody<T>(string json, out T model)
+    {
+        model = default;
+        if (json == null) return false;
+        return TryReadErrorBody(json, out model);
+    }
+
+    private static bool TryReadErrorBody<T>(string json, out T model)
+    {
+        try
+        {
+            model = ReadResultItem<T>(System.Text.Json.Nodes.JsonNode.Parse(json));
+            return model != null;
+        }
+        catch (System.Exception)
+        {
+            model = default;
+            return false;
+        }
+    }
+
     private static T ReadVerifiedResult<T>(string json, string shape, string models)
     {
         ReadVerifiedNode(json, shape, models);

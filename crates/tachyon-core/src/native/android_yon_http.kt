@@ -17,6 +17,7 @@ private object TacYonHttp {
     private const val MOST_URL_BYTES = 8192
     private const val MOST_HEADERS = 128
     private val METHODS = setOf("GET", "HEAD", "POST", "PUT", "PATCH", "DELETE")
+    private val PROBLEM_TYPES = setOf("application/json", "application/problem+json")
     private val REFUSED_HEADERS = setOf("host", "connection", "content-length", "transfer-encoding", "cookie", "origin", "referer")
     private val HEADER_NAME = Regex("[!#$%&'*+.^_`|~0-9A-Za-z-]{1,128}")
     private val PATH_REFUSED = Regex("[\\s\\\\?#%]")
@@ -104,8 +105,8 @@ private object TacYonHttp {
             if (body != null) write(connection, body)
             val status = connection.responseCode
             if (status in 300..399) fail("HTTP_NETWORK")
-            if (status !in 200..299) fail("HTTP_STATUS")
-            val text = read(connection, limit)
+            if (status !in 200..299) throw statusFailure(connection, status, limit)
+            val text = read(connection, connection.inputStream, limit)
             return if (text.isBlank()) null else parsed(text)
         } catch (_: java.io.IOException) {
             fail("HTTP_NETWORK")
@@ -121,11 +122,21 @@ private object TacYonHttp {
         connection.outputStream.use { it.write(body) }
     }
 
-    private fun read(connection: java.net.HttpURLConnection, limit: Int): String {
+    private fun statusFailure(connection: java.net.HttpURLConnection, status: Int, limit: Int): Behaviors.Failure =
+        Behaviors.Failure("HTTP_STATUS", null, FAILED, status, problem(connection, limit))
+
+    private fun problem(connection: java.net.HttpURLConnection, limit: Int): Any? {
+        val type = connection.contentType.orEmpty().substringBefore(';').trim().lowercase(java.util.Locale.ROOT)
+        val stream = connection.errorStream
+        if (type !in PROBLEM_TYPES || stream == null) return null
+        return try { Behaviors.copy(parsed(read(connection, stream, limit)), limit) } catch (_: Exception) { null }
+    }
+
+    private fun read(connection: java.net.HttpURLConnection, stream: java.io.InputStream, limit: Int): String {
         if (connection.contentLengthLong > limit) fail("HTTP_LIMIT")
         val output = java.io.ByteArrayOutputStream()
         val buffer = ByteArray(16384)
-        connection.inputStream.use { input ->
+        stream.use { input ->
             while (true) {
                 val count = input.read(buffer)
                 if (count < 0) break

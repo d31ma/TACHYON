@@ -14,7 +14,7 @@ private object BehaviorBrowserHttp {
     suspend fun send(request: Map<String, Any?>): Any? {
         val answer = parsed(tacHttpExchange(Behaviors.json(request, REQUEST_BYTES)))
         val error = answer["error"]
-        if (error is Map<*, *>) throw Behaviors.Failure(code(error["code"]), null, error["message"] as? String ?: FAILED)
+        if (error is Map<*, *>) throw failure(error)
         if (!answer.containsKey("value")) throw Behaviors.Failure("HTTP_RESPONSE", null, FAILED)
         return answer["value"]
     }
@@ -22,6 +22,9 @@ private object BehaviorBrowserHttp {
     private fun parsed(text: String): Map<*, *> =
         (try { tacParseJson(text) } catch (_: RuntimeException) { null }) as? Map<*, *>
             ?: throw Behaviors.Failure("HTTP_RESPONSE", null, FAILED)
+
+    private fun failure(error: Map<*, *>): Behaviors.Failure =
+        Behaviors.Failure(code(error["code"]), null, error["message"] as? String ?: FAILED, (error["status"] as? Number)?.toInt() ?: 0, error["body"])
 
     private fun code(named: Any?): String = if (named is String && named in CODES) named else "HTTP_NETWORK"
 }

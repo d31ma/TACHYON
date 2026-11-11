@@ -18,4 +18,9 @@ public sealed class OrderService
     {
         return _ordersClient.remove("a-7", "duplicate");
     }
+
+    public System.Threading.Tasks.Task<Models.SentRequest> claim()
+    {
+        return _ordersClient.claim("a-7", BehaviorJSON.Parse("{\"item\":\"saw\"}"));
+    }
 }

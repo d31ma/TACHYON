@@ -13,4 +13,7 @@ trait OrdersClient {
 
     #[DeleteRequest("/orders/{id}")]
     async fn remove(&self, #[PathVariable("id")] id: String, #[RequestHeader("X-Reason")] reason: String) -> BehaviorResult<SentRequest>;
+
+    #[PutRequest("/claims/{id}")]
+    async fn claim(&self, #[PathVariable("id")] id: String, #[RequestBody] claim: BehaviorValue) -> BehaviorResult<SentRequest>;
 }

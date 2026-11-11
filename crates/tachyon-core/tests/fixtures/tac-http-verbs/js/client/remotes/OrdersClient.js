@@ -25,4 +25,12 @@ export default class OrdersClient {
    */
   @DeleteRequest("/orders/{id}")
   async remove(@PathVariable("id") id, @RequestHeader("X-Reason") reason) {}
+
+  /**
+   * @param {string} id
+   * @param {{ item: string }} claim
+   * @returns {Promise<SentRequest>}
+   */
+  @PutRequest("/claims/{id}")
+  async claim(@PathVariable("id") id, @RequestBody claim) {}
 }

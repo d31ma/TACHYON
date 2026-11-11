@@ -8,10 +8,12 @@ final class BehaviorYonHttp: NSObject, URLSessionDataDelegate, @unchecked Sendab
     static let mostWaitMilliseconds: Int64 = 60_000
     static let mostPathBytes = 2048
     static let mostAddressBytes = 8192
+    static let problemTypes: Set<String> = ["application/json", "application/problem+json"]
 
     private let limit: Int
     private let lock = NSLock()
     private var received = Foundation.Data()
+    private var refusedStatus = 0
     private var continuation: CheckedContinuation<Data, Error>?
 
     private init(limit: Int) {
@@ -90,6 +92,16 @@ final class BehaviorYonHttp: NSObject, URLSessionDataDelegate, @unchecked Sendab
         return value
     }
 
+    private static func problemBody(_ bytes: Data) -> BehaviorJSON? {
+        guard let text = String(data: bytes, encoding: .utf8), let value = try? BehaviorJSON.parse(text), value != .null else { return nil }
+        return value
+    }
+
+    private static func problem(_ response: URLResponse, _ limit: Int) -> Bool {
+        let type = (response.mimeType ?? "").lowercased()
+        return problemTypes.contains(type) && response.expectedContentLength <= Int64(limit)
+    }
+
     private static func failure(_ error: Error) -> BehaviorError {
         guard let failed = error as? URLError else { return BehaviorError("HTTP_NETWORK") }
         switch failed.code {
@@ -119,6 +131,46 @@ final class BehaviorYonHttp: NSObject, URLSessionDataDelegate, @unchecked Sendab
         }
     }
 
+    private func statusRead() -> Int {
+        lock.lock()
+        let status = refusedStatus
+        lock.unlock()
+        return status
+    }
+
+    private func completed() -> Result<Data, Error> {
+        lock.lock()
+        let bytes = received
+        let status = refusedStatus
+        lock.unlock()
+        guard status != 0 else { return .success(bytes) }
+        return .failure(BehaviorError("HTTP_STATUS", status: status, body: Self.problemBody(bytes)))
+    }
+
+    private func tooLarge() -> BehaviorError {
+        let status = statusRead()
+        guard status != 0 else { return BehaviorError("HTTP_LIMIT") }
+        return BehaviorError("HTTP_STATUS", status: status)
+    }
+
+    private func interrupted(_ error: Error) -> BehaviorError {
+        let reason = Self.failure(error)
+        let status = statusRead()
+        guard status != 0, reason.code == "HTTP_NETWORK" else { return reason }
+        return BehaviorError("HTTP_STATUS", status: status)
+    }
+
+    private func refuse(_ status: Int, _ response: URLResponse, _ completionHandler: @escaping (URLSession.ResponseDisposition) -> Void) {
+        guard Self.problem(response, limit) else {
+            finish(.failure(BehaviorError("HTTP_STATUS", status: status)))
+            return completionHandler(.cancel)
+        }
+        lock.lock()
+        refusedStatus = status
+        lock.unlock()
+        completionHandler(.allow)
+    }
+
     private func finish(_ result: Result<Data, Error>) {
         lock.lock()
         let waiting = continuation
@@ -129,10 +181,7 @@ final class BehaviorYonHttp: NSObject, URLSessionDataDelegate, @unchecked Sendab
 
     func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive response: URLResponse, completionHandler: @escaping (URLSession.ResponseDisposition) -> Void) {
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
-        guard (200...299).contains(status) else {
-            finish(.failure(BehaviorError("HTTP_STATUS")))
-            return completionHandler(.cancel)
-        }
+        guard (200...299).contains(status) else { return refuse(status, response, completionHandler) }
         guard response.expectedContentLength <= Int64(limit) else {
             finish(.failure(BehaviorError("HTTP_LIMIT")))
             return completionHandler(.cancel)
@@ -146,7 +195,7 @@ final class BehaviorYonHttp: NSObject, URLSessionDataDelegate, @unchecked Sendab
         let over = received.count > limit
         lock.unlock()
         guard over else { return }
-        finish(.failure(BehaviorError("HTTP_LIMIT")))
+        finish(.failure(tooLarge()))
         dataTask.cancel()
     }
 
@@ -157,12 +206,7 @@ final class BehaviorYonHttp: NSObject, URLSessionDataDelegate, @unchecked Sendab
     }
 
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
-        guard let error else {
-            lock.lock()
-            let bytes = received
-            lock.unlock()
-            return finish(.success(bytes))
-        }
-        finish(.failure(Self.failure(error)))
+        guard let error else { return finish(completed()) }
+        finish(.failure(interrupted(error)))
     }
 }

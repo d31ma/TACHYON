@@ -76,10 +76,20 @@ class _BehaviorText:
     READ_METHODS = ('GET', 'HEAD')
 
 class BehaviorError(Exception):
-    def __init__(self, code, message, path=None):
+    def __init__(self, code, message, path=None, status=0, body=None):
         super().__init__(message)
         self.code = code
         self.path = path
+        self.status = status
+        self.body = body
+    @staticmethod
+    def status_of(error):
+        return error.status if isinstance(error, BehaviorError) else 0
+    @staticmethod
+    def body_of(error, model):
+        if not isinstance(error, BehaviorError) or not isinstance(error.body, dict):
+            return None
+        return _BehaviorAnswer.model_of(model, error.body)
 
 class BehaviorRejection(BehaviorError):
     RULES = {'notNull': 'Required', 'notBlank': 'NotEmpty', 'size': 'Length', 'min': 'Min', 'max': 'Max'}
@@ -262,6 +272,24 @@ async def _behavior_adapter(function, args, execution):
         raise
     except Exception:
         raise BehaviorError('adapter', 'Behavior adapter failed.') from None
+
+async def _behavior_http_adapter(function, args, execution):
+    try:
+        return await _behavior_adapter(function, args, execution)
+    except BehaviorError as error:
+        if error.code != 'HTTP_STATUS':
+            raise
+        execution.check()
+        raise _behavior_http_status(error) from None
+
+def _behavior_http_status(error):
+    failed = BehaviorError('adapter', 'Behavior adapter failed.')
+    if type(error.status) is not int or not 400 <= error.status <= 599:
+        return failed
+    try:
+        return BehaviorError('HTTP_STATUS', 'The HTTP request failed.', None, error.status, _behavior_copy(error.body))
+    except (BehaviorError, TypeError, ValueError):
+        return failed
 
 def _behavior_safe_path(path):
     if type(path) is not str or not path.startswith('/') or path.startswith('//'):
@@ -970,7 +998,9 @@ class _BehaviorContext:
         if browser and custom is None and _BehaviorBrowserHttp.available(self.factory.environment):
             return _behavior_copy(await _BehaviorBrowserHttp.exchange(request, execution))
         exchange = self._adapter('http', policy['client'], 'exchange')
-        return _behavior_copy(await _behavior_adapter(exchange, (request, execution), execution))
+        if custom is None:
+            return _behavior_copy(await _behavior_adapter(exchange, (request, execution), execution))
+        return _behavior_copy(await _behavior_http_adapter(exchange, (request, execution), execution))
     async def _query(self, policy, args, execution):
         _behavior_check_query_arity(policy, args)
         where = _behavior_query_where(policy, args)
@@ -1078,6 +1108,13 @@ class _BehaviorAnswer:
         except (TypeError, ValueError):
             raise BehaviorError('HTTP_RESPONSE', 'The server answer does not have the shape of the model.') from None
     @staticmethod
+    def model_of(model, value):
+        try:
+            read = _BehaviorAnswer._model(model, value, 0)
+        except (TypeError, ValueError, BehaviorError):
+            return None
+        return read if isinstance(model, type) and isinstance(read, model) else None
+    @staticmethod
     def _shaped(shape, value, depth):
         if depth > _BehaviorLimits.MAX_JSON_DEPTH:
             raise ValueError('The answer is nested too deeply.')
@@ -1157,15 +1194,19 @@ class _BehaviorBrowserHttp:
         if type(answer) is not dict:
             raise _BehaviorBrowserHttp.failure('HTTP_RESPONSE')
         if 'error' in answer:
-            error = answer['error']
-            code = error.get('code') if type(error) is dict else None
-            raise _BehaviorBrowserHttp.failure(code if code in _BehaviorBrowserHttp.CODES else 'HTTP_NETWORK')
+            raise _BehaviorBrowserHttp.failure_of(answer['error'])
         if 'value' not in answer:
             raise _BehaviorBrowserHttp.failure('HTTP_RESPONSE')
         return answer['value']
     @staticmethod
     def failure(code):
         return BehaviorError(code, 'The browser HTTP request failed (' + code + ').')
+    @staticmethod
+    def failure_of(error):
+        found = error if type(error) is dict else {}
+        code = found.get('code') if found.get('code') in _BehaviorBrowserHttp.CODES else 'HTTP_NETWORK'
+        status = found.get('status') if type(found.get('status')) is int else 0
+        return BehaviorError(code, 'The browser HTTP request failed (' + code + ').', None, status, found.get('body'))
 
 class _BehaviorBrowserSocket:
     CODES = ('HTTP_NETWORK', 'HTTP_MISSING', 'HTTP_REQUEST', 'HTTP_BODY', 'CANCELLED')

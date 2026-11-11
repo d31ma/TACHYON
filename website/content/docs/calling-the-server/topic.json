@@ -19,7 +19,7 @@
       "include": "browser-http-go/section.json"
     },
     {
-      "include": "browser-http-go-error-body/section.json"
+      "include": "http-error-bodies/section.json"
     },
     {
       "include": "browser-http-kotlin/section.json"

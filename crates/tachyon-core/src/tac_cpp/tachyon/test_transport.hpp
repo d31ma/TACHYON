@@ -24,7 +24,7 @@ public:
         if (found == http.end()) {
             throw http::HttpRequestException("HTTP_ADAPTER", missing(adapter));
         }
-        return TacAdapters::answered(found->second(request));
+        return TacAdapters::exchanged(found->second, request);
     }
 
 private:

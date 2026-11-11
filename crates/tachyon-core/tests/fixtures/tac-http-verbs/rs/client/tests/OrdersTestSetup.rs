@@ -5,6 +5,13 @@ impl OrdersTestSetup {
         struct OrdersEcho;
         impl BehaviorHttpAdapter for OrdersEcho {
             fn exchange(&self, request: &BehaviorHttpRequest, _execution: &BehaviorExecution) -> BehaviorResult<BehaviorValue> {
+                if request.path == "/api/claims/a-7" {
+                    let conflict = BehaviorValue::object([
+                        ("reason", BehaviorValue::from("taken")),
+                        ("holder", BehaviorValue::from("south")),
+                    ]);
+                    return Err(BehaviorError { message: "private fake text", ..BehaviorError::http_status(409, Some(conflict)) });
+                }
                 let header = match &request.headers {
                     BehaviorValue::Object(headers) => headers.values().next().cloned().unwrap_or(BehaviorValue::Null),
                     _ => BehaviorValue::Null,

@@ -13,4 +13,7 @@ public:
 
     [[DeleteRequest("/orders/{id}")]]
     Task<SentRequest> remove([[PathVariable("id")]] std::string id, [[RequestHeader("X-Reason")]] std::string reason);
+
+    [[PutRequest("/claims/{id}")]]
+    Task<SentRequest> claim([[PathVariable("id")]] std::string id, [[RequestBody]] const Order& claim);
 };

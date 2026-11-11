@@ -52,11 +52,27 @@ pub(super) fn lower(module: &Module) -> Result<String, String> {
         &entities,
         &policies,
     );
+    generated.push_str(CsharpErrorBody::reader(module));
     generated.push_str(super::super::testing::unit_helper(
         &module.types,
         super::super::TestAssert::CSHARP,
     ));
     render(module, edits, &generated)
+}
+
+struct CsharpErrorBody;
+
+impl CsharpErrorBody {
+    const READER: &'static str = "TryReadBody";
+    const SOURCE: &'static str = "public sealed partial class BehaviorError {\n    public bool TryReadBody<T>(out T model) => TacModels.ReadErrorBody(Body?.ToString(), out model);\n}\n";
+
+    fn reader(module: &Module) -> &'static str {
+        let wanted = [
+            module.environment == "tac",
+            module.source.contains(Self::READER),
+        ] == [true, true];
+        ["", Self::SOURCE][usize::from(wanted)]
+    }
 }
 
 pub(super) fn runtime(

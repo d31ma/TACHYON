@@ -25,4 +25,9 @@ impl OrderService {
     pub async fn remove(&self) -> BehaviorResult<SentRequest> {
         self.orders_client.remove(String::from("a-7"), String::from("duplicate")).await
     }
+
+    pub async fn claim(&self) -> BehaviorResult<SentRequest> {
+        let claim = BehaviorValue::object([("item", BehaviorValue::from("saw"))]);
+        self.orders_client.claim(String::from("a-7"), claim).await
+    }
 }

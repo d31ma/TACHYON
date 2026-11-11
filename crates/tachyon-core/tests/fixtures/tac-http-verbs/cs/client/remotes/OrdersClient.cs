@@ -9,4 +9,7 @@ public interface OrdersClient
 
     [DeleteRequest("/orders/{id}")]
     System.Threading.Tasks.Task<Models.SentRequest> remove([PathVariable("id")] string id, [RequestHeader("X-Reason")] string reason);
+
+    [PutRequest("/claims/{id}")]
+    System.Threading.Tasks.Task<Models.SentRequest> claim([PathVariable("id")] string id, [RequestBody] BehaviorJSON claim);
 }

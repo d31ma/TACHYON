@@ -38,6 +38,7 @@ impl From<BehaviorValue> for Json {
         include_str!("behavior_native_http.rs"),
         include_str!("behavior_tasks.rs")
     );
+    const ERROR_BODY_READER: &str = "body_as";
     const SOCKET_SENDER: &str = "BehaviorBrowserSocket::send(";
     const SOCKET_SEND: &str = include_str!("behavior_browser_socket.rs");
     const TYPED_ANSWER: &str = include_str!("behavior_typed_answer.rs");
@@ -55,13 +56,22 @@ pub(super) fn lower(module: &Module) -> Result<String, String> {
         lower_type(module, declaration, &mut edits, &mut generated)?;
     }
     generated.push_str(&runtime(&module.module_id, &module.environment));
-    if module.types.iter().any(RustAsyncClient::reads_models) {
+    if reads_models(module) {
         generated.push_str(RustNames::TYPED_ANSWER);
     }
     if module.source.contains(RustNames::SOCKET_SENDER) {
         generated.push_str(RustNames::SOCKET_SEND);
     }
     render(module, edits, &generated)
+}
+
+fn reads_models(module: &Module) -> bool {
+    let typed_client = module.types.iter().any(RustAsyncClient::reads_models);
+    let error_body = [
+        module.environment == "tac",
+        module.source.contains(RustNames::ERROR_BODY_READER),
+    ] == [true, true];
+    [typed_client, error_body].contains(&true)
 }
 
 pub(super) fn runtime(module_id: &str, environment: &str) -> String {

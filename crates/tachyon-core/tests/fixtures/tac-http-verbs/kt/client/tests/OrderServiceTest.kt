@@ -1,3 +1,5 @@
+import models.ClaimConflict
+
 @Test(OrdersTestSetup::class, {"partition":"tac-http-verbs"})
 class OrderServiceTest {
     @Fake
@@ -26,5 +28,16 @@ class OrderServiceTest {
         Assert.equals("duplicate", sent.header)
         Assert.equals("none", sent.item)
         Assert.equals("yes", sent.param)
+    }
+
+    suspend fun testErrorBodyIsReadIntoAModel() {
+        val service = construct(OrderService::class)
+        val error = runCatching { service.claim() }.exceptionOrNull() as Behaviors.Failure
+        val conflict = Behaviors.errorBody<ClaimConflict>(error)
+        Assert.equals("HTTP_STATUS", error.code)
+        Assert.equals(409, error.status)
+        Assert.equals("The HTTP request failed.", error.message)
+        Assert.equals("taken", conflict?.reason)
+        Assert.equals("south", conflict?.holder)
     }
 }

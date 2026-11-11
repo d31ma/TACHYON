@@ -5,11 +5,26 @@ final class Behaviors {
     static class Failure extends RuntimeException {
         final String code;
         final String path;
+        final int status;
+        final Object body;
         Failure(String code) { this(code, null); }
         Failure(String code, String path) { this(code, path, code); }
-        Failure(String code, String path, String message) { super(message); this.code = code; this.path = path; }
+        Failure(String code, String path, String message) { this(code, path, message, 0, null); }
+        Failure(String code, String path, String message, int status, Object body) { super(message); this.code = code; this.path = path; this.status = status; this.body = body; }
     }
     static Failure fail(String code) { return new Failure(code); }
+    static final String HTTP_STATUS = "HTTP_STATUS";
+    static int errorStatus(Throwable error) {
+        if (!(error instanceof Failure failure) || !HTTP_STATUS.equals(failure.code)) return 0;
+        return failure.status;
+    }
+    static <T> java.util.Optional<T> errorBody(Throwable error, java.util.function.Function<Object, T> read) {
+        if (!(error instanceof Failure failure) || failure.body == null) return java.util.Optional.empty();
+        return readBody(failure.body, read);
+    }
+    private static <T> java.util.Optional<T> readBody(Object body, java.util.function.Function<Object, T> read) {
+        try { return java.util.Optional.ofNullable(read.apply(body)); } catch (RuntimeException unreadable) { return java.util.Optional.empty(); }
+    }
     static final String WRONG_SHAPE = "The server answer does not have the shape of the model (HTTP_RESPONSE).";
     static <T> T answer(Object value, String shape, java.util.function.Function<Object, T> read) {
         boolean object = value instanceof java.util.Map<?, ?>;
@@ -627,7 +642,20 @@ final class Behaviors {
         }
         static Object adapted(HttpAdapter adapter, java.util.Map<String, Object> request, Execution execution) {
             try { Object value = adapter.exchange(request, execution); execution.check(); return copy(value, 1048576); }
-            catch (Failure error) { throw error; } catch (RuntimeException error) { throw fail("http-adapter"); }
+            catch (Failure error) { throw adapterFailure(error, execution); } catch (RuntimeException error) { throw fail("http-adapter"); }
+        }
+        static Failure adapterFailure(Failure error, Execution execution) {
+            if (!HTTP_STATUS.equals(error.code)) return error;
+            execution.check();
+            return statusFailure(error);
+        }
+        static Failure statusFailure(Failure error) {
+            try { return new Failure(HTTP_STATUS, null, "The HTTP request failed.", errorStatusInRange(error.status), copy(error.body, 1048576)); }
+            catch (RuntimeException invalid) { return fail("http-adapter"); }
+        }
+        static int errorStatusInRange(int status) {
+            if (status < 400 || status > 599) throw fail("http-adapter");
+            return status;
         }
     }
     static final class RestClient {

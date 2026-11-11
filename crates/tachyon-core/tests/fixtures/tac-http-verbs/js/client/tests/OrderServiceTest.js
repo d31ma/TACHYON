@@ -32,4 +32,14 @@ export default class OrderServiceTest {
     Assert.equals('duplicate', sent.header);
     Assert.equals('none', sent.item);
   }
+
+  async testErrorBodyIsReadIntoAModel() {
+    const error = await Assert.throws(() => this.service().claim());
+    /** @type {ClaimConflict | null} */
+    const conflict = Behaviors.errorBody(error);
+    Assert.equals('HTTP_STATUS', error.code);
+    Assert.equals('The HTTP request failed.', error.message);
+    Assert.equals(409, Behaviors.errorStatus(error));
+    Assert.equals({ reason: 'taken', holder: 'south' }, conflict);
+  }
 }

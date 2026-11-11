@@ -6,6 +6,11 @@ public sealed class OrdersTestSetup
         public System.Threading.Tasks.Task<BehaviorJSON> exchange(BehaviorJSON request, BehaviorExecution execution)
         {
             execution.Check();
+            if (request.Get("path").Text == "/api/claims/a-7")
+            {
+                var conflict = BehaviorJSON.Parse("{\"reason\":\"taken\",\"holder\":\"south\"}");
+                throw new BehaviorError("HTTP_STATUS", 409, conflict, "private fake text");
+            }
             var headers = request.Get("headers");
             var header = headers.Has("X-Tenant") ? headers.Get("X-Tenant") : headers.Get("X-Reason");
             var item = request.Has("body") ? request.Get("body").Get("item") : BehaviorJSON.From("none");

@@ -14,4 +14,7 @@ export default class OrdersClient {
 
   @DeleteRequest("/orders/{id}")
   async remove(@PathVariable("id") id: string, @RequestHeader("X-Reason") reason: string): Promise<SentRequest> {}
+
+  @PutRequest("/claims/{id}")
+  async claim(@PathVariable("id") id: string, @RequestBody claim: Order): Promise<SentRequest> {}
 }

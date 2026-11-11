@@ -92,6 +92,8 @@ mod tests {
         assert!(output.contains("Some item -> writeDetail item"));
         assert!(output.contains("BehaviorJSON.Array(value.items"));
         assert!(!output.contains("JsonSerializer"));
+        assert!(output.contains("errorBodyProduct (error: exn) : Models.Product option"));
+        assert!(output.contains("Some (answerProduct failure.Body)"));
     }
 
     #[test]

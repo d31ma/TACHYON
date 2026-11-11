@@ -2822,16 +2822,16 @@ mod gateway_runtime_tests {
     #[test]
     fn the_gateway_runtime_text_is_unchanged() {
         let csharp = super::gateway_unit_runtime("cs", "").expect("C# runtime");
-        assert_eq!(csharp.len(), 78_414);
+        assert_eq!(csharp.len(), 80_034);
         assert_eq!(
             digest(&csharp),
-            "33902234256805f16b3c6770a1c73662e4d5364fe1432056c9f3abaa134c5384"
+            "831aa1848ef047f06dd919e2af7cf30efb3236df33c2d4ac3b47244e11584b90"
         );
         let rust = super::gateway_unit_runtime("rs", "").expect("Rust runtime");
-        assert_eq!(rust.len(), 92_090);
+        assert_eq!(rust.len(), 93_715);
         assert_eq!(
             digest(&rust),
-            "cc88ab21098dfb5ba96b25693cb88db7224ea540314011c2644cedce3fa57adb"
+            "ad7ed4fb8fe66f0d7982447e3136cc55bb68e853426f8574c99e590e79f3aeb4"
         );
         let go = super::gateway_unit_runtime("go", "").expect("Go runtime");
         assert_eq!(go.len(), 93_116);

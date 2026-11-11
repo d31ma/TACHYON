@@ -10,16 +10,16 @@ struct KotlinYonHttpCheck;
 
 impl KotlinYonHttpCheck {
     const MODEL: &'static str = "data class Greeting(val message: String)\n";
-    const CLIENT: &'static str = "import models.Greeting\n\n@HTTPClient(\"/api\")\ninterface GreetingClient {\n    @GetRequest(\"/greeting\")\n    suspend fun read(@RequestParam(\"name\") name: String, @RequestHeader(\"authorization\") token: String): Greeting\n\n    @PostRequest(\"/greeting\")\n    suspend fun save(@RequestBody name: String): Greeting\n\n    @GetRequest(\"/missing\")\n    suspend fun missing(): Greeting\n\n    @GetRequest(\"/moved\")\n    suspend fun moved(): Greeting\n\n    @GetRequest(\"/huge\")\n    suspend fun huge(): Greeting\n}\n";
+    const CLIENT: &'static str = "import models.Greeting\n\n@HTTPClient(\"/api\")\ninterface GreetingClient {\n    @GetRequest(\"/greeting\")\n    suspend fun read(@RequestParam(\"name\") name: String, @RequestHeader(\"authorization\") token: String): Greeting\n\n    @PostRequest(\"/greeting\")\n    suspend fun save(@RequestBody name: String): Greeting\n\n    @GetRequest(\"/missing\")\n    suspend fun missing(): Greeting\n\n    @GetRequest(\"/moved\")\n    suspend fun moved(): Greeting\n\n    @GetRequest(\"/huge\")\n    suspend fun huge(): Greeting\n\n    @GetRequest(\"/conflict\")\n    suspend fun conflict(): Greeting\n}\n";
     const SETUP: &'static str = "@Setup\nclass GreetingSetup {\n    companion object {\n        fun configure(execution: Behaviors.Execution): Behaviors.Configuration = Behaviors.Configuration()\n    }\n}\n";
-    const SERVICE: &'static str = "@Service\nclass ReachService {\n    @Needs\n    private val greetingClient: GreetingClient\n    var message: String = \"\"\n\n    suspend fun ask() { message = greetingClient.read(\"Ada Lovelace\", \"Bearer token-1\").message }\n\n    suspend fun save() { message = greetingClient.save(\"from Kotlin\").message }\n\n    suspend fun missing() { message = failure { greetingClient.missing() } }\n\n    suspend fun moved() { message = failure { greetingClient.moved() } }\n\n    suspend fun huge() { message = failure { greetingClient.huge() } }\n\n    private suspend fun failure(call: suspend () -> models.Greeting): String =\n        try { call().message } catch (error: Behaviors.Failure) { error.code }\n}\n";
+    const SERVICE: &'static str = "@Service\nclass ReachService {\n    @Needs\n    private val greetingClient: GreetingClient\n    var message: String = \"\"\n\n    suspend fun ask() { message = greetingClient.read(\"Ada Lovelace\", \"Bearer token-1\").message }\n\n    suspend fun save() { message = greetingClient.save(\"from Kotlin\").message }\n\n    suspend fun missing() { message = failure { greetingClient.missing() } }\n\n    suspend fun moved() { message = failure { greetingClient.moved() } }\n\n    suspend fun huge() { message = failure { greetingClient.huge() } }\n\n    suspend fun conflict() { message = try { greetingClient.conflict().message } catch (error: Behaviors.Failure) { error.code + \" \" + error.status + \" \" + Behaviors.errorBody<models.Greeting>(error)?.message } }\n\n    private suspend fun failure(call: suspend () -> models.Greeting): String =\n        try { call().message } catch (error: Behaviors.Failure) { error.code }\n}\n";
     const CALLER: &'static str = r#"
 fun ask(op: String, extra: String = ""): String =
     tacInvokeOwned("{\"route\":\"/\",\"service\":\"reach\",\"owner\":\"00000000-0000-4000-8000-000000000001\",\"op\":\"$op\"$extra}")
 
 fun main() {
     check(!ask("init").contains("error")) { "init failed" }
-    for (name in listOf("ask", "save", "missing", "moved", "huge")) {
+    for (name in listOf("ask", "save", "missing", "moved", "conflict", "huge")) {
         val answer = ask("call", ",\"name\":\"$name\",\"args\":[]")
         val message = ask("get", ",\"name\":\"message\"")
         println("$name $answer $message")
@@ -64,7 +64,7 @@ fun main() {
     }
 
     fn serve(listener: &TcpListener, seen: &std::sync::mpsc::Sender<String>) {
-        for stream in listener.incoming().take(5) {
+        for stream in listener.incoming().take(6) {
             Self::answer(stream.expect("connection"), seen);
         }
     }
@@ -109,6 +109,7 @@ fun main() {
                 String::from("{\"message\":\"Saved from Kotlin\"}"),
             ),
             ["GET", "/api/moved"] => ("302 Found", String::new()),
+            ["GET", "/api/conflict"] => ("409 Conflict", String::from("{\"message\":\"taken\"}")),
             ["GET", "/api/huge"] => (
                 "200 OK",
                 format!("{{\"message\":\"{}\"}}", "a".repeat(Self::HUGE_BYTES)),
@@ -149,6 +150,10 @@ fn a_linked_kotlin_http_client_reaches_yon_through_the_native_transport() {
     );
     assert!(
         line("save").ends_with("{\"value\":\"Saved from Kotlin\"}"),
+        "{output}"
+    );
+    assert!(
+        line("conflict").ends_with("{\"value\":\"HTTP_STATUS 409 taken\"}"),
         "{output}"
     );
     for (name, code) in [

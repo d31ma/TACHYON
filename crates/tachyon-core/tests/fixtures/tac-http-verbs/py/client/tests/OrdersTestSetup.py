@@ -6,6 +6,8 @@ class OrdersTestSetup:
 
     @staticmethod
     async def exchange(request: dict[str, object], execution: object) -> dict[str, str]:
+        if request['path'] == '/api/claims/a-7':
+            raise BehaviorError('HTTP_STATUS', 'private fake text', None, 409, {'reason': 'taken', 'holder': 'south'})
         body = request.get('body')
         return {
             'method': request['method'],

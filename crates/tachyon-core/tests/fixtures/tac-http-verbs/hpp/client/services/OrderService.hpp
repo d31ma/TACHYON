@@ -16,4 +16,8 @@ public:
     Task<SentRequest> remove() {
         co_return co_await ordersClient.remove("a-7", "duplicate");
     }
+
+    Task<SentRequest> claim() {
+        co_return co_await ordersClient.claim("a-7", Order{"saw"});
+    }
 };

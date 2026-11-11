@@ -82,3 +82,54 @@ call is capped at 64 KiB. File uploads belong to the file capability.
 - `scripts/browser-http-runtime-test.mjs` now runs in nextest
   (`browser_http_runtime_tests`), and the Go runtime contract and the Go
   `tac-http-verbs` unit test the new paths.
+
+## Amendment (2026-11-11): every Tac service language
+
+The user asked for the feature in every Tac service language, not only Go.
+Point 4 above ("Other languages are unchanged") is replaced by this section.
+
+Each language now keeps the `status` and the `body` of a failed call, reads
+the body into a typed model with the same reader it uses for a success
+answer, and lets a Setup or TestSetup adapter answer with `HTTP_STATUS`, a
+status and a body. The rules of points 1 and 3 apply in every language.
+
+| Language | Status number | Body as a typed model | A fake answers with |
+| --- | --- | --- | --- |
+| JavaScript | `Behaviors.errorStatus(error)` | `Behaviors.errorBody(error)`, a copy or `null` | `throw Behaviors.httpError(409, body)` |
+| TypeScript | `Behaviors.errorStatus(error)` | `Behaviors.errorBody<Problem>(error)`, a copy or `null` | `throw Behaviors.httpError(409, body)` |
+| Go | `BehaviorErrorStatus(err)` | `BehaviorErrorBody(err, &model)`, `bool` | `&BehaviorError{Code: "HTTP_STATUS", Status: 409, Body: body}` |
+| Rust | `error.status` | `error.body_as::<Problem>()`, `Option<Problem>` | `Err(BehaviorError::http_status(409, Some(body)))` |
+| C# | `error.Status` | `error.TryReadBody(out Problem model)`, `bool` | `throw new BehaviorError("HTTP_STATUS", 409, body, message)` |
+| F# | `error.Status` | `TacMappingModels.errorBodyProblem error`, `Problem option` | `raise (BehaviorError("HTTP_STATUS", 409, body, message))` |
+| Swift | `Behaviors.errorStatus(error)` | `Behaviors.errorBody(error, as: Problem.self)`, `Problem?` | `throw BehaviorError("HTTP_STATUS", status: 409, body: body)` |
+| Kotlin | `error.status` | `Behaviors.errorBody<Problem>(error)`, `Problem?` | `throw Behaviors.Failure("HTTP_STATUS", null, message, 409, body)` |
+| Java | `Behaviors.errorStatus(error)` | `Behaviors.errorBody(error, TacModels::readProblem)`, `Optional<Problem>` | `throw new Behaviors.Failure("HTTP_STATUS", null, message, 409, body)` |
+| Dart | `BehaviorErrors.status(error)` | `BehaviorErrors.body(error, tachyonReadModelProblem)`, `Problem?` | `throw BehaviorError.http(409, body)` |
+| Ruby | `BehaviorError.status_of(error)` | `BehaviorError.body_of(error, Problem)`, the model or `nil` | `raise BehaviorError.new("HTTP_STATUS", message, nil, 409, body)` |
+| Python | `BehaviorError.status_of(error)` | `BehaviorError.body_of(error, Problem)`, the model or `None` | `raise BehaviorError('HTTP_STATUS', message, None, 409, body)` |
+| Lua | `BehaviorError.status_of(failure)` | `BehaviorError.body_of(failure, Problem)`, the model or `nil` | `BehaviorError.raise("HTTP_STATUS", message, nil, 409, body)` |
+| C++ | `error.statusCode()` | `error.readBodyFromJson<Problem>()`, `std::optional<Problem>` | `throw HttpRequestException(409, body)` |
+
+- The body comes only from a JSON error answer (`application/json` or
+  `application/problem+json`) that fits the answer limit and passes the value
+  check. Otherwise the error has the status only.
+- A fake's status must be 400 to 599 and its body must pass the same value
+  check. Otherwise the call gets the language's usual adapter failure code
+  (`adapter`, `ADAPTER_FAILED` or `http-adapter`).
+- The fake's own message never reaches the caller: the caller gets
+  "The HTTP request failed.".
+- Native Rust and native C# services keep the status only. Their native HTTP
+  layers carry no media type, so the JSON check cannot run there.
+- JavaScript, TypeScript and Lua do not check the body's field types, as with
+  a success answer.
+- JavaScript and TypeScript services send their requests through
+  `client_runtime.js`, not `tac-http.js`, so `client_runtime.js` applies the
+  same rule as point 1.
+- Swift on Apple native targets and Kotlin on Android read the body in the
+  native transport too, for the same two media types.
+- In JavaScript, TypeScript and Go, `Retry` still retries an `HTTP_STATUS`
+  error from an adapter, as it did when that error was an adapter error.
+
+Tests: each language's `tac-http-verbs` unit has a `testErrorBody` case (F#
+in `tac_fsharp_http.rs`, Java in `java_http_error_tests.rs`), and the
+runtime tests of each language check the adapter rule.

@@ -9,7 +9,7 @@ public:
     static Task<HttpResponseMessage> send(const BehaviorContext* behaviors, std::string adapter, HttpRequestMessage request, TacCall call) {
         const BehaviorHTTPAdapter* adapted = TacAdapters::http(behaviors, adapter);
         if (adapted != nullptr) {
-            co_return TacAdapters::answered((*adapted)(request));
+            co_return TacAdapters::exchanged(*adapted, request);
         }
         std::string answer = co_await TacHttpTicket(TacBrowserRequest::text(request, call));
         co_return TacBrowserRequest::response(answer);

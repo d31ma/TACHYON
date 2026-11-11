@@ -11,4 +11,7 @@ protocol OrdersClient {
 
     @DeleteRequest("/orders/{id}")
     func remove(@PathVariable("id") id: String, @RequestHeader("X-Reason") reason: String) async throws -> SentRequest
+
+    @PutRequest("/claims/{id}")
+    func claim(@PathVariable("id") id: String, @RequestBody claim: BehaviorJSON) async throws -> SentRequest
 }

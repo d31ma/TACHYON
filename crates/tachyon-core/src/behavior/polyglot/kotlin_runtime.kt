@@ -2,7 +2,9 @@ object Behaviors {
     private const val MODULE = "__MODULE__"
     private const val ENVIRONMENT = "__ENVIRONMENT__"
     private const val WRONG_SHAPE = "The server answer does not have the shape of the model."
-    open class Failure(val code: String, val path: String? = null, message: String = code) : RuntimeException(message)
+    private const val HTTP_STATUS = "HTTP_STATUS"
+    private const val HTTP_FAILED = "The HTTP request failed."
+    open class Failure(val code: String, val path: String? = null, message: String = code, val status: Int = 0, val body: Any? = null) : RuntimeException(message)
     private fun fail(code: String): Nothing = throw Failure(code)
     class Signal internal constructor(private val parent: Signal? = null, private val owner: Context? = null) {
         @Volatile private var cancelled = false
@@ -513,7 +515,14 @@ object Behaviors {
         }
         private fun adapted(adapter: HttpAdapter, request: Map<String, Any?>, execution: Execution): Any? =
             try { val value = adapter.exchange(request, execution); execution.check(); copy(value, 1048576) }
-            catch (error: Failure) { throw error } catch (_: RuntimeException) { fail("http-adapter") }
+            catch (error: Failure) { throw statusPassed(error, execution) } catch (_: RuntimeException) { fail("http-adapter") }
+        private fun statusPassed(error: Failure, execution: Execution): Failure {
+            if (error.code != HTTP_STATUS) return error
+            execution.check()
+            return Failure(HTTP_STATUS, null, HTTP_FAILED, adapterStatus(error.status), adapterBody(error.body))
+        }
+        private fun adapterStatus(status: Int): Int = if (status in 400..599) status else fail("http-adapter")
+        private fun adapterBody(body: Any?): Any? = try { copy(body, 1048576) } catch (_: RuntimeException) { fail("http-adapter") }
         private fun exchangeDescriptor(exchange: Exchange, arguments: Array<Any?>): Any? =
             if (exchange.declared()) exchangeRequest(exchange, arguments) else emptyMap<String, Any?>()
         private suspend fun await(descriptor: Any?, metadata: Exchange, execution: Execution, publicRead: Boolean, revalidate: Boolean): Any? {
@@ -667,6 +676,10 @@ object Behaviors {
         }
         if (!fits) throw Failure("HTTP_RESPONSE", null, WRONG_SHAPE)
         return try { read(value) } catch (_: RuntimeException) { throw Failure("HTTP_RESPONSE", null, WRONG_SHAPE) }
+    }
+    fun <T> errorBody(error: Throwable?, read: (Any?) -> T): T? {
+        val body = (error as? Failure)?.body ?: return null
+        return try { read(body) } catch (_: RuntimeException) { null }
     }
     private val gatewayFailures = setOf("invalid", "timeout", "capacity", "adapter")
     fun gatewayResult(answer: Map<*, *>): Any? {

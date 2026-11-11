@@ -114,7 +114,7 @@ impl<'a> BehaviorExchange<'a> {
             |adapter| -> BehaviorPendingAnswer<'b> {
                 let answer = self
                     .operation
-                    .adapter(|| adapter.exchange(request, &self.operation.execution));
+                    .http_exchange(|| adapter.exchange(request, &self.operation.execution));
                 Box::pin(core::future::ready(answer))
             },
         )

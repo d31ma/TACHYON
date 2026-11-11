@@ -79,7 +79,52 @@ public:
         return response;
     }
 
+    static http::HttpResponseMessage exchanged(const BehaviorHTTPAdapter& adapter, const http::HttpRequestMessage& request) {
+        try {
+            return answered(adapter(request));
+        } catch (const http::HttpRequestException& failure) {
+            rethrowStatus(failure);
+            throw;
+        }
+    }
+
 private:
+    static constexpr int LOWEST_ERROR_STATUS = 400;
+    static constexpr int HIGHEST_ERROR_STATUS = 599;
+    static constexpr int MOST_BODY_DEPTH = 32;
+    static constexpr const char* ADAPTER = "adapter";
+
+    static void rethrowStatus(const http::HttpRequestException& failure) {
+        if (failure.code() != http::HttpRequestException::HTTP_STATUS) {
+            return;
+        }
+        throw statusFailure(failure);
+    }
+
+    static http::HttpRequestException statusFailure(const http::HttpRequestException& failure) {
+        bool failed = failure.statusCode() >= LOWEST_ERROR_STATUS && failure.statusCode() <= HIGHEST_ERROR_STATUS;
+        return failed ? checkedFailure(failure) : adapterFailure();
+    }
+
+    static http::HttpRequestException checkedFailure(const http::HttpRequestException& failure) {
+        try {
+            return http::HttpRequestException(failure.statusCode(), checkedBody(failure.content()));
+        } catch (const json::JsonException&) {
+            return adapterFailure();
+        }
+    }
+
+    static std::optional<json::JsonNode> checkedBody(const std::optional<json::JsonNode>& body) {
+        if (!body.has_value()) {
+            return std::nullopt;
+        }
+        return json::JsonReader::read(body->toJsonString(), json::JsonReader::MAX_BYTES, MOST_BODY_DEPTH);
+    }
+
+    static http::HttpRequestException adapterFailure() {
+        return http::HttpRequestException(ADAPTER, http::HttpRequestException::FAILED);
+    }
+
     static json::JsonNode read(const BehaviorCacheAdapter& adapter, const std::string& key, const BehaviorExecution& execution) {
         std::optional<BehaviorCacheEntry> entry = adapter.get(key, execution);
         json::JsonObject answer;

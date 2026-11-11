@@ -1471,6 +1471,43 @@ nor configuration does any of these: grant native capabilities, read server
 secrets, widen Yon's environment allowlist, or bypass the deployment's egress
 policy.
 
+#### Error status and body
+
+A call that gets an error status fails with the code `HTTP_STATUS`. Every Tac
+service language reads its status number and its JSON body, and a Setup or
+TestSetup adapter (a test fake) can answer with a status and a body
+([ADR 0117](adr/0117-go-http-clients-read-json-error-bodies.md)).
+
+| Language | Status number | Body as a typed model | A fake answers with |
+| --- | --- | --- | --- |
+| JavaScript | `Behaviors.errorStatus(error)` | `Behaviors.errorBody(error)`, a copy or `null` | `throw Behaviors.httpError(409, body)` |
+| TypeScript | `Behaviors.errorStatus(error)` | `Behaviors.errorBody<Problem>(error)`, a copy or `null` | `throw Behaviors.httpError(409, body)` |
+| Go | `BehaviorErrorStatus(err)` | `BehaviorErrorBody(err, &model)`, `bool` | `&BehaviorError{Code: "HTTP_STATUS", Status: 409, Body: body}` |
+| Rust | `error.status` | `error.body_as::<Problem>()`, `Option<Problem>` | `Err(BehaviorError::http_status(409, Some(body)))` |
+| C# | `error.Status` | `error.TryReadBody(out Problem model)`, `bool` | `throw new BehaviorError("HTTP_STATUS", 409, body, message)` |
+| F# | `error.Status` | `TacMappingModels.errorBodyProblem error`, `Problem option` | `raise (BehaviorError("HTTP_STATUS", 409, body, message))` |
+| Swift | `Behaviors.errorStatus(error)` | `Behaviors.errorBody(error, as: Problem.self)`, `Problem?` | `throw BehaviorError("HTTP_STATUS", status: 409, body: body)` |
+| Kotlin | `error.status` | `Behaviors.errorBody<Problem>(error)`, `Problem?` | `throw Behaviors.Failure("HTTP_STATUS", null, message, 409, body)` |
+| Java | `Behaviors.errorStatus(error)` | `Behaviors.errorBody(error, TacModels::readProblem)`, `Optional<Problem>` | `throw new Behaviors.Failure("HTTP_STATUS", null, message, 409, body)` |
+| Dart | `BehaviorErrors.status(error)` | `BehaviorErrors.body(error, tachyonReadModelProblem)`, `Problem?` | `throw BehaviorError.http(409, body)` |
+| Ruby | `BehaviorError.status_of(error)` | `BehaviorError.body_of(error, Problem)`, the model or `nil` | `raise BehaviorError.new("HTTP_STATUS", message, nil, 409, body)` |
+| Python | `BehaviorError.status_of(error)` | `BehaviorError.body_of(error, Problem)`, the model or `None` | `raise BehaviorError('HTTP_STATUS', message, None, 409, body)` |
+| Lua | `BehaviorError.status_of(failure)` | `BehaviorError.body_of(failure, Problem)`, the model or `nil` | `BehaviorError.raise("HTTP_STATUS", message, nil, 409, body)` |
+| C++ | `error.statusCode()` | `error.readBodyFromJson<Problem>()`, `std::optional<Problem>` | `throw HttpRequestException(409, body)` |
+
+- The body comes only from a JSON error answer (`application/json` or
+  `application/problem+json`) that fits the answer limit and passes the value
+  check. Otherwise the error has the status only.
+- A fake's status must be 400 to 599 and its body must pass the same value
+  check. Otherwise the call gets the language's usual adapter failure code
+  (`adapter`, `ADAPTER_FAILED` or `http-adapter`).
+- The fake's own message never reaches the caller: the caller gets
+  "The HTTP request failed.".
+- Native Rust and native C# services keep the status only. Their native HTTP
+  layers carry no media type, so the JSON check cannot run there.
+- JavaScript, TypeScript and Lua do not check the body's field types, as with
+  a success answer.
+
 ### Gateways
 
 A Gateway method is answered by code in another language. It works only in

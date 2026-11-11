@@ -8,4 +8,7 @@ abstract interface class OrdersClient {
 
   @DeleteRequest("/orders/{id}")
   Future<SentRequest> remove(@PathVariable("id") String id, @RequestHeader("X-Reason") String reason);
+
+  @PutRequest("/claims/{id}")
+  Future<SentRequest> claim(@PathVariable("id") String id, @RequestBody Map<String, Object?> claim);
 }
