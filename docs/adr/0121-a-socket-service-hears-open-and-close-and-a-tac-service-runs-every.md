@@ -51,12 +51,11 @@ need a page call. Applications refreshed tokens before each call and on
 
 ### `@Every`
 
-- `@Every("60s")` goes on a method of a JavaScript, TypeScript or Go Tac
-  service. The duration is a whole number followed by `ms`, `s`, `m` or `h`,
+- `@Every("60s")` goes on a method of a Tac service, in every Tac service
+  language. The duration is a whole number followed by `ms`, `s`, `m` or `h`,
   from 1 second to 24 hours. The method takes no parameters. A type has at most
-  8 `@Every` methods. The rule table refuses `@Every` in the other Tac
-  languages and in Yon (use `@Schedule`), and with `OnStart`, `OnStop` or
-  `OnEvent` on the same method.
+  8 `@Every` methods. The rule table refuses `@Every` in Yon (use
+  `@Schedule`), and with `OnStart`, `OnStop` or `OnEvent` on the same method.
 - An `@Every` method stays an ordinary method of the service: the build
   removes only the marker. The event plan lists the timers as
   `timers: [{ method, every }]`; for a WebAssembly service the plan names the
@@ -73,6 +72,31 @@ need a page call. Applications refreshed tokens before each call and on
 - Disposing the owner (the component unmounts or the page goes away) clears
   the timer and its visibility listener.
 
+### The contract in each language
+
+| Language | `@Every` | `SocketOpened` and `SocketClosed` |
+| --- | --- | --- |
+| JavaScript, TypeScript | `@Every('60s')` on a method; the bus calls it | `@OnEvent` listener (JSDoc or TypeScript parameter type) |
+| Go | `// @Every("60s")` on an exported method | `// @OnEvent` method with a `SocketOpened` parameter |
+| Rust | `#[Every("60s")]` on a `pub fn` | `#[OnEvent]` method |
+| C# | `[Every("60s")]` on a public method | `[OnEvent]` method |
+| F# | `[<Every("60s")>]` on a member | `[<OnEvent>]` member |
+| Swift | `@Every("60s")` | `@OnEvent` method |
+| Kotlin | `@Every("60s")` | `@OnEvent` method |
+| Java | `@Every("60s")` | `@OnEvent` method |
+| Dart | `@Every('60s')` on a public method | `@OnEvent` method |
+| Ruby | `#[Every("60s")]` | `#[OnEvent]` method with a YARD `@param` type |
+| Lua | `-- @Every("60s")` | `-- @OnEvent` function with a `---@param` type |
+| Python | `@every("60s")` | Not yet: a Python service cannot name the page's built-in event models until ADR 0122 gives Python Tac services the browser APIs |
+| C++ | `[[Every("60s")]]` on a public method | `[[OnEvent]]` method |
+
+The WebAssembly languages (Go, Rust, C#, F#, Swift, Kotlin, Java, C++,
+Ruby, Lua and Python) and Dart need no runtime code for `@Every`: the build
+reads the timers from the service source (`ServiceTimers`; F# and Lua through
+their analysis views, C++ through its own parser) into the plan, and the
+shared shell calls the exposed method. Each language's own build removes the
+marker, as it removes the other rule-table markers.
+
 ### Targets
 
 Both work wherever the page's event bus runs: the web and the macOS, Windows,
@@ -81,7 +105,8 @@ The socket events need `WebSocket`, as the socket client does; where the page
 has none the client already reports a failure and no event arrives. Where the
 page has no `document`, the page counts as shown. A natively linked service
 (ADR 0108) cannot name the page's built-in event models, as before, so it does
-not hear these events, and the rule table refuses `@Every` in its languages.
+not hear these events. Its `@Every` methods run only when the service runs in
+the page as WebAssembly.
 
 ## Consequences
 
@@ -92,8 +117,11 @@ not hear these events, and the rule table refuses `@Every` in its languages.
   method.
 - `SocketOpened` and `SocketClosed` are reserved model names in `client/`,
   like the other built-in event models.
-- Tested by `events::event_timer_tests`, the rule-table
-  test `every_runs_in_javascript_typescript_and_go_tac_services_only` and
-  `tac_web::go_socket_hooks_tests`, which builds a Go service and drives the
-  real event bus with a fake `WebSocket`, fake intervals and a fake page
-  visibility.
+- Tested by `events::event_timer_tests`, the rule-table test
+  `every_runs_in_every_tac_language_and_nowhere_in_yon`,
+  `tac_web::go_socket_hooks_tests` (Go, with the authentication order), and
+  one test per language that builds a small service and drives the real
+  event bus with a fake `WebSocket`, fake intervals and a fake page
+  visibility (`tac_web::socket_hooks_tests` for JavaScript, Rust, C#, F#,
+  Swift, Kotlin, Java and C++; `tac_dart::dart_socket_hooks_tests`;
+  `tac_ruby` and `tac_lua` `socket_hooks_tests`; `tac_python::every_tests`).

@@ -28,15 +28,23 @@ impl EventTimer {
         arguments: &str,
         at: usize,
     ) -> Result<(), Failure> {
-        Self::check_parameters(path, method, at)?;
-        Self::check_room(path, event_type, at)?;
-        let every =
-            Self::duration(arguments).ok_or_else(|| super::failure(path, at, Self::FORM))?;
-        event_type.timers.push(Self {
-            method: method.name.clone(),
-            every,
-        });
+        Self::check_room(path, event_type.timers.len(), at)?;
+        let timer = Self::read(path, &method.name, method.parameters.len(), arguments, at)?;
+        event_type.timers.push(timer);
         Ok(())
+    }
+
+    pub(crate) fn checked(
+        path: &Path,
+        method: &str,
+        parameters: usize,
+        arguments: &str,
+    ) -> Result<Self, Failure> {
+        Self::read(path, method, parameters, arguments, 0)
+    }
+
+    pub(crate) fn check_count(path: &Path, count: usize) -> Result<(), Failure> {
+        Self::check_room(path, count.saturating_sub(1), 0)
     }
 
     pub(crate) fn duration(arguments: &str) -> Option<u64> {
@@ -46,6 +54,22 @@ impl EventTimer {
         let count = count.parse::<u64>().ok()?;
         let every = count.checked_mul(Self::scale(unit)?)?;
         Self::within_limits(every)
+    }
+
+    fn read(
+        path: &Path,
+        method: &str,
+        parameters: usize,
+        arguments: &str,
+        at: usize,
+    ) -> Result<Self, Failure> {
+        Self::check_parameters(path, parameters, at)?;
+        let every =
+            Self::duration(arguments).ok_or_else(|| super::failure(path, at, Self::FORM))?;
+        Ok(Self {
+            method: method.to_owned(),
+            every,
+        })
     }
 
     fn unquoted(text: &str) -> Option<&str> {
@@ -67,15 +91,15 @@ impl EventTimer {
             .then_some(every)
     }
 
-    fn check_parameters(path: &Path, method: &EventMethod, at: usize) -> Result<(), Failure> {
-        if method.parameters.is_empty() {
+    fn check_parameters(path: &Path, parameters: usize, at: usize) -> Result<(), Failure> {
+        if parameters == 0 {
             return Ok(());
         }
         Err(super::failure(path, at, Self::NO_PARAMETERS))
     }
 
-    fn check_room(path: &Path, event_type: &EventType, at: usize) -> Result<(), Failure> {
-        if event_type.timers.len() < Self::MOST_TIMERS {
+    fn check_room(path: &Path, held: usize, at: usize) -> Result<(), Failure> {
+        if held < Self::MOST_TIMERS {
             return Ok(());
         }
         Err(super::failure(path, at, Self::TOO_MANY))

@@ -4,6 +4,7 @@ use super::{LuaRuntimeBuild, LuaWebServices};
 use crate::one_test_per_case_tests::one_test_per_case;
 use std::path::{Path, PathBuf};
 
+mod socket_hooks_tests;
 mod stream_tests;
 
 struct Page;

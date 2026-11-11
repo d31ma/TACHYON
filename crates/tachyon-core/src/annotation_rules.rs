@@ -312,7 +312,6 @@ impl AnnotationRules {
     const TAC_VALUE_SOURCE: &'static [&'static str] = &[
         "js", "ts", "rs", "kt", "cs", "go", "rb", "dart", "swift", "lua", "hpp", "py", "java", "fs",
     ];
-    const TAC_TIMER: &'static [&'static str] = &["js", "ts", "go"];
     const NOWHERE: &'static [&'static str] = &[];
     const TYPE: &'static [Target] = &[Target::Type];
     const METHOD: &'static [Target] = &[Target::Method];
@@ -1037,9 +1036,9 @@ impl AnnotationRules {
         )
         .needs_arguments()
         .instance()
-        .reach(Self::TAC_TIMER, Self::NOWHERE)
+        .reach(Self::TAC, Self::NOWHERE)
         .clashes(Self::LIFECYCLE)
-        .advice("@Every runs in JavaScript, TypeScript and Go Tac services. In another Tac language, listen for VisibilityChanged; on the server, use @Schedule"),
+        .advice("@Every runs in the page, in a Tac service. On the server, use @Schedule on a Yon worker"),
     ];
 
     pub(crate) fn rules() -> impl Iterator<Item = &'static Rule> {

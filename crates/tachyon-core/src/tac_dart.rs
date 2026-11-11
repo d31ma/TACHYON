@@ -27,6 +27,8 @@ mod dart_model_shape;
 mod dart_named_stop_tests;
 mod dart_page;
 #[cfg(test)]
+mod dart_socket_hooks_tests;
+#[cfg(test)]
 mod dart_stream_tests;
 mod dart_top_level;
 mod prepared_service;
@@ -560,9 +562,9 @@ Future<void> Function(Object?) tachyonSocketSender(Map<String, Object> graph, St
                 named.push(method);
             }
         }
-        if let Some(listeners) = plan["listeners"].as_array() {
-            for listener in listeners {
-                if let Some(method) = listener["method"].as_str() {
+        for key in ["listeners", "timers"] {
+            for entry in plan[key].as_array().into_iter().flatten() {
+                if let Some(method) = entry["method"].as_str() {
                     named.push(method);
                 }
             }

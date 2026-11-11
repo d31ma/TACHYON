@@ -4,7 +4,7 @@ use super::{BuildJobs, WebLanguage, build_all};
 use crate::node_driver::NodeDriver;
 use std::path::{Path, PathBuf};
 
-struct CppStreams;
+pub(super) struct CppStreams;
 
 impl CppStreams {
     const FILES: [(&str, &str); 4] = [
@@ -71,7 +71,7 @@ impl CppStreams {
          console.log(JSON.stringify(report))\n\
          process.exit(0)\n";
 
-    fn tools_available() -> bool {
+    pub(super) fn tools_available() -> bool {
         let found = ["em++", "node"]
             .iter()
             .all(|program| crate::program_probe::ProgramProbe::answers(program, "--version"));

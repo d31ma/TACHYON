@@ -286,6 +286,7 @@ mod tests {
     mod named_stop_tests;
     mod needed_service_tests;
     mod page_program_tests;
+    mod socket_hooks_tests;
     mod stored_state_tests;
     mod topic_background_tests;
 

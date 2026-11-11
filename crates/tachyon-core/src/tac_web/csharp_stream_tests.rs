@@ -81,7 +81,7 @@ impl CsharpStreams {
          console.log(JSON.stringify(report))\n\
          process.exit(0)\n";
 
-    fn tools_available() -> bool {
+    pub(super) fn tools_available() -> bool {
         let node = NodeDriver::available();
         let workload = Command::new("dotnet")
             .args(["workload", "list"])

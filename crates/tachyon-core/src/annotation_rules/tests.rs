@@ -1353,17 +1353,14 @@ fn fsharp_tac_accepts_named() {
 }
 
 #[test]
-fn every_runs_in_javascript_typescript_and_go_tac_services_only() {
-    for language in ["js", "ts", "go"] {
+fn every_runs_in_every_tac_language_and_nowhere_in_yon() {
+    for language in [
+        "js", "ts", "go", "rs", "cs", "fs", "swift", "kt", "java", "dart", "rb", "lua", "py", "hpp",
+    ] {
         assert!(
             AnnotationRules::checked_refusal("Every", language, Realm::Tac).is_none(),
             "{language}"
         );
-    }
-    for language in ["rs", "kt", "cs", "swift", "dart"] {
-        let refusal = AnnotationRules::checked_refusal("Every", language, Realm::Tac)
-            .unwrap_or_else(|| panic!("{language} must refuse @Every"));
-        assert!(refusal.contains("VisibilityChanged"), "{refusal}");
     }
     let refusal = AnnotationRules::checked_refusal("Every", "ts", Realm::Yon)
         .expect("Yon code uses @Schedule");

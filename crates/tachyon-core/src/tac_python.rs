@@ -28,6 +28,8 @@ mod converter_tests;
 #[cfg(test)]
 mod delegate_base_tests;
 #[cfg(test)]
+mod every_tests;
+#[cfg(test)]
 mod host_tests;
 #[cfg(test)]
 mod lifecycle_tests;
