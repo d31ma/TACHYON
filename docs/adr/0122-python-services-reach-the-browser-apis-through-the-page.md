@@ -11,7 +11,8 @@
 
 Every Tac service language except Python could use Tachyon's browser APIs:
 `Clock`, `SecureRandom`, `Connectivity`, `PageVisibility`, `Preferences`,
-`Clipboard`, `Share`, `Notifications`, `Geolocation` and `WindowControls`. A
+`Clipboard`, `Share`, `Notifications`, `Geolocation`, `WindowControls` and
+`Focus` (ADR 0115). A
 Python service that named one of them stopped the build with `TY1605`.
 
 The page already has one host for these APIs, `web.host(text)`
@@ -96,7 +97,8 @@ language. No Python service is linked into a native host.
 
 - Python joins the per-language tables of the browser API docs, with a tab
   in "Clock and secure random numbers", "Connectivity, visibility and
-  preferences" and "Clipboard, share, notifications and geolocation".
+  preferences", "Clipboard, share, notifications and geolocation", "Focus in
+  dialogs and menus" and the feature "What a page may do to its window".
 - A Python call made after an `await` may run outside the call that the page
   is serving, so its late answer may go to every listener of the model, as
   for Dart.

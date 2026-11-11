@@ -14,7 +14,7 @@ impl PythonBrowserApis {
         include_str!("web_apis/browser_fakes.py"),
         include_str!("web_apis/python_browser_clients.py"),
     ];
-    const CLIENTS: [(&'static str, &'static str); 10] = [
+    const CLIENTS: [(&'static str, &'static str); 11] = [
         ("Clock", include_str!("web_apis/clock.py")),
         ("SecureRandom", include_str!("web_apis/secure_random.py")),
         ("Connectivity", include_str!("web_apis/connectivity.py")),
@@ -31,6 +31,7 @@ impl PythonBrowserApis {
             "WindowControls",
             include_str!("web_apis/window_controls.py"),
         ),
+        ("Focus", include_str!("web_apis/focus.py")),
     ];
     const REGISTER: &'static str = "_TacPythonBrowserClients.register";
 

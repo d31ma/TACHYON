@@ -95,9 +95,8 @@ when the method runs.
        `Focus:release`; a failure is a Lua error.
      - C++: `[[Needs]] Focus& focus;` with `move`, `trap` and `release`; a
        failure throws `std::runtime_error`.
-   - Python: coming with ADR 0122, which gives Python services browser APIs.
-     Until then a Python service that names `Focus` stops the build with
-     `TY1605`, like every other curated browser API.
+   - Python (ADR 0122): a `needs` field `focus: Annotated[Focus, needs]`
+     with `move`, `trap` and `release`; a failure is a `RuntimeError`.
    - A service that is linked into a native app (Rust, C#, Swift or Kotlin
      as a native companion) has no page, so the build refuses `Focus` there
      with `TY1317`, like the other curated types.
@@ -126,4 +125,4 @@ when the method runs.
   call with a `BrowserCallFailed` event, not a build error.
 - Focus calls run after the render, so a service cannot read the result at
   once. A failure arrives as an event.
-- Python services cannot move focus until ADR 0122 lands.
+- Python services move focus through the same page host (ADR 0122).

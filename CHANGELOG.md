@@ -39,8 +39,8 @@ machine contracts have their own, independent major versions.
 
 - Python Tac services can use Tachyon's browser APIs: `Clock`,
   `SecureRandom`, `Connectivity`, `PageVisibility`, `Preferences`,
-  `Clipboard`, `Share`, `Notifications`, `Geolocation` and `WindowControls`.
-  A service declares a client as a `needs` field, such as
+  `Clipboard`, `Share`, `Notifications`, `Geolocation`, `WindowControls`
+  and `Focus`. A service declares a client as a `needs` field, such as
   `clock: Annotated[Clock, needs]`, and calls snake_case methods such as
   `clock.now_ms()`. The calls go through the same page host as every other
   language, with the same `tac.browserApis` grants. A Python service can also

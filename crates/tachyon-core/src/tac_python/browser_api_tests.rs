@@ -25,6 +25,7 @@ impl BrowserApiPage {
          \x20   notifications: Annotated[Notifications, needs]\n\
          \x20   geolocation: Annotated[Geolocation, needs]\n\
          \x20   window_controls: Annotated[WindowControls, needs]\n\
+         \x20   focus: Annotated[Focus, needs]\n\
          \x20   place: str = ''\n\n\
          \x20   def times(self) -> str:\n\
          \x20       return f'{self.clock.now_ms()} {self.clock.monotonic_ms()} {self.clock.time_zone()}'\n\n\
@@ -48,6 +49,10 @@ impl BrowserApiPage {
          \x20       self.window_controls.resize(800, 600)\n\
          \x20       self.window_controls.set_title('Atlas')\n\
          \x20       return self.window_controls.granted('close')\n\n\
+         \x20   def dialog(self) -> None:\n\
+         \x20       self.focus.trap('dialog')\n\
+         \x20       self.focus.move('name')\n\
+         \x20       self.focus.release()\n\n\
          \x20   def refused(self) -> str:\n\
          \x20       try:\n\
          \x20           self.secure_random.bytes(65537)\n\
@@ -73,7 +78,7 @@ impl BrowserApiPage {
          _TacPythonRuntime.connect(_emitted.append, None, web=_web)\n\
          _call = lambda name: _ask('stamp', {'op': 'call', 'name': name, 'args': []})\n\
          _report = {'init': _ask('stamp', {'op': 'init', 'props': {}})}\n\
-         _report.update({name: _call(name) for name in ['times', 'random', 'status', 'consent', 'window', 'refused']})\n\
+         _report.update({name: _call(name) for name in ['times', 'random', 'status', 'consent', 'window', 'dialog', 'refused']})\n\
          _report['heard'] = _ask('stamp', {'op': 'event', 'name': 'found', 'value': {'latitude': 1.5, 'longitude': 2.5, 'accuracy': 3.0, 'timestamp': 4.0}})\n\
          _report['place'] = _ask('stamp', {'op': 'get', 'name': 'place'})\n\
          _report['requests'] = [[item['api'], item['call'], item['args']] for item in _requests]\n";
@@ -195,6 +200,7 @@ fn python_services_reach_every_browser_api_through_the_page() {
     );
     assert_eq!(report["consent"], json!({"value": "granted"}), "{report}");
     assert_eq!(report["window"], json!({"value": true}), "{report}");
+    assert_eq!(report["dialog"], json!({"value": null}), "{report}");
     assert_eq!(
         report["refused"],
         json!({"value": "At most 65536 random bytes."})
@@ -232,6 +238,9 @@ fn python_services_reach_every_browser_api_through_the_page() {
             ["windowControls", "resize", [800, 600]],
             ["windowControls", "setTitle", ["Atlas"]],
             ["windowControls", "granted", ["close"]],
+            ["focus", "trap", ["dialog"]],
+            ["focus", "move", ["name"]],
+            ["focus", "release", []],
             ["secureRandom", "bytes", [65537]],
         ]),
         "{report}"
