@@ -13,7 +13,6 @@ impl CsharpWebApis {
         include_str!("web_apis/Preferences.cs"),
         include_str!("web_apis/Clipboard.cs"),
         include_str!("web_apis/Share.cs"),
-        include_str!("web_apis/Files.cs"),
         include_str!("web_apis/Notifications.cs"),
         include_str!("web_apis/Push.cs"),
         include_str!("web_apis/Geolocation.cs"),
@@ -21,13 +20,15 @@ impl CsharpWebApis {
         include_str!("web_apis/Focus.cs")
     );
 
+    const FILES: &'static str = include_str!("web_apis/Files.cs");
     const LIBRARY_USINGS: &'static str = "using System.Text.Json.Nodes;\n\n";
     const BROWSER_FAKES: &'static str = include_str!("web_apis/BrowserFakes.cs");
 
     pub(super) fn with_events() -> String {
         format!(
-            "{}{}{}",
+            "{}{}{}{}",
             Self::BROWSER,
+            Self::FILES,
             FilePickerSources::csharp_page(),
             WebEventSources::csharp()
         )
@@ -44,7 +45,8 @@ impl CsharpWebApis {
             include_str!("capabilities/WindowControls.cs"),
         );
         format!(
-            "{source}{}{}",
+            "{source}{}{}{}",
+            Self::FILES,
             FilePickerSources::csharp_native(),
             WebEventSources::csharp()
         )
@@ -52,9 +54,10 @@ impl CsharpWebApis {
 
     pub(super) fn library() -> String {
         format!(
-            "{}{}{}",
+            "{}{}{}{}",
             Self::LIBRARY_USINGS,
             Self::BROWSER,
+            Self::FILES,
             FilePickerSources::csharp()
         )
     }

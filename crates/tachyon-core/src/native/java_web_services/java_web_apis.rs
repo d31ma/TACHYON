@@ -30,7 +30,6 @@ impl JavaWebApis {
         ("Preferences", include_str!("../web_apis/Preferences.java")),
         ("Clipboard", include_str!("../web_apis/Clipboard.java")),
         ("Share", include_str!("../web_apis/Share.java")),
-        ("Files", include_str!("../web_apis/Files.java")),
         (
             "Notifications",
             include_str!("../web_apis/Notifications.java"),
@@ -42,6 +41,7 @@ impl JavaWebApis {
             include_str!("../web_apis/WindowControls.java"),
         ),
         ("Focus", include_str!("../web_apis/Focus.java")),
+        ("Files", include_str!("../web_apis/Files.java")),
     ];
     const EVENTS_FILE: &'static str = "tachyon/TacWebEvents.java";
     const EXTENSION: &'static str = "java";
