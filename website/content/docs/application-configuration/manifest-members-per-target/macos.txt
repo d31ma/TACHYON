@@ -129,6 +129,9 @@ tac.browserApis notifications
 tac.browserApis geolocation
   honored: CoreLocation through the host bridge (browserApi.geolocation), asking with the reason from tac.application.permissions; on macOS 26.6 the location prompt was answered Allow and a position reached the page through PositionFound (MA3, scripts/native/geolocation-macos-test.mjs)
 
+tac.browserApis push
+  adapted: The WKWebView of the macOS app has no Web Push, and native push (APNs, FCM, WNS) is not part of Tachyon yet. A native build does not ship the push scripts: Push.Supported answers false, and Subscribe, Subscription and Unsubscribe fail with the message that Web Push needs a web browser (ADR 0118).
+
 tac.browserApis preferenceStrings
   honored: the web view's localStorage, kept on disk
 

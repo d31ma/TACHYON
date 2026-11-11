@@ -129,6 +129,9 @@ tac.browserApis notifications
 tac.browserApis geolocation
   honored: navigator.geolocation
 
+tac.browserApis push
+  honored: PushManager on a push service worker at /.tachyon/push/ that shows the message and opens its same-origin path when clicked (ADR 0118); Safari on iPhone and iPad gives Web Push only to the app added to the Home Screen, iOS 16.4 and later
+
 tac.browserApis preferenceStrings
   honored: localStorage
 

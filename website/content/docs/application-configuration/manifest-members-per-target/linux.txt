@@ -129,6 +129,9 @@ tac.browserApis notifications
 tac.browserApis geolocation
   honored: the web view's navigator.geolocation through GeoClue, which the host permits for the app's own pages (LX1 ran GeoClue 2.7 with a GPS fix and its agent)
 
+tac.browserApis push
+  adapted: The WebKitGTK web view of the Linux app has no Web Push, and native push (APNs, FCM, WNS) is not part of Tachyon yet. A native build does not ship the push scripts: Push.Supported answers false, and Subscribe, Subscription and Unsubscribe fail with the message that Web Push needs a web browser (ADR 0118).
+
 tac.browserApis preferenceStrings
   honored: the web view's localStorage, kept on disk
 

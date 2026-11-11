@@ -129,6 +129,9 @@ tac.browserApis notifications
 tac.browserApis geolocation
   honored: the web view's navigator.geolocation and the Windows location service, granted by the host's PermissionRequested decision only for the app's own pages; every other web view permission is denied (SD1)
 
+tac.browserApis push
+  adapted: The WebView2 of the Windows app has no Web Push, and native push (APNs, FCM, WNS) is not part of Tachyon yet. A native build does not ship the push scripts: Push.Supported answers false, and Subscribe, Subscription and Unsubscribe fail with the message that Web Push needs a web browser (ADR 0118).
+
 tac.browserApis preferenceStrings
   honored: the web view's localStorage, kept on disk across a relaunch (SD1)
 

@@ -129,6 +129,9 @@ tac.browserApis notifications
 tac.browserApis geolocation
   honored: the web view's navigator.geolocation, after the host asks for ACCESS_FINE_LOCATION through WebChromeClient; the question and a test-provider position ran on the Android 15 emulator in scripts/android/browser-apis-test.mjs (RM3)
 
+tac.browserApis push
+  adapted: The Android WebView has no Web Push, and native push (APNs, FCM, WNS) is not part of Tachyon yet. A native build does not ship the push scripts: Push.Supported answers false, and Subscribe, Subscription and Unsubscribe fail with the message that Web Push needs a web browser (ADR 0118).
+
 tac.browserApis preferenceStrings
   honored: the web view's localStorage, kept on disk; a write was read back after a relaunch on the Android 15 emulator in scripts/android/page-checks-test.mjs (RM3)
 
