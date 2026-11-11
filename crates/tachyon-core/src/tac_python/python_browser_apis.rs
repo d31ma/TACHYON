@@ -14,41 +14,38 @@ impl PythonBrowserApis {
         include_str!("web_apis/browser_fakes.py"),
         include_str!("web_apis/python_browser_clients.py"),
     ];
-    const CLIENTS: [(&'static str, &'static str); 12] = [
-        ("Clock", include_str!("web_apis/clock.py")),
-        ("SecureRandom", include_str!("web_apis/secure_random.py")),
-        ("Connectivity", include_str!("web_apis/connectivity.py")),
-        (
-            "PageVisibility",
-            include_str!("web_apis/page_visibility.py"),
-        ),
-        ("Preferences", include_str!("web_apis/preferences.py")),
-        ("Clipboard", include_str!("web_apis/clipboard.py")),
-        ("Share", include_str!("web_apis/share.py")),
-        ("Notifications", include_str!("web_apis/notifications.py")),
-        ("Geolocation", include_str!("web_apis/geolocation.py")),
-        ("Push", include_str!("web_apis/push.py")),
-        (
-            "WindowControls",
-            include_str!("web_apis/window_controls.py"),
-        ),
-        ("Focus", include_str!("web_apis/focus.py")),
-    ];
+    const CLIENTS: &'static str = concat!(
+        include_str!("web_apis/clock.py"),
+        include_str!("web_apis/secure_random.py"),
+        include_str!("web_apis/connectivity.py"),
+        include_str!("web_apis/page_visibility.py"),
+        include_str!("web_apis/preferences.py"),
+        include_str!("web_apis/clipboard.py"),
+        include_str!("web_apis/share.py"),
+        include_str!("web_apis/notifications.py"),
+        include_str!("web_apis/geolocation.py"),
+        include_str!("web_apis/push.py"),
+        include_str!("web_apis/window_controls.py"),
+        include_str!("web_apis/focus.py"),
+    );
     const REGISTER: &'static str = "_TacPythonBrowserClients.register";
 
     pub(crate) fn source() -> String {
         let support = Self::SUPPORT.join("\n");
-        let clients = Self::CLIENTS.map(|(_, source)| source).join("\n");
-        let names = Self::CLIENTS.map(|(name, _)| name).join(", ");
-        format!("{support}\n{clients}\n{}({names})\n", Self::REGISTER)
+        let names = WebApiClients::TYPE_NAMES.join(", ");
+        format!(
+            "{support}\n{}\n{}({names})\n",
+            Self::CLIENTS,
+            Self::REGISTER
+        )
     }
 
     pub(super) fn is_client(type_name: &str) -> bool {
-        Self::client_names().any(|name| name == type_name)
+        WebApiClients::TYPE_NAMES.contains(&type_name)
     }
 
     pub(super) fn client_names() -> impl Iterator<Item = &'static str> {
-        Self::CLIENTS.into_iter().map(|(name, _)| name)
+        WebApiClients::TYPE_NAMES.into_iter()
     }
 
     pub(super) fn refuse(path: &Path, source: &str) -> Result<(), Failure> {

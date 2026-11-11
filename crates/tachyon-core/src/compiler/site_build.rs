@@ -625,10 +625,9 @@ impl<'a> SiteBuild<'a> {
     }
 
     fn add_web_push_files(&mut self) {
-        if !self.web_push_tag.is_empty() {
-            for (path, bytes) in WebPush::files() {
-                self.add_file(path, bytes);
-            }
+        let wanted = !self.web_push_tag.is_empty();
+        for (path, bytes) in WebPush::files().into_iter().filter(|_| wanted) {
+            self.add_file(path, bytes);
         }
     }
 

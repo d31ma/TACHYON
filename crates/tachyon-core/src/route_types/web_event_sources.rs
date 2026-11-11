@@ -5,60 +5,20 @@ use std::fmt::Write as _;
 pub(crate) struct WebEventSources;
 
 impl WebEventSources {
-    const RUST: LanguageKinds = LanguageKinds {
-        text: "String",
-        number: "f64",
-        flag: "bool",
-    };
-    const GO: LanguageKinds = LanguageKinds {
-        text: "string",
-        number: "float64",
-        flag: "bool",
-    };
-    const CSHARP: LanguageKinds = LanguageKinds {
-        text: "string",
-        number: "double",
-        flag: "bool",
-    };
-    const FSHARP: LanguageKinds = LanguageKinds {
-        text: "string",
-        number: "float",
-        flag: "bool",
-    };
+    const RUST: LanguageKinds = LanguageKinds::new("String", "f64", "bool");
+    const GO: LanguageKinds = LanguageKinds::new("string", "float64", "bool");
+    const CSHARP: LanguageKinds = LanguageKinds::new("string", "double", "bool");
+    const FSHARP: LanguageKinds = LanguageKinds::new("string", "float", "bool");
     const FSHARP_NAMESPACE: &'static str = "namespace global\n";
-    const DART: LanguageKinds = LanguageKinds {
-        text: "String",
-        number: "double",
-        flag: "bool",
-    };
+    const DART: LanguageKinds = LanguageKinds::new("String", "double", "bool");
     const NATIVE_DECLARATIONS: [(&'static str, &'static str); 2] =
         [("swift", "struct"), ("kt", "class")];
-    const KOTLIN: LanguageKinds = LanguageKinds {
-        text: "String",
-        number: "Double",
-        flag: "Boolean",
-    };
-    const SWIFT: LanguageKinds = LanguageKinds {
-        text: "String",
-        number: "Double",
-        flag: "Bool",
-    };
-    const JAVA: LanguageKinds = LanguageKinds {
-        text: "String",
-        number: "double",
-        flag: "boolean",
-    };
-    const CPP: LanguageKinds = LanguageKinds {
-        text: "std::string",
-        number: "double",
-        flag: "bool",
-    };
+    const KOTLIN: LanguageKinds = LanguageKinds::new("String", "Double", "Boolean");
+    const SWIFT: LanguageKinds = LanguageKinds::new("String", "Double", "Bool");
+    const JAVA: LanguageKinds = LanguageKinds::new("String", "double", "boolean");
+    const CPP: LanguageKinds = LanguageKinds::new("std::string", "double", "bool");
     const GO_PACKAGE: &'static str = "package tac\n";
-    const PYTHON: LanguageKinds = LanguageKinds {
-        text: "str",
-        number: "float",
-        flag: "bool",
-    };
+    const PYTHON: LanguageKinds = LanguageKinds::new("str", "float", "bool");
     const PYTHON_EMPTY_BODY: &'static str = "    pass\n";
 
     pub(crate) fn rust() -> String {

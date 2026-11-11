@@ -803,36 +803,11 @@ impl AnnotationRules {
         .reach(Self::NOWHERE, Self::YON_ERRORS)
         .class_needs(&["ErrorHandler"])
         .code(2015),
-        Rule::new(
-            "GetRoute",
-            Self::METHOD,
-            "means this method answers GET requests",
-        )
-        .route(),
-        Rule::new(
-            "PostRoute",
-            Self::METHOD,
-            "means this method answers POST requests",
-        )
-        .route(),
-        Rule::new(
-            "PutRoute",
-            Self::METHOD,
-            "means this method answers PUT requests",
-        )
-        .route(),
-        Rule::new(
-            "PatchRoute",
-            Self::METHOD,
-            "means this method answers PATCH requests",
-        )
-        .route(),
-        Rule::new(
-            "DeleteRoute",
-            Self::METHOD,
-            "means this method answers DELETE requests",
-        )
-        .route(),
+        Rule::route_verb("GetRoute", "means this method answers GET requests"),
+        Rule::route_verb("PostRoute", "means this method answers POST requests"),
+        Rule::route_verb("PutRoute", "means this method answers PUT requests"),
+        Rule::route_verb("PatchRoute", "means this method answers PATCH requests"),
+        Rule::route_verb("DeleteRoute", "means this method answers DELETE requests"),
         Rule::new(
             "ResponseStatus",
             Self::METHOD,
@@ -842,98 +817,28 @@ impl AnnotationRules {
         .reach(Self::NOWHERE, Self::YON_ERRORS)
         .with(Self::ANSWERS)
         .code(2015),
-        Rule::new(
-            "FromPath",
-            Self::PARAMETER,
-            "fills this argument from a path variable, such as {id}",
-        )
-        .route_source(),
-        Rule::new(
-            "FromQuery",
-            Self::PARAMETER,
-            "fills this argument from the query string, after ?",
-        )
-        .route_source(),
-        Rule::new(
-            "FromBody",
-            Self::PARAMETER,
-            "fills this argument from the request body, read as JSON",
-        )
-        .route_source()
+        Rule::route_parameter("FromPath", "fills this argument from a path variable, such as {id}"),
+        Rule::route_parameter("FromQuery", "fills this argument from the query string, after ?"),
+        Rule::route_parameter("FromBody", "fills this argument from the request body, read as JSON")
         .one_per_method(),
-        Rule::new(
-            "FromHeader",
-            Self::PARAMETER,
-            "fills this argument from a request header",
-        )
-        .route_source(),
-        Rule::new(
-            "FromCookie",
-            Self::PARAMETER,
-            "fills this argument from a cookie",
-        )
-        .route_source(),
+        Rule::route_parameter("FromHeader", "fills this argument from a request header"),
+        Rule::route_parameter("FromCookie", "fills this argument from a cookie"),
         Rule::new(
             "HTTPClient",
             Self::TYPE,
             "marks a class that sends HTTP requests and gives the path they start with",
         )
         .reach(Self::TAC_REMOTE, Self::YON_OUTBOUND),
-        Rule::new(
-            "GetRequest",
-            Self::METHOD,
-            "means calling this method sends a GET request",
-        )
-        .request(),
-        Rule::new(
-            "PostRequest",
-            Self::METHOD,
-            "means calling this method sends a POST request",
-        )
-        .request(),
-        Rule::new(
-            "PutRequest",
-            Self::METHOD,
-            "means calling this method sends a PUT request",
-        )
-        .request(),
-        Rule::new(
-            "PatchRequest",
-            Self::METHOD,
-            "means calling this method sends a PATCH request",
-        )
-        .request(),
-        Rule::new(
-            "DeleteRequest",
-            Self::METHOD,
-            "means calling this method sends a DELETE request",
-        )
-        .request(),
-        Rule::new(
-            "PathVariable",
-            Self::PARAMETER,
-            "puts this argument into the request path",
-        )
-        .request_part(),
-        Rule::new(
-            "RequestParam",
-            Self::PARAMETER,
-            "adds this argument to the query string of the request",
-        )
-        .request_part(),
-        Rule::new(
-            "RequestBody",
-            Self::PARAMETER,
-            "sends this argument as the request body, written as JSON",
-        )
-        .request_part()
+        Rule::request_verb("GetRequest", "means calling this method sends a GET request"),
+        Rule::request_verb("PostRequest", "means calling this method sends a POST request"),
+        Rule::request_verb("PutRequest", "means calling this method sends a PUT request"),
+        Rule::request_verb("PatchRequest", "means calling this method sends a PATCH request"),
+        Rule::request_verb("DeleteRequest", "means calling this method sends a DELETE request"),
+        Rule::request_parameter("PathVariable", "puts this argument into the request path"),
+        Rule::request_parameter("RequestParam", "adds this argument to the query string of the request"),
+        Rule::request_parameter("RequestBody", "sends this argument as the request body, written as JSON")
         .one_per_method(),
-        Rule::new(
-            "RequestHeader",
-            Self::PARAMETER,
-            "sends this argument as a request header",
-        )
-        .request_part(),
+        Rule::request_parameter("RequestHeader", "sends this argument as a request header"),
         Rule::new(
             "StreamRequest",
             Self::METHOD,
@@ -1217,6 +1122,22 @@ impl AnnotationRules {
 }
 
 impl Rule {
+    const fn route_verb(name: &'static str, meaning: &'static str) -> Self {
+        Self::new(name, AnnotationRules::METHOD, meaning).route()
+    }
+
+    const fn request_verb(name: &'static str, meaning: &'static str) -> Self {
+        Self::new(name, AnnotationRules::METHOD, meaning).request()
+    }
+
+    const fn route_parameter(name: &'static str, meaning: &'static str) -> Self {
+        Self::new(name, AnnotationRules::PARAMETER, meaning).route_source()
+    }
+
+    const fn request_parameter(name: &'static str, meaning: &'static str) -> Self {
+        Self::new(name, AnnotationRules::PARAMETER, meaning).request_part()
+    }
+
     const fn route(self) -> Self {
         Self {
             tac: AnnotationRules::NOWHERE,
