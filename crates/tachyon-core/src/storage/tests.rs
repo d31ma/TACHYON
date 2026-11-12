@@ -545,5 +545,7 @@ async fn a_build_without_redis_names_the_feature_that_adds_it() {
 }
 
 mod fylo_documents;
+#[cfg(target_os = "linux")]
+mod fylo_frozen_disk;
 mod fylo_root_lock;
 mod fylo_sql;

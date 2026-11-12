@@ -729,6 +729,7 @@ impl HandlerSupervisor {
             .resource_access_in_time(source, request, deadline, cancellation)
             .await?;
         let resource_access = Self::still_in_time(resource_access, deadline, cancellation).await?;
+        Self::time_store_calls_one_by_one(resource_access.as_ref());
         let streamed = WarmStreamRequest {
             source,
             request,
@@ -853,6 +854,12 @@ impl HandlerSupervisor {
             return Err(failure);
         }
         Ok(resource_access)
+    }
+
+    fn time_store_calls_one_by_one(resource_access: Option<&ResourceAccess>) {
+        if let Some(access) = resource_access {
+            access.time_store_calls_one_by_one();
+        }
     }
 
     async fn close_resource_access(resource_access: Option<ResourceAccess>) {
@@ -1242,6 +1249,7 @@ impl HandlerSupervisor {
                 None,
             )
             .await?;
+        Self::time_store_calls_one_by_one(resource_access.as_ref());
         let pipes = ProcessPipes {
             child,
             stdin,

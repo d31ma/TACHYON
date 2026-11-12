@@ -69,10 +69,6 @@ impl FyloProcess {
         self.interruption.is_some()
     }
 
-    pub(super) fn interrupted_operation(&self) -> Option<&str> {
-        self.interruption.as_ref().map(Interruption::operation)
-    }
-
     pub(super) async fn wait_for_exit(&mut self) {
         let _already_exited = self.child.start_kill();
         let _exit_status_is_not_needed = self.child.wait().await;

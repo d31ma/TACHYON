@@ -4,6 +4,7 @@ mod invocation_storage;
 mod piped_resources;
 mod resource_door;
 mod resource_request;
+mod store_deadline;
 
 use door_route::DoorRoute;
 pub(super) use invocation_storage::InvocationStorage;
@@ -19,6 +20,7 @@ use access::Access;
 use std::ffi::{OsStr, OsString};
 use std::fmt::Write as _;
 use std::sync::Arc;
+use store_deadline::StoreDeadline;
 use tachyon_contracts::HandlerResources;
 use tokio::net::TcpListener;
 use tokio::process::Command;
@@ -32,6 +34,7 @@ pub(super) struct ResourceAccess {
     gateways: Option<Arc<GatewayCalls>>,
     stop: HandlerCancellation,
     task: JoinHandle<()>,
+    store_deadline: Arc<StoreDeadline>,
     _route: Option<DoorRoute>,
 }
 
@@ -65,6 +68,10 @@ impl ResourceAccess {
         let route = door.map(|door| door.register(&token, local));
         let topics = topics.map(Arc::new);
         let gateways = gateways.map(Arc::new);
+        let store_deadline = storage.as_ref().map_or_else(
+            || Arc::new(StoreDeadline::new()),
+            InvocationStorage::store_deadline,
+        );
         let access = Access {
             storage,
             gateways: gateways.clone(),
@@ -82,8 +89,13 @@ impl ResourceAccess {
             gateways,
             stop,
             task,
+            store_deadline,
             _route: route,
         })
+    }
+
+    pub(super) fn time_store_calls_one_by_one(&self) {
+        self.store_deadline.use_per_call();
     }
 
     pub(super) fn topics(&self) -> Option<Arc<TopicOutbox>> {

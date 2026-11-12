@@ -157,6 +157,16 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- **One store deadline per answer, and the FYLO operation in every deadline
+  failure** (ADR 0128 amendment 2). All store calls of one handler run that
+  answers once share one deadline from the first call (`operationTimeoutMs`,
+  default 5 s), so during a FYLO stall one HTTP answer fails after about one
+  deadline instead of one per store call (Mesail measured 11 to 16 s).
+  Streams and sockets keep one deadline per store call, and a scroll's first
+  page keeps 30 s. The deadline failure now names the FYLO operation also
+  for calls that waited behind the stuck one ("... deadline exceeded during
+  FYLO putData; ..."). A Linux-only test on a frozen ext4 disk proves that
+  the next call waits for the stuck `fylo` and starts no second one.
 - **A FYLO process stopped by a deadline is waited for** (ADR 0128
   amendment). When a store call passed its deadline, the FYLO datasource
   killed its `fylo exec --loop` process without waiting, and the next call

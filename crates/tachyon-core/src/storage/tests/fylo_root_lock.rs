@@ -170,15 +170,22 @@ async fn a_fylo_stalled_past_the_deadline_is_stopped_before_the_next_call_starts
     assert!(signal(&stalled, "-STOP"));
     let insert =
         json!({"operation":"document","command":"insert","collection":"hd-events","value":{"n":1}});
-    let failure = store
-        .execute(&insert)
-        .await
-        .expect_err("a stalled fylo passes the deadline")
-        .to_string();
-    assert!(
-        failure.contains("TY2160") && failure.contains("deadline exceeded during FYLO putData"),
-        "{failure}"
-    );
+    let waiting = exists_command();
+    let waits_behind_the_insert = async {
+        tokio::time::sleep(Duration::from_millis(200)).await;
+        let sooner = Instant::now() + Duration::from_millis(600);
+        store.execute_within(&waiting, Some(sooner)).await
+    };
+    let (inserted, waited) = tokio::join!(store.execute(&insert), waits_behind_the_insert);
+    for answer in [inserted, waited] {
+        let failure = answer.expect_err("a stalled fylo passes the deadline");
+        let diagnostic = &failure.diagnostics()[0];
+        assert_eq!(diagnostic.code.to_string(), "TY2160");
+        assert_eq!(
+            diagnostic.message,
+            "Managed storage operation deadline exceeded during FYLO putData; writes may have committed. Tachyon stops that FYLO process, and the next call waits until it has exited."
+        );
+    }
     for _ in 0..3 {
         let answer = store.execute(&exists_command()).await;
         assert_eq!(answer.expect("no EROOTLOCKED after the stall"), json!(true));

@@ -4,6 +4,8 @@
 - Date: 2026-11-12
 - Amended: 2026-11-12 (a stopped FYLO process is waited for before the next
   one starts; the store-call deadline is a setting)
+- Amended: 2026-11-12 (one store deadline per answer; the deadline failure
+  always names the FYLO operation; a Linux frozen-disk proof)
 - Amends: [ADR 0032](0032-fylo-datasource.md) (FYLO is a datasource)
 - Builds on: [ADR 0127](0127-yon-handlers-write-logs-on-every-answer.md)
   (the JSON lines on the standard error of `ty`)
@@ -121,3 +123,71 @@ were measured, much longer than the 2-second wait above. A broken pipe
   after the kill (a write stuck in the kernel) cannot be made on purpose in a
   portable test; the order "wait for the exit, then start" is in
   `FyloStore::ready_process`.
+
+## Amendment 2 (2026-11-12): one store deadline per answer
+
+### Context
+
+Mesail ran Tachyon develop `ff94a61dd` with a held FYLO root. Every HTTP read
+then answered 503 only after 11 to 16 seconds: one read made two or three
+store calls (its own `collectionExists`, then `findDocs`), and each call got
+its own 5-second deadline or 2-second `EROOTLOCKED` wait. The deadline
+failure also still read "Managed storage operation deadline exceeded; writes
+may have committed." without the FYLO operation. During a stall most calls
+time out while they wait for the FYLO process lock that the stuck call holds,
+and the operation name was read through that same lock, which was busy.
+Finally, on macOS a killed process ends at once even when it is paused, so no
+test there could prove that the next call waits for the old process.
+
+### Decision
+
+6. **One store deadline per answer.** All store calls that a handler makes
+   while it answers one invocation share one deadline. It starts at the
+   invocation's first store call and lasts `operationTimeoutMs` (default
+   5 seconds). The wait for an old FYLO process to exit, the wait for the
+   FYLO process lock and the 2-second `EROOTLOCKED` wait all count against
+   it. A store call that starts after that deadline fails at once, before
+   anything is sent to FYLO, with the deadline error.
+   - One invocation is one handler run that answers once: an HTTP route,
+     `ty handler invoke`, a `ty test` call, a worker run.
+   - A stream and a socket live for a long time, so their store calls keep
+     one deadline each, as before (`ResourceAccess::time_store_calls_one_by_one`).
+   - The first page of a scroll keeps its own 30 seconds and does not use
+     the shared deadline, because it reads every match once.
+   - Calls made outside a handler (`ManagedStorage` used directly) keep one
+     deadline each.
+7. **The failure always names the operation.** The FYLO datasource keeps the
+   name of the FYLO operation in progress in its own small record
+   (`BusyOperation`), outside the process lock. It is set before each FYLO
+   request and cleared when the answer arrives; a request dropped by its
+   deadline leaves it set until the process has been stopped. Every deadline
+   failure while FYLO is busy reads "Managed storage operation deadline
+   exceeded during FYLO <operation>; writes may have committed. Tachyon stops
+   that FYLO process, and the next call waits until it has exited.", also for
+   calls that only waited behind it.
+8. **`collectionExists` stays.** Tachyon itself sends `inspectCollection`
+   only for `dataSource.collectionExists(name)`. Repository and document
+   reads send only `findDocs` or `getLatest`. So the extra call in Mesail's
+   reads is the application's own; an application should create its
+   collections once (for example at startup) and not check them on every
+   read. Tachyon does not cache the answer, because another server may drop
+   a collection at any time.
+
+### Consequences
+
+- During a stall one HTTP answer fails after about one deadline, not one per
+  store call (`handler::resources::invocation_storage::tests::store_calls_of_one_answer_share_one_deadline_while_the_root_is_held`:
+  three calls against a held root, `operationTimeoutMs` 1000, fail in about
+  1 second, all naming `inspectCollection`).
+- A handler that makes many store calls must finish all of them within
+  `operationTimeoutMs`; raise the setting for handlers that need more.
+- Evidence for the wait on Linux:
+  `storage::tests::fylo_frozen_disk::a_fylo_frozen_in_a_disk_write_is_waited_for_and_no_second_fylo_starts`
+  (Linux only, ignored by default; it needs passwordless `sudo`, a loop
+  device, `mkfs.ext4` and `fsfreeze`, and runs in the privileged Linux CI
+  container with `--run-ignored only`). It puts the FYLO root on a
+  loop-mounted ext4 image, freezes it with `fsfreeze -f`, lets a write pass
+  its deadline, and checks that the killed `fylo` is still in uninterruptible
+  sleep (state `D`), that the next call fails with the deadline error and not
+  `EROOTLOCKED`, that no second `fylo` starts, and that after
+  `fsfreeze -u` the waiting call answers and later calls work.

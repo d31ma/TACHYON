@@ -96,16 +96,54 @@ impl ManagedStorage {
         .map_err(|_| failure("Managed storage startup deadline exceeded."))?
     }
 
+    #[cfg(test)]
     pub(crate) async fn execute(&self, command: &Value) -> Result<Value, Failure> {
+        self.execute_within(command, None).await
+    }
+
+    pub(crate) async fn execute_within(
+        &self,
+        command: &Value,
+        shared_deadline: Option<Instant>,
+    ) -> Result<Value, Failure> {
         check_size(command)?;
         let _permit = self
             .admission
             .try_acquire()
             .map_err(|_| failure("Managed storage admission is closed or full."))?;
-        let deadline = Instant::now() + self.time_limit(command);
+        let deadline = Self::deadline_of(command, shared_deadline, self.time_limit(command));
+        self.refuse_when_past(deadline)?;
         tokio::time::timeout_at(deadline.into(), self.dispatch(command, deadline))
             .await
             .map_err(|_| self.deadline_failure())?
+    }
+
+    pub(crate) fn operation_timeout(&self) -> Duration {
+        let base = self
+            .fylo
+            .as_ref()
+            .map_or(Self::OPERATION_TIMEOUT, FyloStore::operation_timeout);
+        base * self.deadline_factor
+    }
+
+    fn deadline_of(command: &Value, shared: Option<Instant>, time_limit: Duration) -> Instant {
+        let own = Instant::now() + time_limit;
+        if Self::is_scroll(command) {
+            return own;
+        }
+        shared.unwrap_or(own)
+    }
+
+    fn refuse_when_past(&self, deadline: Instant) -> Result<(), Failure> {
+        if Instant::now() >= deadline {
+            return Err(self.deadline_failure());
+        }
+        Ok(())
+    }
+
+    fn is_scroll(command: &Value) -> bool {
+        let names = (command["operation"].as_str(), command["command"].as_str());
+        names == (Some("document"), Some("scroll"))
     }
 
     fn deadline_failure(&self) -> Failure {
@@ -116,16 +154,10 @@ impl ManagedStorage {
     }
 
     fn time_limit(&self, command: &Value) -> Duration {
-        let names = (command["operation"].as_str(), command["command"].as_str());
-        let is_scroll = names == (Some("document"), Some("scroll"));
-        let base = if is_scroll {
-            Self::SCROLL_TIMEOUT
-        } else {
-            self.fylo
-                .as_ref()
-                .map_or(Self::OPERATION_TIMEOUT, FyloStore::operation_timeout)
-        };
-        base * self.deadline_factor
+        if Self::is_scroll(command) {
+            return Self::SCROLL_TIMEOUT * self.deadline_factor;
+        }
+        self.operation_timeout()
     }
 
     async fn dispatch(&self, command: &Value, deadline: Instant) -> Result<Value, Failure> {

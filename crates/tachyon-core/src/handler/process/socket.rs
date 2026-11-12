@@ -66,6 +66,7 @@ impl SocketProcess {
                 Some(HandlerSupervisor::SOCKET_FRAMES),
             )
             .await?;
+        HandlerSupervisor::time_store_calls_one_by_one(resource_access.as_ref());
         let process = Self {
             child,
             stdin,

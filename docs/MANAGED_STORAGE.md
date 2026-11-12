@@ -107,7 +107,8 @@ How the server runs FYLO:
   once.
 - When a store call passes its deadline, the server stops its FYLO process
   and fails the call with `TY2160` "Managed storage operation deadline
-  exceeded during FYLO putData; ..." (naming the real operation). The next
+  exceeded during FYLO putData; ..." (naming the real operation, also for a
+  call that only waited behind the stuck one). The next
   call waits until that process has exited before it starts a new one. When
   it has exited, the server writes
   `{"event":"storage.fylo_process_stopped","operation":"putData","exit_ms":N}`
@@ -284,6 +285,12 @@ Redis:
 - Startup: 10 seconds. Storage operations: 5 seconds (a FYLO datasource can
   set 1 to 60 seconds with `operationTimeoutMs`). At most 16 admitted
   operations.
+- One store deadline per answer: all store calls of one handler run that
+  answers once (an HTTP route, `ty handler invoke`, a `ty test` call, a
+  worker run) share one deadline, which starts at its first store call. A
+  store call that starts after it fails at once with the deadline error.
+  Streams and sockets give each store call its own deadline, and the first
+  page of a scroll keeps its 30 seconds (ADR 0128, amendment 2).
 - SQL pools: at most 8 connections (1 for in-memory SQLite). TDS (Tabular Data
   Stream, the SQL Server protocol) is serialized.
 - FYLO: one subprocess, 1 MiB requests, 8 MiB responses. Each Store query

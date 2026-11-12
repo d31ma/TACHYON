@@ -1,3 +1,4 @@
+mod busy_operation;
 mod collection_name;
 mod document_commands;
 mod fylo_pipes;
@@ -30,6 +31,7 @@ use super::{ManagedStorage, failure, object_keys, scalar, text};
 use crate::Failure;
 use crate::failure::diagnostic;
 use crate::sorted_json::SortedJson;
+use busy_operation::BusyOperation;
 pub(super) use collection_name::CollectionName;
 use document_commands::DocumentCommands;
 use fylo_process::FyloProcess;
@@ -43,6 +45,7 @@ pub(super) struct FyloStore {
     root: PathBuf,
     operation_timeout: Duration,
     process: Mutex<Option<FyloProcess>>,
+    busy: BusyOperation,
     patches: PatchQueue,
     closed: AtomicBool,
     scrolls: Mutex<ScrollSnapshots>,
@@ -80,6 +83,7 @@ impl FyloStore {
             root,
             operation_timeout,
             process: Mutex::new(Some(process)),
+            busy: BusyOperation::new(),
             patches: PatchQueue::new(),
             closed: AtomicBool::new(false),
             scrolls: Mutex::new(ScrollSnapshots::new()),
@@ -138,9 +142,8 @@ impl FyloStore {
     }
 
     pub(super) fn deadline_failure(&self) -> Option<Failure> {
-        let slot = self.process.try_lock().ok()?;
-        let operation = slot.as_ref()?.interrupted_operation()?;
-        Some(Self::interrupted_failure(operation))
+        let operation = self.busy.name()?;
+        Some(Self::interrupted_failure(&operation))
     }
 
     fn interrupted_failure(operation: &str) -> Failure {
@@ -420,7 +423,7 @@ impl FyloStore {
     ) -> Result<Vec<Value>, FyloError> {
         self.refuse_when_closed()?;
         let process = self.ready_process(guard).await?;
-        Self::send_each(process, requests).await
+        self.send_each(process, requests).await
     }
 
     fn refuse_when_closed(&self) -> Result<(), FyloError> {
@@ -431,13 +434,17 @@ impl FyloStore {
     }
 
     async fn send_each(
+        &self,
         process: &mut FyloProcess,
         requests: Vec<(&str, Value)>,
     ) -> Result<Vec<Value>, FyloError> {
         let mut answers = Vec::with_capacity(requests.len());
         for (operation, mut fields) in requests {
             fields["op"] = json!(operation);
-            answers.push(process.request(operation, &fields).await?);
+            self.busy.mark(operation);
+            let answer = process.request(operation, &fields).await;
+            self.busy.clear();
+            answers.push(answer?);
         }
         Ok(answers)
     }
@@ -447,6 +454,7 @@ impl FyloStore {
         slot: &'slot mut Option<FyloProcess>,
     ) -> Result<&'slot mut FyloProcess, FyloError> {
         Self::stop_interrupted(slot).await;
+        self.busy.clear();
         self.spawn_when_empty(slot)?;
         slot.as_mut()
             .ok_or_else(|| FyloError::protocol("FYLO subprocess is unavailable."))

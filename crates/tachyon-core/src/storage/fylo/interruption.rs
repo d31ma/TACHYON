@@ -23,10 +23,6 @@ impl Interruption {
         self.killed.get_or_insert_with(Instant::now);
     }
 
-    pub(super) fn operation(&self) -> &str {
-        &self.operation
-    }
-
     pub(super) fn report_stopped(&self) {
         eprintln!("{}", SortedJson::text(&self.stopped_event()));
     }

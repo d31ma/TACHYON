@@ -5,10 +5,13 @@ use serde_json::{Value, json};
 use std::sync::Arc;
 use tachyon_diagnostics::Diagnostic;
 
+use super::store_deadline::StoreDeadline;
+
 #[derive(Clone)]
 pub(in crate::handler) struct InvocationStorage {
     storage: Arc<ManagedStorage>,
     request_id: String,
+    deadline: Arc<StoreDeadline>,
 }
 
 impl InvocationStorage {
@@ -18,11 +21,17 @@ impl InvocationStorage {
         Self {
             storage,
             request_id,
+            deadline: Arc::new(StoreDeadline::new()),
         }
     }
 
+    pub(super) fn store_deadline(&self) -> Arc<StoreDeadline> {
+        Arc::clone(&self.deadline)
+    }
+
     pub(super) async fn execute(&self, command: &Value) -> Result<Value, Failure> {
-        let result = self.storage.execute(command).await;
+        let shared = self.deadline.for_call(self.storage.operation_timeout());
+        let result = self.storage.execute_within(command, shared).await;
         self.report_failure(&result);
         result
     }
@@ -92,6 +101,70 @@ mod tests {
                 "diagnostics": [{"code": "TY2160", "message": "FYLO operation failed (EROOTLOCKED)."}],
             })
         );
+    }
+
+    fn fylo_runs_here() -> bool {
+        let available = std::process::Command::new("fylo")
+            .arg("version")
+            .output()
+            .is_ok_and(|output| output.status.success());
+        assert!(
+            available || std::env::var("TAC_STORAGE_REQUIRE_TOOLCHAINS").is_err(),
+            "fylo binary is required on this runner"
+        );
+        available
+    }
+
+    async fn fylo_storage(root: &std::path::Path) -> ManagedStorage {
+        let path = root.display().to_string().replace('\\', "/");
+        let path = path.strip_prefix("//?/").unwrap_or(&path).to_owned();
+        let url = format!("fylo:///{}", path.trim_start_matches('/'));
+        let datasource = json!({"driver": "fylo", "url": url, "operationTimeoutMs": 1000});
+        ManagedStorage::connect(&json!({"yon": {"datasource": datasource}}))
+            .await
+            .expect("fylo storage")
+    }
+
+    #[tokio::test]
+    async fn store_calls_of_one_answer_share_one_deadline_while_the_root_is_held() {
+        if !fylo_runs_here() {
+            return;
+        }
+        let directory = tempfile::tempdir().expect("root");
+        let root = std::fs::canonicalize(directory.path()).expect("canonical root");
+        let holder = fylo_storage(&root).await;
+        let create = json!({"operation": "document", "command": "createCollection", "collection": "hd-events"});
+        holder
+            .execute(&create)
+            .await
+            .expect("the holder takes the root");
+        let storage = InvocationStorage::new(
+            Arc::new(fylo_storage(&root).await),
+            String::from("request-8"),
+        );
+        let exists = json!({"operation": "document", "command": "collectionExists", "collection": "hd-events"});
+        let started = std::time::Instant::now();
+        for _ in 0..3 {
+            let failure = storage
+                .execute(&exists)
+                .await
+                .expect_err("held root")
+                .to_string();
+            assert!(
+                failure.contains("deadline exceeded during FYLO inspectCollection"),
+                "{failure}"
+            );
+        }
+        let waited = started.elapsed();
+        assert!(
+            waited >= std::time::Duration::from_millis(900),
+            "{waited:?}"
+        );
+        assert!(
+            waited < std::time::Duration::from_millis(2_500),
+            "{waited:?}"
+        );
+        holder.close().await;
     }
 
     #[tokio::test]
