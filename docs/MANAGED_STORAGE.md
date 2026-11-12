@@ -79,17 +79,17 @@ Configuration rules:
 - The root directory must already exist.
 - The path must be spelled canonically. FYLO refuses a path that goes through a
   symlink or that uses different letter case.
-- FYLO accepts no credentials and no TLS keys. Its one other setting is
-  `operationTimeoutMs`: the deadline of each store call in milliseconds, a
-  whole number from 1000 to 60000 (default 5000). The first page of a scroll
-  keeps its 30 seconds.
+- FYLO accepts no credentials and no TLS keys. It has two other settings.
+  `operationTimeoutMs` is the deadline of each store call in milliseconds, a
+  whole number from 1000 to 60000 (default 5000); the first page of a scroll
+  keeps its 30 seconds. `lease` is described in "The `lease` setting" below.
 
 How the server runs FYLO:
 
 - The server finds the `fylo` binary on `PATH`, in the same way it finds
   language toolchains.
-- The server owns one long-lived `fylo exec --loop` subprocess for its whole
-  lifetime.
+- By default (`"lease": "server"`), the server owns one long-lived
+  `fylo exec --loop` subprocess for its whole lifetime.
 - The server and the subprocess speak the bounded NDJSON (newline-delimited
   JSON) machine protocol. The subprocess closes when the server closes.
 - The startup, admission and operation deadlines are the managed storage
@@ -112,9 +112,10 @@ How the server runs FYLO:
   it has exited, the server writes
   `{"event":"storage.fylo_process_stopped","operation":"putData","exit_ms":N}`
   to its standard error, with the time from the kill to the exit.
-- So two servers, or two serverless containers of one function, must not
-  share one FYLO root for long: the second one waits up to 2 seconds per
-  request and then fails. Give each root one owner.
+- So with the default lease, two servers, or two serverless containers of
+  one function, must not share one FYLO root for long: the second one waits
+  up to 2 seconds per request and then fails. Give each root one owner, or
+  use `"lease": "call"`.
 
 ```json
 {
@@ -124,6 +125,100 @@ How the server runs FYLO:
   }
 }
 ```
+
+### The `lease` setting
+
+`lease` says how long the server holds the FYLO root (ADR 0129). It is
+`"server"` or `"call"`. Any other value stops the server at startup with
+`TY2160`.
+
+- `"server"` is the default and is unchanged: one `fylo exec --loop`
+  subprocess holds the root for the whole life of the server.
+- `"call"` is for serverless containers that share one root, such as the
+  containers of one Lambda function. **It is not qualified** (see
+  `SUPPORT_TIERS.md`): FYLO has not qualified its per-call lease for
+  deployment (FYLO ADR 0011 and ADR 0028), so use it for local and test
+  work only.
+
+```json
+{
+  "datasource": {
+    "driver": "fylo",
+    "url": "fylo:///mnt/data/catalog",
+    "lease": "call"
+  }
+}
+```
+
+With `"lease": "call"`:
+
+- Each FYLO request runs in its own `fylo exec --invocation` process. The
+  process takes the root for that one request and gives it back before it
+  answers. So two containers on one root take turns instead of failing.
+- It needs a FYLO with `exec --invocation` (FYLO ADR 0028). At startup the
+  server checks this: it sends a handshake with a zero cleanup reserve, which
+  such a FYLO refuses with `EBADREQUEST`. An older FYLO runs the handshake
+  instead, because it ignores the unknown option; the server then stops with
+  `TY2160` and says to upgrade FYLO.
+- It is refused on Windows: the server stops at startup with `TY2160`.
+  FYLO's own test of two invocation processes on one root failed there
+  (one waited about 10 seconds, then answered `EROOTLOCKED`), so the
+  refusal stays until FYLO qualifies it on Windows.
+- The root must be on a local disk. The server stops at startup with
+  `TY2160` when the root is on a network file system: NFS (Amazon EFS is
+  NFS), SMB or 9p on Linux (from `/proc/self/mounts`), and any mount that
+  `/sbin/mount` does not mark `local` on macOS. When the server cannot read
+  the mount table, it also refuses. FYLO has not qualified its locks over
+  NFS, so the refusal stays until FYLO closes that gate.
+- A FYLO that refuses a network root itself (FYLO ADR 0029) answers
+  `EREMOTEROOT`, in both lease modes. The call then fails with `TY2160`
+  "FYLO refuses a root on a network file system (EREMOTEROOT); put the root
+  on a local disk."
+- Each request gets the time that is left of its storage operation
+  (5 seconds, or 30 seconds for the first page of a scroll), less 100 ms to
+  read the answer, as `--deadline-ms`. The cleanup reserve,
+  `--cleanup-reserve-ms`, is a fixed 200 ms. When less time than that is
+  left, the request fails before FYLO starts, with "FYLO operation failed
+  (EDEADLINE)."
+- A process that finds the root held by another process waits with FYLO's
+  own backoff (pauses of up to 200 ms) until only the reserve is left. Then
+  it answers `EROOTLOCKED` and changes nothing. The 2-second wait of the
+  `"server"` lease is not used.
+- Requests of one server still run one after another, so patch combining
+  works as with `"server"`. A patch is one `patchDoc` process and then one
+  `getDoc` process, so another container may change the document between
+  the two: the answer can already hold that container's change. No patch
+  loses another's fields, because each `patchDoc` changes only the named
+  fields in one step.
+- Tachyon makes the TTID of every new document before it sends `putData`,
+  because FYLO requires it here. A repeated insert with the same id is
+  refused as "already exists" and the document is stored once. Raw SQL
+  `INSERT` keeps FYLO's own id.
+- Tachyon never sends a request again in this mode: not inserts, deletes,
+  restores or raw SQL. A failure after FYLO started the request can follow a
+  committed change, as with any storage deadline.
+- FYLO refuses paged queries (`EQUERYLOOPREQUIRED`) and its version and
+  repository operations (`EUNSUPPORTEDOP`) in this mode. Tachyon sends
+  neither: it pages and orders in its own memory, and it has no version
+  operations. So every DataSource and repository method works in both
+  modes.
+- A scroll keeps its snapshot in the memory of the server that made it, as
+  with `"server"`. In serverless containers, its cursor works only in the
+  container that made it.
+- FYLO's other codes in this mode (`EDEADLINE`, `EBADREQUEST`,
+  `EFRAME_REQUEST_TOO_LARGE`, `EINVOCATION` and the operation's own codes)
+  fail the call with `TY2160` "FYLO operation failed (CODE)." and are logged
+  as `handler.storage_failed` (ADR 0128). `EINVOCATION` means FYLO could not
+  confirm its cleanup, so the outcome is unknown.
+- When FYLO exits without an answer frame (a FYLO host setting is wrong, it
+  is an unexpected version, or the root is gone), the call fails with
+  `TY2160` "FYLO exited without an answer frame (ENOFRAME)".
+- Cost: one process start, FYLO's recovery and a log checkpoint per request.
+  On a shared Mac mini an insert took p50 63 ms and a read p50 25 ms with
+  `"call"`, against 23 ms and 0.7 ms with `"server"`. A handler with many
+  storage calls gets slower; measure it with
+  `fylo_latency_per_operation_in_each_lease_mode`, an ignored test in
+  `crates/tachyon-core/src/storage/tests/fylo_call_lease.rs`.
 
 Tachyon maps repository commands to document operations. Because of this, a
 repository written for a SQL datasource works without changes:
@@ -138,7 +233,8 @@ repository written for a SQL datasource works without changes:
 
 Identifiers:
 
-- FYLO assigns identifiers. Applications do not.
+- FYLO assigns identifiers. Applications do not. (With `"lease": "call"`,
+  Tachyon makes the TTID before it writes; see above.)
 - A `save` that names an identifier that FYLO does not know fails with
   "FYLO assigns identifiers; save a new entity without one."
 - The id field of an entity holds the TTID.
@@ -286,7 +382,8 @@ Redis:
   operations.
 - SQL pools: at most 8 connections (1 for in-memory SQLite). TDS (Tabular Data
   Stream, the SQL Server protocol) is serialized.
-- FYLO: one subprocess, 1 MiB requests, 8 MiB responses. Each Store query
+- FYLO: one subprocess (one process per request with `"lease": "call"`),
+  1 MiB requests, 8 MiB responses. Each Store query
   scans, orders or pages at most 10,000 matching documents; `scroll` has no
   count limit, a 30-second first page and an 8 MiB snapshot. A cancelled or
   timed-out FYLO call stops the subprocess, so a late answer can never be

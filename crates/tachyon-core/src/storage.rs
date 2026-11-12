@@ -146,7 +146,7 @@ impl ManagedStorage {
         let result = if command["operation"] == "redis" {
             self.redis_store()?.execute(command).await?
         } else if let Some(fylo) = &self.fylo {
-            fylo.execute(command).await?
+            fylo.execute(command, deadline).await?
         } else {
             self.sql_store()?.execute(command, deadline).await?
         };

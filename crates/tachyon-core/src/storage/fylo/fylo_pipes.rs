@@ -1,8 +1,9 @@
-use serde_json::{Value, json};
+use serde_json::Value;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{ChildStdin, ChildStdout};
 
 use super::FyloError;
+use super::frame_answer::FrameAnswer;
 use super::root_lock_wait::RootLockWait;
 use crate::sorted_json::SortedJson;
 
@@ -59,16 +60,6 @@ impl FyloPipes {
         if answer.len() > Self::MAX_RESPONSE_BYTES {
             return Err(FyloError::protocol("FYLO response exceeds 8 MiB."));
         }
-        let envelope: Value = serde_json::from_str(answer.trim_end())
-            .map_err(|_| FyloError::protocol("FYLO returned a malformed frame."))?;
-        if envelope["ok"] == json!(true) {
-            return Ok(envelope["result"].clone());
-        }
-        Err(FyloError {
-            code: envelope["error"]["code"]
-                .as_str()
-                .unwrap_or("EUNKNOWN")
-                .to_owned(),
-        })
+        FrameAnswer::from_line(&answer)
     }
 }

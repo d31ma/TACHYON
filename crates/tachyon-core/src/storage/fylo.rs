@@ -1,8 +1,15 @@
+mod call_lease;
 mod collection_name;
 mod document_commands;
+mod frame_answer;
+mod fylo_lease;
 mod fylo_pipes;
 mod fylo_process;
 mod interruption;
+#[cfg(any(target_os = "linux", target_os = "macos", test))]
+mod mount_entry;
+mod network_root;
+mod operation_deadline;
 mod operation_timeout;
 mod patch_queue;
 mod queue_commands;
@@ -17,8 +24,9 @@ mod sql_statement;
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
+use futures_util::future::OptionFuture;
 use serde_json::{Map, Value, json};
 use tokio::sync::Mutex;
 
@@ -30,9 +38,12 @@ use super::{ManagedStorage, failure, object_keys, scalar, text};
 use crate::Failure;
 use crate::failure::diagnostic;
 use crate::sorted_json::SortedJson;
+use call_lease::CallLease;
 pub(super) use collection_name::CollectionName;
 use document_commands::DocumentCommands;
+use fylo_lease::FyloLease;
 use fylo_process::FyloProcess;
+use operation_deadline::OperationDeadline;
 use operation_timeout::OperationTimeout;
 use patch_queue::{PatchAnswer, PatchQueue};
 use queue_commands::QueueCommands;
@@ -41,6 +52,7 @@ pub(super) use sql_statement::SqlStatement;
 
 pub(super) struct FyloStore {
     root: PathBuf,
+    lease: FyloLease,
     operation_timeout: Duration,
     process: Mutex<Option<FyloProcess>>,
     patches: PatchQueue,
@@ -52,7 +64,8 @@ impl FyloStore {
     const MAX_SCAN: usize = 10_000;
 
     pub(super) async fn connect(settings: &Value) -> Result<Self, Failure> {
-        object_keys(settings, &["driver", "url", "operationTimeoutMs"])?;
+        object_keys(settings, &["driver", "url", "lease", "operationTimeoutMs"])?;
+        let lease = FyloLease::from_settings(settings)?;
         let operation_timeout = OperationTimeout::from_settings(settings)?;
         let raw = text(settings, "url")?;
         let path = Self::root_path(raw)
@@ -66,24 +79,26 @@ impl FyloStore {
         if !root.is_dir() {
             return Err(failure("FYLO root must be a directory."));
         }
-        let mut process = FyloProcess::spawn(&root).map_err(FyloError::into_failure)?;
-        let identity = process
-            .handshake(&json!({ "op": "handshake" }))
-            .await
-            .map_err(FyloError::into_failure)?;
-        if identity["protocolVersion"] != json!(1) {
-            return Err(failure(
-                "FYLO speaks an unsupported machine protocol version.",
-            ));
-        }
+        let process = Self::first_process(lease, &root).await?;
         Ok(Self {
             root,
+            lease,
             operation_timeout,
-            process: Mutex::new(Some(process)),
+            process: Mutex::new(process),
             patches: PatchQueue::new(),
             closed: AtomicBool::new(false),
             scrolls: Mutex::new(ScrollSnapshots::new()),
         })
+    }
+
+    async fn first_process(lease: FyloLease, root: &Path) -> Result<Option<FyloProcess>, Failure> {
+        match lease {
+            FyloLease::Server => Ok(Some(FyloProcess::started(root).await?)),
+            FyloLease::Call => {
+                CallLease::new(root).prepare().await?;
+                Ok(None)
+            }
+        }
     }
 
     fn root_path(raw: &str) -> Option<&str> {
@@ -103,7 +118,15 @@ impl FyloStore {
         drive_path.unwrap_or(root)
     }
 
-    pub(super) async fn execute(&self, command: &Value) -> Result<Value, Failure> {
+    pub(super) async fn execute(
+        &self,
+        command: &Value,
+        deadline: Instant,
+    ) -> Result<Value, Failure> {
+        OperationDeadline::scope(deadline, self.run(command)).await
+    }
+
+    async fn run(&self, command: &Value) -> Result<Value, Failure> {
         let operation = text(command, "operation")?;
         match operation {
             "sql" => return self.sql(command).await,
@@ -128,9 +151,8 @@ impl FyloStore {
 
     pub(super) async fn close(&self) {
         self.closed.store(true, Ordering::Release);
-        if let Some(process) = self.process.lock().await.take() {
-            process.close().await;
-        }
+        let process = self.process.lock().await.take();
+        OptionFuture::from(process.map(FyloProcess::close)).await;
     }
 
     pub(super) fn operation_timeout(&self) -> Duration {
@@ -419,8 +441,20 @@ impl FyloStore {
         requests: Vec<(&str, Value)>,
     ) -> Result<Vec<Value>, FyloError> {
         self.refuse_when_closed()?;
+        if self.lease == FyloLease::Call {
+            return self.call_with_lease(requests).await;
+        }
         let process = self.ready_process(guard).await?;
         Self::send_each(process, requests).await
+    }
+
+    async fn call_with_lease(&self, requests: Vec<(&str, Value)>) -> Result<Vec<Value>, FyloError> {
+        let lease = CallLease::new(&self.root);
+        let mut answers = Vec::with_capacity(requests.len());
+        for (operation, fields) in requests {
+            answers.push(lease.answer(operation, fields).await?);
+        }
+        Ok(answers)
     }
 
     fn refuse_when_closed(&self) -> Result<(), FyloError> {
@@ -641,6 +675,12 @@ impl FyloError {
         }
     }
 
+    fn coded(code: &str) -> Self {
+        Self {
+            code: code.to_owned(),
+        }
+    }
+
     fn broke_process(&self) -> bool {
         self.code == "EPROTOCOL"
     }
@@ -669,6 +709,12 @@ impl FyloError {
             "EPROTOCOL" => {
                 failure("FYLO subprocess failed; the datasource reconnects on the next call.")
             }
+            "ENOFRAME" => failure(
+                "FYLO exited without an answer frame (ENOFRAME): a FYLO host setting or the fylo version is wrong.",
+            ),
+            "EREMOTEROOT" => failure(
+                "FYLO refuses a root on a network file system (EREMOTEROOT); put the root on a local disk.",
+            ),
             code => Failure::one(crate::failure::diagnostic(
                 2160,
                 format!("FYLO operation failed ({code})."),

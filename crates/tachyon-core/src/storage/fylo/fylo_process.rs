@@ -1,13 +1,15 @@
 use std::path::Path;
 use std::process::Stdio;
 
-use serde_json::Value;
+use serde_json::{Value, json};
 use tokio::process::Child;
 
 use super::FyloError;
 use super::fylo_pipes::FyloPipes;
 use super::interruption::Interruption;
 use super::request_watch::RequestWatch;
+use crate::Failure;
+use crate::storage::failure;
 
 pub(super) struct FyloProcess {
     child: Child,
@@ -46,8 +48,24 @@ impl FyloProcess {
         })
     }
 
-    pub(super) async fn handshake(&mut self, request: &Value) -> Result<Value, FyloError> {
-        self.pipes.request(request).await
+    pub(super) async fn started(root: &Path) -> Result<Self, Failure> {
+        let mut process = Self::spawn(root).map_err(FyloError::into_failure)?;
+        let identity = process
+            .pipes
+            .request(&json!({ "op": "handshake" }))
+            .await
+            .map_err(FyloError::into_failure)?;
+        Self::supported_protocol(&identity)?;
+        Ok(process)
+    }
+
+    fn supported_protocol(identity: &Value) -> Result<(), Failure> {
+        if identity["protocolVersion"] != json!(1) {
+            return Err(failure(
+                "FYLO speaks an unsupported machine protocol version.",
+            ));
+        }
+        Ok(())
     }
 
     pub(super) async fn request(
