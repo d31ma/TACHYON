@@ -1,10 +1,10 @@
 use super::ResourceAccess;
+use super::invocation_storage::InvocationStorage;
 use super::resource_request::ResourceRequest;
 use crate::handler::gateway::GatewayCalls;
 use crate::handler::process::HandlerCancellation;
 use crate::handler::topic_bus::TopicOutbox;
 use crate::sorted_json::SortedJson;
-use crate::storage::ManagedStorage;
 use axum::http::{HeaderMap, StatusCode, header};
 use serde_json::Value;
 use std::net::SocketAddr;
@@ -16,7 +16,7 @@ use tokio::time::{Instant, sleep_until};
 
 #[derive(Clone)]
 pub(super) struct Access {
-    pub(super) storage: Option<Arc<ManagedStorage>>,
+    pub(super) storage: Option<InvocationStorage>,
     pub(super) gateways: Option<Arc<GatewayCalls>>,
     pub(super) topics: Option<Arc<TopicOutbox>>,
     pub(super) token: String,

@@ -3,6 +3,7 @@ mod document_commands;
 mod patch_queue;
 mod queue_commands;
 mod queue_name;
+mod root_lock_wait;
 mod scroll_page;
 mod scroll_request;
 mod scroll_snapshot;
@@ -29,6 +30,7 @@ pub(super) use collection_name::CollectionName;
 use document_commands::DocumentCommands;
 use patch_queue::{PatchAnswer, PatchQueue};
 use queue_commands::QueueCommands;
+use root_lock_wait::RootLockWait;
 use scroll_snapshots::ScrollSnapshots;
 pub(super) use sql_statement::SqlStatement;
 
@@ -65,7 +67,7 @@ impl FyloStore {
         }
         let mut process = FyloProcess::spawn(&root).map_err(FyloError::into_failure)?;
         let identity = process
-            .request(json!({ "op": "handshake" }))
+            .request(&json!({ "op": "handshake" }))
             .await
             .map_err(FyloError::into_failure)?;
         if identity["protocolVersion"] != json!(1) {
@@ -408,7 +410,7 @@ impl FyloStore {
         let mut answers = Vec::with_capacity(requests.len());
         for (operation, mut fields) in requests {
             fields["op"] = json!(operation);
-            match process.request(fields).await {
+            match process.request_waiting(fields).await {
                 Ok(answer) => answers.push(answer),
                 Err(error) if error.code == "EPROTOCOL" => return Err(error),
                 Err(error) => {
@@ -616,8 +618,22 @@ impl FyloProcess {
         })
     }
 
-    async fn request(&mut self, request: Value) -> Result<Value, FyloError> {
-        let mut line = SortedJson::text(&request);
+    async fn request_waiting(&mut self, request: Value) -> Result<Value, FyloError> {
+        let mut wait = RootLockWait::new();
+        let mut answer = self.request(&request).await;
+        while Self::root_was_busy(&answer, &mut wait).await {
+            answer = self.request(&request).await;
+        }
+        answer
+    }
+
+    async fn root_was_busy(answer: &Result<Value, FyloError>, wait: &mut RootLockWait) -> bool {
+        let root_locked = answer.as_ref().err().is_some_and(FyloError::root_locked);
+        root_locked && wait.pause().await
+    }
+
+    async fn request(&mut self, request: &Value) -> Result<Value, FyloError> {
+        let mut line = SortedJson::text(request);
         if line.len() > 1024 * 1024 {
             return Err(FyloError::protocol("FYLO request exceeds 1 MiB."));
         }
@@ -663,6 +679,10 @@ impl FyloError {
         Self {
             code: String::from("EPROTOCOL"),
         }
+    }
+
+    fn root_locked(&self) -> bool {
+        self.code == "EROOTLOCKED"
     }
 
     fn missing(&self) -> bool {

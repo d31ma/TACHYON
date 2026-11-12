@@ -1,7 +1,8 @@
 #![allow(clippy::expect_used)]
 
+use std::io::{BufRead as _, BufReader, Write as _};
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Child, Command, Output, Stdio};
 
 struct FyloProject {
     workspace: tempfile::TempDir,
@@ -188,6 +189,21 @@ class EventsController:
         ),
     ];
 
+    const BUSY_PYTHON_FILES: [(&'static str, &'static str); 1] = [(
+        "server/controllers/EventsController.py",
+        r#"from typing import Annotated
+
+@request_route("/events")
+@public
+class EventsController:
+    data_source: Annotated[DataSource, needs]
+
+    @get_route
+    def get_events(self) -> dict[str, object]:
+        return {"exists": self.data_source.collection_exists("hd-events")}
+"#,
+    )];
+
     fn new(files: &[(&str, &str)]) -> Self {
         let workspace = tempfile::tempdir().expect("workspace");
         let root = workspace.path().join("fylo-root");
@@ -212,6 +228,44 @@ class EventsController:
     fn write(path: &Path, contents: &str) {
         std::fs::create_dir_all(path.parent().expect("parent")).expect("directory");
         std::fs::write(path, contents).expect("fixture");
+    }
+
+    fn root(&self) -> PathBuf {
+        std::fs::canonicalize(self.workspace.path().join("fylo-root")).expect("FYLO root")
+    }
+
+    fn hold_root(&self) -> Child {
+        let mut holder = Command::new("fylo")
+            .args(["exec", "--loop", "--root"])
+            .arg(self.root())
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .spawn()
+            .expect("second fylo loop");
+        let request = r#"{"op":"createCollection","collection":"hd-events"}"#;
+        writeln!(holder.stdin.as_mut().expect("input"), "{request}").expect("request");
+        let mut answer = String::new();
+        BufReader::new(holder.stdout.as_mut().expect("output"))
+            .read_line(&mut answer)
+            .expect("answer");
+        assert!(answer.contains(r#""ok":true"#), "{answer}");
+        holder
+    }
+
+    fn invoke(&self, controller: &str) -> Output {
+        Command::new(env!("CARGO_BIN_EXE_ty"))
+            .args(["handler", "invoke", controller])
+            .arg("--project")
+            .arg(self.project())
+            .args(["--route", "/events", "--method", "GET"])
+            .args(["--timeout-ms", Self::timeout_ms()])
+            .args([
+                "--python-runtime",
+                if cfg!(windows) { "python" } else { "python3" },
+            ])
+            .output()
+            .expect("ty handler invoke")
     }
 
     fn project(&self) -> PathBuf {
@@ -310,4 +364,22 @@ fn python_services_use_every_fylo_operation() {
     let project = FyloProject::new(&FyloProject::PYTHON_FILES);
     let report = project.report("server/controllers/EventsController.py");
     FyloProject::assert_report(&report);
+}
+
+#[test]
+fn a_root_held_by_another_fylo_loop_is_logged_with_its_fylo_code() {
+    if !FyloProject::available("fylo") || !FyloProject::available("python3") {
+        return;
+    }
+    let project = FyloProject::new(&FyloProject::BUSY_PYTHON_FILES);
+    let mut holder = project.hold_root();
+    let output = project.invoke("server/controllers/EventsController.py");
+    holder.kill().expect("stop second fylo loop");
+    holder.wait().expect("reap second fylo loop");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let event = r#"{"diagnostics":[{"code":"TY2160","message":"FYLO operation failed (EROOTLOCKED)."}],"event":"handler.storage_failed","#;
+    assert!(stderr.contains(event), "{stderr}");
+    assert!(!stdout.contains("EROOTLOCKED"), "{stdout}");
+    assert!(!stdout.contains(r#""status":200"#), "{stdout}");
 }

@@ -157,6 +157,15 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- **A busy FYLO root waits, and store failures are logged** (ADR NNNN). When
+  another process holds the FYLO root (`EROOTLOCKED`), the FYLO datasource
+  now waits and sends the request again for up to 2 seconds before it fails
+  as before; other FYLO errors still fail at once. Every failed storage
+  command of a Yon handler now writes one `handler.storage_failed` line with
+  the `request_id` and the diagnostic, such as `TY2160` "FYLO operation failed
+  (EROOTLOCKED).", to the standard error of `ty`. Before, the cause was
+  dropped. The handler's answer does not change.
+
 - **A Windows PHP relay answers its own deadline when PowerShell starts
   slowly.** The relay's watchdog (it ends the program's process tree at the
   deadline) is a PowerShell process. PHP for Windows is an x64 program, so on

@@ -1,10 +1,12 @@
 mod access;
 mod door_route;
+mod invocation_storage;
 mod piped_resources;
 mod resource_door;
 mod resource_request;
 
 use door_route::DoorRoute;
+pub(super) use invocation_storage::InvocationStorage;
 pub(super) use piped_resources::PipedResources;
 pub(super) use resource_door::ResourceDoor;
 
@@ -13,7 +15,6 @@ use super::process::HandlerCancellation;
 use super::topic_bus::TopicOutbox;
 use crate::Failure;
 use crate::failure::diagnostic;
-use crate::storage::ManagedStorage;
 use access::Access;
 use std::ffi::{OsStr, OsString};
 use std::fmt::Write as _;
@@ -48,7 +49,7 @@ impl ResourceAccess {
     }
 
     pub(super) async fn bind(
-        storage: Option<Arc<ManagedStorage>>,
+        storage: Option<InvocationStorage>,
         gateways: Option<GatewayCalls>,
         topics: Option<TopicOutbox>,
         stop: HandlerCancellation,
@@ -179,6 +180,7 @@ impl Drop for ResourceAccess {
 mod tests {
     use super::resource_request::ResourceRequest;
     use super::*;
+    use crate::storage::ManagedStorage;
     use serde_json::json;
     use std::time::Duration;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -280,7 +282,8 @@ mod tests {
 
     async fn bind_storage(storage: &Arc<ManagedStorage>, deadline: Instant) -> ResourceAccess {
         let stop = HandlerCancellation::default();
-        ResourceAccess::bind(Some(Arc::clone(storage)), None, None, stop, deadline, None)
+        let storage = InvocationStorage::new(Arc::clone(storage), String::from("resource_test"));
+        ResourceAccess::bind(Some(storage), None, None, stop, deadline, None)
             .await
             .expect("access")
     }

@@ -93,6 +93,18 @@ How the server runs FYLO:
   bounds listed below.
 - When a project configures the driver, `ty doctor` reports the requirement
   "fylo datasource".
+- One FYLO process owns a root at a time. It takes the root on its first
+  request after the handshake and keeps it until it exits. When another
+  process holds the root, FYLO answers `EROOTLOCKED`. Tachyon then treats the
+  root as busy: it waits and sends the same request again, first after 10 ms,
+  then after twice as long each time, at most 200 ms, for at most 2 seconds
+  in all (ADR NNNN). If the root is still busy after 2 seconds, the call fails
+  as before, with `TY2160` "FYLO operation failed (EROOTLOCKED)." These
+  limits are fixed; no setting changes them. Every other FYLO error fails at
+  once.
+- So two servers, or two serverless containers of one function, must not
+  share one FYLO root for long: the second one waits up to 2 seconds per
+  request and then fails. Give each root one owner.
 
 ```json
 {
@@ -285,6 +297,15 @@ Redis:
 - Public resource errors do not include SQL errors, credentials, query text or
   capability tokens. Check diagnostics on the database side with authorized
   operational access. Do not log credentials or query parameter values.
+- When a storage command of a Yon handler fails, the supervisor writes one
+  JSON line to the standard error of `ty`, next to `http.access` and
+  `handler.log` (ADR NNNN):
+  `{"diagnostics":[{"code":"TY2160","message":"FYLO operation failed (EROOTLOCKED)."}],"event":"handler.storage_failed","request_id":"..."}`.
+  It holds only the diagnostic code and Tachyon's own fixed message, which
+  for FYLO names FYLO's error code. It never holds the command, stored data,
+  SQL text, FYLO's own message (which names the root path) or the capability
+  token. The handler's answer does not change: it still sees only
+  "Yon managed resource operation failed."
 - `YON_RESOURCE_ENDPOINT` and `YON_RESOURCE_TOKEN` are private outputs of the
   supervisor for one invocation. They are not application settings.
   - Do not write them in `.env`.
@@ -293,8 +314,9 @@ Redis:
   - The supervisor replaces inherited values. It revokes access when the
     invocation ends.
 - There is no automatic retry, no transaction annotation and no rollback for
-  the whole request. A cancellation does not prove that a mutation did not
-  commit.
+  the whole request. The one exception is a busy FYLO root (`EROOTLOCKED`),
+  which FYLO refuses before it runs the request, so sending it again is safe.
+  A cancellation does not prove that a mutation did not commit.
 
 Before you claim support or release readiness, check the qualification
 evidence below and the language runtime results in

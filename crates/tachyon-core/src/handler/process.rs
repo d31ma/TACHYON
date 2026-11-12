@@ -68,7 +68,7 @@ pub(crate) use socket::{SocketChannels, SocketInput, SocketOutput};
 use super::frame::{FrameLimits, FramePrefix, HandlerFrame};
 use super::gateway::{GatewayCallSetup, GatewayCalls, GatewayTable};
 use super::readiness::{RuntimeProbe, RuntimeProbeResult, RuntimeRequirement, RuntimeRequirements};
-use super::resources::{PipedResources, ResourceAccess};
+use super::resources::{InvocationStorage, PipedResources, ResourceAccess};
 use super::topic_bus::{TopicBus, TopicOutbox};
 use super::{FirecrackerIsolation, HandlerLanguage, HandlerSource};
 use crate::Failure;
@@ -396,7 +396,10 @@ impl HandlerSupervisor {
         deadline: Instant,
         cancellation: &HandlerCancellation,
     ) -> Result<Option<ResourceAccess>, Failure> {
-        let storage = self.storage().await?;
+        let storage = self
+            .storage()
+            .await?
+            .map(|storage| InvocationStorage::new(storage, request.request_id.clone()));
         let stop = cancellation.child();
         let gateways = self.gateway_calls(source, request, deadline, &stop)?;
         let topics = self
