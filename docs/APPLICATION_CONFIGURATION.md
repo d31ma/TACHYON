@@ -31,10 +31,14 @@ configure. For connection settings and repository injection, see
 
 The `fylo` driver ([ADR 0032](adr/0032-fylo-datasource.md)) has special rules:
 
-- It takes only `driver` and `url`.
+- It takes only `driver`, `url` and `lease`. `lease` is `"server"` (the
+  default: one `fylo` process for the life of the server) or `"call"` (one
+  `fylo` process per request, for serverless containers that share a root;
+  not qualified, and refused on a network file system). See
+  [MANAGED_STORAGE](MANAGED_STORAGE.md#the-lease-setting).
 - Its root directory must already exist, and the path must be written in
   canonical form.
-- It runs a local `fylo` subprocess. It does not connect to a database server.
+- It runs local `fylo` subprocesses. It does not connect to a database server.
 - So `YON_DATASOURCE_USERNAME` and `YON_DATASOURCE_PASSWORD` do not apply to it.
 - Its collections are created by the application with
   `dataSource.createCollection(name)`, not by this file. See
@@ -358,6 +362,7 @@ port, hosts, origins, proxies, environment and maxbody."
 | `server.port` | Port, 0 to 65535. `8080` unless set. 0 picks a free port. `--port` overrides it. |
 | `datasource.driver` | `postgresql`, `mysql`, `mariadb`, `sqlserver`, `sqlite` or `fylo`. |
 | `datasource.url` | The database location, without credentials: `postgresql://db:5432/catalog`, `sqlite:///var/lib/catalog.db`, `sqlite::memory:`, or an absolute FYLO root. |
+| `datasource.lease` | FYLO only: `server` (the default, one `fylo` process for the life of the server) or `call` (one `fylo exec --invocation` process per request; not qualified, refused on a network file system; ADR 0129). |
 | `datasource.username` | The database user. Usually it is `YON_DATASOURCE_USERNAME` in `.env`, next to `YON_DATASOURCE_PASSWORD`. Only `.env` may hold the password. SQLite and FYLO take neither. |
 | `datasource.tls.ca` | Absolute path of a CA (certificate authority) certificate to trust. |
 | `redis.url` | `redis://`, or `rediss://` for TLS. |

@@ -393,10 +393,20 @@ fn fylo_url(root: &std::path::Path) -> String {
 }
 
 async fn fylo_store(root: &std::path::Path) -> ManagedStorage {
-    let configuration = json!({"yon":{"datasource":{"driver":"fylo","url":fylo_url(root)}}});
-    ManagedStorage::connect_with_deadline_factor(&configuration, 6)
+    let lease = std::env::var("TAC_STORAGE_TEST_LEASE").unwrap_or_else(|_| String::from("server"));
+    fylo_store_with_lease(root, &lease, 6)
         .await
         .unwrap_or_else(|error| panic!("{error}"))
+}
+
+async fn fylo_store_with_lease(
+    root: &std::path::Path,
+    lease: &str,
+    deadline_factor: u32,
+) -> Result<ManagedStorage, crate::Failure> {
+    let datasource = json!({"driver":"fylo","url":fylo_url(root),"lease":lease});
+    let configuration = json!({"yon":{"datasource":datasource}});
+    ManagedStorage::connect_with_deadline_factor(&configuration, deadline_factor).await
 }
 
 fn fylo_is_available() -> bool {
@@ -544,6 +554,7 @@ async fn a_build_without_redis_names_the_feature_that_adds_it() {
     assert!(error.to_string().contains("--features storage-redis"));
 }
 
+mod fylo_call_lease;
 mod fylo_documents;
 mod fylo_root_lock;
 mod fylo_sql;
