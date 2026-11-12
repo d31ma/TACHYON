@@ -132,10 +132,16 @@ impl LogCase {
     }
 
     fn available(&self) -> bool {
-        let found = Command::new(self.program)
-            .arg(self.flag)
-            .output()
-            .is_ok_and(|output| output.status.success());
+        let mut shell = Command::new("cmd");
+        shell.args(["/D", "/C", self.program]);
+        let commands = [
+            Some(Command::new(self.program)),
+            cfg!(windows).then_some(shell),
+        ];
+        let found = commands
+            .into_iter()
+            .flatten()
+            .any(|mut command| Self::answers(command.arg(self.flag)));
         let required = [
             std::env::var_os("CI").is_some(),
             Self::INSTALLED_IN_CI.contains(&self.program),
@@ -146,6 +152,14 @@ impl LogCase {
             self.program
         );
         found
+    }
+
+    fn answers(command: &mut Command) -> bool {
+        command
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()
+            .is_ok_and(|status| status.success())
     }
 
     fn project(&self) -> tempfile::TempDir {
