@@ -86,11 +86,7 @@ impl RemoteOrigins {
         if declared.contains_key(name) {
             return Ok(());
         }
-        let written = file
-            .strip_prefix(root)
-            .unwrap_or(file)
-            .display()
-            .to_string();
+        let written = super::portable_path(file.strip_prefix(root).unwrap_or(file));
         Err(crate::failure::Failure::one(crate::failure::diagnostic(
             1308,
             format!(
