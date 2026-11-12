@@ -139,3 +139,4 @@ design. Decide routine implementation choices in code review, not in an ADR.
 - [124. Sockets and Streams Reconnect by a Declared Policy and Reach Named Origins](0124-sockets-and-streams-reconnect-by-a-declared-policy-and-reach-named-origins.md)
 - [125. Store Tables Load by Partition](0125-store-tables-load-by-partition.md)
 - [126. Tac Services Create and Use Passkeys](0126-tac-services-create-and-use-passkeys.md)
+- [127. Yon Handlers Write Logs on Every Answer](0127-yon-handlers-write-logs-on-every-answer.md)

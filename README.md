@@ -660,7 +660,7 @@ the levels `debug`, `info`, `warn` and `error`. `ty` writes each one to its
 standard error as `{"event":"handler.log","level","message","fields","truncated","request_id","route","handler"}`,
 whether the call answers, fails or times out. A call keeps at most 100 log
 lines; past that, one `handler.log_dropped` line counts what was left out.
-Do not log secrets. See ADR NNNN.
+Do not log secrets. See ADR 0127.
 
 A socket closes with code 1013 when the browser does not read a message
 within 10 seconds, or when the socket handler does not take one within 10

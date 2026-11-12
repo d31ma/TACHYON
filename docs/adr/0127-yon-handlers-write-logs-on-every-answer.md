@@ -1,4 +1,4 @@
-# ADR NNNN: Yon Handlers Write Logs on Every Answer
+# ADR 0127: Yon Handlers Write Logs on Every Answer
 
 - Status: Accepted
 - Date: 2026-11-11

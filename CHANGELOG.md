@@ -10,7 +10,7 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
-- **Yon handlers write logs on every answer** (ADR NNNN). Every Yon language
+- **Yon handlers write logs on every answer** (ADR 0127). Every Yon language
   gets `YonLog` with the levels `debug`, `info`, `warn` and `error`, a
   message and optional fields. `ty start`, `ty serve`, `ty handler invoke` and
   `ty test` write each line to standard error as a `handler.log` JSON line
