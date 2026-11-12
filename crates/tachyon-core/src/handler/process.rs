@@ -3,10 +3,14 @@ mod direct_response;
 mod drained;
 mod environment_policy;
 mod event_reader;
+mod handler_call_label;
 mod handler_cancellation;
 #[cfg(test)]
 mod handler_environment_tests;
 mod handler_event;
+mod handler_log_level;
+mod handler_log_record;
+mod handler_log_records;
 mod handler_runtime_programs;
 #[cfg(test)]
 mod handler_runtime_programs_tests;
@@ -48,8 +52,12 @@ mod warm_stream_request;
 
 pub(in crate::handler) use drained::Drained;
 pub use environment_policy::EnvironmentPolicy;
+pub(in crate::handler) use handler_call_label::HandlerCallLabel;
 pub use handler_cancellation::HandlerCancellation;
 pub use handler_event::HandlerEvent;
+pub(in crate::handler) use handler_log_level::HandlerLogLevel;
+pub(in crate::handler) use handler_log_record::HandlerLogRecord;
+pub(in crate::handler) use handler_log_records::HandlerLogRecords;
 pub use handler_runtime_programs::HandlerRuntimePrograms;
 #[cfg(test)]
 pub(crate) use handler_runtime_programs_tests::InstalledPrograms;
@@ -762,7 +770,7 @@ impl HandlerSupervisor {
         deadline: Instant,
     ) -> WarmContext {
         WarmContext {
-            request_id: request.request_id.clone(),
+            label: HandlerCallLabel::of(source, request),
             direct: source.language() == HandlerLanguage::Direct,
             topics: resource_access.and_then(ResourceAccess::topics),
             deadline,
@@ -911,6 +919,7 @@ impl HandlerSupervisor {
                 .map(ResourceAccess::piped)
                 .filter(|_| shares_resources),
             style: FramePrefix::of(source),
+            label: HandlerCallLabel::of(source, request),
         };
         let topics = resource_access.as_ref().and_then(ResourceAccess::topics);
         let result = self
@@ -943,6 +952,7 @@ impl HandlerSupervisor {
             stderr,
             resource_pipe,
             style,
+            label,
         } = pipes;
         let request_id = &request.request_id;
         let raw_request = [direct_protocol, resource_pipe.is_none()] == [true, true];
@@ -974,9 +984,10 @@ impl HandlerSupervisor {
             deadline,
             direct_protocol,
             topics,
+            label,
         };
         running
-            .run(cancellation, request_id, self.options.cancellation_grace)
+            .run(cancellation, self.options.cancellation_grace)
             .await
     }
 
@@ -1235,6 +1246,7 @@ impl HandlerSupervisor {
             stderr,
             resource_pipe: None,
             style: FramePrefix::of(process.source),
+            label: HandlerCallLabel::of(process.source, process.request),
         };
         let result = self.drive_streaming_process(pipes, process).await;
         Self::close_resource_access(resource_access).await;
@@ -1262,6 +1274,7 @@ impl HandlerSupervisor {
             stderr,
             resource_pipe: _,
             style,
+            label,
         } = pipes;
         let request_bytes = self.request_with_time_left(request, direct_protocol, deadline);
         let request_bytes =
@@ -1296,6 +1309,7 @@ impl HandlerSupervisor {
             events_task,
             stderr_task,
             deadline,
+            label,
         };
         self.finish_stream(outcome, running, request_id).await
     }

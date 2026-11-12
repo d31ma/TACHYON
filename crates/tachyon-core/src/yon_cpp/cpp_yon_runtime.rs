@@ -7,6 +7,7 @@ impl CppYonRuntime {
     const HOST: &'static str = include_str!("tachyon/yon_host.hpp");
     const TEST_HOST: &'static str = include_str!("tachyon/yon_test_host.hpp");
     const FAKES: &'static str = include_str!("tachyon/yon_fakes.hpp");
+    const LOG: &'static str = include_str!("tachyon/yon_log.hpp");
     const PIECES: &'static [&'static str] = &[
         include_str!("tachyon/yon_text.hpp"),
         include_str!("tachyon/yon_frame.hpp"),
@@ -37,11 +38,12 @@ impl CppYonRuntime {
 
     fn composed(host: &str, harness: &str) -> String {
         format!(
-            "{}{}{}{host}{}{}{}{harness}",
+            "{}{}{}{host}{}{}{}{}{harness}",
             CppPrelude::yon(),
             CppPrelude::MEMORY_ENTITIES,
             Self::HOST_STORAGE,
             CppPrelude::context(),
+            Self::LOG,
             Self::PIECES.concat(),
             CppPrelude::services()
         )

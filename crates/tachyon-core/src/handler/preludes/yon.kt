@@ -98,6 +98,26 @@ private object YonManagedResources {
     }
 }
 
+object YonLog {
+    fun debug(message: String, fields: Map<String, Any?> = emptyMap()) = write("debug", message, fields)
+    fun info(message: String, fields: Map<String, Any?> = emptyMap()) = write("info", message, fields)
+    fun warn(message: String, fields: Map<String, Any?> = emptyMap()) = write("warn", message, fields)
+    fun error(message: String, fields: Map<String, Any?> = emptyMap()) = write("error", message, fields)
+
+    private fun write(level: String, message: String, fields: Map<String, Any?>) {
+        val record = linkedMapOf<String, Any?>("event" to "yon.log", "level" to level, "message" to message)
+        System.err.print(line(record, fields) + "\n")
+        System.err.flush()
+    }
+
+    private fun line(record: Map<String, Any?>, fields: Map<String, Any?>): String =
+        try {
+            Json.write(record + ("fields" to fields))
+        } catch (failure: RuntimeException) {
+            Json.write(record)
+        }
+}
+
 object YonGateway {
     private const val ANSWER_MARGIN_NANOSECONDS = 1_000_000_000L
     fun call(key: String, arguments: Array<Any?>): Map<*, *> {

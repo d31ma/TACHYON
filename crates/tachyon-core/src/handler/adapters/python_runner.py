@@ -146,6 +146,30 @@ class GatewayClient:
         return {"error": "adapter"}
 
 
+class YonLog:
+    @staticmethod
+    def write(level, message, fields=None):
+        record = {"event": "yon.log", "level": level, "message": str(message), "fields": fields or {}}
+        sys.stderr.write(json.dumps(record, default=str) + "\n")
+        sys.stderr.flush()
+
+    @staticmethod
+    def debug(message, fields=None):
+        YonLog.write("debug", message, fields)
+
+    @staticmethod
+    def info(message, fields=None):
+        YonLog.write("info", message, fields)
+
+    @staticmethod
+    def warn(message, fields=None):
+        YonLog.write("warn", message, fields)
+
+    @staticmethod
+    def error(message, fields=None):
+        YonLog.write("error", message, fields)
+
+
 class DataSource:
     def command(self, command):
         return managed_resource(command)
@@ -682,6 +706,7 @@ def install_builtins(relay_program):
     builtins.RedisTemplate = RedisTemplate
     builtins.ApplicationEventPublisher = type("ApplicationEventPublisher", (), {})
     builtins.YonTopic = TopicClient
+    builtins.YonLog = YonLog
     builtins.YonGateway = GatewayClient(relay_program.deadline)
     current = getattr(builtins, "relay", None)
     if current is None or current == RunnerState.installed_relay:

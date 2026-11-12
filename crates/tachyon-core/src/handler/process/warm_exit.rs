@@ -1,13 +1,13 @@
 use super::{Drained, ProcessFailure, WarmContext, WarmProcess};
 use crate::Failure;
 use crate::handler::frame::HandlerFrame;
-use tokio::time::Instant;
 
 pub(super) struct WarmExit;
 
 impl WarmExit {
-    pub(super) async fn failure(process: WarmProcess, deadline: Instant) -> Failure {
-        let (status, stderr) = process.exit_report(deadline).await;
+    pub(super) async fn failure(process: WarmProcess, context: &WarmContext) -> Failure {
+        let (status, stderr) = process.exit_report(context.deadline).await;
+        stderr.report_output(&context.label);
         let failed = status.filter(|status| !status.success());
         failed.map_or_else(Self::ended_early, |status| stderr.exit_failure(status))
     }
@@ -17,7 +17,7 @@ impl WarmExit {
         context: &WarmContext,
     ) -> Result<(), Failure> {
         let (status, stderr) = process.exit_report(context.deadline).await;
-        stderr.report_stderr(&context.request_id);
+        stderr.report_output(&context.label);
         let status = status.ok_or_else(Self::unobserved)?;
         Drained::validate_stream_output(status, &stderr)
     }

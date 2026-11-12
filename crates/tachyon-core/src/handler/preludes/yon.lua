@@ -248,6 +248,39 @@ function YonResourceFrames.ask(command)
   return answer
 end
 
+YonLog = {}
+
+function YonLog.debug(message, fields)
+  YonLog.write("debug", message, fields)
+end
+
+function YonLog.info(message, fields)
+  YonLog.write("info", message, fields)
+end
+
+function YonLog.warn(message, fields)
+  YonLog.write("warn", message, fields)
+end
+
+function YonLog.error(message, fields)
+  YonLog.write("error", message, fields)
+end
+
+function YonLog.write(level, message, fields)
+  local record = { event = "yon.log", level = level, message = tostring(message) }
+  record.fields = setmetatable({}, YonJson.OBJECT)
+  for name, value in pairs(fields or {}) do
+    record.fields[name] = value
+  end
+  local encoded, line = pcall(YonJson.encode, record)
+  if not encoded then
+    record.fields = setmetatable({}, YonJson.OBJECT)
+    line = YonJson.encode(record)
+  end
+  io.stderr:write(line, "\n")
+  io.stderr:flush()
+end
+
 YonGatewayFrames = {}
 
 function YonGatewayFrames.call(key, arguments)

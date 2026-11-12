@@ -1,3 +1,4 @@
+use super::HandlerCallLabel;
 use crate::handler::frame::FramePrefix;
 use crate::handler::resources::PipedResources;
 use command_group::AsyncGroupChild;
@@ -10,4 +11,5 @@ pub(super) struct ProcessPipes {
     pub(super) stderr: ChildStderr,
     pub(super) resource_pipe: Option<PipedResources>,
     pub(super) style: FramePrefix,
+    pub(super) label: HandlerCallLabel,
 }

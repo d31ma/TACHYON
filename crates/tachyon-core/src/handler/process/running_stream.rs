@@ -1,4 +1,4 @@
-use super::{Drained, ProcessFailure, ProcessReaper, StreamReadOutcome};
+use super::{Drained, HandlerCallLabel, ProcessFailure, ProcessReaper, StreamReadOutcome};
 use crate::Failure;
 use command_group::AsyncGroupChild;
 use std::process::ExitStatus;
@@ -14,6 +14,7 @@ pub(super) struct RunningStream {
     pub(super) events_task: JoinHandle<Result<StreamReadOutcome, Failure>>,
     pub(super) stderr_task: JoinHandle<Drained>,
     pub(super) deadline: Instant,
+    pub(super) label: HandlerCallLabel,
 }
 
 impl RunningStream {
@@ -29,11 +30,13 @@ impl RunningStream {
             mut events_task,
             stderr_task,
             deadline,
+            label,
         } = self;
         ProcessReaper::cancel_and_reap(&mut child, stdin.as_mut(), request_id, grace, deadline)
             .await;
         Self::abort_and_wait(&mut events_task).await;
-        let _stderr = Drained::settle(stderr_task, deadline).await;
+        let stderr = Drained::settle(stderr_task, Instant::now() + grace).await;
+        Drained::report_settled(&stderr, &label);
         Err(failure)
     }
 
@@ -44,9 +47,11 @@ impl RunningStream {
             events_task: _events_task,
             stderr_task,
             deadline,
+            label,
         } = self;
         ProcessReaper::terminate(&mut child, request_id).await;
-        let _stderr = Drained::settle(stderr_task, deadline).await;
+        let stderr = Drained::settle(stderr_task, deadline).await;
+        Drained::report_settled(&stderr, &label);
         Ok(())
     }
 
@@ -57,10 +62,12 @@ impl RunningStream {
             mut events_task,
             stderr_task,
             deadline,
+            label,
         } = self;
         ProcessReaper::terminate(&mut child, request_id).await;
         Self::abort_and_wait(&mut events_task).await;
-        let _stderr = Drained::settle(stderr_task, deadline).await;
+        let stderr = Drained::settle(stderr_task, deadline).await;
+        Drained::report_settled(&stderr, &label);
         Ok(())
     }
 
@@ -75,11 +82,12 @@ impl RunningStream {
             events_task: _events_task,
             stderr_task,
             deadline,
+            label,
         } = self;
         let status = Self::exit_after_frames(&mut child, deadline, frames).await;
         ProcessReaper::terminate(&mut child, request_id).await;
         let stderr = Drained::settle(stderr_task, deadline).await;
-        Drained::report_settled(&stderr, request_id);
+        Drained::report_settled(&stderr, &label);
         Self::checked_frames(status, stderr)
     }
 
@@ -94,12 +102,13 @@ impl RunningStream {
             mut events_task,
             stderr_task,
             deadline,
+            label,
         } = self;
         drop(stdin);
         ProcessReaper::terminate(&mut child, request_id).await;
         let finished = Self::frames_after_exit(status, &mut events_task, deadline).await;
         let stderr = Drained::settle(stderr_task, deadline).await;
-        Drained::report_settled(&stderr, request_id);
+        Drained::report_settled(&stderr, &label);
         Self::checked_exit(finished, stderr)
     }
 

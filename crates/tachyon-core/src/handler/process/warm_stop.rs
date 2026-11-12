@@ -22,26 +22,30 @@ impl WarmStop {
     }
 
     async fn failure_after(self, process: WarmProcess, context: &WarmContext) -> Failure {
-        let request_id = context.request_id.as_str();
         match self {
             Self::Cancelled => {
-                process
-                    .cancel(request_id, context.grace, context.deadline)
-                    .await;
+                Self::cancel(process, context).await;
                 ProcessFailure::cancelled()
             }
             Self::TimedOut => {
-                process
-                    .cancel(request_id, context.grace, context.deadline)
-                    .await;
+                Self::cancel(process, context).await;
                 ProcessFailure::timed_out()
             }
             Self::Broken(failure) => {
+                process.take_stderr().report_output(&context.label);
                 process.retire().await;
                 failure
             }
-            Self::Ended => WarmExit::failure(process, context.deadline).await,
+            Self::Ended => WarmExit::failure(process, context).await,
         }
+    }
+
+    async fn cancel(process: WarmProcess, context: &WarmContext) {
+        let request_id = context.label.request_id.as_str();
+        let stderr = process
+            .cancel(request_id, context.grace, context.deadline)
+            .await;
+        stderr.report_output(&context.label);
     }
 
     async fn stream_result_after(

@@ -1,4 +1,4 @@
-use super::{HandlerSupervisor, WarmStop};
+use super::{HandlerCallLabel, HandlerSupervisor, WarmStop};
 use crate::handler::frame::{FramePrefix, HandlerFrame};
 use crate::handler::topic_bus::TopicOutbox;
 use std::sync::Arc;
@@ -7,7 +7,7 @@ use tachyon_contracts::HandlerRequest;
 use tokio::time::Instant;
 
 pub(super) struct WarmContext {
-    pub(super) request_id: String,
+    pub(super) label: HandlerCallLabel,
     pub(super) direct: bool,
     pub(super) topics: Option<Arc<TopicOutbox>>,
     pub(super) deadline: Instant,

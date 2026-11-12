@@ -141,6 +141,38 @@ final class YonManagedResources {
     }
 }
 
+final class YonLog {
+    private YonLog() {}
+
+    static void debug(String message) { write("debug", message, java.util.Map.of()); }
+    static void debug(String message, java.util.Map<String, ?> fields) { write("debug", message, fields); }
+    static void info(String message) { write("info", message, java.util.Map.of()); }
+    static void info(String message, java.util.Map<String, ?> fields) { write("info", message, fields); }
+    static void warn(String message) { write("warn", message, java.util.Map.of()); }
+    static void warn(String message, java.util.Map<String, ?> fields) { write("warn", message, fields); }
+    static void error(String message) { write("error", message, java.util.Map.of()); }
+    static void error(String message, java.util.Map<String, ?> fields) { write("error", message, fields); }
+
+    private static void write(String level, String message, java.util.Map<String, ?> fields) {
+        var record = new java.util.LinkedHashMap<String, Object>();
+        record.put("event", "yon.log");
+        record.put("level", level);
+        record.put("message", String.valueOf(message));
+        System.err.print(line(record, fields) + "\n");
+        System.err.flush();
+    }
+
+    private static String line(java.util.Map<String, Object> record, java.util.Map<String, ?> fields) {
+        var withFields = new java.util.LinkedHashMap<String, Object>(record);
+        withFields.put("fields", fields == null ? java.util.Map.of() : fields);
+        try {
+            return Json.write(withFields);
+        } catch (RuntimeException failure) {
+            return Json.write(record);
+        }
+    }
+}
+
 final class YonGateway {
     private static final long ANSWER_MARGIN_NANOSECONDS = 1_000_000_000L;
     static java.util.Map<?, ?> call(String key, Object[] arguments) {

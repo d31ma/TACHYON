@@ -17,6 +17,9 @@
     },
     {
       "include": "../yon/process-lifecycle/section.json"
+    },
+    {
+      "include": "../yon/handler-logs/section.json"
     }
   ]
 }

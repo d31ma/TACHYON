@@ -76,7 +76,7 @@ impl WarmStream<'_> {
     }
 
     async fn forward(&mut self, frame: &[u8]) -> Result<Option<StreamReadOutcome>, WarmStop> {
-        if StreamEvents::ends(frame, &self.context.request_id) {
+        if StreamEvents::ends(frame, &self.context.label.request_id) {
             return Ok(Some(StreamReadOutcome::Complete));
         }
         self.events.forward(frame).await.map_err(WarmStop::Broken)

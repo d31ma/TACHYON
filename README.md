@@ -654,6 +654,14 @@ call still succeeds. `TAC_HANDLER_STDERR=1` writes that output to `ty`'s
 standard error, and `TAC_ACCESS_LOG=1` writes one line per request (see
 [Environment settings](#environment-settings)).
 
+A handler writes operational logs on every answer with `YonLog`, in every Yon
+language: `YonLog.info("payment provider slow", {"upstream_ms": 2310})`, with
+the levels `debug`, `info`, `warn` and `error`. `ty` writes each one to its
+standard error as `{"event":"handler.log","level","message","fields","truncated","request_id","route","handler"}`,
+whether the call answers, fails or times out. A call keeps at most 100 log
+lines; past that, one `handler.log_dropped` line counts what was left out.
+Do not log secrets. See ADR NNNN.
+
 A socket closes with code 1013 when the browser does not read a message
 within 10 seconds, or when the socket handler does not take one within 10
 seconds.
@@ -877,7 +885,8 @@ These variables change how `ty` builds and runs a project.
 | `TAC_BUILD_JOBS` | How many WebAssembly toolchains run at once. Default a third of the CPU cores, from 1 to 4. |
 | `TAC_SHUTDOWN_GRACE_SECONDS` | How long `serve`, `start` and `preview` let running requests finish after a shutdown signal. Default 10, at most 300. `0` cancels them at once, and a value that is not a whole number keeps the default. |
 | `TAC_ACCESS_LOG` | `1` or `true` writes one `{"event":"http.access","method","path","status","duration_ms","request_id"}` JSON line to standard error per request. The path has no query string. Off by default. |
-| `TAC_HANDLER_STDERR` | `1` or `true` writes each handler call's standard error to `ty`'s standard error as `{"event":"handler.stderr","request_id","stderr","truncated"}`. It covers request, middleware, identity and worker calls, including calls that fail; streaming and socket handlers are not covered yet. The event holds the handler's own output, so turn it on only where that output may be logged. Off by default. |
+| `TAC_HANDLER_STDERR` | `1` or `true` writes each handler call's standard error to `ty`'s standard error as `{"event":"handler.stderr","request_id","route","handler","stderr","truncated"}`. It covers every kind of call, including streams, sockets and calls that fail, and leaves out `YonLog` lines, which are written as `handler.log`. The event holds the handler's own output, so turn it on only where that output may be logged. Off by default. |
+| `TAC_HANDLER_LOG_LEVEL` | The lowest `YonLog` level that `ty` writes as a `handler.log` line: `debug`, `info` (the default), `warn`, `error` or `off`. Any other value keeps the default. |
 | `TAC_ALLOW_UNTESTED` | `1` lets `ty preview` start while a public method has no test. |
 | `TAC_CACHE_DIR` | The installation and runtime cache that `ty cache` manages. |
 | `TAC_DIST_PATH` | The output root instead of `dist/`. |

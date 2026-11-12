@@ -204,6 +204,36 @@ class YonResources
   freeze
 end
 
+class YonLog
+  def self.debug(message, fields = {})
+    write("debug", message, fields)
+  end
+
+  def self.info(message, fields = {})
+    write("info", message, fields)
+  end
+
+  def self.warn(message, fields = {})
+    write("warn", message, fields)
+  end
+
+  def self.error(message, fields = {})
+    write("error", message, fields)
+  end
+
+  def self.write(level, message, fields)
+    record = { "event" => "yon.log", "level" => level, "message" => message.to_s }
+    STDERR.write("#{line(record, fields)}\n")
+    STDERR.flush
+  end
+
+  def self.line(record, fields)
+    JSON.generate(record.merge("fields" => fields || {}))
+  rescue StandardError
+    JSON.generate(record)
+  end
+end
+
 class DataSource
   def command(command)
     YonResources.call(command)

@@ -139,6 +139,34 @@ final class YonManagedResources
     }
 }
 
+final class YonLog
+{
+    private const FLAGS = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE | JSON_PARTIAL_OUTPUT_ON_ERROR;
+
+    public static function debug(string $message, array $fields = []): void
+    {
+        self::write('debug', $message, $fields);
+    }
+    public static function info(string $message, array $fields = []): void
+    {
+        self::write('info', $message, $fields);
+    }
+    public static function warn(string $message, array $fields = []): void
+    {
+        self::write('warn', $message, $fields);
+    }
+    public static function error(string $message, array $fields = []): void
+    {
+        self::write('error', $message, $fields);
+    }
+    private static function write(string $level, string $message, array $fields): void
+    {
+        $record = ['event' => 'yon.log', 'level' => $level, 'message' => $message, 'fields' => $fields === [] ? new stdClass() : $fields];
+        $stream = defined('STDERR') ? STDERR : fopen('php://stderr', 'wb');
+        fwrite($stream, (json_encode($record, self::FLAGS) ?: '') . "\n");
+    }
+}
+
 final class YonGateway
 {
     private const LIMIT = 1024 * 1024;

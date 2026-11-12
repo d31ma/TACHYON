@@ -918,6 +918,35 @@ fn yon_resource_exchange(body: &str, timeout: std::time::Duration) -> Result<Jso
     Json::parse(text).map_err(|_| YonResourceError)
 }
 
+pub struct YonLog;
+impl YonLog {
+    pub fn debug(message: &str, fields: impl Into<Json>) {
+        Self::write("debug", message, fields.into());
+    }
+
+    pub fn info(message: &str, fields: impl Into<Json>) {
+        Self::write("info", message, fields.into());
+    }
+
+    pub fn warn(message: &str, fields: impl Into<Json>) {
+        Self::write("warn", message, fields.into());
+    }
+
+    pub fn error(message: &str, fields: impl Into<Json>) {
+        Self::write("error", message, fields.into());
+    }
+
+    fn write(level: &str, message: &str, fields: Json) {
+        let record = Json::Map(vec![
+            (String::from("event"), Json::from("yon.log")),
+            (String::from("level"), Json::from(level)),
+            (String::from("message"), Json::from(message)),
+            (String::from("fields"), fields),
+        ]);
+        eprintln!("{}", record.write());
+    }
+}
+
 pub struct YonGateway;
 impl YonGateway {
     const ANSWER_MARGIN: std::time::Duration = std::time::Duration::from_secs(1);

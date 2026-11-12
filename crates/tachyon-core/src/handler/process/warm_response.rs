@@ -15,17 +15,17 @@ impl WarmResponse {
         let parsed = Self::parse(frame, context).await;
         let stderr = process.take_stderr();
         let checked = stderr.check_diagnostics().and(parsed);
-        stderr.surface_events(&context.request_id);
-        let relay_failed = stderr.reports_relay_failure(&context.request_id);
+        stderr.surface_events(&context.label);
+        let relay_failed = stderr.reports_relay_failure(&context.label.request_id);
         WarmAnswer::after(checked, process, relay_failed).await
     }
 
     async fn parse(frame: &[u8], context: &WarmContext) -> Result<HandlerResponse, Failure> {
         if context.direct {
             let topics = context.topics.clone();
-            return DirectResponse::parse(frame, &context.request_id, topics).await;
+            return DirectResponse::parse(frame, &context.label.request_id, topics).await;
         }
         let framed = [FramePrefix::Binary.encode(frame.len()), frame.to_vec()].concat();
-        HandlerFrame::response(&framed, &context.request_id)
+        HandlerFrame::response(&framed, &context.label.request_id)
     }
 }

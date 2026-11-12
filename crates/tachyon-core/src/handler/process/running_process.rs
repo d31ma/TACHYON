@@ -1,5 +1,7 @@
 use super::direct_response::DirectResponse;
-use super::{Drained, HandlerCancellation, ProcessFailure, ProcessOutcome, ProcessReaper};
+use super::{
+    Drained, HandlerCallLabel, HandlerCancellation, ProcessFailure, ProcessOutcome, ProcessReaper,
+};
 use crate::Failure;
 use crate::failure::diagnostic;
 use crate::handler::frame::HandlerFrame;
@@ -21,17 +23,17 @@ pub(super) struct RunningProcess {
     pub(super) deadline: Instant,
     pub(super) direct_protocol: bool,
     pub(super) topics: Option<Arc<TopicOutbox>>,
+    pub(super) label: HandlerCallLabel,
 }
 
 impl RunningProcess {
     pub(super) async fn run(
         mut self,
         cancellation: &HandlerCancellation,
-        request_id: &str,
         grace: Duration,
     ) -> Result<HandlerResponse, Failure> {
         let outcome = self.wait(cancellation).await;
-        self.finish(outcome, request_id, grace).await
+        self.finish(outcome, grace).await
     }
 
     async fn wait(&mut self, cancellation: &HandlerCancellation) -> ProcessOutcome {
@@ -45,26 +47,18 @@ impl RunningProcess {
     async fn finish(
         self,
         outcome: ProcessOutcome,
-        request_id: &str,
         grace: Duration,
     ) -> Result<HandlerResponse, Failure> {
         match outcome {
-            ProcessOutcome::Exit(status) => self.finish_after_exit(status, request_id).await,
-            ProcessOutcome::Cancelled => {
-                self.stop(ProcessFailure::cancelled(), request_id, grace)
-                    .await
-            }
-            ProcessOutcome::TimedOut => {
-                self.stop(ProcessFailure::timed_out(), request_id, grace)
-                    .await
-            }
+            ProcessOutcome::Exit(status) => self.finish_after_exit(status).await,
+            ProcessOutcome::Cancelled => self.stop(ProcessFailure::cancelled(), grace).await,
+            ProcessOutcome::TimedOut => self.stop(ProcessFailure::timed_out(), grace).await,
         }
     }
 
     async fn finish_after_exit(
         self,
         status: std::io::Result<ExitStatus>,
-        request_id: &str,
     ) -> Result<HandlerResponse, Failure> {
         let Self {
             mut child,
@@ -74,14 +68,15 @@ impl RunningProcess {
             deadline,
             direct_protocol,
             topics,
+            label,
         } = self;
         drop(stdin);
-        ProcessReaper::terminate(&mut child, request_id).await;
+        ProcessReaper::terminate(&mut child, &label.request_id).await;
         let settled = Drained::settle_pair(stdout_task, stderr_task, deadline).await;
         let (status, stdout, stderr) = Self::exit_output(status, settled)?;
-        stderr.surface_events(request_id);
+        stderr.surface_events(&label);
         Drained::validate_output(status, &stdout, &stderr)?;
-        Self::response(&stdout.bytes, request_id, direct_protocol, topics).await
+        Self::response(&stdout.bytes, &label.request_id, direct_protocol, topics).await
     }
 
     async fn response(
@@ -96,12 +91,7 @@ impl RunningProcess {
         HandlerFrame::response(bytes, request_id)
     }
 
-    async fn stop(
-        self,
-        failure: Failure,
-        request_id: &str,
-        grace: Duration,
-    ) -> Result<HandlerResponse, Failure> {
+    async fn stop(self, failure: Failure, grace: Duration) -> Result<HandlerResponse, Failure> {
         let Self {
             mut child,
             mut stdin,
@@ -110,10 +100,13 @@ impl RunningProcess {
             deadline,
             direct_protocol: _,
             topics: _,
+            label,
         } = self;
+        let request_id = label.request_id.as_str();
         ProcessReaper::cancel_and_reap(&mut child, stdin.as_mut(), request_id, grace, deadline)
             .await;
-        let _settled = Drained::settle_pair(stdout_task, stderr_task, deadline).await;
+        let settled = Drained::settle_pair(stdout_task, stderr_task, Instant::now() + grace).await;
+        Drained::report_settled(&settled.map(|(_stdout, stderr)| stderr), &label);
         Err(failure)
     }
 

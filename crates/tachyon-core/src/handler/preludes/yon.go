@@ -589,6 +589,34 @@ func yonContentLength(head string) (int, bool) {
 	return length, length >= 0
 }
 
+type YonLogWriter struct{}
+
+var YonLog = YonLogWriter{}
+
+func (YonLogWriter) Debug(message string, fields ...map[string]any) { yonLogWrite("debug", message, fields) }
+
+func (YonLogWriter) Info(message string, fields ...map[string]any) { yonLogWrite("info", message, fields) }
+
+func (YonLogWriter) Warn(message string, fields ...map[string]any) { yonLogWrite("warn", message, fields) }
+
+func (YonLogWriter) Error(message string, fields ...map[string]any) { yonLogWrite("error", message, fields) }
+
+func yonLogWrite(level string, message string, fields []map[string]any) {
+	merged := map[string]any{}
+	for _, group := range fields {
+		for name, value := range group {
+			merged[name] = value
+		}
+	}
+	record := map[string]any{"event": "yon.log", "level": level, "message": message, "fields": merged}
+	line, err := json.Marshal(record)
+	if err != nil {
+		delete(record, "fields")
+		line, _ = json.Marshal(record)
+	}
+	_, _ = os.Stderr.Write(append(line, '\n'))
+}
+
 type YonGatewayClient struct{}
 
 var YonGateway = YonGatewayClient{}

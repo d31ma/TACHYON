@@ -142,6 +142,38 @@ static class YonManagedResources
     }
 }
 
+static class YonLog
+{
+    public static void Debug(string message) => Write("debug", message, null);
+    public static void Debug(string message, IDictionary<string, object?>? fields) => Write("debug", message, fields);
+    public static void Info(string message) => Write("info", message, null);
+    public static void Info(string message, IDictionary<string, object?>? fields) => Write("info", message, fields);
+    public static void Warn(string message) => Write("warn", message, null);
+    public static void Warn(string message, IDictionary<string, object?>? fields) => Write("warn", message, fields);
+    public static void Error(string message) => Write("error", message, null);
+    public static void Error(string message, IDictionary<string, object?>? fields) => Write("error", message, fields);
+
+    private static void Write(string level, string message, IDictionary<string, object?>? fields)
+    {
+        var record = new Dictionary<string, object?> { ["event"] = "yon.log", ["level"] = level, ["message"] = message ?? "" };
+        Console.Error.Write(Line(record, fields) + "\n");
+        Console.Error.Flush();
+    }
+
+    private static string Line(Dictionary<string, object?> record, IDictionary<string, object?>? fields)
+    {
+        var withFields = new Dictionary<string, object?>(record) { ["fields"] = fields ?? new Dictionary<string, object?>() };
+        try
+        {
+            return JsonSerializer.Serialize(withFields);
+        }
+        catch (Exception)
+        {
+            return JsonSerializer.Serialize(record);
+        }
+    }
+}
+
 static class YonGateway
 {
     private const double AnswerMarginMilliseconds = 1000;

@@ -148,6 +148,24 @@ async function callGateway(key, args) {
 }
 
 globalThis.YonGateway = Object.freeze({ call: callGateway })
+
+class YonLogWriter {
+  static write(level, message, fields) {
+    const record = { event: 'yon.log', level, message: String(message) }
+    try {
+      process.stderr.write(`${JSON.stringify({ ...record, fields: fields ?? {} })}\n`)
+    } catch {
+      process.stderr.write(`${JSON.stringify(record)}\n`)
+    }
+  }
+}
+
+globalThis.YonLog = Object.freeze({
+  debug: (message, fields) => YonLogWriter.write('debug', message, fields),
+  info: (message, fields) => YonLogWriter.write('info', message, fields),
+  warn: (message, fields) => YonLogWriter.write('warn', message, fields),
+  error: (message, fields) => YonLogWriter.write('error', message, fields),
+})
 globalThis.YonTopic = Object.freeze({ publish: (topic, payload) => managedResource({ operation: 'topic', topic, payload }) })
 
 globalThis.DataSource = class DataSource {

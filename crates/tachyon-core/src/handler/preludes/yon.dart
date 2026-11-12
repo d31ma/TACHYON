@@ -112,6 +112,26 @@ final class YonManagedResources {
   }
 }
 
+abstract final class YonLog {
+  static void debug(String message, [Map<String, Object?> fields = const {}]) => _write('debug', message, fields);
+  static void info(String message, [Map<String, Object?> fields = const {}]) => _write('info', message, fields);
+  static void warn(String message, [Map<String, Object?> fields = const {}]) => _write('warn', message, fields);
+  static void error(String message, [Map<String, Object?> fields = const {}]) => _write('error', message, fields);
+
+  static void _write(String level, String message, Map<String, Object?> fields) {
+    final record = <String, Object?>{'event': 'yon.log', 'level': level, 'message': message};
+    yon_io.stderr.writeln(_line(record, fields));
+  }
+
+  static String _line(Map<String, Object?> record, Map<String, Object?> fields) {
+    try {
+      return yon_convert.jsonEncode({...record, 'fields': fields});
+    } on Object {
+      return yon_convert.jsonEncode(record);
+    }
+  }
+}
+
 abstract final class YonGateway {
   static const Duration _answerMargin = Duration(seconds: 1);
 

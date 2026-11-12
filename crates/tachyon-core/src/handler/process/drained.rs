@@ -1,4 +1,6 @@
-use super::ProcessFailure;
+use super::{
+    HandlerCallLabel, HandlerLogLevel, HandlerLogRecord, HandlerLogRecords, ProcessFailure,
+};
 use crate::Failure;
 use crate::failure::diagnostic;
 use crate::handler::frame::HandlerFrame;
@@ -102,16 +104,25 @@ impl Drained {
         Self::visible_text(bytes, Self::MAX_SIDEBAND_CHARACTERS)
     }
 
-    pub(super) fn stderr_event(&self, request_id: &str) -> Option<Value> {
-        let text = Self::visible_text(&self.bytes, usize::MAX);
+    pub(super) fn stderr_event(&self, label: &HandlerCallLabel) -> Option<Value> {
+        let text = Self::visible_text(self.without_log_lines().as_bytes(), usize::MAX);
         (!text.is_empty()).then(|| {
-            serde_json::json!({
+            let mut event = serde_json::json!({
                 "event": Self::STDERR_EVENT,
-                "request_id": request_id,
                 "stderr": text,
                 "truncated": self.overflow,
-            })
+            });
+            label.stamp(&mut event);
+            event
         })
+    }
+
+    fn without_log_lines(&self) -> String {
+        String::from_utf8_lossy(&self.bytes)
+            .lines()
+            .filter(|line| HandlerLogRecord::parse(line).is_none())
+            .collect::<Vec<_>>()
+            .join("\n")
     }
 
     fn visible_text(bytes: &[u8], limit: usize) -> String {
@@ -124,7 +135,8 @@ impl Drained {
         visible.trim().to_owned()
     }
 
-    pub(super) fn surface_events(&self, request_id: &str) {
+    pub(super) fn surface_events(&self, label: &HandlerCallLabel) {
+        let request_id = label.request_id.as_str();
         self.events()
             .iter()
             .filter_map(|event| Self::relay_failure_category(event, request_id))
@@ -132,26 +144,32 @@ impl Drained {
         self.exceptions(request_id)
             .iter()
             .for_each(|line| eprintln!("{}", SortedJson::text(line)));
-        self.report_stderr(request_id);
+        self.report_output(label);
     }
 
-    pub(super) fn report_settled(settled: &Result<Self, Failure>, request_id: &str) {
-        Self::report_when_settled(settled.as_ref().ok(), request_id);
+    pub(super) fn report_settled(settled: &Result<Self, Failure>, label: &HandlerCallLabel) {
+        Self::report_when_settled(settled.as_ref().ok(), label);
     }
 
-    fn report_when_settled(settled: Option<&Self>, request_id: &str) {
+    fn report_when_settled(settled: Option<&Self>, label: &HandlerCallLabel) {
         if let Some(stderr) = settled {
-            stderr.report_stderr(request_id);
+            stderr.report_output(label);
         }
     }
 
-    pub(super) fn report_stderr(&self, request_id: &str) {
-        let reported = crate::setting_switch::SettingSwitch::is_set(Self::STDERR_SETTING);
-        self.print_stderr_event(reported, request_id);
+    pub(super) fn report_output(&self, label: &HandlerCallLabel) {
+        let text = String::from_utf8_lossy(&self.bytes);
+        HandlerLogRecords::read(&text, self.overflow, HandlerLogLevel::configured()).write(label);
+        self.report_stderr(label);
     }
 
-    fn print_stderr_event(&self, reported: bool, request_id: &str) {
-        if reported && let Some(event) = self.stderr_event(request_id) {
+    fn report_stderr(&self, label: &HandlerCallLabel) {
+        let reported = crate::setting_switch::SettingSwitch::is_set(Self::STDERR_SETTING);
+        self.print_stderr_event(reported, label);
+    }
+
+    fn print_stderr_event(&self, reported: bool, label: &HandlerCallLabel) {
+        if reported && let Some(event) = self.stderr_event(label) {
             eprintln!("{}", SortedJson::text(&event));
         }
     }
@@ -375,7 +393,16 @@ mod tests {
     #![allow(clippy::expect_used)]
 
     use super::Drained;
+    use crate::handler::process::HandlerCallLabel;
     use std::process::ExitStatus;
+
+    fn label() -> HandlerCallLabel {
+        HandlerCallLabel {
+            request_id: String::from("0ABC"),
+            route: String::from("/orders"),
+            handler: String::from("server/routes/orders/OrderController.py"),
+        }
+    }
 
     fn stderr(text: &str, limit: usize) -> Drained {
         let mut drained = Drained {
@@ -399,16 +426,20 @@ mod tests {
     #[test]
     fn the_stderr_event_carries_the_kept_text_and_says_when_it_was_cut() {
         let event = stderr("first line\nsecond\u{7}", 1024)
-            .stderr_event("0ABC")
+            .stderr_event(&label())
             .expect("event");
         assert_eq!(event["event"], "handler.stderr");
         assert_eq!(event["request_id"], "0ABC");
+        assert_eq!(event["route"], "/orders");
+        assert_eq!(event["handler"], "server/routes/orders/OrderController.py");
         assert_eq!(event["stderr"], "first line\nsecond");
         assert_eq!(event["truncated"], false);
-        let cut = stderr("abcdef", 3).stderr_event("0ABC").expect("cut event");
+        let cut = stderr("abcdef", 3)
+            .stderr_event(&label())
+            .expect("cut event");
         assert_eq!(cut["stderr"], "abc");
         assert_eq!(cut["truncated"], true);
-        assert!(stderr("", 3).stderr_event("0ABC").is_none());
+        assert!(stderr("", 3).stderr_event(&label()).is_none());
     }
 
     #[test]
@@ -421,5 +452,15 @@ mod tests {
         assert_eq!(stderr.bytes.len(), 64 * 1024);
         assert!(stderr.bytes.starts_with(b"xxxx"));
         assert!(stderr.reports_relay_failure("0ABC"));
+    }
+
+    #[test]
+    fn the_stderr_event_leaves_out_log_lines() {
+        let text =
+            "before\n{\"event\":\"yon.log\",\"level\":\"info\",\"message\":\"logged\"}\nafter\n";
+        let event = stderr(text, 1024).stderr_event(&label()).expect("event");
+        assert_eq!(event["stderr"], "before\nafter");
+        let only_logs = "{\"event\":\"yon.log\",\"level\":\"info\",\"message\":\"logged\"}\n";
+        assert!(stderr(only_logs, 1024).stderr_event(&label()).is_none());
     }
 }

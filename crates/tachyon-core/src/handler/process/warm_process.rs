@@ -105,7 +105,12 @@ impl WarmProcess {
         self.stderr.take()
     }
 
-    pub(super) async fn cancel(mut self, request_id: &str, grace: Duration, deadline: Instant) {
+    pub(super) async fn cancel(
+        mut self,
+        request_id: &str,
+        grace: Duration,
+        deadline: Instant,
+    ) -> Drained {
         ProcessReaper::cancel_and_reap(
             &mut self.child,
             Some(&mut self.stdin),
@@ -115,6 +120,7 @@ impl WarmProcess {
         )
         .await;
         self.reader.abort();
+        self.stderr.take_after_exit(Instant::now() + grace).await
     }
 
     pub(super) async fn retire(mut self) {

@@ -11,7 +11,9 @@ pub(crate) use socket_output::SocketOutput;
 
 use super::super::frame::FramePrefix;
 use super::super::{HandlerCancellation, HandlerSource};
-use super::{Drained, HandlerSupervisor, ProcessFailure, ProcessReaper, StartedProcess};
+use super::{
+    Drained, HandlerCallLabel, HandlerSupervisor, ProcessFailure, ProcessReaper, StartedProcess,
+};
 use crate::Failure;
 use command_group::AsyncGroupChild;
 use socket_reader::SocketReader;
@@ -28,6 +30,7 @@ pub(super) struct SocketProcess {
     stdout: ChildStdout,
     stderr: ChildStderr,
     style: FramePrefix,
+    label: HandlerCallLabel,
 }
 
 impl SocketProcess {
@@ -69,6 +72,7 @@ impl SocketProcess {
             stdout,
             stderr,
             style: FramePrefix::of(source),
+            label: HandlerCallLabel::of(source, request),
         };
         let stderr_limit = supervisor.options.stderr_limit;
         let result = process
@@ -92,6 +96,7 @@ impl SocketProcess {
             stdout,
             stderr,
             style,
+            label,
         } = self;
         let request_id = request.request_id.clone();
         let stderr_task = tokio::spawn(Drained::read_all(stderr, stderr_limit));
@@ -106,7 +111,7 @@ impl SocketProcess {
         writer.abort();
         let _writer = (&mut writer).await;
         let stderr = Drained::settle(stderr_task, Instant::now() + Self::SOCKET_GRACE).await;
-        Drained::report_settled(&stderr, &request_id);
+        Drained::report_settled(&stderr, &label);
         Self::socket_outcome(result, stderr)
     }
 
@@ -214,7 +219,7 @@ impl SocketProcess {
 mod tests {
     #![allow(clippy::expect_used)]
 
-    use super::{FramePrefix, SocketChannels, SocketProcess};
+    use super::{FramePrefix, HandlerCallLabel, SocketChannels, SocketProcess};
     use crate::handler::HandlerCancellation;
     use command_group::AsyncCommandGroup as _;
     use std::process::Stdio;
@@ -310,6 +315,11 @@ mod tests {
             stderr: child.inner().stderr.take().expect("stderr"),
             child,
             style: FramePrefix::Binary,
+            label: HandlerCallLabel {
+                request_id: String::from("socket-1"),
+                route: String::from("/chat"),
+                handler: String::from("server/routes/chat/ChatSocket.py"),
+            },
         };
         let (input, inputs) = mpsc::channel(1);
         let (output, _outputs) = mpsc::channel(1);

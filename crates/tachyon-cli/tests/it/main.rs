@@ -5,6 +5,7 @@ mod executed_coverage;
 mod fylo_datasource;
 mod handler_environment;
 mod handler_invoke_arguments;
+mod handler_logs;
 mod init_features;
 mod init_wizard;
 mod ios_device_cli;

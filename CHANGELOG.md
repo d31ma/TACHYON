@@ -10,6 +10,15 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- **Yon handlers write logs on every answer** (ADR NNNN). Every Yon language
+  gets `YonLog` with the levels `debug`, `info`, `warn` and `error`, a
+  message and optional fields. `ty start`, `ty serve`, `ty handler invoke` and
+  `ty test` write each line to standard error as a `handler.log` JSON line
+  with the `request_id`, `route` and `handler`, whether the call answers,
+  fails or times out. `TAC_HANDLER_LOG_LEVEL` sets the lowest level (default
+  `info`). A call keeps at most 100 lines; `handler.log_dropped` counts the
+  rest. `handler.stderr` (`TAC_HANDLER_STDERR=1`) now also names the route and
+  the handler, covers streams and sockets, and leaves out log lines.
 - **Tac services create and use passkeys** (ADR 0126). Every Tac service
   language gets a `Passkeys` client for the browser's WebAuthn, with the new
   grant `passkeys` in `tac.browserApis`. Options and credentials are WebAuthn
