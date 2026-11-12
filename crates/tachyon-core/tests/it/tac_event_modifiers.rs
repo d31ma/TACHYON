@@ -19,6 +19,9 @@ impl MenuLanguage {
     const SECTION: &'static str = "docs/templates/keys-modifiers-and-outside-clicks";
     const SERVICE_STEM: &'static str = "client/services/MenuService.";
     const PYTHON: &'static str = "py";
+    const SWIFT: &'static str = "swift";
+    const SWIFT_WASM_SDK: &'static str = "TAC_SWIFT_WASM_SDK";
+    const SWIFT_SYSTEM_ROOT: &'static str = "WASI.sdk";
     const PYODIDE_WASM: &'static str = "python-web/314.0.7/pyodide.asm.wasm";
     const PLAN_MEMBERS: [&'static str; 7] = [
         r#""eventType":"keydown""#,
@@ -40,7 +43,7 @@ impl MenuLanguage {
         Self::new("rs", "rustc", "--version"),
         Self::new("dart", "dart", "--version"),
         Self::new("go", "go", "version"),
-        Self::new("swift", "swiftc", "--version"),
+        Self::new(Self::SWIFT, "swiftc", "--version"),
         Self::new("rb", "ruby", "--version"),
         Self::new("lua", "lua", "-v"),
         Self::new("hpp", "clang++", "--version"),
@@ -59,9 +62,26 @@ impl MenuLanguage {
     }
 
     fn browser_runtime_found(&self) -> bool {
-        if self.extension != Self::PYTHON {
-            return true;
+        match self.extension {
+            Self::PYTHON => Self::pyodide_found(),
+            Self::SWIFT => Self::swift_sdk_found(),
+            _ => true,
         }
+    }
+
+    fn swift_sdk_found() -> bool {
+        let found = std::env::var_os(Self::SWIFT_WASM_SDK)
+            .is_some_and(|sdk| Path::new(&sdk).join(Self::SWIFT_SYSTEM_ROOT).is_dir());
+        if !found {
+            eprintln!(
+                "skipping .swift: {} does not name a Swift SDK for WebAssembly",
+                Self::SWIFT_WASM_SDK
+            );
+        }
+        found
+    }
+
+    fn pyodide_found() -> bool {
         let found = tachyon_core::cache::root()
             .join(Self::PYODIDE_WASM)
             .is_file();
