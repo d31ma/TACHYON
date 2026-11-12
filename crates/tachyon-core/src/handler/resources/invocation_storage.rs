@@ -119,7 +119,7 @@ mod tests {
         let path = root.display().to_string().replace('\\', "/");
         let path = path.strip_prefix("//?/").unwrap_or(&path).to_owned();
         let url = format!("fylo:///{}", path.trim_start_matches('/'));
-        let datasource = json!({"driver": "fylo", "url": url, "operationTimeoutMs": 1000});
+        let datasource = json!({"driver": "fylo", "url": url, "timeout": 1000});
         ManagedStorage::connect(&json!({"yon": {"datasource": datasource}}))
             .await
             .expect("fylo storage")

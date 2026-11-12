@@ -102,7 +102,9 @@ were measured, much longer than the 2-second wait above. A broken pipe
    exit. The exit is known only after the failed call has answered, so it is
    its own line, with no request id.
 5. **The store-call deadline is a setting.** The FYLO datasource takes
-   `operationTimeoutMs`, a whole number from 1000 to 60000 (default 5000).
+   `timeout`, in milliseconds, a whole number from 1000 to 60000 (default
+   5000). (It was first named `operationTimeoutMs`; `application.json` keys
+   may hold only lowercase letters and digits, `TY2010`, so it is `timeout`.)
    It replaces the 5-second operation deadline for that datasource. The
    first page of a scroll keeps its 30 seconds.
 
@@ -118,7 +120,7 @@ were measured, much longer than the 2-second wait above. A broken pipe
   server closes. Until then it is a finished process that holds nothing.
 - Evidence: `storage::tests::fylo_root_lock::a_fylo_stalled_past_the_deadline_is_stopped_before_the_next_call_starts_another`
   pauses the `fylo` process with `SIGSTOP` (Unix only), lets a 1-second
-  `operationTimeoutMs` pass, and checks the failure names `putData`, that the
+  `timeout` pass, and checks the failure names `putData`, that the
   old process has exited, and that three more calls answer. A delayed exit
   after the kill (a write stuck in the kernel) cannot be made on purpose in a
   portable test; the order "wait for the exit, then start" is in
@@ -143,7 +145,7 @@ test there could prove that the next call waits for the old process.
 
 6. **One store deadline per answer.** All store calls that a handler makes
    while it answers one invocation share one deadline. It starts at the
-   invocation's first store call and lasts `operationTimeoutMs` (default
+   invocation's first store call and lasts `timeout` (default
    5 seconds). The wait for an old FYLO process to exit, the wait for the
    FYLO process lock and the 2-second `EROOTLOCKED` wait all count against
    it. A store call that starts after that deadline fails at once, before
@@ -177,10 +179,10 @@ test there could prove that the next call waits for the old process.
 
 - During a stall one HTTP answer fails after about one deadline, not one per
   store call (`handler::resources::invocation_storage::tests::store_calls_of_one_answer_share_one_deadline_while_the_root_is_held`:
-  three calls against a held root, `operationTimeoutMs` 1000, fail in about
+  three calls against a held root, `timeout` 1000, fail in about
   1 second, all naming `inspectCollection`).
 - A handler that makes many store calls must finish all of them within
-  `operationTimeoutMs`; raise the setting for handlers that need more.
+  `timeout`; raise the setting for handlers that need more.
 - Evidence for the wait on Linux:
   `storage::tests::fylo_frozen_disk::a_fylo_frozen_in_a_disk_write_is_waited_for_and_no_second_fylo_starts`
   (Linux only, ignored by default; it needs passwordless `sudo`, a loop

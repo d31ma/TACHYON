@@ -159,7 +159,7 @@ machine contracts have their own, independent major versions.
 
 - **One store deadline per answer, and the FYLO operation in every deadline
   failure** (ADR 0128 amendment 2). All store calls of one handler run that
-  answers once share one deadline from the first call (`operationTimeoutMs`,
+  answers once share one deadline from the first call (`timeout`,
   default 5 s), so during a FYLO stall one HTTP answer fails after about one
   deadline instead of one per store call (Mesail measured 11 to 16 s).
   Streams and sockets keep one deadline per store call, and a scroll's first
@@ -179,8 +179,9 @@ machine contracts have their own, independent major versions.
   is handled the same way. The deadline failure names the FYLO operation,
   and a `storage.fylo_process_stopped` line gives the operation and the
   milliseconds from the kill to the exit. The FYLO datasource also takes
-  `operationTimeoutMs` (1000 to 60000, default 5000) for the store-call
-  deadline.
+  `timeout`, the store-call deadline in milliseconds (1000 to 60000, default
+  5000). The key is lowercase because `application.json` keys may hold only
+  lowercase letters and digits.
 - **A busy FYLO root waits, and store failures are logged** (ADR 0128). When
   another process holds the FYLO root (`EROOTLOCKED`), the FYLO datasource
   now waits and sends the request again for up to 2 seconds before it fails

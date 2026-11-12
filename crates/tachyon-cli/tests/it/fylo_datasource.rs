@@ -11,6 +11,7 @@ struct FyloProject {
 impl FyloProject {
     const HANDLER_TIMEOUT_MS: &'static str = "60000";
     const WINDOWS_SLOW_WRITE_TIMEOUT_MS: &'static str = "240000";
+    const SLOW_WRITE_STORE_TIMEOUT_MS: u64 = 30_000;
     const GO_FILES: [(&'static str, &'static str); 5] = [
         (
             "server/models/Event.go",
@@ -205,15 +206,28 @@ class EventsController:
     )];
 
     fn new(files: &[(&str, &str)]) -> Self {
+        Self::with_datasource(files, &serde_json::json!({}))
+    }
+
+    fn with_slow_writes(files: &[(&str, &str)]) -> Self {
+        let longer = serde_json::json!({"timeout": Self::SLOW_WRITE_STORE_TIMEOUT_MS});
+        Self::with_datasource(files, &longer)
+    }
+
+    fn with_datasource(files: &[(&str, &str)], extra: &serde_json::Value) -> Self {
         let workspace = tempfile::tempdir().expect("workspace");
         let root = workspace.path().join("fylo-root");
         std::fs::create_dir_all(&root).expect("FYLO root");
         let root = std::fs::canonicalize(&root).expect("canonical FYLO root");
         let url = root.display().to_string().replace('\\', "/");
         let url = url.strip_prefix("//?/").unwrap_or(&url);
-        let settings = serde_json::json!({
-            "datasource": {"driver": "fylo", "url": format!("fylo:///{}", url.trim_start_matches('/'))}
-        });
+        let mut datasource = serde_json::json!(
+            {"driver": "fylo", "url": format!("fylo:///{}", url.trim_start_matches('/'))}
+        );
+        for (key, value) in extra.as_object().expect("datasource settings") {
+            datasource[key] = value.clone();
+        }
+        let settings = serde_json::json!({ "datasource": datasource });
         let project = workspace.path().join("project");
         Self::write(
             &project.join("server/application.json"),
@@ -351,7 +365,7 @@ fn go_services_use_every_fylo_operation_with_typed_models() {
     if !FyloProject::available("fylo") || !FyloProject::available("go") {
         return;
     }
-    let project = FyloProject::new(&FyloProject::GO_FILES);
+    let project = FyloProject::with_slow_writes(&FyloProject::GO_FILES);
     let report = project.report("server/controllers/EventsController.go");
     FyloProject::assert_report(&report);
 }
@@ -361,7 +375,7 @@ fn python_services_use_every_fylo_operation() {
     if !FyloProject::available("fylo") || !FyloProject::available("python3") {
         return;
     }
-    let project = FyloProject::new(&FyloProject::PYTHON_FILES);
+    let project = FyloProject::with_slow_writes(&FyloProject::PYTHON_FILES);
     let report = project.report("server/controllers/EventsController.py");
     FyloProject::assert_report(&report);
 }

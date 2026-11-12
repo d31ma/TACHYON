@@ -55,7 +55,7 @@ impl FyloStore {
     const MAX_SCAN: usize = 10_000;
 
     pub(super) async fn connect(settings: &Value) -> Result<Self, Failure> {
-        object_keys(settings, &["driver", "url", "operationTimeoutMs"])?;
+        object_keys(settings, &["driver", "url", "timeout"])?;
         let operation_timeout = OperationTimeout::from_settings(settings)?;
         let raw = text(settings, "url")?;
         let path = Self::root_path(raw)

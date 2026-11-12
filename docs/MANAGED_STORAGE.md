@@ -80,9 +80,10 @@ Configuration rules:
 - The path must be spelled canonically. FYLO refuses a path that goes through a
   symlink or that uses different letter case.
 - FYLO accepts no credentials and no TLS keys. Its one other setting is
-  `operationTimeoutMs`: the deadline of each store call in milliseconds, a
-  whole number from 1000 to 60000 (default 5000). The first page of a scroll
-  keeps its 30 seconds.
+  `timeout`: the store deadline in milliseconds, a whole number from 1000
+  to 60000 (default 5000). The store calls of one handler answer share it;
+  the first page of a scroll keeps its 30 seconds. (Keys in
+  `application.json` hold only lowercase letters and digits.)
 
 How the server runs FYLO:
 
@@ -283,7 +284,7 @@ Redis:
 ## Bounds and failure behavior
 
 - Startup: 10 seconds. Storage operations: 5 seconds (a FYLO datasource can
-  set 1 to 60 seconds with `operationTimeoutMs`). At most 16 admitted
+  set 1 to 60 seconds with `timeout`). At most 16 admitted
   operations.
 - One store deadline per answer: all store calls of one handler run that
   answers once (an HTTP route, `ty handler invoke`, a `ty test` call, a

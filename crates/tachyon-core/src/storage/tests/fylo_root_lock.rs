@@ -155,8 +155,7 @@ async fn a_fylo_stalled_past_the_deadline_is_stopped_before_the_next_call_starts
     }
     let directory = tempfile::tempdir().expect("root");
     let root = canonical_root(&directory);
-    let datasource =
-        json!({"driver":"fylo","url":super::fylo_url(&root),"operationTimeoutMs":1000});
+    let datasource = json!({"driver":"fylo","url":super::fylo_url(&root),"timeout":1000});
     let store = super::ManagedStorage::connect_with_deadline_factor(
         &json!({"yon":{"datasource":datasource}}),
         1,

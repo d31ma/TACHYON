@@ -122,7 +122,7 @@ async fn a_fylo_frozen_in_a_disk_write_is_waited_for_and_no_second_fylo_starts()
     assert!(fylo_is_available(), "fylo binary is required");
     let mut disk = FrozenDisk::create();
     let root = disk.root();
-    let datasource = json!({"driver":"fylo","url":fylo_url(&root),"operationTimeoutMs":2000});
+    let datasource = json!({"driver":"fylo","url":fylo_url(&root),"timeout":2000});
     let store =
         ManagedStorage::connect_with_deadline_factor(&json!({"yon":{"datasource":datasource}}), 1)
             .await
