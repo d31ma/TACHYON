@@ -1,8 +1,13 @@
 #![allow(clippy::expect_used)]
 
+use crate::windows_egress::WindowsEgress;
 use std::fs;
+use std::io::{BufRead as _, BufReader, Read as _, Write as _};
+use std::net::TcpStream;
 use std::path::Path;
-use std::process::{Command, Output};
+use std::process::{ChildStdout, Command, Output, Stdio};
+use std::sync::mpsc;
+use std::time::Duration;
 
 struct LogCase {
     extension: &'static str,
@@ -213,6 +218,45 @@ impl LogCase {
 struct HandlerLogs;
 
 impl HandlerLogs {
+    const READY_SECONDS: u64 = 60;
+
+    fn write_start_files(project: &Path) {
+        Self::write(&project.join("client/pages/tac.html"), "<test-view1 />");
+        Self::write(
+            &project.join("client/components/test/view1/tac.html"),
+            "<main>Ready</main>",
+        );
+        Self::write(&project.join("dist/web/index.html"), "<main>Ready</main>");
+    }
+
+    fn origin(stdout: ChildStdout) -> String {
+        let (sender, receiver) = mpsc::channel();
+        std::thread::spawn(move || {
+            let mut line = String::new();
+            let _read = BufReader::new(stdout).read_line(&mut line);
+            let _sent = sender.send(line);
+        });
+        let line = receiver
+            .recv_timeout(Duration::from_secs(Self::READY_SECONDS))
+            .expect("bounded readiness");
+        let start = line.find("http://").expect("ready line names the origin");
+        line[start..].trim().trim_end_matches('/').to_owned()
+    }
+
+    fn get(origin: &str, path: &str) -> String {
+        let address = origin.trim_start_matches("http://");
+        let mut stream = TcpStream::connect(address).expect("connect");
+        stream
+            .set_read_timeout(Some(Duration::from_secs(Self::READY_SECONDS)))
+            .expect("read timeout");
+        let request =
+            format!("GET {path} HTTP/1.1\r\nHost: {address}\r\nConnection: close\r\n\r\n");
+        stream.write_all(request.as_bytes()).expect("request");
+        let mut answer = String::new();
+        stream.read_to_string(&mut answer).expect("answer");
+        answer
+    }
+
     fn write(path: &Path, contents: &str) {
         fs::create_dir_all(path.parent().expect("fixture parent")).expect("fixture directory");
         fs::write(path, contents).expect("fixture source");
@@ -371,4 +415,43 @@ fn a_test_unit_writes_the_same_log_lines_under_ty_test() {
     assert_eq!(logs[0]["message"], "from a test");
     assert_eq!(logs[0]["fields"]["step"], 1);
     assert_eq!(logs[0]["handler"], "server/tests/LoggingTest.js");
+}
+
+#[test]
+fn ty_start_writes_log_lines_to_its_own_standard_error() {
+    let case = LogCase::JAVASCRIPT;
+    if !case.available() {
+        return;
+    }
+    let project = case.project();
+    HandlerLogs::write_start_files(project.path());
+    let mut command = Command::new(env!("CARGO_BIN_EXE_ty"));
+    command
+        .arg("start")
+        .arg(project.path())
+        .args(["--host", "127.0.0.1", "--port", "0"])
+        .env_remove("YON_PROFILE")
+        .env_remove("TAC_HANDLER_LOG_LEVEL")
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    WindowsEgress::proxied_where_unconfinable(&mut command);
+    let mut server = command.spawn().expect("ty start");
+    let origin = HandlerLogs::origin(server.stdout.take().expect("stdout"));
+    let answer = HandlerLogs::get(&origin, "/logs");
+    let _killed = server.kill();
+    let _waited = server.wait();
+    let mut stderr = String::new();
+    server
+        .stderr
+        .take()
+        .expect("stderr")
+        .read_to_string(&mut stderr)
+        .expect("server stderr");
+    assert!(answer.starts_with("HTTP/1.1 200"), "{answer}");
+    assert!(answer.ends_with("[\"ok\"]"), "{answer}");
+    let logs = HandlerLogs::events(&stderr, "handler.log");
+    assert_eq!(logs.len(), 1, "{stderr}");
+    assert_eq!(logs[0]["message"], "slow upstream");
+    assert_eq!(logs[0]["route"], "/logs");
+    assert_eq!(logs[0]["handler"], "server/controllers/LogsController.js");
 }

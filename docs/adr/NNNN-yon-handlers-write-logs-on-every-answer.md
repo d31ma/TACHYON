@@ -81,10 +81,14 @@ error:
 {"event":"handler.log","fields":{"upstream_ms":2310},"handler":"server/controllers/OrdersController.java","level":"warn","message":"payment provider slow","request_id":"0J8Y...","route":"/orders","truncated":false}
 ```
 
-- `request_id` is the same ID that the client sees in
-  `x-tachyon-request-id` and that `http.access` and
-  `handler.invocation_failed` carry. `route` and `handler` name the route and
-  the handler file, as in `handler.invocation_failed`.
+- `request_id` is the ID that Tachyon gave the request. Every log line of
+  one call has the same ID, and so does the call's `handler.invocation_failed`
+  event. When a call fails, the client sees the ID in the
+  `x-tachyon-request-id` header, and `http.access` carries it too. A
+  successful answer has no such header, so its `http.access` line has no
+  `request_id`; this change does not add one, because that would change what
+  the client receives. `route` and `handler` name the route and the handler
+  file, as in `handler.invocation_failed`.
 - This works for route calls, middleware, the identity provider, workers,
   gateways, streams and sockets, in a fresh process and in a warm process. A
   stream or a socket reports its log lines when it ends.
@@ -121,7 +125,27 @@ error:
 `handler.stderr` event also names the `route` and the `handler`, and it leaves
 out the `yon.log` lines, which are already written as `handler.log`.
 
-### 5. Logs are not a secret channel
+### 5. Where the lines go on a serverless platform
+
+Tachyon writes `handler.log` lines only to the standard error of the `ty`
+process. It writes no log file and calls no log service.
+
+- A test proves this for `ty start`: a request to a route whose handler calls
+  `YonLog` puts the `handler.log` line on the standard error of `ty start`.
+- On AWS Lambda, the platform sends the standard output and standard error of
+  the function's process to the function's CloudWatch Logs log group. An
+  image that starts `ty start` as its main process, for example with
+  `exec ty start` behind the AWS Lambda Web Adapter, therefore gets the lines
+  in the function log, as long as its start script does not send the
+  standard error of `ty` somewhere else. This is the platform's documented
+  behavior; Tachyon's tests do not run on Lambda.
+- On Floci, the local AWS emulator, this change does not check whether the
+  function log holds the standard error of the function's container. That is
+  a known limit of this change. A project that needs it checks it once with
+  the emulator's `logs` API.
+- Tachyon adds no Lambda-specific log path.
+
+### 6. Logs are not a secret channel
 
 A log line goes to the operator's logs. Applications must not log secrets,
 tokens, passwords or personal data that the logs may not hold. Tachyon does
@@ -136,6 +160,8 @@ not scan log lines for secrets.
   a background thread writes after the handler has answered is not kept.
 - Log lines of a long socket appear when the socket closes, and at most 100
   per socket.
+- A successful answer's `http.access` line has no `request_id`, so a log
+  line of a successful call matches the access line only by time and path.
 - There is no rate limit across calls. The per-call limits and the number of
   handlers that may run at once bound the volume.
 
@@ -148,5 +174,7 @@ not scan log lines for secrets.
 - Language runtimes: `handler/preludes/yon.{java,kt,cs,php,rs,dart,go,lua}`,
   `handler/adapters/{javascript_runner.mjs,python_runner.py,ruby_runner.rb}`
   and `yon_cpp/tachyon/yon_log.hpp`.
-- Tests: the unit tests of `HandlerLogRecords` and the language cases in
-  `tests/it/handler_logs.rs`.
+- Tests: the unit tests of `HandlerLogRecord`, `HandlerLogRecords` and
+  `HandlerLogLevel`, and `tachyon-cli`'s `tests/it/handler_logs.rs`: one case
+  per Yon language through `ty handler invoke`, the level setting, a test unit
+  under `ty test`, and a request to `ty start`.
