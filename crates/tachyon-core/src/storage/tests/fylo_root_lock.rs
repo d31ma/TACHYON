@@ -5,7 +5,7 @@ use std::time::{Duration, Instant};
 
 use serde_json::{Value, json};
 
-use super::{ManagedStorage, fylo_is_available, fylo_store, fylo_url};
+use super::{fylo_is_available, fylo_store};
 
 struct RootHolder {
     child: Child,
@@ -155,11 +155,14 @@ async fn a_fylo_stalled_past_the_deadline_is_stopped_before_the_next_call_starts
     }
     let directory = tempfile::tempdir().expect("root");
     let root = canonical_root(&directory);
-    let datasource = json!({"driver":"fylo","url":fylo_url(&root),"operationTimeoutMs":1000});
-    let store =
-        ManagedStorage::connect_with_deadline_factor(&json!({"yon":{"datasource":datasource}}), 1)
-            .await
-            .expect("store");
+    let datasource =
+        json!({"driver":"fylo","url":super::fylo_url(&root),"operationTimeoutMs":1000});
+    let store = super::ManagedStorage::connect_with_deadline_factor(
+        &json!({"yon":{"datasource":datasource}}),
+        1,
+    )
+    .await
+    .expect("store");
     let create =
         json!({"operation":"document","command":"createCollection","collection":"hd-events"});
     store.execute(&create).await.expect("collection");
