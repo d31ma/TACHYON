@@ -97,7 +97,7 @@ impl GoServices {
     const WEB_ENTRY: &str = include_str!("prelude_web.go");
     const FAILURE_CODE: u16 = 1605;
     const WEB_EVENT_FILE: &str = "tac/web_event_models.go";
-    const ALIASED_TYPES: [&str; 37] = [
+    const ALIASED_TYPES: [&str; 40] = [
         "ApplicationEventPublisher",
         "Clock",
         "SecureRandom",

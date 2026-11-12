@@ -130,10 +130,14 @@ pub(super) fn entity_mapping(type_declaration: &Type, entity: &Value) -> Value {
         "idField": entity["id"],
         "table": type_declaration.table
     });
+    add_partition(entity, &mut mapping);
+    mapping
+}
+
+fn add_partition(entity: &Value, mapping: &mut Value) {
     if let Some(partition) = entity.get("partition") {
         mapping["partition"] = partition.clone();
     }
-    mapping
 }
 
 fn constructor_edit(type_declaration: &Type, fields: &[String]) -> Result<Edit, String> {

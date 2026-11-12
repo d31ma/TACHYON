@@ -2822,22 +2822,22 @@ mod gateway_runtime_tests {
     #[test]
     fn the_gateway_runtime_text_is_unchanged() {
         let csharp = super::gateway_unit_runtime("cs", "").expect("C# runtime");
-        assert_eq!(csharp.len(), 80_034);
+        assert_eq!(csharp.len(), 81_003);
         assert_eq!(
             digest(&csharp),
-            "831aa1848ef047f06dd919e2af7cf30efb3236df33c2d4ac3b47244e11584b90"
+            "9996d1f31d17921d725995a19b1cf30c84b2142f51774cd94bc5378afe38dfd6"
         );
         let rust = super::gateway_unit_runtime("rs", "").expect("Rust runtime");
-        assert_eq!(rust.len(), 93_715);
+        assert_eq!(rust.len(), 94_572);
         assert_eq!(
             digest(&rust),
-            "ad7ed4fb8fe66f0d7982447e3136cc55bb68e853426f8574c99e590e79f3aeb4"
+            "90e4e8b71e346a07ed395fa030e4889a6381405298c11b2fe2810f9a91818e08"
         );
         let go = super::gateway_unit_runtime("go", "").expect("Go runtime");
-        assert_eq!(go.len(), 93_116);
+        assert_eq!(go.len(), 93_773);
         assert_eq!(
             digest(&go),
-            "32279277da962dc6865ffae1f0a470aeb957dc6d88ee124f0819f8ac380d86e5"
+            "43da70f65c30f5e506c457e2ff015bdb992da391e69453386935ec0f9af382b3"
         );
     }
 

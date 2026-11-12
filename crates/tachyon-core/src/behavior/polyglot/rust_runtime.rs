@@ -16,6 +16,7 @@ impl BehaviorError {
     const HTTP_STATUS: &'static str = "HTTP_STATUS";
     const HTTP_FAILED: &'static str = "The HTTP request failed.";
     const ADAPTER: &'static str = "adapter";
+    const STORAGE_CODES: [&'static str; 2] = ["storage", "storage_not_loaded"];
     const ERROR_STATUSES: core::ops::RangeInclusive<u16> = 400..=599;
     const LARGEST_BODY: usize = 1_048_576;
 
@@ -653,7 +654,7 @@ impl BehaviorOperation<'_> {
     fn adapter<T>(&self, call: impl FnOnce() -> BehaviorResult<T>) -> BehaviorResult<T> {
         self.execution.check()?;
         let value = call().map_err(|error| {
-            if matches!(error.code, "storage" | "storage_not_loaded") {
+            if BehaviorError::STORAGE_CODES.contains(&error.code) {
                 error
             } else {
                 behavior_error("adapter", "Behavior adapter failed.")
