@@ -549,6 +549,9 @@ jobs:
       - name: Trap and return focus through the page's focus host
         run: bun run test:focus-browser
 
+      - name: Create and use passkeys through the page's WebAuthn
+        run: bun run test:passkeys-browser
+
       - name: Run the real-browser web components contract
         run: bun run test:web-components-browser
         env:

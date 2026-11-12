@@ -10,6 +10,18 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- **Tac services create and use passkeys** (ADR 0126). Every Tac service
+  language gets a `Passkeys` client for the browser's WebAuthn, with the new
+  grant `passkeys` in `tac.browserApis`. Options and credentials are WebAuthn
+  JSON text: `create(optionsJson)` answers with `PasskeyCreated {
+  credentialJson }`, `get(optionsJson)` and the autofill `offer(optionsJson)`
+  answer with `PasskeyAsserted { credentialJson, conditional }`, `check()`
+  answers with `PasskeySupport { platform, conditional }`, and every failure
+  sends `PasskeyFailed { call, reason, message }` with a reason word
+  (`cancelled`, `exists`, `unsupported`, `refused`, `busy`, `invalid`,
+  `failed`). The code ships in `.tachyon/tac-passkeys.js` only to pages that
+  grant `passkeys`. Native apps answer `unsupported` until the platform
+  passkey APIs come.
 - **Open pages hear a Web Push message** (ADR 0118 amendment). When a push
   arrives while the app is open, every open page of the app gets the built-in
   event `PushReceived { tag, path, data }` in every Tac service language, so

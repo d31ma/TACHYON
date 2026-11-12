@@ -38,6 +38,7 @@ fn a_javascript_service_needs_every_curated_browser_api() {
         "windowControls",
         "focus",
         "storageSpace",
+        "passkeys",
     ];
     let mut source = String::from("@Service\nexport default class DeviceService {\n");
     for name in names {

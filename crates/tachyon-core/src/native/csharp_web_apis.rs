@@ -21,9 +21,10 @@ impl CsharpWebApis {
     );
 
     const LIBRARY_USINGS: &'static str = "using System.Text.Json.Nodes;\n\n";
-    const FILES_AND_SPACE: &'static str = concat!(
+    const LATER_CLIENTS: &'static str = concat!(
         include_str!("web_apis/Files.cs"),
-        include_str!("web_apis/StorageSpace.cs")
+        include_str!("web_apis/StorageSpace.cs"),
+        include_str!("web_apis/Passkeys.cs")
     );
     const BROWSER_FAKES: &'static str = include_str!("web_apis/BrowserFakes.cs");
 
@@ -31,7 +32,7 @@ impl CsharpWebApis {
         format!(
             "{}{}{}{}",
             Self::BROWSER,
-            Self::FILES_AND_SPACE,
+            Self::LATER_CLIENTS,
             FilePickerSources::csharp_page(),
             WebEventSources::csharp(own)
         )
@@ -49,7 +50,7 @@ impl CsharpWebApis {
         );
         format!(
             "{source}{}{}{}",
-            Self::FILES_AND_SPACE,
+            Self::LATER_CLIENTS,
             FilePickerSources::csharp_native(),
             WebEventSources::csharp(own)
         )
@@ -60,7 +61,7 @@ impl CsharpWebApis {
             "{}{}{}{}",
             Self::LIBRARY_USINGS,
             Self::BROWSER,
-            Self::FILES_AND_SPACE,
+            Self::LATER_CLIENTS,
             FilePickerSources::csharp()
         )
     }

@@ -194,6 +194,32 @@ function StorageSpace:persist()
   TacWebHost.call("storageSpace", "persist")
 end
 
+Passkeys = {}
+
+function Passkeys:supported()
+  return TacWebHost.call("passkeys", "supported") == true
+end
+
+function Passkeys:check()
+  TacWebHost.call("passkeys", "check")
+end
+
+function Passkeys:create(options_json)
+  TacWebHost.call("passkeys", "create", { options_json })
+end
+
+function Passkeys:get(options_json)
+  TacWebHost.call("passkeys", "get", { options_json })
+end
+
+function Passkeys:offer(options_json)
+  TacWebHost.call("passkeys", "offer", { options_json })
+end
+
+function Passkeys:cancel()
+  TacWebHost.call("passkeys", "cancel")
+end
+
 Geolocation = {}
 
 function Geolocation:current_position()

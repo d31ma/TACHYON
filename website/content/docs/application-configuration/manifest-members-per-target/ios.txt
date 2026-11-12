@@ -132,6 +132,9 @@ tac.browserApis geolocation
 tac.browserApis push
   adapted: The WKWebView of the iOS app has no Web Push, and native push (APNs, FCM, WNS) is not part of Tachyon yet. A native build does not ship the push scripts: Push.Supported answers false, and Subscribe, Subscription and Unsubscribe fail with the message that Web Push needs a web browser (ADR 0118).
 
+tac.browserApis passkeys
+  adapted: The WKWebView of the iOS app has no passkeys for the app yet: its page origin is not the app's host, so WebAuthn there cannot make a passkey for that host. A native build ships the passkeys module, but Passkeys.supported answers false, check answers PasskeySupport with platform and conditional false, and create, get and offer answer PasskeyFailed with reason unsupported (ADR 0126). The platform passkey APIs come later.
+
 tac.browserApis persistentStorage
   adapted: tachyon-app:// is not a secure context, so WKWebView has no navigator.storage. The host answers browserApi.storageSpace: persisted is true (iOS deletes the app's data on uninstall, or offloads an app the user does not open), quota is volumeAvailableCapacityForImportantUsage, and usage is the bytes Tachyon's own stores report, 0 until the blob store reports its size (ADR 0123). A run in a built app is still owed.
 

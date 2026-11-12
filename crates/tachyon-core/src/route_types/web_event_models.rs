@@ -48,6 +48,7 @@ impl WebEventModels {
             Self::file_rows(),
             Self::push_rows(),
             Self::storage_rows(),
+            Self::passkey_rows(),
             Self::socket_and_failure_rows(),
             Self::store_rows(),
         ]
@@ -219,6 +220,41 @@ impl WebEventModels {
                 WebEventSender::Grant("persistentStorage"),
                 "StoragePersisted",
                 &[("persisted", Shape::Boolean)],
+            ),
+        ]
+    }
+
+    fn passkey_rows() -> Vec<(WebEventSender, String, Model)> {
+        vec![
+            Self::record(
+                WebEventSender::Grant("passkeys"),
+                "PasskeyFailed",
+                &[
+                    ("call", Shape::Text),
+                    ("reason", Shape::Text),
+                    ("message", Shape::Text),
+                ],
+            ),
+            Self::record(
+                WebEventSender::Grant("passkeys"),
+                "PasskeySupport",
+                &[
+                    ("platform", Shape::Boolean),
+                    ("conditional", Shape::Boolean),
+                ],
+            ),
+            Self::record(
+                WebEventSender::Grant("passkeys"),
+                "PasskeyCreated",
+                &[("credentialJson", Shape::Text)],
+            ),
+            Self::record(
+                WebEventSender::Grant("passkeys"),
+                "PasskeyAsserted",
+                &[
+                    ("credentialJson", Shape::Text),
+                    ("conditional", Shape::Boolean),
+                ],
             ),
         ]
     }

@@ -1804,6 +1804,22 @@ run is not a desktop browser install, and Safari itself was not run; WebKit
 stands in for it. (Superseded: BR2, below, ran Safari 27 on macOS and Safari
 26.5 on the iOS simulator.)
 
+### Passkeys in the browser (2026-11-12, ADR 0126)
+
+`scripts/passkeys-browser-test.mjs` ran on the macOS test machine in
+Playwright's Chromium, Firefox and WebKit. Chromium ran real WebAuthn
+ceremonies against the DevTools virtual authenticator (internal transport,
+user verification on): `check`, `create`, `get`, `exists`, `refused`, a
+timeout as `cancelled`, `busy`, `cancel`, the conditional `offer`, and an
+offer that a modal `get` stops without an event.
+Firefox and WebKit have no virtual authenticator, so they ran only
+`supported`, `check`, the grant and user-action errors, `invalid` options and
+the JSON converter against the browser's own `parse...FromJSON`.
+
+Owed, by hand: one real `create` and `get` with Touch ID in branded Safari on
+macOS, and with the platform authenticator in Chrome on macOS or Windows.
+Native apps answer `unsupported` until the platform passkey APIs are built.
+
 ### Branded browsers (BR2, runner 2026-10-25)
 
 `scripts/branded-browser-gate.mjs --browser=<name>` runs the web gates

@@ -153,6 +153,27 @@ public:
     void persist() const { TacWebCall::answer("storageSpace", "persist"); }
 };
 
+class Passkeys {
+public:
+    bool supported() const { return TacWebCall::flag("passkeys", "supported"); }
+
+    void check() const { TacWebCall::answer("passkeys", "check"); }
+
+    void create(const std::string& optionsJson) const {
+        TacWebCall::answer("passkeys", "create", TacWebCall::arguments(optionsJson));
+    }
+
+    void get(const std::string& optionsJson) const {
+        TacWebCall::answer("passkeys", "get", TacWebCall::arguments(optionsJson));
+    }
+
+    void offer(const std::string& optionsJson) const {
+        TacWebCall::answer("passkeys", "offer", TacWebCall::arguments(optionsJson));
+    }
+
+    void cancel() const { TacWebCall::answer("passkeys", "cancel"); }
+};
+
 class Geolocation {
 public:
     void currentPosition() const { TacWebCall::answer("geolocation", "currentPosition"); }
@@ -189,5 +210,6 @@ using tachyon::web::Preferences;
 using tachyon::web::SecureRandom;
 using tachyon::web::Share;
 using tachyon::web::StorageSpace;
+using tachyon::web::Passkeys;
 using tachyon::web::Files;
 using tachyon::web::WindowControls;

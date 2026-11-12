@@ -240,7 +240,7 @@ fn the_manifest_grants_browser_apis_by_name() {
     );
     let unknown = load_error(&json!({ "browserApis": ["camera"] }));
     assert!(
-        unknown.contains("'camera' in tac.browserApis is not a browser API that needs a grant. Grant any of: clipboard, files, geolocation, notifications, persistentStorage, preferenceStrings, push, share."),
+        unknown.contains("'camera' in tac.browserApis is not a browser API that needs a grant. Grant any of: clipboard, files, geolocation, notifications, passkeys, persistentStorage, preferenceStrings, push, share."),
         "{unknown}"
     );
     let twice = load_error(&json!({ "browserApis": ["share", "share"] }));

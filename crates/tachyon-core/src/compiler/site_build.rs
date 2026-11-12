@@ -6,6 +6,7 @@ use super::exported_elements::ExportedElements;
 use super::output_path::OutputPath;
 use super::page_composition::PageComposition;
 use super::page_head::PageHead;
+use super::page_passkeys::PagePasskeys;
 use super::page_state::PageState;
 use super::portable_path::PortablePath;
 use super::precompression::CompressedFiles;
@@ -57,6 +58,7 @@ pub(super) struct SiteBuild<'a> {
     yon_reads_tag: &'static str,
     files_tag: String,
     web_push_tag: &'static str,
+    passkeys_tag: &'static str,
     phase_started: Instant,
     timings: Vec<(String, Duration)>,
     service_timings: Vec<(String, Duration)>,
@@ -110,6 +112,7 @@ impl<'a> SiteBuild<'a> {
             yon_reads_tag: "",
             files_tag: String::new(),
             web_push_tag: "",
+            passkeys_tag: "",
             phase_started,
             timings: Vec::new(),
             service_timings: Vec::new(),
@@ -136,6 +139,8 @@ impl<'a> SiteBuild<'a> {
         self.yon_reads_tag = YonReads::tag(site);
         self.files_tag = super::page_files::PageFiles::tag(site);
         self.web_push_tag = WebPush::tag(site, self.native);
+        self.passkeys_tag = PagePasskeys::tag(site);
+        self.service_notes.extend(PagePasskeys::note(site));
         let dependency_digest = self.route_dependency_digest();
         let routes = Self::renderable_routes(self.project, programs);
         self.add_routes(routes, previous, site, &dependency_digest)
@@ -207,6 +212,7 @@ impl<'a> SiteBuild<'a> {
             WebCompiler::SERVICE_WORKER_REGISTRATION.as_bytes().to_vec(),
         );
         self.add_page_files_file();
+        self.add_passkeys_file();
         let version = ServiceWorker::version(&self.files, self.build_config_digest.as_deref());
         let python_profile =
             crate::tac_python::RuntimeProfile::for_files(self.snapshot_root, &self.files)?;
@@ -604,6 +610,7 @@ impl<'a> SiteBuild<'a> {
         html = PageHead::inject_before_runtime(&html, self.yon_reads_tag);
         html = PageHead::inject_before_runtime(&html, &self.files_tag);
         html = PageHead::inject_before_runtime(&html, self.web_push_tag);
+        html = PageHead::inject_before_runtime(&html, self.passkeys_tag);
         PageHead::inject_before(&html, "</body>", WebCompiler::SERVICE_WORKER_LINK)
     }
 
@@ -628,6 +635,12 @@ impl<'a> SiteBuild<'a> {
         let wanted = !self.web_push_tag.is_empty();
         for (path, bytes) in WebPush::files().into_iter().filter(|_| wanted) {
             self.add_file(path, bytes);
+        }
+    }
+
+    fn add_passkeys_file(&mut self) {
+        if !self.passkeys_tag.is_empty() {
+            self.add_file(PagePasskeys::PATH, PagePasskeys::script());
         }
     }
 

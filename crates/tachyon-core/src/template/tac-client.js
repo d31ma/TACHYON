@@ -1700,6 +1700,7 @@ const ownerResources = (element, signal, owner) => ({
   focus: TacFocus.owned(owner),
   push: TacWebApis.push,
   storageSpace: TacWebApis.storageSpace,
+  passkeys: TacWebApis.passkeys,
   filePicker: TacNativeCapabilities.filePicker(signal),
 })
 const attachRuntime = (owner, scope, element) => {

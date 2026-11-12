@@ -68,6 +68,7 @@ impl RustCompanion {
         include_str!("web_apis/notifications.rs"),
         include_str!("web_apis/push.rs"),
         include_str!("web_apis/storage_space.rs"),
+        include_str!("web_apis/passkeys.rs"),
         include_str!("web_apis/geolocation.rs"),
         include_str!("web_apis/window_controls.rs"),
         include_str!("web_apis/focus.rs")

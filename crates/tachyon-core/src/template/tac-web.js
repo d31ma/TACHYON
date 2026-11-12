@@ -13,6 +13,7 @@ class TacWebApis {
   static events = null
   static hostPermission = globalThis.__tachyonNotificationPermission ?? 'default'
   static pushKey = Symbol.for('tachyon.tac.push')
+  static passkeysKey = Symbol.for('tachyon.tac.passkeys')
   static clock = Object.freeze({
     now: () => Date.now(),
     monotonic: () => performance.now(),
@@ -65,6 +66,14 @@ class TacWebApis {
     estimate: () => TacWebApis.later({ api: 'storageSpace', call: 'estimate', grant: null, gesture: false }, () => TacWebApis.space(), (space) => ['StorageEstimated', space]),
     persist: () => TacWebApis.later({ api: 'storageSpace', call: 'persist', grant: 'persistentStorage', gesture: false }, () => TacWebApis.keep(), (persisted) => ['StoragePersisted', { persisted: persisted === true }]),
   })
+  static passkeys = Object.freeze({
+    supported: () => TacWebApis.passkeysUsable(),
+    check: () => TacWebApis.passkeyLater('check', false, []),
+    create: (options) => TacWebApis.passkeyLater('create', true, [options]),
+    get: (options) => TacWebApis.passkeyLater('get', true, [options]),
+    offer: (options) => TacWebApis.passkeyLater('offer', false, [options]),
+    cancel: () => TacWebApis.passkeyLater('cancel', false, []),
+  })
   static spaceCounters = []
   static noPush = Object.freeze({
     supported: () => false,
@@ -88,6 +97,7 @@ class TacWebApis {
     focus: typeof TacFocus === 'function' ? TacFocus.api : {},
     push: TacWebApis.push,
     storageSpace: TacWebApis.storageSpace,
+    passkeys: TacWebApis.passkeys,
     nativeCapability: Object.freeze({ call: (...values) => TacNativeCapabilities.now(...values) }),
     files: Object.freeze(Object.fromEntries(['pick', 'read', 'release', 'upload', 'cancel'].map((call) => [call, (...values) => TacWebApis.files(call, values)]))),
   })
@@ -229,6 +239,20 @@ class TacWebApis {
   static async countedSpace() {
     const counted = await Promise.all(TacWebApis.spaceCounters.map((counter) => counter()))
     return counted.reduce((total, bytes) => total + bytes, 0)
+  }
+
+  static passkeysUsable() {
+    return typeof globalThis.__tachyonNativeHostCall !== 'function' && globalThis.isSecureContext === true && typeof globalThis.PublicKeyCredential === 'function'
+  }
+
+  static passkeyLater(call, gesture, values) {
+    return TacWebApis.later({ api: 'passkeys', call, gesture }, () => TacWebApis.passkeyModule()[call](...values), (event) => event)
+  }
+
+  static passkeyModule() {
+    const module = globalThis[TacWebApis.passkeysKey]
+    if (!module) throw new Error('The passkeys browser API did not load on this page.')
+    return module
   }
 
   static pushMissing() {

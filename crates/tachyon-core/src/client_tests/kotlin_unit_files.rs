@@ -57,10 +57,13 @@ impl KotlinUnitFiles {
         ),
         ("Focus", include_str!("../native/web_apis/Focus.kt")),
     ];
-    const STORAGE_APIS: [(&'static str, &'static str); 1] = [(
-        "StorageSpace",
-        include_str!("../native/web_apis/StorageSpace.kt"),
-    )];
+    const LATER_APIS: [(&'static str, &'static str); 2] = [
+        (
+            "StorageSpace",
+            include_str!("../native/web_apis/StorageSpace.kt"),
+        ),
+        ("Passkeys", include_str!("../native/web_apis/Passkeys.kt")),
+    ];
 
     pub(super) fn write(directory: &Path) -> std::io::Result<Vec<PathBuf>> {
         Self::FILES
@@ -75,7 +78,7 @@ impl KotlinUnitFiles {
     pub(super) fn browser(unit: &str) -> String {
         let apis: String = Self::WEB_APIS
             .iter()
-            .chain(Self::STORAGE_APIS.iter())
+            .chain(Self::LATER_APIS.iter())
             .filter(|(name, _)| unit.contains(name))
             .map(|(_, source)| *source)
             .collect();

@@ -36,8 +36,12 @@ Use `StorageSpace` (ADR 0123) as the smallest complete example: `git log
       the user gesture, and sends the answer or `BrowserCallFailed` to the
       caller.
 - [ ] Large code goes in its own module that ships only when the manifest
-      grants it (see `compiler/web_push.rs`, `compiler/page_files.rs`), not in
-      `tac-web.js`.
+      grants it (see `compiler/web_push.rs`, `compiler/page_files.rs`,
+      `compiler/page_passkeys.rs`), not in `tac-web.js`. Add it to the page
+      files before the service worker is built, so offline pages keep it.
+- [ ] Failures that the app must tell apart get their own event with a
+      `reason` word, as `PasskeyFailed` does (ADR 0126); `BrowserCallFailed`
+      stays for programming errors.
 - [ ] Size budget: `MOST_RUNTIME_BYTES` in `tac_web/web_api_tests.rs`. Raise
       it only with a reason in the ADR.
 - [ ] JavaScript and TypeScript injection: `template/tac-client.js`
@@ -67,7 +71,8 @@ Copy the closest existing client; each is 10 to 25 lines.
 - [ ] Run `cargo run -p cohesion-scan`. Long lists of `include_str!` lines
       look the same to the duplication check, so one more entry can push two
       lists over its limit. Then put the new entry in a short list of its
-      own, as `StorageSpace` is in the Java, C# and Kotlin unit lists.
+      own, as `StorageSpace` and `Passkeys` are in the Java, C# and Kotlin
+      `LATER_*` lists.
 
 ## 4. Native shells
 

@@ -149,6 +149,45 @@ impl BrowserApiPage {
          _report['kept'] = _ask('stamp', {'op': 'get', 'name': 'kept'})\n\
          _report['requests'] = [[item['api'], item['call'], item['args']] for item in _requests]\n";
 
+    const PASSKEYS: [(&'static str, &'static str); 1] = [(
+        "client/services/StampService.py",
+        "from typing import Annotated\n\n\
+         @service\n\
+         class StampService:\n\
+         \x20   passkeys: Annotated[Passkeys, needs]\n\
+         \x20   ready: bool = False\n\
+         \x20   created: str = ''\n\
+         \x20   failure: str = ''\n\n\
+         \x20   def enroll(self) -> None:\n\
+         \x20       self.ready = self.passkeys.supported()\n\
+         \x20       self.passkeys.check()\n\
+         \x20       self.passkeys.create('{}')\n\
+         \x20       self.passkeys.get('{}')\n\
+         \x20       self.passkeys.offer('{}')\n\
+         \x20       self.passkeys.cancel()\n\n\
+         \x20   @on_event\n\
+         \x20   def created_key(self, passkey: PasskeyCreated) -> None:\n\
+         \x20       self.created = passkey.credentialJson\n\n\
+         \x20   @on_event\n\
+         \x20   def failed(self, failed: PasskeyFailed) -> None:\n\
+         \x20       self.failure = f'{failed.call} {failed.reason}'\n",
+    )];
+
+    const PASSKEYS_DRIVER: &'static str = "_requests = []\n\
+         def _web(text):\n\
+         \x20   request = json.loads(text)\n\
+         \x20   _requests.append(request)\n\
+         \x20   return json.dumps({'value': request['call'] == 'supported' or None})\n\
+         _TacPythonRuntime.connect(_emitted.append, None, web=_web)\n\
+         _report = {'init': _ask('stamp', {'op': 'init', 'props': {}})}\n\
+         _report['enroll'] = _ask('stamp', {'op': 'call', 'name': 'enroll', 'args': []})\n\
+         _report['heard'] = _ask('stamp', {'op': 'event', 'name': 'created_key', 'value': {'credentialJson': '{\"id\":\"AQ\"}'}})\n\
+         _report['failed'] = _ask('stamp', {'op': 'event', 'name': 'failed', 'value': {'call': 'get', 'reason': 'cancelled', 'message': 'closed'}})\n\
+         _report['ready'] = _ask('stamp', {'op': 'get', 'name': 'ready'})\n\
+         _report['created'] = _ask('stamp', {'op': 'get', 'name': 'created'})\n\
+         _report['failure'] = _ask('stamp', {'op': 'get', 'name': 'failure'})\n\
+         _report['requests'] = [[item['api'], item['call'], item['args']] for item in _requests]\n";
+
     const ATTACH: [(&'static str, &'static str); 1] = [(
         "client/services/AttachService.py",
         "from typing import Annotated\n\n\
@@ -400,6 +439,42 @@ fn a_python_web_service_estimates_and_persists_storage() {
         json!([
             ["storageSpace", "estimate", []],
             ["storageSpace", "persist", []],
+        ]),
+        "{report}"
+    );
+}
+
+#[test]
+fn a_python_web_service_creates_and_uses_passkeys() {
+    if !PythonPage::has_python() {
+        return;
+    }
+    let report = PythonPage::run(
+        &BrowserApiPage::PASSKEYS,
+        &["stamp"],
+        BrowserApiPage::PASSKEYS_DRIVER,
+    );
+    assert_eq!(report["enroll"], json!({"value": null}), "{report}");
+    assert_eq!(report["ready"], json!({"value": true}), "{report}");
+    assert_eq!(
+        report["created"],
+        json!({"value": "{\"id\":\"AQ\"}"}),
+        "{report}"
+    );
+    assert_eq!(
+        report["failure"],
+        json!({"value": "get cancelled"}),
+        "{report}"
+    );
+    assert_eq!(
+        report["requests"],
+        json!([
+            ["passkeys", "supported", []],
+            ["passkeys", "check", []],
+            ["passkeys", "create", ["{}"]],
+            ["passkeys", "get", ["{}"]],
+            ["passkeys", "offer", ["{}"]],
+            ["passkeys", "cancel", []],
         ]),
         "{report}"
     );

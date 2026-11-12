@@ -31,7 +31,7 @@ impl GoServices {
     const MODULE: &str = "tachyonservices";
     const PAGE_PACKAGE: &str = "page";
     const DELEGATE_FOLDER: &str = "client/delegates";
-    const RUNTIME_FILES: [(&str, &str); 22] = [
+    const RUNTIME_FILES: [(&str, &str); 23] = [
         ("tac/prelude.go", include_str!("prelude.go")),
         ("tac/prelude_json.go", include_str!("prelude_json.go")),
         ("tac/prelude_tasks.go", include_str!("prelude_tasks.go")),
@@ -79,6 +79,7 @@ impl GoServices {
             "tac/storage_space.go",
             include_str!("web_apis/storage_space.go"),
         ),
+        ("tac/passkeys.go", include_str!("web_apis/passkeys.go")),
         (
             "tac/window_controls.go",
             include_str!("web_apis/window_controls.go"),
@@ -97,7 +98,7 @@ impl GoServices {
     const WEB_ENTRY: &str = include_str!("prelude_web.go");
     const FAILURE_CODE: u16 = 1605;
     const WEB_EVENT_FILE: &str = "tac/web_event_models.go";
-    const ALIASED_TYPES: [&str; 40] = [
+    const ALIASED_TYPES: [&str; 45] = [
         "ApplicationEventPublisher",
         "Clock",
         "SecureRandom",
@@ -113,6 +114,7 @@ impl GoServices {
         "Files",
         "Push",
         "StorageSpace",
+        "Passkeys",
         "ApplicationStateChanged",
         "ConnectivityChanged",
         "VisibilityChanged",
@@ -131,6 +133,10 @@ impl GoServices {
         "PushReceived",
         "StorageEstimated",
         "StoragePersisted",
+        "PasskeySupport",
+        "PasskeyCreated",
+        "PasskeyAsserted",
+        "PasskeyFailed",
         "SocketOpened",
         "SocketClosed",
         "StorePartitionLoaded",

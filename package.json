@@ -45,6 +45,7 @@
     "test:runtime-browser": "node scripts/runtime-browser-test.mjs",
     "test:safe-html-browser": "node scripts/safe-html-browser-test.mjs",
     "test:focus-browser": "node scripts/focus-browser-test.mjs",
+    "test:passkeys-browser": "node scripts/passkeys-browser-test.mjs",
     "test:behavior-runtime": "node scripts/behavior-runtime-test.mjs",
     "test:behavior-browser": "node scripts/behavior-browser-test.mjs",
     "test:tac-client": "node scripts/tac-client-test.mjs",
