@@ -18,7 +18,8 @@ impl ConfigurationFixture {
   "server": {"host": "127.0.0.1", "port": 8081},
   "datasource": {"driver": "sqlite", "url": "sqlite::memory:"},
   "catalog": {"size": 20},
-  "tenant": {"owner": "reader"}
+  "tenant": {"owner": "reader"},
+  "mailout": {"directenabled": false, "maxageminutes": 7200}
 }"#;
 
     const JAVASCRIPT: &str = r"
@@ -66,7 +67,7 @@ fn configuration(root: &Path) -> ApplicationConfig {
     write(
         root,
         ".env",
-        "YON_TENANT_SECRET=private-configuration-canary",
+        "YON_TENANT_SECRET=private-configuration-canary\nYON_MAILOUT_DIRECTENABLED=true\nYON_MAILOUT_MAXAGEMINUTES=60",
     );
     let mut environment = BTreeMap::from([
         ("YON_PROFILE".into(), "test".into()),
@@ -94,6 +95,8 @@ fn assert_configuration(value: &serde_json::Value) {
         value["yon"]["tenant"]["secret"],
         "private-configuration-canary"
     );
+    assert_eq!(value["yon"]["mailout"]["directenabled"], true);
+    assert_eq!(value["yon"]["mailout"]["maxageminutes"], 60);
 }
 
 fn source(root: &Path, extension: &str, contents: &str) -> HandlerSource {
@@ -325,6 +328,94 @@ func (Handler) GET(request *http.Request) *http.Response {
 		Body:       io.NopCloser(strings.NewReader(body)),
 	}
 }
+"#,
+    )
+    .await;
+}
+
+#[tokio::test]
+async fn go_decodes_typed_dotenv_overrides_into_typed_fields() {
+    if !available("go") {
+        let required = cfg!(unix) && std::env::var_os("CI").is_some();
+        assert!(
+            !required,
+            "go is required for the Go configuration test in CI"
+        );
+        eprintln!("Go configuration execution requires Go.");
+        return;
+    }
+    exercise(
+        "go",
+        r#"
+import (
+	"encoding/json"
+	"io"
+	"net/http"
+	"os"
+	"strings"
+)
+
+type Handler struct{}
+
+func (Handler) GET(request *http.Request) *http.Response {
+	body := os.Getenv("YON_APPLICATION_JSON")
+	var typed struct {
+		Yon struct {
+			Mailout struct {
+				DirectEnabled bool `json:"directenabled"`
+				MaxAgeMinutes int  `json:"maxageminutes"`
+			} `json:"mailout"`
+		} `json:"yon"`
+	}
+	status := http.StatusOK
+	failure := json.Unmarshal([]byte(body), &typed)
+	if failure != nil || !typed.Yon.Mailout.DirectEnabled || typed.Yon.Mailout.MaxAgeMinutes != 60 {
+		status = http.StatusInternalServerError
+	}
+	return &http.Response{
+		StatusCode: status,
+		Header:     http.Header{"Content-Type": {"application/json"}},
+		Body:       io.NopCloser(strings.NewReader(body)),
+	}
+}
+"#,
+    )
+    .await;
+}
+
+#[tokio::test]
+async fn javascript_reads_typed_dotenv_overrides_as_typed_values() {
+    exercise(
+        "js",
+        r"
+export class Handler {
+  static GET() {
+    const application = JSON.parse(process.env.YON_APPLICATION_JSON);
+    const mailout = application.yon.mailout;
+    if (mailout.directenabled !== true || mailout.maxageminutes !== 60) throw new Error('Typed override failed');
+    return application;
+  }
+}
+",
+    )
+    .await;
+}
+
+#[tokio::test]
+async fn python_reads_typed_dotenv_overrides_as_typed_values() {
+    exercise(
+        "py",
+        r#"
+import json
+import os
+class Handler:
+    @staticmethod
+    def GET(request):
+        application = json.loads(os.environ["YON_APPLICATION_JSON"])
+        mailout = application["yon"]["mailout"]
+        if mailout["directenabled"] is not True or type(mailout["maxageminutes"]) is not int:
+            raise ValueError("Typed override failed")
+        return application
 "#,
     )
     .await;

@@ -203,7 +203,6 @@ fn malformed_or_reserved_dotenv_names_are_rejected() {
 #[test]
 fn secret_collisions_are_rejected_in_both_path_orders() {
     for (source, secrets) in [
-        (r#"{"custom":"public"}"#, "YON_CUSTOM=private"),
         (r#"{"custom":"public"}"#, "YON_CUSTOM_VALUE=private"),
         (r#"{"custom":{"value":"public"}}"#, "YON_CUSTOM=private"),
         ("{}", "YON_CUSTOM=private\nYON_CUSTOM_VALUE=private"),
@@ -212,6 +211,124 @@ fn secret_collisions_are_rejected_in_both_path_orders() {
     ] {
         assert!(configured(source, secrets).is_err());
     }
+}
+
+fn refusal(source: &str, secrets: &str) -> String {
+    configured(source, secrets)
+        .err()
+        .unwrap_or_else(|| unreachable!())
+        .to_string()
+}
+
+fn typed_settings() -> &'static str {
+    r#"{"mailout":{"directenabled":false,"maxageminutes":7200,"ratio":0.5,"heloname":"mail.localhost","optional":null}}"#
+}
+
+#[test]
+fn a_dotenv_override_becomes_the_boolean_the_json_configuration_declares() {
+    let config = loaded(configured(
+        typed_settings(),
+        "YON_MAILOUT_DIRECTENABLED=true",
+    ));
+    assert_eq!(
+        json(&config)["yon"]["mailout"]["directenabled"],
+        json!(true)
+    );
+}
+
+#[test]
+fn a_dotenv_override_becomes_the_whole_number_the_json_configuration_declares() {
+    let config = loaded(configured(typed_settings(), "YON_MAILOUT_MAXAGEMINUTES=60"));
+    assert_eq!(json(&config)["yon"]["mailout"]["maxageminutes"], json!(60));
+}
+
+#[test]
+fn a_dotenv_override_becomes_the_number_the_json_configuration_declares() {
+    let config = loaded(configured(typed_settings(), "YON_MAILOUT_RATIO='2.5'"));
+    assert_eq!(json(&config)["yon"]["mailout"]["ratio"], json!(2.5));
+}
+
+#[test]
+fn a_dotenv_override_of_declared_text_or_null_stays_text() {
+    let config = loaded(configured(
+        typed_settings(),
+        "YON_MAILOUT_HELONAME=mail.example.com\nYON_MAILOUT_OPTIONAL=60",
+    ));
+    assert_eq!(
+        json(&config)["yon"]["mailout"]["heloname"],
+        json!("mail.example.com")
+    );
+    assert_eq!(json(&config)["yon"]["mailout"]["optional"], json!("60"));
+}
+
+#[test]
+fn a_dotenv_value_with_no_declared_type_stays_text() {
+    let config = loaded(configured(typed_settings(), "YON_MAILOUT_UNDECLARED=true"));
+    assert_eq!(json(&config)["yon"]["mailout"]["undeclared"], json!("true"));
+}
+
+#[test]
+fn the_selected_profile_declares_the_type_of_a_dotenv_override() {
+    let root = temporary_directory();
+    write(root.path(), "server/application.json", "{}");
+    write(
+        root.path(),
+        "server/application-onprem.json",
+        r#"{"mailout":{"directenabled":false}}"#,
+    );
+    write(root.path(), ".env", "YON_MAILOUT_DIRECTENABLED=true");
+    let config = loaded(load_with(root.path(), &[("YON_PROFILE", "onprem")]));
+    assert_eq!(
+        json(&config)["yon"]["mailout"]["directenabled"],
+        json!(true)
+    );
+}
+
+#[test]
+fn a_dotenv_override_that_is_not_true_or_false_stops_loading_without_the_value() {
+    let message = refusal(typed_settings(), "YON_MAILOUT_DIRECTENABLED=private-canary");
+    assert!(message.contains("YON_MAILOUT_DIRECTENABLED"));
+    assert!(message.contains("must be true or false"));
+    assert!(!message.contains("private-canary"));
+}
+
+#[test]
+fn a_dotenv_override_in_capitals_is_not_a_boolean() {
+    let message = refusal(typed_settings(), "YON_MAILOUT_DIRECTENABLED=TRUE");
+    assert!(message.contains("must be true or false"));
+}
+
+#[test]
+fn a_dotenv_override_that_is_not_a_whole_number_stops_loading_without_the_value() {
+    let message = refusal(typed_settings(), "YON_MAILOUT_MAXAGEMINUTES=12.75");
+    assert!(message.contains("YON_MAILOUT_MAXAGEMINUTES"));
+    assert!(message.contains("must be a whole number"));
+    assert!(!message.contains("12.75"));
+}
+
+#[test]
+fn a_dotenv_override_that_is_not_a_number_stops_loading_without_the_value() {
+    let message = refusal(typed_settings(), "YON_MAILOUT_RATIO=private-canary");
+    assert!(message.contains("YON_MAILOUT_RATIO"));
+    assert!(message.contains("must be a number"));
+    assert!(!message.contains("private-canary"));
+}
+
+#[test]
+fn a_dotenv_value_cannot_replace_a_declared_list() {
+    let message = refusal(r#"{"custom":["public"]}"#, "YON_CUSTOM=private-canary");
+    assert!(message.contains("YON_CUSTOM"));
+    assert!(message.contains("a list or an object"));
+    assert!(!message.contains("private-canary"));
+}
+
+#[test]
+fn a_dotenv_value_cannot_replace_a_declared_object() {
+    let message = refusal(
+        r#"{"custom":{"value":"public"}}"#,
+        "YON_CUSTOM=private-canary",
+    );
+    assert!(message.contains("a list or an object"));
 }
 
 #[test]

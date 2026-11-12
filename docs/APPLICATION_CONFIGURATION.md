@@ -100,11 +100,40 @@ Path rules:
   lowercase letters or digits.
 - Underscores, dots and empty segments are never literal JSON keys.
 - Arrays are values. Environment names cannot index into an array.
-- Numbers and booleans stay typed JSON values. Secrets are literal strings.
+- Numbers and booleans stay typed JSON values. A `.env` value is a string,
+  unless the JSON configuration declares the type of its path (see
+  [Typed `.env` overrides](#typed-env-overrides)).
 - Tachyon does not silently pick one value when paths conflict. These cases
   fail:
   - one path is a scalar and another path needs an object at the same place;
-  - a secret tries to overwrite a value from the JSON configuration.
+  - a `.env` name tries to replace a list or an object from the JSON
+    configuration.
+
+### Typed `.env` overrides
+
+A `.env` name may replace a single value of `server/application.json` or the
+selected profile. The JSON value declares the type, and Tachyon converts the
+`.env` text to it (ADR 0026, amendment 2026-11-11):
+
+| Value in the JSON configuration | The `.env` value must be | It becomes |
+| --- | --- | --- |
+| none | anything | a string |
+| a string or `null` | anything | a string |
+| `true` or `false` | exactly `true` or `false` | a boolean |
+| a whole number, such as `60` | a whole JSON number, such as `90` | a number |
+| a number with a fraction, such as `0.5` | any JSON number | a number |
+| a list or an object | refused | - |
+
+For example, with `{"mailout": {"directenabled": false, "maxageminutes":
+7200}}` in `server/application.json`, the `.env` lines
+`YON_MAILOUT_DIRECTENABLED=true` and `YON_MAILOUT_MAXAGEMINUTES=60` give
+handlers `true` and `60`, so a Go `bool` or a Java `int` field decodes them.
+
+A value that does not fit stops `ty start` with `TY2010`. The message names
+the `.env` name and the expected type. It never shows the value, because a
+`.env` value may be a secret. `TRUE`, `yes` and `1` are not booleans, and
+`12.5` is not a whole number. Declare a default in the JSON file for every
+setting that an operator may set from `.env`.
 
 ## Field reference
 

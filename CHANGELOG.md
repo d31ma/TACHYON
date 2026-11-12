@@ -112,6 +112,18 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- **A `.env` value can set a typed Yon setting** (ADR 0026 amendment). A
+  `.env` name may now replace a single value of `server/application.json` or
+  the selected profile, and Tachyon converts it to that value's JSON type:
+  `YON_MAILOUT_DIRECTENABLED=true` over `"directenabled": false` gives handlers
+  the boolean `true`, and `YON_MAILOUT_MAXAGEMINUTES=60` over a whole number
+  gives the number `60`, so typed fields in every Yon language decode them.
+  Before, every `.env` value was a string and replacing a JSON value was
+  refused. A value that does not fit the declared type stops `ty start` with
+  `TY2010`, which names the variable and the expected type but never the
+  value. Names that are not in the JSON configuration stay strings, and lists
+  and objects cannot be replaced.
+
 - **An oversized `@LocalState` or `@SessionState` value fails loudly**
   (ADR 0059 amendment). The 64 KiB limit stays. A larger value was skipped
   without a word, so a reload brought back an older value. Now an assignment

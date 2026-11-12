@@ -9,6 +9,8 @@
   app manifest and publishes it at `/manifest.webmanifest`
 - Amended 2026-10-04: `server.environment` names the environment variables
   that handler processes receive (amendment below)
+- Amended 2026-11-11: a `.env` value may replace a single value of the JSON
+  configuration, converted to that value's JSON type (amendment below)
 - Date: 2026-09-14
 - Amends: ADR 0021 response authoring and ADR 0023 configuration v1
 - Preserves: REST-only Yon, client-only Tac, bounded supervision and explicit module ownership
@@ -125,4 +127,44 @@ of `ty` and appear in no diagnostic: a refused entry is reported by its name.
 The selection of runtime executables and isolation stays outside application
 files. `ty handler invoke --allow-env NAME` keeps working and adds to the
 list.
+
+## Amendment 2026-11-11: typed `.env` overrides
+
+Deployments set operator settings from `.env`: Mesail's Lambda image copies
+the function's `YON_*` variables into it. Every `.env` value became a JSON
+string, and a `.env` name could not replace a value of the JSON
+configuration. So an operator could not turn on a setting that
+`server/application.json` declares as `false`, and code that decodes
+`YON_APPLICATION_JSON` into a typed field (a Go `bool`, a Java `int`)
+refused the string `"true"` or `"60"`.
+
+Decision: the JSON configuration declares the type of a setting. After the
+selected profile is merged, the value at a `.env` name's path decides how
+Tachyon reads that name:
+
+| Value in the JSON configuration | The `.env` value must be | It becomes |
+| --- | --- | --- |
+| none | anything | a string (unchanged) |
+| a string or `null` | anything | a string |
+| `true` or `false` | exactly `true` or `false` | a boolean |
+| a whole number, such as `60` | a whole JSON number, such as `90` | a number |
+| a number with a fraction, such as `0.5` | any JSON number | a number |
+| a list or an object | refused | - |
+
+The `.env` value then replaces the JSON value. A value that does not fit
+stops the server at start with `TY2010`. The message names the `.env` name
+and the expected type and never contains the value, because a `.env` value
+may be a secret. A `.env` name for a list or an object is refused with
+`TY2010`; lists and objects stay in the JSON files. Names that are not in the
+JSON configuration keep the old rule: they become strings, and two `.env`
+names that need a scalar and an object at the same place still fail.
+
+This replaces the sentence "Secrets cannot overwrite configuration values"
+above for single values only. The reserved names (`YON_SERVER_*`,
+`YON_PROFILE`, the runtime and isolation names) stay refused, so `.env` still
+cannot select runtime executables, isolation or environment authority. The
+JSON files still refuse credential fields, so a typed default is never a
+secret. The conversion happens once, in the Rust loader, so every Yon
+language receives the typed value in `YON_APPLICATION_JSON`, and the typed
+`Settings` and `Setting` binders see the same values as for JSON settings.
 

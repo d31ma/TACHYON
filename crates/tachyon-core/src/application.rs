@@ -13,6 +13,7 @@ use std::io::{ErrorKind, Read};
 use std::net::IpAddr;
 use std::path::Path;
 
+mod declared_type;
 mod name_refusal;
 mod parser;
 mod secrets;

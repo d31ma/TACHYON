@@ -1,3 +1,4 @@
+use super::declared_type::DeclaredType;
 use super::name_refusal::NameRefusal;
 use super::{ApplicationConfig, Failure, bounded_value, invalid, read_bytes};
 use cap_std::fs::Dir;
@@ -28,8 +29,9 @@ pub(super) fn merge_file(directory: &Dir, document: &mut Value) -> Result<(), Fa
                 "Project-root .env has duplicate names or more than 128 entries.",
             ));
         }
-        let value = unquote_value(raw_value.trim())?;
-        insert_secret(document, &path, Value::String(value))?;
+        let text = unquote_value(raw_value.trim())?;
+        let value = DeclaredType::typed_value(document, name, &path, text)?;
+        insert_secret(document, &path, value)?;
     }
     Ok(())
 }
@@ -62,11 +64,6 @@ fn insert_secret(target: &mut Value, path: &[String], value: Value) -> Result<()
         return Err(invalid("Secret paths cannot be empty."));
     };
     if rest.is_empty() {
-        if object.contains_key(first) {
-            return Err(invalid(
-                "A secret path conflicts with an existing configuration or secret path; remove the duplicate instead of overriding it.",
-            ));
-        }
         object.insert(first.clone(), value);
         return Ok(());
     }
