@@ -1,4 +1,4 @@
-# ADR 0123: Sockets and Streams Reconnect by a Declared Policy and Reach Named Origins
+# ADR 0124: Sockets and Streams Reconnect by a Declared Policy and Reach Named Origins
 
 - Status: Accepted
 - Date: 2026-11-11

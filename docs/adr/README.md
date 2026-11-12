@@ -136,4 +136,4 @@ design. Decide routine implementation choices in code review, not in an ADR.
 - [121. Python Services Reach the Browser APIs Through the Page](0121-python-services-reach-the-browser-apis-through-the-page.md)
 - [122. ty test and ty start Agree on Yon Handler Code](0122-ty-test-and-ty-start-agree-on-yon-handler-code.md)
 - [123. Services Ask for Persistent Storage and Read the Space Used](0123-services-ask-for-persistent-storage-and-read-the-space-used.md)
-- [123. Sockets and Streams Reconnect by a Declared Policy and Reach Named Origins](0123-sockets-and-streams-reconnect-by-a-declared-policy-and-reach-named-origins.md)
+- [124. Sockets and Streams Reconnect by a Declared Policy and Reach Named Origins](0124-sockets-and-streams-reconnect-by-a-declared-policy-and-reach-named-origins.md)

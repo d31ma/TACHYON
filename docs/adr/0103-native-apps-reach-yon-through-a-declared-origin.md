@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-10-18
-- Amended by: [ADR 0123](0123-sockets-and-streams-reconnect-by-a-declared-policy-and-reach-named-origins.md)
+- Amended by: [ADR 0124](0124-sockets-and-streams-reconnect-by-a-declared-policy-and-reach-named-origins.md)
   (named origins in `tac.yon.origins`)
 - Amends: [ADR 0058](0058-streams-are-a-route-and-a-request.md) (a stream
   may open on the declared Yon origin over CORS)

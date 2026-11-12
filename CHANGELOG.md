@@ -27,7 +27,7 @@ machine contracts have their own, independent major versions.
   space. `docs/PAGE_CLIENT_CHECKLIST.md` lists every file a new page client
   touches.
 - **Sockets and streams reconnect by a declared policy and reach named
-  origins** (ADR 0123). `@SocketRequest` and `@StreamRequest` take
+  origins** (ADR 0124). `@SocketRequest` and `@StreamRequest` take
   `{"path": "/ws", "reconnect": {"maxTries": 0, "delayMs": 1000,
   "maxDelayMs": 30000, "jitterMs": 1000}}` in every Tac language; `maxTries`
   0 means no limit. The count restarts when the connection opens, an offline
