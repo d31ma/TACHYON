@@ -5,6 +5,7 @@
 - Amended: 2026-10-04 (documents, collections, scroll and queue for HEIMDALL)
 - Amended: 2026-10-31 (raw SQL parameter contract)
 - Amended: 2026-11-12 by [ADR 0128](0128-a-busy-fylo-root-waits-and-store-failures-are-logged.md) (a busy root waits up to 2 seconds)
+- Amended: 2026-11-12 by [ADR 0129](0129-a-fylo-datasource-can-lease-the-root-per-call.md) (`"lease": "call"`, one FYLO process per request; not qualified)
 - Extends: managed storage, see [MANAGED_STORAGE](../MANAGED_STORAGE.md)
 
 ## Context
@@ -28,7 +29,9 @@ MySQL, SQLite and SQL Server share.
 - `yon.datasource.driver` accepts `fylo`. The URL is `fylo:///absolute/root`,
   and the root must already exist. The driver accepts no credentials and no
   TLS keys.
-- The server owns one long-lived `fylo` subprocess for its whole lifetime:
+- The server owns one long-lived `fylo` subprocess for its whole lifetime
+  (with the default `"lease": "server"`; with `"lease": "call"` it runs one
+  `fylo exec --invocation` process per request instead, ADR 0129):
   - It finds the binary on `PATH`, exactly as it finds language toolchains.
   - It performs a handshake with it at startup.
   - It closes it together with the server.

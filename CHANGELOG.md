@@ -10,6 +10,28 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- **A FYLO datasource can lease the root per call** (ADR 0129; not
+  qualified). The FYLO datasource takes `"lease"`: `"server"` (the default,
+  unchanged: one `fylo exec --loop` for the life of the server) or `"call"`.
+  With `"call"`, each storage request runs its own `fylo exec --invocation`
+  process (FYLO ADR 0028), which takes the root for that one request, so two
+  serverless containers on one root take turns instead of failing with
+  `EROOTLOCKED`. Each process gets the time left of the storage operation
+  less 100 ms as its deadline and a fixed 200 ms cleanup reserve; FYLO's own
+  wait replaces the 2-second wait of ADR 0128. Tachyon makes the TTID of each
+  new document and never sends a request again. At startup the server
+  refuses `"call"` when the `fylo` binary lacks the mode (it probes with a
+  zero cleanup reserve, which such a FYLO refuses with `EBADREQUEST`), and
+  when the root is on a network file system (NFS, which includes Amazon EFS,
+  SMB, 9p; non-`local` mounts on macOS). It is refused on Windows, where
+  FYLO's own two-process test fails. A FYLO that exits without an answer
+  frame fails the call with `TY2160` (`ENOFRAME`), and FYLO's `EREMOTEROOT`
+  (a root on a network file system, FYLO ADR 0029) fails it with a clear
+  `TY2160` message in both modes.
+  `SUPPORT_TIERS.md` marks the mode "not qualified": use it for local and
+  test work until FYLO qualifies its per-call lease. Cost on a shared Mac
+  mini: insert p50 63 ms and read p50 25 ms with `"call"`, against 23 ms and
+  0.7 ms with `"server"`. Tested against FYLO `600aca6` built from source.
 - **Yon handlers write logs on every answer** (ADR 0127). Every Yon language
   gets `YonLog` with the levels `debug`, `info`, `warn` and `error`, a
   message and optional fields. `ty start`, `ty serve`, `ty handler invoke` and

@@ -7,13 +7,13 @@ use serde_json::{Value, json};
 
 use super::{fylo_is_available, fylo_store};
 
-struct RootHolder {
+pub(super) struct RootHolder {
     child: Child,
     _output: BufReader<ChildStdout>,
 }
 
 impl RootHolder {
-    fn take(root: &Path) -> Self {
+    pub(super) fn take(root: &Path) -> Self {
         let mut child = Command::new("fylo")
             .args(["exec", "--loop", "--root"])
             .arg(root)
@@ -36,7 +36,7 @@ impl RootHolder {
         }
     }
 
-    fn release(mut self) {
+    pub(super) fn release(mut self) {
         self.child.kill().expect("stop second fylo loop");
         self.child.wait().expect("reap second fylo loop");
     }
