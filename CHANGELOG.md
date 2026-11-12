@@ -148,6 +148,17 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- **A Windows PHP relay answers its own deadline when PowerShell starts
+  slowly.** The relay's watchdog (it ends the program's process tree at the
+  deadline) is a PowerShell process. PHP for Windows is an x64 program, so on
+  Windows ARM64 PowerShell started from it runs under x64 emulation and needed
+  1.5 to 2.8 s to start; a relay with less time left answered after its
+  deadline, and the supervisor reported `TY2110` instead of the relay's `502`.
+  Now the relay reads the program's answer only after the watchdog says it is
+  armed, or after the program has exited. If the deadline comes first, the
+  relay ends the program and answers `502` on time; the watchdog still ends
+  the rest of the process tree when it starts. A fast program that exits
+  before the watchdog is armed still answers at once.
 - **A `.env` value can set a typed Yon setting** (ADR 0026 amendment). A
   `.env` name may now replace a single value of `server/application.json` or
   the selected profile, and Tachyon converts it to that value's JSON type:

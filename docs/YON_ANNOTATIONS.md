@@ -510,9 +510,13 @@ watchdog ends the program's process tree at the deadline, because PHP cannot
 read a Windows pipe without waiting. So a Windows PHP relay program that
 writes more than one pipe buffer of output before it has read all of its
 input waits until the deadline and answers 502. Read the whole request first.
-The watchdog needs PowerShell to start (about 0.2 s on x64, about 1 s on a
-Windows ARM64 VM), so a deadline shorter than that ends the program when the
-watchdog has started.
+The watchdog needs PowerShell to start: about 0.2 s on x64, and 1.5 to 3 s on
+Windows ARM64, where PowerShell started from x64 PHP runs under emulation. The
+relay reads the answer only after the watchdog is armed or the program has
+exited, so a program that writes more than one pipe buffer before it exits
+waits for the watchdog. When the deadline comes first, the relay ends the
+program and answers 502 on time, and the watchdog ends the rest of the
+program's process tree once it has started.
 
 ## Who may call a route
 
