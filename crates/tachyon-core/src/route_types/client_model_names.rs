@@ -20,6 +20,10 @@ impl ClientModelNames {
     }
 
     pub(crate) fn of_files(files: &[(PathBuf, String)]) -> Vec<String> {
+        Self::names_in(files)
+    }
+
+    fn names_in(files: &[(PathBuf, String)]) -> Vec<String> {
         let mut names = BTreeSet::new();
         for (path, text) in files {
             names.extend(ModelBlocks::names(path, text).unwrap_or_default());
@@ -36,31 +40,32 @@ impl ClientModelNames {
     }
 
     fn collect(root: &Path, relative: &Path, depth: usize, files: &mut Vec<PathBuf>) {
-        let Ok(entries) = std::fs::read_dir(root.join(relative)) else {
-            return;
-        };
-        for entry in entries.flatten() {
-            let child = relative.join(entry.file_name());
+        for child in Self::children(root, relative, depth) {
             Self::add_entry(root, child, depth, files);
         }
     }
 
-    fn add_entry(root: &Path, child: PathBuf, depth: usize, files: &mut Vec<PathBuf>) {
-        let Ok(metadata) = std::fs::symlink_metadata(root.join(&child)) else {
-            return;
-        };
-        if metadata.is_dir() {
-            Self::collect_below(root, &child, depth, files);
-            return;
-        }
-        files.push(child);
+    fn children(root: &Path, relative: &Path, depth: usize) -> Vec<PathBuf> {
+        let entries = (depth <= Self::MOST_DEPTH)
+            .then(|| std::fs::read_dir(root.join(relative)).ok())
+            .flatten();
+        entries
+            .into_iter()
+            .flatten()
+            .flatten()
+            .map(|entry| relative.join(entry.file_name()))
+            .collect()
     }
 
-    fn collect_below(root: &Path, folder: &Path, depth: usize, files: &mut Vec<PathBuf>) {
-        if depth >= Self::MOST_DEPTH {
-            return;
+    fn add_entry(root: &Path, child: PathBuf, depth: usize, files: &mut Vec<PathBuf>) {
+        let folder = std::fs::symlink_metadata(root.join(&child))
+            .ok()
+            .map(|metadata| metadata.is_dir());
+        match folder {
+            Some(true) => Self::collect(root, &child, depth + 1, files),
+            Some(false) => files.push(child),
+            None => {}
         }
-        Self::collect(root, folder, depth + 1, files);
     }
 
     fn declared(root: &Path, relative: &Path) -> Vec<String> {

@@ -62,12 +62,17 @@ impl Converters {
     fn tac_text_of(extension: &str, files: Vec<(String, String)>, root: &Path) -> String {
         match extension {
             "rs" => super::RustTacModels::of(&files).text(),
-            "cs" => TacCSharpContext::text(&files, &super::ClientModelNames::read(root, "fs")),
+            "cs" => Self::csharp_text(&files, root),
             "swift" => SwiftCodable::text(&files),
             "dart" => DartConverters::tac_text(files),
             "lua" => crate::lua_source::LuaModels::converters(&Self::records(&files, extension)),
             _ => String::new(),
         }
+    }
+
+    fn csharp_text(files: &[(String, String)], root: &Path) -> String {
+        let fsharp_models = super::ClientModelNames::read(root, "fs");
+        TacCSharpContext::text(files, &fsharp_models)
     }
 
     pub(crate) fn require_rust_program(
