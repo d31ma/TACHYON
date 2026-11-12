@@ -79,7 +79,10 @@ Configuration rules:
 - The root directory must already exist.
 - The path must be spelled canonically. FYLO refuses a path that goes through a
   symlink or that uses different letter case.
-- FYLO accepts no credentials, no TLS keys and no other settings.
+- FYLO accepts no credentials and no TLS keys. Its one other setting is
+  `operationTimeoutMs`: the deadline of each store call in milliseconds, a
+  whole number from 1000 to 60000 (default 5000). The first page of a scroll
+  keeps its 30 seconds.
 
 How the server runs FYLO:
 
@@ -102,6 +105,13 @@ How the server runs FYLO:
   as before, with `TY2160` "FYLO operation failed (EROOTLOCKED)." These
   limits are fixed; no setting changes them. Every other FYLO error fails at
   once.
+- When a store call passes its deadline, the server stops its FYLO process
+  and fails the call with `TY2160` "Managed storage operation deadline
+  exceeded during FYLO putData; ..." (naming the real operation). The next
+  call waits until that process has exited before it starts a new one. When
+  it has exited, the server writes
+  `{"event":"storage.fylo_process_stopped","operation":"putData","exit_ms":N}`
+  to its standard error, with the time from the kill to the exit.
 - So two servers, or two serverless containers of one function, must not
   share one FYLO root for long: the second one waits up to 2 seconds per
   request and then fails. Give each root one owner.
@@ -271,15 +281,20 @@ Redis:
 
 ## Bounds and failure behavior
 
-- Startup: 10 seconds. Storage operations: 5 seconds. At most 16 admitted
+- Startup: 10 seconds. Storage operations: 5 seconds (a FYLO datasource can
+  set 1 to 60 seconds with `operationTimeoutMs`). At most 16 admitted
   operations.
 - SQL pools: at most 8 connections (1 for in-memory SQLite). TDS (Tabular Data
   Stream, the SQL Server protocol) is serialized.
 - FYLO: one subprocess, 1 MiB requests, 8 MiB responses. Each Store query
   scans, orders or pages at most 10,000 matching documents; `scroll` has no
   count limit, a 30-second first page and an 8 MiB snapshot. A cancelled or
-  timed-out FYLO call restarts the subprocess, so a late answer can never be
-  read as the answer to the next call.
+  timed-out FYLO call stops the subprocess, so a late answer can never be
+  read as the answer to the next call. The next call first waits until the
+  stopped process has exited, within its own deadline, and only then starts
+  a new one (ADR 0128 amendment). A process stuck in a slow disk write still
+  holds the root until it exits; starting a second one earlier made every
+  call fail with `EROOTLOCKED`.
 - Results: at most 100 rows, 64 columns per row and 1 MiB of serialized JSON.
 - SQL values: null, finite numbers, booleans and strings.
   - Date, decimal and JSON types that are specific to one database need

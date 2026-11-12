@@ -157,6 +157,20 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- **A FYLO process stopped by a deadline is waited for** (ADR 0128
+  amendment). When a store call passed its deadline, the FYLO datasource
+  killed its `fylo exec --loop` process without waiting, and the next call
+  started a second one at once. A process stuck in a slow disk write still
+  held the root, so the new one answered `EROOTLOCKED` to every call until
+  the old one exited (more than 10 seconds were measured in Mesail). Now the
+  process stays in its slot until it has exited: the next call waits for the
+  exit within its own deadline, and fails with the deadline error rather
+  than `EROOTLOCKED` when the root does not come free in time. A broken pipe
+  is handled the same way. The deadline failure names the FYLO operation,
+  and a `storage.fylo_process_stopped` line gives the operation and the
+  milliseconds from the kill to the exit. The FYLO datasource also takes
+  `operationTimeoutMs` (1000 to 60000, default 5000) for the store-call
+  deadline.
 - **A busy FYLO root waits, and store failures are logged** (ADR 0128). When
   another process holds the FYLO root (`EROOTLOCKED`), the FYLO datasource
   now waits and sends the request again for up to 2 seconds before it fails

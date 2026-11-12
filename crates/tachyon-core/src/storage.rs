@@ -105,9 +105,14 @@ impl ManagedStorage {
         let deadline = Instant::now() + self.time_limit(command);
         tokio::time::timeout_at(deadline.into(), self.dispatch(command, deadline))
             .await
-            .map_err(|_| {
-                failure("Managed storage operation deadline exceeded; writes may have committed.")
-            })?
+            .map_err(|_| self.deadline_failure())?
+    }
+
+    fn deadline_failure(&self) -> Failure {
+        let fylo_failure = self.fylo.as_ref().and_then(FyloStore::deadline_failure);
+        fylo_failure.unwrap_or_else(|| {
+            failure("Managed storage operation deadline exceeded; writes may have committed.")
+        })
     }
 
     fn time_limit(&self, command: &Value) -> Duration {
@@ -116,7 +121,9 @@ impl ManagedStorage {
         let base = if is_scroll {
             Self::SCROLL_TIMEOUT
         } else {
-            Self::OPERATION_TIMEOUT
+            self.fylo
+                .as_ref()
+                .map_or(Self::OPERATION_TIMEOUT, FyloStore::operation_timeout)
         };
         base * self.deadline_factor
     }

@@ -5,7 +5,7 @@ use std::time::{Duration, Instant};
 
 use serde_json::{Value, json};
 
-use super::{fylo_is_available, fylo_store};
+use super::{ManagedStorage, fylo_is_available, fylo_store, fylo_url};
 
 struct RootHolder {
     child: Child,
@@ -124,4 +124,62 @@ async fn a_fylo_error_other_than_a_held_root_fails_without_waiting() {
         failure.contains("TY2160") && !failure.contains("EROOTLOCKED"),
         "{failure}"
     );
+}
+
+#[cfg(unix)]
+fn fylo_process_id(root: &Path) -> String {
+    let output = Command::new("pgrep")
+        .arg("-f")
+        .arg(format!("fylo exec --loop --root {}", root.display()))
+        .output()
+        .expect("pgrep");
+    let ids = String::from_utf8_lossy(&output.stdout);
+    let id = ids.lines().next().expect("one fylo process for the root");
+    id.trim().to_owned()
+}
+
+#[cfg(unix)]
+fn signal(process_id: &str, signal: &str) -> bool {
+    Command::new("kill")
+        .args([signal, process_id])
+        .stderr(Stdio::null())
+        .status()
+        .is_ok_and(|status| status.success())
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn a_fylo_stalled_past_the_deadline_is_stopped_before_the_next_call_starts_another() {
+    if !fylo_runs_here() {
+        return;
+    }
+    let directory = tempfile::tempdir().expect("root");
+    let root = canonical_root(&directory);
+    let datasource = json!({"driver":"fylo","url":fylo_url(&root),"operationTimeoutMs":1000});
+    let store =
+        ManagedStorage::connect_with_deadline_factor(&json!({"yon":{"datasource":datasource}}), 1)
+            .await
+            .expect("store");
+    let create =
+        json!({"operation":"document","command":"createCollection","collection":"hd-events"});
+    store.execute(&create).await.expect("collection");
+    let stalled = fylo_process_id(&root);
+    assert!(signal(&stalled, "-STOP"));
+    let insert =
+        json!({"operation":"document","command":"insert","collection":"hd-events","value":{"n":1}});
+    let failure = store
+        .execute(&insert)
+        .await
+        .expect_err("a stalled fylo passes the deadline")
+        .to_string();
+    assert!(
+        failure.contains("TY2160") && failure.contains("deadline exceeded during FYLO putData"),
+        "{failure}"
+    );
+    for _ in 0..3 {
+        let answer = store.execute(&exists_command()).await;
+        assert_eq!(answer.expect("no EROOTLOCKED after the stall"), json!(true));
+    }
+    assert!(!signal(&stalled, "-0"), "the stalled fylo has exited");
+    assert_ne!(fylo_process_id(&root), stalled);
 }

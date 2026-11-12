@@ -1,8 +1,13 @@
 mod collection_name;
 mod document_commands;
+mod fylo_pipes;
+mod fylo_process;
+mod interruption;
+mod operation_timeout;
 mod patch_queue;
 mod queue_commands;
 mod queue_name;
+mod request_watch;
 mod root_lock_wait;
 mod scroll_page;
 mod scroll_request;
@@ -11,12 +16,10 @@ mod scroll_snapshots;
 mod sql_statement;
 
 use std::path::{Path, PathBuf};
-use std::process::Stdio;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Duration;
 
 use serde_json::{Map, Value, json};
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-use tokio::process::{Child, ChildStdin, ChildStdout};
 use tokio::sync::Mutex;
 
 use super::dialect::{
@@ -25,34 +28,32 @@ use super::dialect::{
 };
 use super::{ManagedStorage, failure, object_keys, scalar, text};
 use crate::Failure;
+use crate::failure::diagnostic;
 use crate::sorted_json::SortedJson;
 pub(super) use collection_name::CollectionName;
 use document_commands::DocumentCommands;
+use fylo_process::FyloProcess;
+use operation_timeout::OperationTimeout;
 use patch_queue::{PatchAnswer, PatchQueue};
 use queue_commands::QueueCommands;
-use root_lock_wait::RootLockWait;
 use scroll_snapshots::ScrollSnapshots;
 pub(super) use sql_statement::SqlStatement;
 
 pub(super) struct FyloStore {
     root: PathBuf,
+    operation_timeout: Duration,
     process: Mutex<Option<FyloProcess>>,
     patches: PatchQueue,
     closed: AtomicBool,
     scrolls: Mutex<ScrollSnapshots>,
 }
 
-struct FyloProcess {
-    child: Child,
-    stdin: ChildStdin,
-    stdout: BufReader<ChildStdout>,
-}
-
 impl FyloStore {
     const MAX_SCAN: usize = 10_000;
 
     pub(super) async fn connect(settings: &Value) -> Result<Self, Failure> {
-        object_keys(settings, &["driver", "url"])?;
+        object_keys(settings, &["driver", "url", "operationTimeoutMs"])?;
+        let operation_timeout = OperationTimeout::from_settings(settings)?;
         let raw = text(settings, "url")?;
         let path = Self::root_path(raw)
             .ok_or_else(|| failure("FYLO datasource URL is fylo:///absolute/root."))?;
@@ -67,7 +68,7 @@ impl FyloStore {
         }
         let mut process = FyloProcess::spawn(&root).map_err(FyloError::into_failure)?;
         let identity = process
-            .request(&json!({ "op": "handshake" }))
+            .handshake(&json!({ "op": "handshake" }))
             .await
             .map_err(FyloError::into_failure)?;
         if identity["protocolVersion"] != json!(1) {
@@ -77,6 +78,7 @@ impl FyloStore {
         }
         Ok(Self {
             root,
+            operation_timeout,
             process: Mutex::new(Some(process)),
             patches: PatchQueue::new(),
             closed: AtomicBool::new(false),
@@ -126,10 +128,26 @@ impl FyloStore {
 
     pub(super) async fn close(&self) {
         self.closed.store(true, Ordering::Release);
-        if let Some(mut process) = self.process.lock().await.take() {
-            let _ = process.stdin.shutdown().await;
-            let _ = process.child.kill().await;
+        if let Some(process) = self.process.lock().await.take() {
+            process.close().await;
         }
+    }
+
+    pub(super) fn operation_timeout(&self) -> Duration {
+        self.operation_timeout
+    }
+
+    pub(super) fn deadline_failure(&self) -> Option<Failure> {
+        let slot = self.process.try_lock().ok()?;
+        let operation = slot.as_ref()?.interrupted_operation()?;
+        Some(Self::interrupted_failure(operation))
+    }
+
+    fn interrupted_failure(operation: &str) -> Failure {
+        let message = format!(
+            "Managed storage operation deadline exceeded during FYLO {operation}; writes may have committed. Tachyon stops that FYLO process, and the next call waits until it has exited."
+        );
+        Failure::one(diagnostic(2160, message, None, None))
     }
 
     async fn delete(&self, command: &Value, collection: &str) -> Result<Value, Failure> {
@@ -400,27 +418,53 @@ impl FyloStore {
         guard: &mut Option<FyloProcess>,
         requests: Vec<(&str, Value)>,
     ) -> Result<Vec<Value>, FyloError> {
+        self.refuse_when_closed()?;
+        let process = self.ready_process(guard).await?;
+        Self::send_each(process, requests).await
+    }
+
+    fn refuse_when_closed(&self) -> Result<(), FyloError> {
         if self.closed.load(Ordering::Acquire) {
             return Err(FyloError::protocol("FYLO datasource is closed."));
         }
-        let mut process = match guard.take() {
-            Some(process) => process,
-            None => FyloProcess::spawn(&self.root)?,
-        };
+        Ok(())
+    }
+
+    async fn send_each(
+        process: &mut FyloProcess,
+        requests: Vec<(&str, Value)>,
+    ) -> Result<Vec<Value>, FyloError> {
         let mut answers = Vec::with_capacity(requests.len());
         for (operation, mut fields) in requests {
             fields["op"] = json!(operation);
-            match process.request_waiting(fields).await {
-                Ok(answer) => answers.push(answer),
-                Err(error) if error.code == "EPROTOCOL" => return Err(error),
-                Err(error) => {
-                    *guard = Some(process);
-                    return Err(error);
-                }
-            }
+            answers.push(process.request(operation, &fields).await?);
         }
-        *guard = Some(process);
         Ok(answers)
+    }
+
+    async fn ready_process<'slot>(
+        &self,
+        slot: &'slot mut Option<FyloProcess>,
+    ) -> Result<&'slot mut FyloProcess, FyloError> {
+        Self::stop_interrupted(slot).await;
+        self.spawn_when_empty(slot)?;
+        slot.as_mut()
+            .ok_or_else(|| FyloError::protocol("FYLO subprocess is unavailable."))
+    }
+
+    fn spawn_when_empty(&self, slot: &mut Option<FyloProcess>) -> Result<(), FyloError> {
+        if slot.is_none() {
+            *slot = Some(FyloProcess::spawn(&self.root)?);
+        }
+        Ok(())
+    }
+
+    async fn stop_interrupted(slot: &mut Option<FyloProcess>) {
+        let Some(process) = slot.as_mut().filter(|process| process.must_stop()) else {
+            return;
+        };
+        process.wait_for_exit().await;
+        *slot = None;
     }
 }
 
@@ -585,90 +629,6 @@ fn matches_every_in_predicate(row: &Value, in_predicates: &[InPredicate]) -> boo
     true
 }
 
-impl FyloProcess {
-    const MAX_RESPONSE_BYTES: usize = 8 * 1024 * 1024;
-
-    fn spawn(root: &Path) -> Result<Self, FyloError> {
-        let mut child = tokio::process::Command::new("fylo")
-            .args(["exec", "--loop", "--root"])
-            .arg(root)
-            .args(["--max-request-bytes", "1048576", "--max-response-bytes", "8388608"])
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::null())
-            .kill_on_drop(true)
-            .spawn()
-            .map_err(|_| {
-                FyloError::protocol(
-                    "The fylo binary is not on PATH; install FYLO (fylo.del.ma) to use this datasource.",
-                )
-            })?;
-        let stdin = child
-            .stdin
-            .take()
-            .ok_or_else(|| FyloError::protocol("FYLO stdin is unavailable."))?;
-        let stdout = child
-            .stdout
-            .take()
-            .ok_or_else(|| FyloError::protocol("FYLO stdout is unavailable."))?;
-        Ok(Self {
-            child,
-            stdin,
-            stdout: BufReader::new(stdout),
-        })
-    }
-
-    async fn request_waiting(&mut self, request: Value) -> Result<Value, FyloError> {
-        let mut wait = RootLockWait::new();
-        let mut answer = self.request(&request).await;
-        while Self::root_was_busy(&answer, &mut wait).await {
-            answer = self.request(&request).await;
-        }
-        answer
-    }
-
-    async fn root_was_busy(answer: &Result<Value, FyloError>, wait: &mut RootLockWait) -> bool {
-        let root_locked = answer.as_ref().err().is_some_and(FyloError::root_locked);
-        root_locked && wait.pause().await
-    }
-
-    async fn request(&mut self, request: &Value) -> Result<Value, FyloError> {
-        let mut line = SortedJson::text(request);
-        if line.len() > 1024 * 1024 {
-            return Err(FyloError::protocol("FYLO request exceeds 1 MiB."));
-        }
-        line.push('\n');
-        self.stdin
-            .write_all(line.as_bytes())
-            .await
-            .map_err(|_| FyloError::protocol("FYLO subprocess is not accepting requests."))?;
-        let mut answer = String::new();
-        let mut reader =
-            tokio::io::AsyncReadExt::take(&mut self.stdout, Self::MAX_RESPONSE_BYTES as u64 + 1);
-        let read = reader
-            .read_line(&mut answer)
-            .await
-            .map_err(|_| FyloError::protocol("FYLO subprocess closed its output."))?;
-        if read == 0 {
-            return Err(FyloError::protocol("FYLO subprocess exited."));
-        }
-        if answer.len() > Self::MAX_RESPONSE_BYTES {
-            return Err(FyloError::protocol("FYLO response exceeds 8 MiB."));
-        }
-        let envelope: Value = serde_json::from_str(answer.trim_end())
-            .map_err(|_| FyloError::protocol("FYLO returned a malformed frame."))?;
-        if envelope["ok"] == json!(true) {
-            return Ok(envelope["result"].clone());
-        }
-        Err(FyloError {
-            code: envelope["error"]["code"]
-                .as_str()
-                .unwrap_or("EUNKNOWN")
-                .to_owned(),
-        })
-    }
-}
-
 #[derive(Clone)]
 struct FyloError {
     code: String,
@@ -679,6 +639,10 @@ impl FyloError {
         Self {
             code: String::from("EPROTOCOL"),
         }
+    }
+
+    fn broke_process(&self) -> bool {
+        self.code == "EPROTOCOL"
     }
 
     fn root_locked(&self) -> bool {

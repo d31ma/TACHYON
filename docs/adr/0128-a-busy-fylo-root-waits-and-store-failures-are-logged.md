@@ -2,6 +2,8 @@
 
 - Status: Accepted
 - Date: 2026-11-12
+- Amended: 2026-11-12 (a stopped FYLO process is waited for before the next
+  one starts; the store-call deadline is a setting)
 - Amends: [ADR 0032](0032-fylo-datasource.md) (FYLO is a datasource)
 - Builds on: [ADR 0127](0127-yon-handlers-write-logs-on-every-answer.md)
   (the JSON lines on the standard error of `ty`)
@@ -60,3 +62,62 @@ Two things made this hard to see and to survive:
   0011) instead of one long-lived loop per container is a separate decision.
 - Storage failures of every driver are logged, not only FYLO's. Their
   messages are Tachyon's own fixed text.
+
+## Amendment (2026-11-12): wait for the old process to exit
+
+### Context
+
+Mesail found a second cause of `EROOTLOCKED` (its slice K8, proven with a
+stalled `fylo` on Tachyon 26.46.02 and FYLO 26.45.07). Every store call has a
+deadline (5 seconds). The FYLO datasource took its `fylo exec --loop` process
+out of its slot for the call. When the deadline fired, the call was dropped
+with the process, `kill_on_drop` sent a kill, and nothing waited for the
+process to exit. The next call started a new `fylo` at once. A process that
+is in a slow disk write cannot die until the write returns, so the old
+process still held the root lease. The new process then answered
+`EROOTLOCKED` to every call until the old one exited: more than 10 seconds
+were measured, much longer than the 2-second wait above. A broken pipe
+(`EPROTOCOL`) dropped the process the same way.
+
+### Decision
+
+3. **Never start a second `fylo` for a root while the first may be alive.**
+   The process stays in its slot for the whole request. A `RequestWatch`
+   marks the request; when the call is dropped before the answer (the
+   deadline), or the answer shows a broken pipe, the watch sends the kill at
+   once and records the FYLO operation and the time of the kill. The next
+   call first waits for that process to exit, then starts a new one. That
+   wait is bounded by the next call's own deadline: a call that cannot get
+   the root in time fails with the deadline error, not `EROOTLOCKED`, and
+   the process stays in the slot for the call after it.
+4. **Name the operation, and log the exit.** A deadline that stops the FYLO
+   process fails the call with `TY2160` "Managed storage operation deadline
+   exceeded during FYLO putData; writes may have committed. ..." (with the
+   real operation), which the supervisor writes as `handler.storage_failed`.
+   When the old process has exited, the datasource writes one line
+   `{"event":"storage.fylo_process_stopped","operation":"putData","exit_ms":N}`
+   to the standard error of `ty`: `exit_ms` is the time from the kill to the
+   exit. The exit is known only after the failed call has answered, so it is
+   its own line, with no request id.
+5. **The store-call deadline is a setting.** The FYLO datasource takes
+   `operationTimeoutMs`, a whole number from 1000 to 60000 (default 5000).
+   It replaces the 5-second operation deadline for that datasource. The
+   first page of a scroll keeps its 30 seconds.
+
+### Consequences
+
+- After a stall, the next call waits for the old process instead of
+  answering `EROOTLOCKED` for the rest of the stall. The wait is spent inside
+  that call's deadline, so a long stall still fails calls, but with the
+  deadline error.
+- A process that never exits keeps every later call waiting until its
+  deadline. This is the honest answer: the root is not free.
+- A process killed by a deadline is reaped by the next call or when the
+  server closes. Until then it is a finished process that holds nothing.
+- Evidence: `storage::tests::fylo_root_lock::a_fylo_stalled_past_the_deadline_is_stopped_before_the_next_call_starts_another`
+  pauses the `fylo` process with `SIGSTOP` (Unix only), lets a 1-second
+  `operationTimeoutMs` pass, and checks the failure names `putData`, that the
+  old process has exited, and that three more calls answer. A delayed exit
+  after the kill (a write stuck in the kernel) cannot be made on purpose in a
+  portable test; the order "wait for the exit, then start" is in
+  `FyloStore::ready_process`.
