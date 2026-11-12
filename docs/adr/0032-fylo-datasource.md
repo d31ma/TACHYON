@@ -4,6 +4,7 @@
 - Date: 2026-09-15
 - Amended: 2026-10-04 (documents, collections, scroll and queue for HEIMDALL)
 - Amended: 2026-10-31 (raw SQL parameter contract)
+- Amended: 2026-11-12 by [ADR 0128](0128-a-busy-fylo-root-waits-and-store-failures-are-logged.md) (a busy root waits up to 2 seconds)
 - Extends: managed storage, see [MANAGED_STORAGE](../MANAGED_STORAGE.md)
 
 ## Context

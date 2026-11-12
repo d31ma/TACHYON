@@ -123,7 +123,7 @@ async fn a_fylo_error_other_than_a_held_root_fails_at_once() {
         .expect_err("no collection")
         .to_string();
     assert!(
-        failure.contains("FYLO collection does not exist"),
+        failure.contains("TY2160") && !failure.contains("EROOTLOCKED"),
         "{failure}"
     );
     assert!(

@@ -8,7 +8,7 @@ pub(super) struct RootLockWait {
 }
 
 impl RootLockWait {
-    pub(super) const LIMIT: Duration = Duration::from_secs(2);
+    const LIMIT: Duration = Duration::from_secs(2);
     const FIRST_PAUSE: Duration = Duration::from_millis(10);
     const LONGEST_PAUSE: Duration = Duration::from_millis(200);
 

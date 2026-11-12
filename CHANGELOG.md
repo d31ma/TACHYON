@@ -157,7 +157,7 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
-- **A busy FYLO root waits, and store failures are logged** (ADR NNNN). When
+- **A busy FYLO root waits, and store failures are logged** (ADR 0128). When
   another process holds the FYLO root (`EROOTLOCKED`), the FYLO datasource
   now waits and sends the request again for up to 2 seconds before it fails
   as before; other FYLO errors still fail at once. Every failed storage

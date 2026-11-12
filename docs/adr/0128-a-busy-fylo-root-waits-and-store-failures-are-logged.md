@@ -1,4 +1,4 @@
-# ADR NNNN: A Busy FYLO Root Waits, and Store Failures Are Logged
+# ADR 0128: A Busy FYLO Root Waits, and Store Failures Are Logged
 
 - Status: Accepted
 - Date: 2026-11-12

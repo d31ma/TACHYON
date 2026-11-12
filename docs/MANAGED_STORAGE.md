@@ -98,7 +98,7 @@ How the server runs FYLO:
   process holds the root, FYLO answers `EROOTLOCKED`. Tachyon then treats the
   root as busy: it waits and sends the same request again, first after 10 ms,
   then after twice as long each time, at most 200 ms, for at most 2 seconds
-  in all (ADR NNNN). If the root is still busy after 2 seconds, the call fails
+  in all (ADR 0128). If the root is still busy after 2 seconds, the call fails
   as before, with `TY2160` "FYLO operation failed (EROOTLOCKED)." These
   limits are fixed; no setting changes them. Every other FYLO error fails at
   once.
@@ -299,7 +299,7 @@ Redis:
   operational access. Do not log credentials or query parameter values.
 - When a storage command of a Yon handler fails, the supervisor writes one
   JSON line to the standard error of `ty`, next to `http.access` and
-  `handler.log` (ADR NNNN):
+  `handler.log` (ADR 0128):
   `{"diagnostics":[{"code":"TY2160","message":"FYLO operation failed (EROOTLOCKED)."}],"event":"handler.storage_failed","request_id":"..."}`.
   It holds only the diagnostic code and Tachyon's own fixed message, which
   for FYLO names FYLO's error code. It never holds the command, stored data,
