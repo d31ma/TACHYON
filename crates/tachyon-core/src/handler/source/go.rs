@@ -541,7 +541,13 @@ mod tests {
                 variables.push(line);
             }
         }
-        assert_eq!(variables, ["var YonGateway = YonGatewayClient{}"]);
+        assert_eq!(
+            variables,
+            [
+                "var YonLog = YonLogWriter{}",
+                "var YonGateway = YonGatewayClient{}"
+            ]
+        );
         assert!(GoHandler::INVOCATION_PACKAGE.starts_with("package yoninvocation\n"));
     }
 
