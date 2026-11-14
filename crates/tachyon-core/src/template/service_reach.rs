@@ -10,6 +10,14 @@ impl ServiceReach {
         Self::traverse(registry, roots, &names)
     }
 
+    pub(crate) fn needs(
+        definition: &ServiceDefinition,
+        names: &BTreeSet<String>,
+    ) -> BTreeSet<String> {
+        let needed = Self::dependencies(definition, names);
+        needed.intersection(names).cloned().collect()
+    }
+
     fn traverse(
         registry: &ServiceRegistry,
         roots: &BTreeSet<String>,

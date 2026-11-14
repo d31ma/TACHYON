@@ -6,6 +6,7 @@ mod ascii_name;
 mod behavior;
 pub mod cache;
 mod check_rejection;
+mod class_name_from_file;
 pub mod client_tests;
 mod companion;
 mod compiler;

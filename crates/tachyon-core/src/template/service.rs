@@ -17,6 +17,7 @@ pub(crate) struct ServiceRegistry {
     services: BTreeMap<String, ServiceDefinition>,
     digest: String,
     topics: BTreeMap<NativeCompanion, serde_json::Value>,
+    remotes: BTreeMap<String, String>,
 }
 
 #[derive(Clone, Debug)]
@@ -231,6 +232,7 @@ impl ServiceDefinition {
 
 impl ServiceRegistry {
     const SERVICE_ROOT: &'static str = "client/services";
+    const REMOTE_ROOT: &'static str = "client/remotes";
     const MAX_SERVICES: usize = 256;
     const MAX_SERVICE_BYTES: u64 = 1_048_576;
     const PROVIDER_FOLDERS: [&'static str; 10] = [
@@ -285,6 +287,7 @@ impl ServiceRegistry {
         }
         Ok(Self {
             topics: Self::native_topics(project_root, &services)?,
+            remotes: Self::remote_names(project_root)?,
             services,
             digest: hex_digest(hasher.finalize()),
         })
@@ -360,24 +363,54 @@ impl ServiceRegistry {
     }
 
     fn provider_names(project_root: &Path) -> Result<BTreeSet<String>, Failure> {
-        let mut names = BTreeSet::new();
-        for folder in Self::PROVIDER_FOLDERS {
-            for path in
-                crate::annotation_modules::Discovery::role_paths(project_root, Path::new(folder))?
-            {
-                let class = match path.extension().and_then(OsStr::to_str) {
-                    Some("rs") => {
-                        crate::annotation_modules::Module::declared_type(project_root, &path)?
-                    }
-                    _ => path.file_stem().and_then(OsStr::to_str).map(str::to_owned),
-                };
-                if let Some(class) = class {
-                    names.insert(crate::companion::lower_first(&class));
-                    names.insert(class);
-                }
-            }
+        let classes = Self::PROVIDER_FOLDERS
+            .iter()
+            .map(|folder| Self::folder_classes(project_root, folder, Self::declared_class))
+            .collect::<Result<Vec<_>, Failure>>()?;
+        Ok(classes
+            .into_iter()
+            .flatten()
+            .flat_map(|class| [crate::companion::lower_first(&class), class])
+            .collect())
+    }
+
+    fn remote_names(project_root: &Path) -> Result<BTreeMap<String, String>, Failure> {
+        let classes =
+            Self::folder_classes(project_root, Self::REMOTE_ROOT, Self::remote_file_class)?;
+        Ok(classes
+            .into_iter()
+            .map(|class| (crate::companion::lower_first(&class), class))
+            .collect())
+    }
+
+    fn folder_classes(
+        project_root: &Path,
+        folder: &str,
+        read_class: fn(&Path, &Path) -> Result<Option<String>, Failure>,
+    ) -> Result<Vec<String>, Failure> {
+        let paths =
+            crate::annotation_modules::Discovery::role_paths(project_root, Path::new(folder))?;
+        let classes = paths
+            .iter()
+            .map(|path| read_class(project_root, path))
+            .collect::<Result<Vec<_>, Failure>>()?;
+        Ok(classes.into_iter().flatten().collect())
+    }
+
+    fn declared_class(project_root: &Path, path: &Path) -> Result<Option<String>, Failure> {
+        if path.extension().and_then(OsStr::to_str) == Some("rs") {
+            return crate::annotation_modules::Module::declared_type(project_root, path);
         }
-        Ok(names)
+        Ok(path.file_stem().and_then(OsStr::to_str).map(str::to_owned))
+    }
+
+    fn remote_file_class(project_root: &Path, path: &Path) -> Result<Option<String>, Failure> {
+        if path.extension().and_then(OsStr::to_str) == Some("rs") {
+            return crate::annotation_modules::Module::declared_type(project_root, path);
+        }
+        Ok(Some(
+            crate::class_name_from_file::ClassNameFromFile::class_of(path),
+        ))
     }
 
     fn service_paths(project_root: &Path) -> Result<Vec<PathBuf>, Failure> {
@@ -402,6 +435,10 @@ impl ServiceRegistry {
             .filter(|service| service.receives_native_capabilities())
             .for_each(ServiceDefinition::inject_native_capabilities);
         self
+    }
+
+    pub(crate) fn remote_class(&self, view_name: &str) -> Option<&str> {
+        self.remotes.get(view_name).map(String::as_str)
     }
 
     pub(crate) fn names(&self) -> BTreeSet<String> {

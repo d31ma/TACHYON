@@ -55,6 +55,10 @@ mod view_member_check;
 #[cfg(test)]
 #[allow(clippy::expect_used)]
 mod view_member_check_tests;
+mod view_remote_check;
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod view_remote_check_tests;
 #[cfg(test)]
 #[allow(clippy::expect_used)]
 mod yon_origin_tests;
@@ -74,5 +78,6 @@ pub(crate) use service::{ServiceDefinition, ServiceRegistry, instance_name};
 pub(crate) use service_reach::ServiceReach;
 pub(crate) use shipped_script::ShippedScript;
 pub(crate) use view_member_check::ViewMemberCheck;
+pub(crate) use view_remote_check::ViewRemoteCheck;
 
 pub(crate) use required_fields::RequiredFields;

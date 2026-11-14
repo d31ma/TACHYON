@@ -536,3 +536,67 @@ meanings. The check above 96 DPI and on `WM_DPICHANGED` is
 at a scaled screen, because Remote Desktop always gives 100% scaling, so it
 is left to the developer (iteration 7, D21; `docs/SUPPORT_TIERS.md`,
 "Windows application manifest").
+
+## Amendment (2026-11-14): the network rule covers every Tac language, and views never name a remote
+
+Mesail (request Y3) builds its web UI in the strict order page, component,
+service, remote. Two holes in that order had no build error:
+
+1. `TY1361` refused `fetch` only in JavaScript and TypeScript services. A
+   service in another Tac language could still reach the network by itself:
+   `HttpClient` in C# or F#, `package:http` in Dart, `reqwest` in Rust,
+   `URLSession` in Swift, Ktor or `HttpURLConnection` in Kotlin and Java,
+   `emscripten_fetch` in C++, `Net::HTTP` in Ruby, or `from js import fetch`,
+   `pyodide.http` and `requests` in Python. Only Go's `net/http` was refused,
+   under `TY1317` with a network message.
+2. A view that named a remote, such as `on:click="ordersClient.list()"`,
+   passed the build. Views see only client services, so the name became a
+   component property, and the page failed at run time with "Tac handler is
+   not available".
+
+Decision:
+
+- `TY1361` is now the one code for "Tac code calls the network itself", in
+  every Tac language. The message names the class (from the file name), the
+  file and the line, and the help tells the author to move the request into a
+  remote (an `HTTPClient` in `client/remotes`) and inject it with `@Needs`.
+  - JavaScript and TypeScript (`client/services/` only, as before): `fetch`,
+    `window.fetch`, `self.fetch`, `XMLHttpRequest` and
+    `navigator.sendBeacon`. A Setup and a shared script may still call
+    `fetch`.
+  - Every other Tac language, in every file under `client/` (the scope that
+    `TY1317` already had): Rust `reqwest`, `ureq`, `gloo_net`, `ehttp`,
+    `isahc`, `attohttpc`, `surf::` and `hyper::`; Go `net/http`; C# and F#
+    `System.Net.Http`, `HttpClient`, `HttpWebRequest`, `WebRequest` and
+    `WebClient`; Dart `package:http/`, `package:dio/` and `dart:io`; Kotlin
+    and Java `java.net.http`, `HttpClient`, `HttpURLConnection`,
+    `URLConnection`, `okhttp3` and `io.ktor`; Swift `URLSession`,
+    `URLRequest`, `FoundationNetworking` and `AsyncHTTPClient`; C++
+    `emscripten_fetch`, `emscripten/fetch.h`, `curl_easy_init`, `cpr::` and
+    `httplib::`; Ruby `Net::HTTP`, `Faraday`, `HTTParty`, `RestClient`,
+    `Excon`, `URI.open`, `require "net/http"` and `require "open-uri"`;
+    Python `from js import fetch`, `js.fetch`, `pyodide.http`, `pyfetch`,
+    `pyodide_http`, `requests`, `httpx`, `aiohttp`, `urllib.request`,
+    `urllib3` and `http.client` (as imports). Comments and string text never
+    count.
+  - Lua needs no list: a Tac Lua service cannot `require` a module, and the
+    pinned Lua runtime has no sockets (ADR 0085).
+  - Go's `net/http` moves from `TY1317` to `TY1361`. `//go:wasmimport` stays
+    under `TY1317`, now with the browser message, because it reaches the
+    host, not the network.
+- Python joins `TY1317`: `import js`, `from js`, and `pyodide.ffi` are browser
+  interop, which a Python service reaches through the page (ADR 0121). When a
+  network word and a browser word cover the same text (`from js import fetch`,
+  `<emscripten/fetch.h>`), only `TY1361` is reported.
+- `TY1377`: a component view names a remote. The build reads each
+  component's `tac.html` and refuses a name that is a class in
+  `client/remotes` (with its first letter lowered, such as `ordersClient`)
+  and not a client service or a property passed to the component. The
+  message names the view and the remote; the help names a service that
+  already needs the remote, or proposes a new one (`OrdersClient` gives
+  `OrdersService`). This is the same order as `TY1327`: a view is an entry
+  point, and entry points reach data access only through a service.
+
+Evidence: `annotation_layout::browser_interop::network_tests` (one test per
+language), `safety::service_reach_tests` and
+`template::view_remote_check_tests`.

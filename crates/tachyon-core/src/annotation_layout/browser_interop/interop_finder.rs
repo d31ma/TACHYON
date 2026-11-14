@@ -27,6 +27,13 @@ impl<'s> InteropFinder<'s> {
         found
     }
 
+    pub(super) fn network_uses(&self, rules: &InteropRules) -> Vec<Range<usize>> {
+        let mut found = self.all_words(rules.network.words);
+        found.extend(self.all_imports(rules.network.imports));
+        found.sort_by_key(|range| range.start);
+        found
+    }
+
     pub(super) fn all_words(&self, words: &[&str]) -> Vec<Range<usize>> {
         self.all_matches(words, Self::is_code_word)
     }

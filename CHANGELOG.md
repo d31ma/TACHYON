@@ -10,6 +10,20 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- **Tac code never calls the network itself, in any Tac language, and a
+  view never names a remote** (ADR 0087 amendment of 2026-11-14). `TY1361`
+  now refuses the HTTP library of every Tac language, not only `fetch` in
+  JavaScript and TypeScript: for example `HttpClient` in C# and F#,
+  `package:http` in Dart, `reqwest` in Rust, `URLSession` in Swift,
+  `HttpURLConnection` and Ktor in Java and Kotlin, `emscripten_fetch` in C++,
+  `Net::HTTP` in Ruby, and `from js import fetch`, `pyodide.http` or
+  `requests` in Python. JavaScript and TypeScript services also may not use
+  `XMLHttpRequest` or `navigator.sendBeacon`. The message names the class, the
+  file and the line. Go's `net/http` moves from `TY1317` to `TY1361`, and
+  Python's `js` and `pyodide.ffi` imports are now `TY1317`. The new `TY1377`
+  refuses a component view that names a remote, such as
+  `on:click="ordersClient.list()"`, and names the service that could call the
+  remote instead.
 - **Tac services capture and show audio and video** (ADR 0129, first slice).
   Every Tac service language gets a `Media` client, with the new grants
   `microphone` and `screen` in `tac.browserApis` (the camera uses the

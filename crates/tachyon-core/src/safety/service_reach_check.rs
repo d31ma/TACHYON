@@ -1,4 +1,5 @@
-use super::{CodeText, SafetyUtils};
+use super::{CodeText, NetworkRefusal, SafetyUtils};
+use std::ops::Range;
 use std::path::Path;
 use tachyon_diagnostics::Diagnostic;
 
@@ -6,14 +7,13 @@ pub(crate) struct ServiceReachCheck;
 
 impl ServiceReachCheck {
     const GLOBAL_CODE: u16 = 1360;
-    const FETCH_CODE: u16 = 1361;
     const SERVICES: &'static str = "client/services/";
     const SCRIPTS: [&'static str; 3] = ["js", "mjs", "ts"];
     const GLOBAL: &'static str = "globalThis";
     const FETCH: &'static str = "fetch";
     const FETCH_OWNERS: [&'static str; 2] = ["window.", "self."];
+    const OTHER_REQUESTS: [&'static str; 2] = ["XMLHttpRequest", "navigator.sendBeacon"];
     const GLOBAL_HELP: &'static str = "A service gets the browser by injection: the window controls from `@Needs windowControls`, and each other browser API from its own `@Needs` field. Keep state that many services share in a service that they inject (ADR 0087).";
-    const FETCH_HELP: &'static str = "Move the request into a method of an HTTPClient, such as `@GetRequest(\"/api/products\")`, and inject the client with `@Needs`. Mark a public read `Cached`, so the service worker may answer it (ADR 0087).";
 
     pub(crate) fn diagnostics<'a>(
         files: impl Iterator<Item = (&'a Path, &'a [u8])>,
@@ -33,8 +33,9 @@ impl ServiceReachCheck {
         let portable = SafetyUtils::portable(path);
         let code = CodeText::of(Self::extension(path), CodeText::source(path, bytes));
         let global = Self::global_use(&code).map(|at| Self::global_refusal(&portable, &code, at));
-        let fetch = Self::fetch_call(&code).map(|at| Self::fetch_refusal(&portable, &code, at));
-        global.into_iter().chain(fetch).collect()
+        let network =
+            Self::network_call(&code).map(|used| NetworkRefusal::diagnostic(path, &code, used));
+        global.into_iter().chain(network).collect()
     }
 
     fn extension(path: &Path) -> &str {
@@ -49,10 +50,32 @@ impl ServiceReachCheck {
             .find(|at| Self::is_word(code, *at, Self::GLOBAL))
     }
 
+    fn network_call(code: &str) -> Option<Range<usize>> {
+        let fetch = Self::fetch_call(code).map(|at| at..at + Self::FETCH.len());
+        let others = Self::OTHER_REQUESTS
+            .iter()
+            .filter_map(|word| Self::word_use(code, word).map(|at| at..at + word.len()));
+        fetch
+            .into_iter()
+            .chain(others)
+            .min_by_key(|used| used.start)
+    }
+
     fn fetch_call(code: &str) -> Option<usize> {
         code.match_indices(Self::FETCH)
             .map(|(at, _)| at)
             .find(|at| Self::is_fetch_call(code, *at))
+    }
+
+    fn word_use(code: &str, word: &str) -> Option<usize> {
+        code.match_indices(word)
+            .map(|(at, _)| at)
+            .find(|at| Self::is_name(code, *at, word))
+    }
+
+    fn is_name(code: &str, at: usize, word: &str) -> bool {
+        let ends = Self::ends_word(&code[at + word.len()..]);
+        [Self::starts_word(code, at), ends] == [true, true]
     }
 
     fn is_fetch_call(code: &str, at: usize) -> bool {
@@ -107,13 +130,5 @@ impl ServiceReachCheck {
             Self::GLOBAL_HELP,
             (portable, at),
         )
-    }
-
-    fn fetch_refusal(portable: &str, code: &str, at: usize) -> Diagnostic {
-        let message = format!(
-            "'{portable}' line {} calls fetch. A Tac service reaches the network only through an HTTPClient.",
-            SafetyUtils::line_at(code, at)
-        );
-        SafetyUtils::refusal(Self::FETCH_CODE, message, Self::FETCH_HELP, (portable, at))
     }
 }

@@ -1,5 +1,6 @@
 use crate::Failure;
 use crate::failure::{diagnostic, source_span};
+use crate::safety::NetworkRefusal;
 use interop_finder::InteropFinder;
 use interop_rules::InteropRules;
 use std::ops::Range;
@@ -11,6 +12,7 @@ mod browser_providers;
 mod interop_finder;
 mod interop_rules;
 mod native_web_apis;
+mod network_words;
 mod rust_known_model_paths;
 
 #[cfg(test)]
@@ -20,6 +22,9 @@ pub(crate) use native_web_apis::NativeWebApis;
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod network_tests;
 
 #[cfg(test)]
 mod preference_provider_tests;
@@ -32,7 +37,6 @@ pub(crate) struct BrowserInteropCheck;
 impl BrowserInteropCheck {
     const CODE: u16 = 1317;
     const HELP: &'static str = "Browser work lives in a JavaScript or TypeScript service. That service publishes a typed event, and this service receives it with @OnEvent. See /docs/native-services";
-    const NETWORK_HELP: &'static str = "Move the request into a method of an HTTPClient, such as `@GetRequest(\"/api/products\")`, and inject the client with `@Needs`. Mark a public read `Cached`, so the service worker may answer it (ADR 0087).";
 
     pub(crate) fn check_file(path: &Path, bytes: &[u8]) -> Result<(), Failure> {
         let source = String::from_utf8_lossy(bytes);
@@ -50,30 +54,48 @@ impl BrowserInteropCheck {
 
     fn problems_with(path: &Path, source: &str, rules: &InteropRules) -> Vec<Diagnostic> {
         let finder = InteropFinder::new(rules.extension, source);
-        finder
+        let network = finder.network_uses(rules);
+        let browser = finder
             .uses(rules)
             .into_iter()
-            .map(|range| Self::problem(path, source, rules, range))
-            .collect()
+            .filter(|range| !Self::overlaps_any(range, &network));
+        let browser_problems =
+            browser.map(|range| Self::browser_problem(path, source, rules, range));
+        let network_problems = network
+            .iter()
+            .map(|range| NetworkRefusal::diagnostic(path, source, range.clone()));
+        let mut problems: Vec<Diagnostic> = browser_problems.chain(network_problems).collect();
+        problems.sort_by_key(Self::start);
+        problems
     }
 
-    fn problem(path: &Path, source: &str, rules: &InteropRules, range: Range<usize>) -> Diagnostic {
-        let used = &source[range.clone()];
+    fn overlaps_any(range: &Range<usize>, others: &[Range<usize>]) -> bool {
+        others.iter().any(|other| Self::overlaps(range, other))
+    }
+
+    fn overlaps(range: &Range<usize>, other: &Range<usize>) -> bool {
+        [other.start < range.end, range.start < other.end] == [true, true]
+    }
+
+    fn start(problem: &Diagnostic) -> u64 {
+        problem
+            .spans
+            .first()
+            .map(|span| span.start)
+            .unwrap_or_default()
+    }
+
+    fn browser_problem(
+        path: &Path,
+        source: &str,
+        rules: &InteropRules,
+        range: Range<usize>,
+    ) -> Diagnostic {
         let language = rules.language;
-        let (message, advice) = if rules.network.contains(&used) {
-            (
-                format!("{language} services reach the network only through an HTTPClient."),
-                Self::NETWORK_HELP,
-            )
-        } else {
-            (
-                format!(
-                    "{language} services cannot call browser APIs. Put this code in a JS or TS service and send the result to this service with an event."
-                ),
-                Self::HELP,
-            )
-        };
-        let help = format!("Remove `{used}`. {advice}");
+        let help = format!("Remove `{}`. {}", &source[range.clone()], Self::HELP);
+        let message = format!(
+            "{language} services cannot call browser APIs. Put this code in a JS or TS service and send the result to this service with an event."
+        );
         let file = path.to_string_lossy().replace('\\', "/");
         diagnostic(
             Self::CODE,

@@ -407,6 +407,7 @@ impl<'a> Encoder<'a> {
         let template_nodes = &component.program().nodes;
         let slotted = SlottedChildren::split(children);
         ComponentSlots::of(template_nodes).check(node, name, &slotted)?;
+        self.check_remotes(component.program(), &properties.keys().cloned().collect())?;
         let service_names = self.named_services(template_nodes);
         let has_services = !service_names.is_empty();
         let policy = mount_policy(node, name, declared_policy, has_services)?;
@@ -461,6 +462,7 @@ impl<'a> Encoder<'a> {
         component: &ComponentDefinition,
     ) -> Result<Value, Failure> {
         let template_nodes = &component.program().nodes;
+        self.check_remotes(component.program(), &BTreeSet::new())?;
         let service_names = self.named_services(template_nodes);
         let props = self.element_props(template_nodes, &service_names);
         let active = !service_names.is_empty();
@@ -648,6 +650,17 @@ impl<'a> Encoder<'a> {
              pass :{source}=\"...\" to <{outer}>."
         );
         Err(client_failure(node, 1407, &message))
+    }
+
+    fn check_remotes(
+        &self,
+        program: &TemplateProgram,
+        passed: &BTreeSet<String>,
+    ) -> Result<(), Failure> {
+        let mut named = BTreeSet::new();
+        collect_identifiers(&program.nodes, &mut named);
+        let unpassed: BTreeSet<String> = named.difference(passed).cloned().collect();
+        super::ViewRemoteCheck::run(self.services, &unpassed, &program.source_path)
     }
 
     fn named_services(&mut self, template_nodes: &[TemplateNode]) -> Vec<String> {

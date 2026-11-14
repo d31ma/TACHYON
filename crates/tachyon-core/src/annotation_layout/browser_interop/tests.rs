@@ -10,6 +10,13 @@ fn refused(relative: &str, source: &str) -> Vec<String> {
         .collect()
 }
 
+fn codes(relative: &str, source: &str) -> Vec<String> {
+    BrowserInteropCheck::problems(Path::new(relative), source)
+        .into_iter()
+        .map(|problem| problem.code.to_string())
+        .collect()
+}
+
 fn found_text(relative: &str, source: &str) -> Vec<String> {
     BrowserInteropCheck::problems(Path::new(relative), source)
         .into_iter()
@@ -39,13 +46,15 @@ fn a_go_service_that_imports_net_http_is_refused() {
     let problems = refused("client/services/PlaceService.go", source);
     assert_eq!(
         problems,
-        ["TY1317 Go services reach the network only through an HTTPClient."]
+        [
+            "TY1361 PlaceService calls the network itself with `net/http` in 'client/services/PlaceService.go' line 2. Tac code reaches the network only through a remote: an HTTPClient in client/remotes."
+        ]
     );
     let found = found_text("client/services/PlaceService.go", source);
     assert_eq!(
         found,
         [
-            "Remove `net/http`. Move the request into a method of an HTTPClient, such as `@GetRequest(\"/api/products\")`, and inject the client with `@Needs`. Mark a public read `Cached`, so the service worker may answer it (ADR 0087)."
+            "Remove `net/http`. Move the request into a method of a remote in client/remotes, such as `@GetRequest(\"/api/products\")`, inject that remote into PlaceService with `@Needs`, and call its method. Mark a public read `Cached`, so the service worker may answer it (ADR 0087)."
         ]
     );
 }
@@ -53,11 +62,8 @@ fn a_go_service_that_imports_net_http_is_refused() {
 #[test]
 fn a_go_service_that_imports_a_net_http_package_is_refused() {
     let source = "import \"net/http/httputil\"\n\n// @Service\ntype PlaceService struct{}\n";
-    let problems = refused("client/services/PlaceService.go", source);
-    assert_eq!(
-        problems,
-        ["TY1317 Go services reach the network only through an HTTPClient."]
-    );
+    let problems = codes("client/services/PlaceService.go", source);
+    assert_eq!(problems, ["TY1361"]);
     let found = found_text("client/services/PlaceService.go", source);
     assert!(found[0].starts_with("Remove `net/http/`."), "{found:?}");
 }
@@ -65,11 +71,7 @@ fn a_go_service_that_imports_a_net_http_package_is_refused() {
 #[test]
 fn a_go_service_that_imports_net_http_in_backquotes_is_refused() {
     let source = "import `net/http`\n\n// @Service\ntype PlaceService struct{}\n";
-    let problems = refused("client/services/PlaceService.go", source);
-    assert_eq!(
-        problems,
-        ["TY1317 Go services reach the network only through an HTTPClient."]
-    );
+    assert_eq!(codes("client/services/PlaceService.go", source), ["TY1361"]);
 }
 
 #[test]
@@ -90,13 +92,13 @@ fn a_go_service_with_a_wasmimport_directive_is_refused() {
     let problems = refused("client/services/PlaceService.go", source);
     assert_eq!(
         problems,
-        ["TY1317 Go services reach the network only through an HTTPClient."]
+        [
+            "TY1317 Go services cannot call browser APIs. Put this code in a JS or TS service and send the result to this service with an event."
+        ]
     );
     let found = found_text("client/services/PlaceService.go", source);
     assert!(
-        found[0].starts_with(
-            "Remove `//go:wasmimport`. Move the request into a method of an HTTPClient"
-        ),
+        found[0].starts_with("Remove `//go:wasmimport`. Browser work lives"),
         "{found:?}"
     );
 }
