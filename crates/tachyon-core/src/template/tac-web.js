@@ -14,6 +14,7 @@ class TacWebApis {
   static hostPermission = globalThis.__tachyonNotificationPermission ?? 'default'
   static pushKey = Symbol.for('tachyon.tac.push')
   static passkeysKey = Symbol.for('tachyon.tac.passkeys')
+  static locksKey = Symbol.for('tachyon.tac.locks')
   static clock = Object.freeze({
     now: () => Date.now(),
     monotonic: () => performance.now(),
@@ -74,6 +75,10 @@ class TacWebApis {
     offer: (options) => TacWebApis.passkeyLater('offer', false, [options]),
     cancel: () => TacWebApis.passkeyLater('cancel', false, []),
   })
+  static locks = Object.freeze({
+    request: (name) => TacWebApis.lockLater('request', name, (held) => held && ['LockGranted', { name }]),
+    release: (name) => TacWebApis.lockLater('release', name, () => null),
+  })
   static spaceCounters = []
   static noPush = Object.freeze({
     supported: () => false,
@@ -98,6 +103,7 @@ class TacWebApis {
     push: TacWebApis.push,
     storageSpace: TacWebApis.storageSpace,
     passkeys: TacWebApis.passkeys,
+    locks: TacWebApis.locks,
     nativeCapability: Object.freeze({ call: (...values) => TacNativeCapabilities.now(...values) }),
     files: Object.freeze(Object.fromEntries(['pick', 'read', 'release', 'upload', 'cancel'].map((call) => [call, (...values) => TacWebApis.files(call, values)]))),
   })
@@ -246,12 +252,16 @@ class TacWebApis {
   }
 
   static passkeyLater(call, gesture, values) {
-    return TacWebApis.later({ api: 'passkeys', call, gesture }, () => TacWebApis.passkeyModule()[call](...values), (event) => event)
+    return TacWebApis.later({ api: 'passkeys', call, gesture }, () => TacWebApis.module('passkeys', TacWebApis.passkeysKey)[call](...values), (event) => event)
   }
 
-  static passkeyModule() {
-    const module = globalThis[TacWebApis.passkeysKey]
-    if (!module) throw new Error('The passkeys browser API did not load on this page.')
+  static lockLater(call, name, answer) {
+    return TacWebApis.later({ api: 'locks', call, gesture: false }, () => TacWebApis.module('locks', TacWebApis.locksKey)[call](name), answer)
+  }
+
+  static module(api, key) {
+    const module = globalThis[key]
+    if (!module) throw new Error(`The ${api} browser API did not load on this page.`)
     return module
   }
 

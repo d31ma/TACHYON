@@ -141,3 +141,4 @@ design. Decide routine implementation choices in code review, not in an ADR.
 - [126. Tac Services Create and Use Passkeys](0126-tac-services-create-and-use-passkeys.md)
 - [127. Yon Handlers Write Logs on Every Answer](0127-yon-handlers-write-logs-on-every-answer.md)
 - [128. A Busy FYLO Root Waits, and Store Failures Are Logged](0128-a-busy-fylo-root-waits-and-store-failures-are-logged.md)
+- [NNNN. Tabs Share Store and State Changes, and Take Locks](NNNN-tabs-share-store-and-state-changes-and-take-locks.md)

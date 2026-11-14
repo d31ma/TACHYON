@@ -71,7 +71,7 @@ impl ScriptPageServices {
     const PAGE_RUNTIME: &'static str = "import { readFile } from 'node:fs/promises'\n\
          const client = await readFile('./.tachyon/tac-client.js', 'utf8')\n\
          const between = (from, to) => client.slice(client.indexOf(from), client.indexOf(to))\n\
-         const runtime = `const attachRuntime = (owner, scope) => bindPersistentFields(owner, scope)\\n${between('const webStorage = ', 'const importAsset = ')}\\n${between('const createOwner = ', 'const snapshotState = ')}\\nreturn componentOwner`\n\
+         const runtime = `const attachRuntime = (owner, scope) => bindPersistentFields(owner, scope)\\n${between('const webStorage = ', 'const importAsset = ')}\\n${between('const createOwner = ', 'const snapshotState = ')}\\nreturn [componentOwner, StoredTabs]`\n\
          const index = await readFile('./index.html', 'utf8')\n\
          const plan = JSON.parse(index.match(/<script id=\"tachyon-view\"[^>]*>([\\s\\S]*?)<\\/script>/)[1])\n\
          class MemoryStorage {\n\
@@ -81,9 +81,14 @@ impl ScriptPageServices {
          \x20 removeItem(key) { this.items.delete(key) }\n\
          }\n\
          const local = new MemoryStorage()\n\
-         const open = (session) => new Function('localStorage', 'sessionStorage', 'location', 'ClientView', 'importAsset', 'clientRequest', 'nativeHost', 'bindNativeInstance', 'drainCompanionQueue', 'disposeNativeInstance', 'Runtime', 'disposeRuntime', 'Rendering', 'Components', runtime)(\n\
-         \x20 local, session, { pathname: '/' }, { plan }, (raw) => import(`.${raw}`), fetch, () => false, () => {}, () => {}, () => {},\n\
-         \x20 { graphs: new WeakMap() }, () => {}, { instanceKeys: new Set() }, { instances: new Map(), records: new Map() })\n\
+         const opened = []\n\
+         const open = (session) => {\n\
+         \x20 const [componentOwner, StoredTabs] = new Function('localStorage', 'sessionStorage', 'location', 'ClientView', 'importAsset', 'clientRequest', 'nativeHost', 'bindNativeInstance', 'drainCompanionQueue', 'disposeNativeInstance', 'Runtime', 'disposeRuntime', 'Rendering', 'Components', runtime)(\n\
+         \x20\x20 local, session, { pathname: '/' }, { plan }, (raw) => import(`.${raw}`), fetch, () => false, () => {}, () => {}, () => {},\n\
+         \x20\x20 { graphs: new WeakMap() }, () => {}, { instanceKeys: new Set() }, { instances: new Map(), records: new Map() })\n\
+         \x20 opened.push(StoredTabs)\n\
+         \x20 return componentOwner\n\
+         }\n\
          const node = (name) => plan.nodes.find((entry) => entry.name === name)\n";
 
     const EDITOR_DRIVER: &'static str = "const tab = new MemoryStorage()\n\
@@ -93,7 +98,17 @@ impl ScriptPageServices {
          page.theme = 'dark'\n\
          const reloaded = (await open(tab)(node('draft-editor'), {}, 'body/0')).editor\n\
          const other = (await open(new MemoryStorage())(node('draft-editor'), {}, 'body/0')).editor\n\
-         console.log(JSON.stringify({ stored: plan.services.editor.stored, fresh, afterReload: { draft: reloaded.draft, theme: reloaded.theme }, newTab: { draft: other.draft, theme: other.theme }, saved: Object.fromEntries(local.items), session: Object.fromEntries(tab.items) }))\n";
+         const saved = Object.fromEntries(local.items)\n\
+         const watchingSession = new MemoryStorage()\n\
+         const watching = (await open(watchingSession)(node('draft-editor'), {}, 'body/0')).editor\n\
+         const watchingTabs = opened.at(-1)\n\
+         const writer = (await open(new MemoryStorage())(node('draft-editor'), {}, 'body/0')).editor\n\
+         writer.theme = 'sepia'\n\
+         const key = 'tac:service:editor:/:theme'\n\
+         watchingTabs.changed({ key, newValue: local.getItem(key), storageArea: local })\n\
+         watchingTabs.changed({ key: 'tac:service:editor:/:draft', newValue: '\"elsewhere\"', storageArea: watchingSession })\n\
+         const tabs = { theme: watching.theme, written: local.getItem(key), session: watching.draft }\n\
+         console.log(JSON.stringify({ stored: plan.services.editor.stored, fresh, afterReload: { draft: reloaded.draft, theme: reloaded.theme }, newTab: { draft: other.draft, theme: other.theme }, saved, session: Object.fromEntries(tab.items), tabs }))\n";
 
     const TALLY_DRIVER: &'static str = "const page = open(new MemoryStorage())\n\
          const first = await page(node('tally-card'), {}, 'body/0')\n\
@@ -142,6 +157,11 @@ async fn local_state_field_is_restored_after_a_reload_in(extension: &str) {
         report["saved"],
         json!({"tac:service:editor:/:theme": "\"dark\""}),
         "{report}"
+    );
+    assert_eq!(
+        report["tabs"],
+        json!({"theme": "sepia", "written": "\"sepia\"", "session": ""}),
+        "a @LocalState change in one tab reaches the other tab; @SessionState stays per tab: {report}"
     );
 }
 

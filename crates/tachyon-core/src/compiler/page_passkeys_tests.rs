@@ -156,7 +156,11 @@ console.log(JSON.stringify(report))
     fn run() -> serde_json::Value {
         let root = tempfile::tempdir().expect("root");
         Self::write(root.path(), "tac-web.js", Self::WEB_RUNTIME.as_bytes());
-        Self::write(root.path(), "tac-passkeys.js", &PagePasskeys::script());
+        Self::write(
+            root.path(),
+            "tac-passkeys.js",
+            &PagePasskeys::SCRIPT.script(),
+        );
         Self::write(root.path(), "drive.mjs", Self::DRIVER.as_bytes());
         let mut command = NodeDriver::command();
         command.arg("drive.mjs").current_dir(root.path());

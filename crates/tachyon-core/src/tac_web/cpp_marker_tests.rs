@@ -79,8 +79,10 @@ impl CppMarkerPage {
          const { default: ShelfService } = await import('./ShelfService.js')\n\
          const stored = JSON.parse(await readFile('./state.json', 'utf8'))\n\
          const local = new MemoryStorage()\n\
+         const opened = []\n\
          const open = (session) => {\n\
-         \x20 const { Owners, bindPersistentFields } = new Function('localStorage', 'sessionStorage', `${host}\\nreturn { Owners, bindPersistentFields }`)(local, session)\n\
+         \x20 const { Owners, bindPersistentFields, StoredTabs } = new Function('localStorage', 'sessionStorage', `${host}\\nreturn { Owners, bindPersistentFields, StoredTabs }`)(local, session)\n\
+         \x20 opened.push(StoredTabs)\n\
          \x20 const shelf = new ShelfService({})\n\
          \x20 Owners.stored.set(shelf, stored)\n\
          \x20 bindPersistentFields(shelf, 'service:shelf:/')\n\
@@ -100,7 +102,19 @@ impl CppMarkerPage {
          const unbound = new ShelfService({})\n\
          const fresh = unbound.visits\n\
          unbound.__tachyonDispose()\n\
-         console.log(JSON.stringify({ fresh, visited, afterReload, newTab, saved: Object.fromEntries(local.items), session: Object.fromEntries(tab.items) }))\n\
+         const saved = Object.fromEntries(local.items)\n\
+         const watchingSession = new MemoryStorage()\n\
+         const watching = open(watchingSession)\n\
+         const watchingTabs = opened.at(-1)\n\
+         const writer = open(new MemoryStorage())\n\
+         writer.visit()\n\
+         const key = 'tac:service:shelf:/:visits'\n\
+         watchingTabs.changed({ key, newValue: local.getItem(key), storageArea: local })\n\
+         watchingTabs.changed({ key: 'tac:service:shelf:/:draft', newValue: '\"elsewhere\"', storageArea: watchingSession })\n\
+         const tabs = { visits: watching.visits, written: local.getItem(key), session: watching.draft }\n\
+         watching.__tachyonDispose()\n\
+         writer.__tachyonDispose()\n\
+         console.log(JSON.stringify({ fresh, visited, afterReload, newTab, saved, session: Object.fromEntries(tab.items), tabs }))\n\
          process.exit(0)\n";
 
     const FILE_FETCH: &'static str = "import { readFile } from 'node:fs/promises'\n\
@@ -284,5 +298,10 @@ async fn a_cpp_local_state_field_is_written_to_page_storage_and_restored_after_a
         report["session"],
         json!({"tac:service:shelf:/:draft": "\"chapter one\""}),
         "{report}"
+    );
+    assert_eq!(
+        report["tabs"],
+        json!({"visits": 4, "written": "4", "session": ""}),
+        "a @LocalState change in one tab reaches the other tab; @SessionState stays per tab: {report}"
     );
 }

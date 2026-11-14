@@ -42,8 +42,6 @@ impl KotlinWebServices {
         include_str!("web_apis/Focus.kt")
     );
 
-    const PASSKEYS: &'static str = include_str!("web_apis/Passkeys.kt");
-
     const JVM_SHIMS: [(&'static str, &'static str); 4] = [
         (
             "jvm_shims/java_util.kt",
@@ -62,6 +60,11 @@ impl KotlinWebServices {
             include_str!("kotlin_web_services/jvm_shims/jvm_names.kt"),
         ),
     ];
+
+    const LATER_APIS: &'static str = concat!(
+        include_str!("web_apis/Passkeys.kt"),
+        include_str!("web_apis/Locks.kt")
+    );
     const BROWSER_BUILTINS: &'static str = concat!(
         include_str!("kotlin_web_services/kotlin_storage.kt"),
         include_str!("kotlin_web_services/kotlin_browser_http.kt")
@@ -141,7 +144,7 @@ impl KotlinWebServices {
             KotlinModelReaders::text(&texts),
             Self::PRELUDE,
             Self::WEB_APIS,
-            Self::PASSKEYS,
+            Self::LATER_APIS,
             FilePickerSources::kotlin_page()
         );
         let mut sources = vec![(PathBuf::from(Self::PROGRAM_SOURCE), program)];

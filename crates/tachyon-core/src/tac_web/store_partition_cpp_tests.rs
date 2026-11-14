@@ -28,6 +28,7 @@ impl CppStorePartitionProject {
 public:
     [[Needs]] MessageStore& messages;
     std::string heard;
+    std::string changed;
 
     std::string open(std::string room) {
         try {
@@ -84,6 +85,8 @@ public:
     [[OnEvent]] void hearLoaded(const StorePartitionLoaded& loaded) {
         heard = loaded.table + "/" + loaded.partition + "/" + std::to_string(static_cast<long long>(loaded.rows));
     }
+
+    [[OnEvent]] void hearChanged(const StoreChanged& change) { changed = change.table + "/" + change.partition; }
 };
 "#,
         ),
@@ -96,6 +99,12 @@ public:
         }
         service
     }
+
+    async fn published(root: &Path) {
+        let service = Self::written(root);
+        StorePartitionProject::runtime_files(root);
+        build_and_publish(root, "chat", "ChatService", WebLanguage::Cpp, service).await;
+    }
 }
 
 #[tokio::test]
@@ -105,16 +114,19 @@ async fn a_cpp_service_loads_one_partition_and_reads_it_from_memory() {
         return;
     }
     let root = tempfile::tempdir().expect("project");
-    let service = CppStorePartitionProject::written(root.path());
-    StorePartitionProject::runtime_files(root.path());
-    build_and_publish(
-        root.path(),
-        "chat",
-        "ChatService",
-        WebLanguage::Cpp,
-        service,
-    )
-    .await;
+    CppStorePartitionProject::published(root.path()).await;
     let report = run_driver(root.path(), StorePartitionProject::DRIVER);
     StorePartitionProject::assert_report(&report);
+}
+
+#[tokio::test]
+async fn a_cpp_service_hears_a_store_change_from_another_tab() {
+    if !CppStreams::tools_available() {
+        eprintln!("skipping: em++ (Emscripten) or node is unavailable");
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    CppStorePartitionProject::published(root.path()).await;
+    let report = run_driver(root.path(), StorePartitionProject::TAB_DRIVER);
+    StorePartitionProject::assert_tab_report(&report);
 }

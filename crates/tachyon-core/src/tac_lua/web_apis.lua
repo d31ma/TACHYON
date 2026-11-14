@@ -220,6 +220,16 @@ function Passkeys:cancel()
   TacWebHost.call("passkeys", "cancel")
 end
 
+Locks = {}
+
+function Locks:request(name)
+  TacWebHost.call("locks", "request", { name })
+end
+
+function Locks:release(name)
+  TacWebHost.call("locks", "release", { name })
+end
+
 Geolocation = {}
 
 function Geolocation:current_position()

@@ -44,6 +44,42 @@ console.log(JSON.stringify({ before, openBefore, heard, after, openAfter, closed
 process.exit(0)
 ";
 
+    pub(crate) const TAB_DRIVER: &'static str = r"import { readFile } from 'node:fs/promises'
+globalThis.fetch = async (url) => new Response(await readFile(url))
+console.info = () => {}
+const channels = []
+const posted = []
+globalThis.BroadcastChannel = class { constructor(name) { this.name = name; channels.push(this) } postMessage(message) { posted.push(structuredClone(message)) } }
+;(0, eval)(`${await readFile('./memory-indexeddb.js', 'utf8')}\nglobalThis.MemoryIndexedDb = MemoryIndexedDb`)
+MemoryIndexedDb.install()
+MemoryIndexedDb.seed('tachyon-store', 'messages', 'id', 'room', [{ id: 'm1', room: 'r1', text: 'one' }, { id: 'm2', room: 'r1', text: 'two' }, { id: 'm3', room: 'r2', text: 'three' }])
+globalThis.document = { visibilityState: 'visible', addEventListener: () => {}, querySelector: () => null }
+;(0, eval)(`${await readFile('./tac-web.js', 'utf8')}\nglobalThis.TacWebApis = TacWebApis`)
+;(0, eval)(await readFile('./tac-storage.js', 'utf8'))
+const { default: TacApplicationEvents } = await import('./application-events.mjs')
+const bus = new TacApplicationEvents({ changed: () => {}, failed: () => { throw new Error('Event delivery failed') } })
+TacWebApis.events = { publish: (name, value) => bus.publish(name, value), send: (owner, name, value) => bus.send(owner, name, value) }
+await globalThis[Symbol.for('tachyon.tac.storage')].mirror()
+const { default: ChatService, __tachyon_event_plan__: plan } = await import('./ChatService.js')
+const chat = new ChatService({})
+bus.attach(chat, plan.types[0], { applicationEventPublisher: null })
+await bus.initialize(chat)
+const settle = async () => { for (let round = 0; round < 40; round += 1) await new Promise((resolve) => setTimeout(resolve, 0)) }
+chat.open('r1')
+await settle()
+const rows = MemoryIndexedDb.databases.get('tachyon-store').tables.get('messages').rows
+rows.set('m5', { id: 'm5', room: 'r1', text: 'from the other tab' })
+rows.delete('m2')
+channels[0].onmessage({ data: { changes: [{ table: 'messages', ids: ['m5', 'm2'] }] } })
+await settle()
+const after = chat.read('r1')
+const changed = chat.changed
+chat.add('m6', 'r1', 'mine')
+await settle()
+console.log(JSON.stringify({ channels: channels.map((channel) => channel.name), after, changed, posted }))
+process.exit(0)
+";
+
     const RUST_FILES: [(&'static str, &'static str); 4] = [
         (
             "client/setups/ChatSetup.rs",
@@ -64,6 +100,7 @@ pub struct ChatService {
     message_store: std::sync::Arc<MessageStore>,
     behaviors: BehaviorContext,
     pub heard: String,
+    pub changed: String,
 }
 
 impl ChatService {
@@ -73,6 +110,7 @@ impl ChatService {
             message_store: std::sync::Arc::default(),
             behaviors: Behaviors::create::<ChatSetup>(options).expect("behavior context"),
             heard: String::new(),
+            changed: String::new(),
         }
     }
 
@@ -126,6 +164,11 @@ impl ChatService {
     pub fn hear_loaded(&mut self, loaded: StorePartitionLoaded) {
         self.heard = format!("{}/{}/{}", loaded.table, loaded.partition, loaded.rows);
     }
+
+    #[OnEvent]
+    pub fn hear_changed(&mut self, changed: StoreChanged) {
+        self.changed = format!("{}/{}", changed.table, changed.partition);
+    }
 }
 "#,
         ),
@@ -162,6 +205,16 @@ impl ChatService {
         assert_eq!(report, &expected, "{report}");
     }
 
+    pub(crate) fn assert_tab_report(report: &serde_json::Value) {
+        let expected = serde_json::json!({
+            "channels": ["tachyon-store"],
+            "after": "m1,m5",
+            "changed": "messages/r1",
+            "posted": [{"changes": [{"table": "messages", "ids": ["m6"]}]}],
+        });
+        assert_eq!(report, &expected, "{report}");
+    }
+
     fn written(root: &Path, files: &[(&str, &str)]) -> PathBuf {
         let mut service = PathBuf::new();
         for (relative, text) in files {
@@ -190,4 +243,25 @@ async fn a_rust_service_loads_one_partition_and_reads_it_from_memory() {
     .await;
     let report = run_driver(root.path(), StorePartitionProject::DRIVER);
     StorePartitionProject::assert_report(&report);
+}
+
+#[tokio::test]
+async fn a_rust_service_hears_a_store_change_from_another_tab() {
+    if !web_assembly_target_installed() || !node_available() {
+        eprintln!("skipping: the wasm32 Rust target or node is unavailable");
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    let service = StorePartitionProject::written(root.path(), &StorePartitionProject::RUST_FILES);
+    StorePartitionProject::runtime_files(root.path());
+    build_and_publish(
+        root.path(),
+        "chat",
+        "ChatService",
+        WebLanguage::Rust,
+        service,
+    )
+    .await;
+    let report = run_driver(root.path(), StorePartitionProject::TAB_DRIVER);
+    StorePartitionProject::assert_tab_report(&report);
 }

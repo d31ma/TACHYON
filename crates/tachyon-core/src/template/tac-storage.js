@@ -329,7 +329,17 @@ class TacEntityStorage {
       }
     }
     await done
+    TacEntityTabs.send(writes)
     return null
+  }
+
+  static async written(writes) {
+    await TacEntityStorage.commit(writes)
+    TacEntityMirror.apply(writes)
+  }
+
+  static change(table, id, row) {
+    return new Map([[table, new Map([[id, row]])]])
   }
 
   static staged(pending, table) {
@@ -340,23 +350,13 @@ class TacEntityStorage {
 
   static async save(command, pending) {
     if (pending) { TacEntityStorage.staged(pending, command.table).set(command.value[command.idField], command.value); return command.value }
-    const database = await TacEntityStorage.database()
-    const transaction = database.transaction(command.table, 'readwrite')
-    const done = TacEntityStorage.finished(transaction)
-    transaction.objectStore(command.table).put(command.value)
-    await done
-    TacEntityMirror.apply(new Map([[command.table, new Map([[command.value[command.idField], command.value]])]]))
+    await TacEntityStorage.written(TacEntityStorage.change(command.table, command.value[command.idField], command.value))
     return command.value
   }
 
   static async delete(command, pending) {
     if (pending) { TacEntityStorage.staged(pending, command.table).set(command.id, null); return true }
-    const database = await TacEntityStorage.database()
-    const transaction = database.transaction(command.table, 'readwrite')
-    const done = TacEntityStorage.finished(transaction)
-    transaction.objectStore(command.table).delete(command.id)
-    await done
-    TacEntityMirror.apply(new Map([[command.table, new Map([[command.id, null]])]]))
+    await TacEntityStorage.written(TacEntityStorage.change(command.table, command.id, null))
     return true
   }
 
@@ -451,13 +451,7 @@ class TacEntityStorage {
   static async deleteRows(command, ids, pending) {
     if (pending) { for (const id of ids) TacEntityStorage.staged(pending, command.table).set(id, null); return ids.length }
     if (!ids.length) return 0
-    const database = await TacEntityStorage.database()
-    const transaction = database.transaction(command.table, 'readwrite')
-    const done = TacEntityStorage.finished(transaction)
-    const store = transaction.objectStore(command.table)
-    for (const id of ids) store.delete(id)
-    await done
-    TacEntityMirror.apply(new Map([[command.table, new Map(ids.map((id) => [id, null]))]]))
+    await TacEntityStorage.written(new Map([[command.table, new Map(ids.map((id) => [id, null]))]]))
     return ids.length
   }
 }
@@ -582,9 +576,11 @@ class TacEntityMirror {
 
   static persist(writes) {
     const owner = TacEntityPartitions.caller()
+    TacEntityTabs.hold(writes, 1)
     TacEntityMirror.writing = TacEntityMirror.writing
       .then(() => TacEntityStorage.commit(writes))
       .catch((error) => TacEntityMirror.failed(writes, error, owner))
+      .finally(() => TacEntityTabs.hold(writes, -1))
   }
 
   static failed(writes, error, owner) {
@@ -728,6 +724,103 @@ class TacEntityPartitions {
     const events = typeof TacWebApis === 'undefined' ? null : TacWebApis.events
     if (owner === null) events?.publish(name, value)
     else events?.send(owner, name, value)
+  }
+}
+
+class TacEntityTabs {
+  static channelName = 'tachyon-store'
+  static waiting = new Map()
+  static channel = TacEntityTabs.open()
+
+  static open() {
+    try { return TacEntityTabs.listen(new BroadcastChannel(TacEntityTabs.channelName)) } catch { return null }
+  }
+
+  static listen(channel) {
+    channel.onmessage = (event) => TacEntityTabs.heard(event.data)
+    channel.unref?.()
+    return channel
+  }
+
+  static send(writes) {
+    const changes = [...writes].map(([table, rows]) => ({ table, ids: [...rows.keys()] }))
+    try { TacEntityTabs.channel?.postMessage({ changes }) } catch (error) { console.error(error) }
+  }
+
+  static hold(writes, step) {
+    for (const [table, rows] of writes) TacEntityTabs.count(table, [...rows.keys()], step)
+  }
+
+  static count(table, ids, step) {
+    for (const id of ids) {
+      const key = JSON.stringify([table, id])
+      const left = (TacEntityTabs.waiting.get(key) ?? 0) + step
+      if (left > 0) TacEntityTabs.waiting.set(key, left)
+      else TacEntityTabs.waiting.delete(key)
+    }
+  }
+
+  static heard(message) {
+    const changes = TacEntityTabs.changes(message)
+    TacEntityMirror.writing = TacEntityMirror.writing
+      .then(() => TacEntityTabs.reread(changes))
+      .catch((error) => { console.error(error) })
+  }
+
+  static changes(message) {
+    const changes = Array.isArray(message?.changes) ? message.changes : []
+    return changes.filter((change) => typeof change?.table === 'string' && Array.isArray(change.ids) && TacEntityTabs.known(change.table))
+  }
+
+  static known(table) {
+    return TacEntityMirror.keys.has(table) || TacEntityStorage.wanted.has(table) || TacEntityPartitions.tables.has(table)
+  }
+
+  static async reread(changes) {
+    if (!changes.length) return
+    const database = await TacEntityStorage.database()
+    const writes = new Map()
+    for (const change of changes) writes.set(change.table, await TacEntityTabs.rows(database, change))
+    const touched = TacEntityTabs.touched(writes)
+    TacEntityMirror.apply(writes)
+    for (const [table, partition] of touched) TacEntityPartitions.notify(null, 'StoreChanged', { table, partition })
+  }
+
+  static async rows(database, change) {
+    const ids = change.ids.filter((id) => !TacEntityTabs.waiting.has(JSON.stringify([change.table, id])))
+    if (!ids.length || !database.objectStoreNames.contains(change.table)) return new Map()
+    const store = database.transaction(change.table, 'readonly').objectStore(change.table)
+    const rows = await Promise.all(ids.map((id) => TacEntityStorage.answer(store.get(id))))
+    return new Map(ids.map((id, index) => [id, rows[index] ?? null]))
+  }
+
+  static touched(writes) {
+    const touched = new Map()
+    for (const [table, rows] of writes) TacEntityTabs.partitions(table, rows, touched)
+    return [...touched.values()]
+  }
+
+  static partitions(table, rows, touched) {
+    const field = TacEntityTabs.field(table)
+    for (const [id, row] of rows) {
+      const values = field ? [row?.[field], ...TacEntityTabs.loadedIn(table, id)] : ['']
+      for (const value of values) TacEntityTabs.mark(touched, table, value)
+    }
+  }
+
+  static field(table) {
+    return TacEntityPartitions.tables.get(table)?.field || TacEntityStorage.wanted.get(table)?.partition || ''
+  }
+
+  static loadedIn(table, id) {
+    const loaded = TacEntityPartitions.tables.get(table)?.loaded ?? new Map()
+    return [...loaded].filter(([, rows]) => rows.has(id)).map(([partition]) => partition)
+  }
+
+  static mark(touched, table, value) {
+    if (value === undefined || value === null) return
+    const partition = String(value)
+    touched.set(JSON.stringify([table, partition]), [table, partition])
   }
 }
 

@@ -33,6 +33,7 @@ public class ChatService
     MessageStore _messages;
     private readonly BehaviorContext behaviors = Behaviors.create(typeof(ChatSetup), "chat", new BehaviorSignal());
     public string Heard = "";
+    public string Changed = "";
 
     public string Open(string room) => Finished(() => Messages().load(BehaviorJSON.From(room)));
 
@@ -58,6 +59,12 @@ public class ChatService
     public void HearLoaded(StorePartitionLoaded loaded)
     {
         Heard = loaded.Table + "/" + loaded.Partition + "/" + (long)loaded.Rows;
+    }
+
+    [OnEvent]
+    public void HearChanged(StoreChanged changed)
+    {
+        Changed = changed.Table + "/" + changed.Partition;
     }
 
     private BehaviorRepository Messages() => behaviors.repository(typeof(MessageEntity));
@@ -94,25 +101,39 @@ public class ChatService
         }
         service
     }
+
+    async fn report(driver: &str) -> Option<serde_json::Value> {
+        if !fsharp_web_ready() {
+            eprintln!("skipping: the .NET wasm-tools workload or node is unavailable");
+            return None;
+        }
+        let root = tempfile::tempdir().expect("project");
+        let service = Self::written(root.path());
+        StorePartitionProject::runtime_files(root.path());
+        build_and_publish(
+            root.path(),
+            "chat",
+            "ChatService",
+            WebLanguage::CSharp,
+            service,
+        )
+        .await;
+        Some(run_driver(root.path(), driver))
+    }
 }
 
 #[tokio::test]
 async fn a_csharp_service_loads_one_partition_and_reads_it_from_memory() {
-    if !fsharp_web_ready() {
-        eprintln!("skipping: the .NET wasm-tools workload or node is unavailable");
-        return;
+    let report = CsharpStorePartition::report(StorePartitionProject::DRIVER).await;
+    if let Some(report) = report {
+        StorePartitionProject::assert_report(&report);
     }
-    let root = tempfile::tempdir().expect("project");
-    let service = CsharpStorePartition::written(root.path());
-    StorePartitionProject::runtime_files(root.path());
-    build_and_publish(
-        root.path(),
-        "chat",
-        "ChatService",
-        WebLanguage::CSharp,
-        service,
-    )
-    .await;
-    let report = run_driver(root.path(), StorePartitionProject::DRIVER);
-    StorePartitionProject::assert_report(&report);
+}
+
+#[tokio::test]
+async fn a_csharp_service_hears_a_store_change_from_another_tab() {
+    let report = CsharpStorePartition::report(StorePartitionProject::TAB_DRIVER).await;
+    if let Some(report) = report {
+        StorePartitionProject::assert_tab_report(&report);
+    }
 }

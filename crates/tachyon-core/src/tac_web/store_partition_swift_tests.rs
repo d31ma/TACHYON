@@ -2,6 +2,7 @@
 
 use super::store_partition_tests::StorePartitionProject;
 use super::swift_tests::{publish, run_driver, swift_web_ready, write};
+use std::path::Path;
 
 struct SwiftStorePartitionProject;
 
@@ -27,6 +28,7 @@ final class ChatService {
     let messageStore: MessageStore
     private var behaviors: BehaviorContext!
     var heard: String = ""
+    var changed: String = ""
 
     @OnStart
     func start() {
@@ -77,6 +79,11 @@ final class ChatService {
         heard = loaded.table + "/" + loaded.partition + "/" + String(Int(loaded.rows))
     }
 
+    @OnEvent
+    func hearChanged(_ change: StoreChanged) {
+        changed = change.table + "/" + change.partition
+    }
+
     private func messages() throws -> BehaviorRepository {
         try behaviors.repository(MessageEntity.self)
     }
@@ -93,8 +100,16 @@ final class ChatService {
         ),
     ];
 
-    fn driver() -> String {
-        StorePartitionProject::DRIVER.replace("chat.", "await chat.")
+    fn driver(text: &str) -> String {
+        text.replace("chat.", "await chat.")
+    }
+
+    async fn published(root: &Path) {
+        for (relative, text) in Self::FILES {
+            write(root, relative, text);
+        }
+        StorePartitionProject::runtime_files(root);
+        publish(root, "chat", "ChatService").await;
     }
 }
 
@@ -105,11 +120,21 @@ async fn a_swift_service_loads_one_partition_and_reads_it_from_memory() {
         return;
     }
     let root = tempfile::tempdir().expect("project");
-    for (relative, text) in SwiftStorePartitionProject::FILES {
-        write(root.path(), relative, text);
-    }
-    StorePartitionProject::runtime_files(root.path());
-    publish(root.path(), "chat", "ChatService").await;
-    let report = run_driver(root.path(), &SwiftStorePartitionProject::driver());
+    SwiftStorePartitionProject::published(root.path()).await;
+    let driver = SwiftStorePartitionProject::driver(StorePartitionProject::DRIVER);
+    let report = run_driver(root.path(), &driver);
     StorePartitionProject::assert_report(&report);
+}
+
+#[tokio::test]
+async fn a_swift_service_hears_a_store_change_from_another_tab() {
+    if !swift_web_ready() {
+        eprintln!("skipping: the Swift SDK for WebAssembly, swiftc or node is unavailable");
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    SwiftStorePartitionProject::published(root.path()).await;
+    let driver = SwiftStorePartitionProject::driver(StorePartitionProject::TAB_DRIVER);
+    let report = run_driver(root.path(), &driver);
+    StorePartitionProject::assert_tab_report(&report);
 }

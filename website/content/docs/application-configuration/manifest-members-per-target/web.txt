@@ -135,6 +135,9 @@ tac.browserApis push
 tac.browserApis passkeys
   honored: navigator.credentials.create and get with the browser's own WebAuthn in a secure page (ADR 0126): WebAuthn JSON text in and out, conditional mediation for autofill, a PasskeyFailed reason word for each failure; Chromium is checked with the DevTools virtual authenticator, Firefox and WebKit without one (scripts/passkeys-browser-test.mjs)
 
+tac.browserApis locks
+  honored: navigator.locks.request in a secure page: the tab holds the lock until it calls release or closes, under the name tachyon:<name> (ADR NNNN); a page without Web Locks (plain http) gets every lock at once; checked with two tabs in Chromium, Firefox and WebKit (scripts/tabs-browser-test.mjs)
+
 tac.browserApis persistentStorage
   honored: navigator.storage.persist(), persisted() and estimate() in a secure page (ADR 0123); an insecure page answers quota 0 and persisted false; Firefox asks the user, Chromium decides by itself, Safari 15.2 and later
 

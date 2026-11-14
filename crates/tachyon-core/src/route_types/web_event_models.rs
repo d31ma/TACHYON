@@ -51,6 +51,7 @@ impl WebEventModels {
             Self::passkey_rows(),
             Self::socket_and_failure_rows(),
             Self::store_rows(),
+            Self::lock_rows(),
         ]
         .concat()
     }
@@ -80,7 +81,20 @@ impl WebEventModels {
                 "StoreWriteFailed",
                 &[("table", Shape::Text), ("reason", Shape::Text)],
             ),
+            Self::record(
+                WebEventSender::Page,
+                "StoreChanged",
+                &[("table", Shape::Text), ("partition", Shape::Text)],
+            ),
         ]
+    }
+
+    fn lock_rows() -> Vec<(WebEventSender, String, Model)> {
+        vec![Self::record(
+            WebEventSender::Grant("locks"),
+            "LockGranted",
+            &[("name", Shape::Text)],
+        )]
     }
 
     fn page_rows() -> Vec<(WebEventSender, String, Model)> {

@@ -33,6 +33,7 @@ mod foundation_properties;
 mod foundation_rules;
 mod foundation_selectors;
 mod foundation_values;
+mod granted_script;
 mod module_code;
 mod output_path;
 mod page_composition;
@@ -42,6 +43,9 @@ mod page_files_tests;
 mod page_head;
 #[cfg(test)]
 mod page_head_tests;
+mod page_locks;
+#[cfg(test)]
+mod page_locks_tests;
 mod page_passkeys;
 #[cfg(test)]
 mod page_passkeys_tests;

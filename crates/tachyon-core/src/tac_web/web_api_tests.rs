@@ -9,7 +9,7 @@ struct WebApis;
 
 impl WebApis {
     const RUNTIME: &str = include_str!("../template/tac-web.js");
-    const MOST_RUNTIME_BYTES: usize = 16_500;
+    const MOST_RUNTIME_BYTES: usize = 17_000;
     const DRIVER_DEADLINE: std::time::Duration = std::time::Duration::from_mins(2);
 
     const RUNTIME_DRIVER: &str = ";(0, eval)(await readFile('./tac-web.js', 'utf8'))\n\
@@ -3269,3 +3269,33 @@ mod storage_space_tests;
 
 #[path = "passkeys_tests.rs"]
 mod passkeys_tests;
+
+#[path = "locks_tests.rs"]
+mod locks_tests;
+
+#[path = "locks_go_tests.rs"]
+mod locks_go_tests;
+
+#[path = "locks_swift_tests.rs"]
+mod locks_swift_tests;
+
+#[path = "locks_kotlin_tests.rs"]
+mod locks_kotlin_tests;
+
+#[path = "locks_java_tests.rs"]
+mod locks_java_tests;
+
+#[path = "locks_csharp_tests.rs"]
+mod locks_csharp_tests;
+
+#[path = "locks_dart_tests.rs"]
+mod locks_dart_tests;
+
+#[path = "locks_ruby_tests.rs"]
+mod locks_ruby_tests;
+
+#[path = "locks_lua_tests.rs"]
+mod locks_lua_tests;
+
+#[path = "locks_cpp_tests.rs"]
+mod locks_cpp_tests;

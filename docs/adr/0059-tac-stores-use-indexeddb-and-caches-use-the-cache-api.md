@@ -338,3 +338,14 @@ service starts, the page copies only the tables without a partition; a
 service loads a partition with `load` and hears `StorePartitionLoaded`. A
 failed background write now sends `StoreWriteFailed` instead of only writing
 to the console.
+
+## Amendment (2026-11-14): tabs share Store and state changes (ADR NNNN)
+
+[ADR NNNN](NNNN-tabs-share-store-and-state-changes-and-take-locks.md) replaces
+"a change in one tab reaches another tab only after that tab reloads". After
+a Store write reaches IndexedDB, the other tabs of the origin read the written
+rows again (eager tables and loaded partitions) and their services hear
+`StoreChanged { table, partition }`. A `@LocalState` value written in one tab
+reaches the other tabs through the window `storage` event, and their views
+render again. `@SessionState` stays per tab. The Cache API memory stays per
+tab, as before.

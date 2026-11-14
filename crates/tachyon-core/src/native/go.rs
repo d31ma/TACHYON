@@ -31,7 +31,7 @@ impl GoServices {
     const MODULE: &str = "tachyonservices";
     const PAGE_PACKAGE: &str = "page";
     const DELEGATE_FOLDER: &str = "client/delegates";
-    const RUNTIME_FILES: [(&str, &str); 23] = [
+    const RUNTIME_FILES: [(&str, &str); 24] = [
         ("tac/prelude.go", include_str!("prelude.go")),
         ("tac/prelude_json.go", include_str!("prelude_json.go")),
         ("tac/prelude_tasks.go", include_str!("prelude_tasks.go")),
@@ -80,6 +80,7 @@ impl GoServices {
             include_str!("web_apis/storage_space.go"),
         ),
         ("tac/passkeys.go", include_str!("web_apis/passkeys.go")),
+        ("tac/locks.go", include_str!("web_apis/locks.go")),
         (
             "tac/window_controls.go",
             include_str!("web_apis/window_controls.go"),
@@ -98,7 +99,7 @@ impl GoServices {
     const WEB_ENTRY: &str = include_str!("prelude_web.go");
     const FAILURE_CODE: u16 = 1605;
     const WEB_EVENT_FILE: &str = "tac/web_event_models.go";
-    const ALIASED_TYPES: [&str; 45] = [
+    const ALIASED_TYPES: [&str; 48] = [
         "ApplicationEventPublisher",
         "Clock",
         "SecureRandom",
@@ -115,6 +116,7 @@ impl GoServices {
         "Push",
         "StorageSpace",
         "Passkeys",
+        "Locks",
         "ApplicationStateChanged",
         "ConnectivityChanged",
         "VisibilityChanged",
@@ -142,6 +144,8 @@ impl GoServices {
         "StorePartitionLoaded",
         "StorePartitionFailed",
         "StoreWriteFailed",
+        "StoreChanged",
+        "LockGranted",
         "BrowserCallFailed",
         "BrowserFakes",
     ];

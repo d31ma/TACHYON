@@ -135,8 +135,10 @@ class MemoryStorage {
   removeItem(key) { this.items.delete(key) }
 }
 const local = new MemoryStorage()
+const opened = []
 const open = (session, stored) => {
-  const { Owners, bindPersistentFields } = new Function('localStorage', 'sessionStorage', `${host}\nreturn { Owners, bindPersistentFields }`)(local, session)
+  const { Owners, bindPersistentFields, StoredTabs } = new Function('localStorage', 'sessionStorage', `${host}\nreturn { Owners, bindPersistentFields, StoredTabs }`)(local, session)
+  opened.push(StoredTabs)
   const shelf = new ShelfService({})
   Owners.stored.set(shelf, stored)
   bindPersistentFields(shelf, 'service:shelf:/')
@@ -156,7 +158,19 @@ reloaded.__tachyonDispose()
 const other = open(new MemoryStorage(), stored)
 const newTab = { visits: other.visits, draft: other.draft }
 other.__tachyonDispose()
-console.log(JSON.stringify({ afterReload, newTab, saved: Object.fromEntries(local.items), session: Object.fromEntries(tab.items) }))
+const saved = Object.fromEntries(local.items)
+const watchingSession = new MemoryStorage()
+const watching = open(watchingSession, stored)
+const watchingTabs = opened.at(-1)
+const writer = open(new MemoryStorage(), stored)
+writer.visit()
+writer.__tachyonDispose()
+const key = 'tac:service:shelf:/:visits'
+watchingTabs.changed({ key, newValue: local.getItem(key), storageArea: local })
+watchingTabs.changed({ key: 'tac:service:shelf:/:draft', newValue: JSON.stringify('elsewhere'), storageArea: watchingSession })
+const tabs = { visits: watching.visits, written: local.getItem(key), session: watching.draft }
+watching.__tachyonDispose()
+console.log(JSON.stringify({ afterReload, newTab, saved, session: Object.fromEntries(tab.items), tabs }))
 process.exit(0)
 ";
 
@@ -263,5 +277,10 @@ async fn a_java_web_service_keeps_local_and_session_fields_across_a_reload() {
         report["session"],
         json!({"tac:service:shelf:/:draft": "\"chapter one\""}),
         "{report}"
+    );
+    assert_eq!(
+        report["tabs"],
+        json!({"visits": 4, "written": "4", "session": ""}),
+        "a @LocalState change in one tab reaches the other tab; @SessionState stays per tab: {report}"
     );
 }

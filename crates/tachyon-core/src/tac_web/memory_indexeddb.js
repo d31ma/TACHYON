@@ -38,6 +38,7 @@ class MemoryStore {
   index(name) { return new MemoryIndex(this, this.table.indexes.get(name)) }
   createIndex(name, keyPath) { this.table.indexes.set(name, keyPath) }
   deleteIndex(name) { this.table.indexes.delete(name) }
+  get(id) { return MemoryRequest.later(this.transaction, () => structuredClone(this.table.rows.get(id))) }
   getAll(range, count) { return MemoryRequest.later(this.transaction, () => this.rows().filter((row) => !range || range.includes(row[this.keyPath])).slice(0, count ?? Infinity)) }
   put(row) {
     return MemoryRequest.later(this.transaction, () => {

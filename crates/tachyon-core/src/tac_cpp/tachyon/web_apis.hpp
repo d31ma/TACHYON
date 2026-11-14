@@ -174,6 +174,13 @@ public:
     void cancel() const { TacWebCall::answer("passkeys", "cancel"); }
 };
 
+class Locks {
+public:
+    void request(const std::string& name) const { TacWebCall::answer("locks", "request", TacWebCall::arguments(name)); }
+
+    void release(const std::string& name) const { TacWebCall::answer("locks", "release", TacWebCall::arguments(name)); }
+};
+
 class Geolocation {
 public:
     void currentPosition() const { TacWebCall::answer("geolocation", "currentPosition"); }
@@ -211,5 +218,6 @@ using tachyon::web::SecureRandom;
 using tachyon::web::Share;
 using tachyon::web::StorageSpace;
 using tachyon::web::Passkeys;
+using tachyon::web::Locks;
 using tachyon::web::Files;
 using tachyon::web::WindowControls;

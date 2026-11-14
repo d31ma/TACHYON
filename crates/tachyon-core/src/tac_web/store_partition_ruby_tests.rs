@@ -32,8 +32,12 @@ class ChatService
   # @return [String]
   attr_reader :heard
 
+  # @return [String]
+  attr_reader :changed
+
   def initialize
     @heard = ""
+    @changed = ""
   end
 
   #[OnStart]
@@ -92,6 +96,12 @@ class ChatService
   def hear_loaded(loaded)
     @heard = "#{loaded.table}/#{loaded.partition}/#{loaded.rows.to_i}"
   end
+
+  # @param changed [StoreChanged]
+  #[OnEvent]
+  def hear_changed(changed)
+    @changed = "#{changed.table}/#{changed.partition}"
+  end
 end
 "##,
         ),
@@ -116,6 +126,12 @@ end
         }
         service
     }
+
+    async fn published(root: &Path) {
+        let service = Self::written(root);
+        StorePartitionProject::runtime_files(root);
+        build_and_publish(root, "chat", "ChatService", WebLanguage::Ruby, service).await;
+    }
 }
 
 #[tokio::test]
@@ -125,16 +141,19 @@ async fn a_ruby_service_loads_one_partition_and_reads_it_from_memory() {
         return;
     }
     let root = tempfile::tempdir().expect("project");
-    let service = RubyStorePartition::written(root.path());
-    StorePartitionProject::runtime_files(root.path());
-    build_and_publish(
-        root.path(),
-        "chat",
-        "ChatService",
-        WebLanguage::Ruby,
-        service,
-    )
-    .await;
+    RubyStorePartition::published(root.path()).await;
     let report = run_driver(root.path(), StorePartitionProject::DRIVER);
     StorePartitionProject::assert_report(&report);
+}
+
+#[tokio::test]
+async fn a_ruby_service_hears_a_store_change_from_another_tab() {
+    if let Some(reason) = RubyStorePartition::skip_reason() {
+        eprintln!("skipping: {reason}");
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    RubyStorePartition::published(root.path()).await;
+    let report = run_driver(root.path(), StorePartitionProject::TAB_DRIVER);
+    StorePartitionProject::assert_tab_report(&report);
 }

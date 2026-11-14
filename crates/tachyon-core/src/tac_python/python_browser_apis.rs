@@ -29,6 +29,7 @@ impl PythonBrowserApis {
         include_str!("web_apis/window_controls.py"),
         include_str!("web_apis/focus.py"),
         include_str!("web_apis/files.py"),
+        include_str!("web_apis/locks.py"),
     );
     const PASSKEYS: &'static str = include_str!("web_apis/passkeys.py");
     const REGISTER: &'static str = "_TacPythonBrowserClients.register";

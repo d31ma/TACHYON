@@ -576,6 +576,44 @@ class StoredFields {
   }
 }
 
+class StoredTabs {
+  static owners = new Map()
+  static updates = new WeakMap()
+  static watching = StoredTabs.watch()
+
+  static watch() {
+    if (typeof addEventListener === 'function') addEventListener('storage', (event) => StoredTabs.changed(event))
+    return true
+  }
+
+  static add(owner, key, update) {
+    const updates = StoredTabs.updates.get(owner) ?? new Map()
+    updates.set(key, update)
+    StoredTabs.updates.set(owner, updates)
+    const owners = StoredTabs.owners.get(key) ?? new Set()
+    owners.add(new WeakRef(owner))
+    StoredTabs.owners.set(key, owners)
+  }
+
+  static changed(event) {
+    const owners = StoredTabs.owners.get(event.key)
+    if (!owners || event.storageArea !== webStorage(true) || event.newValue === null) return
+    const value = StoredTabs.parsed(event.newValue)
+    for (const reference of owners) StoredTabs.update(owners, reference, event.key, value)
+    if (typeof dispatchEvent === 'function') dispatchEvent(new Event('tachyon:rerender'))
+  }
+
+  static parsed(raw) {
+    try { return JSON.parse(raw) } catch { return undefined }
+  }
+
+  static update(owners, reference, key, value) {
+    const owner = reference.deref()
+    if (owner) StoredTabs.updates.get(owner)?.get(key)?.(value)
+    else owners.delete(reference)
+  }
+}
+
 const readStoredField = (store, key, fallback) => {
   try {
     const raw = store.getItem(key)
@@ -645,6 +683,7 @@ const bindPersistentFields = (owner, scope) => {
       if (restored !== undefined) set.call(owner, restored)
       const accessor = new StoredAccessor(owner, get, store, key)
       accessors.push(accessor)
+      if (local) StoredTabs.add(owner, key, (value) => { accessor.saved = JSON.stringify(value); set.call(owner, value) })
       Object.defineProperty(owner, name, {
         configurable: true,
         enumerable: true,
@@ -654,6 +693,7 @@ const bindPersistentFields = (owner, scope) => {
       continue
     }
     let current = readStoredField(store, key, owner[name])
+    if (local) StoredTabs.add(owner, key, (value) => { current = value })
     Object.defineProperty(owner, name, {
       configurable: true,
       enumerable: true,
@@ -1701,6 +1741,7 @@ const ownerResources = (element, signal, owner) => ({
   push: TacWebApis.push,
   storageSpace: TacWebApis.storageSpace,
   passkeys: TacWebApis.passkeys,
+  locks: TacWebApis.locks,
   filePicker: TacNativeCapabilities.filePicker(signal),
 })
 const attachRuntime = (owner, scope, element) => {

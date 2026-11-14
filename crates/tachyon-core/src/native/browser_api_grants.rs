@@ -4,10 +4,11 @@ use crate::Failure;
 pub(crate) struct BrowserApiGrants;
 
 impl BrowserApiGrants {
-    const KNOWN: [&'static str; 9] = [
+    const KNOWN: [&'static str; 10] = [
         "clipboard",
         "files",
         "geolocation",
+        "locks",
         "notifications",
         "passkeys",
         "persistentStorage",

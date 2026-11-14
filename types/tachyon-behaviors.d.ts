@@ -443,6 +443,8 @@ declare global {
   interface TacStorageSpace { estimate(): null; persist(): null; }
   /** Passkeys: create and use passkeys with the browser's WebAuthn (ADR 0126). Grant "passkeys" in tac.browserApis. Options and credentials are WebAuthn JSON text: `create` takes PublicKeyCredentialCreationOptionsJSON and answers with `PasskeyCreated`; `get` takes PublicKeyCredentialRequestOptionsJSON and answers with `PasskeyAsserted`; both need a click or key handler. `offer` starts a conditional request for an input with autocomplete="username webauthn" and answers with `PasskeyAsserted` when the person picks a passkey. `check` answers with `PasskeySupport`. `cancel` stops a pending call and sends nothing. A failure sends `PasskeyFailed`. `supported` needs no grant and answers false in a native app or an insecure page. */
   interface TacPasskeys { supported(): boolean; check(): null; create(optionsJson: string): null; get(optionsJson: string): null; offer(optionsJson: string): null; cancel(): null; }
+  /** Locks: named locks that only one tab of this origin holds at a time, with the browser's Web Locks (ADR NNNN). Grant "locks" in tac.browserApis. `request` answers with `LockGranted` when this tab holds the lock; `release` frees it, or stops a request that still waits and sends nothing. Closing the tab frees its locks. Where the page has no Web Locks (the macOS and iOS app scheme, a plain http page), every lock is granted at once. A bad name sends `BrowserCallFailed`. */
+  interface TacLocks { request(name: string): null; release(name: string): null; }
   /** FilePickerResult: the status of a native file-picker call (ADR 0089), with an optional opaque handle, basename or UTF-8 text. Failure results expose no host path. */
   interface TacFilePickerResult { status: 'available' | 'selected' | 'cancelled' | 'read' | 'released' | 'denied' | 'unsupported' | 'unavailable' | 'invalid' | 'disposed' | 'tooLarge'; handle?: string; name?: string; text?: string; }
   /** FilePicker: selects one native file and reads UTF-8 text up to 65,536 bytes (ADR 0089). Grant "filePicker" in tac.nativeCapabilities. Handles belong to the owner, and `release` ends access. Picker calls in a browser tab answer `unsupported`. */
@@ -483,6 +485,10 @@ declare global {
   interface StorePartitionFailed { table: string; partition: string; reason: string; }
   /** StoreWriteFailed: a built-in event model. A Store write that a WebAssembly or Dart service made did not reach IndexedDB, for example because the storage quota is full (ADR 0125). */
   interface StoreWriteFailed { table: string; reason: string; }
+  /** StoreChanged: a built-in event model. Another tab of this origin changed rows of a Store table; this tab already read them again (ADR NNNN). `partition` is the changed partition as text, or empty for a table without partitions. */
+  interface StoreChanged { table: string; partition: string; }
+  /** LockGranted: a built-in event model. This tab holds the named lock until it calls `release` or closes (ADR NNNN). */
+  interface LockGranted { name: string; }
   /** PasskeySupport: a built-in event model. `platform` is true when a platform authenticator (Touch ID, Face ID, Windows Hello, the Android lock screen) is ready; `conditional` is true when the page can offer passkeys in autofill (ADR 0126). */
   interface PasskeySupport { platform: boolean; conditional: boolean; }
   /** PasskeyCreated: a built-in event model. `credentialJson` is the new credential as WebAuthn RegistrationResponseJSON text, for the server to check (ADR 0126). */
@@ -526,6 +532,7 @@ declare global {
     push: TacPush;
     storageSpace: TacStorageSpace;
     passkeys: TacPasskeys;
+    locks: TacLocks;
     filePicker: TacFilePicker;
   }
   /** OnEvent: this method listens for one event model, the type of its one parameter (`placed(order: OrderPlaced)`). A payload that does not fit the model is not delivered. When the method's return type is a model, the value it returns is published as that model. Write `@OnEvent`, or `@OnEvent({ condition, id, replay })`. */
