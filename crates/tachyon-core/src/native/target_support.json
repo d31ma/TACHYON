@@ -450,6 +450,26 @@
     "android": {"reach": "adapted", "note": "The Android WebView has no passkeys for the app yet: its page origin is not the app's host, so WebAuthn there cannot make a passkey for that host. A native build ships the passkeys module, but Passkeys.supported answers false, check answers PasskeySupport with platform and conditional false, and create, get and offer answer PasskeyFailed with reason unsupported (ADR 0126). The platform passkey APIs come later."}
   },
   {
+    "member": "tac.browserApis microphone",
+    "paths": ["tac.browserApis[microphone]"],
+    "web": {"reach": "honored", "how": "navigator.mediaDevices.getUserMedia for the microphone and enumerateDevices in a secure page (ADR 0129): a Media track by name, echo cancellation and noise suppression on by default, a track that moves to a new default device, MediaFailed reason words; checked in node with fake devices (compiler::page_media_tests)"},
+    "macos": {"reach": "adapted", "note": "WKWebView on tachyon-app://bundle is a secure context (probe on macOS 27.2), but it shows navigator.mediaDevices only when the app has a camera or microphone usage text, and the host does not answer media capture requests yet. Until that part of ADR 0129 lands, captureMicrophone answers MediaFailed with reason unsupported."},
+    "windows": {"reach": "adapted", "note": "The WebView2 host denies every microphone permission request until that part of ADR 0129 lands, so captureMicrophone answers MediaFailed with reason denied."},
+    "linux": {"reach": "adapted", "note": "The WebKitGTK app has no WebRTC media yet; the Linux shell work (P8) brings it. Until then captureMicrophone answers MediaFailed with reason unsupported or denied (ADR 0129)."},
+    "ios": {"reach": "adapted", "note": "Not probed on iOS yet. Until the host part of ADR 0129 lands, the WKWebView has no navigator.mediaDevices, so captureMicrophone answers MediaFailed with reason unsupported."},
+    "android": {"reach": "adapted", "note": "The Android WebView host denies every microphone permission request until that part of ADR 0129 lands, so captureMicrophone answers MediaFailed with reason denied."}
+  },
+  {
+    "member": "tac.browserApis screen",
+    "paths": ["tac.browserApis[screen]"],
+    "web": {"reach": "honored", "how": "navigator.mediaDevices.getDisplayMedia from a click or key handler in a secure page (ADR 0129): the system picker, a Media video track and an optional .audio track, MediaTrackEnded with reason ended when the person stops sharing"},
+    "macos": {"reach": "adapted", "note": "WKWebView on tachyon-app://bundle is a secure context (probe on macOS 27.2), but it shows navigator.mediaDevices only when the app has a camera or microphone usage text, and the host does not answer media capture requests yet. Until that part of ADR 0129 lands, captureScreen answers MediaFailed with reason unsupported."},
+    "windows": {"reach": "adapted", "note": "The WebView2 host denies every screen permission request until that part of ADR 0129 lands, so captureScreen answers MediaFailed with reason denied."},
+    "linux": {"reach": "adapted", "note": "The WebKitGTK app has no WebRTC media yet; the Linux shell work (P8) brings it. Until then captureScreen answers MediaFailed with reason unsupported or denied (ADR 0129)."},
+    "ios": {"reach": "adapted", "note": "The iOS WKWebView has no getDisplayMedia, so Media.supported(\"screen\") answers false and captureScreen answers MediaFailed with reason unsupported; phones share screens later (ADR 0129)."},
+    "android": {"reach": "adapted", "note": "The Android WebView has no getDisplayMedia, so Media.supported(\"screen\") answers false and captureScreen answers MediaFailed with reason unsupported; phones share screens later (ADR 0129)."}
+  },
+  {
     "member": "tac.browserApis persistentStorage",
     "paths": ["tac.browserApis[persistentStorage]"],
     "web": {"reach": "honored", "how": "navigator.storage.persist(), persisted() and estimate() in a secure page (ADR 0123); an insecure page answers quota 0 and persisted false; Firefox asks the user, Chromium decides by itself, Safari 15.2 and later"},

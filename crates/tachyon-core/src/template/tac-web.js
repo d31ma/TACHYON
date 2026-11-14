@@ -74,6 +74,8 @@ class TacWebApis {
     offer: (options) => TacWebApis.passkeyLater('offer', false, [options]),
     cancel: () => TacWebApis.passkeyLater('cancel', false, []),
   })
+  static mediaCalls = ['supported', 'devices', 'chooseSpeaker', 'captureMicrophone', 'captureCamera', 'captureScreen', 'stopTrack', 'mute']
+  static media = Object.freeze(Object.fromEntries(TacWebApis.mediaCalls.map((call) => [call, (...values) => TacWebApis.mediaCall(call, values)])))
   static spaceCounters = []
   static noPush = Object.freeze({
     supported: () => false,
@@ -98,6 +100,7 @@ class TacWebApis {
     push: TacWebApis.push,
     storageSpace: TacWebApis.storageSpace,
     passkeys: TacWebApis.passkeys,
+    media: TacWebApis.media,
     nativeCapability: Object.freeze({ call: (...values) => TacNativeCapabilities.now(...values) }),
     files: Object.freeze(Object.fromEntries(['pick', 'read', 'release', 'upload', 'cancel'].map((call) => [call, (...values) => TacWebApis.files(call, values)]))),
   })
@@ -132,8 +135,8 @@ class TacWebApis {
     addEventListener('languagechange', preferences)
     addEventListener('tac.application.state', (event) => application(event.detail?.state))
     document.addEventListener('visibilitychange', visibility)
-    TacWebApis.media(TacWebApis.darkScheme)?.addEventListener('change', preferences)
-    TacWebApis.media(TacWebApis.reducedMotion)?.addEventListener('change', preferences)
+    TacWebApis.mediaQuery(TacWebApis.darkScheme)?.addEventListener('change', preferences)
+    TacWebApis.mediaQuery(TacWebApis.reducedMotion)?.addEventListener('change', preferences)
     connectivity()
     visibility()
     if (hosted) application(globalThis.__tachyonApplicationStateNow ?? 'foreground')
@@ -187,6 +190,14 @@ class TacWebApis {
     const files = globalThis[Symbol.for('tachyon.tac.files')]
     if (!files) throw new Error('The files browser API did not load on this page.')
     return files[call]((event) => TacWebApis.reply(owner, event), ...values)
+  }
+
+  static mediaCall(call, values) {
+    const module = globalThis[Symbol.for('tachyon.tac.media')]
+    if (call === 'supported') return module?.supported(...values) === true
+    TacWebApis.allowed(module?.grant(call) ?? 'microphone', call === 'captureScreen')
+    const owner = TacWebApis.caller
+    return module[call]((event) => TacWebApis.reply(owner, event), ...values)
   }
 
   static pageEvent([name, payload]) {
@@ -297,12 +308,12 @@ class TacWebApis {
     return { scheme: scheme(), motion: motion(), language: language() }
   }
 
-  static media(query) {
+  static mediaQuery(query) {
     return typeof matchMedia === 'function' ? matchMedia(query) : undefined
   }
 
   static matches(query) {
-    return TacWebApis.media(query)?.matches === true
+    return TacWebApis.mediaQuery(query)?.matches === true
   }
 
   static message(error) {

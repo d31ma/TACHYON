@@ -135,6 +135,12 @@ tac.browserApis push
 tac.browserApis passkeys
   adapted: The Android WebView has no passkeys for the app yet: its page origin is not the app's host, so WebAuthn there cannot make a passkey for that host. A native build ships the passkeys module, but Passkeys.supported answers false, check answers PasskeySupport with platform and conditional false, and create, get and offer answer PasskeyFailed with reason unsupported (ADR 0126). The platform passkey APIs come later.
 
+tac.browserApis microphone
+  adapted: The Android WebView host denies every microphone permission request until that part of ADR 0129 lands, so captureMicrophone answers MediaFailed with reason denied.
+
+tac.browserApis screen
+  adapted: The Android WebView has no getDisplayMedia, so Media.supported("screen") answers false and captureScreen answers MediaFailed with reason unsupported; phones share screens later (ADR 0129).
+
 tac.browserApis persistentStorage
   run owed: the host answers browserApi.storageSpace with persisted true and StatFs.getAvailableBytes of the files folder; usage comes from the WebView's navigator.storage.estimate() on https://appassets.tachyon.local (ADR 0123); still to run: a StorageSpace service in the app on the Android emulator
 

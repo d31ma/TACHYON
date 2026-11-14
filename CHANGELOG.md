@@ -10,6 +10,20 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- **Tac services capture and show audio and video** (ADR 0129, first slice).
+  Every Tac service language gets a `Media` client, with the new grants
+  `microphone` and `screen` in `tac.browserApis` (the camera uses the
+  `camera` grant). `devices(request)` lists microphones, cameras and
+  speakers as `MediaDeviceFound` events; `captureMicrophone`, `captureCamera`
+  and `captureScreen` answer `MediaTrackStarted { track, kind, device, label,
+  width, height }`; `stopTrack`, `mute` (camera off closes the camera) and
+  `chooseSpeaker` complete the set, and a failure sends `MediaFailed { track,
+  call, reason, message }`. A track on the default device follows a newly
+  plugged-in headset. The built-in `media-view` element shows a video track
+  by name. Services never receive audio or video samples. The code ships in
+  `.tachyon/tac-media.js` and `.tachyon/tac-media-view.js` only to pages that
+  grant a media API. Native apps get the host permission part in a later
+  slice.
 - **Yon handlers write logs on every answer** (ADR 0127). Every Yon language
   gets `YonLog` with the levels `debug`, `info`, `warn` and `error`, a
   message and optional fields. `ty start`, `ty serve`, `ty handler invoke` and

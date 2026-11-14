@@ -31,15 +31,17 @@ impl PythonBrowserApis {
         include_str!("web_apis/files.py"),
     );
     const PASSKEYS: &'static str = include_str!("web_apis/passkeys.py");
+    const MEDIA: &'static str = include_str!("web_apis/media.py");
     const REGISTER: &'static str = "_TacPythonBrowserClients.register";
 
     pub(crate) fn source() -> String {
         let support = Self::SUPPORT.join("\n");
         let names = WebApiClients::TYPE_NAMES.join(", ");
         format!(
-            "{support}\n{}{}\n{}({names})\n",
+            "{support}\n{}{}{}\n{}({names})\n",
             Self::CLIENTS,
             Self::PASSKEYS,
+            Self::MEDIA,
             Self::REGISTER
         )
     }

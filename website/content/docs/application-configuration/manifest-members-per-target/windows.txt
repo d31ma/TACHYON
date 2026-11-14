@@ -135,6 +135,12 @@ tac.browserApis push
 tac.browserApis passkeys
   adapted: The WebView2 of the Windows app has no passkeys for the app yet: its page origin is not the app's host, so WebAuthn there cannot make a passkey for that host. A native build ships the passkeys module, but Passkeys.supported answers false, check answers PasskeySupport with platform and conditional false, and create, get and offer answer PasskeyFailed with reason unsupported (ADR 0126). The platform passkey APIs come later.
 
+tac.browserApis microphone
+  adapted: The WebView2 host denies every microphone permission request until that part of ADR 0129 lands, so captureMicrophone answers MediaFailed with reason denied.
+
+tac.browserApis screen
+  adapted: The WebView2 host denies every screen permission request until that part of ADR 0129 lands, so captureScreen answers MediaFailed with reason denied.
+
 tac.browserApis persistentStorage
   run owed: the host answers browserApi.storageSpace with persisted true and the free space of %LOCALAPPDATA% (GetDiskFreeSpaceEx); usage comes from WebView2's navigator.storage.estimate() on https://tachyon.local (ADR 0123); still to run: a StorageSpace service in a WebView2 app on Windows; the browser API fixture checks the host calls under Wine and MSVC only
 

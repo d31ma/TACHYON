@@ -174,6 +174,33 @@ public:
     void cancel() const { TacWebCall::answer("passkeys", "cancel"); }
 };
 
+class Media {
+public:
+    bool supported(const std::string& feature) const { return TacWebCall::flag("media", "supported", TacWebCall::arguments(feature)); }
+
+    void devices(const std::string& request) const { TacWebCall::answer("media", "devices", TacWebCall::arguments(request)); }
+
+    void chooseSpeaker(const std::string& device) const {
+        TacWebCall::answer("media", "chooseSpeaker", TacWebCall::arguments(device));
+    }
+
+    void captureMicrophone(const std::string& track, const std::string& device, bool processing) const {
+        TacWebCall::answer("media", "captureMicrophone", TacWebCall::arguments(track, device, processing));
+    }
+
+    void captureCamera(const std::string& track, const std::string& device, const std::string& quality) const {
+        TacWebCall::answer("media", "captureCamera", TacWebCall::arguments(track, device, quality));
+    }
+
+    void captureScreen(const std::string& track, bool withAudio) const {
+        TacWebCall::answer("media", "captureScreen", TacWebCall::arguments(track, withAudio));
+    }
+
+    void stopTrack(const std::string& track) const { TacWebCall::answer("media", "stopTrack", TacWebCall::arguments(track)); }
+
+    void mute(const std::string& track, bool muted) const { TacWebCall::answer("media", "mute", TacWebCall::arguments(track, muted)); }
+};
+
 class Geolocation {
 public:
     void currentPosition() const { TacWebCall::answer("geolocation", "currentPosition"); }
@@ -211,5 +238,6 @@ using tachyon::web::SecureRandom;
 using tachyon::web::Share;
 using tachyon::web::StorageSpace;
 using tachyon::web::Passkeys;
+using tachyon::web::Media;
 using tachyon::web::Files;
 using tachyon::web::WindowControls;

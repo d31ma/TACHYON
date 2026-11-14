@@ -135,6 +135,12 @@ tac.browserApis push
 tac.browserApis passkeys
   honored: navigator.credentials.create and get with the browser's own WebAuthn in a secure page (ADR 0126): WebAuthn JSON text in and out, conditional mediation for autofill, a PasskeyFailed reason word for each failure; Chromium is checked with the DevTools virtual authenticator, Firefox and WebKit without one (scripts/passkeys-browser-test.mjs)
 
+tac.browserApis microphone
+  honored: navigator.mediaDevices.getUserMedia for the microphone and enumerateDevices in a secure page (ADR 0129): a Media track by name, echo cancellation and noise suppression on by default, a track that moves to a new default device, MediaFailed reason words; checked in node with fake devices (compiler::page_media_tests)
+
+tac.browserApis screen
+  honored: navigator.mediaDevices.getDisplayMedia from a click or key handler in a secure page (ADR 0129): the system picker, a Media video track and an optional .audio track, MediaTrackEnded with reason ended when the person stops sharing
+
 tac.browserApis persistentStorage
   honored: navigator.storage.persist(), persisted() and estimate() in a secure page (ADR 0123); an insecure page answers quota 0 and persisted false; Firefox asks the user, Chromium decides by itself, Safari 15.2 and later
 

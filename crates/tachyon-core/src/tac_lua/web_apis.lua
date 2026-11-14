@@ -220,6 +220,40 @@ function Passkeys:cancel()
   TacWebHost.call("passkeys", "cancel")
 end
 
+Media = {}
+
+function Media:supported(feature)
+  return TacWebHost.call("media", "supported", { feature }) == true
+end
+
+function Media:devices(request)
+  TacWebHost.call("media", "devices", { request })
+end
+
+function Media:choose_speaker(device)
+  TacWebHost.call("media", "chooseSpeaker", { device })
+end
+
+function Media:capture_microphone(track, device, processing)
+  TacWebHost.call("media", "captureMicrophone", { track, device, processing })
+end
+
+function Media:capture_camera(track, device, quality)
+  TacWebHost.call("media", "captureCamera", { track, device, quality })
+end
+
+function Media:capture_screen(track, with_audio)
+  TacWebHost.call("media", "captureScreen", { track, with_audio })
+end
+
+function Media:stop_track(track)
+  TacWebHost.call("media", "stopTrack", { track })
+end
+
+function Media:mute(track, muted)
+  TacWebHost.call("media", "mute", { track, muted })
+end
+
 Geolocation = {}
 
 function Geolocation:current_position()

@@ -2,6 +2,7 @@
 pub(crate) enum WebEventSender {
     Page,
     Grant(&'static str),
+    AnyGrant(&'static [&'static str]),
     Socket,
 }
 
@@ -16,6 +17,10 @@ impl WebEventSender {
             Self::Grant(api) => {
                 format!("tac.browserApis in client/manifest.json grants \"{api}\", which sends it")
             }
+            Self::AnyGrant(apis) => format!(
+                "tac.browserApis in client/manifest.json grants any of \"{}\", which sends it",
+                apis.join("\", \"")
+            ),
             Self::Socket => String::from(
                 "the service holds a socket client, and the event bus sends it to that service",
             ),

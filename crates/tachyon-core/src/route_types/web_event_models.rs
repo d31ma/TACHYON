@@ -4,6 +4,7 @@ pub(crate) struct WebEventModels;
 
 impl WebEventModels {
     pub(crate) const APPLICATION_STATE: &'static str = "ApplicationStateChanged";
+    const MEDIA_GRANTS: [&'static str; 3] = ["camera", "microphone", "screen"];
 
     pub(crate) fn models() -> Vec<(String, Model)> {
         Self::rows().into_iter().map(Self::without_sender).collect()
@@ -49,6 +50,7 @@ impl WebEventModels {
             Self::push_rows(),
             Self::storage_rows(),
             Self::passkey_rows(),
+            Self::media_rows(),
             Self::socket_and_failure_rows(),
             Self::store_rows(),
         ]
@@ -257,6 +259,53 @@ impl WebEventModels {
                 ],
             ),
         ]
+    }
+
+    fn media_rows() -> Vec<(WebEventSender, String, Model)> {
+        vec![
+            Self::media(
+                "MediaDeviceFound",
+                &[
+                    ("request", Shape::Text),
+                    ("id", Shape::Text),
+                    ("kind", Shape::Text),
+                    ("label", Shape::Text),
+                    ("chosen", Shape::Boolean),
+                    ("index", Shape::Number),
+                    ("count", Shape::Number),
+                ],
+            ),
+            Self::media("MediaDevicesChanged", &[]),
+            Self::media("MediaSpeakerChosen", &[("device", Shape::Text)]),
+            Self::media(
+                "MediaTrackStarted",
+                &[
+                    ("track", Shape::Text),
+                    ("kind", Shape::Text),
+                    ("device", Shape::Text),
+                    ("label", Shape::Text),
+                    ("width", Shape::Number),
+                    ("height", Shape::Number),
+                ],
+            ),
+            Self::media(
+                "MediaTrackEnded",
+                &[("track", Shape::Text), ("reason", Shape::Text)],
+            ),
+            Self::media(
+                "MediaFailed",
+                &[
+                    ("track", Shape::Text),
+                    ("call", Shape::Text),
+                    ("reason", Shape::Text),
+                    ("message", Shape::Text),
+                ],
+            ),
+        ]
+    }
+
+    fn media(name: &str, fields: &[(&str, Shape)]) -> (WebEventSender, String, Model) {
+        Self::record(WebEventSender::AnyGrant(&Self::MEDIA_GRANTS), name, fields)
     }
 
     fn socket_and_failure_rows() -> Vec<(WebEventSender, String, Model)> {

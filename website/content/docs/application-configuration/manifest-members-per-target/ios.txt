@@ -135,6 +135,12 @@ tac.browserApis push
 tac.browserApis passkeys
   adapted: The WKWebView of the iOS app has no passkeys for the app yet: its page origin is not the app's host, so WebAuthn there cannot make a passkey for that host. A native build ships the passkeys module, but Passkeys.supported answers false, check answers PasskeySupport with platform and conditional false, and create, get and offer answer PasskeyFailed with reason unsupported (ADR 0126). The platform passkey APIs come later.
 
+tac.browserApis microphone
+  adapted: Not probed on iOS yet. Until the host part of ADR 0129 lands, the WKWebView has no navigator.mediaDevices, so captureMicrophone answers MediaFailed with reason unsupported.
+
+tac.browserApis screen
+  adapted: The iOS WKWebView has no getDisplayMedia, so Media.supported("screen") answers false and captureScreen answers MediaFailed with reason unsupported; phones share screens later (ADR 0129).
+
 tac.browserApis persistentStorage
   adapted: tachyon-app:// is not a secure context, so WKWebView has no navigator.storage. The host answers browserApi.storageSpace: persisted is true (iOS deletes the app's data on uninstall, or offloads an app the user does not open), quota is volumeAvailableCapacityForImportantUsage, and usage is the bytes Tachyon's own stores report, 0 until the blob store reports its size (ADR 0123). A run in a built app is still owed.
 

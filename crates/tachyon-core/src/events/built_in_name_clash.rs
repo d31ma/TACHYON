@@ -60,6 +60,10 @@ impl<'a> BuiltInNameClash<'a> {
         match sender {
             WebEventSender::Page => true,
             WebEventSender::Grant(api) => self.granted().iter().any(|grant| grant == api),
+            WebEventSender::AnyGrant(apis) => self
+                .granted()
+                .iter()
+                .any(|grant| apis.contains(&grant.as_str())),
             WebEventSender::Socket => event_type.streams.iter().any(|stream| stream.socket),
         }
     }

@@ -135,6 +135,12 @@ tac.browserApis push
 tac.browserApis passkeys
   adapted: The WebKitGTK web view of the Linux app has no passkeys for the app yet: its page origin is not the app's host, so WebAuthn there cannot make a passkey for that host. A native build ships the passkeys module, but Passkeys.supported answers false, check answers PasskeySupport with platform and conditional false, and create, get and offer answer PasskeyFailed with reason unsupported (ADR 0126). The platform passkey APIs come later.
 
+tac.browserApis microphone
+  adapted: The WebKitGTK app has no WebRTC media yet; the Linux shell work (P8) brings it. Until then captureMicrophone answers MediaFailed with reason unsupported or denied (ADR 0129).
+
+tac.browserApis screen
+  adapted: The WebKitGTK app has no WebRTC media yet; the Linux shell work (P8) brings it. Until then captureScreen answers MediaFailed with reason unsupported or denied (ADR 0129).
+
 tac.browserApis persistentStorage
   run owed: the host answers browserApi.storageSpace with persisted true and the free space of the user data folder (GIO); usage comes from WebKitGTK's navigator.storage.estimate() on the secure tachyon:// scheme, or 0 where that WebKitGTK has no StorageManager (ADR 0123); still to run: a StorageSpace service in the GTK app; the WebKitGTK browser API fixture checks the host calls only
 

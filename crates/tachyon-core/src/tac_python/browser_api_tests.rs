@@ -188,6 +188,49 @@ impl BrowserApiPage {
          _report['failure'] = _ask('stamp', {'op': 'get', 'name': 'failure'})\n\
          _report['requests'] = [[item['api'], item['call'], item['args']] for item in _requests]\n";
 
+    const MEDIA: [(&'static str, &'static str); 1] = [(
+        "client/services/StampService.py",
+        "from typing import Annotated\n\n\
+         @service\n\
+         class StampService:\n\
+         \x20   media: Annotated[Media, needs]\n\
+         \x20   ready: bool = False\n\
+         \x20   started: str = ''\n\
+         \x20   failure: str = ''\n\n\
+         \x20   def start(self) -> None:\n\
+         \x20       self.ready = self.media.supported('capture')\n\
+         \x20       self.media.capture_microphone('mic', '', True)\n\n\
+         \x20   def refuse(self) -> None:\n\
+         \x20       try:\n\
+         \x20           self.media.capture_camera('cam', '', 'low')\n\
+         \x20       except RuntimeError:\n\
+         \x20           return\n\n\
+         \x20   @on_event\n\
+         \x20   def track_started(self, track: MediaTrackStarted) -> None:\n\
+         \x20       self.started = f'{track.track} {track.kind} {track.label}'\n\n\
+         \x20   @on_event\n\
+         \x20   def failed(self, failed: MediaFailed) -> None:\n\
+         \x20       self.failure = f'{failed.call} {failed.reason}'\n",
+    )];
+
+    const MEDIA_DRIVER: &'static str = "_requests = []\n\
+         def _web(text):\n\
+         \x20   request = json.loads(text)\n\
+         \x20   _requests.append(request)\n\
+         \x20   if request['call'] == 'captureCamera':\n\
+         \x20       return json.dumps({'error': 'The camera browser API is not granted.'})\n\
+         \x20   return json.dumps({'value': request['call'] == 'supported' or None})\n\
+         _TacPythonRuntime.connect(_emitted.append, None, web=_web)\n\
+         _report = {'init': _ask('stamp', {'op': 'init', 'props': {}})}\n\
+         _report['start'] = _ask('stamp', {'op': 'call', 'name': 'start', 'args': []})\n\
+         _report['refuse'] = _ask('stamp', {'op': 'call', 'name': 'refuse', 'args': []})\n\
+         _report['heard'] = _ask('stamp', {'op': 'event', 'name': 'track_started', 'value': {'track': 'mic', 'kind': 'audio', 'device': 'mic-1', 'label': 'Built-in', 'width': 0, 'height': 0}})\n\
+         _report['failed'] = _ask('stamp', {'op': 'event', 'name': 'failed', 'value': {'track': 'cam', 'call': 'captureCamera', 'reason': 'denied', 'message': 'The person or the system did not allow this device.'}})\n\
+         _report['ready'] = _ask('stamp', {'op': 'get', 'name': 'ready'})\n\
+         _report['started'] = _ask('stamp', {'op': 'get', 'name': 'started'})\n\
+         _report['failure'] = _ask('stamp', {'op': 'get', 'name': 'failure'})\n\
+         _report['requests'] = [[item['api'], item['call'], item['args']] for item in _requests]\n";
+
     const ATTACH: [(&'static str, &'static str); 1] = [(
         "client/services/AttachService.py",
         "from typing import Annotated\n\n\
@@ -475,6 +518,40 @@ fn a_python_web_service_creates_and_uses_passkeys() {
             ["passkeys", "get", ["{}"]],
             ["passkeys", "offer", ["{}"]],
             ["passkeys", "cancel", []],
+        ]),
+        "{report}"
+    );
+}
+
+#[test]
+fn a_python_web_service_captures_media_and_hears_media_events() {
+    if !PythonPage::has_python() {
+        return;
+    }
+    let report = PythonPage::run(
+        &BrowserApiPage::MEDIA,
+        &["stamp"],
+        BrowserApiPage::MEDIA_DRIVER,
+    );
+    assert_eq!(report["start"], json!({"value": null}), "{report}");
+    assert_eq!(report["refuse"], json!({"value": null}), "{report}");
+    assert_eq!(report["ready"], json!({"value": true}), "{report}");
+    assert_eq!(
+        report["started"],
+        json!({"value": "mic audio Built-in"}),
+        "{report}"
+    );
+    assert_eq!(
+        report["failure"],
+        json!({"value": "captureCamera denied"}),
+        "{report}"
+    );
+    assert_eq!(
+        report["requests"],
+        json!([
+            ["media", "supported", ["capture"]],
+            ["media", "captureMicrophone", ["mic", "", true]],
+            ["media", "captureCamera", ["cam", "", "low"]],
         ]),
         "{report}"
     );

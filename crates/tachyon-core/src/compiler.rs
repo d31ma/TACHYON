@@ -42,6 +42,9 @@ mod page_files_tests;
 mod page_head;
 #[cfg(test)]
 mod page_head_tests;
+mod page_media;
+#[cfg(test)]
+mod page_media_tests;
 mod page_passkeys;
 #[cfg(test)]
 mod page_passkeys_tests;

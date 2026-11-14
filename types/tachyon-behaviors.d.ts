@@ -443,6 +443,8 @@ declare global {
   interface TacStorageSpace { estimate(): null; persist(): null; }
   /** Passkeys: create and use passkeys with the browser's WebAuthn (ADR 0126). Grant "passkeys" in tac.browserApis. Options and credentials are WebAuthn JSON text: `create` takes PublicKeyCredentialCreationOptionsJSON and answers with `PasskeyCreated`; `get` takes PublicKeyCredentialRequestOptionsJSON and answers with `PasskeyAsserted`; both need a click or key handler. `offer` starts a conditional request for an input with autocomplete="username webauthn" and answers with `PasskeyAsserted` when the person picks a passkey. `check` answers with `PasskeySupport`. `cancel` stops a pending call and sends nothing. A failure sends `PasskeyFailed`. `supported` needs no grant and answers false in a native app or an insecure page. */
   interface TacPasskeys { supported(): boolean; check(): null; create(optionsJson: string): null; get(optionsJson: string): null; offer(optionsJson: string): null; cancel(): null; }
+  /** Media: capture the microphone, the camera and the screen (ADR 0131). Grant "microphone", "camera" or "screen" in tac.browserApis; `captureMicrophone` needs "microphone", `captureCamera` needs "camera", and `captureScreen` needs "screen" and a click or key handler. `supported` needs no grant and answers at once for capture, screen, send, simulcast, frames, speakers or background. `devices` lists microphone, camera or speaker devices with `MediaDeviceFound`. `chooseSpeaker` answers with `MediaSpeakerChosen`. A capture call answers with `MediaTrackStarted`; `quality` is low, medium or high. `stopTrack` answers with `MediaTrackEnded`. `mute` acts at once. A failure sends `MediaFailed`. */
+  interface TacMedia { supported(feature: string): boolean; devices(request: string): null; chooseSpeaker(device: string): null; captureMicrophone(track: string, device: string, processing: boolean): null; captureCamera(track: string, device: string, quality: string): null; captureScreen(track: string, withAudio: boolean): null; stopTrack(track: string): null; mute(track: string, muted: boolean): null; }
   /** FilePickerResult: the status of a native file-picker call (ADR 0089), with an optional opaque handle, basename or UTF-8 text. Failure results expose no host path. */
   interface TacFilePickerResult { status: 'available' | 'selected' | 'cancelled' | 'read' | 'released' | 'denied' | 'unsupported' | 'unavailable' | 'invalid' | 'disposed' | 'tooLarge'; handle?: string; name?: string; text?: string; }
   /** FilePicker: selects one native file and reads UTF-8 text up to 65,536 bytes (ADR 0089). Grant "filePicker" in tac.nativeCapabilities. Handles belong to the owner, and `release` ends access. Picker calls in a browser tab answer `unsupported`. */
@@ -491,6 +493,18 @@ declare global {
   interface PasskeyAsserted { credentialJson: string; conditional: boolean; }
   /** PasskeyFailed: a built-in event model. `reason` is one of cancelled, exists, unsupported, refused, busy, invalid or failed; `message` is a fixed text for the reason with the browser's error name (ADR 0126). */
   interface PasskeyFailed { call: string; reason: string; message: string; }
+  /** MediaDeviceFound: a built-in event model, one per device that `devices` found. `kind` is microphone, camera or speaker; `count` is 0 when there is no device (ADR 0131). */
+  interface MediaDeviceFound { request: string; id: string; kind: string; label: string; chosen: boolean; index: number; count: number; }
+  /** MediaDevicesChanged: a built-in event model. A device was plugged in or removed, sent to every service that listed devices (ADR 0131). */
+  interface MediaDevicesChanged {}
+  /** MediaSpeakerChosen: a built-in event model. `device` is the speaker that `chooseSpeaker` chose (ADR 0131). */
+  interface MediaSpeakerChosen { device: string; }
+  /** MediaTrackStarted: a built-in event model. A capture call started the track `track` (ADR 0131). */
+  interface MediaTrackStarted { track: string; kind: string; device: string; label: string; width: number; height: number; }
+  /** MediaTrackEnded: a built-in event model. `reason` is stopped, removed, ended or failed (ADR 0131). */
+  interface MediaTrackEnded { track: string; reason: string; }
+  /** MediaFailed: a built-in event model. `reason` is one of unsupported, denied, notFound, busy or failed; `message` is a fixed text for the reason (ADR 0131). */
+  interface MediaFailed { track: string; call: string; reason: string; message: string; }
   /** BrowserCallFailed: a built-in event model. A browser API call failed after it started (ADR 0065). */
   interface BrowserCallFailed { api: string; call: string; message: string; }
   /** FilePicked: a built-in event model, one per chosen file, sent to the caller of `Files.pick` (ADR 0116). */
@@ -526,6 +540,7 @@ declare global {
     push: TacPush;
     storageSpace: TacStorageSpace;
     passkeys: TacPasskeys;
+    media: TacMedia;
     filePicker: TacFilePicker;
   }
   /** OnEvent: this method listens for one event model, the type of its one parameter (`placed(order: OrderPlaced)`). A payload that does not fit the model is not delivered. When the method's return type is a model, the value it returns is published as that model. Write `@OnEvent`, or `@OnEvent({ condition, id, replay })`. */
