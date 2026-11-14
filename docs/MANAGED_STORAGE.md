@@ -169,8 +169,9 @@ With `"lease": "call"`:
 - The root must be on a local disk. The server stops at startup with
   `TY2160` when the root is on a network file system: NFS (Amazon EFS is
   NFS), SMB or 9p on Linux (from `/proc/self/mounts`), and any mount that
-  `/sbin/mount` does not mark `local` on macOS. When the server cannot read
-  the mount table, it also refuses. FYLO has not qualified its locks over
+  `/sbin/mount` does not mark `local` on macOS, and a network share
+  (`\\server\share`, mapped drives included) on Windows. When the server
+  cannot read the mount table, it also refuses. FYLO has not qualified its locks over
   NFS, so the refusal stays until FYLO closes that gate.
 - A FYLO that refuses a network root itself (FYLO ADR 0029) answers
   `EREMOTEROOT`, in both lease modes. The call then fails with `TY2160`

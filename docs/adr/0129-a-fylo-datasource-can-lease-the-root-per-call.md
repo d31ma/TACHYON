@@ -85,8 +85,10 @@ marked "not qualified", and refused on a network file system.
      it refused Windows only until then.
    - The root must be on a local disk. Linux reads `/proc/self/mounts` and
      refuses NFS (EFS included), CIFS/SMB and 9p. macOS runs `/sbin/mount`
-     and refuses a mount without the `local` flag. When the mount table
-     cannot be read, the lease is refused. The
+     and refuses a mount without the `local` flag. Windows resolves the
+     root and refuses a network share (`\\server\share`, mapped drives
+     included); it accepts a drive letter. When the mount table cannot be
+     read, or the resolved root is neither, the lease is refused. The
      workspace forbids unsafe code, so Tachyon reads the mount table instead
      of calling `statfs`. FYLO itself accepted an NFS root on macOS when
      this was tested, so the check is Tachyon's.

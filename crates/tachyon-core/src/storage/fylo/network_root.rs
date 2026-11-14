@@ -1,4 +1,8 @@
+#[cfg(windows)]
+use std::path::Component;
 use std::path::Path;
+#[cfg(any(windows, test))]
+use std::path::Prefix;
 
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 use super::mount_entry::MountEntry;
@@ -44,7 +48,31 @@ impl NetworkRoot {
         Ok(Self::held_by_network(entries, root))
     }
 
-    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+    #[cfg(windows)]
+    fn is_network(root: &Path) -> Result<bool, Failure> {
+        let real = std::fs::canonicalize(root).map_err(|_| Self::unknown())?;
+        let prefix = real.components().next().and_then(Self::prefix_of);
+        Self::network_prefix(prefix)
+    }
+
+    #[cfg(windows)]
+    fn prefix_of(component: Component<'_>) -> Option<Prefix<'_>> {
+        let Component::Prefix(prefix) = component else {
+            return None;
+        };
+        Some(prefix.kind())
+    }
+
+    #[cfg(any(windows, test))]
+    fn network_prefix(prefix: Option<Prefix<'_>>) -> Result<bool, Failure> {
+        match prefix {
+            Some(Prefix::Disk(_) | Prefix::VerbatimDisk(_)) => Ok(false),
+            Some(Prefix::UNC(..) | Prefix::VerbatimUNC(..)) => Ok(true),
+            _ => Err(Self::unknown()),
+        }
+    }
+
+    #[cfg(not(any(target_os = "linux", target_os = "macos", windows)))]
     fn is_network(_: &Path) -> Result<bool, Failure> {
         Err(Self::unknown())
     }
@@ -61,5 +89,32 @@ impl NetworkRoot {
         failure(
             "FYLO lease \"call\" could not confirm that the root is on a local disk; it is refused.",
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::ffi::OsStr;
+    use std::path::Prefix;
+
+    use super::NetworkRoot;
+
+    #[test]
+    fn a_windows_drive_letter_is_a_local_disk() {
+        let local = NetworkRoot::network_prefix(Some(Prefix::VerbatimDisk(b'C')));
+        assert_eq!(local.ok(), Some(false));
+    }
+
+    #[test]
+    fn a_windows_network_share_is_a_network_file_system() {
+        let share = Prefix::VerbatimUNC(OsStr::new("server"), OsStr::new("data"));
+        assert_eq!(NetworkRoot::network_prefix(Some(share)).ok(), Some(true));
+    }
+
+    #[test]
+    fn a_windows_device_path_is_refused_as_unknown() {
+        let device = Prefix::DeviceNS(OsStr::new("PhysicalDrive0"));
+        assert!(NetworkRoot::network_prefix(Some(device)).is_err());
+        assert!(NetworkRoot::network_prefix(None).is_err());
     }
 }

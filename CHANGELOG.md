@@ -23,8 +23,8 @@ machine contracts have their own, independent major versions.
   refuses `"call"` when the `fylo` handshake lacks
   `capabilities.invocation` version 1 (FYLO `c75f407` or later), and when
   the root is on a network file system (NFS, which includes Amazon EFS, SMB,
-  9p; non-`local` mounts on macOS). A repeated document id answers
-  `EDOCEXISTS` and is shown as such. A FYLO that exits without an answer
+  9p; non-`local` mounts on macOS; network shares on Windows). A repeated
+  document id answers `EDOCEXISTS` and is shown as such. A FYLO that exits without an answer
   frame fails the call with `TY2160` (`ENOFRAME`), and FYLO's `EREMOTEROOT`
   (a root on a network file system, FYLO ADR 0029) fails it with a clear
   `TY2160` message in both modes.
