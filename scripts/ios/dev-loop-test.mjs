@@ -50,7 +50,8 @@ class IosDevLoopTest {
   }
 
   static bootSimulator() {
-    this.device = process.env.TAC_IOS_SIMULATOR ?? SharedSimulator.udid('iPhone')
+    if (this.usesSharedDevice()) return this.useShared()
+    this.device = process.env.TAC_IOS_SIMULATOR ?? ''
     if (this.device === '') {
       const runtimes = JSON.parse(this.simctl('list', 'runtimes', '--json')).runtimes
       const runtime = runtimes.filter((item) => item.isAvailable && item.identifier.includes('.iOS-'))
@@ -64,6 +65,14 @@ class IosDevLoopTest {
     }
     spawnSync('/usr/bin/xcrun', ['simctl', 'boot', this.device], { stdio: 'ignore', timeout: 600_000 })
     this.simctl('bootstatus', this.device, '-b')
+  }
+
+  static usesSharedDevice() {
+    return process.env.TAC_IOS_SIMULATOR === undefined && SharedSimulator.udid('iPhone') !== ''
+  }
+
+  static useShared() {
+    this.device = SharedSimulator.use(this.deviceSet, 'iPhone').device
   }
 
   static shutdownSimulator() {
