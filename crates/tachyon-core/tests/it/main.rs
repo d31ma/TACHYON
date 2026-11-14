@@ -19,6 +19,7 @@ mod controller_models;
 mod controller_routes;
 mod coverage_fsharp;
 mod dispatch;
+mod error_shapes;
 mod events_fsharp;
 mod first_app_tabs;
 mod forwarded_headers;

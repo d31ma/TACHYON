@@ -19,9 +19,14 @@ pub(super) fn functions(plan: &Plan) -> String {
         } else {
             ""
         };
+        let skip_check = if kind == "Exception" {
+            " and not YonChecks.rejected(error)"
+        } else {
+            ""
+        };
         let _ = writeln!(
             source,
-            "    if not isinstance({kind}, type) or not issubclass({kind}, Exception):\n        raise TypeError('HandlesError requires an Exception type')\n    if isinstance(error, {kind}):\n        distance = type(error).__mro__.index({kind})\n        matches.append((distance, {}, lambda: handler{index}.{}(error{request})))",
+            "    if not isinstance({kind}, type) or not issubclass({kind}, Exception):\n        raise TypeError('HandlesError requires an Exception type')\n    if isinstance(error, {kind}){skip_check}:\n        distance = type(error).__mro__.index({kind})\n        matches.append((distance, {}, lambda: handler{index}.{}(error{request})))",
             method.status, method.method
         );
     }

@@ -1,6 +1,7 @@
 use super::{CppYonController, CppYonParameter, CppYonStatus};
 use crate::Failure;
 use crate::tac_cpp::{CppFailure, CppMember, CppMemberKind, CppTypeText};
+use crate::yon::built_in_error::BuiltInError;
 use crate::yon::plan::ErrorResponse;
 use std::path::{Path, PathBuf};
 
@@ -18,6 +19,7 @@ pub(crate) struct CppYonErrorMethod {
 impl CppYonErrorMethod {
     const MARKER: &'static str = "HandlesError";
     const DEFAULT_STATUS: u16 = 500;
+    const BUILT_IN_NAMESPACE: &'static str = "tachyon::";
     const ERROR_STATUSES: std::ops::RangeInclusive<u16> = 400..=599;
     const STATUS: &'static str = "[[ResponseStatus]] on a [[HandlesError]] method takes an error status from 400 to 599, for example [[ResponseStatus(404)]]";
     const SHAPE: &'static str = "A [[HandlesError]] method is an instance method that takes the error and, optionally, the request: `Problem missing(const OrderNotFound& error)` or `Problem missing(const OrderNotFound& error, const tachyon::http::HttpRequestMessage& request)`. The type of its first parameter is the error that it handles";
@@ -46,6 +48,25 @@ impl CppYonErrorMethod {
         }
     }
 
+    fn built_in(error_type: &str) -> Option<BuiltInError> {
+        let bare = error_type
+            .strip_prefix(Self::BUILT_IN_NAMESPACE)
+            .unwrap_or(error_type);
+        BuiltInError::named(bare).filter(|found| found.name() == bare)
+    }
+
+    fn status(built_in: Option<BuiltInError>, written: Option<u16>) -> Result<u16, String> {
+        match (built_in, written) {
+            (Some(found), Some(_)) => Err(format!(
+                "{} is a built-in error and always answers {}. Remove [[ResponseStatus]] from this [[HandlesError]] method",
+                found.name(),
+                found.status()
+            )),
+            (Some(found), None) => Ok(found.status()),
+            (None, written) => Ok(written.unwrap_or(Self::DEFAULT_STATUS)),
+        }
+    }
+
     fn read(path: &Path, owner: &str, member: &CppMember) -> Result<Self, Failure> {
         let failure = |message: &str| {
             CppFailure::coded(CppYonController::CODE, path, member.name_at, message)
@@ -64,14 +85,17 @@ impl CppYonErrorMethod {
             .then_some(())
             .ok_or_else(|| failure(Self::RETURNS))?;
         let status = CppYonStatus::read(path, member, Self::ERROR_STATUSES, Self::STATUS)?;
+        let error_type = CppTypeText::plain(&member.parameters[0].type_text)
+            .trim_start_matches("::")
+            .to_owned();
+        let built_in = Self::built_in(&error_type);
+        let status = Self::status(built_in, status).map_err(|message| failure(&message))?;
         Ok(Self {
             owner: owner.to_owned(),
             method: member.name.clone(),
-            error_type: CppTypeText::plain(&member.parameters[0].type_text)
-                .trim_start_matches("::")
-                .to_owned(),
+            error_type: built_in.map_or(error_type, |found| found.name().to_owned()),
             takes_request: member.parameters.len() == 2,
-            status: status.unwrap_or(Self::DEFAULT_STATUS),
+            status,
             returns,
             path: path.to_path_buf(),
             at: member.name_at,

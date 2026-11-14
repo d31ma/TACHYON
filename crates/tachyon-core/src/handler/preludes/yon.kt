@@ -533,6 +533,8 @@ object Yon {
     }
     private data class RelayOutput(val bytes: ByteArray, val overflow: Boolean)
 
+    fun isCheckRejection(failure: Throwable?): Boolean = rejection(failure) != null
+
     fun rejection(failure: Throwable?): Map<*, *>? {
         var cause = failure
         var depth = 0

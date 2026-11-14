@@ -11,6 +11,8 @@ use std::path::Path;
 pub(crate) struct FsharpYon;
 
 impl FsharpYon {
+    const BUILT_IN_ERRORS: &'static str = include_str!("../yon/built_in_errors/built_in_errors.cs");
+
     pub(crate) fn lower(
         source: &Path,
         contents: &str,
@@ -48,8 +50,9 @@ impl FsharpYon {
         detached: Option<&DetachedCsharp>,
     ) -> Result<Lowered, Failure> {
         let authored = detached.map_or(view.text().len(), |detached| detached.lowered.len());
-        let generated =
-            FieldNeeds::constructed(contents, lowered.source.get(authored..).unwrap_or_default());
+        let (lowered_part, built_ins) =
+            Self::without_built_in_errors(lowered.source.get(authored..).unwrap_or_default());
+        let generated = FieldNeeds::constructed(contents, lowered_part);
         let stripped = FsharpMarkers::strip(contents);
         let behaviors = detached
             .map(|detached| Self::behaviors(view, source, &stripped, detached))
@@ -57,14 +60,28 @@ impl FsharpYon {
         let (fsharp, setups, runtime) = behaviors.unwrap_or((stripped, "", ""));
         let events = FsharpEvents::detach(&generated);
         let csharp = format!("{}{}\n{setups}", view.usings(), events.glue);
+        let runtime = Self::with_built_in_errors(&events.joined_runtime(runtime), built_ins);
         Ok(Lowered {
             source: FsharpSource::with_generated(
                 &fsharp,
-                &FsharpSource::with_runtime(&csharp, &events.joined_runtime(runtime)),
+                &FsharpSource::with_runtime(&csharp, &runtime),
             ),
             routes: lowered.routes,
             topics: lowered.topics,
         })
+    }
+
+    fn without_built_in_errors(generated: &str) -> (&str, &str) {
+        let Some(rest) = generated.strip_suffix(Self::BUILT_IN_ERRORS) else {
+            return (generated, "");
+        };
+        (rest, Self::BUILT_IN_ERRORS)
+    }
+
+    fn with_built_in_errors(runtime: &str, built_ins: &str) -> String {
+        let parts = [runtime, built_ins];
+        let written: Vec<&str> = parts.into_iter().filter(|part| !part.is_empty()).collect();
+        written.join("\n")
     }
 
     fn behaviors<'d>(

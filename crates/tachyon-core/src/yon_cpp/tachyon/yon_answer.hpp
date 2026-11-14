@@ -16,6 +16,12 @@ public:
         return json(status, body.toJsonString());
     }
 
+    static YonAnswer unhandled(int status, const std::string& message) {
+        YonAnswer answer = failure(status, message);
+        answer.notHandled = true;
+        return answer;
+    }
+
     static YonAnswer streamed() {
         YonAnswer answer(200, std::string(), false);
         answer.alreadySent = true;
@@ -105,6 +111,9 @@ public:
         answer["headers"] = written;
         answer["body"] = YonText::valid(body) ? json::JsonNode(body) : encoded(body);
         answer["topics"] = topics;
+        if (notHandled) {
+            answer["unhandled"] = true;
+        }
         return YonText::repaired(answer.toJsonString());
     }
 
@@ -116,6 +125,7 @@ private:
     std::map<std::string, std::string> headers;
     bool alreadySent = false;
     bool streamBroken = false;
+    bool notHandled = false;
 
     YonAnswer(int status, std::string body, bool hasJson) : status(status), body(std::move(body)), hasJson(hasJson) {}
 
