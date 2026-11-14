@@ -103,9 +103,11 @@ fn fylo_process_ids(root: &Path) -> Vec<String> {
 }
 
 fn process_state(process_id: &str) -> String {
-    let stat = std::fs::read_to_string(format!("/proc/{process_id}/stat")).unwrap_or_default();
+    let Ok(stat) = std::fs::read_to_string(format!("/proc/{process_id}/stat")) else {
+        return String::from("gone");
+    };
     let after_name = stat.rsplit_once(") ").map_or("", |(_, rest)| rest);
-    after_name.split(' ').next().unwrap_or("gone").to_owned()
+    after_name.split(' ').next().unwrap_or_default().to_owned()
 }
 
 fn document(command: &str, extra: &Value) -> Value {
