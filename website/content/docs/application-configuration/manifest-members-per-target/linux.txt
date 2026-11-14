@@ -117,6 +117,9 @@ tac.browserApis
 tac.browserApis clipboard
   honored: the web view's navigator.clipboard; the host lets the app's own pages read text copied in other apps
 
+tac.browserApis crypto
+  run owed: the page uses WebKitGTK's own WebCrypto on tachyon://app; kept keys are non-extractable CryptoKeys in IndexedDB, which WebKitGTK stores without encryption (ADR 0132); still to run: Crypto.check, the known answers and a kept key across a relaunch in the Linux app
+
 tac.browserApis files
   honored: WebKitGTK's own file chooser and drops; not yet run in a native release gate
 

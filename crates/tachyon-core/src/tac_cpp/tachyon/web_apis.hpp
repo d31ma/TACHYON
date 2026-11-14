@@ -210,6 +210,66 @@ public:
     void cancel() const { TacWebCall::answer("codeScanner", "cancel"); }
 };
 
+class Crypto {
+public:
+    bool supported() const { return TacWebCall::flag("crypto", "supported"); }
+
+    std::string check() const { return request("check", TacWebCall::arguments()); }
+
+    std::string makeKeyPair(const std::string& key, const std::string& algorithm, bool keep) const {
+        return request("makeKeyPair", TacWebCall::arguments(key, algorithm, keep));
+    }
+
+    std::string publicKey(const std::string& key) const { return request("publicKey", TacWebCall::arguments(key)); }
+
+    std::string sign(const std::string& key, const std::string& data) const {
+        return request("sign", TacWebCall::arguments(key, data));
+    }
+
+    std::string verify(const std::string& publicKey, const std::string& data, const std::string& signature) const {
+        return request("verify", TacWebCall::arguments(publicKey, data, signature));
+    }
+
+    std::string agree(const std::string& key, const std::string& peerPublicKey, const std::string& salt, const std::string& info, const std::string& newKey, const std::string& use, bool keep) const {
+        return request("agree", TacWebCall::arguments(key, peerPublicKey, salt, info, newKey, use, keep));
+    }
+
+    std::string deriveKey(const std::string& fromKey, const std::string& salt, const std::string& info, const std::string& newKey, const std::string& use, bool keep) const {
+        return request("deriveKey", TacWebCall::arguments(fromKey, salt, info, newKey, use, keep));
+    }
+
+    std::string importKey(const std::string& newKey, const std::string& secret, const std::string& use, bool keep) const {
+        return request("importKey", TacWebCall::arguments(newKey, secret, use, keep));
+    }
+
+    std::string fromCode(const std::string& newKey, const std::string& code, const std::string& salt, const std::string& use, bool keep) const {
+        return request("fromCode", TacWebCall::arguments(newKey, code, salt, use, keep));
+    }
+
+    std::string encrypt(const std::string& key, const std::string& data, const std::string& aad) const {
+        return request("encrypt", TacWebCall::arguments(key, data, aad));
+    }
+
+    std::string decrypt(const std::string& key, const std::string& sealed, const std::string& aad) const {
+        return request("decrypt", TacWebCall::arguments(key, sealed, aad));
+    }
+
+    std::string hkdf(const std::string& input, const std::string& salt, const std::string& info, int length) const {
+        return request("hkdf", TacWebCall::arguments(input, salt, info, length));
+    }
+
+    std::string hash(const std::string& data) const { return request("hash", TacWebCall::arguments(data)); }
+
+    std::string forget(const std::string& key) const { return request("forget", TacWebCall::arguments(key)); }
+
+    std::string forgetAll() const { return request("forgetAll", TacWebCall::arguments()); }
+
+private:
+    static std::string request(const char* call, json::JsonArray arguments) {
+        return TacWebCall::answer("crypto", call, arguments).getValue<std::string>();
+    }
+};
+
 class Geolocation {
 public:
     void currentPosition() const { TacWebCall::answer("geolocation", "currentPosition"); }
@@ -249,5 +309,6 @@ using tachyon::web::StorageSpace;
 using tachyon::web::Passkeys;
 using tachyon::web::Media;
 using tachyon::web::CodeScanner;
+using tachyon::web::Crypto;
 using tachyon::web::Files;
 using tachyon::web::WindowControls;

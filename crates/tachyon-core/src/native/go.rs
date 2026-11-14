@@ -31,7 +31,7 @@ impl GoServices {
     const MODULE: &str = "tachyonservices";
     const PAGE_PACKAGE: &str = "page";
     const DELEGATE_FOLDER: &str = "client/delegates";
-    const RUNTIME_FILES: [(&str, &str); 25] = [
+    const RUNTIME_FILES: [(&str, &str); 26] = [
         ("tac/prelude.go", include_str!("prelude.go")),
         ("tac/prelude_json.go", include_str!("prelude_json.go")),
         ("tac/prelude_tasks.go", include_str!("prelude_tasks.go")),
@@ -81,6 +81,7 @@ impl GoServices {
         ),
         ("tac/passkeys.go", include_str!("web_apis/passkeys.go")),
         ("tac/media.go", include_str!("web_apis/media.go")),
+        ("tac/crypto.go", include_str!("web_apis/crypto.go")),
         (
             "tac/code_scanner.go",
             include_str!("web_apis/code_scanner.go"),
@@ -103,7 +104,7 @@ impl GoServices {
     const WEB_ENTRY: &str = include_str!("prelude_web.go");
     const FAILURE_CODE: u16 = 1605;
     const WEB_EVENT_FILE: &str = "tac/web_event_models.go";
-    const ALIASED_TYPES: [&str; 55] = [
+    const ALIASED_TYPES: [&str; 66] = [
         "ApplicationEventPublisher",
         "Clock",
         "SecureRandom",
@@ -122,6 +123,7 @@ impl GoServices {
         "Passkeys",
         "Media",
         "CodeScanner",
+        "Crypto",
         "ApplicationStateChanged",
         "ConnectivityChanged",
         "VisibilityChanged",
@@ -152,6 +154,16 @@ impl GoServices {
         "MediaFailed",
         "CodeScanned",
         "ScanFailed",
+        "CryptoSupport",
+        "CryptoKeyMade",
+        "CryptoSigned",
+        "CryptoVerified",
+        "CryptoEncrypted",
+        "CryptoDecrypted",
+        "CryptoDerived",
+        "CryptoHashed",
+        "CryptoForgotten",
+        "CryptoFailed",
         "SocketOpened",
         "SocketClosed",
         "StorePartitionLoaded",

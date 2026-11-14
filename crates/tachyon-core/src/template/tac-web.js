@@ -82,6 +82,10 @@ class TacWebApis {
     scan: () => TacWebApis.scanLater('scan', true),
     cancel: () => TacWebApis.scanLater('cancel', false),
   })
+  static crypto = Object.freeze({
+    supported: () => TacWebApis.bridged('crypto') || (globalThis.isSecureContext === true && typeof globalThis.crypto?.subtle?.importKey === 'function'),
+    ...Object.fromEntries(['check', 'makeKeyPair', 'publicKey', 'sign', 'verify', 'agree', 'deriveKey', 'importKey', 'fromCode', 'encrypt', 'decrypt', 'hkdf', 'hash', 'forget', 'forgetAll'].map((call) => [call, (...values) => TacWebApis.moduleCall('crypto', false, call, values)])),
+  })
   static spaceCounters = []
   static noPush = Object.freeze({
     supported: () => false,
@@ -108,6 +112,7 @@ class TacWebApis {
     passkeys: TacWebApis.passkeys,
     media: TacWebApis.media,
     codeScanner: TacWebApis.codeScanner,
+    crypto: TacWebApis.crypto,
     nativeCapability: Object.freeze({ call: (...values) => TacNativeCapabilities.now(...values) }),
     files: Object.freeze(Object.fromEntries(['pick', 'read', 'release', 'upload', 'cancel'].map((call) => [call, (...values) => TacWebApis.files(call, values)]))),
   })
@@ -192,11 +197,15 @@ class TacWebApis {
   }
 
   static files(call, values) {
-    TacWebApis.allowed('files', call === 'pick')
+    return TacWebApis.moduleCall('files', call === 'pick', call, values)
+  }
+
+  static moduleCall(api, gesture, call, values) {
+    TacWebApis.allowed(api, gesture)
     const owner = TacWebApis.caller
-    const files = globalThis[Symbol.for('tachyon.tac.files')]
-    if (!files) throw new Error('The files browser API did not load on this page.')
-    return files[call]((event) => TacWebApis.reply(owner, event), ...values)
+    const module = globalThis[Symbol.for(`tachyon.tac.${api}`)]
+    if (!module) throw new Error(`The ${api} browser API did not load on this page.`)
+    return module[call]((event) => TacWebApis.reply(owner, event), ...values)
   }
 
   static mediaCall(call, values) {

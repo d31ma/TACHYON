@@ -117,6 +117,9 @@ tac.browserApis
 tac.browserApis clipboard
   honored: navigator.clipboard
 
+tac.browserApis crypto
+  honored: the browser's own WebCrypto in a secure page (ADR 0132): Ed25519 sign and verify, X25519 agreement into HKDF-SHA-256, AES-256-GCM with a nonce made inside, PBKDF2-SHA-256 at 600,000 rounds, SHA-256; keys are names, kept keys are non-extractable CryptoKeys in IndexedDB tachyon-keys; known answers and a kept key across a reload run in Chromium, Firefox and WebKit (scripts/crypto-browser-test.mjs); a plain http page answers unsupported
+
 tac.browserApis files
   honored: a file input and drop zones in the page; the page loads /.tachyon/tac-files.js and uploads with fetch only to tac.outgoing.hosts or its own origin (ADR 0116)
 

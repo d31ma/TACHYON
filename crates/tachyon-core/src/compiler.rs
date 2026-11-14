@@ -39,6 +39,8 @@ mod page_code_scanner;
 #[cfg(test)]
 mod page_code_scanner_tests;
 mod page_composition;
+#[cfg(test)]
+mod page_crypto_tests;
 mod page_files;
 #[cfg(test)]
 mod page_files_tests;
@@ -48,7 +50,7 @@ mod page_head_tests;
 mod page_media;
 #[cfg(test)]
 mod page_media_tests;
-mod page_passkeys;
+mod page_module;
 #[cfg(test)]
 mod page_passkeys_tests;
 mod page_state;

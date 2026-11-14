@@ -1837,6 +1837,31 @@ none). Owed, by hand: a real QR read and a real microphone on a Linux PC,
 through the Camera portal and PipeWire, and screen sharing on GNOME and on
 KDE Plasma.
 
+### Crypto in the browser (2026-11-14, ADR 0132)
+
+`scripts/crypto-browser-test.mjs` ran on the macOS test machine in
+Playwright's Chromium 151, Firefox and WebKit (the Safari 26.5 engine) on a
+localhost page. Each engine ran `check` (every algorithm and the
+`browser` key store), RFC 8032 test 2 (Ed25519 verify), RFC 5869 test 1
+(HKDF), SHA-256, NIST AES-256-GCM test 16 (decrypt and `rejected` with the
+wrong AAD), PBKDF2-SHA-256 at 600,000 rounds and `deriveKey` compared with
+Node's own results, X25519 agreement from both sides, a small-order key
+refused as `invalid`, sign and verify, 64 new nonces, a 32,768-byte
+message, a kept key pair and a kept secret key across a page reload, which
+`exportKey` refuses after they are read back from IndexedDB, `forget`, and
+`forgetAll` emptying the key store. Chromium also ran a plain `http` page
+(`insecure.test` mapped to the loopback): `supported` is false, `check`
+reports nothing and `keyStore` `none`, and calls answer `unsupported`.
+
+WebKit cannot sign or verify an empty message with Ed25519, so `sign` and
+`verify` refuse empty data on every platform.
+
+Owed: branded Safari and Chrome by hand; the native apps (`runOwed` in
+`target_support.json`): a Crypto check, the known answers and a kept key
+across a relaunch in each app. Kept keys on Chromium, Firefox, WebView2 and
+WebKitGTK are stored without the engine's own encryption (ADR 0132).
+
+### Passkeys in the browser (2026-11-12, ADR 0126)
 
 `scripts/passkeys-browser-test.mjs` ran on the macOS test machine in
 Playwright's Chromium, Firefox and WebKit. Chromium ran real WebAuthn

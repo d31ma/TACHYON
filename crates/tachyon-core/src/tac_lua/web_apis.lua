@@ -268,6 +268,76 @@ function CodeScanner:cancel()
   TacWebHost.call("codeScanner", "cancel")
 end
 
+Crypto = {}
+
+function Crypto:supported()
+  return TacWebHost.call("crypto", "supported") == true
+end
+
+function Crypto:request(call, values)
+  return tostring(TacWebHost.call("crypto", call, values))
+end
+
+function Crypto:check()
+  return Crypto:request("check", {})
+end
+
+function Crypto:make_key_pair(key, algorithm, keep)
+  return Crypto:request("makeKeyPair", { key, algorithm, keep == true })
+end
+
+function Crypto:public_key(key)
+  return Crypto:request("publicKey", { key })
+end
+
+function Crypto:sign(key, data)
+  return Crypto:request("sign", { key, data })
+end
+
+function Crypto:verify(public_key, data, signature)
+  return Crypto:request("verify", { public_key, data, signature })
+end
+
+function Crypto:agree(key, peer_public_key, salt, info, new_key, use, keep)
+  return Crypto:request("agree", { key, peer_public_key, salt, info, new_key, use, keep == true })
+end
+
+function Crypto:derive_key(from_key, salt, info, new_key, use, keep)
+  return Crypto:request("deriveKey", { from_key, salt, info, new_key, use, keep == true })
+end
+
+function Crypto:import_key(new_key, secret, use, keep)
+  return Crypto:request("importKey", { new_key, secret, use, keep == true })
+end
+
+function Crypto:from_code(new_key, code, salt, use, keep)
+  return Crypto:request("fromCode", { new_key, code, salt, use, keep == true })
+end
+
+function Crypto:encrypt(key, data, aad)
+  return Crypto:request("encrypt", { key, data, aad })
+end
+
+function Crypto:decrypt(key, sealed, aad)
+  return Crypto:request("decrypt", { key, sealed, aad })
+end
+
+function Crypto:hkdf(input, salt, info, length)
+  return Crypto:request("hkdf", { input, salt, info, length })
+end
+
+function Crypto:hash(data)
+  return Crypto:request("hash", { data })
+end
+
+function Crypto:forget(key)
+  return Crypto:request("forget", { key })
+end
+
+function Crypto:forget_all()
+  return Crypto:request("forgetAll", {})
+end
+
 Geolocation = {}
 
 function Geolocation:current_position()

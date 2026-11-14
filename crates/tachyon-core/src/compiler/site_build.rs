@@ -8,7 +8,7 @@ use super::page_code_scanner::PageCodeScanner;
 use super::page_composition::PageComposition;
 use super::page_head::PageHead;
 use super::page_media::PageMedia;
-use super::page_passkeys::PagePasskeys;
+use super::page_module::PageModule;
 use super::page_state::PageState;
 use super::portable_path::PortablePath;
 use super::precompression::CompressedFiles;
@@ -64,6 +64,7 @@ pub(super) struct SiteBuild<'a> {
     media_tag: &'static str,
     code_scanner_tag: String,
     code_scanner: bool,
+    crypto_tag: &'static str,
     phase_started: Instant,
     timings: Vec<(String, Duration)>,
     service_timings: Vec<(String, Duration)>,
@@ -121,6 +122,7 @@ impl<'a> SiteBuild<'a> {
             media_tag: "",
             code_scanner_tag: String::new(),
             code_scanner: false,
+            crypto_tag: "",
             phase_started,
             timings: Vec::new(),
             service_timings: Vec::new(),
@@ -147,11 +149,13 @@ impl<'a> SiteBuild<'a> {
         self.yon_reads_tag = YonReads::tag(site);
         self.files_tag = super::page_files::PageFiles::tag(site);
         self.web_push_tag = WebPush::tag(site, self.native);
-        self.passkeys_tag = PagePasskeys::tag(site);
+        self.passkeys_tag = PageModule::PASSKEYS.tag(site);
         self.media_tag = PageMedia::tag(site);
-        self.service_notes.extend(PagePasskeys::note(site));
+        self.service_notes.extend(PageModule::PASSKEYS.note(site));
         self.code_scanner_tag = PageCodeScanner::tag(site);
         self.code_scanner = PageCodeScanner::granted(site);
+        self.crypto_tag = PageModule::CRYPTO.tag(site);
+        self.service_notes.extend(PageModule::CRYPTO.note(site));
         let dependency_digest = self.route_dependency_digest();
         let routes = Self::renderable_routes(self.project, programs);
         self.add_routes(routes, previous, site, &dependency_digest)
@@ -226,6 +230,7 @@ impl<'a> SiteBuild<'a> {
         self.add_passkeys_file();
         self.add_media_files();
         self.add_code_scanner_files();
+        self.add_crypto_file();
         let version = ServiceWorker::version(&self.files, self.build_config_digest.as_deref());
         let python_profile =
             crate::tac_python::RuntimeProfile::for_files(self.snapshot_root, &self.files)?;
@@ -626,6 +631,7 @@ impl<'a> SiteBuild<'a> {
         html = PageHead::inject_before_runtime(&html, self.passkeys_tag);
         html = PageHead::inject_before_runtime(&html, self.media_tag);
         html = PageHead::inject_before_runtime(&html, &self.code_scanner_tag);
+        html = PageHead::inject_before_runtime(&html, self.crypto_tag);
         PageHead::inject_before(&html, "</body>", WebCompiler::SERVICE_WORKER_LINK)
     }
 
@@ -653,9 +659,15 @@ impl<'a> SiteBuild<'a> {
         }
     }
 
+    fn add_crypto_file(&mut self) {
+        if !self.crypto_tag.is_empty() {
+            self.add_file(PageModule::CRYPTO.path, PageModule::CRYPTO.script());
+        }
+    }
+
     fn add_passkeys_file(&mut self) {
         if !self.passkeys_tag.is_empty() {
-            self.add_file(PagePasskeys::PATH, PagePasskeys::script());
+            self.add_file(PageModule::PASSKEYS.path, PageModule::PASSKEYS.script());
         }
     }
 

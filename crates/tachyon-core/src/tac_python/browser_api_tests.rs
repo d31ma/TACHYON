@@ -267,6 +267,49 @@ impl BrowserApiPage {
          _report['failure'] = _ask('stamp', {'op': 'get', 'name': 'failure'})\n\
          _report['requests'] = [[item['api'], item['call'], item['args']] for item in _requests]\n";
 
+    const CRYPTO: [(&'static str, &'static str); 1] = [(
+        "client/services/StampService.py",
+        "from typing import Annotated\n\n\
+         @service\n\
+         class StampService:\n\
+         \x20   crypto: Annotated[Crypto, needs]\n\
+         \x20   ready: bool = False\n\
+         \x20   request: str = ''\n\
+         \x20   made: str = ''\n\n\
+         \x20   def start(self) -> None:\n\
+         \x20       self.ready = self.crypto.supported()\n\
+         \x20       self.request = self.crypto.check()\n\
+         \x20       self.crypto.make_key_pair('device', 'ed25519', True)\n\
+         \x20       self.crypto.public_key('device')\n\
+         \x20       self.crypto.sign('device', 'AQI')\n\
+         \x20       self.crypto.verify('pub', 'AQI', 'sig')\n\
+         \x20       self.crypto.agree('device', 'pub', 's', 'i', 'shared', 'encrypt', False)\n\
+         \x20       self.crypto.derive_key('root', 's', 'i', 'next', 'derive', True)\n\
+         \x20       self.crypto.import_key('root', 'secret', 'derive', False)\n\
+         \x20       self.crypto.from_code('backup', 'code', 'salt', 'encrypt', True)\n\
+         \x20       self.crypto.encrypt('backup', 'AQI', 'aad')\n\
+         \x20       self.crypto.decrypt('backup', 'sealed', 'aad')\n\
+         \x20       self.crypto.hkdf('AQI', 's', 'i', 4)\n\
+         \x20       self.crypto.hash('AQI')\n\
+         \x20       self.crypto.forget('device')\n\
+         \x20       self.crypto.forget_all()\n\n\
+         \x20   @on_event\n\
+         \x20   def made_key(self, made: CryptoKeyMade) -> None:\n\
+         \x20       self.made = f'{made.request} {made.key} {made.publicKey}'\n",
+    )];
+
+    const CRYPTO_DRIVER: &'static str = "_requests = []\n\
+         def _web(text):\n\
+         \x20   request = json.loads(text)\n\
+         \x20   _requests.append(request)\n\
+         \x20   return json.dumps({'value': True if request['call'] == 'supported' else 'crypto-' + str(len(_requests))})\n\
+         _TacPythonRuntime.connect(_emitted.append, None, web=_web)\n\
+         _report = {'init': _ask('stamp', {'op': 'init', 'props': {}})}\n\
+         _report['start'] = _ask('stamp', {'op': 'call', 'name': 'start', 'args': []})\n\
+         _report['heard'] = _ask('stamp', {'op': 'event', 'name': 'made_key', 'value': {'request': 'crypto-3', 'key': 'device', 'publicKey': 'AQI'}})\n\
+         _report.update({name: _ask('stamp', {'op': 'get', 'name': name}) for name in ['ready', 'request', 'made']})\n\
+         _report['requests'] = [[item['api'], item['call'], item['args']] for item in _requests]\n";
+
     const ATTACH: [(&'static str, &'static str); 1] = [(
         "client/services/AttachService.py",
         "from typing import Annotated\n\n\
@@ -617,6 +660,60 @@ fn a_python_web_service_scans_a_code() {
             ["codeScanner", "supported", []],
             ["codeScanner", "scan", []],
             ["codeScanner", "cancel", []]
+        ]),
+        "{report}"
+    );
+}
+
+#[test]
+fn a_python_web_service_signs_and_derives_with_crypto() {
+    if !PythonPage::has_python() {
+        return;
+    }
+    let report = PythonPage::run(
+        &BrowserApiPage::CRYPTO,
+        &["stamp"],
+        BrowserApiPage::CRYPTO_DRIVER,
+    );
+    assert_eq!(report["start"], json!({"value": null}), "{report}");
+    for (name, value) in [
+        ("ready", json!(true)),
+        ("request", json!("crypto-2")),
+        ("made", json!("crypto-3 device AQI")),
+    ] {
+        assert_eq!(report[name], json!({ "value": value }), "{name}: {report}");
+    }
+    assert_eq!(
+        report["requests"],
+        json!([
+            ["crypto", "supported", []],
+            ["crypto", "check", []],
+            ["crypto", "makeKeyPair", ["device", "ed25519", true]],
+            ["crypto", "publicKey", ["device"]],
+            ["crypto", "sign", ["device", "AQI"]],
+            ["crypto", "verify", ["pub", "AQI", "sig"]],
+            [
+                "crypto",
+                "agree",
+                ["device", "pub", "s", "i", "shared", "encrypt", false]
+            ],
+            [
+                "crypto",
+                "deriveKey",
+                ["root", "s", "i", "next", "derive", true]
+            ],
+            ["crypto", "importKey", ["root", "secret", "derive", false]],
+            [
+                "crypto",
+                "fromCode",
+                ["backup", "code", "salt", "encrypt", true]
+            ],
+            ["crypto", "encrypt", ["backup", "AQI", "aad"]],
+            ["crypto", "decrypt", ["backup", "sealed", "aad"]],
+            ["crypto", "hkdf", ["AQI", "s", "i", 4]],
+            ["crypto", "hash", ["AQI"]],
+            ["crypto", "forget", ["device"]],
+            ["crypto", "forgetAll", []],
         ]),
         "{report}"
     );

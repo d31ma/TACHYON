@@ -117,6 +117,9 @@ tac.browserApis
 tac.browserApis clipboard
   honored: the Windows clipboard through the host bridge (browserApi.clipboard), both ways from a WebView2 page (SD1)
 
+tac.browserApis crypto
+  run owed: the page uses WebView2's own WebCrypto on https://tachyon.local; kept keys are non-extractable CryptoKeys in IndexedDB in the app's user data folder, not encrypted by the web view (ADR 0132); still to run: Crypto.check, the known answers and a kept key across a relaunch in a WebView2 app on Windows
+
 tac.browserApis files
   honored: WebView2's own file chooser and drops; not yet run in a native release gate
 

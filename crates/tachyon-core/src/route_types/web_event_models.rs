@@ -52,6 +52,7 @@ impl WebEventModels {
             Self::passkey_rows(),
             Self::media_rows(),
             Self::code_scanner_rows(),
+            Self::crypto_rows(),
             Self::socket_and_failure_rows(),
             Self::store_rows(),
         ]
@@ -322,6 +323,48 @@ impl WebEventModels {
 
     fn media(name: &str, fields: &[(&str, Shape)]) -> (WebEventSender, String, Model) {
         Self::record(WebEventSender::AnyGrant(&Self::MEDIA_GRANTS), name, fields)
+    }
+
+    fn crypto_rows() -> Vec<(WebEventSender, String, Model)> {
+        let request = || ("request", Shape::Text);
+        vec![
+            Self::crypto_record(
+                "CryptoSupport",
+                &[
+                    request(),
+                    ("x25519", Shape::Boolean),
+                    ("ed25519", Shape::Boolean),
+                    ("aesGcm", Shape::Boolean),
+                    ("hkdf", Shape::Boolean),
+                    ("pbkdf2", Shape::Boolean),
+                    ("keyStore", Shape::Text),
+                ],
+            ),
+            Self::crypto_record(
+                "CryptoKeyMade",
+                &[request(), ("key", Shape::Text), ("publicKey", Shape::Text)],
+            ),
+            Self::crypto_record("CryptoSigned", &[request(), ("signature", Shape::Text)]),
+            Self::crypto_record("CryptoVerified", &[request(), ("valid", Shape::Boolean)]),
+            Self::crypto_record("CryptoEncrypted", &[request(), ("sealed", Shape::Text)]),
+            Self::crypto_record("CryptoDecrypted", &[request(), ("data", Shape::Text)]),
+            Self::crypto_record("CryptoDerived", &[request(), ("bytes", Shape::Text)]),
+            Self::crypto_record("CryptoHashed", &[request(), ("digest", Shape::Text)]),
+            Self::crypto_record("CryptoForgotten", &[request()]),
+            Self::crypto_record(
+                "CryptoFailed",
+                &[
+                    request(),
+                    ("call", Shape::Text),
+                    ("reason", Shape::Text),
+                    ("message", Shape::Text),
+                ],
+            ),
+        ]
+    }
+
+    fn crypto_record(name: &str, fields: &[(&str, Shape)]) -> (WebEventSender, String, Model) {
+        Self::record(WebEventSender::Grant("crypto"), name, fields)
     }
 
     fn socket_and_failure_rows() -> Vec<(WebEventSender, String, Model)> {

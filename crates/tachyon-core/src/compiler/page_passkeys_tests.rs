@@ -1,6 +1,6 @@
 #![allow(clippy::expect_used)]
 
-use super::page_passkeys::PagePasskeys;
+use super::page_module::PageModule;
 use crate::node_driver::NodeDriver;
 use std::path::Path;
 
@@ -156,7 +156,11 @@ console.log(JSON.stringify(report))
     fn run() -> serde_json::Value {
         let root = tempfile::tempdir().expect("root");
         Self::write(root.path(), "tac-web.js", Self::WEB_RUNTIME.as_bytes());
-        Self::write(root.path(), "tac-passkeys.js", &PagePasskeys::script());
+        Self::write(
+            root.path(),
+            "tac-passkeys.js",
+            &PageModule::PASSKEYS.script(),
+        );
         Self::write(root.path(), "drive.mjs", Self::DRIVER.as_bytes());
         let mut command = NodeDriver::command();
         command.arg("drive.mjs").current_dir(root.path());
@@ -429,7 +433,7 @@ fn only_a_build_that_grants_passkeys_ships_the_passkeys_module() {
             .any(|note| note.starts_with("Passkeys need a secure page"));
         let page = std::fs::read_to_string(output.path().join("index.html")).expect("page");
         let worker = std::fs::read_to_string(output.path().join("tachyon-sw.js")).expect("sw");
-        let shipped = output.path().join(PagePasskeys::PATH).is_file();
+        let shipped = output.path().join(PageModule::PASSKEYS.path).is_file();
         (page, worker, shipped, noted)
     };
     let tag =

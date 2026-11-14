@@ -447,6 +447,8 @@ declare global {
   interface TacMedia { supported(feature: string): boolean; devices(request: string): null; chooseSpeaker(device: string): null; captureMicrophone(track: string, device: string, processing: boolean): null; captureCamera(track: string, device: string, quality: string): null; captureScreen(track: string, withAudio: boolean): null; stopTrack(track: string): null; mute(track: string, muted: boolean): null; }
   /** CodeScanner: reads one QR code with the device camera (ADR 0130). Grant "camera" in tac.browserApis; give the reason in tac.application.permissions.camera. `scan` needs a click or key handler: it shows a camera view that Tachyon draws, closes it after one QR code, and answers with `CodeScanned` or `ScanFailed`. `cancel` closes an open scan, which answers `ScanFailed` with reason cancelled. `supported` is false where no camera can open. The app never receives camera frames. */
   interface TacCodeScanner { supported(): boolean; scan(): null; cancel(): null; }
+  /** Crypto: sign, agree, derive and encrypt with keys that stay on the device (ADR 0132). Grant "crypto" in tac.browserApis. Keys are names the service picks (1 to 64 letters, digits, dots, dashes or underscores); no call returns a private or secret key. Bytes are base64url text without padding, at most 32768 bytes per argument (`sealed` may be 29 bytes longer; signed data is at least 1 byte). `algorithm` is "x25519" or "ed25519"; `use` is "encrypt" (AES-256-GCM) or "derive" (HKDF-SHA-256); `keep` stores the key on the device. Every call except `supported` returns a request id at once, and the answer event carries it as `request`. A later failure sends `CryptoFailed`. `supported` needs no grant. */
+  interface TacCrypto { supported(): boolean; check(): string; makeKeyPair(key: string, algorithm: string, keep: boolean): string; publicKey(key: string): string; sign(key: string, data: string): string; verify(publicKey: string, data: string, signature: string): string; agree(key: string, peerPublicKey: string, salt: string, info: string, newKey: string, use: string, keep: boolean): string; deriveKey(fromKey: string, salt: string, info: string, newKey: string, use: string, keep: boolean): string; importKey(newKey: string, secret: string, use: string, keep: boolean): string; fromCode(newKey: string, code: string, salt: string, use: string, keep: boolean): string; encrypt(key: string, data: string, aad: string): string; decrypt(key: string, sealed: string, aad: string): string; hkdf(input: string, salt: string, info: string, length: number): string; hash(data: string): string; forget(key: string): string; forgetAll(): string; }
   /** FilePickerResult: the status of a native file-picker call (ADR 0089), with an optional opaque handle, basename or UTF-8 text. Failure results expose no host path. */
   interface TacFilePickerResult { status: 'available' | 'selected' | 'cancelled' | 'read' | 'released' | 'denied' | 'unsupported' | 'unavailable' | 'invalid' | 'disposed' | 'tooLarge'; handle?: string; name?: string; text?: string; }
   /** FilePicker: selects one native file and reads UTF-8 text up to 65,536 bytes (ADR 0089). Grant "filePicker" in tac.nativeCapabilities. Handles belong to the owner, and `release` ends access. Picker calls in a browser tab answer `unsupported`. */
@@ -511,6 +513,26 @@ declare global {
   interface CodeScanned { text: string; }
   /** ScanFailed: a built-in event model. `reason` is one of cancelled, denied, unsupported or failed (ADR 0130). */
   interface ScanFailed { reason: string; }
+  /** CryptoSupport: a built-in event model. Each flag is true when this page can run that algorithm; `keyStore` is "browser", "os" or "none" (ADR 0132). */
+  interface CryptoSupport { request: string; x25519: boolean; ed25519: boolean; aesGcm: boolean; hkdf: boolean; pbkdf2: boolean; keyStore: string; }
+  /** CryptoKeyMade: a built-in event model. `key` is the key's name; `publicKey` is the raw 32-byte public key of a key pair, or "" for a secret key (ADR 0132). */
+  interface CryptoKeyMade { request: string; key: string; publicKey: string; }
+  /** CryptoSigned: a built-in event model. `signature` is the 64-byte Ed25519 signature (ADR 0132). */
+  interface CryptoSigned { request: string; signature: string; }
+  /** CryptoVerified: a built-in event model. `valid` is true when the signature matches (ADR 0132). */
+  interface CryptoVerified { request: string; valid: boolean; }
+  /** CryptoEncrypted: a built-in event model. `sealed` is version (1 byte), nonce (12), ciphertext and tag (16) (ADR 0132). */
+  interface CryptoEncrypted { request: string; sealed: string; }
+  /** CryptoDecrypted: a built-in event model. `data` is the opened bytes (ADR 0132). */
+  interface CryptoDecrypted { request: string; data: string; }
+  /** CryptoDerived: a built-in event model. `bytes` is the HKDF output (ADR 0132). */
+  interface CryptoDerived { request: string; bytes: string; }
+  /** CryptoHashed: a built-in event model. `digest` is the SHA-256 digest (ADR 0132). */
+  interface CryptoHashed { request: string; digest: string; }
+  /** CryptoForgotten: a built-in event model. The key, or every key, is gone from this device (ADR 0132). */
+  interface CryptoForgotten { request: string; }
+  /** CryptoFailed: a built-in event model. `reason` is one of unsupported, invalid, unknown, exists, rejected, locked or failed; `message` is a fixed text for the reason (ADR 0132). */
+  interface CryptoFailed { request: string; call: string; reason: string; message: string; }
   /** BrowserCallFailed: a built-in event model. A browser API call failed after it started (ADR 0065). */
   interface BrowserCallFailed { api: string; call: string; message: string; }
   /** FilePicked: a built-in event model, one per chosen file, sent to the caller of `Files.pick` (ADR 0116). */
@@ -548,6 +570,7 @@ declare global {
     passkeys: TacPasskeys;
     media: TacMedia;
     codeScanner: TacCodeScanner;
+    crypto: TacCrypto;
     filePicker: TacFilePicker;
   }
   /** OnEvent: this method listens for one event model, the type of its one parameter (`placed(order: OrderPlaced)`). A payload that does not fit the model is not delivered. When the method's return type is a model, the value it returns is published as that model. Write `@OnEvent`, or `@OnEvent({ condition, id, replay })`. */

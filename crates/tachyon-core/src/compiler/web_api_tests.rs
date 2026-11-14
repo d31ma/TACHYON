@@ -41,6 +41,7 @@ fn a_javascript_service_needs_every_curated_browser_api() {
         "passkeys",
         "media",
         "codeScanner",
+        "crypto",
     ];
     let mut source = String::from("@Service\nexport default class DeviceService {\n");
     for name in names {

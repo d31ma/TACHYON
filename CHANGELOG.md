@@ -52,6 +52,24 @@ machine contracts have their own, independent major versions.
   `.tachyon/tac-media.js` and `.tachyon/tac-media-view.js` only to pages that
   grant a media API. Native apps get the host permission part in a later
   slice.
+- **Tac services sign, agree and encrypt with keys that stay on the device**
+  (ADR 0132). Every Tac service language gets `Crypto`, behind the new grant
+  `crypto` in `tac.browserApis`: Ed25519 key pairs that sign and verify,
+  X25519 agreement into HKDF-SHA-256, keys derived with HKDF or from a
+  recovery code with PBKDF2-SHA-256 (600,000 rounds), AES-256-GCM with a
+  nonce made inside (`sealed` is version, nonce, ciphertext and tag), HKDF
+  over the service's own bytes, and SHA-256. Keys are names; no call returns
+  a private or secret key. `keep: true` stores a non-extractable `CryptoKey`
+  in IndexedDB `tachyon-keys`; `forget` and `forgetAll` remove keys. Every
+  call returns a request id; answers are ten new built-in events
+  (`CryptoSupport`, `CryptoKeyMade`, `CryptoSigned`, `CryptoVerified`,
+  `CryptoEncrypted`, `CryptoDecrypted`, `CryptoDerived`, `CryptoHashed`,
+  `CryptoForgotten`, `CryptoFailed`). Bytes are base64url without padding,
+  at most 32,768 per argument. The code ships in `.tachyon/tac-crypto.js`
+  only to pages that grant `crypto`; a plain `http` page answers
+  `unsupported`. Known answers (RFC 8032, RFC 5869, NIST GCM, PBKDF2) and a
+  kept key across a reload are checked in Chromium, Firefox and WebKit
+  (`bun run test:crypto-browser`).
 - **Yon handlers write logs on every answer** (ADR 0127). Every Yon language
   gets `YonLog` with the levels `debug`, `info`, `warn` and `error`, a
   message and optional fields. `ty start`, `ty serve`, `ty handler invoke` and

@@ -144,3 +144,4 @@ design. Decide routine implementation choices in code review, not in an ADR.
 - [129. Tac Services Capture, Send and Show Audio and Video](0129-tac-services-capture-send-and-show-audio-and-video.md)
 - [130. Tac Services Scan a QR Code Through a Camera View That Tachyon Draws](0130-tac-services-scan-a-qr-code-through-a-camera-view-that-tachyon-draws.md)
 - [131. The Linux App Reaches Devices, Screens, Files and Keys Through WebKitGTK, the Portals and the Secret Service](0131-the-linux-app-reaches-devices-screens-files-and-keys-through-webkitgtk-the-portals-and-the-secret-service.md)
+- [132. Tac Services Sign, Agree and Encrypt with Keys That Stay on the Device](0132-tac-services-sign-agree-and-encrypt-with-keys-that-stay-on-the-device.md)
