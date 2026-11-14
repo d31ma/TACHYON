@@ -1,6 +1,5 @@
 use super::RouteCalls;
 use crate::route_types::{Shape, TypeText};
-use crate::yon::built_in_error::BuiltInError;
 use crate::yon::built_in_errors::BuiltInErrors;
 use crate::yon::plan::{ParameterSource, Plan, Route};
 use std::fmt::Write as _;
@@ -8,6 +7,8 @@ use std::fmt::Write as _;
 pub(super) struct RubyRoutes;
 
 impl RubyRoutes {
+    const BUILT_IN_CASE: &'static str = "    return handle_error(YonBuiltInErrors.build(values[0]), request{arguments}) if route == \"{route}\"\n";
+
     pub(super) fn functions(plan: &Plan) -> String {
         let mut output = String::from("module YonGenerated\n");
         let parameters = super::super::error_calls::ErrorCalls::parameters(plan, "rb");
@@ -20,7 +21,7 @@ impl RubyRoutes {
                 output,
                 "  def self.route_{verb}(controller, request{parameters}, &events)\n    values = request[\"arguments\"] || []\n    route = request[\"route\"]"
             );
-            output.push_str(&Self::built_in_case(plan, &arguments));
+            output.push_str(&BuiltInErrors::route_case(plan, "rb", Self::BUILT_IN_CASE));
             if guarded {
                 output.push_str("    begin\n");
             }
@@ -47,16 +48,6 @@ impl RubyRoutes {
         }
         output.push_str("end\n");
         output
-    }
-
-    fn built_in_case(plan: &Plan, arguments: &str) -> String {
-        if !BuiltInErrors::used(plan) {
-            return String::new();
-        }
-        format!(
-            "    return handle_error(YonBuiltInErrors.build(values[0]), request{arguments}) if route == \"{}\"\n",
-            BuiltInError::ROUTE
-        )
     }
 
     fn arguments(route: &Route) -> String {

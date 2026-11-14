@@ -91,7 +91,7 @@ mod tests {
             .body(Body::empty())
             .expect("request");
         let headers = BuiltInRequest::of(&request).safe_headers(None);
-        let names: Vec<&str> = headers.keys().map(|name| name.as_str()).collect();
+        let names: Vec<&str> = headers.keys().map(axum::http::HeaderName::as_str).collect();
         assert_eq!(names, ["accept-language"]);
     }
 }

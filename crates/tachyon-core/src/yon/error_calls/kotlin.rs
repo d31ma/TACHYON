@@ -1,3 +1,4 @@
+use super::root_error_type::RootErrorType;
 use super::{ErrorCalls, Plan, RouteCalls};
 use std::fmt::Write as _;
 
@@ -8,7 +9,11 @@ pub(super) fn functions(plan: &Plan) -> String {
     );
     for (position, method) in plan.errors.iter().enumerate() {
         let kind = &method.error_type;
-        let skip_check = skip_check(kind);
+        let skip_check = RootErrorType::condition(
+            &RootErrorType::KOTLIN,
+            kind,
+            " && !Yon.isCheckRejection(error)",
+        );
         let _ = writeln!(
             source,
             "        if (error is {kind}{skip_check}) {{ val distance = distance(error.javaClass, {kind}::class.java); if (distance < nearest) {{ selected = {position}; nearest = distance }} }}"
@@ -35,19 +40,4 @@ pub(super) fn functions(plan: &Plan) -> String {
     }
     source.push_str("            else -> throw error\n        }\n    }\n    private fun distance(actual: Class<*>, wanted: Class<*>): Int { var current: Class<*>? = actual; var distance = 0; while (current != null && current != wanted) { current = current.superclass; distance++ }; return distance }\n    private fun answer(result: Any?, status: Int): Any? {\n        if (result is __YonAnswer) {\n            val original = (Json.parse(result.envelope()) as Map<*, *>)[\"status\"] as Number\n            return if (original.toInt() == 200) result.status(status) else result\n        }\n        return __YonAnswer.json(Json.stringify(result)).status(status)\n    }\n}\n");
     source
-}
-
-fn skip_check(kind: &str) -> &'static str {
-    const ROOT_TYPES: [&str; 6] = [
-        "Exception",
-        "Throwable",
-        "kotlin.Exception",
-        "kotlin.Throwable",
-        "java.lang.Exception",
-        "java.lang.Throwable",
-    ];
-    if !ROOT_TYPES.contains(&kind) {
-        return "";
-    }
-    " && !Yon.isCheckRejection(error)"
 }

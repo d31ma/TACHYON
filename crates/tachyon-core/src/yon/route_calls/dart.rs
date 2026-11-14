@@ -1,6 +1,5 @@
 use super::RouteCalls;
 use crate::route_types::{DartValues, TypeText};
-use crate::yon::built_in_error::BuiltInError;
 use crate::yon::built_in_errors::BuiltInErrors;
 use crate::yon::plan::{ParameterSource, Plan, Route};
 use std::fmt::Write as _;
@@ -8,11 +7,13 @@ use std::fmt::Write as _;
 pub(super) struct DartRoutes;
 
 impl DartRoutes {
+    const BUILT_IN_CASE: &'static str = "  if (route == '{route}') return __yon_handle_error__(__yon_built_in_error__(values), request{arguments});\n";
+
     pub(super) fn functions(plan: &Plan) -> String {
         let mut output = String::new();
         let errors = !plan.errors.is_empty();
         let parameters = super::super::error_calls::ErrorCalls::parameters(plan, "dart");
-        let built_in = Self::built_in_case(plan);
+        let built_in = BuiltInErrors::route_case(plan, "dart", Self::BUILT_IN_CASE);
         for verb in RouteCalls::verbs(plan) {
             let guard = if errors { "  try {\n" } else { "" };
             let _ = write!(
@@ -45,17 +46,6 @@ impl DartRoutes {
             output.push_str("}\n");
         }
         output
-    }
-
-    fn built_in_case(plan: &Plan) -> String {
-        if !BuiltInErrors::used(plan) {
-            return String::new();
-        }
-        let arguments = super::super::error_calls::ErrorCalls::arguments(plan, "dart");
-        format!(
-            "  if (route == '{}') return __yon_handle_error__(__yon_built_in_error__(values), request{arguments});\n",
-            BuiltInError::ROUTE
-        )
     }
 
     fn arguments(route: &Route) -> String {

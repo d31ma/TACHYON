@@ -1,5 +1,4 @@
 use super::RouteCalls;
-use crate::yon::built_in_error::BuiltInError;
 use crate::yon::built_in_errors::BuiltInErrors;
 use crate::yon::plan::{ParameterSource, Plan, Route};
 use std::fmt::Write as _;
@@ -7,6 +6,8 @@ use std::fmt::Write as _;
 pub(super) struct KotlinRoutes;
 
 impl KotlinRoutes {
+    const BUILT_IN_CASE: &'static str = "    if (route == \"{route}\") return __YonErrors.handle(__YonBuiltInErrors.create(values.getOrNull(0)), request{arguments})\n";
+
     pub(super) fn functions(plan: &Plan) -> String {
         let mut output = String::new();
         let errors = !plan.errors.is_empty();
@@ -17,7 +18,7 @@ impl KotlinRoutes {
                 output,
                 "\n@Suppress(\"UNCHECKED_CAST\")\nfun __yon_route_{verb}__(controller: {}, request: __YonFrame{parameters}): Any? {{\n    val values = request.arguments()\n    val route = request.route()\n{}{guard}",
                 plan.controller,
-                Self::built_in_case(plan)
+                BuiltInErrors::route_case(plan, "kt", Self::BUILT_IN_CASE)
             );
             for route in RouteCalls::routes_for(plan, verb) {
                 let _ = writeln!(
@@ -41,17 +42,6 @@ impl KotlinRoutes {
             output.push_str("}\n");
         }
         output
-    }
-
-    fn built_in_case(plan: &Plan) -> String {
-        if !BuiltInErrors::used(plan) {
-            return String::new();
-        }
-        let arguments = super::super::error_calls::ErrorCalls::arguments(plan, "kt");
-        format!(
-            "    if (route == \"{}\") return __YonErrors.handle(__YonBuiltInErrors.create(values.getOrNull(0)), request{arguments})\n",
-            BuiltInError::ROUTE
-        )
     }
 
     fn arguments(controller: &str, route: &Route) -> String {

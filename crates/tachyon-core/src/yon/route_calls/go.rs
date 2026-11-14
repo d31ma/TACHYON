@@ -1,6 +1,5 @@
 use super::RouteCalls;
 use crate::go_source::GoFile;
-use crate::yon::built_in_error::BuiltInError;
 use crate::yon::built_in_errors::BuiltInErrors;
 use crate::yon::error_calls::ErrorCalls;
 use crate::yon::go_container::{GoContainer, GoRouteResult};
@@ -11,6 +10,8 @@ use std::fmt::Write as _;
 pub(super) struct GoRoutes;
 
 impl GoRoutes {
+    const BUILT_IN_CASE: &'static str = "\tif request.Route() == \"{route}\" { return __yon_handle_error__(__yon_built_in_error__(request), request{arguments}) }\n";
+
     pub(super) fn functions(plan: &Plan, stripped: &str) -> Result<String, String> {
         let imports = GoImports::for_types(stripped, &Self::argument_types(plan))?;
         let mut output = format!("\n{}routes\npackage main\n{imports}", GoFile::MARKER);
@@ -21,7 +22,7 @@ impl GoRoutes {
                 output,
                 "\nfunc __yon_route_{verb}__(controller *{}, request *yonRequest{parameters}) (any, error) {{\n{}\tswitch request.Route() {{\n",
                 plan.controller,
-                Self::built_in_case(plan, &error_arguments)
+                BuiltInErrors::route_case(plan, "go", Self::BUILT_IN_CASE)
             );
             for route in RouteCalls::routes_for(plan, verb) {
                 let call = format!("controller.{}({})", route.method, Self::arguments(route));
@@ -48,16 +49,6 @@ impl GoRoutes {
             output.push_str("\t}\n\treturn nil, yonNoRoute()\n}\n");
         }
         Ok(output)
-    }
-
-    fn built_in_case(plan: &Plan, error_arguments: &str) -> String {
-        if !BuiltInErrors::used(plan) {
-            return String::new();
-        }
-        format!(
-            "\tif request.Route() == \"{}\" {{ return __yon_handle_error__(__yon_built_in_error__(request), request{error_arguments}) }}\n",
-            BuiltInError::ROUTE
-        )
     }
 
     fn stream_body(
