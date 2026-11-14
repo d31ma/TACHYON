@@ -184,3 +184,14 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
+
+jsQR-1.4.0
+==========
+
+Copyright Cosmo Wolfe and contributors. https://github.com/cozmo/jsQR
+
+Licensed under the Apache License, Version 2.0. Tachyon ships the unchanged
+file dist/jsQR.js as .tachyon/tac-qr-decoder.js to apps that grant the camera
+browser API (ADR 0130). The full license text is in
+crates/tachyon-core/src/template/vendor/jsQR.LICENSE and at
+https://www.apache.org/licenses/LICENSE-2.0.

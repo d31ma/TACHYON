@@ -4,17 +4,26 @@ pub(super) struct AndroidBrowserApis;
 
 impl AndroidBrowserApis {
     const JAVA: &'static str = include_str!("native_browser_apis_android.java");
-    const ANSWERED: [&'static str; 5] = [
+    const ANSWERED: [&'static str; 6] = [
+        "camera",
         "clipboard",
         "share",
         "notifications",
         "geolocation",
         "persistentStorage",
     ];
-    const MANIFEST_PERMISSIONS: [(&'static str, &'static str); 3] = [
+    const MANIFEST_PERMISSIONS: [(&'static str, &'static str); 4] = [
+        ("camera", "android.permission.CAMERA"),
         ("geolocation", "android.permission.ACCESS_COARSE_LOCATION"),
         ("geolocation", "android.permission.ACCESS_FINE_LOCATION"),
         ("notifications", "android.permission.POST_NOTIFICATIONS"),
+    ];
+    const MANIFEST_FEATURES: [(&'static str, &'static str); 1] =
+        [("camera", "android.hardware.camera.any")];
+    const PERMISSION_LINE: [&'static str; 2] = ["\n  <uses-permission android:name=\"", "\"/>"];
+    const FEATURE_LINE: [&'static str; 2] = [
+        "\n  <uses-feature android:name=\"",
+        "\" android:required=\"false\"/>",
     ];
 
     pub(super) fn java(permissions: &BrowserApiPermissions) -> String {
@@ -27,12 +36,26 @@ impl AndroidBrowserApis {
     }
 
     pub(super) fn manifest_permissions(permissions: &BrowserApiPermissions) -> String {
-        Self::MANIFEST_PERMISSIONS
+        [
+            Self::manifest_lines(
+                permissions,
+                &Self::MANIFEST_PERMISSIONS,
+                Self::PERMISSION_LINE,
+            ),
+            Self::manifest_lines(permissions, &Self::MANIFEST_FEATURES, Self::FEATURE_LINE),
+        ]
+        .concat()
+    }
+
+    fn manifest_lines(
+        permissions: &BrowserApiPermissions,
+        entries: &[(&str, &str)],
+        line: [&str; 2],
+    ) -> String {
+        entries
             .iter()
             .filter(|(api, _)| permissions.is_granted(api))
-            .map(|(_, permission)| {
-                ["\n  <uses-permission android:name=\"", permission, "\"/>"].concat()
-            })
+            .map(|(_, name)| [line[0], name, line[1]].concat())
             .collect()
     }
 
@@ -99,6 +122,10 @@ mod tests {
             AndroidBrowserApis::manifest_permissions(&granting(&["notifications"])),
             "\n  <uses-permission android:name=\"android.permission.POST_NOTIFICATIONS\"/>"
         );
+        assert_eq!(
+            AndroidBrowserApis::manifest_permissions(&granting(&["camera"])),
+            "\n  <uses-permission android:name=\"android.permission.CAMERA\"/>\n  <uses-feature android:name=\"android.hardware.camera.any\" android:required=\"false\"/>"
+        );
     }
 
     #[test]
@@ -112,6 +139,27 @@ mod tests {
         assert!(java.contains("requestPermissions(permissions, requestCode);"));
         assert!(java.contains("shouldShowRequestPermissionRationale(permissions[0])"));
         assert!(java.contains("\"tachyon_permission_\" + api"));
+    }
+
+    #[test]
+    fn the_camera_goes_only_to_the_app_pages_after_the_runtime_request() {
+        let java = AndroidBrowserApis::template();
+        assert!(
+            java.contains(
+                "public void onPermissionRequest(android.webkit.PermissionRequest request)"
+            )
+        );
+        assert!(java.contains("{android.webkit.PermissionRequest.RESOURCE_VIDEO_CAPTURE, \"camera\", \"android.permission.CAMERA\"},"));
+        assert!(java.contains(
+            "if (origin == null || !isAssetUrl(origin) || resources.length == 0) return null;"
+        ));
+        assert!(
+            java.contains("if (row[0].equals(resource) && browserApiGranted(row[1])) return row;")
+        );
+        assert!(
+            java.contains("askAndroidPermission(CAPTURE_PERMISSION_REQUEST, missing, rows[0][1],")
+        );
+        assert!(java.contains("request.deny();"));
     }
 
     #[test]

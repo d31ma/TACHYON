@@ -254,6 +254,20 @@ function Media:mute(track, muted)
   TacWebHost.call("media", "mute", { track, muted })
 end
 
+CodeScanner = {}
+
+function CodeScanner:supported()
+  return TacWebHost.call("codeScanner", "supported") == true
+end
+
+function CodeScanner:scan()
+  TacWebHost.call("codeScanner", "scan")
+end
+
+function CodeScanner:cancel()
+  TacWebHost.call("codeScanner", "cancel")
+end
+
 Geolocation = {}
 
 function Geolocation:current_position()

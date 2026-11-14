@@ -44,13 +44,14 @@ impl JavaWebApis {
         ("Files", include_str!("../web_apis/Files.java")),
     ];
     const EVENTS_FILE: &'static str = "tachyon/TacWebEvents.java";
-    const LATER_CLIENTS: [(&'static str, &'static str); 3] = [
+    const LATER_CLIENTS: [(&'static str, &'static str); 4] = [
         (
             "StorageSpace",
             include_str!("../web_apis/StorageSpace.java"),
         ),
         ("Passkeys", include_str!("../web_apis/Passkeys.java")),
         ("Media", include_str!("../web_apis/Media.java")),
+        ("CodeScanner", include_str!("../web_apis/CodeScanner.java")),
     ];
     const EXTENSION: &'static str = "java";
 

@@ -201,6 +201,15 @@ public:
     void mute(const std::string& track, bool muted) const { TacWebCall::answer("media", "mute", TacWebCall::arguments(track, muted)); }
 };
 
+class CodeScanner {
+public:
+    bool supported() const { return TacWebCall::flag("codeScanner", "supported"); }
+
+    void scan() const { TacWebCall::answer("codeScanner", "scan"); }
+
+    void cancel() const { TacWebCall::answer("codeScanner", "cancel"); }
+};
+
 class Geolocation {
 public:
     void currentPosition() const { TacWebCall::answer("geolocation", "currentPosition"); }
@@ -239,5 +248,6 @@ using tachyon::web::Share;
 using tachyon::web::StorageSpace;
 using tachyon::web::Passkeys;
 using tachyon::web::Media;
+using tachyon::web::CodeScanner;
 using tachyon::web::Files;
 using tachyon::web::WindowControls;

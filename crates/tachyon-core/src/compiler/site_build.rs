@@ -4,6 +4,7 @@ use super::component_styles::ComponentStyles;
 use super::content_digest::ContentDigest;
 use super::exported_elements::ExportedElements;
 use super::output_path::OutputPath;
+use super::page_code_scanner::PageCodeScanner;
 use super::page_composition::PageComposition;
 use super::page_head::PageHead;
 use super::page_media::PageMedia;
@@ -61,6 +62,8 @@ pub(super) struct SiteBuild<'a> {
     web_push_tag: &'static str,
     passkeys_tag: &'static str,
     media_tag: &'static str,
+    code_scanner_tag: String,
+    code_scanner: bool,
     phase_started: Instant,
     timings: Vec<(String, Duration)>,
     service_timings: Vec<(String, Duration)>,
@@ -116,6 +119,8 @@ impl<'a> SiteBuild<'a> {
             web_push_tag: "",
             passkeys_tag: "",
             media_tag: "",
+            code_scanner_tag: String::new(),
+            code_scanner: false,
             phase_started,
             timings: Vec::new(),
             service_timings: Vec::new(),
@@ -145,6 +150,8 @@ impl<'a> SiteBuild<'a> {
         self.passkeys_tag = PagePasskeys::tag(site);
         self.media_tag = PageMedia::tag(site);
         self.service_notes.extend(PagePasskeys::note(site));
+        self.code_scanner_tag = PageCodeScanner::tag(site);
+        self.code_scanner = PageCodeScanner::granted(site);
         let dependency_digest = self.route_dependency_digest();
         let routes = Self::renderable_routes(self.project, programs);
         self.add_routes(routes, previous, site, &dependency_digest)
@@ -218,6 +225,7 @@ impl<'a> SiteBuild<'a> {
         self.add_page_files_file();
         self.add_passkeys_file();
         self.add_media_files();
+        self.add_code_scanner_files();
         let version = ServiceWorker::version(&self.files, self.build_config_digest.as_deref());
         let python_profile =
             crate::tac_python::RuntimeProfile::for_files(self.snapshot_root, &self.files)?;
@@ -617,6 +625,7 @@ impl<'a> SiteBuild<'a> {
         html = PageHead::inject_before_runtime(&html, self.web_push_tag);
         html = PageHead::inject_before_runtime(&html, self.passkeys_tag);
         html = PageHead::inject_before_runtime(&html, self.media_tag);
+        html = PageHead::inject_before_runtime(&html, &self.code_scanner_tag);
         PageHead::inject_before(&html, "</body>", WebCompiler::SERVICE_WORKER_LINK)
     }
 
@@ -654,6 +663,13 @@ impl<'a> SiteBuild<'a> {
         let wanted = !self.media_tag.is_empty();
         for (path, bytes) in PageMedia::files().into_iter().filter(|_| wanted) {
             self.add_file(path, bytes);
+        }
+    }
+
+    fn add_code_scanner_files(&mut self) {
+        if self.code_scanner {
+            self.add_file(PageCodeScanner::PATH, PageCodeScanner::script());
+            self.add_file(PageCodeScanner::DECODER_PATH, PageCodeScanner::decoder());
         }
     }
 

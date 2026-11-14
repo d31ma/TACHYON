@@ -470,6 +470,16 @@
     "android": {"reach": "adapted", "note": "The Android WebView has no getDisplayMedia, so Media.supported(\"screen\") answers false and captureScreen answers MediaFailed with reason unsupported; phones share screens later (ADR 0129)."}
   },
   {
+    "member": "tac.browserApis camera",
+    "paths": ["tac.browserApis[camera]", "tac.application.permissions.camera"],
+    "web": {"reach": "honored", "how": "CodeScanner.scan opens the camera with getUserMedia in a view that Tachyon draws, reads one QR code with BarcodeDetector or the shipped jsQR decoder, and answers CodeScanned or ScanFailed (ADR 0130); the reason shows in the view; checked in Chromium, Firefox and WebKit with a canvas camera (scripts/code-scanner-browser-test.mjs)"},
+    "macos": {"reach": "adapted", "note": "The host answers CodeScanner itself with AVFoundation and the Vision framework in a native sheet over the window (ADR 0130). The reason becomes NSCameraUsageDescription and the build adds the hardened-runtime camera entitlement; a camera grant without a reason stops the build (TY1601). Without a camera, supported answers false."},
+    "windows": {"reach": "honored", "how": "the WebView2 page runs the same camera view and decoder as the web; the host's PermissionRequested decision allows the camera only for the app's own pages when camera is granted, and the microphone stays denied (ADR 0130)"},
+    "linux": {"reach": "adapted", "note": "The WebKitGTK web view of the Linux app has no camera access yet, so CodeScanner.supported answers false and scan answers ScanFailed with reason unsupported (ADR 0130)."},
+    "ios": {"reach": "adapted", "note": "The host answers CodeScanner itself with AVFoundation and the Vision framework in a full-screen native view (ADR 0130). The reason becomes NSCameraUsageDescription; a camera grant without a reason stops the build (TY1601). The simulator has no camera, so supported answers false there."},
+    "android": {"reach": "honored", "how": "the WebView page runs the same camera view and decoder as the web; onPermissionRequest grants only video capture, only for the app's own pages, after the CAMERA runtime permission with the manifest reason as its rationale; the manifest adds android.permission.CAMERA and an optional android.hardware.camera.any feature (ADR 0130)"}
+  },
+  {
     "member": "tac.browserApis persistentStorage",
     "paths": ["tac.browserApis[persistentStorage]"],
     "web": {"reach": "honored", "how": "navigator.storage.persist(), persisted() and estimate() in a secure page (ADR 0123); an insecure page answers quota 0 and persisted false; Firefox asks the user, Chromium decides by itself, Safari 15.2 and later"},

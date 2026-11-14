@@ -330,3 +330,23 @@ fn the_go_license_beside_the_glue_does_not_count_toward_a_budget() {
     ));
     assert_eq!(messages_for(manifest, &files), messages(manifest));
 }
+
+#[test]
+fn the_code_scanner_and_its_decoder_count_toward_a_granting_route() {
+    let scanner = super::super::page_code_scanner::PageCodeScanner::script();
+    let decoder = super::super::page_code_scanner::PageCodeScanner::decoder();
+    let mut files = site();
+    files[0].1.extend_from_slice(
+        br#"<script type="module" src="/.tachyon/tac-code-scanner.js" data-tachyon-runtime></script>"#,
+    );
+    files.push((PathBuf::from(".tachyon/tac-code-scanner.js"), scanner));
+    files.push((PathBuf::from(".tachyon/tac-qr-decoder.js"), decoder));
+    let root = project(r#"{"tac":{"budgets":{"check":true,"script":2}}}"#);
+    let failure = BudgetCheck::verify(root.path(), &files, true, &|_| None).expect_err("over");
+    let help = failure.diagnostics()[0].help.clone().expect("help");
+    assert!(
+        help.starts_with("The biggest files: /.tachyon/tac-qr-decoder.js ("),
+        "{help}"
+    );
+    assert!(help.contains("/.tachyon/tac-code-scanner.js"), "{help}");
+}

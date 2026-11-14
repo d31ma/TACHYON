@@ -80,7 +80,8 @@ A native app has no browser for some APIs. Either the web view answers by
 itself, or the host answers a `browserApi.<api>.<call>` host call:
 
 - [ ] Apple: `native/browser_apis/AppleBrowserApis.swift` (plus a new Swift
-      file listed in `native/apple_browser_apis.rs`).
+      file listed in `native/apple_browser_apis.rs`). `AppleCodeScanner.swift`
+      (ADR 0130) shows a host answer that draws its own native view.
 - [ ] Android: `native/native_browser_apis_android.java`.
 - [ ] Windows: `native/windows_browser_apis.c`, with checks in
       `native/windows_browser_api_fixture.c`.

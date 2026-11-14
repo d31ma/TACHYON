@@ -14,6 +14,7 @@ class TacWebApis {
   static hostPermission = globalThis.__tachyonNotificationPermission ?? 'default'
   static pushKey = Symbol.for('tachyon.tac.push')
   static passkeysKey = Symbol.for('tachyon.tac.passkeys')
+  static scannerKey = Symbol.for('tachyon.tac.codeScanner')
   static clock = Object.freeze({
     now: () => Date.now(),
     monotonic: () => performance.now(),
@@ -76,6 +77,11 @@ class TacWebApis {
   })
   static mediaCalls = ['supported', 'devices', 'chooseSpeaker', 'captureMicrophone', 'captureCamera', 'captureScreen', 'stopTrack', 'mute']
   static media = Object.freeze(Object.fromEntries(TacWebApis.mediaCalls.map((call) => [call, (...values) => TacWebApis.mediaCall(call, values)])))
+  static codeScanner = Object.freeze({
+    supported: () => TacWebApis.bridged('codeScanner') ? globalThis.__tachyonCameraPresent === true : globalThis[TacWebApis.scannerKey]?.supported() === true,
+    scan: () => TacWebApis.scanLater('scan', true),
+    cancel: () => TacWebApis.scanLater('cancel', false),
+  })
   static spaceCounters = []
   static noPush = Object.freeze({
     supported: () => false,
@@ -101,6 +107,7 @@ class TacWebApis {
     storageSpace: TacWebApis.storageSpace,
     passkeys: TacWebApis.passkeys,
     media: TacWebApis.media,
+    codeScanner: TacWebApis.codeScanner,
     nativeCapability: Object.freeze({ call: (...values) => TacNativeCapabilities.now(...values) }),
     files: Object.freeze(Object.fromEntries(['pick', 'read', 'release', 'upload', 'cancel'].map((call) => [call, (...values) => TacWebApis.files(call, values)]))),
   })
@@ -257,13 +264,17 @@ class TacWebApis {
   }
 
   static passkeyLater(call, gesture, values) {
-    return TacWebApis.later({ api: 'passkeys', call, gesture }, () => TacWebApis.passkeyModule()[call](...values), (event) => event)
+    return TacWebApis.later({ api: 'passkeys', call, gesture }, () => TacWebApis.loaded(TacWebApis.passkeysKey, 'The passkeys browser API')[call](...values), (event) => event)
   }
 
-  static passkeyModule() {
-    const module = globalThis[TacWebApis.passkeysKey]
-    if (!module) throw new Error('The passkeys browser API did not load on this page.')
+  static loaded(key, name) {
+    const module = globalThis[key]
+    if (!module) throw new Error(`${name} did not load on this page.`)
     return module
+  }
+
+  static scanLater(call, gesture) {
+    return TacWebApis.later({ api: 'codeScanner', call, grant: 'camera', gesture }, () => TacWebApis.loaded(TacWebApis.scannerKey, 'The code scanner')[call](), (event) => event)
   }
 
   static pushMissing() {

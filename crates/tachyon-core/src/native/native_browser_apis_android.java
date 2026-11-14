@@ -6,6 +6,10 @@
   private static final int NOTIFICATION_PERMISSION_REQUEST = 7301;
   private static final int LOCATION_PERMISSION_REQUEST = 7302;
   private static final int PAGE_FILE_REQUEST = 7303;
+  private static final int CAPTURE_PERMISSION_REQUEST = 7304;
+  private static final String[][] CAPTURE_GRANTS = {
+      {android.webkit.PermissionRequest.RESOURCE_VIDEO_CAPTURE, "camera", "android.permission.CAMERA"},
+  };
 
   private final java.util.HashMap<Integer, java.util.ArrayList<Runnable>> permissionWaiters =
       new java.util.HashMap<>();
@@ -31,6 +35,22 @@
       }
       askAndroidPermission(LOCATION_PERMISSION_REQUEST, LOCATION_PERMISSIONS, "geolocation",
           () -> callback.invoke(origin, holdsLocation(), false));
+    }
+
+    @Override
+    public void onPermissionRequest(android.webkit.PermissionRequest request) {
+      String[][] rows = captureRows(request);
+      if (rows == null) {
+        request.deny();
+        return;
+      }
+      String[] missing = missingPermissions(rows);
+      if (missing.length == 0) {
+        request.grant(request.getResources());
+        return;
+      }
+      askAndroidPermission(CAPTURE_PERMISSION_REQUEST, missing, rows[0][1],
+          () -> answerCaptureRequest(request, rows));
     }
 
     @Override
@@ -61,6 +81,7 @@
 
   private void installBrowserApis() {
     view.getSettings().setGeolocationEnabled(browserApiGranted("geolocation"));
+    if (browserApiGranted("camera")) view.getSettings().setMediaPlaybackRequiresUserGesture(false);
     view.setWebChromeClient(new BrowserApiChromeClient());
     publishNotificationPermission();
   }
@@ -255,6 +276,41 @@
       if (checkSelfPermission(permission) == android.content.pm.PackageManager.PERMISSION_GRANTED) return true;
     }
     return false;
+  }
+
+  private String[][] captureRows(android.webkit.PermissionRequest request) {
+    Uri origin = request.getOrigin();
+    String[] resources = request.getResources();
+    if (origin == null || !isAssetUrl(origin) || resources.length == 0) return null;
+    String[][] rows = new String[resources.length][];
+    for (int index = 0; index < resources.length; index++) {
+      rows[index] = captureRow(resources[index]);
+      if (rows[index] == null) return null;
+    }
+    return rows;
+  }
+
+  private static String[] captureRow(String resource) {
+    for (String[] row : CAPTURE_GRANTS) {
+      if (row[0].equals(resource) && browserApiGranted(row[1])) return row;
+    }
+    return null;
+  }
+
+  private String[] missingPermissions(String[][] rows) {
+    java.util.ArrayList<String> missing = new java.util.ArrayList<>();
+    for (String[] row : rows) {
+      if (checkSelfPermission(row[2]) != android.content.pm.PackageManager.PERMISSION_GRANTED) missing.add(row[2]);
+    }
+    return missing.toArray(new String[0]);
+  }
+
+  private void answerCaptureRequest(android.webkit.PermissionRequest request, String[][] rows) {
+    if (missingPermissions(rows).length == 0) {
+      request.grant(request.getResources());
+      return;
+    }
+    request.deny();
   }
 
   private String permissionReason(String api) {

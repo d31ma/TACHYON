@@ -20,7 +20,7 @@ private final class BrowserApiCheck {
             if let saved { board.setString(saved, forType: .string) }
         }
         let bridged = try await page(view, "return globalThis.__tachyonBrowserApiBridge.join(',')", [:])
-        try require(bridged == "clipboard,share,notifications,geolocation", "Page bridge list: " + bridged)
+        try require(bridged == "clipboard,share,notifications,geolocation,codeScanner", "Page bridge list: " + bridged)
         let written = try await call(view, "browserApi.clipboard.writeText", "{\"text\":\"tachyon bridge\"}")
         try require(written == "{\"value\":null}", "writeText answered " + written)
         try require(board.string(forType: .string) == "tachyon bridge", "writeText did not reach the pasteboard")

@@ -22,11 +22,13 @@ pub(crate) struct SiteSettings {
     pub(crate) yon_origins: BTreeMap<String, String>,
     pub(crate) link_hosts: Vec<String>,
     pub(crate) outgoing_hosts: Vec<String>,
+    pub(crate) camera_reason: Option<String>,
 }
 
 impl SiteSettings {
     const MAX_ORIGIN_LENGTH: usize = 256;
     const FILES_GRANT: &'static str = "files";
+    const CAMERA_GRANT: &'static str = "camera";
 
     pub(crate) fn load(project_root: &Path) -> Result<Self, Failure> {
         let manifest = read_manifest(project_root)?;
@@ -41,6 +43,7 @@ impl SiteSettings {
     fn from_manifest(manifest: super::config::WebAppManifest) -> Result<Self, Failure> {
         let manifest_head = manifest_head(&manifest);
         let link_hosts = manifest.link_hosts();
+        let camera_reason = Self::camera_reason(&manifest);
         let tac = manifest.into_tac();
         Self::validate_origin(tac.origin.as_deref())?;
         validate_document_paths("scripts", &tac.scripts)?;
@@ -71,7 +74,15 @@ impl SiteSettings {
             yon_origins: yon.origins(),
             link_hosts,
             outgoing_hosts,
+            camera_reason,
         })
+    }
+
+    fn camera_reason(manifest: &super::config::WebAppManifest) -> Option<String> {
+        manifest
+            .browser_api_permissions()
+            .usage(Self::CAMERA_GRANT)
+            .map(String::from)
     }
 
     fn upload_hosts(

@@ -30,7 +30,11 @@ impl PythonBrowserApis {
         include_str!("web_apis/focus.py"),
         include_str!("web_apis/files.py"),
     );
-    const PASSKEYS: &'static str = include_str!("web_apis/passkeys.py");
+    const PASSKEYS: &'static str = concat!(
+        include_str!("web_apis/passkeys.py"),
+        "\n",
+        include_str!("web_apis/code_scanner.py")
+    );
     const MEDIA: &'static str = include_str!("web_apis/media.py");
     const REGISTER: &'static str = "_TacPythonBrowserClients.register";
 

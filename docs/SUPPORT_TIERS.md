@@ -1804,7 +1804,22 @@ run is not a desktop browser install, and Safari itself was not run; WebKit
 stands in for it. (Superseded: BR2, below, ran Safari 27 on macOS and Safari
 26.5 on the iOS simulator.)
 
-### Passkeys in the browser (2026-11-12, ADR 0126)
+### QR code scanner (2026-11-14, ADR 0130)
+
+`scripts/code-scanner-browser-test.mjs` ran on the macOS test machine in
+Playwright's Chromium, Firefox and WebKit. Each engine got a camera made from
+a canvas that shows a real QR code
+(`crates/tachyon-core/tests/fixtures/code-scanner/qr.txt`), and the shipped
+page read it: Chromium with `BarcodeDetector` and again with it removed (jsQR),
+Firefox and WebKit with jsQR. The run also checked the drawn view (closed
+shadow root, reason, Cancel with the focus), Cancel and Escape as `cancelled`,
+a refused camera as `denied`, and that the camera stops after every scan.
+
+Owed, by hand: a real QR read with a real camera on an iPhone, a Mac with a
+camera, an Android phone and a Windows PC. The macOS test machine, the iOS
+simulator and `windows-vm` have no camera, so on them the apps were checked
+for their build output and for `supported` answering false.
+
 
 `scripts/passkeys-browser-test.mjs` ran on the macOS test machine in
 Playwright's Chromium, Firefox and WebKit. Chromium ran real WebAuthn

@@ -1,5 +1,7 @@
+import AVFoundation
 import CoreLocation
 import UserNotifications
+import Vision
 import WebKit
 
 @MainActor
@@ -12,8 +14,10 @@ final class AppleBrowserApis: NSObject, UNUserNotificationCenterDelegate {
     private var permission = "default"
     private var share: AppleShareSheet?
     private lazy var position = AppleCurrentPosition()
+    private lazy var scanner = AppleCodeScanner()
 
     func prepare(_ view: WKWebView, _ load: @escaping () -> Void) {
+        if granted.contains("camera") { publish("globalThis.__tachyonCameraPresent", String(AppleCodeScanner.present), view) }
         guard granted.contains("notifications") else { load(); return }
         let center = UNUserNotificationCenter.current()
         center.delegate = self
@@ -32,6 +36,10 @@ final class AppleBrowserApis: NSObject, UNUserNotificationCenterDelegate {
             case "browserApi.storageSpace.estimate", "browserApi.storageSpace.persist": reply(AppleStorageSpace.answer(parts[2], granted))
             default: reply(Self.failure(Self.notAnswered))
             }
+            return
+        }
+        if parts.count == 3, parts[1] == "codeScanner" {
+            scan(capability, view, reply)
             return
         }
         guard parts.count == 3, Self.bridged.contains(parts[1]) else { reply(Self.failure(Self.notAnswered)); return }
@@ -128,11 +136,27 @@ final class AppleBrowserApis: NSObject, UNUserNotificationCenterDelegate {
     }
 
     private func announce(_ word: String, _ view: WKWebView?) {
+        publish("globalThis.__tachyonNotificationPermission", "'" + word + "'", view)
+    }
+
+    private func publish(_ name: String, _ value: String, _ view: WKWebView?) {
         view?.configuration.userContentController.addUserScript(WKUserScript(
-            source: "globalThis.__tachyonNotificationPermission = '" + word + "'",
+            source: name + " = " + value,
             injectionTime: .atDocumentStart,
             forMainFrameOnly: true
         ))
+    }
+
+    private func scan(_ capability: String, _ view: WKWebView?, _ reply: @escaping (String) -> Void) {
+        guard granted.contains("camera") else {
+            reply(Self.failure("The camera browser API is not granted. Add \"camera\" to tac.browserApis in client/manifest.json."))
+            return
+        }
+        switch capability {
+        case "browserApi.codeScanner.scan": scanner.scan(view, reply)
+        case "browserApi.codeScanner.cancel": scanner.cancel(reply)
+        default: reply(Self.failure(Self.notAnswered))
+        }
     }
 
     private static func word(_ status: UNAuthorizationStatus) -> String {

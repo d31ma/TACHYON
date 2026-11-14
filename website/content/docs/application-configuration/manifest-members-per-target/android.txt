@@ -141,6 +141,9 @@ tac.browserApis microphone
 tac.browserApis screen
   adapted: The Android WebView has no getDisplayMedia, so Media.supported("screen") answers false and captureScreen answers MediaFailed with reason unsupported; phones share screens later (ADR 0129).
 
+tac.browserApis camera
+  honored: the WebView page runs the same camera view and decoder as the web; onPermissionRequest grants only video capture, only for the app's own pages, after the CAMERA runtime permission with the manifest reason as its rationale; the manifest adds android.permission.CAMERA and an optional android.hardware.camera.any feature (ADR 0130)
+
 tac.browserApis persistentStorage
   run owed: the host answers browserApi.storageSpace with persisted true and StatFs.getAvailableBytes of the files folder; usage comes from the WebView's navigator.storage.estimate() on https://appassets.tachyon.local (ADR 0123); still to run: a StorageSpace service in the app on the Android emulator
 

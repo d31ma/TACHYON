@@ -6,13 +6,14 @@ pub(super) struct MacOsEntitlements;
 impl MacOsEntitlements {
     pub(super) const FILE_NAME: &'static str = "TachyonHost.entitlements";
     pub(super) const LOCATION: &'static str = "com.apple.security.personal-information.location";
+    const CAMERA: &'static str = "com.apple.security.device.camera";
     const HEADER: &'static str = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n\
 <!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n\
 <plist version=\"1.0\">\n<dict>\n";
     const FOOTER: &'static str = "</dict>\n</plist>\n";
 
     pub(super) fn plist(permissions: &BrowserApiPermissions, signed_entries: &str) -> String {
-        let granted = [("geolocation", Self::LOCATION)];
+        let granted = [("geolocation", Self::LOCATION), ("camera", Self::CAMERA)];
         let entries: String = granted
             .iter()
             .filter(|(api, _)| permissions.is_granted(api))
@@ -52,5 +53,18 @@ mod tests {
         );
         assert!(!plist.contains("app-sandbox"), "{plist}");
         assert!(!plist.contains("Shows stores near you"), "{plist}");
+    }
+
+    #[test]
+    fn a_camera_grant_adds_the_hardened_runtime_camera_entitlement() {
+        let permissions =
+            BrowserApiPermissions::declared(&[String::from("camera")], &BTreeMap::new());
+        let plist = MacOsEntitlements::plist(&permissions, "");
+        assert!(
+            plist.contains("<key>com.apple.security.device.camera</key><true/>"),
+            "{plist}"
+        );
+        assert!(!plist.contains("location"), "{plist}");
+        assert!(!plist.contains("microphone"), "{plist}");
     }
 }

@@ -51,6 +51,7 @@ impl WebEventModels {
             Self::storage_rows(),
             Self::passkey_rows(),
             Self::media_rows(),
+            Self::code_scanner_rows(),
             Self::socket_and_failure_rows(),
             Self::store_rows(),
         ]
@@ -222,6 +223,21 @@ impl WebEventModels {
                 WebEventSender::Grant("persistentStorage"),
                 "StoragePersisted",
                 &[("persisted", Shape::Boolean)],
+            ),
+        ]
+    }
+
+    fn code_scanner_rows() -> Vec<(WebEventSender, String, Model)> {
+        vec![
+            Self::record(
+                WebEventSender::Grant("camera"),
+                "CodeScanned",
+                &[("text", Shape::Text)],
+            ),
+            Self::record(
+                WebEventSender::Grant("camera"),
+                "ScanFailed",
+                &[("reason", Shape::Text)],
             ),
         ]
     }

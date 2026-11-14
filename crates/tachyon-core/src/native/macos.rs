@@ -261,9 +261,13 @@ fn info_plist(application: &NativeApplication, icon: Option<&str>) -> String {
             .minimum_system
             .floor(tachyon_contracts::NativeTarget::Macos),
         icon = icon,
-        location = application.permissions.location_plist_entries(
-            &super::browser_api_permissions::BrowserApiPermissions::MACOS_LOCATION_KEYS
-        ),
+        location = [
+            application.permissions.location_plist_entries(
+                &super::browser_api_permissions::BrowserApiPermissions::MACOS_LOCATION_KEYS
+            ),
+            application.permissions.camera_plist_entries(),
+        ]
+        .concat(),
         url_types = application
             .links
             .url_types_plist(&application.application_id),

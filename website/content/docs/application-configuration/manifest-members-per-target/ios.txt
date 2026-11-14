@@ -141,6 +141,9 @@ tac.browserApis microphone
 tac.browserApis screen
   adapted: The iOS WKWebView has no getDisplayMedia, so Media.supported("screen") answers false and captureScreen answers MediaFailed with reason unsupported; phones share screens later (ADR 0129).
 
+tac.browserApis camera
+  adapted: The host answers CodeScanner itself with AVFoundation and the Vision framework in a full-screen native view (ADR 0130). The reason becomes NSCameraUsageDescription; a camera grant without a reason stops the build (TY1601). The simulator has no camera, so supported answers false there.
+
 tac.browserApis persistentStorage
   adapted: tachyon-app:// is not a secure context, so WKWebView has no navigator.storage. The host answers browserApi.storageSpace: persisted is true (iOS deletes the app's data on uninstall, or offloads an app the user does not open), quota is volumeAvailableCapacityForImportantUsage, and usage is the bytes Tachyon's own stores report, 0 until the blob store reports its size (ADR 0123). A run in a built app is still owed.
 

@@ -10,6 +10,20 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- **Tac services scan a QR code with the camera** (ADR 0130). Every Tac
+  service language gets a `CodeScanner` client, with the new grant `camera`
+  in `tac.browserApis` and its reason in `tac.application.permissions.camera`.
+  `scan()` runs from a click or key handler: Tachyon draws a camera view, finds
+  one QR code, closes the camera and answers `CodeScanned { text }` or
+  `ScanFailed { reason }` (`cancelled`, `denied`, `unsupported`, `failed`).
+  `cancel()` closes an open scan, and `supported()` is false where no camera
+  can open. The app never receives camera frames. Browsers read the code with
+  `BarcodeDetector` where it reads QR codes and with the shipped jsQR 1.4.0
+  (Apache-2.0) elsewhere; both files ship only to apps that grant `camera`.
+  macOS and iOS scan in a native view with AVFoundation and Vision
+  (`NSCameraUsageDescription`, the macOS camera entitlement); Android and
+  Windows allow the camera only for the app's own pages; Linux answers
+  `unsupported`. iOS, macOS and Android builds need the reason (`TY1601`).
 - **Tac code never calls the network itself, in any Tac language, and a
   view never names a remote** (ADR 0087 amendment of 2026-11-14). `TY1361`
   now refuses the HTTP library of every Tac language, not only `fetch` in

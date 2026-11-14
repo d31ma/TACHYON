@@ -57,13 +57,17 @@ impl KotlinUnitFiles {
         ),
         ("Focus", include_str!("../native/web_apis/Focus.kt")),
     ];
-    const LATER_APIS: [(&'static str, &'static str); 3] = [
+    const LATER_APIS: [(&'static str, &'static str); 4] = [
         (
             "StorageSpace",
             include_str!("../native/web_apis/StorageSpace.kt"),
         ),
         ("Passkeys", include_str!("../native/web_apis/Passkeys.kt")),
         ("Media", include_str!("../native/web_apis/Media.kt")),
+        (
+            "CodeScanner",
+            include_str!("../native/web_apis/CodeScanner.kt"),
+        ),
     ];
 
     pub(super) fn write(directory: &Path) -> std::io::Result<Vec<PathBuf>> {

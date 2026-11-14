@@ -445,6 +445,8 @@ declare global {
   interface TacPasskeys { supported(): boolean; check(): null; create(optionsJson: string): null; get(optionsJson: string): null; offer(optionsJson: string): null; cancel(): null; }
   /** Media: capture the microphone, the camera and the screen (ADR 0129). Grant "microphone", "camera" or "screen" in tac.browserApis; `captureMicrophone` needs "microphone", `captureCamera` needs "camera", and `captureScreen` needs "screen" and a click or key handler. `supported` answers at once for capture, screen, send, simulcast, frames, speakers or background, and answers false on a page that grants no media API. `devices` lists microphone, camera or speaker devices with `MediaDeviceFound`. `chooseSpeaker` answers with `MediaSpeakerChosen`. A capture call answers with `MediaTrackStarted`; `quality` is low, medium or high. `stopTrack` answers with `MediaTrackEnded`. `mute` acts at once. A failure sends `MediaFailed`. */
   interface TacMedia { supported(feature: string): boolean; devices(request: string): null; chooseSpeaker(device: string): null; captureMicrophone(track: string, device: string, processing: boolean): null; captureCamera(track: string, device: string, quality: string): null; captureScreen(track: string, withAudio: boolean): null; stopTrack(track: string): null; mute(track: string, muted: boolean): null; }
+  /** CodeScanner: reads one QR code with the device camera (ADR 0130). Grant "camera" in tac.browserApis; give the reason in tac.application.permissions.camera. `scan` needs a click or key handler: it shows a camera view that Tachyon draws, closes it after one QR code, and answers with `CodeScanned` or `ScanFailed`. `cancel` closes an open scan, which answers `ScanFailed` with reason cancelled. `supported` is false where no camera can open. The app never receives camera frames. */
+  interface TacCodeScanner { supported(): boolean; scan(): null; cancel(): null; }
   /** FilePickerResult: the status of a native file-picker call (ADR 0089), with an optional opaque handle, basename or UTF-8 text. Failure results expose no host path. */
   interface TacFilePickerResult { status: 'available' | 'selected' | 'cancelled' | 'read' | 'released' | 'denied' | 'unsupported' | 'unavailable' | 'invalid' | 'disposed' | 'tooLarge'; handle?: string; name?: string; text?: string; }
   /** FilePicker: selects one native file and reads UTF-8 text up to 65,536 bytes (ADR 0089). Grant "filePicker" in tac.nativeCapabilities. Handles belong to the owner, and `release` ends access. Picker calls in a browser tab answer `unsupported`. */
@@ -505,6 +507,10 @@ declare global {
   interface MediaTrackEnded { track: string; reason: string; }
   /** MediaFailed: a built-in event model. `reason` is one of unsupported, denied, notFound, busy or failed; `message` is a fixed text for the reason (ADR 0129). */
   interface MediaFailed { track: string; call: string; reason: string; message: string; }
+  /** CodeScanned: a built-in event model. `text` is the text of the one QR code that `CodeScanner.scan` found (ADR 0130). It is untrusted input. */
+  interface CodeScanned { text: string; }
+  /** ScanFailed: a built-in event model. `reason` is one of cancelled, denied, unsupported or failed (ADR 0130). */
+  interface ScanFailed { reason: string; }
   /** BrowserCallFailed: a built-in event model. A browser API call failed after it started (ADR 0065). */
   interface BrowserCallFailed { api: string; call: string; message: string; }
   /** FilePicked: a built-in event model, one per chosen file, sent to the caller of `Files.pick` (ADR 0116). */
@@ -541,6 +547,7 @@ declare global {
     storageSpace: TacStorageSpace;
     passkeys: TacPasskeys;
     media: TacMedia;
+    codeScanner: TacCodeScanner;
     filePicker: TacFilePicker;
   }
   /** OnEvent: this method listens for one event model, the type of its one parameter (`placed(order: OrderPlaced)`). A payload that does not fit the model is not delivered. When the method's return type is a model, the value it returns is published as that model. Write `@OnEvent`, or `@OnEvent({ condition, id, replay })`. */

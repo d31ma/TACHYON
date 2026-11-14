@@ -141,6 +141,9 @@ tac.browserApis microphone
 tac.browserApis screen
   adapted: The WebKitGTK app has no WebRTC media yet; the Linux shell work (P8) brings it. Until then captureScreen answers MediaFailed with reason unsupported or denied (ADR 0129).
 
+tac.browserApis camera
+  adapted: The WebKitGTK web view of the Linux app has no camera access yet, so CodeScanner.supported answers false and scan answers ScanFailed with reason unsupported (ADR 0130).
+
 tac.browserApis persistentStorage
   run owed: the host answers browserApi.storageSpace with persisted true and the free space of the user data folder (GIO); usage comes from WebKitGTK's navigator.storage.estimate() on the secure tachyon:// scheme, or 0 where that WebKitGTK has no StorageManager (ADR 0123); still to run: a StorageSpace service in the GTK app; the WebKitGTK browser API fixture checks the host calls only
 

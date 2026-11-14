@@ -35,6 +35,9 @@ mod foundation_selectors;
 mod foundation_values;
 mod module_code;
 mod output_path;
+mod page_code_scanner;
+#[cfg(test)]
+mod page_code_scanner_tests;
 mod page_composition;
 mod page_files;
 #[cfg(test)]

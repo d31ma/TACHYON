@@ -246,9 +246,13 @@ pub(super) fn info_plist(
         build = application.build,
         deployment = application.minimum_system.floor(NativeTarget::Ios),
         icon_block = icon_block(icons),
-        location = application.permissions.location_plist_entries(
-            &super::browser_api_permissions::BrowserApiPermissions::IOS_LOCATION_KEYS
-        ),
+        location = [
+            application.permissions.location_plist_entries(
+                &super::browser_api_permissions::BrowserApiPermissions::IOS_LOCATION_KEYS
+            ),
+            application.permissions.camera_plist_entries(),
+        ]
+        .concat(),
         url_types = application
             .links
             .url_types_plist(&application.application_id),

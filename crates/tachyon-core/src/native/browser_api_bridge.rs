@@ -4,11 +4,12 @@ pub(super) struct BrowserApiBridge;
 
 impl BrowserApiBridge {
     #[cfg(test)]
-    const OPERATIONS: [(&'static str, &'static [&'static str]); 4] = [
+    const OPERATIONS: [(&'static str, &'static [&'static str]); 5] = [
         ("clipboard", &["writeText", "readText"]),
         ("share", &["open"]),
         ("notifications", &["requestPermission", "show"]),
         ("geolocation", &["currentPosition"]),
+        ("codeScanner", &["scan", "cancel"]),
     ];
     #[cfg(test)]
     const EVERY_HOST: [&'static str; 2] = [
@@ -18,11 +19,23 @@ impl BrowserApiBridge {
     const BRIDGED: [(NativeTarget, &'static [&'static str]); 5] = [
         (
             NativeTarget::Macos,
-            &["clipboard", "share", "notifications", "geolocation"],
+            &[
+                "clipboard",
+                "share",
+                "notifications",
+                "geolocation",
+                "codeScanner",
+            ],
         ),
         (
             NativeTarget::Ios,
-            &["clipboard", "share", "notifications", "geolocation"],
+            &[
+                "clipboard",
+                "share",
+                "notifications",
+                "geolocation",
+                "codeScanner",
+            ],
         ),
         (
             NativeTarget::Android,
@@ -165,9 +178,9 @@ mod tests {
         for target in [NativeTarget::Macos, NativeTarget::Ios] {
             assert_eq!(
                 BrowserApiBridge::page_list(target),
-                "['clipboard', 'share', 'notifications', 'geolocation']"
+                "['clipboard', 'share', 'notifications', 'geolocation', 'codeScanner']"
             );
-            assert_eq!(BrowserApiBridge::operations(target).len(), 6);
+            assert_eq!(BrowserApiBridge::operations(target).len(), 8);
         }
     }
 }

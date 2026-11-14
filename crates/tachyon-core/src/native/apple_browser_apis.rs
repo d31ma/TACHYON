@@ -7,7 +7,10 @@ impl AppleBrowserApis {
         include_str!("browser_apis/AppleBrowserApis.swift"),
         include_str!("browser_apis/AppleShareSheet.swift"),
         include_str!("browser_apis/AppleCurrentPosition.swift"),
-        include_str!("browser_apis/AppleStorageSpace.swift")
+        include_str!("browser_apis/AppleStorageSpace.swift"),
+        include_str!("browser_apis/AppleCodeScanner.swift"),
+        include_str!("browser_apis/AppleCodeCapture.swift"),
+        include_str!("browser_apis/AppleCodeScannerView.swift")
     );
 
     pub(super) fn swift_grants(permissions: &BrowserApiPermissions) -> String {
@@ -52,12 +55,16 @@ mod tests {
             assert!(source.contains("final class AppleBrowserApis"));
             assert!(source.contains("final class AppleShareSheet"));
             assert!(source.contains("final class AppleCurrentPosition"));
+            assert!(source.contains("final class AppleCodeScanner"));
+            assert!(
+                source.contains("case \"browserApi.codeScanner.scan\": scanner.scan(view, reply)")
+            );
             assert!(source.contains(
                 "if capability.hasPrefix(\"browserApi.\") {\n            AppleBrowserApis.shared.call(capability, request, webView) { replyHandler($0, nil) }"
             ));
             assert!(source.contains("AppleBrowserApis.shared.prepare(view) {"));
             assert!(source.contains(
-                "globalThis.__tachyonBrowserApiBridge = Object.freeze(['clipboard', 'share', 'notifications', 'geolocation'])"
+                "globalThis.__tachyonBrowserApiBridge = Object.freeze(['clipboard', 'share', 'notifications', 'geolocation', 'codeScanner'])"
             ));
             assert!(!source.contains("__NATIVE_BROWSER_API"));
         }
@@ -93,6 +100,7 @@ mod tests {
             include_str!("../template/tac-web.js"),
         ] {
             assert!(source.contains("globalThis.__tachyonNotificationPermission"));
+            assert!(source.contains("globalThis.__tachyonCameraPresent"));
         }
     }
 }

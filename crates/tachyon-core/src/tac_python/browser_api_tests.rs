@@ -231,6 +231,42 @@ impl BrowserApiPage {
          _report['failure'] = _ask('stamp', {'op': 'get', 'name': 'failure'})\n\
          _report['requests'] = [[item['api'], item['call'], item['args']] for item in _requests]\n";
 
+    const CODE_SCANNER: [(&'static str, &'static str); 1] = [(
+        "client/services/StampService.py",
+        "from typing import Annotated\n\n\
+         @service\n\
+         class StampService:\n\
+         \x20   code_scanner: Annotated[CodeScanner, needs]\n\
+         \x20   ready: bool = False\n\
+         \x20   linked: str = ''\n\
+         \x20   failure: str = ''\n\n\
+         \x20   def link(self) -> None:\n\
+         \x20       self.ready = self.code_scanner.supported()\n\
+         \x20       self.code_scanner.scan()\n\
+         \x20       self.code_scanner.cancel()\n\n\
+         \x20   @on_event\n\
+         \x20   def scanned(self, scanned: CodeScanned) -> None:\n\
+         \x20       self.linked = scanned.text\n\n\
+         \x20   @on_event\n\
+         \x20   def failed(self, failed: ScanFailed) -> None:\n\
+         \x20       self.failure = failed.reason\n",
+    )];
+
+    const CODE_SCANNER_DRIVER: &'static str = "_requests = []\n\
+         def _web(text):\n\
+         \x20   request = json.loads(text)\n\
+         \x20   _requests.append(request)\n\
+         \x20   return json.dumps({'value': request['call'] == 'supported' or None})\n\
+         _TacPythonRuntime.connect(_emitted.append, None, web=_web)\n\
+         _report = {'init': _ask('stamp', {'op': 'init', 'props': {}})}\n\
+         _report['link'] = _ask('stamp', {'op': 'call', 'name': 'link', 'args': []})\n\
+         _report['heard'] = _ask('stamp', {'op': 'event', 'name': 'scanned', 'value': {'text': 'tachyon-link:demo'}})\n\
+         _report['failed'] = _ask('stamp', {'op': 'event', 'name': 'failed', 'value': {'reason': 'denied'}})\n\
+         _report['ready'] = _ask('stamp', {'op': 'get', 'name': 'ready'})\n\
+         _report['linked'] = _ask('stamp', {'op': 'get', 'name': 'linked'})\n\
+         _report['failure'] = _ask('stamp', {'op': 'get', 'name': 'failure'})\n\
+         _report['requests'] = [[item['api'], item['call'], item['args']] for item in _requests]\n";
+
     const ATTACH: [(&'static str, &'static str); 1] = [(
         "client/services/AttachService.py",
         "from typing import Annotated\n\n\
@@ -552,6 +588,35 @@ fn a_python_web_service_captures_media_and_hears_media_events() {
             ["media", "supported", ["capture"]],
             ["media", "captureMicrophone", ["mic", "", true]],
             ["media", "captureCamera", ["cam", "", "low"]],
+        ]),
+        "{report}"
+    );
+}
+
+#[test]
+fn a_python_web_service_scans_a_code() {
+    if !PythonPage::has_python() {
+        return;
+    }
+    let report = PythonPage::run(
+        &BrowserApiPage::CODE_SCANNER,
+        &["stamp"],
+        BrowserApiPage::CODE_SCANNER_DRIVER,
+    );
+    assert_eq!(report["link"], json!({"value": null}), "{report}");
+    assert_eq!(report["ready"], json!({"value": true}), "{report}");
+    assert_eq!(
+        report["linked"],
+        json!({"value": "tachyon-link:demo"}),
+        "{report}"
+    );
+    assert_eq!(report["failure"], json!({"value": "denied"}), "{report}");
+    assert_eq!(
+        report["requests"],
+        json!([
+            ["codeScanner", "supported", []],
+            ["codeScanner", "scan", []],
+            ["codeScanner", "cancel", []]
         ]),
         "{report}"
     );

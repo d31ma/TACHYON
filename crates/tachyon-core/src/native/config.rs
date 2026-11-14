@@ -492,7 +492,9 @@ impl WebAppManifest {
         self.tac.as_ref()?.application.as_ref()
     }
 
-    fn browser_api_permissions(&self) -> super::browser_api_permissions::BrowserApiPermissions {
+    pub(super) fn browser_api_permissions(
+        &self,
+    ) -> super::browser_api_permissions::BrowserApiPermissions {
         let granted = self
             .tac
             .as_ref()

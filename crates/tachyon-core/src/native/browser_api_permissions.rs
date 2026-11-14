@@ -11,8 +11,9 @@ pub(super) struct BrowserApiPermissions {
 }
 
 impl BrowserApiPermissions {
-    const ASKING_APIS: [&'static str; 2] = ["geolocation", "notifications"];
-    const HOST_CHECKED: [&'static str; 5] = [
+    const ASKING_APIS: [&'static str; 3] = ["camera", "geolocation", "notifications"];
+    const HOST_CHECKED: [&'static str; 6] = [
+        "camera",
         "clipboard",
         "geolocation",
         "notifications",
@@ -20,13 +21,17 @@ impl BrowserApiPermissions {
         "share",
     ];
     const MOST_CHARACTERS: usize = 200;
-    const REQUIRED: [(&'static str, NativeTarget); 4] = [
+    const REQUIRED: [(&'static str, NativeTarget); 7] = [
+        ("camera", NativeTarget::Ios),
+        ("camera", NativeTarget::Macos),
+        ("camera", NativeTarget::Android),
         ("geolocation", NativeTarget::Ios),
         ("geolocation", NativeTarget::Macos),
         ("geolocation", NativeTarget::Android),
         ("notifications", NativeTarget::Android),
     ];
     pub(super) const IOS_LOCATION_KEYS: [&'static str; 1] = ["NSLocationWhenInUseUsageDescription"];
+    const CAMERA_KEYS: [&'static str; 1] = ["NSCameraUsageDescription"];
     pub(super) const MACOS_LOCATION_KEYS: [&'static str; 2] = [
         "NSLocationUsageDescription",
         "NSLocationWhenInUseUsageDescription",
@@ -61,7 +66,15 @@ impl BrowserApiPermissions {
     }
 
     pub(super) fn location_plist_entries(&self, keys: &[&str]) -> String {
-        self.usage("geolocation").map_or_else(String::new, |text| {
+        self.usage_plist_entries("geolocation", keys)
+    }
+
+    pub(super) fn camera_plist_entries(&self) -> String {
+        self.usage_plist_entries("camera", &Self::CAMERA_KEYS)
+    }
+
+    fn usage_plist_entries(&self, api: &str, keys: &[&str]) -> String {
+        self.usage(api).map_or_else(String::new, |text| {
             Self::plist_entries(keys, &xml_escape(text))
         })
     }
@@ -223,6 +236,47 @@ mod tests {
         notified
             .validate_for(NativeTarget::Ios)
             .expect("Apple asks with its own text");
+    }
+
+    #[test]
+    fn the_camera_needs_a_reason_on_apple_and_android_and_writes_the_camera_key() {
+        let unexplained = permissions(&["camera"], &[]);
+        for target in [
+            NativeTarget::Ios,
+            NativeTarget::Macos,
+            NativeTarget::Android,
+        ] {
+            let error = message(&unexplained.validate_for(target).expect_err("refused"));
+            assert!(error.contains("TY1601"), "{error}");
+            assert!(
+                error.contains("tac.application.permissions.camera"),
+                "{error}"
+            );
+        }
+        for target in [NativeTarget::Windows, NativeTarget::Linux] {
+            unexplained.validate_for(target).expect("no reason needed");
+        }
+        assert_eq!(unexplained.camera_plist_entries(), "");
+        let explained = permissions(&["camera"], &[("camera", "Links <your> phone")]);
+        explained.validate().expect("a valid reason");
+        for target in [
+            NativeTarget::Ios,
+            NativeTarget::Macos,
+            NativeTarget::Android,
+        ] {
+            explained.validate_for(target).expect("explained");
+        }
+        assert_eq!(
+            explained.camera_plist_entries(),
+            "\n<key>NSCameraUsageDescription</key><string>Links &lt;your&gt; phone</string>"
+        );
+        assert!(explained.android_strings().contains(
+            "<string name=\"tachyon_permission_camera\">Links &lt;your&gt; phone</string>"
+        ));
+        assert_eq!(
+            explained.c_grant_checks(),
+            "if (strcmp(api, \"camera\") == 0) return TRUE;"
+        );
     }
 
     #[test]

@@ -141,6 +141,9 @@ tac.browserApis microphone
 tac.browserApis screen
   adapted: WKWebView on tachyon-app://bundle is a secure context (probe on macOS 27.2), but it shows navigator.mediaDevices only when the app has a camera or microphone usage text, and the host does not answer media capture requests yet. Until that part of ADR 0129 lands, captureScreen answers MediaFailed with reason unsupported.
 
+tac.browserApis camera
+  adapted: The host answers CodeScanner itself with AVFoundation and the Vision framework in a native sheet over the window (ADR 0130). The reason becomes NSCameraUsageDescription and the build adds the hardened-runtime camera entitlement; a camera grant without a reason stops the build (TY1601). Without a camera, supported answers false.
+
 tac.browserApis persistentStorage
   adapted: tachyon-app:// is not a secure context, so WKWebView has no navigator.storage. The host answers browserApi.storageSpace: persisted is true (only uninstalling deletes the app's data), quota is volumeAvailableCapacityForImportantUsage of the home folder, and usage is the bytes Tachyon's own stores report, 0 until the blob store reports its size (ADR 0123). A run in a built app is still owed.
 

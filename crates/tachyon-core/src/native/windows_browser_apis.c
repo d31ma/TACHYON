@@ -150,7 +150,8 @@ static BOOL tachyon_browser_api_granted(const char *api) {
 
 static COREWEBVIEW2_PERMISSION_STATE tachyon_permission_state(COREWEBVIEW2_PERMISSION_KIND kind, BOOL own_page) {
   const char *api = kind == COREWEBVIEW2_PERMISSION_KIND_GEOLOCATION ? "geolocation"
-    : kind == COREWEBVIEW2_PERMISSION_KIND_CLIPBOARD_READ ? "clipboard" : NULL;
+    : kind == COREWEBVIEW2_PERMISSION_KIND_CLIPBOARD_READ ? "clipboard"
+    : kind == COREWEBVIEW2_PERMISSION_KIND_CAMERA ? "camera" : NULL;
   return api != NULL && own_page && tachyon_browser_api_granted(api) ? COREWEBVIEW2_PERMISSION_STATE_ALLOW : COREWEBVIEW2_PERMISSION_STATE_DENY;
 }
 

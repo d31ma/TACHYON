@@ -42,7 +42,10 @@ impl KotlinWebServices {
         include_str!("web_apis/Focus.kt")
     );
 
-    const PASSKEYS: &'static str = include_str!("web_apis/Passkeys.kt");
+    const PASSKEYS: &'static str = concat!(
+        include_str!("web_apis/Passkeys.kt"),
+        include_str!("web_apis/CodeScanner.kt")
+    );
     const MEDIA: &'static str = include_str!("web_apis/Media.kt");
 
     const JVM_SHIMS: [(&'static str, &'static str); 4] = [

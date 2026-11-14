@@ -552,6 +552,9 @@ jobs:
       - name: Create and use passkeys through the page's WebAuthn
         run: bun run test:passkeys-browser
 
+      - name: Scan a QR code through the page's camera view
+        run: bun run test:code-scanner-browser
+
       - name: Run the real-browser web components contract
         run: bun run test:web-components-browser
         env:
