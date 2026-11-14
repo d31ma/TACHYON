@@ -1,4 +1,5 @@
 use super::{CppYonController, CppYonErrors, CppYonMiddleware, CppYonSocketCalls};
+use crate::yon::built_in_error::BuiltInError;
 use crate::yon::plan::{ParameterSource, Route};
 
 pub(crate) struct CppYonDispatcher;
@@ -14,7 +15,7 @@ impl CppYonDispatcher {
             .iter()
             .find_map(|route| route.socket.as_ref().map(|methods| (route, methods)));
         let body = socket.map_or_else(
-            || Self::routes(controller),
+            || Self::routes(controller, errors),
             |(route, methods)| CppYonSocketCalls::body(route, methods),
         );
         format!(
@@ -26,13 +27,22 @@ impl CppYonDispatcher {
         )
     }
 
-    fn routes(controller: &CppYonController) -> String {
+    fn routes(controller: &CppYonController, errors: &CppYonErrors) -> String {
         let branches: String = controller.routes.iter().map(Self::branch).collect();
         format!(
-            "        std::string verb = frame.text(\"{field}\");\n        std::string route = frame.text(\"route\");\n        try {{\n{branches}        }} catch (...) {{\n            return handled(std::current_exception(), frame);\n        }}\n        return {unrouted};\n",
+            "        std::string verb = frame.text(\"{field}\");\n        std::string route = frame.text(\"route\");\n{built_in}        try {{\n{branches}        }} catch (...) {{\n            return handled(std::current_exception(), frame);\n        }}\n        return {unrouted};\n",
             field = CppYonMiddleware::field(&controller.path),
+            built_in = Self::built_in_case(errors),
             unrouted = CppYonMiddleware::unrouted(&controller.path),
         )
+    }
+
+    fn built_in_case(errors: &CppYonErrors) -> String {
+        let case = format!(
+            "        if (route == \"{}\") {{\n            return handled(tachyon::YonBuiltInErrors::thrown(frame), frame);\n        }}\n",
+            BuiltInError::ROUTE
+        );
+        [String::new(), case][usize::from(errors.uses_built_ins())].clone()
     }
 
     fn branch(route: &Route) -> String {

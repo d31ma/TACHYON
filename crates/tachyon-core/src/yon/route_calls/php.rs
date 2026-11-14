@@ -1,5 +1,7 @@
 use super::RouteCalls;
 use crate::route_types::PhpDoc;
+use crate::yon::built_in_error::BuiltInError;
+use crate::yon::built_in_errors::BuiltInErrors;
 use crate::yon::plan::{ParameterSource, Plan, Route};
 use std::fmt::Write as _;
 
@@ -14,7 +16,8 @@ impl PhpRoutes {
             let guard = if errors { "    try {\n" } else { "" };
             let _ = write!(
                 output,
-                "function __yon_route_{verb}__($controller, $request{parameters}) {{\n    $values = $request->arguments();\n{guard}    switch ($request->route()) {{\n"
+                "function __yon_route_{verb}__($controller, $request{parameters}) {{\n    $values = $request->arguments();\n{}{guard}    switch ($request->route()) {{\n",
+                Self::built_in_case(plan)
             );
             for route in RouteCalls::routes_for(plan, verb) {
                 let _ = writeln!(
@@ -36,6 +39,17 @@ impl PhpRoutes {
             output.push_str("}\n");
         }
         output
+    }
+
+    fn built_in_case(plan: &Plan) -> String {
+        if !BuiltInErrors::used(plan) {
+            return String::new();
+        }
+        let arguments = super::super::error_calls::ErrorCalls::arguments(plan, "php");
+        format!(
+            "    if ($request->route() === '{}') return __yon_handle_error__(__yon_built_in_error__($values[0] ?? null), $request{arguments});\n",
+            BuiltInError::ROUTE
+        )
     }
 
     fn arguments(route: &Route) -> String {

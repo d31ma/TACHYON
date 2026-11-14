@@ -947,6 +947,7 @@ class YonErrors
     selected = nil
     selected_distance = nil
     candidates.each do |candidate|
+      next if skips_check?(error, candidate[0])
       distance = error.class.ancestors.index(candidate[0])
       next if distance.nil?
       next if selected_distance && distance >= selected_distance
@@ -954,6 +955,10 @@ class YonErrors
       selected_distance = distance
     end
     selected
+  end
+
+  def self.skips_check?(error, type)
+    type.equal?(StandardError) && !YonRunnerFailures.violations(error).nil?
   end
 
   def self.answer(status, result)

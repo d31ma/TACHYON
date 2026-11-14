@@ -1,5 +1,7 @@
 use super::RouteCalls;
 use crate::go_source::GoFile;
+use crate::yon::built_in_error::BuiltInError;
+use crate::yon::built_in_errors::BuiltInErrors;
 use crate::yon::error_calls::ErrorCalls;
 use crate::yon::go_container::{GoContainer, GoRouteResult};
 use crate::yon::plan::{ParameterSource, Plan, Route};
@@ -17,8 +19,9 @@ impl GoRoutes {
         for verb in RouteCalls::verbs(plan) {
             let _ = write!(
                 output,
-                "\nfunc __yon_route_{verb}__(controller *{}, request *yonRequest{parameters}) (any, error) {{\n\tswitch request.Route() {{\n",
-                plan.controller
+                "\nfunc __yon_route_{verb}__(controller *{}, request *yonRequest{parameters}) (any, error) {{\n{}\tswitch request.Route() {{\n",
+                plan.controller,
+                Self::built_in_case(plan, &error_arguments)
             );
             for route in RouteCalls::routes_for(plan, verb) {
                 let call = format!("controller.{}({})", route.method, Self::arguments(route));
@@ -45,6 +48,16 @@ impl GoRoutes {
             output.push_str("\t}\n\treturn nil, yonNoRoute()\n}\n");
         }
         Ok(output)
+    }
+
+    fn built_in_case(plan: &Plan, error_arguments: &str) -> String {
+        if !BuiltInErrors::used(plan) {
+            return String::new();
+        }
+        format!(
+            "\tif request.Route() == \"{}\" {{ return __yon_handle_error__(__yon_built_in_error__(request), request{error_arguments}) }}\n",
+            BuiltInError::ROUTE
+        )
     }
 
     fn stream_body(

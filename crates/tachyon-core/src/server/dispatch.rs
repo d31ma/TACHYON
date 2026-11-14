@@ -3,13 +3,15 @@ use super::controller_dispatch::{
 };
 use super::socket_dispatch::{SocketHub, SocketSession};
 use super::{
-    AssetCachePolicy, CheckAnswer, CrossOrigin, DispatchRoute, ForwardedHeaders,
-    HandlerEventBridge, HostGuard, HotUpdateHub, InvocationLog, Middleware, MiddlewareOutcome,
-    ProducerTasks, ProtocolRequest, RouteGuard, ServerResponse, StaticFiles, TopicHub, TopicStream,
+    AssetCachePolicy, BuiltInAnswer, BuiltInCase, BuiltInRequest, CheckAnswer, CrossOrigin,
+    DispatchRoute, ForwardedHeaders, HandlerEventBridge, HostGuard, HotUpdateHub, InvocationLog,
+    Middleware, MiddlewareOutcome, ProducerTasks, ProtocolRequest, RouteGuard, ServerResponse,
+    StaticFiles, TopicHub, TopicStream,
 };
 use crate::Failure;
 use crate::handler::{HandlerCancellation, HandlerSource, HandlerSupervisor};
 use crate::routing::{RouteMatch, RouteMethod, match_route};
+use crate::yon::built_in_error::BuiltInError;
 use axum::Router;
 use axum::body::{Body, Bytes};
 use axum::extract::State;
@@ -481,10 +483,12 @@ impl Dispatch {
             request.headers(),
         )
         .await;
-        match refusal {
+        let built_in = BuiltInRequest::of(&request);
+        let response = match refusal {
             Some(response) => response,
             None => self.serve_allowed_route(entry, matched, request).await,
-        }
+        };
+        BuiltInAnswer::shape(self, entry, &built_in, response).await
     }
 
     async fn serve_allowed_route(
@@ -510,14 +514,19 @@ impl Dispatch {
         body: Option<Bytes>,
     ) -> Response<Body> {
         match body {
-            None => {
-                ServerResponse::text(StatusCode::PAYLOAD_TOO_LARGE, "Request body is too large.")
-            }
+            None => self.body_too_large(),
             Some(body) => {
                 self.serve_route_with_body(entry, matched, parts, &body)
                     .await
             }
         }
+    }
+
+    fn body_too_large(&self) -> Response<Body> {
+        let limit = self.supervisor.application().max_request_bytes();
+        let response =
+            ServerResponse::text(StatusCode::PAYLOAD_TOO_LARGE, "Request body is too large.");
+        BuiltInCase::body_too_large(limit).tag(response)
     }
 
     async fn serve_route_with_body(
@@ -581,12 +590,18 @@ impl Dispatch {
         parts: &Parts,
     ) -> Response<Body> {
         match protocol_request {
-            None => ServerResponse::text(StatusCode::BAD_REQUEST, "Request body must be UTF-8."),
+            None => Self::body_not_utf8(),
             Some(protocol_request) => {
                 self.run_route(protocol_request, arguments, entry, parts)
                     .await
             }
         }
+    }
+
+    fn body_not_utf8() -> Response<Body> {
+        let message = "Request body must be UTF-8.";
+        let response = ServerResponse::text(StatusCode::BAD_REQUEST, message);
+        BuiltInCase::request_rejected("body", "", message).tag(response)
     }
 
     async fn run_route(
@@ -650,9 +665,18 @@ impl Dispatch {
                     &entry.handler,
                     &failure,
                 );
-                ServerResponse::failure_answer("Handler execution", request_id, &failure)
+                let answer =
+                    ServerResponse::failure_answer("Handler execution", request_id, &failure);
+                Self::unexpected_when_server_error(answer)
             }
         }
+    }
+
+    fn unexpected_when_server_error(response: Response<Body>) -> Response<Body> {
+        if response.status() != StatusCode::INTERNAL_SERVER_ERROR {
+            return response;
+        }
+        BuiltInCase::plain(BuiltInError::UNEXPECTED_ERROR).tag(response)
     }
 
     fn checked_answer(
@@ -661,8 +685,23 @@ impl Dispatch {
         request_id: &str,
     ) -> Response<Body> {
         let mapping = entry.mapping.as_ref();
+        let unhandled = Self::is_unhandled(&response);
         let problem = RouteResult::problem(mapping, entry.handler.models(), &response);
-        Self::answer_or_mismatch(problem, response, mapping, request_id)
+        let unexpected = [unhandled, problem.is_some()].contains(&true);
+        let answer = Self::answer_or_mismatch(problem, response, mapping, request_id);
+        Self::unexpected_when(unexpected, answer)
+    }
+
+    fn is_unhandled(response: &HandlerResponse) -> bool {
+        let server_error = response.status == StatusCode::INTERNAL_SERVER_ERROR.as_u16();
+        [response.error.is_some(), server_error] == [true, true]
+    }
+
+    fn unexpected_when(unexpected: bool, response: Response<Body>) -> Response<Body> {
+        if !unexpected {
+            return response;
+        }
+        BuiltInCase::plain(BuiltInError::UNEXPECTED_ERROR).tag(response)
     }
 
     fn answer_or_mismatch(

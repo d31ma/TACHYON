@@ -1,6 +1,7 @@
 use super::{CppYonController, CppYonErrorMethod, CppYonErrorTypes, CppYonHandler};
 use crate::Failure;
 use crate::tac_cpp::{CppFailure, CppFile, CppFolder, CppMarkerCheck};
+use crate::yon::built_in_error::BuiltInError;
 use crate::yon::plan::ErrorResponse;
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
@@ -14,6 +15,13 @@ pub(crate) struct CppYonErrors {
 impl CppYonErrors {
     const FOLDER: &'static str = "server/controllers";
     const MARKER: &'static str = "ErrorHandler";
+    const BUILT_IN_ERRORS: &'static str = concat!(
+        "#line 1 \"tachyon-built-in-errors.hpp\"\n",
+        include_str!("tachyon/yon_built_in_errors.hpp")
+    );
+    const ROOT_ERROR: &'static str = "std::exception";
+    const CHECK_GUARD: &'static str =
+        " catch (const tachyon::TacValidationError&) {\n            throw;\n        }";
     const NO_METHOD: &'static str = "A C++ [[ErrorHandler]] class needs at least one [[HandlesError]] instance method, for example `[[HandlesError]] [[ResponseStatus(404)]] Problem missing(const OrderNotFound& error)`";
 
     pub(crate) fn read(root: &Path, controller: &CppYonController) -> Result<Self, Failure> {
@@ -57,7 +65,14 @@ impl CppYonErrors {
     }
 
     pub(crate) fn type_source(&self) -> String {
-        self.types.located()
+        let built_ins = ["", Self::BUILT_IN_ERRORS][usize::from(self.uses_built_ins())];
+        format!("{built_ins}{}", self.types.located())
+    }
+
+    pub(crate) fn uses_built_ins(&self) -> bool {
+        self.methods
+            .iter()
+            .any(|(method, _)| BuiltInError::named(&method.error_type).is_some())
     }
 
     pub(crate) fn handling(&self) -> String {
@@ -72,13 +87,14 @@ impl CppYonErrors {
     }
 
     fn caught(method: &CppYonErrorMethod) -> String {
+        let guard = ["", Self::CHECK_GUARD][usize::from(method.error_type == Self::ROOT_ERROR)];
         let request = [
             String::new(),
             String::from(", tachyon::yon::YonRequest::of(frame)"),
         ][usize::from(method.takes_request)]
         .clone();
         format!(
-            " catch (::{kind}& error) {{\n            return tachyon::yon::YonAnswer::handled(tachyon::yon::YonNeeds::of<::{owner}>().{name}(error{request}), {status});\n        }}",
+            "{guard} catch (::{kind}& error) {{\n            return tachyon::yon::YonAnswer::handled(tachyon::yon::YonNeeds::of<::{owner}>().{name}(error{request}), {status});\n        }}",
             kind = method.error_type,
             owner = method.owner,
             name = method.method,

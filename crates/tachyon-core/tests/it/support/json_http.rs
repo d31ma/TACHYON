@@ -46,7 +46,7 @@ impl JsonHttp {
         Self::exchange_all(root, &requests).await
     }
 
-    async fn exchange_all(root: &Path, requests: &[String]) -> Vec<String> {
+    pub async fn exchange_all(root: &Path, requests: &[String]) -> Vec<String> {
         let project = ProjectDiscovery::discover(root).expect("discover");
         let options = DevServerOptions {
             port: 0,

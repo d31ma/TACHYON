@@ -3,6 +3,7 @@ use super::{
     Annotation, Declaration, Input, ManagedType, method_body, method_owner, method_signature,
 };
 use crate::Failure;
+use crate::yon::built_in_error::BuiltInError;
 use crate::yon::plan::{ErrorMethod, Role};
 use std::collections::BTreeSet;
 
@@ -156,6 +157,7 @@ impl ErrorRules {
             input.failure(start, RouteMarker::PHP_REQUEST_ADVICE)
         })?;
         let error_type = Self::error_type(input, &parameters[0], &documentation, start)?;
+        let status = Self::built_in_status(input, declaration, &error_type, status)?;
         let returns = Self::return_type(input, &list, start, &signature.name, &documentation);
         Ok(ErrorMethod {
             owner: owner.to_owned(),
@@ -166,6 +168,36 @@ impl ErrorRules {
             returns,
             documentation,
         })
+    }
+
+    fn built_in_status(
+        input: &Input<'_>,
+        declaration: &Declaration,
+        error_type: &str,
+        status: u16,
+    ) -> Result<u16, Failure> {
+        BuiltInError::named(error_type).map_or(Ok(status), |built_in| {
+            Self::fixed_status(input, declaration, built_in)
+        })
+    }
+
+    fn fixed_status(
+        input: &Input<'_>,
+        declaration: &Declaration,
+        built_in: BuiltInError,
+    ) -> Result<u16, Failure> {
+        let has_status = declaration
+            .annotations
+            .iter()
+            .any(|marker| marker.name == "responsestatus");
+        Self::require(!has_status, || {
+            input.failure(declaration.start, format!(
+                "{} is a built-in error and always answers {}. Remove @ResponseStatus from this @HandlesError method",
+                built_in.name(),
+                built_in.status()
+            ))
+        })?;
+        Ok(built_in.status())
     }
 
     fn is_error_handler_named(managed: &ManagedType, owner: &str) -> bool {
@@ -807,5 +839,60 @@ mod tests {
             }
         }
         assert!(problems.is_empty(), "{}", problems.join("\n"));
+    }
+
+    #[test]
+    fn a_built_in_error_method_answers_the_fixed_status_in_every_language() {
+        let spellings = [
+            ("js", "{Error}", "{NotSignedIn}"),
+            ("ts", "error: Error", "error: NotSignedIn"),
+            ("py", "error: Exception", "error: NotSignedIn"),
+            ("java", "Exception error", "NotSignedIn error"),
+            ("cs", "System.Exception error", "NotSignedIn error"),
+            ("kt", "error: Exception", "error: NotSignedIn"),
+            ("php", "Throwable $error", "NotSignedIn $error"),
+            ("dart", "Exception error", "NotSignedIn error"),
+            ("rs", "error: &std::io::Error", "error: &NotSignedIn"),
+            ("go", "error error", "error *NotSignedIn"),
+        ];
+        for (extension, from, to) in spellings {
+            let case = Sources::CASES
+                .iter()
+                .find(|case| case.0 == extension)
+                .expect("language case");
+            let built_in = case.1.replacen(from, to, 1);
+            let without_status = without_status(&built_in);
+            let path = format!("server/controllers/OrdersController.{extension}");
+            let parsed = super::super::parse(Path::new(&path), &with_new(&without_status))
+                .unwrap_or_else(|failure| panic!("{extension}: {failure}"))
+                .expect("annotated plan");
+            assert_eq!(parsed.plan.errors[0].status, 401, "{extension}");
+            let refused = Refusals::parse_message(extension, &built_in)
+                .unwrap_or_else(|| panic!("{extension}: accepted @ResponseStatus"));
+            assert!(
+                refused.contains("NotSignedIn is a built-in error and always answers 401"),
+                "{extension}: {refused}"
+            );
+        }
+    }
+
+    fn without_status(source: &str) -> String {
+        let kept: Vec<&str> = source
+            .split('\n')
+            .filter(|line| !line.contains("ResponseStatus(404)"))
+            .collect();
+        kept.join("\n")
+    }
+
+    fn with_new(source: &str) -> String {
+        source
+            .replace(
+                "impl OrdersController {",
+                "impl OrdersController {\nfn new() -> Self { Self }\n",
+            )
+            .replace(
+                "impl OrdersErrorHandler {",
+                "impl OrdersErrorHandler {\nfn new() -> Self { Self }\n",
+            )
     }
 }

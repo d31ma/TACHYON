@@ -1,4 +1,5 @@
 use super::{ErrorCalls, Plan, RouteCalls};
+use crate::yon::built_in_errors::BuiltInErrors;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write as _;
 
@@ -7,7 +8,10 @@ pub(super) fn functions(plan: &Plan, stripped: &str) -> String {
     let mut source = format!(
         "\nFuture<Object?> __yon_handle_error__(Object error, __YonFrame request{parameters}) async {{\n  if (error is! Exception && error is! Error) throw error;\n"
     );
-    let parents = parents(stripped);
+    let parents = parents(&format!(
+        "{stripped}\n{}",
+        BuiltInErrors::source("dart", plan)
+    ));
     let mut methods: Vec<_> = plan.errors.iter().collect();
     methods.sort_by_key(|method| std::cmp::Reverse(depth(&parents, &method.error_type)));
     for method in methods {
@@ -22,9 +26,14 @@ pub(super) fn functions(plan: &Plan, stripped: &str) -> String {
         } else {
             ""
         };
+        let skip_check = if method.error_type == "Exception" {
+            " && _yonViolations(error) == null"
+        } else {
+            ""
+        };
         let _ = writeln!(
             source,
-            "  if (error is {}) {{\n    final Object? result = await handler{index}.{}(error{request});\n    if (result is yon_shelf.Response) {{\n      final answer = await _yonShelfAnswer(result);\n      return result.statusCode == 200 ? answer.status({}) : answer;\n    }}\n    return __YonAnswer.json(yon_convert.jsonEncode(__yon_json(result))).status({});\n  }}",
+            "  if (error is {}{skip_check}) {{\n    final Object? result = await handler{index}.{}(error{request});\n    if (result is yon_shelf.Response) {{\n      final answer = await _yonShelfAnswer(result);\n      return result.statusCode == 200 ? answer.status({}) : answer;\n    }}\n    return __YonAnswer.json(yon_convert.jsonEncode(__yon_json(result))).status({});\n  }}",
             method.error_type, method.method, method.status, method.status
         );
     }

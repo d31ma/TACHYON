@@ -1,3 +1,5 @@
+pub(crate) mod built_in_error;
+pub(crate) mod built_in_errors;
 mod compiled;
 pub(crate) mod dynamic;
 mod error_calls;
@@ -174,7 +176,10 @@ fn lower_parsed(
         error_calls::ErrorCalls::functions(extension, &parsed.plan, &parsed.source)?;
     let verb_plan = route_calls::RouteCalls::verb_plan(&parsed.plan, extension)?;
     let lowered = lower_plan(source, extension, &parsed.source, &verb_plan, events)?;
-    Ok(format!("{lowered}\n{functions}\n{error_functions}"))
+    let built_ins = built_in_errors::BuiltInErrors::source(extension, &parsed.plan);
+    Ok(format!(
+        "{lowered}\n{functions}\n{error_functions}{built_ins}"
+    ))
 }
 
 fn lower_plan(

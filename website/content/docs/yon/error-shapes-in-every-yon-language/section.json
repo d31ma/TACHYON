@@ -1,0 +1,710 @@
+{
+  "heading": "Shape the answers Tachyon makes itself, in every Yon language",
+  "axis": "language",
+  "summary": "Tachyon answers some requests itself: 401 without an identity, 403 without a role, 500 when the identity provider fails, 400 for a bad value or body, 413 for a body over the limit, 422 for broken @Checked rules, and 500 when the route could not answer. Name one of the seven built-in error types on a @HandlesError method, and that method writes the body. Tachyon keeps the status, so the method takes no ResponseStatus (ADR NNNN).",
+  "body": "Choose a language below. `OrdersController` says `Allow(Admin)`. `AppIdentityProvider` knows two sessions, `ada-token` (with the role `Admin`) and `bob-token` (no roles), and fails for `broken-token`. `OrdersErrorHandler` has one method for each built-in type, and each method answers a `Problem` with a code and a numbered message, such as `{\"code\":\"not_signed_in\",\"message\":\"[MS0001]: Sign in again.\"}`.\n\n- `GET /orders` without a token answers 401 from `NotSignedIn`; with `bob-token`, 403 from `RoleMissing`; with `broken-token`, 500 from `IdentityCheckFailed`.\n- `POST /orders` with `ada-token` and the body `{` answers 400 from `RequestRejected` (`part` is `body`). A body over `yon.server.maxbody` answers 413 from `BodyTooLarge`. `{\"name\":\"\",\"level\":0}` answers 422 from `CheckRejected`, whose `violations` list `level:Min`, `name:NotEmpty` and `name:Length`.\n- `GET /orders` with `ada-token` fails with an error that no method takes, so `UnexpectedError` answers 500.\n\nEvery shaped answer keeps Tachyon's status and has the `x-tachyon-request-id` header; the error's `reference` field holds the same id. The handler never sees the `authorization` or `cookie` header, the identity provider's error or the request body. If a method is missing, the answer stays as Tachyon writes it. If the method fails, Tachyon sends its own answer and logs `error_handler.failed`.",
+  "files": [
+    {
+      "name": "server/roles/Admin.js",
+      "code": {
+        "file": "server/roles/Admin.js"
+      }
+    },
+    {
+      "name": "server/models/OrderInput.js",
+      "code": {
+        "file": "server/models/OrderInput.js"
+      }
+    },
+    {
+      "name": "server/services/OrderService.js",
+      "code": {
+        "file": "server/services/OrderService.js"
+      }
+    },
+    {
+      "name": "server/controllers/AppIdentityProvider.js",
+      "code": {
+        "file": "server/controllers/AppIdentityProvider.js"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.js",
+      "code": {
+        "file": "server/controllers/OrdersController.js"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersErrorHandler.js",
+      "code": {
+        "file": "server/controllers/OrdersErrorHandler.js"
+      }
+    },
+    {
+      "name": "server/roles/Admin.ts",
+      "code": {
+        "file": "server/roles/Admin.ts"
+      }
+    },
+    {
+      "name": "server/models/Identity.ts",
+      "code": {
+        "file": "server/models/Identity.ts"
+      }
+    },
+    {
+      "name": "server/models/OrderInput.ts",
+      "code": {
+        "file": "server/models/OrderInput.ts"
+      }
+    },
+    {
+      "name": "server/models/Problem.ts",
+      "code": {
+        "file": "server/models/Problem.ts"
+      }
+    },
+    {
+      "name": "server/services/OrderService.ts",
+      "code": {
+        "file": "server/services/OrderService.ts"
+      }
+    },
+    {
+      "name": "server/controllers/AppIdentityProvider.ts",
+      "code": {
+        "file": "server/controllers/AppIdentityProvider.ts"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.ts",
+      "code": {
+        "file": "server/controllers/OrdersController.ts"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersErrorHandler.ts",
+      "code": {
+        "file": "server/controllers/OrdersErrorHandler.ts"
+      }
+    },
+    {
+      "name": "server/roles/Admin.py",
+      "code": {
+        "file": "server/roles/Admin.py"
+      }
+    },
+    {
+      "name": "server/models/Identity.py",
+      "code": {
+        "file": "server/models/Identity.py"
+      }
+    },
+    {
+      "name": "server/models/OrderInput.py",
+      "code": {
+        "file": "server/models/OrderInput.py"
+      }
+    },
+    {
+      "name": "server/models/Problem.py",
+      "code": {
+        "file": "server/models/Problem.py"
+      }
+    },
+    {
+      "name": "server/services/OrderService.py",
+      "code": {
+        "file": "server/services/OrderService.py"
+      }
+    },
+    {
+      "name": "server/controllers/AppIdentityProvider.py",
+      "code": {
+        "file": "server/controllers/AppIdentityProvider.py"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.py",
+      "code": {
+        "file": "server/controllers/OrdersController.py"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersErrorHandler.py",
+      "code": {
+        "file": "server/controllers/OrdersErrorHandler.py"
+      }
+    },
+    {
+      "name": "server/roles/Admin.php",
+      "code": {
+        "file": "server/roles/Admin.php"
+      }
+    },
+    {
+      "name": "server/models/OrderInput.php",
+      "code": {
+        "file": "server/models/OrderInput.php"
+      }
+    },
+    {
+      "name": "server/models/Problem.php",
+      "code": {
+        "file": "server/models/Problem.php"
+      }
+    },
+    {
+      "name": "server/services/OrderService.php",
+      "code": {
+        "file": "server/services/OrderService.php"
+      }
+    },
+    {
+      "name": "server/controllers/AppIdentityProvider.php",
+      "code": {
+        "file": "server/controllers/AppIdentityProvider.php"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.php",
+      "code": {
+        "file": "server/controllers/OrdersController.php"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersErrorHandler.php",
+      "code": {
+        "file": "server/controllers/OrdersErrorHandler.php"
+      }
+    },
+    {
+      "name": "server/roles/Admin.java",
+      "code": {
+        "file": "server/roles/Admin.java"
+      }
+    },
+    {
+      "name": "server/models/Identity.java",
+      "code": {
+        "file": "server/models/Identity.java"
+      }
+    },
+    {
+      "name": "server/models/OrderInput.java",
+      "code": {
+        "file": "server/models/OrderInput.java"
+      }
+    },
+    {
+      "name": "server/models/Problem.java",
+      "code": {
+        "file": "server/models/Problem.java"
+      }
+    },
+    {
+      "name": "server/services/OrderService.java",
+      "code": {
+        "file": "server/services/OrderService.java"
+      }
+    },
+    {
+      "name": "server/controllers/AppIdentityProvider.java",
+      "code": {
+        "file": "server/controllers/AppIdentityProvider.java"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.java",
+      "code": {
+        "file": "server/controllers/OrdersController.java"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersErrorHandler.java",
+      "code": {
+        "file": "server/controllers/OrdersErrorHandler.java"
+      }
+    },
+    {
+      "name": "server/roles/Admin.groovy",
+      "code": {
+        "file": "server/roles/Admin.groovy"
+      }
+    },
+    {
+      "name": "server/models/Identity.groovy",
+      "code": {
+        "file": "server/models/Identity.groovy"
+      }
+    },
+    {
+      "name": "server/models/OrderInput.groovy",
+      "code": {
+        "file": "server/models/OrderInput.groovy"
+      }
+    },
+    {
+      "name": "server/models/Problem.groovy",
+      "code": {
+        "file": "server/models/Problem.groovy"
+      }
+    },
+    {
+      "name": "server/services/OrderService.groovy",
+      "code": {
+        "file": "server/services/OrderService.groovy"
+      }
+    },
+    {
+      "name": "server/controllers/AppIdentityProvider.groovy",
+      "code": {
+        "file": "server/controllers/AppIdentityProvider.groovy"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.groovy",
+      "code": {
+        "file": "server/controllers/OrdersController.groovy"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersErrorHandler.groovy",
+      "code": {
+        "file": "server/controllers/OrdersErrorHandler.groovy"
+      }
+    },
+    {
+      "name": "server/roles/Admin.kt",
+      "code": {
+        "file": "server/roles/Admin.kt"
+      }
+    },
+    {
+      "name": "server/models/Identity.kt",
+      "code": {
+        "file": "server/models/Identity.kt"
+      }
+    },
+    {
+      "name": "server/models/OrderInput.kt",
+      "code": {
+        "file": "server/models/OrderInput.kt"
+      }
+    },
+    {
+      "name": "server/models/Problem.kt",
+      "code": {
+        "file": "server/models/Problem.kt"
+      }
+    },
+    {
+      "name": "server/services/OrderService.kt",
+      "code": {
+        "file": "server/services/OrderService.kt"
+      }
+    },
+    {
+      "name": "server/controllers/AppIdentityProvider.kt",
+      "code": {
+        "file": "server/controllers/AppIdentityProvider.kt"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.kt",
+      "code": {
+        "file": "server/controllers/OrdersController.kt"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersErrorHandler.kt",
+      "code": {
+        "file": "server/controllers/OrdersErrorHandler.kt"
+      }
+    },
+    {
+      "name": "server/roles/Admin.cs",
+      "code": {
+        "file": "server/roles/Admin.cs"
+      }
+    },
+    {
+      "name": "server/models/Identity.cs",
+      "code": {
+        "file": "server/models/Identity.cs"
+      }
+    },
+    {
+      "name": "server/models/OrderInput.cs",
+      "code": {
+        "file": "server/models/OrderInput.cs"
+      }
+    },
+    {
+      "name": "server/models/Problem.cs",
+      "code": {
+        "file": "server/models/Problem.cs"
+      }
+    },
+    {
+      "name": "server/services/OrderService.cs",
+      "code": {
+        "file": "server/services/OrderService.cs"
+      }
+    },
+    {
+      "name": "server/controllers/AppIdentityProvider.cs",
+      "code": {
+        "file": "server/controllers/AppIdentityProvider.cs"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.cs",
+      "code": {
+        "file": "server/controllers/OrdersController.cs"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersErrorHandler.cs",
+      "code": {
+        "file": "server/controllers/OrdersErrorHandler.cs"
+      }
+    },
+    {
+      "name": "server/roles/Admin.fs",
+      "code": {
+        "file": "server/roles/Admin.fs"
+      }
+    },
+    {
+      "name": "server/models/Identity.fs",
+      "code": {
+        "file": "server/models/Identity.fs"
+      }
+    },
+    {
+      "name": "server/models/OrderInput.fs",
+      "code": {
+        "file": "server/models/OrderInput.fs"
+      }
+    },
+    {
+      "name": "server/models/Problem.fs",
+      "code": {
+        "file": "server/models/Problem.fs"
+      }
+    },
+    {
+      "name": "server/services/OrderService.fs",
+      "code": {
+        "file": "server/services/OrderService.fs"
+      }
+    },
+    {
+      "name": "server/controllers/AppIdentityProvider.fs",
+      "code": {
+        "file": "server/controllers/AppIdentityProvider.fs"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.fs",
+      "code": {
+        "file": "server/controllers/OrdersController.fs"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersErrorHandler.fs",
+      "code": {
+        "file": "server/controllers/OrdersErrorHandler.fs"
+      }
+    },
+    {
+      "name": "server/roles/Admin.rs",
+      "code": {
+        "file": "server/roles/Admin.rs"
+      }
+    },
+    {
+      "name": "server/models/Identity.rs",
+      "code": {
+        "file": "server/models/Identity.rs"
+      }
+    },
+    {
+      "name": "server/models/OrderInput.rs",
+      "code": {
+        "file": "server/models/OrderInput.rs"
+      }
+    },
+    {
+      "name": "server/models/Problem.rs",
+      "code": {
+        "file": "server/models/Problem.rs"
+      }
+    },
+    {
+      "name": "server/services/OrderService.rs",
+      "code": {
+        "file": "server/services/OrderService.rs"
+      }
+    },
+    {
+      "name": "server/controllers/AppIdentityProvider.rs",
+      "code": {
+        "file": "server/controllers/AppIdentityProvider.rs"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.rs",
+      "code": {
+        "file": "server/controllers/OrdersController.rs"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersErrorHandler.rs",
+      "code": {
+        "file": "server/controllers/OrdersErrorHandler.rs"
+      }
+    },
+    {
+      "name": "server/roles/Admin.dart",
+      "code": {
+        "file": "server/roles/Admin.dart"
+      }
+    },
+    {
+      "name": "server/models/Identity.dart",
+      "code": {
+        "file": "server/models/Identity.dart"
+      }
+    },
+    {
+      "name": "server/models/OrderInput.dart",
+      "code": {
+        "file": "server/models/OrderInput.dart"
+      }
+    },
+    {
+      "name": "server/models/Problem.dart",
+      "code": {
+        "file": "server/models/Problem.dart"
+      }
+    },
+    {
+      "name": "server/services/OrderService.dart",
+      "code": {
+        "file": "server/services/OrderService.dart"
+      }
+    },
+    {
+      "name": "server/controllers/AppIdentityProvider.dart",
+      "code": {
+        "file": "server/controllers/AppIdentityProvider.dart"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.dart",
+      "code": {
+        "file": "server/controllers/OrdersController.dart"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersErrorHandler.dart",
+      "code": {
+        "file": "server/controllers/OrdersErrorHandler.dart"
+      }
+    },
+    {
+      "name": "server/roles/Admin.go",
+      "code": {
+        "file": "server/roles/Admin.go"
+      }
+    },
+    {
+      "name": "server/models/Identity.go",
+      "code": {
+        "file": "server/models/Identity.go"
+      }
+    },
+    {
+      "name": "server/models/OrderInput.go",
+      "code": {
+        "file": "server/models/OrderInput.go"
+      }
+    },
+    {
+      "name": "server/models/Problem.go",
+      "code": {
+        "file": "server/models/Problem.go"
+      }
+    },
+    {
+      "name": "server/services/OrderService.go",
+      "code": {
+        "file": "server/services/OrderService.go"
+      }
+    },
+    {
+      "name": "server/controllers/AppIdentityProvider.go",
+      "code": {
+        "file": "server/controllers/AppIdentityProvider.go"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.go",
+      "code": {
+        "file": "server/controllers/OrdersController.go"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersErrorHandler.go",
+      "code": {
+        "file": "server/controllers/OrdersErrorHandler.go"
+      }
+    },
+    {
+      "name": "server/roles/Admin.rb",
+      "code": {
+        "file": "server/roles/Admin.rb"
+      }
+    },
+    {
+      "name": "server/models/Identity.rb",
+      "code": {
+        "file": "server/models/Identity.rb"
+      }
+    },
+    {
+      "name": "server/models/OrderInput.rb",
+      "code": {
+        "file": "server/models/OrderInput.rb"
+      }
+    },
+    {
+      "name": "server/models/Problem.rb",
+      "code": {
+        "file": "server/models/Problem.rb"
+      }
+    },
+    {
+      "name": "server/services/OrderService.rb",
+      "code": {
+        "file": "server/services/OrderService.rb"
+      }
+    },
+    {
+      "name": "server/controllers/AppIdentityProvider.rb",
+      "code": {
+        "file": "server/controllers/AppIdentityProvider.rb"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.rb",
+      "code": {
+        "file": "server/controllers/OrdersController.rb"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersErrorHandler.rb",
+      "code": {
+        "file": "server/controllers/OrdersErrorHandler.rb"
+      }
+    },
+    {
+      "name": "server/roles/Admin.hpp",
+      "code": {
+        "file": "server/roles/Admin.hpp"
+      }
+    },
+    {
+      "name": "server/models/Identity.hpp",
+      "code": {
+        "file": "server/models/Identity.hpp"
+      }
+    },
+    {
+      "name": "server/models/OrderInput.hpp",
+      "code": {
+        "file": "server/models/OrderInput.hpp"
+      }
+    },
+    {
+      "name": "server/models/Problem.hpp",
+      "code": {
+        "file": "server/models/Problem.hpp"
+      }
+    },
+    {
+      "name": "server/services/OrderService.hpp",
+      "code": {
+        "file": "server/services/OrderService.hpp"
+      }
+    },
+    {
+      "name": "server/controllers/AppIdentityProvider.hpp",
+      "code": {
+        "file": "server/controllers/AppIdentityProvider.hpp"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.hpp",
+      "code": {
+        "file": "server/controllers/OrdersController.hpp"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersErrorHandler.hpp",
+      "code": {
+        "file": "server/controllers/OrdersErrorHandler.hpp"
+      }
+    },
+    {
+      "name": "server/roles/Admin.lua",
+      "code": {
+        "file": "server/roles/Admin.lua"
+      }
+    },
+    {
+      "name": "server/models/Identity.lua",
+      "code": {
+        "file": "server/models/Identity.lua"
+      }
+    },
+    {
+      "name": "server/models/OrderInput.lua",
+      "code": {
+        "file": "server/models/OrderInput.lua"
+      }
+    },
+    {
+      "name": "server/models/Problem.lua",
+      "code": {
+        "file": "server/models/Problem.lua"
+      }
+    },
+    {
+      "name": "server/services/OrderService.lua",
+      "code": {
+        "file": "server/services/OrderService.lua"
+      }
+    },
+    {
+      "name": "server/controllers/AppIdentityProvider.lua",
+      "code": {
+        "file": "server/controllers/AppIdentityProvider.lua"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersController.lua",
+      "code": {
+        "file": "server/controllers/OrdersController.lua"
+      }
+    },
+    {
+      "name": "server/controllers/OrdersErrorHandler.lua",
+      "code": {
+        "file": "server/controllers/OrdersErrorHandler.lua"
+      }
+    }
+  ]
+}

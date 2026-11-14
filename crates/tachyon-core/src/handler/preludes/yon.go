@@ -135,6 +135,11 @@ func yonNoRoute() error {
 	return errors.New("No controller method answers this route.")
 }
 
+func yonIsCheckRejection(failure error) bool {
+	var rejection yonCheckRejection
+	return errors.As(failure, &rejection) && len(rejection.checkViolations()) > 0
+}
+
 func yonAnswer(value any, failures ...error) *yonResponse {
 	for _, failure := range failures {
 		if failure == nil {

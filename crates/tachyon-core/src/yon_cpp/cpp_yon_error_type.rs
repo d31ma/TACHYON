@@ -1,6 +1,7 @@
 use super::CppYonErrorTypes;
 use crate::Failure;
 use crate::tac_cpp::{CppClass, CppFailure, CppFile, CppLowering, CppMarkerCheck};
+use crate::yon::built_in_error::BuiltInError;
 use std::path::{Path, PathBuf};
 
 pub(crate) struct CppYonErrorType {
@@ -15,6 +16,7 @@ impl CppYonErrorType {
     const FOLDER: &'static str = "server/errors";
     const BASE_WORDS: [&'static str; 4] = ["public", "protected", "private", "virtual"];
     const PLACE: &'static str = "A C++ error type is one class directly in server/errors, named after its file, for example `class OrderNotFound : public std::runtime_error { public: using std::runtime_error::runtime_error; };`";
+    const RESERVED: &'static str = "This is the name of a Tachyon built-in error type (NotSignedIn, RoleMissing, IdentityCheckFailed, RequestRejected, BodyTooLarge, CheckRejected, UnexpectedError or BrokenRule). Give the application error type another name: a [[HandlesError]] method names the built-in type without a file in server/errors";
     const PLAIN: &'static str = "A C++ error type is a plain class without Tachyon markers. Put [[ErrorHandler]] on its handler in server/controllers";
 
     pub(crate) fn read(path: &Path, source: &str) -> Result<Self, Failure> {
@@ -29,8 +31,10 @@ impl CppYonErrorType {
             .iter()
             .all(|marker| CppMarkerCheck::is_standard(&marker.name));
         let bases = Self::bases(source, class);
+        let free = !BuiltInError::is_reserved(&class.name);
         let problem = [
             (placed, Self::PLACE),
+            (free, Self::RESERVED),
             (plain, Self::PLAIN),
             (!bases.is_empty(), CppYonErrorTypes::DERIVED),
         ]

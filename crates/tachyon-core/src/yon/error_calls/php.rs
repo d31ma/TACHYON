@@ -19,9 +19,15 @@ pub(super) fn functions(plan: &Plan) -> String {
         } else {
             ""
         };
+        let root = matches!(kind.trim_start_matches('\\'), "Throwable" | "Exception");
+        let skip_check = if root {
+            " && !YonMain::isCheckRejection($error)"
+        } else {
+            ""
+        };
         let _ = writeln!(
             source,
-            "    if (!is_a({kind}::class, \\Throwable::class, true)) throw new \\TypeError('HandlesError requires a Throwable type');\n    if ($error instanceof {kind}) {{\n        $distance = 0;\n        $current = get_class($error);\n        while ($current !== {kind}::class && $current !== false) {{ $distance++; $current = get_parent_class($current); }}\n        $matches[] = [$distance, {}, fn() => $handler{index}->{}($error{request})];\n    }}",
+            "    if (!is_a({kind}::class, \\Throwable::class, true)) throw new \\TypeError('HandlesError requires a Throwable type');\n    if ($error instanceof {kind}{skip_check}) {{\n        $distance = 0;\n        $current = get_class($error);\n        while ($current !== {kind}::class && $current !== false) {{ $distance++; $current = get_parent_class($current); }}\n        $matches[] = [$distance, {}, fn() => $handler{index}->{}($error{request})];\n    }}",
             method.status, method.method
         );
     }

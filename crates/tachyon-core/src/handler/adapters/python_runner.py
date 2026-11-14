@@ -707,6 +707,7 @@ def install_builtins(relay_program):
     builtins.ApplicationEventPublisher = type("ApplicationEventPublisher", (), {})
     builtins.YonTopic = TopicClient
     builtins.YonLog = YonLog
+    builtins.YonChecks = YonChecks
     builtins.YonGateway = GatewayClient(relay_program.deadline)
     current = getattr(builtins, "relay", None)
     if current is None or current == RunnerState.installed_relay:
@@ -916,6 +917,12 @@ def check_violations(error):
             return violations
         cause = cause.__cause__
     return None
+
+
+class YonChecks:
+    @staticmethod
+    def rejected(error):
+        return check_violations(error) is not None
 
 
 def is_request(envelope):

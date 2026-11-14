@@ -123,7 +123,7 @@ private:
         } catch (...) {
             report(frame, "The route method threw a value that is not a std::exception.");
         }
-        return YonAnswer::failure(500, "Handler failed.");
+        return YonAnswer::unhandled(500, "Handler failed.");
     }
 
     static void report(const YonFrame& frame, const std::string& message) {

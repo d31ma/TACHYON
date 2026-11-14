@@ -356,6 +356,12 @@ fn cpp_error_handlers_and_error_types_are_checked() {
             "without Tachyon markers",
         ),
         (
+            "server/controllers/OrdersErrorHandler.hpp",
+            "Problem missing(const OrderNotFound& error)",
+            "Problem missing(const NotSignedIn& error)",
+            "NotSignedIn is a built-in error and always answers 401",
+        ),
+        (
             "server/controllers/AppIdentityProvider.hpp",
             "class [[IdentityProvider]] AppIdentityProvider {",
             "class [[IdentityProvider]] [[SignedIn]] AppIdentityProvider {",
@@ -366,6 +372,23 @@ fn cpp_error_handlers_and_error_types_are_checked() {
         let failure = ErrorProject::refusal(path, from, to);
         assert!(failure.contains(expected), "{to}: {failure}");
     }
+}
+
+#[test]
+fn a_cpp_error_type_cannot_take_a_built_in_name() {
+    let root = ErrorProject::project();
+    ErrorProject::write(
+        root.path(),
+        "server/errors/NotSignedIn.hpp",
+        "#pragma once\n#include <stdexcept>\n\nclass NotSignedIn : public std::runtime_error {\npublic:\n    using std::runtime_error::runtime_error;\n};\n",
+    );
+    let failure = ProjectDiscovery::discover(root.path())
+        .expect_err("the built-in name is refused")
+        .to_string();
+    assert!(
+        failure.contains("name of a Tachyon built-in error type"),
+        "{failure}"
+    );
 }
 
 #[test]

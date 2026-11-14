@@ -8,9 +8,10 @@ pub(super) fn functions(plan: &Plan) -> String {
     );
     for (position, method) in plan.errors.iter().enumerate() {
         let kind = &method.error_type;
+        let skip_check = skip_check(kind);
         let _ = writeln!(
             source,
-            "        if (error instanceof {kind}) {{ int distance = distance(error.getClass(), {kind}.class); if (distance < nearest) {{ selected = {position}; nearest = distance; }} }}"
+            "        if (error instanceof {kind}{skip_check}) {{ int distance = distance(error.getClass(), {kind}.class); if (distance < nearest) {{ selected = {position}; nearest = distance; }} }}"
         );
     }
     source.push_str("        switch (selected) {\n");
@@ -34,4 +35,17 @@ pub(super) fn functions(plan: &Plan) -> String {
     }
     source.push_str("            default: throw error;\n        }\n    }\n    static int distance(Class<?> actual, Class<?> wanted) { int distance = 0; while (actual != null && actual != wanted) { actual = actual.getSuperclass(); distance++; } return distance; }\n    static Object answer(Object result, int status) {\n        if (result instanceof __YonAnswer response) {\n            Object original = ((java.util.Map<?, ?>) Json.parse(response.envelope())).get(\"status\");\n            return original instanceof Number number && number.intValue() == 200 ? response.status(status) : response;\n        }\n        return __YonAnswer.json(Json.stringify(result)).status(status);\n    }\n}\n");
     source
+}
+
+fn skip_check(kind: &str) -> &'static str {
+    const ROOT_TYPES: [&str; 4] = [
+        "Exception",
+        "Throwable",
+        "java.lang.Exception",
+        "java.lang.Throwable",
+    ];
+    if !ROOT_TYPES.contains(&kind) {
+        return "";
+    }
+    " && !Yon.isCheckRejection(error)"
 }
