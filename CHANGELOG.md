@@ -339,6 +339,11 @@ machine contracts have their own, independent major versions.
   `TY1402` with `ty init` and `ty add`, which stop with `TY1402` when they
   would overwrite a file. `TY1402` now means only that. A website test
   checks that the error code index lists each code once.
+- **Windows apps put keyboard focus in the page.** The Windows host now moves
+  keyboard focus into WebView2 when its window gets focus, and once WebView2
+  is ready. Before, focus could stay on the host window, so Alt+Left and
+  Alt+Right (back and forward) and typing did nothing until the user clicked
+  the page, and the `windows-system-back` release gate failed now and then.
 - **One store deadline per answer, and the FYLO operation in every deadline
   failure** (ADR 0128 amendment 2). All store calls of one handler run that
   answers once share one deadline from the first call (`timeout`,
