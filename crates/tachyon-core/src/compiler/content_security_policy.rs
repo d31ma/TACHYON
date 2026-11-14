@@ -11,8 +11,8 @@ impl ContentSecurityPolicy {
 
     pub(crate) fn server(connect_sources: &str) -> String {
         format!(
-            "default-src 'self'; connect-src 'self' {connect_sources}; style-src 'self' 'unsafe-inline'; img-src 'self' data:; \
-             script-src {}; object-src 'none'; \
+            "default-src 'self'; connect-src 'self' {connect_sources}; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; \
+             media-src 'self' blob:; script-src {}; object-src 'none'; \
              base-uri 'none'; frame-ancestors 'none'",
             Self::script_sources()
         )
@@ -34,7 +34,7 @@ impl ContentSecurityPolicy {
     fn native_host_allowing(connect_sources: &str, extra_scripts: &str) -> String {
         format!(
             "default-src 'self'; script-src {}{extra_scripts}; style-src 'self' 'unsafe-inline'; \
-             img-src 'self' data: https:; font-src 'self' data: https:; connect-src {}; \
+             img-src 'self' data: blob: https:; media-src 'self' blob:; font-src 'self' data: https:; connect-src {}; \
              frame-src 'self'; form-action 'self'; object-src 'none'; base-uri 'self'",
             Self::script_sources(),
             Self::connect_list(connect_sources)
@@ -97,6 +97,20 @@ mod tests {
             listed.contains("connect-src 'self' https://api.example.com;"),
             "{listed}"
         );
+    }
+
+    #[test]
+    fn pages_show_blob_urls_in_images_and_media() {
+        let server = ContentSecurityPolicy::server("");
+        let native = ContentSecurityPolicy::native_host("");
+        assert!(server.contains("img-src 'self' data: blob:;"), "{server}");
+        assert!(server.contains("media-src 'self' blob:;"), "{server}");
+        assert!(
+            native.contains("img-src 'self' data: blob: https:;"),
+            "{native}"
+        );
+        assert!(native.contains("media-src 'self' blob:;"), "{native}");
+        assert!(!server.contains("connect-src 'self' blob:"), "{server}");
     }
 
     #[test]

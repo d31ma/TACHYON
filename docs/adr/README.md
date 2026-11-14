@@ -146,3 +146,4 @@ design. Decide routine implementation choices in code review, not in an ADR.
 - [131. The Linux App Reaches Devices, Screens, Files and Keys Through WebKitGTK, the Portals and the Secret Service](0131-the-linux-app-reaches-devices-screens-files-and-keys-through-webkitgtk-the-portals-and-the-secret-service.md)
 - [132. Tac Services Sign, Agree and Encrypt with Keys That Stay on the Device](0132-tac-services-sign-agree-and-encrypt-with-keys-that-stay-on-the-device.md)
 - [133. Crypto Verifies an Empty Message on Every Engine](0133-crypto-verifies-an-empty-message-on-every-engine.md)
+- [134. Tac Services Keep Blobs](0134-tac-services-keep-blobs.md)

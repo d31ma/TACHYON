@@ -48,6 +48,7 @@ impl KotlinWebServices {
     );
     const MEDIA: &'static str = include_str!("web_apis/Media.kt");
     const CRYPTO: &'static str = include_str!("web_apis/Crypto.kt");
+    const BLOBS: &'static str = include_str!("web_apis/Blobs.kt");
 
     const JVM_SHIMS: [(&'static str, &'static str); 4] = [
         (
@@ -140,7 +141,7 @@ impl KotlinWebServices {
         let authored =
             crate::behavior::KotlinBuiltins::in_browser(authored, Self::BROWSER_BUILTINS);
         let program = format!(
-            "{}{authored}\n{}{}{}{}{}{}{}{}",
+            "{}{authored}\n{}{}{}{}{}{}{}{}{}",
             Self::TASK_IMPORT,
             crate::route_types::WebEventSources::kotlin(&models.names()),
             KotlinModelReaders::text(&texts),
@@ -149,6 +150,7 @@ impl KotlinWebServices {
             Self::PASSKEYS,
             Self::MEDIA,
             Self::CRYPTO,
+            Self::BLOBS,
             FilePickerSources::kotlin_page()
         );
         let mut sources = vec![(PathBuf::from(Self::PROGRAM_SOURCE), program)];

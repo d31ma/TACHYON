@@ -1497,6 +1497,8 @@ process.exit(0)
         "\n",
         include_str!("../template/tac-sha256.js"),
         "\n",
+        include_str!("../template/tac-transfer.js"),
+        "\n",
         include_str!("../template/tac-files.js")
     );
 
@@ -3270,6 +3272,8 @@ mod storage_space_tests;
 #[path = "passkeys_tests.rs"]
 mod passkeys_tests;
 
+#[path = "blobs_tests.rs"]
+mod blobs_tests;
 #[path = "code_scanner_tests.rs"]
 mod code_scanner_tests;
 #[path = "crypto_tests.rs"]

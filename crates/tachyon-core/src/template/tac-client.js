@@ -1704,6 +1704,7 @@ const ownerResources = (element, signal, owner) => ({
   media: TacWebApis.media,
   codeScanner: TacWebApis.codeScanner,
   crypto: TacWebApis.crypto,
+  blobs: TacWebApis.apis.blobs,
   filePicker: TacNativeCapabilities.filePicker(signal),
 })
 const attachRuntime = (owner, scope, element) => {

@@ -75,6 +75,21 @@ machine contracts have their own, independent major versions.
   `unsupported`. Known answers (RFC 8032, RFC 5869, NIST GCM, PBKDF2) and a
   kept key across a reload are checked in Chromium, Firefox and WebKit
   (`bun run test:crypto-browser`).
+- **Tac services keep blobs** (ADR 0134). Every Tac service language gets a
+  `Blobs` client, with the new grant `blobs` in `tac.browserApis`, that keeps
+  binary values such as attachments in the page's IndexedDB under app keys.
+  `saveHeld(fileId, key)` keeps a held file and `download(url, key, headers)`
+  keeps a response body, with no bytes in the service and no 1 MiB limit;
+  both answer `BlobSaved { key, bytes, media, sha256 }`. `list(prefix)` sends
+  `BlobFound` per blob and then `BlobsListed { prefix, count, bytes,
+  usedBytes, maxBytes }`; `read` answers `BlobChunkRead`; `remove` answers
+  `BlobRemoved`; `open` answers `BlobOpened { key, url }` with a `blob:` URL
+  for a view, and `url`/`close` read and end it; `upload` answers
+  `BlobUploaded`. A failure sends `BlobFailed { call, key, reason, message }`.
+  The quota comes from `tac.storage.blobs { maxBytes, maxBlobBytes }` (512 MiB
+  and 64 MiB by default) and is checked before each write. The code ships in
+  `.tachyon/tac-blobs.js` only to pages that grant `blobs`. Page
+  Content-Security-Policies now allow `blob:` images and media.
 - **Yon handlers write logs on every answer** (ADR 0127). Every Yon language
   gets `YonLog` with the levels `debug`, `info`, `warn` and `error`, a
   message and optional fields. `ty start`, `ty serve`, `ty handler invoke` and

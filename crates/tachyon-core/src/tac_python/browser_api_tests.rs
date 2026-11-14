@@ -310,6 +310,45 @@ impl BrowserApiPage {
          _report.update({name: _ask('stamp', {'op': 'get', 'name': name}) for name in ['ready', 'request', 'made']})\n\
          _report['requests'] = [[item['api'], item['call'], item['args']] for item in _requests]\n";
 
+    const BLOBS: [(&'static str, &'static str); 1] = [(
+        "client/services/StampService.py",
+        "from typing import Annotated\n\n\
+         @service\n\
+         class StampService:\n\
+         \x20   blobs: Annotated[Blobs, needs]\n\
+         \x20   shown: str = ''\n\
+         \x20   saved: str = ''\n\n\
+         \x20   def keep(self) -> str:\n\
+         \x20       self.blobs.save_held('file-1', 'notes/a')\n\
+         \x20       self.blobs.download('/files/b', 'notes/b', '')\n\
+         \x20       self.blobs.list('notes/')\n\
+         \x20       self.blobs.read('notes/a', 0, 5)\n\
+         \x20       self.blobs.open('notes/a')\n\
+         \x20       self.shown = self.blobs.url('notes/a')\n\
+         \x20       self.blobs.close('notes/a')\n\
+         \x20       upload = self.blobs.upload('notes/a', 'PUT', '/uploads', '')\n\
+         \x20       self.blobs.cancel(upload)\n\
+         \x20       self.blobs.remove('notes/a')\n\
+         \x20       return upload\n\n\
+         \x20   @on_event\n\
+         \x20   def kept(self, saved: BlobSaved) -> None:\n\
+         \x20       self.saved = f'{saved.key} {saved.bytes} {saved.media} {saved.sha256}'\n",
+    )];
+
+    const BLOBS_DRIVER: &'static str = "_requests = []\n\
+         def _web(text):\n\
+         \x20   request = json.loads(text)\n\
+         \x20   _requests.append(request)\n\
+         \x20   answers = {'url': 'blob:notes/a', 'upload': 'upload-1'}\n\
+         \x20   return json.dumps({'value': answers.get(request['call'])})\n\
+         _TacPythonRuntime.connect(_emitted.append, None, web=_web)\n\
+         _report = {'init': _ask('stamp', {'op': 'init', 'props': {}})}\n\
+         _report['keep'] = _ask('stamp', {'op': 'call', 'name': 'keep', 'args': []})\n\
+         _report['heard'] = _ask('stamp', {'op': 'event', 'name': 'kept', 'value': {'key': 'notes/a', 'bytes': 5.0, 'media': 'text/plain', 'sha256': 'ab12'}})\n\
+         _report['shown'] = _ask('stamp', {'op': 'get', 'name': 'shown'})\n\
+         _report['saved'] = _ask('stamp', {'op': 'get', 'name': 'saved'})\n\
+         _report['requests'] = [[item['api'], item['call'], item['args']] for item in _requests]\n";
+
     const ATTACH: [(&'static str, &'static str); 1] = [(
         "client/services/AttachService.py",
         "from typing import Annotated\n\n\
@@ -714,6 +753,45 @@ fn a_python_web_service_signs_and_derives_with_crypto() {
             ["crypto", "hash", ["AQI"]],
             ["crypto", "forget", ["device"]],
             ["crypto", "forgetAll", []],
+        ]),
+        "{report}"
+    );
+}
+
+#[test]
+fn a_python_web_service_keeps_and_uses_blobs() {
+    if !PythonPage::has_python() {
+        return;
+    }
+    let report = PythonPage::run(
+        &BrowserApiPage::BLOBS,
+        &["stamp"],
+        BrowserApiPage::BLOBS_DRIVER,
+    );
+    assert_eq!(report["keep"], json!({"value": "upload-1"}), "{report}");
+    assert_eq!(
+        report["shown"],
+        json!({"value": "blob:notes/a"}),
+        "{report}"
+    );
+    assert_eq!(
+        report["saved"],
+        json!({"value": "notes/a 5.0 text/plain ab12"}),
+        "{report}"
+    );
+    assert_eq!(
+        report["requests"],
+        json!([
+            ["blobs", "saveHeld", ["file-1", "notes/a"]],
+            ["blobs", "download", ["/files/b", "notes/b", ""]],
+            ["blobs", "list", ["notes/"]],
+            ["blobs", "read", ["notes/a", 0, 5]],
+            ["blobs", "open", ["notes/a"]],
+            ["blobs", "url", ["notes/a"]],
+            ["blobs", "close", ["notes/a"]],
+            ["blobs", "upload", ["notes/a", "PUT", "/uploads", ""]],
+            ["blobs", "cancel", ["upload-1"]],
+            ["blobs", "remove", ["notes/a"]],
         ]),
         "{report}"
     );

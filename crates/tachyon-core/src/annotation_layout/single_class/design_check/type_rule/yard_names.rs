@@ -59,7 +59,7 @@ impl YardNames {
         "SecureRandom",
         "Data",
     ];
-    const FRAMEWORK_CLASSES: [&'static str; 23] = [
+    const FRAMEWORK_CLASSES: [&'static str; 24] = [
         "ApplicationEventPublisher",
         "DataSource",
         "RedisTemplate",
@@ -79,6 +79,7 @@ impl YardNames {
         "Media",
         "CodeScanner",
         "Crypto",
+        "Blobs",
         "Files",
         "TacStorage",
         "WindowControls",

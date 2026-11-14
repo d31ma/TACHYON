@@ -338,6 +338,48 @@ function Crypto:forget_all()
   return Crypto:request("forgetAll", {})
 end
 
+Blobs = {}
+
+function Blobs:save_held(file_id, key)
+  TacWebHost.call("blobs", "saveHeld", { file_id, key })
+end
+
+function Blobs:download(url, key, headers)
+  TacWebHost.call("blobs", "download", { url, key, headers })
+end
+
+function Blobs:list(prefix)
+  TacWebHost.call("blobs", "list", { prefix })
+end
+
+function Blobs:read(key, offset, count)
+  TacWebHost.call("blobs", "read", { key, offset, count })
+end
+
+function Blobs:remove(key)
+  TacWebHost.call("blobs", "remove", { key })
+end
+
+function Blobs:url(key)
+  return tostring(TacWebHost.call("blobs", "url", { key }))
+end
+
+function Blobs:open(key)
+  TacWebHost.call("blobs", "open", { key })
+end
+
+function Blobs:close(key)
+  TacWebHost.call("blobs", "close", { key })
+end
+
+function Blobs:upload(key, method, url, headers)
+  return tostring(TacWebHost.call("blobs", "upload", { key, method, url, headers }))
+end
+
+function Blobs:cancel(upload)
+  TacWebHost.call("blobs", "cancel", { upload })
+end
+
 Geolocation = {}
 
 function Geolocation:current_position()

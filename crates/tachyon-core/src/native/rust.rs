@@ -72,6 +72,7 @@ impl RustCompanion {
         include_str!("web_apis/media.rs"),
         include_str!("web_apis/code_scanner.rs"),
         include_str!("web_apis/crypto.rs"),
+        include_str!("web_apis/blobs.rs"),
         include_str!("web_apis/geolocation.rs"),
         include_str!("web_apis/window_controls.rs"),
         include_str!("web_apis/focus.rs")

@@ -270,6 +270,39 @@ private:
     }
 };
 
+class Blobs {
+public:
+    void saveHeld(const std::string& fileId, const std::string& key) const {
+        TacWebCall::answer("blobs", "saveHeld", TacWebCall::arguments(fileId, key));
+    }
+
+    void download(const std::string& url, const std::string& key, const std::string& headers) const {
+        TacWebCall::answer("blobs", "download", TacWebCall::arguments(url, key, headers));
+    }
+
+    void list(const std::string& prefix) const { TacWebCall::answer("blobs", "list", TacWebCall::arguments(prefix)); }
+
+    void read(const std::string& key, long long offset, int count) const {
+        TacWebCall::answer("blobs", "read", TacWebCall::arguments(key, offset, count));
+    }
+
+    void remove(const std::string& key) const { TacWebCall::answer("blobs", "remove", TacWebCall::arguments(key)); }
+
+    std::string url(const std::string& key) const {
+        return TacWebCall::answer("blobs", "url", TacWebCall::arguments(key)).getValue<std::string>();
+    }
+
+    void open(const std::string& key) const { TacWebCall::answer("blobs", "open", TacWebCall::arguments(key)); }
+
+    void close(const std::string& key) const { TacWebCall::answer("blobs", "close", TacWebCall::arguments(key)); }
+
+    std::string upload(const std::string& key, const std::string& method, const std::string& url, const std::string& headers) const {
+        return TacWebCall::answer("blobs", "upload", TacWebCall::arguments(key, method, url, headers)).getValue<std::string>();
+    }
+
+    void cancel(const std::string& upload) const { TacWebCall::answer("blobs", "cancel", TacWebCall::arguments(upload)); }
+};
+
 class Geolocation {
 public:
     void currentPosition() const { TacWebCall::answer("geolocation", "currentPosition"); }
@@ -307,6 +340,7 @@ using tachyon::web::SecureRandom;
 using tachyon::web::Share;
 using tachyon::web::StorageSpace;
 using tachyon::web::Passkeys;
+using tachyon::web::Blobs;
 using tachyon::web::Media;
 using tachyon::web::CodeScanner;
 using tachyon::web::Crypto;

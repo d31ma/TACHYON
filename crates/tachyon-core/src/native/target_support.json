@@ -460,6 +460,26 @@
     "android": {"reach": "adapted", "note": "The Android WebView has no passkeys for the app yet: its page origin is not the app's host, so WebAuthn there cannot make a passkey for that host. A native build ships the passkeys module, but Passkeys.supported answers false, check answers PasskeySupport with platform and conditional false, and create, get and offer answer PasskeyFailed with reason unsupported (ADR 0126). The platform passkey APIs come later."}
   },
   {
+    "member": "tac.browserApis blobs",
+    "paths": ["tac.browserApis[blobs]"],
+    "web": {"reach": "honored", "how": "IndexedDB Blob values in the database tachyon-blobs (ADR 0134): saveHeld, download, list, read, remove, open, upload; blob: URLs for img and video; checked in Chromium, Firefox and WebKit (scripts/blobs-browser-test.mjs)"},
+    "macos": {"reach": "runOwed", "how": "the same page code keeps blobs as IndexedDB Blob values in the web view on tachyon-app://bundle, inside the app's own data, which the operating system keeps until the app is removed; blob: URLs show them in img and video (ADR 0134)", "run": "a Blobs service that keeps, reloads and shows a blob in the built app"},
+    "windows": {"reach": "runOwed", "how": "the same page code keeps blobs as IndexedDB Blob values in the web view on https://tachyon.local, inside the app's own data, which the operating system keeps until the app is removed; blob: URLs show them in img and video (ADR 0134)", "run": "a Blobs service that keeps, reloads and shows a blob in the built app"},
+    "linux": {"reach": "runOwed", "how": "the same page code keeps blobs as IndexedDB Blob values in the web view on tachyon://app, inside the app's own data, which the operating system keeps until the app is removed; blob: URLs show them in img and video (ADR 0134)", "run": "a Blobs service that keeps, reloads and shows a blob in the built app"},
+    "ios": {"reach": "runOwed", "how": "the same page code keeps blobs as IndexedDB Blob values in the web view on tachyon-app://bundle, inside the app's own data, which the operating system keeps until the app is removed; blob: URLs show them in img and video (ADR 0134)", "run": "a Blobs service that keeps, reloads and shows a blob in the built app"},
+    "android": {"reach": "runOwed", "how": "the same page code keeps blobs as IndexedDB Blob values in the web view on https://appassets.tachyon.local, inside the app's own data, which the operating system keeps until the app is removed; blob: URLs show them in img and video (ADR 0134)", "run": "a Blobs service that keeps, reloads and shows a blob in the built app"}
+  },
+  {
+    "member": "tac.storage.blobs",
+    "paths": ["tac.storage.blobs.maxBytes", "tac.storage.blobs.maxBlobBytes"],
+    "web": {"reach": "honored", "how": "the build checks the limits (TY1601) and writes them into a tachyon-blobs meta tag; the page refuses a save over maxBytes with BlobFailed reason quota and a blob over maxBlobBytes with reason size, before it writes (ADR 0134)"},
+    "macos": {"reach": "runOwed", "how": "the page reads the limits from its tachyon-blobs meta tag and checks maxBytes and maxBlobBytes in the same IndexedDB transaction as the write, as on the web (ADR 0134)", "run": "a Blobs service that passes the quota in the built app"},
+    "windows": {"reach": "runOwed", "how": "the page reads the limits from its tachyon-blobs meta tag and checks maxBytes and maxBlobBytes in the same IndexedDB transaction as the write, as on the web (ADR 0134)", "run": "a Blobs service that passes the quota in the built app"},
+    "linux": {"reach": "runOwed", "how": "the page reads the limits from its tachyon-blobs meta tag and checks maxBytes and maxBlobBytes in the same IndexedDB transaction as the write, as on the web (ADR 0134)", "run": "a Blobs service that passes the quota in the built app"},
+    "ios": {"reach": "runOwed", "how": "the page reads the limits from its tachyon-blobs meta tag and checks maxBytes and maxBlobBytes in the same IndexedDB transaction as the write, as on the web (ADR 0134)", "run": "a Blobs service that passes the quota in the built app"},
+    "android": {"reach": "runOwed", "how": "the page reads the limits from its tachyon-blobs meta tag and checks maxBytes and maxBlobBytes in the same IndexedDB transaction as the write, as on the web (ADR 0134)", "run": "a Blobs service that passes the quota in the built app"}
+  },
+  {
     "member": "tac.browserApis microphone",
     "paths": ["tac.browserApis[microphone]"],
     "web": {"reach": "honored", "how": "navigator.mediaDevices.getUserMedia for the microphone and enumerateDevices in a secure page (ADR 0129): a Media track by name, echo cancellation and noise suppression on by default, a track that moves to a new default device, MediaFailed reason words; checked in node with fake devices (compiler::page_media_tests)"},

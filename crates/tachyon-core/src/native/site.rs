@@ -23,12 +23,13 @@ pub(crate) struct SiteSettings {
     pub(crate) link_hosts: Vec<String>,
     pub(crate) outgoing_hosts: Vec<String>,
     pub(crate) camera_reason: Option<String>,
+    pub(crate) blob_limits: super::BlobLimits,
 }
 
 impl SiteSettings {
     const MAX_ORIGIN_LENGTH: usize = 256;
-    const FILES_GRANT: &'static str = "files";
     const CAMERA_GRANT: &'static str = "camera";
+    const TRANSFER_GRANTS: [&'static str; 2] = ["files", "blobs"];
 
     pub(crate) fn load(project_root: &Path) -> Result<Self, Failure> {
         let manifest = read_manifest(project_root)?;
@@ -54,6 +55,7 @@ impl SiteSettings {
         let cache_rules = compile_cache_rules(tac.cache)?;
         let browser_apis = super::browser_api_grants::BrowserApiGrants::checked(tac.browser_apis)?;
         let outgoing_hosts = Self::upload_hosts(&browser_apis, tac.outgoing.as_ref())?;
+        let blob_limits = tac.storage.unwrap_or_default().blob_limits()?;
         let yon = tac.yon.unwrap_or_default();
         validate_sitemap(tac.origin.as_deref(), &tac.sitemap)?;
         let metadata = Self::resolved_metadata(tac.metadata, tac.origin.as_deref());
@@ -75,6 +77,7 @@ impl SiteSettings {
             link_hosts,
             outgoing_hosts,
             camera_reason,
+            blob_limits,
         })
     }
 
@@ -89,7 +92,10 @@ impl SiteSettings {
         browser_apis: &[String],
         outgoing: Option<&serde_json::Value>,
     ) -> Result<Vec<String>, Failure> {
-        if !browser_apis.iter().any(|grant| grant == Self::FILES_GRANT) {
+        if !browser_apis
+            .iter()
+            .any(|grant| Self::TRANSFER_GRANTS.contains(&grant.as_str()))
+        {
             return Ok(Vec::new());
         }
         let declared = super::native_outgoing_hosts::NativeOutgoingHosts::declared(outgoing)?;

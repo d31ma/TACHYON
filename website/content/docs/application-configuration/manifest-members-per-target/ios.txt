@@ -138,6 +138,12 @@ tac.browserApis push
 tac.browserApis passkeys
   adapted: The WKWebView of the iOS app has no passkeys for the app yet: its page origin is not the app's host, so WebAuthn there cannot make a passkey for that host. A native build ships the passkeys module, but Passkeys.supported answers false, check answers PasskeySupport with platform and conditional false, and create, get and offer answer PasskeyFailed with reason unsupported (ADR 0126). The platform passkey APIs come later.
 
+tac.browserApis blobs
+  run owed: the same page code keeps blobs as IndexedDB Blob values in the web view on tachyon-app://bundle, inside the app's own data, which the operating system keeps until the app is removed; blob: URLs show them in img and video (ADR 0134); still to run: a Blobs service that keeps, reloads and shows a blob in the built app
+
+tac.storage.blobs
+  run owed: the page reads the limits from its tachyon-blobs meta tag and checks maxBytes and maxBlobBytes in the same IndexedDB transaction as the write, as on the web (ADR 0134); still to run: a Blobs service that passes the quota in the built app
+
 tac.browserApis microphone
   adapted: Not probed on iOS yet. Until the host part of ADR 0129 lands, the WKWebView has no navigator.mediaDevices, so captureMicrophone answers MediaFailed with reason unsupported.
 

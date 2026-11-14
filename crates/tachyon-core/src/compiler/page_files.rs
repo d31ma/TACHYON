@@ -6,13 +6,7 @@ pub(super) struct PageFiles;
 impl PageFiles {
     pub(super) const PATH: &'static str = ".tachyon/tac-files.js";
     const GRANT: &'static str = "files";
-    const SOURCE: &'static str = concat!(
-        include_str!("../template/tac-random-id.js"),
-        "\n",
-        include_str!("../template/tac-sha256.js"),
-        "\n",
-        include_str!("../template/tac-files.js")
-    );
+    const SOURCE: &'static str = include_str!("../template/tac-files.js");
     const SCRIPT_TAG: &'static str =
         r#"<script type="module" src="/.tachyon/tac-files.js" data-tachyon-runtime></script>"#;
 
@@ -21,7 +15,7 @@ impl PageFiles {
     }
 
     pub(super) fn script() -> Vec<u8> {
-        crate::template::ShippedScript::compact(Self::SOURCE).into_bytes()
+        super::page_transfer::PageTransfer::script_with(Self::SOURCE)
     }
 
     pub(super) fn tag(site: &SiteSettings) -> String {

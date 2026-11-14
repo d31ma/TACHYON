@@ -138,6 +138,12 @@ tac.browserApis push
 tac.browserApis passkeys
   adapted: The WebKitGTK web view of the Linux app has no passkeys for the app yet: its page origin is not the app's host, so WebAuthn there cannot make a passkey for that host. A native build ships the passkeys module, but Passkeys.supported answers false, check answers PasskeySupport with platform and conditional false, and create, get and offer answer PasskeyFailed with reason unsupported (ADR 0126). The platform passkey APIs come later.
 
+tac.browserApis blobs
+  run owed: the same page code keeps blobs as IndexedDB Blob values in the web view on tachyon://app, inside the app's own data, which the operating system keeps until the app is removed; blob: URLs show them in img and video (ADR 0134); still to run: a Blobs service that keeps, reloads and shows a blob in the built app
+
+tac.storage.blobs
+  run owed: the page reads the limits from its tachyon-blobs meta tag and checks maxBytes and maxBlobBytes in the same IndexedDB transaction as the write, as on the web (ADR 0134); still to run: a Blobs service that passes the quota in the built app
+
 tac.browserApis microphone
   adapted: The WebKitGTK page captures the microphone with getUserMedia; the host turns media capture on only with a media grant and allows the microphone only for the app's own pages when microphone is granted, while a request that also asks for the camera or the screen needs those grants too (ADR 0131). WebKitGTK reaches devices through PipeWire or directly. Sending a track on a connection waits for a WebKitGTK with WebRTC (2.56 is planned with it); until then the call parts of Media answer unsupported.
 

@@ -35,6 +35,9 @@ mod foundation_selectors;
 mod foundation_values;
 mod module_code;
 mod output_path;
+mod page_blobs;
+#[cfg(test)]
+mod page_blobs_tests;
 mod page_code_scanner;
 #[cfg(test)]
 mod page_code_scanner_tests;
@@ -55,6 +58,7 @@ mod page_module;
 #[cfg(test)]
 mod page_passkeys_tests;
 mod page_state;
+mod page_transfer;
 mod page_upgrade;
 #[cfg(test)]
 #[allow(clippy::expect_used)]

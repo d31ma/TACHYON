@@ -75,8 +75,7 @@ class TacWebApis {
     offer: (options) => TacWebApis.passkeyLater('offer', false, [options]),
     cancel: () => TacWebApis.passkeyLater('cancel', false, []),
   })
-  static mediaCalls = ['supported', 'devices', 'chooseSpeaker', 'captureMicrophone', 'captureCamera', 'captureScreen', 'stopTrack', 'mute']
-  static media = Object.freeze(Object.fromEntries(TacWebApis.mediaCalls.map((call) => [call, (...values) => TacWebApis.mediaCall(call, values)])))
+  static media = TacWebApis.calls('media', 'supported devices chooseSpeaker captureMicrophone captureCamera captureScreen stopTrack mute')
   static codeScanner = Object.freeze({
     supported: () => TacWebApis.bridged('codeScanner') ? globalThis.__tachyonCameraPresent === true : globalThis[TacWebApis.scannerKey]?.supported() === true,
     scan: () => TacWebApis.scanLater('scan', true),
@@ -86,7 +85,7 @@ class TacWebApis {
     supported: () => TacWebApis.bridged('crypto') || (globalThis.isSecureContext === true && typeof globalThis.crypto?.subtle?.importKey === 'function'),
     ...Object.fromEntries(['check', 'makeKeyPair', 'publicKey', 'sign', 'verify', 'agree', 'deriveKey', 'importKey', 'fromCode', 'encrypt', 'decrypt', 'hkdf', 'hash', 'forget', 'forgetAll'].map((call) => [call, (...values) => TacWebApis.moduleCall('crypto', false, call, values)])),
   })
-  static spaceCounters = []
+  static spaceCounters = globalThis[Symbol.for('tachyon.tac.space')] ??= []
   static noPush = Object.freeze({
     supported: () => false,
     subscribe: () => TacWebApis.pushMissing(),
@@ -114,7 +113,8 @@ class TacWebApis {
     codeScanner: TacWebApis.codeScanner,
     crypto: TacWebApis.crypto,
     nativeCapability: Object.freeze({ call: (...values) => TacNativeCapabilities.now(...values) }),
-    files: Object.freeze(Object.fromEntries(['pick', 'read', 'release', 'upload', 'cancel'].map((call) => [call, (...values) => TacWebApis.files(call, values)]))),
+    files: TacWebApis.calls('files', 'pick read release upload cancel'),
+    blobs: TacWebApis.calls('blobs', 'saveHeld download list read remove url open close upload cancel'),
   })
   static installed = TacWebApis.install()
 
@@ -196,23 +196,16 @@ class TacWebApis {
     if (gesture && navigator.userActivation?.isActive === false) throw new Error(`The ${api} browser API needs a user action. Call it from a click or key handler.`)
   }
 
-  static files(call, values) {
-    return TacWebApis.moduleCall('files', call === 'pick', call, values)
+  static calls(api, names) {
+    return Object.freeze(Object.fromEntries(names.split(' ').map((call) => [call, (...values) => TacWebApis.moduleCall(api, call === 'pick' || call === 'captureScreen', call, values)])))
   }
 
   static moduleCall(api, gesture, call, values) {
-    TacWebApis.allowed(api, gesture)
-    const owner = TacWebApis.caller
     const module = globalThis[Symbol.for(`tachyon.tac.${api}`)]
-    if (!module) throw new Error(`The ${api} browser API did not load on this page.`)
-    return module[call]((event) => TacWebApis.reply(owner, event), ...values)
-  }
-
-  static mediaCall(call, values) {
-    const module = globalThis[Symbol.for('tachyon.tac.media')]
     if (call === 'supported') return module?.supported(...values) === true
-    TacWebApis.allowed(module?.grant(call) ?? 'microphone', call === 'captureScreen')
+    TacWebApis.allowed(module?.grant?.(call) ?? (api === 'media' ? 'microphone' : api), gesture)
     const owner = TacWebApis.caller
+    if (!module) throw new Error(`The ${api} browser API did not load on this page.`)
     return module[call]((event) => TacWebApis.reply(owner, event), ...values)
   }
 

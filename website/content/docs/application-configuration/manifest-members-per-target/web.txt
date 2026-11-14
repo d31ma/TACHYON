@@ -138,6 +138,12 @@ tac.browserApis push
 tac.browserApis passkeys
   honored: navigator.credentials.create and get with the browser's own WebAuthn in a secure page (ADR 0126): WebAuthn JSON text in and out, conditional mediation for autofill, a PasskeyFailed reason word for each failure; Chromium is checked with the DevTools virtual authenticator, Firefox and WebKit without one (scripts/passkeys-browser-test.mjs)
 
+tac.browserApis blobs
+  honored: IndexedDB Blob values in the database tachyon-blobs (ADR 0134): saveHeld, download, list, read, remove, open, upload; blob: URLs for img and video; checked in Chromium, Firefox and WebKit (scripts/blobs-browser-test.mjs)
+
+tac.storage.blobs
+  honored: the build checks the limits (TY1601) and writes them into a tachyon-blobs meta tag; the page refuses a save over maxBytes with BlobFailed reason quota and a blob over maxBlobBytes with reason size, before it writes (ADR 0134)
+
 tac.browserApis microphone
   honored: navigator.mediaDevices.getUserMedia for the microphone and enumerateDevices in a secure page (ADR 0129): a Media track by name, echo cancellation and noise suppression on by default, a track that moves to a new default device, MediaFailed reason words; checked in node with fake devices (compiler::page_media_tests)
 

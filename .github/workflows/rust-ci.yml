@@ -558,6 +558,9 @@ jobs:
       - name: Scan a QR code through the page's camera view
         run: bun run test:code-scanner-browser
 
+      - name: Keep, show and upload blobs in the page's IndexedDB
+        run: bun run test:blobs-browser
+
       - name: Run the real-browser web components contract
         run: bun run test:web-components-browser
         env:

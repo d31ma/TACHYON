@@ -34,10 +34,14 @@ Use `StorageSpace` (ADR 0123) as the smallest complete example: `git log
       in `TacWebApis.apis`. Use `TacWebApis.later(...)` for slow calls: it
       checks the grant (`grant`, default the API name; `null` for no grant),
       the user gesture, and sends the answer or `BrowserCallFailed` to the
-      caller.
+      caller. A client whose calls all go to its own module uses
+      `TacWebApis.calls('<api>', '<call> <call> ...')`, as `files`, `media` and
+      `blobs` do (ADR 0134): the module is
+      `globalThis[Symbol.for('tachyon.tac.<api>')]`, and each call gets a
+      `reply` function first.
 - [ ] Large code goes in its own module that ships only when the manifest
       grants it (see `compiler/web_push.rs`, `compiler/page_files.rs`,
-      `compiler/page_passkeys.rs`), not in `tac-web.js`. Add it to the page
+      `compiler/page_passkeys.rs`, `compiler/page_blobs.rs`), not in `tac-web.js`. Add it to the page
       files before the service worker is built, so offline pages keep it.
 - [ ] Failures that the app must tell apart get their own event with a
       `reason` word, as `PasskeyFailed` does (ADR 0126); `BrowserCallFailed`

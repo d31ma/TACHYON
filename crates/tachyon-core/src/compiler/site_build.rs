@@ -4,6 +4,7 @@ use super::component_styles::ComponentStyles;
 use super::content_digest::ContentDigest;
 use super::exported_elements::ExportedElements;
 use super::output_path::OutputPath;
+use super::page_blobs::PageBlobs;
 use super::page_code_scanner::PageCodeScanner;
 use super::page_composition::PageComposition;
 use super::page_crypto_verifier::PageCryptoVerifier;
@@ -66,6 +67,7 @@ pub(super) struct SiteBuild<'a> {
     code_scanner_tag: String,
     code_scanner: bool,
     crypto_tag: &'static str,
+    blobs_tag: String,
     phase_started: Instant,
     timings: Vec<(String, Duration)>,
     service_timings: Vec<(String, Duration)>,
@@ -124,6 +126,7 @@ impl<'a> SiteBuild<'a> {
             code_scanner_tag: String::new(),
             code_scanner: false,
             crypto_tag: "",
+            blobs_tag: String::new(),
             phase_started,
             timings: Vec::new(),
             service_timings: Vec::new(),
@@ -153,6 +156,7 @@ impl<'a> SiteBuild<'a> {
         self.passkeys_tag = PageModule::PASSKEYS.tag(site);
         self.media_tag = PageMedia::tag(site);
         self.service_notes.extend(PageModule::PASSKEYS.note(site));
+        self.blobs_tag = PageBlobs::tag(site);
         self.code_scanner_tag = PageCodeScanner::tag(site);
         self.code_scanner = PageCodeScanner::granted(site);
         self.crypto_tag = PageModule::CRYPTO.tag(site);
@@ -232,6 +236,7 @@ impl<'a> SiteBuild<'a> {
         self.add_media_files();
         self.add_code_scanner_files();
         self.add_crypto_file();
+        self.add_blobs_file();
         let version = ServiceWorker::version(&self.files, self.build_config_digest.as_deref());
         let python_profile =
             crate::tac_python::RuntimeProfile::for_files(self.snapshot_root, &self.files)?;
@@ -633,6 +638,7 @@ impl<'a> SiteBuild<'a> {
         html = PageHead::inject_before_runtime(&html, self.media_tag);
         html = PageHead::inject_before_runtime(&html, &self.code_scanner_tag);
         html = PageHead::inject_before_runtime(&html, self.crypto_tag);
+        html = PageHead::inject_before_runtime(&html, &self.blobs_tag);
         PageHead::inject_before(&html, "</body>", WebCompiler::SERVICE_WORKER_LINK)
     }
 
@@ -664,6 +670,12 @@ impl<'a> SiteBuild<'a> {
         if !self.crypto_tag.is_empty() {
             self.add_file(PageModule::CRYPTO.path, PageModule::CRYPTO.script());
             self.add_file(PageCryptoVerifier::PATH, PageCryptoVerifier::script());
+        }
+    }
+
+    fn add_blobs_file(&mut self) {
+        if !self.blobs_tag.is_empty() {
+            self.add_file(PageBlobs::PATH, PageBlobs::script());
         }
     }
 

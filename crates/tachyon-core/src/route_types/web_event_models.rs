@@ -53,6 +53,7 @@ impl WebEventModels {
             Self::media_rows(),
             Self::code_scanner_rows(),
             Self::crypto_rows(),
+            Self::blob_rows(),
             Self::socket_and_failure_rows(),
             Self::store_rows(),
         ]
@@ -365,6 +366,86 @@ impl WebEventModels {
 
     fn crypto_record(name: &str, fields: &[(&str, Shape)]) -> (WebEventSender, String, Model) {
         Self::record(WebEventSender::Grant("crypto"), name, fields)
+    }
+
+    fn blob_rows() -> Vec<(WebEventSender, String, Model)> {
+        let blob = WebEventSender::Grant("blobs");
+        vec![
+            Self::record(blob, "BlobSaved", &Self::blob_fields(&[])),
+            Self::record(
+                blob,
+                "BlobFailed",
+                &[
+                    ("call", Shape::Text),
+                    ("key", Shape::Text),
+                    ("reason", Shape::Text),
+                    ("message", Shape::Text),
+                ],
+            ),
+            Self::record(
+                blob,
+                "BlobChunkRead",
+                &[
+                    ("key", Shape::Text),
+                    ("offset", Shape::Number),
+                    ("size", Shape::Number),
+                    ("data", Shape::Text),
+                ],
+            ),
+            Self::record(
+                blob,
+                "BlobFound",
+                &Self::blob_fields(&[
+                    ("saved", Shape::Number),
+                    ("index", Shape::Number),
+                    ("count", Shape::Number),
+                ]),
+            ),
+            Self::record(
+                blob,
+                "BlobsListed",
+                &[
+                    ("prefix", Shape::Text),
+                    ("count", Shape::Number),
+                    ("bytes", Shape::Number),
+                    ("usedBytes", Shape::Number),
+                    ("maxBytes", Shape::Number),
+                ],
+            ),
+            Self::record(
+                blob,
+                "BlobRemoved",
+                &[("key", Shape::Text), ("bytes", Shape::Number)],
+            ),
+            Self::record(
+                blob,
+                "BlobOpened",
+                &[("key", Shape::Text), ("url", Shape::Text)],
+            ),
+            Self::record(
+                blob,
+                "BlobUploaded",
+                &[
+                    ("upload", Shape::Text),
+                    ("key", Shape::Text),
+                    ("status", Shape::Number),
+                    ("body", Shape::Text),
+                    ("truncated", Shape::Boolean),
+                    ("error", Shape::Text),
+                ],
+            ),
+        ]
+    }
+
+    fn blob_fields(extra: &[(&'static str, Shape)]) -> Vec<(&'static str, Shape)> {
+        let mut fields = vec![
+            ("key", Shape::Text),
+            ("bytes", Shape::Number),
+            ("media", Shape::Text),
+            ("sha256", Shape::Text),
+        ];
+        fields.extend_from_slice(extra);
+        fields
     }
 
     fn socket_and_failure_rows() -> Vec<(WebEventSender, String, Model)> {

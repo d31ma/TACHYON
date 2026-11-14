@@ -58,6 +58,7 @@ fn shipped_page_scripts_make_ids_only_through_the_fallback_helper() {
     for (name, source) in [
         ("tac-client.js", include_str!("tac-client.js")),
         ("tac-files.js", include_str!("tac-files.js")),
+        ("tac-transfer.js", include_str!("tac-transfer.js")),
         (
             "tac-dotnet-http.js",
             include_str!("../native/browser/tac-dotnet-http.js"),

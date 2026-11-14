@@ -20,6 +20,7 @@ mod apple_icons;
 mod apple_team;
 #[cfg(test)]
 mod application_state_tests;
+mod blob_limits;
 mod browser_api_bridge;
 mod browser_api_grants;
 #[cfg(test)]
@@ -312,6 +313,7 @@ mod site_association;
 mod site_map;
 #[cfg(test)]
 mod site_tests;
+mod storage_member;
 #[cfg(test)]
 mod storage_tests;
 mod style_source;
@@ -376,6 +378,7 @@ mod yon_reach_tests;
 
 pub use android_architecture::AndroidArchitecture;
 pub(crate) use android_ndk::AndroidNdk;
+pub(crate) use blob_limits::BlobLimits;
 pub(crate) use browser_api_grants::BrowserApiGrants;
 pub use compiler::{
     NativeBuildOptions, NativeBuildResult, NativeCompiler, native_target_directory,

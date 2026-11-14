@@ -43,6 +43,7 @@ impl RubyWebServices {
         include_str!("tac_ruby/media.rb"),
         include_str!("tac_ruby/code_scanner.rb"),
         include_str!("tac_ruby/crypto.rb"),
+        include_str!("tac_ruby/blobs.rb"),
         include_str!("tac_ruby/geolocation.rb"),
         include_str!("tac_ruby/window_controls.rb"),
         include_str!("tac_ruby/focus.rb")

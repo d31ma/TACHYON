@@ -31,7 +31,7 @@ impl GoServices {
     const MODULE: &str = "tachyonservices";
     const PAGE_PACKAGE: &str = "page";
     const DELEGATE_FOLDER: &str = "client/delegates";
-    const RUNTIME_FILES: [(&str, &str); 26] = [
+    const RUNTIME_FILES: [(&str, &str); 28] = [
         ("tac/prelude.go", include_str!("prelude.go")),
         ("tac/prelude_json.go", include_str!("prelude_json.go")),
         ("tac/prelude_tasks.go", include_str!("prelude_tasks.go")),
@@ -82,6 +82,7 @@ impl GoServices {
         ("tac/passkeys.go", include_str!("web_apis/passkeys.go")),
         ("tac/media.go", include_str!("web_apis/media.go")),
         ("tac/crypto.go", include_str!("web_apis/crypto.go")),
+        ("tac/blobs.go", include_str!("web_apis/blobs.go")),
         (
             "tac/code_scanner.go",
             include_str!("web_apis/code_scanner.go"),
@@ -97,6 +98,10 @@ impl GoServices {
             include_str!("web_apis/file_chunk_read.go"),
         ),
         (
+            "tac/blob_chunk_read.go",
+            include_str!("web_apis/blob_chunk_read.go"),
+        ),
+        (
             "tac/browser_fakes.go",
             include_str!("web_apis/browser_fakes.go"),
         ),
@@ -104,7 +109,7 @@ impl GoServices {
     const WEB_ENTRY: &str = include_str!("prelude_web.go");
     const FAILURE_CODE: u16 = 1605;
     const WEB_EVENT_FILE: &str = "tac/web_event_models.go";
-    const ALIASED_TYPES: [&str; 66] = [
+    const ALIASED_TYPES: [&str; 75] = [
         "ApplicationEventPublisher",
         "Clock",
         "SecureRandom",
@@ -124,6 +129,7 @@ impl GoServices {
         "Media",
         "CodeScanner",
         "Crypto",
+        "Blobs",
         "ApplicationStateChanged",
         "ConnectivityChanged",
         "VisibilityChanged",
@@ -164,6 +170,14 @@ impl GoServices {
         "CryptoHashed",
         "CryptoForgotten",
         "CryptoFailed",
+        "BlobSaved",
+        "BlobFailed",
+        "BlobChunkRead",
+        "BlobFound",
+        "BlobsListed",
+        "BlobRemoved",
+        "BlobOpened",
+        "BlobUploaded",
         "SocketOpened",
         "SocketClosed",
         "StorePartitionLoaded",

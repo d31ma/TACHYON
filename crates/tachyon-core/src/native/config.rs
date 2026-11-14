@@ -549,10 +549,12 @@ pub(crate) struct TacMember {
     pub(super) outgoing: Option<serde_json::Value>,
     #[serde(default)]
     pub(super) yon: Option<super::yon_member::YonMember>,
+    #[serde(default)]
+    pub(super) storage: Option<super::storage_member::StorageMember>,
 }
 
 impl TacMember {
-    pub(crate) const FRAMEWORK_MEMBERS: [&str; 31] = [
+    pub(crate) const FRAMEWORK_MEMBERS: [&str; 32] = [
         "origin",
         "application",
         "scripts",
@@ -584,6 +586,7 @@ impl TacMember {
         "go",
         "dotnet",
         "yon",
+        "storage",
     ];
 }
 

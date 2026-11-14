@@ -449,6 +449,8 @@ declare global {
   interface TacCodeScanner { supported(): boolean; scan(): null; cancel(): null; }
   /** Crypto: sign, agree, derive and encrypt with keys that stay on the device (ADR 0132). Grant "crypto" in tac.browserApis. Keys are names the service picks (1 to 64 letters, digits, dots, dashes or underscores); no call returns a private or secret key. Bytes are base64url text without padding, at most 32768 bytes per argument (`sealed` may be 29 bytes longer). `algorithm` is "x25519" or "ed25519"; `use` is "encrypt" (AES-256-GCM) or "derive" (HKDF-SHA-256); `keep` stores the key on the device. Every call except `supported` returns a request id at once, and the answer event carries it as `request`. A later failure sends `CryptoFailed`. `supported` needs no grant. */
   interface TacCrypto { supported(): boolean; check(): string; makeKeyPair(key: string, algorithm: string, keep: boolean): string; publicKey(key: string): string; sign(key: string, data: string): string; verify(publicKey: string, data: string, signature: string): string; agree(key: string, peerPublicKey: string, salt: string, info: string, newKey: string, use: string, keep: boolean): string; deriveKey(fromKey: string, salt: string, info: string, newKey: string, use: string, keep: boolean): string; importKey(newKey: string, secret: string, use: string, keep: boolean): string; fromCode(newKey: string, code: string, salt: string, use: string, keep: boolean): string; encrypt(key: string, data: string, aad: string): string; decrypt(key: string, sealed: string, aad: string): string; hkdf(input: string, salt: string, info: string, length: number): string; hash(data: string): string; forget(key: string): string; forgetAll(): string; }
+  /** Blobs: keeps binary values, such as attachments, in the page's IndexedDB under app keys, with a quota from tac.storage.blobs (ADR 0134). Grant "blobs" in tac.browserApis. A key is 1 to 512 bytes of text with no control character and no "..". `saveHeld` keeps a file that Files holds; `download` keeps the body of a GET from the page's origin or an https host in tac.outgoing.hosts; both answer with `BlobSaved`. `list` sends one `BlobFound` per blob whose key starts with the prefix, then `BlobsListed`. `read` answers with `BlobChunkRead` (at most 32768 bytes). `remove` answers with `BlobRemoved`. `open` makes a page URL for a view and answers with `BlobOpened`; `url` returns that URL at once, or empty; `close` ends it. `upload` returns the upload id and answers with `BlobUploaded`; `cancel` stops it. A failure sends `BlobFailed`. Tachyon never removes a blob by itself. */
+  interface TacBlobs { saveHeld(fileId: string, key: string): null; download(url: string, key: string, headers: string): null; list(prefix: string): null; read(key: string, offset: number, count: number): null; remove(key: string): null; url(key: string): string; open(key: string): null; close(key: string): null; upload(key: string, method: string, url: string, headers: string): string; cancel(upload: string): null; }
   /** FilePickerResult: the status of a native file-picker call (ADR 0089), with an optional opaque handle, basename or UTF-8 text. Failure results expose no host path. */
   interface TacFilePickerResult { status: 'available' | 'selected' | 'cancelled' | 'read' | 'released' | 'denied' | 'unsupported' | 'unavailable' | 'invalid' | 'disposed' | 'tooLarge'; handle?: string; name?: string; text?: string; }
   /** FilePicker: selects one native file and reads UTF-8 text up to 65,536 bytes (ADR 0089). Grant "filePicker" in tac.nativeCapabilities. Handles belong to the owner, and `release` ends access. Picker calls in a browser tab answer `unsupported`. */
@@ -533,6 +535,22 @@ declare global {
   interface CryptoForgotten { request: string; }
   /** CryptoFailed: a built-in event model. `reason` is one of unsupported, invalid, unknown, exists, rejected, locked or failed; `message` is a fixed text for the reason (ADR 0132). */
   interface CryptoFailed { request: string; call: string; reason: string; message: string; }
+  /** BlobSaved: a built-in event model. A blob is kept under `key`; `bytes`, `media` and the hex `sha256` describe it (ADR 0134). */
+  interface BlobSaved { key: string; bytes: number; media: string; sha256: string; }
+  /** BlobFailed: a built-in event model. `reason` is one of quota, size, missing, network, status, unavailable or failed; `message` is a fixed text for the reason (ADR 0134). */
+  interface BlobFailed { call: string; key: string; reason: string; message: string; }
+  /** BlobChunkRead: a built-in event model with base64 `data` that `Blobs.read` read; `size` is the size of the whole blob (ADR 0134). */
+  interface BlobChunkRead { key: string; offset: number; size: number; data: string; }
+  /** BlobFound: a built-in event model, one per blob that `Blobs.list` found; `saved` is milliseconds since 1970 (ADR 0134). */
+  interface BlobFound { key: string; bytes: number; media: string; sha256: string; saved: number; index: number; count: number; }
+  /** BlobsListed: a built-in event model sent after the `BlobFound` events of one `Blobs.list`: how many blobs and bytes the prefix holds, the bytes all blobs use, and the quota (ADR 0134). */
+  interface BlobsListed { prefix: string; count: number; bytes: number; usedBytes: number; maxBytes: number; }
+  /** BlobRemoved: a built-in event model. `bytes` is the size of the removed blob, or 0 when there was none (ADR 0134). */
+  interface BlobRemoved { key: string; bytes: number; }
+  /** BlobOpened: a built-in event model with the page URL of a blob, for an img, video or link in a view (ADR 0134). */
+  interface BlobOpened { key: string; url: string; }
+  /** BlobUploaded: a built-in event model with the answer to `Blobs.upload` (ADR 0134). */
+  interface BlobUploaded { upload: string; key: string; status: number; body: string; truncated: boolean; error: string; }
   /** BrowserCallFailed: a built-in event model. A browser API call failed after it started (ADR 0065). */
   interface BrowserCallFailed { api: string; call: string; message: string; }
   /** FilePicked: a built-in event model, one per chosen file, sent to the caller of `Files.pick` (ADR 0116). */
@@ -571,6 +589,7 @@ declare global {
     media: TacMedia;
     codeScanner: TacCodeScanner;
     crypto: TacCrypto;
+    blobs: TacBlobs;
     filePicker: TacFilePicker;
   }
   /** OnEvent: this method listens for one event model, the type of its one parameter (`placed(order: OrderPlaced)`). A payload that does not fit the model is not delivered. When the method's return type is a model, the value it returns is published as that model. Write `@OnEvent`, or `@OnEvent({ condition, id, replay })`. */
