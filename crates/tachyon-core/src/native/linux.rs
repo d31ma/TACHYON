@@ -776,8 +776,8 @@ static void tachyon_activate(GtkApplication *app, gpointer data) {
   webkit_settings_set_media_playback_requires_user_gesture(settings, !tachyon_media_granted());
 
   gchar *shim = g_strdup_printf(
-      "if (location.protocol === 'tachyon:' && location.host === 'app' && window === window.top) {\n%s\n%s\n}\n",
-      TACHYON_NATIVE_SHIM, TACHYON_FILE_PICKER_PAGE);
+      "if (location.protocol === 'tachyon:' && location.host === 'app' && window === window.top) {\n%s\n%s\n%s\n}\n",
+      TACHYON_NATIVE_SHIM, TACHYON_FILE_PICKER_PAGE, tachyon_screen_share_page());
   WebKitUserScript *script = webkit_user_script_new(
       shim, WEBKIT_USER_CONTENT_INJECT_TOP_FRAME, WEBKIT_USER_SCRIPT_INJECT_AT_DOCUMENT_START,
       NULL, NULL);

@@ -62,6 +62,13 @@ every media permission request, while WebKitGTK's own default left
    portal and PipeWire where they run, and opens devices directly where they
    do not. Tachyon allows both. `supported()` answers true only when a device
    is really listed, so a system with no camera answers false.
+   Screen sharing needs a ScreenCast portal (GNOME, KDE Plasma and
+   wlroots desktops have one). When the app grants `screen`, the host asks
+   the session bus once at start, for at most 2 seconds, whether that portal
+   answers. When it does not, or when `screen` is not granted, the host
+   removes `getDisplayMedia` from the page, so `supported("screen")` answers
+   false and the app shows its "not available" state instead of a failed
+   picker.
 5. **The QR scanner runs in the page**, as on Android and Windows: the same
    camera view and decoder as the web. WebKitGTK has no `BarcodeDetector`,
    so the shipped decoder always reads the code.

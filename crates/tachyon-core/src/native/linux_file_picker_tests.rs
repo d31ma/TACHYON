@@ -146,7 +146,11 @@ fn the_file_picker_fixture_stages_a_granted_service_and_the_page_provider() {
         &super::linux_host_tests::LinuxHostTests::index(),
     );
     assert!(host.contains("static gboolean g_file_picker_granted = TRUE;"));
-    assert!(host.contains("TACHYON_NATIVE_SHIM, TACHYON_FILE_PICKER_PAGE);"));
+    assert!(
+        host.contains(
+            "TACHYON_NATIVE_SHIM, TACHYON_FILE_PICKER_PAGE, tachyon_screen_share_page());"
+        )
+    );
     assert!(host.contains("answer = tachyon_capability_page_call(capability, payload);"));
     assert!(host.contains(
         "picked = tachyon_file_picker_call(operation + strlen(\"filePicker.\"), request);"

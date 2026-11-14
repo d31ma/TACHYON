@@ -1837,6 +1837,17 @@ none). Owed, by hand: a real QR read and a real microphone on a Linux PC,
 through the Camera portal and PipeWire, and screen sharing on GNOME and on
 KDE Plasma.
 
+Screen sharing on Linux (2026-11-14, ADR 0131): the host removes
+`getDisplayMedia` from the page unless `screen` is granted and a ScreenCast
+portal answers on the session bus at start.
+`linux_media_permission_tests::linux_screen_sharing_needs_the_screen_grant_and_a_screen_cast_portal`
+ran in the same gate image with a fake portal on the session bus that
+answers only the ScreenCast `version` property: with `screen` and the portal
+the page had `getDisplayMedia`; with `camera` and the portal, and with
+`screen` but no ScreenCast portal (the image's own `xdg-desktop-portal` with
+its GTK backend has none), it had not, so `Media.supported` answers false for
+screen there.
+
 ### Crypto in the browser (2026-11-14, ADR 0132)
 
 `scripts/crypto-browser-test.mjs` ran on the macOS test machine in

@@ -15,13 +15,23 @@ const results = [];
 results.push(await ask({video: true}));
 results.push(await ask({audio: true}));
 results.push(await ask({audio: true, video: true}));
+results.push('screen:' + typeof navigator.mediaDevices.getDisplayMedia);
 return results.join(',');";
     #[cfg(target_os = "linux")]
-    const CAMERA: &'static str = "video,NotAllowedError,NotAllowedError";
+    const CAMERA: &'static str = "video,NotAllowedError,NotAllowedError,screen:undefined";
     #[cfg(target_os = "linux")]
-    const BOTH: &'static str = "video,audio,audio+video";
+    const BOTH: &'static str = "video,audio,audio+video,screen:undefined";
     #[cfg(target_os = "linux")]
-    const MICROPHONE: &'static str = "NotAllowedError,audio,NotAllowedError";
+    const MICROPHONE: &'static str = "NotAllowedError,audio,NotAllowedError,screen:undefined";
+    #[cfg(target_os = "linux")]
+    const SCREEN_WITHOUT_PORTAL: &'static str =
+        "NotAllowedError,NotAllowedError,NotAllowedError,screen:undefined";
+    #[cfg(target_os = "linux")]
+    const SCREEN_WITH_PORTAL: &'static str =
+        "NotAllowedError,NotAllowedError,NotAllowedError,screen:function";
+    #[cfg(target_os = "linux")]
+    const CAMERA_WITH_PORTAL: &'static str =
+        "video,NotAllowedError,NotAllowedError,screen:undefined";
     #[cfg(target_os = "linux")]
     const NOTHING: &'static str = "no-media-devices";
 
@@ -41,8 +51,12 @@ return results.join(',');";
         )
     }
 
-    fn fixture(expected: &str) -> String {
+    fn fixture(expected: &str, fake_portal: bool) -> String {
         include_str!("linux_media_permission_fixture.c")
+            .replace(
+                "__MEDIA_FAKE_PORTAL__",
+                ["FALSE", "TRUE"][usize::from(fake_portal)],
+            )
             .replace(
                 "__MEDIA_SCRIPT__",
                 &super::host::c_string_escape(Self::SCRIPT),
@@ -54,7 +68,7 @@ return results.join(',');";
     }
 
     #[cfg(target_os = "linux")]
-    async fn run(granted: &[&str], expected: &str) {
+    async fn run(granted: &[&str], expected: &str, fake_portal: bool) {
         let root = tempfile::tempdir().expect("fixture");
         let source = super::native_menu_action_tests::MenuActionFixture::stage(root.path());
         let mut application = super::linux_host_tests::LinuxHostTests::application(
@@ -65,7 +79,7 @@ return results.join(',');";
             root.path(),
             &source,
             &application,
-            &Self::fixture(expected),
+            &Self::fixture(expected, fake_portal),
         )
         .await;
         let output = super::host::run_tool(executable.to_str().expect("binary"), &[])
@@ -125,9 +139,31 @@ fn the_linux_host_allows_each_capture_kind_only_with_its_grant() {
 }
 
 #[test]
+fn the_linux_host_hides_screen_sharing_without_the_grant_or_a_screen_cast_portal() {
+    let source = LinuxMediaPermissionTests::host(&["screen"]);
+    assert!(
+        source.contains(
+            "TACHYON_NATIVE_SHIM, TACHYON_FILE_PICKER_PAGE, tachyon_screen_share_page());"
+        )
+    );
+    assert!(
+        source.contains(
+            "g_variant_new(\"(ss)\", \"org.freedesktop.portal.ScreenCast\", \"version\")"
+        )
+    );
+    assert!(source.contains("return tachyon_browser_api_granted(\"screen\") && tachyon_screen_cast_ready() ? \"\" : TACHYON_SCREEN_SHARE_HIDDEN;"));
+    assert!(source.contains("delete MediaDevices.prototype.getDisplayMedia;"));
+}
+
+#[test]
 fn the_media_permission_fixture_fills_every_placeholder() {
-    let fixture = LinuxMediaPermissionTests::fixture("video");
+    let fixture = LinuxMediaPermissionTests::fixture("video", true);
     assert!(!fixture.contains("__MEDIA_"));
+    assert!(fixture.contains("if (TRUE) tachyon_fake_portal_start();"));
+    assert!(
+        LinuxMediaPermissionTests::fixture("video", false)
+            .contains("if (FALSE) tachyon_fake_portal_start();")
+    );
     assert!(fixture.contains("webkit_settings_set_enable_mock_capture_devices"));
 }
 
@@ -135,9 +171,42 @@ fn the_media_permission_fixture_fills_every_placeholder() {
 #[tokio::test]
 #[ignore = "Requires GTK 4, WebKitGTK 6.0 development files, a session bus and a display; run explicitly on the Linux lane"]
 async fn linux_media_capture_follows_the_manifest_grants_in_the_real_web_view() {
-    LinuxMediaPermissionTests::run(&["camera"], LinuxMediaPermissionTests::CAMERA).await;
-    LinuxMediaPermissionTests::run(&["microphone"], LinuxMediaPermissionTests::MICROPHONE).await;
-    LinuxMediaPermissionTests::run(&["camera", "microphone"], LinuxMediaPermissionTests::BOTH)
-        .await;
-    LinuxMediaPermissionTests::run(&[], LinuxMediaPermissionTests::NOTHING).await;
+    LinuxMediaPermissionTests::run(&["camera"], LinuxMediaPermissionTests::CAMERA, false).await;
+    LinuxMediaPermissionTests::run(
+        &["microphone"],
+        LinuxMediaPermissionTests::MICROPHONE,
+        false,
+    )
+    .await;
+    LinuxMediaPermissionTests::run(
+        &["camera", "microphone"],
+        LinuxMediaPermissionTests::BOTH,
+        false,
+    )
+    .await;
+    LinuxMediaPermissionTests::run(&[], LinuxMediaPermissionTests::NOTHING, false).await;
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+#[ignore = "Requires GTK 4, WebKitGTK 6.0 development files, a session bus and a display; run explicitly on the Linux lane"]
+async fn linux_screen_sharing_needs_the_screen_grant_and_a_screen_cast_portal() {
+    LinuxMediaPermissionTests::run(
+        &["screen"],
+        LinuxMediaPermissionTests::SCREEN_WITH_PORTAL,
+        true,
+    )
+    .await;
+    LinuxMediaPermissionTests::run(
+        &["camera"],
+        LinuxMediaPermissionTests::CAMERA_WITH_PORTAL,
+        true,
+    )
+    .await;
+    LinuxMediaPermissionTests::run(
+        &["screen"],
+        LinuxMediaPermissionTests::SCREEN_WITHOUT_PORTAL,
+        false,
+    )
+    .await;
 }

@@ -1,12 +1,50 @@
 #include <stdlib.h>
 
+static const gchar *TACHYON_FAKE_PORTAL_XML =
+    "<node><interface name='org.freedesktop.portal.ScreenCast'><property name='version' type='u' access='read'/></interface></node>";
 static gboolean g_media_waiting = FALSE;
+static gint g_fake_portal_ready = 0;
+static const guint32 TACHYON_NAME_DO_NOT_QUEUE = 4;
+static const guint32 TACHYON_NAME_PRIMARY_OWNER = 1;
 static gboolean g_media_started = FALSE;
 static gchar *g_media_reply = NULL;
 
 static void tachyon_media_fail(const char *message) {
   fprintf(stderr, "linux media permission fixture failed: %s (reply %s)\n", message, g_media_reply != NULL ? g_media_reply : "none");
   exit(1);
+}
+
+static GVariant *tachyon_fake_portal_property(GDBusConnection *bus, const gchar *sender, const gchar *path,
+                                              const gchar *interface, const gchar *name, GError **error, gpointer data) {
+  (void)bus; (void)sender; (void)path; (void)interface; (void)name; (void)error; (void)data;
+  return g_variant_new_uint32(5);
+}
+
+static gpointer tachyon_fake_portal_run(gpointer data) {
+  (void)data;
+  static const GDBusInterfaceVTable vtable = {NULL, tachyon_fake_portal_property, NULL, {0}};
+  GMainContext *context = g_main_context_new();
+  g_main_context_push_thread_default(context);
+  GDBusConnection *bus = g_bus_get_sync(G_BUS_TYPE_SESSION, NULL, NULL);
+  GDBusNodeInfo *node = g_dbus_node_info_new_for_xml(TACHYON_FAKE_PORTAL_XML, NULL);
+  if (bus == NULL || node == NULL) tachyon_media_fail("no session bus for the fake ScreenCast portal");
+  g_dbus_connection_register_object(bus, "/org/freedesktop/portal/desktop", node->interfaces[0], &vtable, NULL, NULL, NULL);
+  GVariant *owned = g_dbus_connection_call_sync(bus, "org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus",
+                                                "RequestName", g_variant_new("(su)", "org.freedesktop.portal.Desktop", TACHYON_NAME_DO_NOT_QUEUE),
+                                                G_VARIANT_TYPE("(u)"), G_DBUS_CALL_FLAGS_NONE, -1, NULL, NULL);
+  guint32 answer = 0;
+  if (owned != NULL) g_variant_get(owned, "(u)", &answer);
+  if (answer != TACHYON_NAME_PRIMARY_OWNER) tachyon_media_fail("the fake ScreenCast portal could not take its name; another portal owns it");
+  g_variant_unref(owned);
+  g_atomic_int_set(&g_fake_portal_ready, 1);
+  GMainLoop *loop = g_main_loop_new(context, FALSE);
+  g_main_loop_run(loop);
+  return NULL;
+}
+
+static void tachyon_fake_portal_start(void) {
+  g_thread_new("fake-screen-cast-portal", tachyon_fake_portal_run, NULL);
+  while (!g_atomic_int_get(&g_fake_portal_ready)) g_usleep(10000);
 }
 
 static void tachyon_media_replied(GObject *source, GAsyncResult *result, gpointer data) {
@@ -44,6 +82,7 @@ static gboolean tachyon_media_deadline(gpointer data) {
 }
 
 int main(int argc, char **argv) {
+  if (__MEDIA_FAKE_PORTAL__) tachyon_fake_portal_start();
   g_timeout_add(20, tachyon_media_tick, NULL);
   g_timeout_add_seconds(110, tachyon_media_deadline, NULL);
   int status = tachyon_host_main(argc, argv);

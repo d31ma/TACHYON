@@ -17,6 +17,31 @@ static gboolean tachyon_media_granted(void) {
   return tachyon_browser_api_granted("camera") || tachyon_browser_api_granted("microphone") || tachyon_browser_api_granted("screen");
 }
 
+static const gint TACHYON_PORTAL_TIMEOUT_MS = 2000;
+static const gchar *TACHYON_SCREEN_SHARE_HIDDEN = "if (globalThis.MediaDevices) delete MediaDevices.prototype.getDisplayMedia;";
+
+static gboolean tachyon_screen_cast_portal_answers(GDBusConnection *bus) {
+  GVariant *reply = g_dbus_connection_call_sync(
+      bus, "org.freedesktop.portal.Desktop", "/org/freedesktop/portal/desktop", "org.freedesktop.DBus.Properties", "Get",
+      g_variant_new("(ss)", "org.freedesktop.portal.ScreenCast", "version"), G_VARIANT_TYPE("(v)"),
+      G_DBUS_CALL_FLAGS_NONE, TACHYON_PORTAL_TIMEOUT_MS, NULL, NULL);
+  if (reply == NULL) return FALSE;
+  g_variant_unref(reply);
+  return TRUE;
+}
+
+static gboolean tachyon_screen_cast_ready(void) {
+  GDBusConnection *bus = g_bus_get_sync(G_BUS_TYPE_SESSION, NULL, NULL);
+  if (bus == NULL) return FALSE;
+  gboolean ready = tachyon_screen_cast_portal_answers(bus);
+  g_object_unref(bus);
+  return ready;
+}
+
+static const gchar *tachyon_screen_share_page(void) {
+  return tachyon_browser_api_granted("screen") && tachyon_screen_cast_ready() ? "" : TACHYON_SCREEN_SHARE_HIDDEN;
+}
+
 static gboolean tachyon_media_kind_allowed(gboolean asked, const char *api) {
   return !asked || tachyon_browser_api_granted(api);
 }
