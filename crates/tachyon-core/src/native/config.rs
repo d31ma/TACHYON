@@ -551,6 +551,7 @@ pub(crate) struct TacMember {
     pub(super) yon: Option<super::yon_member::YonMember>,
     #[serde(default)]
     pub(super) storage: Option<super::storage_member::StorageMember>,
+    pub(super) mount: Option<String>,
 }
 
 impl TacMember {
@@ -587,6 +588,7 @@ impl TacMember {
         "dotnet",
         "yon",
         "storage",
+        "mount",
     ];
 }
 

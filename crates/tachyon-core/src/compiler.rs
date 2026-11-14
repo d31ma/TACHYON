@@ -34,6 +34,7 @@ mod foundation_rules;
 mod foundation_selectors;
 mod foundation_values;
 mod module_code;
+mod mounted_app;
 mod output_path;
 mod page_blobs;
 #[cfg(test)]
@@ -461,6 +462,7 @@ impl WebCompiler {
         let mut build = SiteBuild::discover(project, options, native_target)?;
         let site = crate::native::SiteSettings::load(build.snapshot_root)?;
         StyleSources::validate(build.snapshot_root, &site)?;
+        mounted_app::MountedApp::check(&site, project.mount())?;
         remote_origins::RemoteOrigins::check(build.snapshot_root, &site.yon_origins)?;
         let cache_rules = ServiceWorker::cache_rules_literal(&site.cache_rules)?;
         let programs = build.compile_route_programs()?;

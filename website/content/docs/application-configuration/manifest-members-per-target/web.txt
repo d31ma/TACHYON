@@ -165,6 +165,9 @@ tac.nativeCapabilities
 tac.elements
   honored: custom elements that other sites can load
 
+tac.mount
+  honored: the app's pages and files under one path prefix of the site
+
 tac.python
   honored: Python services on Pyodide (WebAssembly)
 

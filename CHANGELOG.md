@@ -10,6 +10,14 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- **A Tac app can be built under a path prefix** (ADR NNNN, step 2 of
+  micro-frontends, slice 1). `"tac": { "mount": "/chat" }` makes the app's
+  pages keep their full addresses under `/chat` and writes its runtime,
+  services and shared files under `/chat/`, so several separately built
+  apps can share one origin. A mounted app writes no service worker, web
+  app manifest, site map, robots file or site association; it cannot grant
+  `push`, declare deep links or a site map, or be built alone for a native
+  target (`TY1601`).
 - **Tac bindings give objects and arrays to custom elements as properties**
   (ADR 0136). On an element whose name has a dash, such as `w-chart`, a
   binding that gives an object or an array now sets a JavaScript property

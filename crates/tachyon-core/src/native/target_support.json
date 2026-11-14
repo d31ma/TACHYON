@@ -550,6 +550,16 @@
     "android": {"reach": "adapted", "note": "tac.elements are bundled into the Android app for its own pages only. Other sites cannot load them from the app."}
   },
   {
+    "member": "tac.mount",
+    "paths": ["tac.mount"],
+    "web": {"reach": "honored", "how": "the app's pages and files under one path prefix of the site"},
+    "macos": {"reach": "refused", "code": 1601, "alternative": "A page app with tac.mount is not built alone for macOS. Build its shell's app instead (ADR NNNN)."},
+    "windows": {"reach": "refused", "code": 1601, "alternative": "A page app with tac.mount is not built alone for Windows. Build its shell's app instead (ADR NNNN)."},
+    "linux": {"reach": "refused", "code": 1601, "alternative": "A page app with tac.mount is not built alone for Linux. Build its shell's app instead (ADR NNNN)."},
+    "ios": {"reach": "refused", "code": 1601, "alternative": "A page app with tac.mount is not built alone for iOS. Build its shell's app instead (ADR NNNN)."},
+    "android": {"reach": "refused", "code": 1601, "alternative": "A page app with tac.mount is not built alone for Android. Build its shell's app instead (ADR NNNN)."}
+  },
+  {
     "member": "tac.python",
     "paths": ["tac.python"],
     "web": {"reach": "honored", "how": "Python services on Pyodide (WebAssembly)"},

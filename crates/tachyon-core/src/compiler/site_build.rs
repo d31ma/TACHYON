@@ -92,7 +92,9 @@ impl<'a> SiteBuild<'a> {
         let output_directory = OutputPath::resolve(project.root(), &options.output_directory)?;
         let snapshot_root = project.snapshot_root();
         let components = ComponentRegistry::discover(snapshot_root)?;
-        let services = ServiceRegistry::discover(snapshot_root)?.for_target(native_target);
+        let services = ServiceRegistry::discover(snapshot_root)?
+            .for_target(native_target)
+            .mounted(project.mount());
         ServiceChecks::validate_all(snapshot_root, &services, native_target)?;
         let shared_data = SharedAssets::data_names(snapshot_root);
         let component_styles = ComponentStyles::collect(&components)?;
@@ -285,7 +287,7 @@ impl<'a> SiteBuild<'a> {
     }
 
     pub(super) fn write_output(mut self) -> Result<BuildResult, Failure> {
-        let mut files = std::mem::take(&mut self.files);
+        let mut files = self.project.mount().files(std::mem::take(&mut self.files));
         files.sort_by_key(|value| PortablePath::of(&value.0));
         let compressed = CompressedFiles::create(&files, &self.output_directory, self.compress)?;
         self.finish_compression_phase();
@@ -639,7 +641,13 @@ impl<'a> SiteBuild<'a> {
         html = PageHead::inject_before_runtime(&html, &self.code_scanner_tag);
         html = PageHead::inject_before_runtime(&html, self.crypto_tag);
         html = PageHead::inject_before_runtime(&html, &self.blobs_tag);
-        PageHead::inject_before(&html, "</body>", WebCompiler::SERVICE_WORKER_LINK)
+        html = PageHead::inject_before(&html, "</body>", self.service_worker_link());
+        self.project.mount().document(&html)
+    }
+
+    fn service_worker_link(&self) -> &'static str {
+        let mounted = !self.project.mount().is_root();
+        [WebCompiler::SERVICE_WORKER_LINK, ""][usize::from(mounted)]
     }
 
     fn add_file(&mut self, path: &str, bytes: Vec<u8>) {

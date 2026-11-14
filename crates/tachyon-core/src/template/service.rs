@@ -37,10 +37,12 @@ pub(crate) struct ServiceDefinition {
     injected: Vec<String>,
     stored: BTreeMap<String, String>,
     target: Option<tachyon_contracts::NativeTarget>,
+    services_folder: Option<String>,
 }
 
 impl ServiceDefinition {
     const NEEDS_MARKED_RESOURCES: [&'static str; 2] = ["js", "ts"];
+    const DEFAULT_SERVICES_FOLDER: &'static str = "/.tachyon/services/";
 
     const fn new(class: String) -> Self {
         Self {
@@ -59,6 +61,7 @@ impl ServiceDefinition {
             injected: Vec::new(),
             stored: BTreeMap::new(),
             target: None,
+            services_folder: None,
         }
     }
 
@@ -226,7 +229,13 @@ impl ServiceDefinition {
         if self.script.is_none() && self.web_assembly().is_none() {
             return None;
         }
-        Some(format!("/.tachyon/services/{}.js", self.class))
+        Some(format!("{}{}.js", self.module_folder(), self.class))
+    }
+
+    fn module_folder(&self) -> &str {
+        self.services_folder
+            .as_deref()
+            .unwrap_or(Self::DEFAULT_SERVICES_FOLDER)
     }
 }
 
@@ -439,6 +448,14 @@ impl ServiceRegistry {
 
     pub(crate) fn remote_class(&self, view_name: &str) -> Option<&str> {
         self.remotes.get(view_name).map(String::as_str)
+    }
+
+    pub(crate) fn mounted(mut self, mount: &crate::routing::MountPath) -> Self {
+        let folder = mount.services_folder();
+        self.services
+            .values_mut()
+            .for_each(|service| service.services_folder = Some(folder.clone()));
+        self
     }
 
     pub(crate) fn names(&self) -> BTreeSet<String> {

@@ -225,11 +225,22 @@ impl NativeCompiler {
         Self::build_project_in_mode(&project, options, true).await
     }
 
+    fn refuse_mounted_app(project: &Project) -> Result<(), Failure> {
+        if project.mount().is_root() {
+            return Ok(());
+        }
+        Err(super::config::config_failure(&format!(
+            "This page app has tac.mount {}. A native app holds the whole site: build its shell's project for this target instead (ADR NNNN).",
+            project.mount().prefix()
+        )))
+    }
+
     async fn build_project_in_mode(
         project: &Project,
         options: &NativeBuildOptions,
         ui_candidate: bool,
     ) -> Result<NativeBuildResult, Failure> {
+        Self::refuse_mounted_app(project)?;
         let development_note = Self::declare_development_origin(project, options)?;
         let mut application =
             NativeApplication::discover_from_snapshot(project.snapshot_root(), project.root())?;

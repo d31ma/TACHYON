@@ -1,8 +1,13 @@
+mod mount_path;
 mod route_method;
 mod route_path;
 
+pub(crate) use mount_path::MountPath;
 pub(crate) use route_method::RouteMethod;
 pub(crate) use route_path::RoutePath;
+
+#[cfg(test)]
+mod mount_path_tests;
 
 use std::cmp::Reverse;
 use std::collections::BTreeMap;

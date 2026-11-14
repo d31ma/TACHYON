@@ -39,9 +39,24 @@ impl Discovered {
         access.finish(&mut self.diagnostics)
     }
 
-    pub(super) fn into_route_graph(self, exports_elements: bool) -> Result<RouteGraph, Failure> {
+    pub(super) fn into_route_graph(
+        self,
+        exports_elements: bool,
+        mount: &crate::routing::MountPath,
+    ) -> Result<RouteGraph, Failure> {
         let checked = self.checked(exports_elements)?;
-        RouteGraph::build(checked.views, checked.handlers)
+        let views = Self::mounted_views(checked.views, mount);
+        RouteGraph::build(views, checked.handlers)
+    }
+
+    fn mounted_views(
+        views: Vec<(String, ViewSource)>,
+        mount: &crate::routing::MountPath,
+    ) -> Vec<(String, ViewSource)> {
+        views
+            .into_iter()
+            .map(|(route, view)| (mount.route(&route), view))
+            .collect()
     }
 
     fn add_topics(&mut self, context: &SnapshotContext<'_>, files: &[CapturedFile]) {

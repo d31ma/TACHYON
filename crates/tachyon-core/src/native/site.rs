@@ -107,6 +107,23 @@ impl SiteSettings {
         metadata
     }
 
+    pub(crate) fn mount(project_root: &Path) -> Result<crate::routing::MountPath, Failure> {
+        let declared = read_manifest(project_root)
+            .ok()
+            .flatten()
+            .and_then(|manifest| manifest.into_tac().mount);
+        Self::parsed_mount(declared)
+    }
+
+    fn parsed_mount(declared: Option<String>) -> Result<crate::routing::MountPath, Failure> {
+        declared.map_or_else(
+            || Ok(crate::routing::MountPath::default()),
+            |value| {
+                crate::routing::MountPath::parse(&value).map_err(|message| config_failure(&message))
+            },
+        )
+    }
+
     pub(crate) fn exports_elements(project_root: &Path) -> bool {
         read_manifest(project_root)
             .ok()

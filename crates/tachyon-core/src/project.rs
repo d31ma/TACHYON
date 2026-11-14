@@ -58,6 +58,7 @@ pub struct Project {
     identity: Option<HandlerSource>,
     topics: crate::topic_table::TopicTable,
     workers: Vec<ScheduledWorker>,
+    mount: crate::routing::MountPath,
 }
 
 impl PartialEq for Project {
@@ -103,6 +104,10 @@ impl Project {
 
     pub(crate) fn workers(&self) -> &[ScheduledWorker] {
         &self.workers
+    }
+
+    pub(crate) const fn mount(&self) -> &crate::routing::MountPath {
+        &self.mount
     }
 
     pub(crate) fn invocation_sources(&self) -> impl Iterator<Item = &HandlerSource> + '_ {

@@ -837,7 +837,7 @@ const persistScope = (id, properties) =>
 const importAsset = (raw) => {
   const url = new URL(raw, location.href)
   const sameOrigin = url.origin === location.origin
-  const web = sameOrigin && url.pathname.startsWith('/.tachyon/services/')
+  const web = sameOrigin && url.pathname.startsWith(new URL('./services/', import.meta.url).pathname)
   const native = sameOrigin && url.pathname.includes('/WebBundle/tachyon-runtime/services/')
   if (!web && !native) throw new TypeError('Tac service asset is not a generated same-origin URL.')
   return import(url.href)
