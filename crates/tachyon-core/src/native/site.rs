@@ -22,6 +22,7 @@ pub(crate) struct SiteSettings {
     pub(crate) yon_origins: BTreeMap<String, String>,
     pub(crate) link_hosts: Vec<String>,
     pub(crate) outgoing_hosts: Vec<String>,
+    pub(crate) peers: super::peers_member::PeersMember,
     pub(crate) camera_reason: Option<String>,
     pub(crate) blob_limits: super::BlobLimits,
     pub(crate) apps: BTreeMap<String, String>,
@@ -56,6 +57,11 @@ impl SiteSettings {
         let cache_rules = compile_cache_rules(tac.cache)?;
         let browser_apis = super::browser_api_grants::BrowserApiGrants::checked(tac.browser_apis)?;
         let outgoing_hosts = Self::upload_hosts(&browser_apis, tac.outgoing.as_ref())?;
+        let peers = super::peers_member::PeersMember::checked(
+            tac.peers,
+            &browser_apis,
+            tac.outgoing.as_ref(),
+        )?;
         let blob_limits = tac.storage.unwrap_or_default().blob_limits()?;
         let yon = tac.yon.unwrap_or_default();
         validate_sitemap(tac.origin.as_deref(), &tac.sitemap)?;
@@ -77,6 +83,7 @@ impl SiteSettings {
             yon_origins: yon.origins(),
             link_hosts,
             outgoing_hosts,
+            peers,
             camera_reason,
             blob_limits,
             apps: tac.apps,

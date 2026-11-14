@@ -50,6 +50,7 @@ impl WebEventModels {
             Self::push_rows(),
             Self::storage_rows(),
             Self::passkey_rows(),
+            Self::peer_rows(),
             Self::media_rows(),
             Self::code_scanner_rows(),
             Self::crypto_rows(),
@@ -461,6 +462,49 @@ impl WebEventModels {
         ];
         fields.extend_from_slice(extra);
         fields
+    }
+
+    fn peer_rows() -> Vec<(WebEventSender, String, Model)> {
+        let connection = || ("connection", Shape::Text);
+        let channel = || ("channel", Shape::Text);
+        vec![
+            Self::peer_record(
+                "PeerDescription",
+                &[connection(), ("kind", Shape::Text), ("sdp", Shape::Text)],
+            ),
+            Self::peer_record(
+                "PeerCandidate",
+                &[connection(), ("candidateJson", Shape::Text)],
+            ),
+            Self::peer_record("PeerState", &[connection(), ("state", Shape::Text)]),
+            Self::peer_record("PeerNegotiationNeeded", &[connection()]),
+            Self::peer_record(
+                "PeerChannelOpened",
+                &[
+                    connection(),
+                    channel(),
+                    ("label", Shape::Text),
+                    ("ordered", Shape::Boolean),
+                    ("remote", Shape::Boolean),
+                ],
+            ),
+            Self::peer_record("PeerChannelReady", &[connection(), channel()]),
+            Self::peer_record(
+                "PeerMessage",
+                &[connection(), channel(), ("data", Shape::Text)],
+            ),
+            Self::peer_record("PeerChannelClosed", &[connection(), channel()]),
+            Self::peer_failure(),
+        ]
+    }
+
+    fn peer_record(name: &str, fields: &[(&str, Shape)]) -> (WebEventSender, String, Model) {
+        Self::record(WebEventSender::Grant("peers"), name, fields)
+    }
+
+    fn peer_failure() -> (WebEventSender, String, Model) {
+        let fields = ["connection", "call", "reason", "message"].map(|field| (field, Shape::Text));
+        Self::peer_record("PeerFailed", &fields)
     }
 
     fn socket_and_failure_rows() -> Vec<(WebEventSender, String, Model)> {

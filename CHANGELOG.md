@@ -81,6 +81,22 @@ machine contracts have their own, independent major versions.
   (`application-events.js`) had grown to 18,425 bytes through earlier
   changes without a budget update. The stream options above add 1,737 bytes
   (20,162 in all); the new budget is that size plus a 318-byte margin.
+- **Tac services connect to peers over data channels** (ADR 0140). Every
+  Tac service language gets `Peers`, behind the new grant `peers` in
+  `tac.browserApis`: open a WebRTC connection, make and accept offers and
+  answers, add ICE candidates, open ordered or unordered data channels and
+  send bytes (base64url, at most 32,768 per message) with back-pressure. The
+  app carries the signalling over its own server. STUN and TURN servers come
+  only from the new manifest member `tac.peers` (no defaults; each host in
+  `tac.outgoing.hosts`); `relayOnly` sends all traffic through the relay, and
+  TURN credentials come from the app at run time. Answers are nine new
+  built-in events (`PeerDescription`, `PeerCandidate`, `PeerState`,
+  `PeerNegotiationNeeded`, `PeerChannelOpened`, `PeerChannelReady`, `PeerMessage`,
+  `PeerChannelClosed`, `PeerFailed`). The code ships in
+  `.tachyon/tac-peers.js` only to pages that grant `peers`. Real connections
+  are checked in Chromium, Firefox and WebKit, directly and through coturn
+  (`bun run test:peers-browser`). The Linux app answers `unsupported`
+  (WebKitGTK has no WebRTC); the other native apps are not checked yet.
 - **Crypto verifies an empty message on every engine** (ADR 0133).
   `Crypto.sign` and `Crypto.verify` accept empty data again. WebKit answers
   `false` when it verifies an Ed25519 signature over an empty message; the

@@ -82,6 +82,7 @@ class TacWebApis {
     scan: () => TacWebApis.scanLater('scan', true),
     cancel: () => TacWebApis.scanLater('cancel', false),
   })
+  static peers = TacWebApis.calls('peers', 'supported open offer answer accept addCandidate restart openChannel send closeChannel close')
   static crypto = Object.freeze({
     supported: () => TacWebApis.bridged('crypto') || (globalThis.isSecureContext === true && typeof globalThis.crypto?.subtle?.importKey === 'function'),
     ...Object.fromEntries(['check', 'makeKeyPair', 'publicKey', 'sign', 'verify', 'agree', 'deriveKey', 'importKey', 'fromCode', 'encrypt', 'decrypt', 'hkdf', 'hash', 'forget', 'forgetAll'].map((call) => [call, (...values) => TacWebApis.moduleCall('crypto', false, call, values)])),
@@ -110,6 +111,7 @@ class TacWebApis {
     push: TacWebApis.push,
     storageSpace: TacWebApis.storageSpace,
     passkeys: TacWebApis.passkeys,
+    peers: TacWebApis.peers,
     media: TacWebApis.media,
     codeScanner: TacWebApis.codeScanner,
     crypto: TacWebApis.crypto,

@@ -396,6 +396,52 @@ function Blobs:cancel(upload)
   TacWebHost.call("blobs", "cancel", { upload })
 end
 
+Peers = {}
+
+function Peers:supported()
+  return TacWebHost.call("peers", "supported") == true
+end
+
+function Peers:open(username, credential)
+  return TacWebHost.call("peers", "open", { username, credential })
+end
+
+function Peers:offer(connection)
+  TacWebHost.call("peers", "offer", { connection })
+end
+
+function Peers:answer(connection, offer_sdp)
+  TacWebHost.call("peers", "answer", { connection, offer_sdp })
+end
+
+function Peers:accept(connection, answer_sdp)
+  TacWebHost.call("peers", "accept", { connection, answer_sdp })
+end
+
+function Peers:add_candidate(connection, candidate_json)
+  TacWebHost.call("peers", "addCandidate", { connection, candidate_json })
+end
+
+function Peers:restart(connection)
+  TacWebHost.call("peers", "restart", { connection })
+end
+
+function Peers:open_channel(connection, label, ordered)
+  return TacWebHost.call("peers", "openChannel", { connection, label, ordered == true })
+end
+
+function Peers:send(connection, channel, data)
+  return TacWebHost.call("peers", "send", { connection, channel, data }) == true
+end
+
+function Peers:close_channel(connection, channel)
+  TacWebHost.call("peers", "closeChannel", { connection, channel })
+end
+
+function Peers:close(connection)
+  TacWebHost.call("peers", "close", { connection })
+end
+
 Geolocation = {}
 
 function Geolocation:current_position()

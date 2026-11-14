@@ -558,6 +558,14 @@ jobs:
       - name: Create and use passkeys through the page's WebAuthn
         run: bun run test:passkeys-browser
 
+      - name: Install the coturn TURN relay for the peer connection checks
+        run: sudo apt-get install -y coturn
+
+      - name: Connect peers through the page's WebRTC, directly and through a TURN relay
+        run: bun run test:peers-browser
+        env:
+          TAC_PEERS_REQUIRE_TOOLCHAINS: "1"
+
       - name: Scan a QR code through the page's camera view
         run: bun run test:code-scanner-browser
 

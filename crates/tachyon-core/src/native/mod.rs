@@ -286,6 +286,7 @@ mod native_window_controls;
 #[cfg(all(test, target_os = "macos"))]
 mod native_window_example_tests;
 mod page_program;
+mod peers_member;
 mod placeholder_fill;
 mod registry;
 mod release_packaging;

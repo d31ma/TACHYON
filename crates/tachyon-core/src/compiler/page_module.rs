@@ -23,6 +23,13 @@ impl PageModule {
         script_tag: r#"<script type="module" src="/.tachyon/tac-crypto.js" data-tachyon-runtime></script>"#,
         insecure_note: "Crypto needs a secure page: tac.origin is not https, so WebCrypto works there only on localhost during development, and every other Crypto call answers CryptoFailed with reason unsupported (ADR 0132).",
     };
+    pub(super) const PEERS: Self = Self {
+        path: ".tachyon/tac-peers.js",
+        grant: "peers",
+        source: include_str!("../template/tac-peers.js"),
+        script_tag: r#"<script type="module" src="/.tachyon/tac-peers.js" data-tachyon-runtime></script>"#,
+        insecure_note: "",
+    };
     const NO_TAG: &'static str = "";
     const SECURE_STARTS: [&'static str; 3] = ["https://", "http://localhost", "http://127.0.0.1"];
 

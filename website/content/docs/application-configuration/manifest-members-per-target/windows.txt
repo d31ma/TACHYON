@@ -153,6 +153,12 @@ tac.browserApis screen
 tac.browserApis camera
   honored: the WebView2 page runs the same camera view and decoder as the web; the host's PermissionRequested decision allows the camera only for the app's own pages when camera is granted, and the microphone stays denied (ADR 0130)
 
+tac.browserApis peers
+  run owed: the page uses WebView2's own RTCPeerConnection on https://tachyon.local (ADR 0140); still to run: a Peers connection between two data channels in a WebView2 app on Windows
+
+tac.peers
+  honored: the same checked server list in the page as on the web
+
 tac.browserApis persistentStorage
   run owed: the host answers browserApi.storageSpace with persisted true and the free space of %LOCALAPPDATA% (GetDiskFreeSpaceEx); usage comes from WebView2's navigator.storage.estimate() on https://tachyon.local (ADR 0123); still to run: a StorageSpace service in a WebView2 app on Windows; the browser API fixture checks the host calls under Wine and MSVC only
 

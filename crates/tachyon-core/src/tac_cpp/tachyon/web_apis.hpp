@@ -315,6 +315,51 @@ public:
     void cancel(const std::string& upload) const { TacWebCall::answer("blobs", "cancel", TacWebCall::arguments(upload)); }
 };
 
+class Peers {
+public:
+    bool supported() const { return TacWebCall::flag("peers", "supported"); }
+
+    std::string open(const std::string& username, const std::string& credential) const {
+        return TacWebCall::answer("peers", "open", TacWebCall::arguments(username, credential)).getValue<std::string>();
+    }
+
+    void offer(const std::string& connection) const {
+        TacWebCall::answer("peers", "offer", TacWebCall::arguments(connection));
+    }
+
+    void answer(const std::string& connection, const std::string& offerSdp) const {
+        TacWebCall::answer("peers", "answer", TacWebCall::arguments(connection, offerSdp));
+    }
+
+    void accept(const std::string& connection, const std::string& answerSdp) const {
+        TacWebCall::answer("peers", "accept", TacWebCall::arguments(connection, answerSdp));
+    }
+
+    void addCandidate(const std::string& connection, const std::string& candidateJson) const {
+        TacWebCall::answer("peers", "addCandidate", TacWebCall::arguments(connection, candidateJson));
+    }
+
+    void restart(const std::string& connection) const {
+        TacWebCall::answer("peers", "restart", TacWebCall::arguments(connection));
+    }
+
+    std::string openChannel(const std::string& connection, const std::string& label, bool ordered) const {
+        return TacWebCall::answer("peers", "openChannel", TacWebCall::arguments(connection, label, ordered)).getValue<std::string>();
+    }
+
+    bool send(const std::string& connection, const std::string& channel, const std::string& data) const {
+        return TacWebCall::flag("peers", "send", TacWebCall::arguments(connection, channel, data));
+    }
+
+    void closeChannel(const std::string& connection, const std::string& channel) const {
+        TacWebCall::answer("peers", "closeChannel", TacWebCall::arguments(connection, channel));
+    }
+
+    void close(const std::string& connection) const {
+        TacWebCall::answer("peers", "close", TacWebCall::arguments(connection));
+    }
+};
+
 class Geolocation {
 public:
     void currentPosition() const { TacWebCall::answer("geolocation", "currentPosition"); }
@@ -352,6 +397,7 @@ using tachyon::web::SecureRandom;
 using tachyon::web::Share;
 using tachyon::web::StorageSpace;
 using tachyon::web::Passkeys;
+using tachyon::web::Peers;
 using tachyon::web::Blobs;
 using tachyon::web::Media;
 using tachyon::web::CodeScanner;
