@@ -303,6 +303,22 @@ fn windows_host_sends_the_application_state_on_activation_and_minimize() {
     assert!(!source.contains("__APPLICATION_STATE__"));
 }
 
+#[test]
+fn windows_host_moves_keyboard_focus_into_the_web_view_when_its_window_gets_focus() {
+    let source = WindowsHostTests::host(NativeMenuConfig::default());
+    let window = WindowsHostTests::section(&source, "static LRESULT CALLBACK tachyon_window_proc(");
+    assert!(window.contains("case WM_SETFOCUS:\n      tachyon_web_view_focus();\n      return 0;"));
+    let controller = WindowsHostTests::section(
+        &source,
+        "static HRESULT STDMETHODCALLTYPE controller_invoke(",
+    );
+    assert!(controller.contains("if (GetFocus() == g_window) tachyon_web_view_focus();"));
+    let focus = WindowsHostTests::section(&source, "static void tachyon_web_view_focus(void) {");
+    assert!(focus.contains(
+        "ICoreWebView2Controller_MoveFocus(g_controller, COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC);"
+    ));
+}
+
 #[cfg(unix)]
 #[tokio::test]
 #[ignore = "Requires the x86_64-w64-mingw32-gcc cross compiler; checks the application state code against the Win32 headers, not WebView2 or MSVC"]

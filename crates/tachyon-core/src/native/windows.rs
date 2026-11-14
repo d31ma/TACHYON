@@ -1499,11 +1499,16 @@ static HRESULT STDMETHODCALLTYPE edit_invoke(ICoreWebView2CallDevToolsProtocolMe
 static ICoreWebView2CallDevToolsProtocolMethodCompletedHandlerVtbl g_edit_vtbl = {edit_query, edit_add_ref, edit_release, edit_invoke};
 static TachyonEditHandler g_edit_handler = {&g_edit_vtbl};
 
+static void tachyon_web_view_focus(void) {
+  if (g_controller == NULL) return;
+  ICoreWebView2Controller_MoveFocus(g_controller, COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC);
+}
+
 static BOOL tachyon_menu_edit(const char *command) {
   if (g_webview == NULL || g_controller == NULL) return FALSE;
   wchar_t parameters[128];
   if (_snwprintf_s(parameters, 128, _TRUNCATE, L"{\"type\":\"rawKeyDown\",\"commands\":[\"%hs\"]}", command) < 0) return FALSE;
-  ICoreWebView2Controller_MoveFocus(g_controller, COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC);
+  tachyon_web_view_focus();
   return SUCCEEDED(ICoreWebView2_CallDevToolsProtocolMethod(g_webview, L"Input.dispatchKeyEvent", parameters,
                                                             (ICoreWebView2CallDevToolsProtocolMethodCompletedHandler *)&g_edit_handler));
 }
@@ -1545,6 +1550,7 @@ static HRESULT STDMETHODCALLTYPE controller_invoke(
   RECT bounds;
   GetClientRect(g_window, &bounds);
   ICoreWebView2Controller_put_Bounds(controller, bounds);
+  if (GetFocus() == g_window) tachyon_web_view_focus();
 
   EventRegistrationToken token;
   ICoreWebView2Controller_add_AcceleratorKeyPressed(
@@ -1660,6 +1666,9 @@ __WINDOW_FRAME_MESSAGES__    case WM_SIZE:
     case WM_ACTIVATE:
       tachyon_title_bar_layout(window);
       break;
+    case WM_SETFOCUS:
+      tachyon_web_view_focus();
+      return 0;
     case WM_PAINT:
       if (tachyon_title_bar_paint(window)) return 0;
       break;
