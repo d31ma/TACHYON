@@ -3,18 +3,19 @@ import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { copyFileSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
-import { homedir, tmpdir } from 'node:os'
+import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
 import { CargoArtifacts } from '../cargo-artifacts.mjs'
 import { PageServicesFixture } from '../native/page-services-fixture.mjs'
+import { SharedSimulator } from './shared-simulator.mjs'
 
 class IosFilePickerTest {
   static repository = fileURLToPath(new URL('../..', import.meta.url))
   static binary = process.env.TAC_BIN ?? CargoArtifacts.path('debug/ty')
   static root = mkdtempSync(path.join(process.env.TAC_PROBE_DIR ?? tmpdir(), 'ios-file-picker-'))
-  static deviceSet = process.env.TAC_IOS_SIMULATOR_SET ?? path.join(homedir(), 'Library/Developer/CoreSimulator/Devices')
+  static deviceSet = process.env.TAC_IOS_SIMULATOR_SET ?? SharedSimulator.deviceSet(SharedSimulator.DEFAULT_SET)
   static evidence = process.env.TAC_IOS_FILE_PICKER_EVIDENCE ?? path.join(IosFilePickerTest.repository, 'target/ios-file-picker-evidence')
   static tapper = path.join(IosFilePickerTest.root, 'simulator-tap')
   static reader = path.join(IosFilePickerTest.root, 'screenshot-text')
@@ -47,6 +48,7 @@ class IosFilePickerTest {
   }
 
   static bootSimulator() {
+    if (SharedSimulator.udid('iPhone')) return this.useShared()
     mkdirSync(this.deviceSet, { recursive: true })
     const runtimes = JSON.parse(this.simctl('list', 'runtimes', '--json')).runtimes
     const runtime = runtimes.filter((item) => item.isAvailable && item.identifier.includes('.iOS-'))
@@ -62,11 +64,15 @@ class IosFilePickerTest {
     return { runtime: runtime.version, device: phone.name }
   }
 
+  static useShared() {
+    const shared = SharedSimulator.use(this.deviceSet, 'iPhone')
+    this.device = shared.device
+    return { runtime: shared.runtime.version, device: shared.type.name }
+  }
+
   static shutdownSimulator() {
     if (!this.device) return
-    for (const args of [['shutdown', this.device], ['delete', this.device]]) {
-      spawnSync('/usr/bin/xcrun', ['simctl', '--set', this.deviceSet, ...args], { timeout: 60000, stdio: 'ignore' })
-    }
+    SharedSimulator.finish(this.deviceSet, this.device, this.languages.map((language) => `dev.tachyon.picker-${language}`))
   }
 
   static async seedFile() {
@@ -236,6 +242,7 @@ class IosFilePickerTest {
         writeFileSync(path.join(this.evidence, 'report.json'), JSON.stringify(report, null, 2) + '\n')
       }
     } finally {
+      if (report.seeded) rmSync(report.seeded, { force: true })
       this.shutdownSimulator()
       if (process.env.TAC_KEEP_NATIVE_FIXTURE !== '1') rmSync(this.root, { recursive: true, force: true })
     }

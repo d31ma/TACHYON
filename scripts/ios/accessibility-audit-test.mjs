@@ -8,6 +8,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { CargoArtifacts } from '../cargo-artifacts.mjs'
 import { MobileAccessibilityFixture } from '../native/mobile-accessibility-fixture.mjs'
+import { SharedSimulator } from './shared-simulator.mjs'
 
 export class IosAccessibilityAuditTest {
   static repository = fileURLToPath(new URL('../..', import.meta.url))
@@ -29,7 +30,7 @@ export class IosAccessibilityAuditTest {
   }
 
   static simctl(...args) {
-    return this.run('/usr/bin/xcrun', ['simctl', ...args])
+    return this.run('/usr/bin/xcrun', ['simctl', '--set', SharedSimulator.DEFAULT_SET, ...args])
   }
 
   static identifier(index) {
@@ -103,6 +104,7 @@ export class IosAccessibilityAuditTest {
   }
 
   static boot() {
+    if (SharedSimulator.udid('iPhone')) return this.useShared()
     const runtimes = JSON.parse(this.simctl('list', 'runtimes', '--json')).runtimes
     const runtime = runtimes.filter((item) => item.isAvailable && item.identifier.includes(process.env.TAC_IOS_RUNTIME ?? '.iOS-'))
       .sort((a, b) => b.version.localeCompare(a.version, undefined, { numeric: true }))[0]
@@ -115,6 +117,12 @@ export class IosAccessibilityAuditTest {
     this.simctl('boot', this.device)
     this.simctl('bootstatus', this.device, '-b')
     return { runtime: runtime.version, device: phone.name }
+  }
+
+  static useShared() {
+    const shared = SharedSimulator.use(SharedSimulator.DEFAULT_SET, 'iPhone')
+    this.device = shared.device
+    return { runtime: shared.runtime.version, device: shared.type.name }
   }
 
   static audit(project) {
@@ -146,9 +154,7 @@ export class IosAccessibilityAuditTest {
 
   static cleanup() {
     if (this.device) {
-      for (const args of [['shutdown', this.device], ['delete', this.device]]) {
-        spawnSync('/usr/bin/xcrun', ['simctl', ...args], { timeout: 60000, stdio: 'ignore' })
-      }
+      SharedSimulator.finish(SharedSimulator.DEFAULT_SET, this.device, [this.applicationId, `${this.auditBundleId}.xctrunner`])
       this.device = ''
     }
     rmSync(this.fixture, { recursive: true, force: true })

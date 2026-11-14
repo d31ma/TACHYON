@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url'
 import { CargoArtifacts } from '../cargo-artifacts.mjs'
 import { SupervisedCommand } from '../supervised-command.mjs'
 import { DevLoopFixture } from '../native/dev-loop-fixture.mjs'
+import { SharedSimulator } from './shared-simulator.mjs'
 
 class IosDevLoopTest {
   static repository = fileURLToPath(new URL('../..', import.meta.url))
@@ -49,7 +50,7 @@ class IosDevLoopTest {
   }
 
   static bootSimulator() {
-    this.device = process.env.TAC_IOS_SIMULATOR ?? ''
+    this.device = process.env.TAC_IOS_SIMULATOR ?? SharedSimulator.udid('iPhone')
     if (this.device === '') {
       const runtimes = JSON.parse(this.simctl('list', 'runtimes', '--json')).runtimes
       const runtime = runtimes.filter((item) => item.isAvailable && item.identifier.includes('.iOS-'))

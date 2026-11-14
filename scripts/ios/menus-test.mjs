@@ -6,13 +6,14 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { SharedSimulator } from './shared-simulator.mjs';
 
 assert.equal(process.platform, 'darwin', 'the iOS menus check needs macOS and Xcode');
 
 class IosMenusGate {
   static repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
   static project = mkdtempSync(path.join(tmpdir(), 'tachyon-ios-menus-'));
-  static deviceSet = path.join(IosMenusGate.project, 'simulator-devices');
+  static deviceSet = SharedSimulator.deviceSet(path.join(IosMenusGate.project, 'simulator-devices'));
   static keyboard = path.join(IosMenusGate.project, 'simulator-keyboard');
   static appId = 'dev.tachyon.menu-gate';
   static commandK = '0xE3,0x0E';
@@ -111,6 +112,7 @@ final class MenuProbeService {
   }
 
   static boot(runtime, family) {
+    if (SharedSimulator.udid(family)) return IosMenusGate.useShared(family);
     const { simctl, run, deviceSet, devices } = IosMenusGate;
     const type = runtime.supportedDeviceTypes.find(item => item.productFamily === family);
     assert.ok(type, 'the runtime needs an ' + family + ' device type');
@@ -120,6 +122,12 @@ final class MenuProbeService {
     simctl('boot', device);
     run('/usr/bin/xcrun', ['simctl', '--set', deviceSet, 'bootstatus', device, '-b'], 300000);
     return { device, name: type.name };
+  }
+
+  static useShared(family) {
+    const shared = SharedSimulator.use(IosMenusGate.deviceSet, family);
+    IosMenusGate.devices.push(shared.device);
+    return { device: shared.device, name: shared.type.name };
   }
 
   static pages(device) {
@@ -148,22 +156,20 @@ final class MenuProbeService {
     await waitForPage(device, '/status', name + ': Command-K opens the Status menu item');
     const telemetry = path.join(simctl('get_app_container', device, appId, 'data'), 'Library/Logs/Tachyon', appId + '.jsonl');
     assert.match(readFileSync(telemetry, 'utf8'), /"event":"menu.opened"/, name + ' records the menu item');
-    simctl('shutdown', device);
+    SharedSimulator.shutdown(IosMenusGate.deviceSet, device);
     console.log('PASS: ' + name + ': Command-K opened /status through the ' + (family === 'iPad' ? 'iPad menu bar' : 'iPhone key commands'));
   }
 
   static cleanup() {
     for (const device of IosMenusGate.devices) {
-      for (const args of [['shutdown', device], ['delete', device]]) {
-        spawnSync('/usr/bin/xcrun', ['simctl', '--set', IosMenusGate.deviceSet, ...args], { timeout: 60000, stdio: 'ignore' });
-      }
+      SharedSimulator.finish(IosMenusGate.deviceSet, device, [IosMenusGate.appId]);
     }
     rmSync(IosMenusGate.project, { recursive: true, force: true });
   }
 
   static async main() {
     try {
-      mkdirSync(IosMenusGate.deviceSet);
+      mkdirSync(IosMenusGate.deviceSet, { recursive: true });
       IosMenusGate.writeFixture();
       const bundle = IosMenusGate.build();
       const runtime = IosMenusGate.runtime();

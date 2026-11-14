@@ -3,24 +3,23 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { homedir, tmpdir } from 'node:os';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { crc32, deflateSync } from 'node:zlib';
 import { RelaunchStorageProbe } from '../native/relaunch-storage-probe.mjs';
+import { SharedSimulator } from './shared-simulator.mjs';
 
 assert.equal(process.platform, 'darwin', 'iOS qualification requires macOS and Xcode');
 class IosGate {
   static repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
   static project = mkdtempSync(path.join(tmpdir(), 'tachyon-ios-gate-'));
-  static chosenDevice = process.env.TAC_IOS_DEVICE ?? '';
-  static deviceSet = process.env.TAC_IOS_DEVICE_SET ??
-    (IosGate.chosenDevice ? path.join(homedir(), 'Library/Developer/CoreSimulator/Devices') : path.join(IosGate.project, 'simulator-devices'));
+  static chosenDevice = SharedSimulator.udid('iPhone');
+  static deviceSet = SharedSimulator.deviceSet(path.join(IosGate.project, 'simulator-devices'));
   static installMilliseconds = 900000;
   static appId = 'dev.tachyon.ios-gate';
   static evidence = path.join(IosGate.repo, 'target/phase5-ios-evidence');
   static storageProof = 'root-initial.json';
-  static runtimeVersion = process.env.TAC_IOS_RUNTIME ?? '';
   static device;
 }
 
@@ -42,12 +41,7 @@ const write = (relative, source) => {
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 const cleanup = () => {
   if (IosGate.device) {
-    const steps = IosGate.chosenDevice
-      ? [['terminate', IosGate.device, IosGate.appId], ['uninstall', IosGate.device, IosGate.appId]]
-      : [['terminate', IosGate.device, IosGate.appId], ['shutdown', IosGate.device], ['delete', IosGate.device]];
-    for (const args of steps) {
-      spawnSync('/usr/bin/xcrun', ['simctl', '--set', IosGate.deviceSet, ...args], { timeout: 30000, stdio: 'ignore' });
-    }
+    SharedSimulator.finish(IosGate.deviceSet, IosGate.device, [IosGate.appId]);
     IosGate.device = undefined;
   }
   rmSync(IosGate.project, { recursive: true, force: true });
@@ -56,7 +50,7 @@ process.once('SIGINT', () => { cleanup(); process.exit(130); });
 process.once('SIGTERM', () => { cleanup(); process.exit(143); });
 
 function writeFixture() {
-  if (!IosGate.chosenDevice) mkdirSync(IosGate.deviceSet);
+  mkdirSync(IosGate.deviceSet, { recursive: true });
   write('client/manifest.json', JSON.stringify({ name: 'NativeIOSGate', start_url: '/', tac: { application: { id: 'dev.tachyon.ios-gate', version: '0.0.1', build: 4 }, browserApis: ['clipboard'], styles: ['/shared/ios-gate.css'], names: { check: false }, constants: { check: false }, visibility: { check: false }, duplication: { check: false }, cohesion: { check: false } } }));
   write('client/models/IosEvent.js', '/**\n * @typedef {Object} IosEvent\n * @property {string} text\n */\nexport {}\n');
   write('client/models/IosEvent.swift', 'struct IosEvent {\n    let text: String\n}\n');
@@ -330,30 +324,16 @@ function buildSignedApps(binary) {
   assert.ok(existsSync(path.join(output, 'NativeIOSGate.app/Assets.car')), 'the App Store app must carry its asset catalog');
 }
 
-function chosenVersion(version) {
-  const wanted = IosGate.runtimeVersion;
-  return !wanted || version === wanted || version.startsWith(wanted + '.');
-}
-
-function useBootedSimulator(runtimes) {
-  const devices = JSON.parse(simctl('list', 'devices', '--json')).devices;
-  const [identifier, found] = Object.entries(devices)
-    .map(([key, list]) => [key, list.find(item => item.udid === IosGate.chosenDevice)])
-    .find(([, item]) => item) ?? [];
-  assert.ok(found, 'TAC_IOS_DEVICE ' + IosGate.chosenDevice + ' is not in the device set ' + IosGate.deviceSet);
-  assert.equal(found.state, 'Booted', 'TAC_IOS_DEVICE ' + IosGate.chosenDevice + ' must already be booted');
-  const runtime = runtimes.find(item => item.identifier === identifier);
-  assert.ok(runtime && chosenVersion(runtime.version), 'TAC_IOS_DEVICE ' + IosGate.chosenDevice + ' runs ' + identifier + ', not iOS ' + IosGate.runtimeVersion);
-  const phone = (runtime.supportedDeviceTypes ?? []).find(item => item.identifier === found.deviceTypeIdentifier) ?? found;
-  IosGate.device = IosGate.chosenDevice;
-  console.log('Using booted ' + phone.name + ' with iOS ' + runtime.version + '...');
-  return { runtime, phone };
+function useBootedSimulator() {
+  const shared = SharedSimulator.use(IosGate.deviceSet, 'iPhone');
+  IosGate.device = shared.device;
+  return { runtime: shared.runtime, phone: shared.type };
 }
 
 function bootSimulator() {
+  if (IosGate.chosenDevice) return useBootedSimulator();
   const runtimes = JSON.parse(simctl('list', 'runtimes', '--json')).runtimes;
-  if (IosGate.chosenDevice) return useBootedSimulator(runtimes);
-  const runtime = runtimes.filter(item => item.isAvailable && item.identifier.includes('.iOS-') && chosenVersion(item.version))
+  const runtime = runtimes.filter(item => item.isAvailable && item.identifier.includes('.iOS-') && SharedSimulator.wantedRuntime(item))
     .sort((a, b) => b.version.localeCompare(a.version, undefined, { numeric: true }))[0];
   assert.ok(runtime, 'an installed iOS simulator runtime is required');
   const types = runtime.supportedDeviceTypes ??

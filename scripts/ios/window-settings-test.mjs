@@ -3,28 +3,24 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { homedir, tmpdir } from 'node:os';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { inflateSync } from 'node:zlib';
 import { PageServicesFixture } from '../native/page-services-fixture.mjs';
+import { SharedSimulator } from './shared-simulator.mjs';
 
 assert.equal(process.platform, 'darwin', 'The iOS window settings check needs macOS and Xcode');
 
 class IosWindowSettingsGate {
   static repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
   static root = mkdtempSync(path.join(tmpdir(), 'tachyon-ios-window-'));
-  static chosenDevices = { iPhone: process.env.TAC_IOS_DEVICE ?? '', iPad: process.env.TAC_IOS_TABLET_DEVICE ?? '' };
-  static deviceSet = process.env.TAC_IOS_DEVICE_SET ??
-    (IosWindowSettingsGate.chosenDevices.iPhone || IosWindowSettingsGate.chosenDevices.iPad
-      ? path.join(homedir(), 'Library/Developer/CoreSimulator/Devices')
-      : path.join(IosWindowSettingsGate.root, 'simulator-devices'));
+  static deviceSet = SharedSimulator.deviceSet(path.join(IosWindowSettingsGate.root, 'simulator-devices'));
   static installMilliseconds = 900000;
   static appId = 'dev.tachyon.window-settings';
   static refusalId = 'dev.tachyon.window-refusal';
   static reader = path.join(IosWindowSettingsGate.root, 'screenshot-text');
   static evidence = process.env.TAC_IOS_WINDOW_EVIDENCE ?? path.join(IosWindowSettingsGate.repo, 'target/ios-window-settings-evidence');
-  static runtimeVersion = process.env.TAC_IOS_RUNTIME ?? '';
   static devices = [];
   static usedDevices = [];
   static styles = { default: 0, lightContent: 1, darkContent: 3 };
@@ -245,35 +241,17 @@ impl RustTitleService {
     return path.join(project, 'dist/ios/WindowSettings.app');
   }
 
-  static chosenVersion(version) {
-    const wanted = IosWindowSettingsGate.runtimeVersion;
-    return !wanted || version === wanted || version.startsWith(wanted + '.');
-  }
-
-  static useBooted(device, family, runtimes) {
-    const { simctl, deviceSet } = IosWindowSettingsGate;
-    const devices = JSON.parse(simctl('list', 'devices', '--json')).devices;
-    const [identifier, found] = Object.entries(devices)
-      .map(([key, list]) => [key, list.find(item => item.udid === device)])
-      .find(([, item]) => item) ?? [];
-    assert.ok(found, `${family} device ${device} is not in the device set ${deviceSet}`);
-    assert.equal(found.state, 'Booted', `${family} device ${device} must already be booted`);
-    const runtime = runtimes.find(item => item.identifier === identifier);
-    assert.ok(runtime && IosWindowSettingsGate.chosenVersion(runtime.version), `${family} device ${device} runs ${identifier}, not iOS ${IosWindowSettingsGate.runtimeVersion}`);
-    const types = JSON.parse(simctl('list', 'devicetypes', '--json')).devicetypes;
-    assert.equal(types.find(item => item.identifier === found.deviceTypeIdentifier)?.productFamily, family, `device ${device} must be an ${family}`);
+  static useBooted(family) {
+    const { device } = SharedSimulator.use(IosWindowSettingsGate.deviceSet, family);
     IosWindowSettingsGate.usedDevices.push(device);
-    console.log(`Using booted ${found.name} with iOS ${runtime.version}...`);
     return device;
   }
 
   static boot(deviceName, family) {
     const { simctl, run, deviceSet } = IosWindowSettingsGate;
-    if (IosWindowSettingsGate.chosenDevices[family]) {
-      return IosWindowSettingsGate.useBooted(IosWindowSettingsGate.chosenDevices[family], family, JSON.parse(simctl('list', 'runtimes', '--json')).runtimes);
-    }
+    if (SharedSimulator.udid(family)) return IosWindowSettingsGate.useBooted(family);
     const runtime = JSON.parse(simctl('list', 'runtimes', '--json')).runtimes
-      .filter(item => item.isAvailable && item.identifier.includes('.iOS-') && IosWindowSettingsGate.chosenVersion(item.version))
+      .filter(item => item.isAvailable && item.identifier.includes('.iOS-') && SharedSimulator.wantedRuntime(item))
       .sort((a, b) => b.version.localeCompare(a.version, undefined, { numeric: true }))[0];
     assert.ok(runtime, 'an installed iOS simulator runtime is required');
     const types = runtime.supportedDeviceTypes;
@@ -499,12 +477,10 @@ impl RustTitleService {
 
   static cleanup() {
     for (const device of IosWindowSettingsGate.devices) {
-      for (const args of [['shutdown', device], ['delete', device]]) {
-        spawnSync('/usr/bin/xcrun', ['simctl', '--set', IosWindowSettingsGate.deviceSet, ...args], { timeout: 60000, stdio: 'ignore' });
-      }
+      SharedSimulator.remove(IosWindowSettingsGate.deviceSet, device);
     }
     for (const device of IosWindowSettingsGate.usedDevices) {
-      spawnSync('/usr/bin/xcrun', ['simctl', '--set', IosWindowSettingsGate.deviceSet, 'uninstall', device, IosWindowSettingsGate.appId], { timeout: 60000, stdio: 'ignore' });
+      SharedSimulator.release(IosWindowSettingsGate.deviceSet, device, [IosWindowSettingsGate.appId, IosWindowSettingsGate.refusalId]);
     }
     rmSync(IosWindowSettingsGate.root, { recursive: true, force: true });
   }

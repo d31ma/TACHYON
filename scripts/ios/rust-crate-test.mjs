@@ -8,13 +8,14 @@ import path from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
 import { CargoArtifacts } from '../cargo-artifacts.mjs'
+import { SharedSimulator } from './shared-simulator.mjs'
 
 class IosRustCrateTest {
   static repository = fileURLToPath(new URL('../..', import.meta.url))
   static binary = process.env.TAC_BIN ?? CargoArtifacts.path('debug/ty')
   static root = mkdtempSync(path.join(process.env.TAC_PROBE_DIR ?? tmpdir(), 'ios-rust-crate-'))
   static project = path.join(IosRustCrateTest.root, 'project')
-  static deviceSet = path.join(IosRustCrateTest.root, 'simulator-devices')
+  static deviceSet = SharedSimulator.deviceSet(path.join(IosRustCrateTest.root, 'simulator-devices'))
   static evidence = process.env.TAC_IOS_RUST_CRATE_EVIDENCE ?? path.join(IosRustCrateTest.repository, 'target/ios-rust-crate-evidence')
   static application = 'Greeter'
   static applicationId = 'dev.tachyon.ios-rust-crate'
@@ -155,7 +156,8 @@ final class GreeterProbeService {
   }
 
   static bootSimulator() {
-    mkdirSync(this.deviceSet)
+    if (SharedSimulator.udid('iPhone')) return this.useShared()
+    mkdirSync(this.deviceSet, { recursive: true })
     const runtimes = JSON.parse(this.simctl('list', 'runtimes', '--json')).runtimes
     const runtime = runtimes.filter((item) => item.isAvailable && item.identifier.includes('.iOS-') && this.chosenVersion(item.version))
       .sort((a, b) => b.version.localeCompare(a.version, undefined, { numeric: true }))[0]
@@ -168,11 +170,15 @@ final class GreeterProbeService {
     return { runtime: runtime.version, device: phone.name }
   }
 
+  static useShared() {
+    const shared = SharedSimulator.use(this.deviceSet, 'iPhone')
+    this.device = shared.device
+    return { runtime: shared.runtime.version, device: shared.type.name }
+  }
+
   static shutdownSimulator() {
     if (!this.device) return
-    for (const args of [['shutdown', this.device], ['delete', this.device]]) {
-      spawnSync('/usr/bin/xcrun', ['simctl', '--set', this.deviceSet, ...args], { timeout: 60000, stdio: 'ignore' })
-    }
+    SharedSimulator.finish(this.deviceSet, this.device, [this.applicationId])
   }
 
   static async proof(pid) {

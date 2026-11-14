@@ -2,11 +2,11 @@ import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { copyFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs'
-import { homedir } from 'node:os'
 import path from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
 import { CargoArtifacts } from '../cargo-artifacts.mjs'
+import { SharedSimulator } from '../ios/shared-simulator.mjs'
 import { SupervisedCommand } from '../supervised-command.mjs'
 import { WasmFeaturesFixture } from './wasm-features-fixture.mjs'
 
@@ -37,7 +37,7 @@ final class WasmRecorderService {
   }
 
   static recorder = IosWasmApp.verdictFrom === 'screen' ? undefined : IosWasmApp.linkedRecorder
-  static chosenDevice = process.env.TAC_IOS_DEVICE ?? ''
+  static chosenDevice = SharedSimulator.udid('iPhone')
   static runtimeVersion = process.env.TAC_IOS_RUNTIME ?? ''
   static evidence = process.env.TAC_IOS_WASM_FEATURES_EVIDENCE ?? path.join(IosWasmApp.repository, 'target/ios-wasm-features-evidence')
   static waitMilliseconds = 360000
@@ -72,11 +72,6 @@ final class WasmRecorderService {
     return this.tool('/usr/bin/xcrun', ['simctl', '--set', this.deviceSet, ...args], this.installMilliseconds)
   }
 
-  /** @param {string} version */
-  static chosenVersion(version) {
-    return !this.runtimeVersion || version === this.runtimeVersion || version.startsWith(`${this.runtimeVersion}.`)
-  }
-
   /** @param {string} root */
   static prepare(root) {
     assert.ok(['recorder', 'screen'].includes(this.verdictFrom), `TAC_IOS_WASM_VERDICT is recorder or screen, not ${this.verdictFrom}`)
@@ -86,27 +81,20 @@ final class WasmRecorderService {
     this.reader = path.join(root, 'screenshot-text')
     this.tool('/usr/bin/xcrun', ['clang', '-fobjc-arc', '-framework', 'Foundation', '-framework', 'AppKit', path.join(this.repository, 'scripts/ios/simulator-tap.m'), '-o', this.tapper])
     this.tool('/usr/bin/xcrun', ['swiftc', '-parse-as-library', '-O', path.join(this.repository, 'scripts/ios/screenshot-text.swift'), '-o', this.reader], 600000)
-    this.deviceSet = process.env.TAC_IOS_DEVICE_SET ?? (this.chosenDevice ? path.join(homedir(), 'Library/Developer/CoreSimulator/Devices') : path.join(root, 'simulator-devices'))
+    this.deviceSet = SharedSimulator.deviceSet(path.join(root, 'simulator-devices'))
     return this.chosenDevice ? this.useBootedSimulator() : this.bootSimulator()
   }
 
   static useBootedSimulator() {
-    const runtimes = JSON.parse(this.simctl('list', 'runtimes', '--json')).runtimes
-    const devices = JSON.parse(this.simctl('list', 'devices', '--json')).devices
-    const [identifier, found] = Object.entries(devices).map(([key, list]) => [key, list.find((item) => item.udid === this.chosenDevice)]).find(([, item]) => item) ?? []
-    assert.ok(found, `TAC_IOS_DEVICE ${this.chosenDevice} is not in the device set ${this.deviceSet}`)
-    assert.equal(found.state, 'Booted', `TAC_IOS_DEVICE ${this.chosenDevice} must already be booted`)
-    const runtime = runtimes.find((item) => item.identifier === identifier)
-    assert.ok(runtime && this.chosenVersion(runtime.version), `TAC_IOS_DEVICE ${this.chosenDevice} runs ${identifier}, not iOS ${this.runtimeVersion}`)
-    this.device = this.chosenDevice
-    this.bootedVersion = runtime.version
-    console.log(`==> using booted ${found.name} with iOS ${runtime.version}`)
+    const shared = SharedSimulator.use(this.deviceSet, 'iPhone')
+    this.device = shared.device
+    this.bootedVersion = shared.runtime.version
   }
 
   static bootSimulator() {
     mkdirSync(this.deviceSet, { recursive: true })
     const runtimes = JSON.parse(this.simctl('list', 'runtimes', '--json')).runtimes
-    const runtime = runtimes.filter((item) => item.isAvailable && item.identifier.includes('.iOS-') && this.chosenVersion(item.version))
+    const runtime = runtimes.filter((item) => item.isAvailable && item.identifier.includes('.iOS-') && SharedSimulator.wantedRuntime(item))
       .sort((a, b) => b.version.localeCompare(a.version, undefined, { numeric: true }))[0]
     assert.ok(runtime, `an installed iOS simulator runtime${this.runtimeVersion ? ` ${this.runtimeVersion}` : ''} is required`)
     const phone = (runtime.supportedDeviceTypes ?? []).find((item) => item.name === 'iPhone 17 Pro')
@@ -120,10 +108,8 @@ final class WasmRecorderService {
   }
 
   static close() {
-    if (!this.device || this.chosenDevice) return
-    for (const args of [['shutdown', this.device], ['delete', this.device]]) {
-      spawnSync('/usr/bin/xcrun', ['simctl', '--set', this.deviceSet, ...args], { timeout: 60000, stdio: 'ignore' })
-    }
+    if (!this.device) return
+    SharedSimulator.finish(this.deviceSet, this.device, [])
   }
 
   /** @param {string} name */

@@ -8,13 +8,14 @@ import path from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
 import { CargoArtifacts } from '../cargo-artifacts.mjs'
+import { SharedSimulator } from './shared-simulator.mjs'
 
 class IosBrowserPromptsTest {
   static repository = fileURLToPath(new URL('../..', import.meta.url))
   static binary = process.env.TAC_BIN ?? CargoArtifacts.path('debug/ty')
   static root = mkdtempSync(path.join(process.env.TAC_PROBE_DIR ?? tmpdir(), 'ios-browser-prompts-'))
   static project = path.join(IosBrowserPromptsTest.root, 'project')
-  static deviceSet = path.join(IosBrowserPromptsTest.root, 'simulator-devices')
+  static deviceSet = SharedSimulator.deviceSet(path.join(IosBrowserPromptsTest.root, 'simulator-devices'))
   static evidence = process.env.TAC_IOS_BROWSER_PROMPTS_EVIDENCE ?? path.join(IosBrowserPromptsTest.repository, 'target/ios-browser-prompts-evidence')
   static tapper = path.join(IosBrowserPromptsTest.root, 'simulator-tap')
   static reader = path.join(IosBrowserPromptsTest.root, 'screenshot-text')
@@ -180,7 +181,8 @@ final class PromptCheckService {
   }
 
   static bootSimulator() {
-    mkdirSync(this.deviceSet)
+    if (SharedSimulator.udid('iPhone')) return this.useShared()
+    mkdirSync(this.deviceSet, { recursive: true })
     const runtimes = JSON.parse(this.simctl('list', 'runtimes', '--json')).runtimes
     const runtime = runtimes.filter((item) => item.isAvailable && item.identifier.includes('.iOS-'))
       .sort((a, b) => b.version.localeCompare(a.version, undefined, { numeric: true }))[0]
@@ -195,11 +197,16 @@ final class PromptCheckService {
     return { runtime: runtime.version, device: phone.name }
   }
 
+  static useShared() {
+    const shared = SharedSimulator.use(this.deviceSet, 'iPhone')
+    this.device = shared.device
+    return { runtime: shared.runtime.version, device: shared.type.name }
+  }
+
   static shutdownSimulator() {
     if (!this.device) return
-    for (const args of [['shutdown', this.device], ['delete', this.device]]) {
-      spawnSync('/usr/bin/xcrun', ['simctl', '--set', this.deviceSet, ...args], { timeout: 60000, stdio: 'ignore' })
-    }
+    SharedSimulator.quiet(this.deviceSet, ['location', this.device, 'clear'])
+    SharedSimulator.finish(this.deviceSet, this.device, [this.applicationId])
   }
 
   static documents() {

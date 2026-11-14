@@ -3,19 +3,19 @@ import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
-import { homedir, tmpdir } from 'node:os'
+import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
 import { CargoArtifacts } from '../cargo-artifacts.mjs'
+import { SharedSimulator } from './shared-simulator.mjs'
 
 class IosPageServicesTest {
   static repository = fileURLToPath(new URL('../..', import.meta.url))
   static binary = process.env.TAC_BIN ?? CargoArtifacts.path('debug/ty')
   static root = mkdtempSync(path.join(process.env.TAC_PROBE_DIR ?? tmpdir(), 'ios-page-services-'))
-  static chosenDevice = process.env.TAC_IOS_DEVICE ?? ''
-  static deviceSet = process.env.TAC_IOS_DEVICE_SET
-    ?? (IosPageServicesTest.chosenDevice ? path.join(homedir(), 'Library/Developer/CoreSimulator/Devices') : path.join(IosPageServicesTest.root, 'simulator-devices'))
+  static chosenDevice = SharedSimulator.udid('iPhone')
+  static deviceSet = SharedSimulator.deviceSet(path.join(IosPageServicesTest.root, 'simulator-devices'))
   static evidence = process.env.TAC_IOS_PAGE_SERVICES_EVIDENCE ?? path.join(IosPageServicesTest.repository, 'target/ios-page-services-evidence')
   static feature = path.join(IosPageServicesTest.repository, 'website/content/features/web-assembly-services')
   static languages = (process.env.TAC_IOS_SERVICE_LANGUAGES ?? 'py,cs,kt,dart,java,go,rb,lua,hpp,fs,rs').split(',').map((item) => item.trim()).filter(Boolean)
@@ -27,7 +27,6 @@ class IosPageServicesTest {
   static installMilliseconds = 900000
   static pollMilliseconds = 250
   static device = ''
-  static runtimeVersion = process.env.TAC_IOS_RUNTIME ?? ''
   static bootedVersion = ''
 
   static probeFiles = {
@@ -158,31 +157,18 @@ final class ServicesProbeService {
     return { project, application, applicationId: manifest.tac.application.id }
   }
 
-  /** @param {string} version */
-  static chosenVersion(version) {
-    return !this.runtimeVersion || version === this.runtimeVersion || version.startsWith(`${this.runtimeVersion}.`)
-  }
-
   static useBootedSimulator() {
-    const runtimes = JSON.parse(this.simctl('list', 'runtimes', '--json')).runtimes
-    const devices = JSON.parse(this.simctl('list', 'devices', '--json')).devices
-    const [identifier, found] = Object.entries(devices).map(([key, list]) => [key, list.find((item) => item.udid === this.chosenDevice)]).find(([, item]) => item) ?? []
-    assert.ok(found, `TAC_IOS_DEVICE ${this.chosenDevice} is not in the device set ${this.deviceSet}`)
-    assert.equal(found.state, 'Booted', `TAC_IOS_DEVICE ${this.chosenDevice} must already be booted`)
-    const runtime = runtimes.find((item) => item.identifier === identifier)
-    assert.ok(runtime && this.chosenVersion(runtime.version), `TAC_IOS_DEVICE ${this.chosenDevice} runs ${identifier}, not iOS ${this.runtimeVersion}`)
-    const type = (runtime.supportedDeviceTypes ?? []).find((item) => item.identifier === found.deviceTypeIdentifier)
-    this.device = this.chosenDevice
-    this.bootedVersion = runtime.version
-    console.log(`==> using booted ${type?.name ?? found.name} with iOS ${runtime.version}`)
-    return { runtime: runtime.version, device: type?.name ?? found.name }
+    const shared = SharedSimulator.use(this.deviceSet, 'iPhone')
+    this.device = shared.device
+    this.bootedVersion = shared.runtime.version
+    return { runtime: shared.runtime.version, device: shared.type.name }
   }
 
   static bootSimulator() {
     if (this.chosenDevice) return this.useBootedSimulator()
-    mkdirSync(this.deviceSet)
+    mkdirSync(this.deviceSet, { recursive: true })
     const runtimes = JSON.parse(this.simctl('list', 'runtimes', '--json')).runtimes
-    const runtime = runtimes.filter((item) => item.isAvailable && item.identifier.includes('.iOS-') && this.chosenVersion(item.version))
+    const runtime = runtimes.filter((item) => item.isAvailable && item.identifier.includes('.iOS-') && SharedSimulator.wantedRuntime(item))
       .sort((a, b) => b.version.localeCompare(a.version, undefined, { numeric: true }))[0]
     assert.ok(runtime, 'an installed iOS simulator runtime is required')
     const phone = (runtime.supportedDeviceTypes ?? []).find((item) => item.name === 'iPhone 17 Pro')
@@ -197,10 +183,8 @@ final class ServicesProbeService {
   }
 
   static shutdownSimulator() {
-    if (!this.device || this.chosenDevice) return
-    for (const args of [['shutdown', this.device], ['delete', this.device]]) {
-      spawnSync('/usr/bin/xcrun', ['simctl', '--set', this.deviceSet, ...args], { timeout: 60000, stdio: 'ignore' })
-    }
+    if (!this.device) return
+    SharedSimulator.finish(this.deviceSet, this.device, [])
   }
 
   /** @param {string} documents @param {string} phase @param {number} pid */

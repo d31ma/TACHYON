@@ -6,13 +6,14 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { SharedSimulator } from './shared-simulator.mjs';
 
 assert.equal(process.platform, 'darwin', 'the iOS universal links check needs macOS and Xcode');
 
 class IosUniversalLinksGate {
   static repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
   static project = mkdtempSync(path.join(tmpdir(), 'tachyon-ios-universal-links-'));
-  static deviceSet = path.join(IosUniversalLinksGate.project, 'simulator-devices');
+  static deviceSet = SharedSimulator.deviceSet(path.join(IosUniversalLinksGate.project, 'simulator-devices'));
   static host = process.env.TAC_LINKS_HOST ?? 'd31ma.github.io';
   static team = process.env.TAC_APPLE_TEAM_ID;
   static appId = 'dev.tachyon.link-gate';
@@ -123,6 +124,7 @@ final class LinkProbeService {
   }
 
   static boot(runtime) {
+    if (SharedSimulator.udid('iPhone')) return IosUniversalLinksGate.useShared('iPhone');
     const { simctl, run, deviceSet, devices } = IosUniversalLinksGate;
     const type = runtime.supportedDeviceTypes.find(item => item.productFamily === 'iPhone');
     assert.ok(type, 'the runtime needs an iPhone device type');
@@ -132,6 +134,12 @@ final class LinkProbeService {
     simctl('boot', device);
     run('/usr/bin/xcrun', ['simctl', '--set', deviceSet, 'bootstatus', device, '-b'], 300000);
     return { device, name: type.name };
+  }
+
+  static useShared(family) {
+    const shared = SharedSimulator.use(IosUniversalLinksGate.deviceSet, family);
+    IosUniversalLinksGate.devices.push(shared.device);
+    return { device: shared.device, name: shared.type.name };
   }
 
   static pages(device) {
@@ -170,14 +178,12 @@ final class LinkProbeService {
     simctl('openurl', device, `https://${host}/orders?x=2`);
     await waitForPage(device, '/orders?x=2', name + `: https://${host}/orders?x=2 reaches the running app`);
     console.log(`OK: ${name}: https://${host}/orders?x=2 reached the running app`);
-    simctl('shutdown', device);
+    SharedSimulator.shutdown(IosUniversalLinksGate.deviceSet, device);
   }
 
   static cleanup() {
     for (const device of IosUniversalLinksGate.devices) {
-      for (const args of [['shutdown', device], ['delete', device]]) {
-        spawnSync('/usr/bin/xcrun', ['simctl', '--set', IosUniversalLinksGate.deviceSet, ...args], { timeout: 60000, stdio: 'ignore' });
-      }
+      SharedSimulator.finish(IosUniversalLinksGate.deviceSet, device, [IosUniversalLinksGate.appId]);
     }
     rmSync(IosUniversalLinksGate.project, { recursive: true, force: true });
   }
@@ -185,7 +191,7 @@ final class LinkProbeService {
   static async main() {
     assert.match(IosUniversalLinksGate.team ?? '', /^[A-Z0-9]{10}$/, 'TAC_APPLE_TEAM_ID is required');
     try {
-      mkdirSync(IosUniversalLinksGate.deviceSet);
+      mkdirSync(IosUniversalLinksGate.deviceSet, { recursive: true });
       IosUniversalLinksGate.writeFixture();
       await IosUniversalLinksGate.checkServedFile();
       const bundle = IosUniversalLinksGate.build();

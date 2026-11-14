@@ -7,13 +7,14 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ApplicationLifetimeFixture } from '../native/application-lifetime-fixture.mjs';
+import { SharedSimulator } from './shared-simulator.mjs';
 
 assert.equal(process.platform, 'darwin', 'the iOS application lifetime check needs macOS and Xcode');
 
 class IosLifetimeGate {
   static repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
   static project = mkdtempSync(path.join(tmpdir(), 'tachyon-ios-lifetime-'));
-  static deviceSet = path.join(IosLifetimeGate.project, 'simulator-devices');
+  static deviceSet = SharedSimulator.deviceSet(path.join(IosLifetimeGate.project, 'simulator-devices'));
   static keyboard = path.join(IosLifetimeGate.project, 'simulator-keyboard');
   static tapper = path.join(IosLifetimeGate.project, 'simulator-tap');
   static reader = path.join(IosLifetimeGate.project, 'screenshot-text');
@@ -78,6 +79,7 @@ class IosLifetimeGate {
   }
 
   static boot(runtime, family) {
+    if (SharedSimulator.udid(family)) return IosLifetimeGate.useShared(family);
     const { simctl, run, deviceSet, devices } = IosLifetimeGate;
     const type = runtime.supportedDeviceTypes.find(item => item.productFamily === family);
     assert.ok(type, 'the runtime needs an ' + family + ' device type');
@@ -87,6 +89,12 @@ class IosLifetimeGate {
     simctl('boot', device);
     run('/usr/bin/xcrun', ['simctl', '--set', deviceSet, 'bootstatus', device, '-b'], 300000);
     return { device, name: type.name };
+  }
+
+  static useShared(family) {
+    const shared = SharedSimulator.use(IosLifetimeGate.deviceSet, family);
+    IosLifetimeGate.devices.push(shared.device);
+    return { device: shared.device, name: shared.type.name };
   }
 
   static container(device) {
@@ -260,22 +268,20 @@ class IosLifetimeGate {
     const open = await IosLifetimeGate.openStatus(device, name);
     if (family === 'iPad') await IosLifetimeGate.checkMenuBarByTouch(device, name, instance);
     await IosLifetimeGate.checkTermination(device, name, instance, open);
-    simctl('shutdown', device);
+    SharedSimulator.shutdown(IosLifetimeGate.deviceSet, device);
     console.log('PASS: ' + name + ': one LifetimeService served two pages, and Command-1 and Command-2 called it through the ' + (family === 'iPad' ? 'iPad menu bar' : 'iPhone key commands'));
   }
 
   static cleanup() {
     for (const device of IosLifetimeGate.devices) {
-      for (const args of [['shutdown', device], ['delete', device]]) {
-        spawnSync('/usr/bin/xcrun', ['simctl', '--set', IosLifetimeGate.deviceSet, ...args], { timeout: 60000, stdio: 'ignore' });
-      }
+      SharedSimulator.finish(IosLifetimeGate.deviceSet, device, [IosLifetimeGate.appId]);
     }
     rmSync(IosLifetimeGate.project, { recursive: true, force: true });
   }
 
   static async main() {
     try {
-      mkdirSync(IosLifetimeGate.deviceSet);
+      mkdirSync(IosLifetimeGate.deviceSet, { recursive: true });
       const bundle = IosLifetimeGate.build();
       const runtime = IosLifetimeGate.runtime();
       for (const family of ['iPhone', 'iPad']) {
