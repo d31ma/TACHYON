@@ -338,3 +338,31 @@ service starts, the page copies only the tables without a partition; a
 service loads a partition with `load` and hears `StorePartitionLoaded`. A
 failed background write now sends `StoreWriteFailed` instead of only writing
 to the console.
+
+## Amendment (2026-11-12): page apps of one site share the database safely
+
+Several separately built Tac page apps can now share one origin (step 2 of
+micro-frontends, ADR 0086). They all open the one database `tachyon-store`
+of the origin, so the offline copy belongs to the person on the device, not
+to a page. Two changes make that safe:
+
+1. **Upgrades from several tabs.** A page that needs a new table opens the
+   database at the next version. When another tab took that version first,
+   or is already several versions ahead (`VersionError`), the page checks
+   its tables again and opens one version higher, up to eight times. Before,
+   the page could keep a connection without its new table, and every write
+   to that table failed.
+2. **A register of shared tables.** The database has a store
+   `tachyon:tables` with one record per table: its id field, its partition
+   field and the page apps that use it (each app's path, such as `/chat/`).
+   A page app that declares a table with another partition field than the
+   other apps that use it stops with `storage_table_conflict`, and the
+   stored index is kept. When the only app of a table changes the partition
+   field, the index is rebuilt as before (ADR 0125). A table that two apps
+   share should have one entity in shared code. A different id field was
+   already refused.
+
+The start-up copy (`TacEntityMirror`) skips the register. It still copies
+every unpartitioned table of the origin, also other apps' tables: with
+several apps in one document every visited app needs its tables anyway, and
+a build has no list of tables across the fourteen languages yet.

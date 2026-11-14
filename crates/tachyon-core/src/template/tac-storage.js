@@ -158,6 +158,9 @@ class TacCacheStorage {
 class TacEntityStorage {
   static databaseName = 'tachyon-store'
   static partitionIndex = 'tachyon:partition'
+  static tablesStore = 'tachyon:tables'
+  static app = '/'
+  static upgradeTries = 8
   static scanLimit = 10000
   static maxTransactions = 64
   static wanted = new Map()
@@ -195,11 +198,17 @@ class TacEntityStorage {
     if (TacEntityStorage.current && TacEntityStorage.checked === key) return TacEntityStorage.current
     if (typeof globalThis.indexedDB?.open !== 'function') throw new TacStorageError('This browser has no IndexedDB, so an entity with the "indexeddb" adapter cannot be stored here.')
     let database = TacEntityStorage.current ?? TacEntityStorage.watch(await TacEntityStorage.open())
-    if (TacEntityStorage.missing(database)) {
+    await TacEntityStorage.checkOwners(database)
+    for (let tries = 0; TacEntityStorage.missing(database); tries += 1) {
+      if (tries >= TacEntityStorage.upgradeTries) {
+        database.close()
+        throw new TacStorageError('Other tabs keep changing the IndexedDB tables of this site, so the tables of this page could not be added. Reload the page.')
+      }
       const version = database.version + 1
       database.close()
-      database = TacEntityStorage.watch(await TacEntityStorage.open(version))
+      database = TacEntityStorage.watch(await TacEntityStorage.openFrom(version))
     }
+    await TacEntityStorage.recordOwners(database)
     TacEntityStorage.current = database
     TacEntityStorage.checked = key
     return database
@@ -218,6 +227,48 @@ class TacEntityStorage {
     })
   }
 
+  static async openFrom(version) {
+    try {
+      return await TacEntityStorage.open(version)
+    } catch (error) {
+      if (error?.name !== 'VersionError') throw error
+      return TacEntityStorage.open()
+    }
+  }
+
+  static async owners(database) {
+    if (!database.objectStoreNames.contains(TacEntityStorage.tablesStore)) return new Map()
+    const store = database.transaction(TacEntityStorage.tablesStore, 'readonly').objectStore(TacEntityStorage.tablesStore)
+    const records = await TacEntityStorage.answer(store.getAll())
+    return new Map(records.map((record) => [record.table, record]))
+  }
+
+  static async checkOwners(database) {
+    const owners = await TacEntityStorage.owners(database)
+    for (const [table, entry] of TacEntityStorage.wanted) {
+      const record = owners.get(table)
+      if (!record || record.partition === entry.partition) continue
+      const others = record.apps.filter((app) => app !== TacEntityStorage.app)
+      if (!others.length) continue
+      throw new TacStorageError(`The page app at ${TacEntityStorage.app} splits the IndexedDB store '${table}' by the partition field '${entry.partition}', but ${others.join(', ')} already split it by '${record.partition}'. Every app of a site must declare a shared table the same way: keep one entity for it in shared code, or give one of them its own Table.`, 'storage_table_conflict')
+    }
+  }
+
+  static async recordOwners(database) {
+    if (!TacEntityStorage.wanted.size) return
+    const owners = await TacEntityStorage.owners(database)
+    const transaction = database.transaction(TacEntityStorage.tablesStore, 'readwrite')
+    const done = TacEntityStorage.finished(transaction)
+    const store = transaction.objectStore(TacEntityStorage.tablesStore)
+    for (const [table, entry] of TacEntityStorage.wanted) {
+      const record = owners.get(table)
+      const kept = record?.partition === entry.partition ? record.apps : []
+      const apps = [...new Set([...kept, TacEntityStorage.app])].sort()
+      store.put({ table, id: entry.id, partition: entry.partition, apps })
+    }
+    await done
+  }
+
   static watch(database) {
     database.onversionchange = () => {
       database.close()
@@ -227,6 +278,7 @@ class TacEntityStorage {
   }
 
   static missing(database) {
+    if (TacEntityStorage.wanted.size && !database.objectStoreNames.contains(TacEntityStorage.tablesStore)) return true
     for (const [table, entry] of TacEntityStorage.wanted) {
       if (!database.objectStoreNames.contains(table)) return true
       const store = database.transaction(table, 'readonly').objectStore(table)
@@ -244,6 +296,7 @@ class TacEntityStorage {
   }
 
   static upgrade(database, transaction) {
+    if (!database.objectStoreNames.contains(TacEntityStorage.tablesStore)) database.createObjectStore(TacEntityStorage.tablesStore, { keyPath: 'table' })
     for (const [table, entry] of TacEntityStorage.wanted) {
       const store = database.objectStoreNames.contains(table)
         ? transaction.objectStore(table)
@@ -482,6 +535,7 @@ class TacEntityMirror {
     if (!(await TacEntityMirror.databaseExists())) { TacEntityMirror.loaded = true; return }
     const database = await TacEntityStorage.database()
     for (const table of database.objectStoreNames) {
+      if (table === TacEntityStorage.tablesStore) continue
       const store = database.transaction(table, 'readonly').objectStore(table)
       TacEntityMirror.keys.set(table, store.keyPath)
       if (TacEntityPartitions.found(table, TacEntityStorage.partitionedBy(store))) continue

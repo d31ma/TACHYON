@@ -1090,6 +1090,8 @@ mod store_partition_swift_tests;
 #[cfg(test)]
 pub(crate) mod store_partition_tests;
 #[cfg(test)]
+mod store_sharing_tests;
+#[cfg(test)]
 mod stored_state_proof_tests;
 
 #[cfg(test)]

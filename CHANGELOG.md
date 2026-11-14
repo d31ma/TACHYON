@@ -10,6 +10,14 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- **Page apps of one site share the device Store safely** (ADR 0059
+  amendment, step 2 of micro-frontends). When another tab adds tables at the
+  same time, or is several versions ahead, a page opens the IndexedDB
+  database one version higher instead of keeping a connection without its
+  new table. A register `tachyon:tables` records which page apps use each
+  table; a page app that splits a shared table by another partition field
+  stops with `storage_table_conflict` instead of rebuilding the other apps'
+  index.
 - **A Tac app can be built under a path prefix** (ADR NNNN, step 2 of
   micro-frontends, slice 1). `"tac": { "mount": "/chat" }` makes the app's
   pages keep their full addresses under `/chat` and writes its runtime,

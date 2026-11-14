@@ -103,6 +103,11 @@ class MemoryIndexedDb {
     const request = new MemoryRequest()
     setTimeout(() => {
       let database = MemoryIndexedDb.databases.get(name)
+      if (database && version !== undefined && version < database.version) {
+        request.error = Object.assign(new Error('The requested version is less than the existing version.'), { name: 'VersionError' })
+        request.onerror?.()
+        return
+      }
       const upgrade = !database || (version !== undefined && version > database.version)
       database ??= new MemoryDatabase(name, 0)
       MemoryIndexedDb.databases.set(name, database)

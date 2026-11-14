@@ -8,6 +8,12 @@ class ClientView {
   static plan = ClientView.page ?? { nodes: [], services: {}, state: {} }
 }
 
+const runtimeApp = () => {
+  try { return new URL('../', import.meta.url).pathname } catch { return '/' }
+}
+
+TacEntityStorage.app = runtimeApp()
+
 class Components {
   static instances = new Map()
   static records = new Map()
