@@ -12,12 +12,14 @@ pub(super) struct BrowserApiPermissions {
 
 impl BrowserApiPermissions {
     const ASKING_APIS: [&'static str; 3] = ["camera", "geolocation", "notifications"];
-    const HOST_CHECKED: [&'static str; 6] = [
+    const HOST_CHECKED: [&'static str; 8] = [
         "camera",
         "clipboard",
         "geolocation",
+        "microphone",
         "notifications",
         "persistentStorage",
+        "screen",
         "share",
     ];
     const MOST_CHARACTERS: usize = 200;

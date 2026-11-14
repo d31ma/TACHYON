@@ -13,10 +13,30 @@ static const char *tachyon_permission_api(WebKitPermissionRequest *request) {
   return NULL;
 }
 
+static gboolean tachyon_media_granted(void) {
+  return tachyon_browser_api_granted("camera") || tachyon_browser_api_granted("microphone") || tachyon_browser_api_granted("screen");
+}
+
+static gboolean tachyon_media_kind_allowed(gboolean asked, const char *api) {
+  return !asked || tachyon_browser_api_granted(api);
+}
+
+static gboolean tachyon_user_media_granted(WebKitUserMediaPermissionRequest *request) {
+  return tachyon_media_kind_allowed(webkit_user_media_permission_is_for_audio_device(request), "microphone") &&
+         tachyon_media_kind_allowed(webkit_user_media_permission_is_for_video_device(request), "camera") &&
+         tachyon_media_kind_allowed(webkit_user_media_permission_is_for_display_device(request), "screen");
+}
+
+static gboolean tachyon_permission_granted(WebKitPermissionRequest *request) {
+  if (WEBKIT_IS_USER_MEDIA_PERMISSION_REQUEST(request)) return tachyon_user_media_granted(WEBKIT_USER_MEDIA_PERMISSION_REQUEST(request));
+  if (WEBKIT_IS_DEVICE_INFO_PERMISSION_REQUEST(request)) return tachyon_media_granted();
+  const char *api = tachyon_permission_api(request);
+  return api != NULL && tachyon_browser_api_granted(api);
+}
+
 static gboolean tachyon_permission_request(WebKitWebView *view, WebKitPermissionRequest *request, gpointer data) {
   (void)data;
-  const char *api = tachyon_permission_api(request);
-  if (api != NULL && tachyon_trusted_view(view) && tachyon_browser_api_granted(api)) webkit_permission_request_allow(request);
+  if (tachyon_trusted_view(view) && tachyon_permission_granted(request)) webkit_permission_request_allow(request);
   else webkit_permission_request_deny(request);
   return TRUE;
 }

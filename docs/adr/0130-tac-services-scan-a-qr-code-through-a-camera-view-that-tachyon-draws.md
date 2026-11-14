@@ -30,7 +30,7 @@ page too, and shows `navigator.mediaDevices` only when the app has a camera or
 microphone usage text; iOS was not checked. A WKWebView camera also needs the
 host to answer WebKit's media capture permission request, which the shells do
 not do yet. Mesail asked for the platform's own scanner on Apple. The Linux
-web view (`tachyon://app`) has no camera access yet.
+web view (`tachyon://app`) had no camera access then (ADR 0131 adds it).
 
 ## Decision
 
@@ -93,8 +93,9 @@ web view (`tachyon://app`) has no camera access yet.
      is denied.
    - Windows allows `COREWEBVIEW2_PERMISSION_KIND_CAMERA` only for the app's
      own pages when `camera` is granted. The microphone stays denied.
-   - Linux has no camera in its web view: `supported()` is false and `scan()`
-     answers `unsupported`.
+   - Linux runs the same page path as Android and Windows: WebKitGTK's
+     `getUserMedia`, allowed by the host only for the app's own pages when
+     `camera` is granted (ADR 0131 amendment).
 8. `tac-web.js` grows by about 640 bytes, so `MOST_RUNTIME_BYTES` rises from
    16,900 to 17,600. The module lookup that Passkeys used is shared with the
    scanner to keep the growth small.

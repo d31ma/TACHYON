@@ -772,6 +772,8 @@ static void tachyon_activate(GtkApplication *app, gpointer data) {
   webkit_settings_set_enable_developer_extras(settings, FALSE);
   webkit_settings_set_allow_file_access_from_file_urls(settings, FALSE);
   webkit_settings_set_allow_universal_access_from_file_urls(settings, FALSE);
+  webkit_settings_set_enable_media_stream(settings, tachyon_media_granted());
+  webkit_settings_set_media_playback_requires_user_gesture(settings, !tachyon_media_granted());
 
   gchar *shim = g_strdup_printf(
       "if (location.protocol === 'tachyon:' && location.host === 'app' && window === window.top) {\n%s\n%s\n}\n",

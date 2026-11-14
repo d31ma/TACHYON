@@ -1820,6 +1820,23 @@ camera, an Android phone and a Windows PC. The macOS test machine, the iOS
 simulator and `windows-vm` have no camera, so on them the apps were checked
 for their build output and for `supported` answering false.
 
+Linux (2026-11-14, ADR 0131): the Linux host turns on WebKitGTK's media
+capture only with a media grant, and allows each capture kind only with its
+own grant. `linux_media_permission_tests::linux_media_capture_follows_the_manifest_grants_in_the_real_web_view`
+compiled the generated host in the Linux gate image's `gate` stage (Debian
+13, WebKitGTK from its security updates) and ran it under Xvfb on Colima
+(aarch64), with WebKit's mock capture devices turned on by the test fixture.
+`camera` alone: video, while `{audio}` and `{audio, video}` were refused with
+`NotAllowedError`. `microphone` alone: audio, while the other two were
+refused. Both grants: all three opened. No grant: the page had no
+`navigator.mediaDevices`. The P8 probe (six distribution images, WebKitGTK
+2.52.6 to 2.54.2) found `getUserMedia`, `getDisplayMedia`, the Camera portal
+and no `BarcodeDetector` in each, so the scanner reads codes with the shipped
+decoder. Not run in the lane: the ScreenCast portal (its GTK backend has
+none). Owed, by hand: a real QR read and a real microphone on a Linux PC,
+through the Camera portal and PipeWire, and screen sharing on GNOME and on
+KDE Plasma.
+
 
 `scripts/passkeys-browser-test.mjs` ran on the macOS test machine in
 Playwright's Chromium, Firefox and WebKit. Chromium ran real WebAuthn

@@ -136,13 +136,13 @@ tac.browserApis passkeys
   adapted: The WebKitGTK web view of the Linux app has no passkeys for the app yet: its page origin is not the app's host, so WebAuthn there cannot make a passkey for that host. A native build ships the passkeys module, but Passkeys.supported answers false, check answers PasskeySupport with platform and conditional false, and create, get and offer answer PasskeyFailed with reason unsupported (ADR 0126). The platform passkey APIs come later.
 
 tac.browserApis microphone
-  adapted: The WebKitGTK app has no WebRTC media yet; the Linux shell work (P8) brings it. Until then captureMicrophone answers MediaFailed with reason unsupported or denied (ADR 0129).
+  adapted: The WebKitGTK page captures the microphone with getUserMedia; the host turns media capture on only with a media grant and allows the microphone only for the app's own pages when microphone is granted, while a request that also asks for the camera or the screen needs those grants too (ADR 0131). WebKitGTK reaches devices through PipeWire or directly. Sending a track on a connection waits for a WebKitGTK with WebRTC (2.56 is planned with it); until then the call parts of Media answer unsupported.
 
 tac.browserApis screen
-  adapted: The WebKitGTK app has no WebRTC media yet; the Linux shell work (P8) brings it. Until then captureScreen answers MediaFailed with reason unsupported or denied (ADR 0129).
+  adapted: The WebKitGTK page shares the screen with getDisplayMedia, which needs the ScreenCast portal of a GNOME, KDE Plasma or wlroots desktop; the host allows it only for the app's own pages when screen is granted (ADR 0131). Desktops without that portal refuse the picker. Sending the screen on a connection waits for a WebKitGTK with WebRTC (2.56 is planned with it).
 
 tac.browserApis camera
-  adapted: The WebKitGTK web view of the Linux app has no camera access yet, so CodeScanner.supported answers false and scan answers ScanFailed with reason unsupported (ADR 0130).
+  honored: the WebKitGTK page runs the same camera view and decoder as the web; media capture is on only when a media grant exists, and the host's permission-request decision allows the camera only for the app's own pages when camera is granted, while the microphone and the screen need their own grants; WebKitGTK reaches the camera through the Camera portal and PipeWire, or opens it directly where neither runs, and supported answers false when no camera is listed (ADR 0130, ADR 0131)
 
 tac.browserApis persistentStorage
   run owed: the host answers browserApi.storageSpace with persisted true and the free space of the user data folder (GIO); usage comes from WebKitGTK's navigator.storage.estimate() on the secure tachyon:// scheme, or 0 where that WebKitGTK has no StorageManager (ADR 0123); still to run: a StorageSpace service in the GTK app; the WebKitGTK browser API fixture checks the host calls only

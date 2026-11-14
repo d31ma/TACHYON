@@ -109,7 +109,9 @@ that forwarder.
   Android capture row, the Windows microphone permission, the WKWebView
   media capture answer) follow in slice M1's second part, after the
   CodeScanner change lands, because they share its lines.
-- Linux (WebKitGTK) is planned by P8 and uses this same contract.
+- Linux (WebKitGTK) uses this same contract: the page captures and the host
+  decides the permission per kind (ADR 0131 amendment). Sending tracks waits
+  for a WebKitGTK with WebRTC.
 
 ## Evidence
 

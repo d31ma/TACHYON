@@ -135,7 +135,8 @@ fn the_linux_host_decides_web_view_permissions_and_answers_bridged_calls() {
     assert!(source.contains(
         "g_signal_connect(view, \"permission-request\", G_CALLBACK(tachyon_permission_request), NULL);"
     ));
-    assert!(source.contains("if (api != NULL && tachyon_trusted_view(view) && tachyon_browser_api_granted(api)) webkit_permission_request_allow(request);"));
+    assert!(source.contains("if (tachyon_trusted_view(view) && tachyon_permission_granted(request)) webkit_permission_request_allow(request);"));
+    assert!(source.contains("return api != NULL && tachyon_browser_api_granted(api);"));
     assert!(source.contains("else webkit_permission_request_deny(request);"));
     assert!(source.contains("if (G_TYPE_CHECK_INSTANCE_TYPE(request, g_type_from_name(\"WebKitClipboardPermissionRequest\"))) return \"clipboard\";"));
     assert!(!source.contains("webkit_clipboard_permission_request_get_type"));
