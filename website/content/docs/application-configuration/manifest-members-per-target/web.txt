@@ -153,6 +153,12 @@ tac.browserApis screen
 tac.browserApis camera
   honored: CodeScanner.scan opens the camera with getUserMedia in a view that Tachyon draws, reads one QR code with BarcodeDetector or the shipped jsQR decoder, and answers CodeScanned or ScanFailed (ADR 0130); the reason shows in the view; checked in Chromium, Firefox and WebKit with a canvas camera (scripts/code-scanner-browser-test.mjs)
 
+tac.browserApis peers
+  honored: RTCPeerConnection data channels with the browser's own WebRTC (ADR 0140): Peers opens connections, makes and accepts offers and answers, adds ICE candidates, opens ordered or unordered channels and sends bytes with back-pressure; STUN and TURN servers come only from tac.peers.iceServers; real connections run in Chromium, Firefox and WebKit, and through a local TURN relay (scripts/peers-browser-test.mjs)
+
+tac.peers
+  honored: the build checks each STUN and TURN URL and its host against tac.outgoing.hosts, and the page passes only these servers to RTCPeerConnection; relayOnly sends all traffic through the TURN relay (ADR 0140)
+
 tac.browserApis persistentStorage
   honored: navigator.storage.persist(), persisted() and estimate() in a secure page (ADR 0123); an insecure page answers quota 0 and persisted false; Firefox asks the user, Chromium decides by itself, Safari 15.2 and later
 

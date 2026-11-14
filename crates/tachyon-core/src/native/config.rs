@@ -554,10 +554,12 @@ pub(crate) struct TacMember {
     pub(super) mount: Option<String>,
     #[serde(default)]
     pub(super) apps: BTreeMap<String, String>,
+    #[serde(default)]
+    pub(super) peers: Option<super::peers_member::PeersMember>,
 }
 
 impl TacMember {
-    pub(crate) const FRAMEWORK_MEMBERS: [&str; 34] = [
+    pub(crate) const FRAMEWORK_MEMBERS: [&str; 35] = [
         "origin",
         "application",
         "scripts",
@@ -589,6 +591,7 @@ impl TacMember {
         "go",
         "dotnet",
         "yon",
+        "peers",
         "storage",
         "mount",
         "apps",

@@ -153,6 +153,12 @@ tac.browserApis screen
 tac.browserApis camera
   honored: the WebKitGTK page runs the same camera view and decoder as the web; media capture is on only when a media grant exists, and the host's permission-request decision allows the camera only for the app's own pages when camera is granted, while the microphone and the screen need their own grants; WebKitGTK reaches the camera through the Camera portal and PipeWire, or opens it directly where neither runs, and supported answers false when no camera is listed (ADR 0130, ADR 0131)
 
+tac.browserApis peers
+  adapted: WebKitGTK as Linux distributions build it has no WebRTC, so Peers.supported answers false and open refuses with unsupported in the Linux app (ADR 0140). Use the web version for peer connections on Linux.
+
+tac.peers
+  adapted: The build checks tac.peers as on the web, but the Linux app has no WebRTC, so no connection uses it (ADR 0140).
+
 tac.browserApis persistentStorage
   run owed: the host answers browserApi.storageSpace with persisted true and the free space of the user data folder (GIO); usage comes from WebKitGTK's navigator.storage.estimate() on the secure tachyon:// scheme, or 0 where that WebKitGTK has no StorageManager (ADR 0123); still to run: a StorageSpace service in the GTK app; the WebKitGTK browser API fixture checks the host calls only
 

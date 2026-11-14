@@ -39,6 +39,7 @@ fn a_javascript_service_needs_every_curated_browser_api() {
         "focus",
         "storageSpace",
         "passkeys",
+        "peers",
         "media",
         "codeScanner",
         "crypto",

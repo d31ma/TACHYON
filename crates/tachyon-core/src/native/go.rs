@@ -31,7 +31,7 @@ impl GoServices {
     const MODULE: &str = "tachyonservices";
     const PAGE_PACKAGE: &str = "page";
     const DELEGATE_FOLDER: &str = "client/delegates";
-    const RUNTIME_FILES: [(&str, &str); 28] = [
+    const RUNTIME_FILES: [(&str, &str); 30] = [
         ("tac/prelude.go", include_str!("prelude.go")),
         ("tac/prelude_json.go", include_str!("prelude_json.go")),
         ("tac/prelude_tasks.go", include_str!("prelude_tasks.go")),
@@ -80,6 +80,11 @@ impl GoServices {
             include_str!("web_apis/storage_space.go"),
         ),
         ("tac/passkeys.go", include_str!("web_apis/passkeys.go")),
+        ("tac/peers.go", include_str!("web_apis/peers.go")),
+        (
+            "tac/peer_message.go",
+            include_str!("web_apis/peer_message.go"),
+        ),
         ("tac/media.go", include_str!("web_apis/media.go")),
         ("tac/crypto.go", include_str!("web_apis/crypto.go")),
         ("tac/blobs.go", include_str!("web_apis/blobs.go")),
@@ -109,7 +114,7 @@ impl GoServices {
     const WEB_ENTRY: &str = include_str!("prelude_web.go");
     const FAILURE_CODE: u16 = 1605;
     const WEB_EVENT_FILE: &str = "tac/web_event_models.go";
-    const ALIASED_TYPES: [&str; 78] = [
+    const ALIASED_TYPES: [&str; 88] = [
         "ApplicationEventPublisher",
         "Clock",
         "SecureRandom",
@@ -126,6 +131,7 @@ impl GoServices {
         "Push",
         "StorageSpace",
         "Passkeys",
+        "Peers",
         "Media",
         "CodeScanner",
         "Crypto",
@@ -152,6 +158,15 @@ impl GoServices {
         "PasskeyCreated",
         "PasskeyAsserted",
         "PasskeyFailed",
+        "PeerDescription",
+        "PeerCandidate",
+        "PeerState",
+        "PeerNegotiationNeeded",
+        "PeerChannelOpened",
+        "PeerChannelReady",
+        "PeerMessage",
+        "PeerChannelClosed",
+        "PeerFailed",
         "MediaDeviceFound",
         "MediaDevicesChanged",
         "MediaSpeakerChosen",

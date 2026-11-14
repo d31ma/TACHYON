@@ -1967,6 +1967,25 @@ Owed, by hand: PRF with Touch ID in branded Safari (iCloud Keychain passkey,
 Safari 18 or later) and with Chrome's platform authenticator. Native apps
 answer `unsupported` until native passkeys (T14).
 
+### Peer connections in the browser (2026-11-14, ADR 0140)
+
+`scripts/peers-browser-test.mjs` ran on the macOS test machine with
+Playwright's Chromium 1234, Firefox 1538 and WebKit 2336 and coturn 4.19.0.
+Two browser contexts made real WebRTC connections, with the test carrying
+the signalling: Chromium with Chromium, Firefox with Firefox and Chromium
+with Firefox directly (mDNS host hiding turned off in the test browsers),
+and Chromium, Firefox and WebKit with themselves and Chromium with WebKit
+through a local coturn relay with short-lived credentials and `relayOnly`.
+Each pair sent 10 MiB on an ordered channel with back-pressure (checked by
+SHA-256), used an unordered channel, refused a 32,769-byte message, survived
+an ICE restart and closed. Playwright's WebKit refuses `?transport=` in TURN
+URLs; the page retries without it (ADR 0129).
+
+Owed: a connection in each native app (WKWebView on macOS and iOS, WebView2,
+the Android WebView), and a connection between two physical devices on
+different networks through a real TURN relay. The Linux app answers
+`unsupported`: WebKitGTK as distributions build it has no WebRTC.
+
 ### Branded browsers (BR2, runner 2026-10-25)
 
 `scripts/branded-browser-gate.mjs --browser=<name>` runs the web gates

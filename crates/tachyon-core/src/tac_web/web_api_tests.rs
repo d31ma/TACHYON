@@ -9,7 +9,7 @@ struct WebApis;
 
 impl WebApis {
     const RUNTIME: &str = include_str!("../template/tac-web.js");
-    const MOST_RUNTIME_BYTES: usize = 18_400;
+    const MOST_RUNTIME_BYTES: usize = 18_600;
     const DRIVER_DEADLINE: std::time::Duration = std::time::Duration::from_mins(2);
 
     const RUNTIME_DRIVER: &str = ";(0, eval)(await readFile('./tac-web.js', 'utf8'))\n\
@@ -3271,6 +3271,9 @@ mod storage_space_tests;
 
 #[path = "passkeys_tests.rs"]
 mod passkeys_tests;
+
+#[path = "peers_tests.rs"]
+mod peers_tests;
 
 #[path = "blobs_tests.rs"]
 mod blobs_tests;

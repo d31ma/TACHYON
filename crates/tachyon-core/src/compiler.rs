@@ -62,6 +62,9 @@ mod page_module;
 mod page_passkeys_prf_tests;
 #[cfg(test)]
 mod page_passkeys_tests;
+mod page_peers;
+#[cfg(test)]
+mod page_peers_tests;
 mod page_state;
 mod page_transfer;
 mod page_upgrade;

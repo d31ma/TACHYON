@@ -443,6 +443,8 @@ declare global {
   interface TacStorageSpace { estimate(): null; persist(): null; }
   /** Passkeys: create and use passkeys with the browser's WebAuthn (ADR 0126). Grant "passkeys" in tac.browserApis. Options and credentials are WebAuthn JSON text: `create` takes PublicKeyCredentialCreationOptionsJSON and answers with `PasskeyCreated`; `get` takes PublicKeyCredentialRequestOptionsJSON and answers with `PasskeyAsserted`; both need a click or key handler. `offer` starts a conditional request for an input with autocomplete="username webauthn" and answers with `PasskeyAsserted` when the person picks a passkey. `check` answers with `PasskeySupport`. `cancel` stops a pending call and sends nothing. A failure sends `PasskeyFailed`. `supported` needs no grant and answers false in a native app or an insecure page. `prfKey` is "" or a Crypto key name of 1 to 57 characters (grant "crypto" too): the PRF results become Crypto `derive` keys of that name and of that name with ".second", kept only in this page, and the raw PRF bytes never reach the service or credentialJson (ADR 0126 amendment). */
   interface TacPasskeys { supported(): boolean; check(): null; create(optionsJson: string, prfKey: string): null; get(optionsJson: string, prfKey: string): null; offer(optionsJson: string, prfKey: string): null; cancel(): null; }
+  /** Peers: device-to-device connections with the browser's WebRTC data channels (ADR 0140). Grant "peers" in tac.browserApis; STUN and TURN servers come only from tac.peers.iceServers. `open` answers a connection id; the app carries the descriptions and candidates over its own server: `offer` and `answer` send `PeerDescription`, local candidates arrive as `PeerCandidate`, `accept` takes the answer and `addCandidate` the other side's candidates. `openChannel` answers a channel id and sends `PeerChannelOpened` when it is open. `send` takes base64url bytes (at most 32768) and answers false when more than 1 MiB waits; then wait for `PeerChannelReady`. Messages arrive as `PeerMessage`. A failure after a call sends `PeerFailed`. `supported` needs no grant. */
+  interface TacPeers { supported(): boolean; open(username: string, credential: string): string; offer(connection: string): null; answer(connection: string, offerSdp: string): null; accept(connection: string, answerSdp: string): null; addCandidate(connection: string, candidateJson: string): null; restart(connection: string): null; openChannel(connection: string, label: string, ordered: boolean): string; send(connection: string, channel: string, data: string): boolean; closeChannel(connection: string, channel: string): null; close(connection: string): null; }
   /** Media: capture the microphone, the camera and the screen (ADR 0129). Grant "microphone", "camera" or "screen" in tac.browserApis; `captureMicrophone` needs "microphone", `captureCamera` needs "camera", and `captureScreen` needs "screen" and a click or key handler. `supported` answers at once for capture, screen, send, simulcast, frames, speakers or background, and answers false on a page that grants no media API. `devices` lists microphone, camera or speaker devices with `MediaDeviceFound`. `chooseSpeaker` answers with `MediaSpeakerChosen`. A capture call answers with `MediaTrackStarted`; `quality` is low, medium or high. `stopTrack` answers with `MediaTrackEnded`. `mute` acts at once. useFrameKey, sendFrameKey and forgetFrameKey manage SFrame frame keys (answer MediaFrameKeyReady; a missing or bad key sends MediaFrameKeyMissing or MediaFrameRejected), and encryptFrames turns frame encryption on or off for a Peers connection. A failure sends `MediaFailed`. */
   interface TacMedia { supported(feature: string): boolean; devices(request: string): null; chooseSpeaker(device: string): null; captureMicrophone(track: string, device: string, processing: boolean): null; captureCamera(track: string, device: string, quality: string): null; captureScreen(track: string, withAudio: boolean): null; stopTrack(track: string): null; mute(track: string, muted: boolean): null; useFrameKey(keyId: number, key: string): null; sendFrameKey(keyId: number): null; forgetFrameKey(keyId: number): null; encryptFrames(connection: string, on: boolean): null; }
   /** CodeScanner: reads one QR code with the device camera (ADR 0130). Grant "camera" in tac.browserApis; give the reason in tac.application.permissions.camera. `scan` needs a click or key handler: it shows a camera view that Tachyon draws, closes it after one QR code, and answers with `CodeScanned` or `ScanFailed`. `cancel` closes an open scan, which answers `ScanFailed` with reason cancelled. `supported` is false where no camera can open. The app never receives camera frames. */
@@ -499,6 +501,24 @@ declare global {
   interface PasskeyAsserted { credentialJson: string; conditional: boolean; prfKey: string; prfSecondKey: string; }
   /** PasskeyFailed: a built-in event model. `reason` is one of cancelled, exists, unsupported, refused, busy, invalid, keyExists or failed; `message` is a fixed text for the reason with the browser's error name (ADR 0126). */
   interface PasskeyFailed { call: string; reason: string; message: string; }
+  /** PeerDescription: a built-in event model. `sdp` is this side's offer or answer (`kind`), for the app to send to the other side (ADR 0140). */
+  interface PeerDescription { connection: string; kind: string; sdp: string; }
+  /** PeerCandidate: a built-in event model. `candidateJson` is one local ICE candidate for the other side's `addCandidate`; an empty text means there are no more (ADR 0140). */
+  interface PeerCandidate { connection: string; candidateJson: string; }
+  /** PeerState: a built-in event model. `state` is new, connecting, connected, disconnected, failed or closed (ADR 0140). */
+  interface PeerState { connection: string; state: string; }
+  /** PeerNegotiationNeeded: a built-in event model. The connection changed (its first channel, or later a media track) and the app should send a new offer with `offer` (ADR 0140). */
+  interface PeerNegotiationNeeded { connection: string; }
+  /** PeerChannelOpened: a built-in event model. A data channel is open; `remote` is true when the other side opened it (ADR 0140). */
+  interface PeerChannelOpened { connection: string; channel: string; label: string; ordered: boolean; remote: boolean; }
+  /** PeerChannelReady: a built-in event model. The waiting bytes of a channel fell below 256 KiB after `send` answered false (ADR 0140). */
+  interface PeerChannelReady { connection: string; channel: string; }
+  /** PeerMessage: a built-in event model with the base64url `data` of one message from the other side (ADR 0140). */
+  interface PeerMessage { connection: string; channel: string; data: string; }
+  /** PeerChannelClosed: a built-in event model. A data channel closed (ADR 0140). */
+  interface PeerChannelClosed { connection: string; channel: string; }
+  /** PeerFailed: a built-in event model. `reason` is invalid, tooLarge or failed; `message` is a fixed text for the reason (ADR 0140). */
+  interface PeerFailed { connection: string; call: string; reason: string; message: string; }
   /** MediaDeviceFound: a built-in event model, one per device that `devices` found. `kind` is microphone, camera or speaker; `count` is 0 when there is no device (ADR 0129). */
   interface MediaDeviceFound { request: string; id: string; kind: string; label: string; chosen: boolean; index: number; count: number; }
   /** MediaDevicesChanged: a built-in event model. A device was plugged in or removed, sent to every service that listed devices (ADR 0129). */
@@ -592,6 +612,7 @@ declare global {
     push: TacPush;
     storageSpace: TacStorageSpace;
     passkeys: TacPasskeys;
+    peers: TacPeers;
     media: TacMedia;
     codeScanner: TacCodeScanner;
     crypto: TacCrypto;

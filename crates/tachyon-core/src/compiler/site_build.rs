@@ -11,6 +11,7 @@ use super::page_crypto_verifier::PageCryptoVerifier;
 use super::page_head::PageHead;
 use super::page_media::PageMedia;
 use super::page_module::PageModule;
+use super::page_peers::PagePeers;
 use super::page_state::PageState;
 use super::portable_path::PortablePath;
 use super::precompression::CompressedFiles;
@@ -67,6 +68,7 @@ pub(super) struct SiteBuild<'a> {
     code_scanner_tag: String,
     code_scanner: bool,
     crypto_tag: &'static str,
+    peers_tag: String,
     blobs_tag: String,
     app_budgets: Vec<(&'a Path, crate::routing::MountPath)>,
     phase_started: Instant,
@@ -129,6 +131,7 @@ impl<'a> SiteBuild<'a> {
             code_scanner_tag: String::new(),
             code_scanner: false,
             crypto_tag: "",
+            peers_tag: String::new(),
             blobs_tag: String::new(),
             app_budgets: Vec::new(),
             phase_started,
@@ -164,6 +167,7 @@ impl<'a> SiteBuild<'a> {
         self.code_scanner_tag = PageCodeScanner::tag(site);
         self.code_scanner = PageCodeScanner::granted(site);
         self.crypto_tag = PageModule::CRYPTO.tag(site);
+        self.peers_tag = PagePeers::tag(site);
         self.service_notes.extend(PageModule::CRYPTO.note(site));
         let dependency_digest = self.route_dependency_digest();
         let routes = Self::renderable_routes(self.project, programs);
@@ -323,6 +327,7 @@ impl<'a> SiteBuild<'a> {
         self.add_media_files();
         self.add_code_scanner_files();
         self.add_crypto_file();
+        self.add_peers_file();
         self.add_blobs_file();
         let version = ServiceWorker::version(&self.files, self.build_config_digest.as_deref());
         let python_profile =
@@ -753,6 +758,7 @@ impl<'a> SiteBuild<'a> {
         html = PageHead::inject_before_runtime(&html, self.media_tag);
         html = PageHead::inject_before_runtime(&html, &self.code_scanner_tag);
         html = PageHead::inject_before_runtime(&html, self.crypto_tag);
+        html = PageHead::inject_before_runtime(&html, &self.peers_tag);
         html = PageHead::inject_before_runtime(&html, &self.blobs_tag);
         html = PageHead::inject_before(&html, "</body>", self.service_worker_link());
         self.project.mount().document(&html)
@@ -784,6 +790,12 @@ impl<'a> SiteBuild<'a> {
         let wanted = !self.web_push_tag.is_empty();
         for (path, bytes) in WebPush::files().into_iter().filter(|_| wanted) {
             self.add_file(path, bytes);
+        }
+    }
+
+    fn add_peers_file(&mut self) {
+        if !self.peers_tag.is_empty() {
+            self.add_file(PagePeers::PATH, PagePeers::script());
         }
     }
 

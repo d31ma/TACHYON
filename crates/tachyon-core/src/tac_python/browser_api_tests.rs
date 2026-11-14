@@ -349,6 +349,47 @@ impl BrowserApiPage {
          _report['saved'] = _ask('stamp', {'op': 'get', 'name': 'saved'})\n\
          _report['requests'] = [[item['api'], item['call'], item['args']] for item in _requests]\n";
 
+    const PEERS: [(&'static str, &'static str); 1] = [(
+        "client/services/LinkService.py",
+        "from typing import Annotated\n\n\
+         @service\n\
+         class LinkService:\n\
+         \x20   peers: Annotated[Peers, needs]\n\
+         \x20   ready: bool = False\n\
+         \x20   queued: bool = False\n\
+         \x20   connection: str = ''\n\
+         \x20   channel: str = ''\n\
+         \x20   message: str = ''\n\n\
+         \x20   def start(self) -> None:\n\
+         \x20       self.ready = self.peers.supported()\n\
+         \x20       self.connection = self.peers.open('user', 'pass')\n\
+         \x20       self.peers.offer(self.connection)\n\
+         \x20       self.peers.answer(self.connection, 'offer sdp')\n\
+         \x20       self.peers.accept(self.connection, 'answer sdp')\n\
+         \x20       self.peers.add_candidate(self.connection, '')\n\
+         \x20       self.peers.restart(self.connection)\n\
+         \x20       self.channel = self.peers.open_channel(self.connection, 'chat', False)\n\
+         \x20       self.queued = self.peers.send(self.connection, self.channel, 'AQI')\n\
+         \x20       self.peers.close_channel(self.connection, self.channel)\n\
+         \x20       self.peers.close(self.connection)\n\n\
+         \x20   @on_event\n\
+         \x20   def received(self, message: PeerMessage) -> None:\n\
+         \x20       self.message = f'{message.channel} {message.data}'\n",
+    )];
+
+    const PEERS_DRIVER: &'static str = "_requests = []\n\
+         _answers = {'open': 'peer-1', 'openChannel': 'channel-1', 'send': True, 'supported': True}\n\
+         def _web(text):\n\
+         \x20   request = json.loads(text)\n\
+         \x20   _requests.append(request)\n\
+         \x20   return json.dumps({'value': _answers.get(request['call'])})\n\
+         _TacPythonRuntime.connect(_emitted.append, None, web=_web)\n\
+         _report = {'init': _ask('link', {'op': 'init', 'props': {}})}\n\
+         _report['start'] = _ask('link', {'op': 'call', 'name': 'start', 'args': []})\n\
+         _report['heard'] = _ask('link', {'op': 'event', 'name': 'received', 'value': {'connection': 'peer-1', 'channel': 'channel-1', 'data': '-_8'}})\n\
+         _report.update({name: _ask('link', {'op': 'get', 'name': name}) for name in ['ready', 'queued', 'connection', 'channel', 'message']})\n\
+         _report['requests'] = [[item['api'], item['call'], item['args']] for item in _requests]\n";
+
     const ATTACH: [(&'static str, &'static str); 1] = [(
         "client/services/AttachService.py",
         "from typing import Annotated\n\n\
@@ -792,6 +833,45 @@ fn a_python_web_service_keeps_and_uses_blobs() {
             ["blobs", "upload", ["notes/a", "PUT", "/uploads", ""]],
             ["blobs", "cancel", ["upload-1"]],
             ["blobs", "remove", ["notes/a"]],
+        ]),
+        "{report}"
+    );
+}
+
+#[test]
+fn a_python_web_service_connects_to_a_peer() {
+    if !PythonPage::has_python() {
+        return;
+    }
+    let report = PythonPage::run(
+        &BrowserApiPage::PEERS,
+        &["link"],
+        BrowserApiPage::PEERS_DRIVER,
+    );
+    assert_eq!(report["start"], json!({"value": null}), "{report}");
+    for (name, value) in [
+        ("ready", json!(true)),
+        ("queued", json!(true)),
+        ("connection", json!("peer-1")),
+        ("channel", json!("channel-1")),
+        ("message", json!("channel-1 -_8")),
+    ] {
+        assert_eq!(report[name], json!({ "value": value }), "{name}: {report}");
+    }
+    assert_eq!(
+        report["requests"],
+        json!([
+            ["peers", "supported", []],
+            ["peers", "open", ["user", "pass"]],
+            ["peers", "offer", ["peer-1"]],
+            ["peers", "answer", ["peer-1", "offer sdp"]],
+            ["peers", "accept", ["peer-1", "answer sdp"]],
+            ["peers", "addCandidate", ["peer-1", ""]],
+            ["peers", "restart", ["peer-1"]],
+            ["peers", "openChannel", ["peer-1", "chat", false]],
+            ["peers", "send", ["peer-1", "channel-1", "AQI"]],
+            ["peers", "closeChannel", ["peer-1", "channel-1"]],
+            ["peers", "close", ["peer-1"]],
         ]),
         "{report}"
     );

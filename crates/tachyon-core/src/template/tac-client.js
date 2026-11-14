@@ -1851,6 +1851,7 @@ const ownerResources = (element, signal, owner) => ({
   push: TacWebApis.push,
   storageSpace: TacWebApis.storageSpace,
   passkeys: TacWebApis.passkeys,
+  peers: TacWebApis.peers,
   media: TacWebApis.media,
   codeScanner: TacWebApis.codeScanner,
   crypto: TacWebApis.crypto,
