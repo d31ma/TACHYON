@@ -28,6 +28,7 @@ class ChatService {
   final MessageStore messageStore;
   late BehaviorContext behaviors;
   String heard = '';
+  String changed = '';
 
   @OnStart
   void start() {
@@ -56,6 +57,11 @@ class ChatService {
     heard = '${loaded.table}/${loaded.partition}/${loaded.rows.toInt()}';
   }
 
+  @OnEvent
+  void hearChanged(StoreChanged change) {
+    changed = '${change.table}/${change.partition}';
+  }
+
   BehaviorRepository _messages() => behaviors.repository(MessageEntity);
 
   String _failed(BehaviorError error) => 'error:${error.code}';
@@ -81,28 +87,35 @@ class ChatService {
     const SERVICES: [(&'static str, &'static str); 1] =
         [("ChatService", "client/services/ChatService.dart")];
 
-    fn driver() -> String {
-        StorePartitionProject::DRIVER
-            .replace("= chat.", "= await chat.")
+    fn driver(base: &str) -> String {
+        base.replace("= chat.", "= await chat.")
             .replace("\nchat.", "\nawait chat.")
+    }
+
+    async fn report(base: &str) -> Option<serde_json::Value> {
+        if !DartStreams::tools_available() {
+            eprintln!("skipping: dart or node is unavailable");
+            return None;
+        }
+        let root = tempfile::tempdir().expect("project");
+        DartStreams::publish(root.path(), &Self::FILES, &Self::SERVICES, &["chat"]).await;
+        StorePartitionProject::runtime_files(root.path());
+        Some(DartStreams::drive(root.path(), &Self::driver(base)))
     }
 }
 
 #[tokio::test]
 async fn a_dart_service_loads_one_partition_and_reads_it_from_memory() {
-    if !DartStreams::tools_available() {
-        eprintln!("skipping: dart or node is unavailable");
-        return;
+    let report = DartStorePartition::report(StorePartitionProject::DRIVER).await;
+    if let Some(report) = report {
+        StorePartitionProject::assert_report(&report);
     }
-    let root = tempfile::tempdir().expect("project");
-    DartStreams::publish(
-        root.path(),
-        &DartStorePartition::FILES,
-        &DartStorePartition::SERVICES,
-        &["chat"],
-    )
-    .await;
-    StorePartitionProject::runtime_files(root.path());
-    let report = DartStreams::drive(root.path(), &DartStorePartition::driver());
-    StorePartitionProject::assert_report(&report);
+}
+
+#[tokio::test]
+async fn a_dart_service_hears_a_store_change_from_another_tab() {
+    let report = DartStorePartition::report(StorePartitionProject::TAB_DRIVER).await;
+    if let Some(report) = report {
+        StorePartitionProject::assert_tab_report(&report);
+    }
 }

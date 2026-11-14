@@ -108,8 +108,10 @@ impl DartMarkerProofs {
          const local = new MemoryStorage()\n\
          const { default: DraftService } = await import('./DraftService.js')\n\
          const stored = JSON.parse(await readFile('./state.json', 'utf8'))\n\
+         const opened = []\n\
          const open = (session) => {\n\
-         \x20 const { Owners, bindPersistentFields } = new Function('localStorage', 'sessionStorage', `${host}\\nreturn { Owners, bindPersistentFields }`)(local, session)\n\
+         \x20 const { Owners, bindPersistentFields, StoredTabs } = new Function('localStorage', 'sessionStorage', `${host}\\nreturn { Owners, bindPersistentFields, StoredTabs }`)(local, session)\n\
+         \x20 opened.push(StoredTabs)\n\
          \x20 const draft = new DraftService({})\n\
          \x20 Owners.stored.set(draft, stored)\n\
          \x20 return bindPersistentFields(draft, 'service:draft:/')\n\
@@ -126,7 +128,17 @@ impl DartMarkerProofs {
          const afterReload = { visits: reloaded.visits, draft: reloaded.draft, visit: await reloaded.visit() }\n\
          const other = open(new MemoryStorage())\n\
          const newTab = { visits: other.visits, draft: other.draft }\n\
-         console.log(JSON.stringify({ refused, written, afterReload, newTab, saved: Object.fromEntries(local.items), session: Object.fromEntries(tab.items) }))\n\
+         const saved = Object.fromEntries(local.items)\n\
+         const watchingSession = new MemoryStorage()\n\
+         const watching = open(watchingSession)\n\
+         const watchingTabs = opened.at(-1)\n\
+         const writer = open(new MemoryStorage())\n\
+         await writer.visit()\n\
+         const key = 'tac:service:draft:/:visits'\n\
+         watchingTabs.changed({ key, newValue: local.getItem(key), storageArea: local })\n\
+         watchingTabs.changed({ key: 'tac:service:draft:/:draft', newValue: '\"elsewhere\"', storageArea: watchingSession })\n\
+         const tabs = { visits: watching.visits, written: local.getItem(key), session: watching.draft }\n\
+         console.log(JSON.stringify({ refused, written, afterReload, newTab, saved, session: Object.fromEntries(tab.items), tabs }))\n\
          process.exit(0)\n";
 
     const RETRY_FILES: [(&'static str, &'static str); 4] = [

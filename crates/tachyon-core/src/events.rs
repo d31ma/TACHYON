@@ -245,7 +245,7 @@ impl EventListener {
 }
 
 impl EventResource {
-    const TAC_NAMES: [&str; 28] = [
+    const TAC_NAMES: [&str; 29] = [
         "view",
         "lifecycle",
         "resourceLoader",
@@ -272,6 +272,7 @@ impl EventResource {
         "codeScanner",
         "crypto",
         "blobs",
+        "locks",
         "filePicker",
         "files",
     ];

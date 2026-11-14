@@ -52,6 +52,7 @@
     "test:code-scanner-browser": "node scripts/code-scanner-browser-test.mjs",
     "test:blobs-browser": "node scripts/blobs-browser-test.mjs",
     "test:streams-browser": "node scripts/streams-browser-test.mjs",
+    "test:tabs-browser": "node scripts/tabs-browser-test.mjs",
     "test:behavior-runtime": "node scripts/behavior-runtime-test.mjs",
     "test:behavior-browser": "node scripts/behavior-browser-test.mjs",
     "test:tac-client": "node scripts/tac-client-test.mjs",

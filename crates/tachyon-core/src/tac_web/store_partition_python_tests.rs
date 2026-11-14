@@ -11,7 +11,7 @@ impl PythonStorePartition {
     const MANIFEST: &'static str =
         "{\"tac\":{\"python\":{\"runtime\":\"pyodide-314.0.7\",\"profile\":\"offline\"}}}\n";
 
-    const DRIVER: &'static str = r"import { readFile, writeFile } from 'node:fs/promises'
+    const PREAMBLE: &'static str = r"import { readFile, writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 const print = console.log
 console.log = () => {}
@@ -21,7 +21,9 @@ globalThis.addEventListener = () => {}
 globalThis.removeEventListener = () => {}
 const engine = await readFile('./tachyon-python-services.js', 'utf8')
 await writeFile('./tachyon-python-services.js', engine.replace(/(new URL\('(?!pyodide\.mjs)[^']+', root\)|root)\.href/g, `process.getBuiltinModule('node:url').fileURLToPath($1)`))
-;(0, eval)(`${await readFile('./memory-indexeddb.js', 'utf8')}\nglobalThis.MemoryIndexedDb = MemoryIndexedDb`)
+";
+
+    const PARTITION_DRIVER: &'static str = r";(0, eval)(`${await readFile('./memory-indexeddb.js', 'utf8')}\nglobalThis.MemoryIndexedDb = MemoryIndexedDb`)
 MemoryIndexedDb.install()
 MemoryIndexedDb.seed('tachyon-store', 'messages', 'id', 'room', [{ id: 'm1', room: 'r1', text: 'one' }, { id: 'm2', room: 'r1', text: 'two' }, { id: 'm3', room: 'r2', text: 'three' }])
 globalThis.document = { visibilityState: 'visible', addEventListener: () => {}, querySelector: () => null }
@@ -51,6 +53,15 @@ print(JSON.stringify({ before, openBefore, heard, after, openAfter, closed, cold
 process.exit(0)
 ";
 
+    const TAB_START: &'static str = "console.info = () => {}\n";
+
+    const AWAITED_CALLS: [(&'static str, &'static str); 4] = [
+        ("chat.open('r1')\n", "await chat.open('r1')\n"),
+        ("= chat.read('r1')", "= await chat.read('r1')"),
+        ("chat.add('m6'", "await chat.add('m6'"),
+        ("console.log(JSON", "print(JSON"),
+    ];
+
     const FILES: [(&'static str, &'static str); 4] = [
         (
             "client/setups/ChatSetup.py",
@@ -72,6 +83,7 @@ process.exit(0)
 class ChatService:
     message_store: Annotated[MessageStore, needs]
     heard: str = ''
+    changed: str = ''
 
     @on_start
     async def start(self) -> None:
@@ -114,6 +126,10 @@ class ChatService:
     @on_event
     def hear_loaded(self, loaded: StorePartitionLoaded) -> None:
         self.heard = f'{loaded.table}/{loaded.partition}/{int(loaded.rows)}'
+
+    @on_event
+    def hear_changed(self, changed: StoreChanged) -> None:
+        self.changed = f'{changed.table}/{changed.partition}'
 ",
         ),
     ];
@@ -139,6 +155,27 @@ class ChatService:
         }
         service
     }
+
+    async fn published(root: &Path) {
+        let service = Self::written(root);
+        StorePartitionProject::runtime_files(root);
+        build_and_publish(root, "chat", "ChatService", WebLanguage::Python, service).await;
+    }
+
+    fn partition_driver() -> String {
+        format!("{}{}", Self::PREAMBLE, Self::PARTITION_DRIVER)
+    }
+
+    fn tab_driver() -> String {
+        let (_, tab) = StorePartitionProject::TAB_DRIVER
+            .split_once(Self::TAB_START)
+            .expect("tab driver start");
+        let mut driver = format!("{}{tab}", Self::PREAMBLE);
+        for (call, awaited) in Self::AWAITED_CALLS {
+            driver = driver.replacen(call, awaited, 1);
+        }
+        driver
+    }
 }
 
 #[tokio::test]
@@ -148,16 +185,19 @@ async fn a_python_service_loads_one_partition_and_reads_it_from_memory() {
         return;
     }
     let root = tempfile::tempdir().expect("project");
-    let service = PythonStorePartition::written(root.path());
-    StorePartitionProject::runtime_files(root.path());
-    build_and_publish(
-        root.path(),
-        "chat",
-        "ChatService",
-        WebLanguage::Python,
-        service,
-    )
-    .await;
-    let report = run_driver(root.path(), PythonStorePartition::DRIVER);
+    PythonStorePartition::published(root.path()).await;
+    let report = run_driver(root.path(), &PythonStorePartition::partition_driver());
     StorePartitionProject::assert_report(&report);
+}
+
+#[tokio::test]
+async fn a_python_service_hears_a_store_change_from_another_tab() {
+    if let Some(reason) = PythonStorePartition::skip_reason() {
+        eprintln!("skipping: {reason}");
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    PythonStorePartition::published(root.path()).await;
+    let report = run_driver(root.path(), &PythonStorePartition::tab_driver());
+    StorePartitionProject::assert_tab_report(&report);
 }

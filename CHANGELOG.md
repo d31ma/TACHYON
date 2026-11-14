@@ -10,6 +10,21 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- **Tabs share Store and state changes, and take locks** (ADR 0141). After a
+  Store write reaches IndexedDB, the other tabs of the origin read the written
+  rows again (eager tables and loaded partitions) and their services hear the
+  new built-in event `StoreChanged { table, partition }`. A `@LocalState`
+  value set in one tab reaches the other tabs and their views render again;
+  `@SessionState` stays per tab. Every Tac service language gets a `Locks`
+  client with the new grant `locks` in `tac.browserApis`: `request(name)`
+  answers with `LockGranted { name }` when this tab holds the lock, and
+  `release(name)` frees it; a closed tab frees its locks. A lock name is text
+  of 1 to 256 characters; a bad name is an error at the call, as for `Blobs`
+  and `Peers`. Without Web Locks (the macOS and iOS app scheme, a plain http
+  page) every lock is granted at once. The lock code is
+  `.tachyon/tac-locks.js`, shipped only to pages that grant `locks`.
+  `bun run test:tabs-browser` checks two tabs in Chromium, Firefox and
+  WebKit.
 - **A shell lists its page apps and builds them as one site** (ADR 0139,
   step 2 of micro-frontends, slice 3). `"tac": { "apps": { "/chat":
   "../chat" } }` in the shell's manifest lists the site's page apps.

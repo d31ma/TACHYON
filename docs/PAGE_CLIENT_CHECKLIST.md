@@ -41,7 +41,10 @@ Use `StorageSpace` (ADR 0123) as the smallest complete example: `git log
       `reply` function first.
 - [ ] Large code goes in its own module that ships only when the manifest
       grants it (see `compiler/web_push.rs`, `compiler/page_files.rs`,
-      `compiler/page_passkeys.rs`, `compiler/page_blobs.rs`), not in `tac-web.js`. Add it to the page
+      `compiler/page_module.rs`, `compiler/page_blobs.rs`), not in
+      `tac-web.js`. A client that needs no consent but has its own module
+      still gets a grant, so pages that do not use it do not ship it
+      (`locks`, ADR 0141). Add it to the page
       files before the service worker is built, so offline pages keep it.
 - [ ] Failures that the app must tell apart get their own event with a
       `reason` word, as `PasskeyFailed` does (ADR 0126); `BrowserCallFailed`

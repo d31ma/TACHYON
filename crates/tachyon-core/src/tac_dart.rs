@@ -456,7 +456,10 @@ impl Bridge {
         include_str!("tac_dart/code_scanner.dart")
     );
     const MEDIA: &str = include_str!("tac_dart/media.dart");
-    const CRYPTO: &str = include_str!("tac_dart/crypto.dart");
+    const CRYPTO: &str = concat!(
+        include_str!("tac_dart/crypto.dart"),
+        include_str!("tac_dart/locks.dart")
+    );
     const PEERS: &str = include_str!("tac_dart/peers.dart");
     const BLOBS: &str = include_str!("tac_dart/blobs.dart");
     const SHARED_LIBRARY: &str = concat!(

@@ -52,6 +52,11 @@ async fn a_service_writes_its_local_state_to_page_storage_and_restores_it_in(lan
         json!({"tac:service:draft:/:visits": "3"}),
         "{report}"
     );
+    assert_eq!(
+        report["tabs"],
+        json!({"visits": 4, "written": "4", "session": ""}),
+        "a @LocalState change in one tab reaches the other tab; @SessionState stays per tab: {report}"
+    );
 }
 
 one_test_per_case!(

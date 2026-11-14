@@ -453,6 +453,8 @@ declare global {
   interface TacCrypto { supported(): boolean; check(): string; makeKeyPair(key: string, algorithm: string, keep: boolean): string; publicKey(key: string): string; sign(key: string, data: string): string; verify(publicKey: string, data: string, signature: string): string; agree(key: string, peerPublicKey: string, salt: string, info: string, newKey: string, use: string, keep: boolean): string; deriveKey(fromKey: string, salt: string, info: string, newKey: string, use: string, keep: boolean): string; importKey(newKey: string, secret: string, use: string, keep: boolean): string; fromCode(newKey: string, code: string, salt: string, use: string, keep: boolean): string; encrypt(key: string, data: string, aad: string): string; decrypt(key: string, sealed: string, aad: string): string; hkdf(input: string, salt: string, info: string, length: number): string; hash(data: string): string; forget(key: string): string; forgetAll(): string; }
   /** Blobs: keeps binary values, such as attachments, in the page's IndexedDB under app keys, with a quota from tac.storage.blobs (ADR 0134). Grant "blobs" in tac.browserApis. A key is 1 to 512 bytes of text with no control character and no "..". `saveHeld` keeps a file that Files holds; `download` keeps the body of a GET from the page's origin or an https host in tac.outgoing.hosts; both answer with `BlobSaved`. `list` sends one `BlobFound` per blob whose key starts with the prefix, then `BlobsListed`. `read` answers with `BlobChunkRead` (at most 32768 bytes). `remove` answers with `BlobRemoved`. `open` makes a page URL for a view and answers with `BlobOpened`; `url` returns that URL at once, or empty; `close` ends it. `upload` returns the upload id and answers with `BlobUploaded`; `cancel` stops it. A failure sends `BlobFailed`. Tachyon never removes a blob by itself. */
   interface TacBlobs { saveHeld(fileId: string, key: string): null; download(url: string, key: string, headers: string): null; list(prefix: string): null; read(key: string, offset: number, count: number): null; remove(key: string): null; url(key: string): string; open(key: string): null; close(key: string): null; upload(key: string, method: string, url: string, headers: string): string; cancel(upload: string): null; }
+  /** Locks: named locks that only one tab of this origin holds at a time, with the browser's Web Locks (ADR 0141). Grant "locks" in tac.browserApis. `request` answers with `LockGranted` when this tab holds the lock; `release` frees it, or stops a request that still waits and sends nothing. Closing the tab frees its locks. Where the page has no Web Locks (the macOS and iOS app scheme, a plain http page), every lock is granted at once. A bad name is an error at the call. */
+  interface TacLocks { request(name: string): null; release(name: string): null; }
   /** FilePickerResult: the status of a native file-picker call (ADR 0089), with an optional opaque handle, basename or UTF-8 text. Failure results expose no host path. */
   interface TacFilePickerResult { status: 'available' | 'selected' | 'cancelled' | 'read' | 'released' | 'denied' | 'unsupported' | 'unavailable' | 'invalid' | 'disposed' | 'tooLarge'; handle?: string; name?: string; text?: string; }
   /** FilePicker: selects one native file and reads UTF-8 text up to 65,536 bytes (ADR 0089). Grant "filePicker" in tac.nativeCapabilities. Handles belong to the owner, and `release` ends access. Picker calls in a browser tab answer `unsupported`. */
@@ -493,6 +495,10 @@ declare global {
   interface StorePartitionFailed { table: string; partition: string; reason: string; }
   /** StoreWriteFailed: a built-in event model. A Store write that a WebAssembly or Dart service made did not reach IndexedDB, for example because the storage quota is full (ADR 0125). */
   interface StoreWriteFailed { table: string; reason: string; }
+  /** StoreChanged: a built-in event model. Another tab of this origin changed rows of a Store table; this tab already read them again (ADR 0141). `partition` is the changed partition as text, or empty for a table without partitions. */
+  interface StoreChanged { table: string; partition: string; }
+  /** LockGranted: a built-in event model. This tab holds the named lock until it calls `release` or closes (ADR 0141). */
+  interface LockGranted { name: string; }
   /** PasskeySupport: a built-in event model. `platform` is true when a platform authenticator (Touch ID, Face ID, Windows Hello, the Android lock screen) is ready; `conditional` is true when the page can offer passkeys in autofill (ADR 0126). */
   interface PasskeySupport { platform: boolean; conditional: boolean; }
   /** PasskeyCreated: a built-in event model. `credentialJson` is the new credential as WebAuthn RegistrationResponseJSON text, for the server to check; `prfKey` and `prfSecondKey` name the Crypto keys made from the PRF results, or are "" (ADR 0126). */
@@ -619,6 +625,7 @@ declare global {
     codeScanner: TacCodeScanner;
     crypto: TacCrypto;
     blobs: TacBlobs;
+    locks: TacLocks;
     filePicker: TacFilePicker;
   }
   /** OnEvent: this method listens for one event model, the type of its one parameter (`placed(order: OrderPlaced)`). A payload that does not fit the model is not delivered. When the method's return type is a model, the value it returns is published as that model. Write `@OnEvent`, or `@OnEvent({ condition, id, replay })`. */

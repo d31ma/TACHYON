@@ -159,6 +159,9 @@ tac.browserApis peers
 tac.peers
   adapted: The build checks tac.peers as on the web, but the Linux app has no WebRTC, so no connection uses it (ADR 0140).
 
+tac.browserApis locks
+  run owed: WebKitGTK 2.36 and later has navigator.locks on the secure tachyon:// scheme; the app has one window (ADR 0141), so a lock always comes at once; where the web view has no Web Locks the page grants every lock at once; still to run: a Locks service in the built app
+
 tac.browserApis persistentStorage
   run owed: the host answers browserApi.storageSpace with persisted true and the free space of the user data folder (GIO); usage comes from WebKitGTK's navigator.storage.estimate() on the secure tachyon:// scheme, or 0 where that WebKitGTK has no StorageManager (ADR 0123); still to run: a StorageSpace service in the GTK app; the WebKitGTK browser API fixture checks the host calls only
 

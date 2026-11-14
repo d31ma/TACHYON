@@ -33,6 +33,7 @@ class ChatService {
     @Needs
     private val messageStore: MessageStore
     var heard: String = ""
+    var changed: String = ""
 
     @OnStart
     fun start() {
@@ -59,6 +60,11 @@ class ChatService {
     @OnEvent
     fun hearLoaded(loaded: StorePartitionLoaded) {
         heard = "${loaded.table}/${loaded.partition}/${loaded.rows.toLong()}"
+    }
+
+    @OnEvent
+    fun hearChanged(change: StoreChanged) {
+        changed = "${change.table}/${change.partition}"
     }
 
     private fun messages(): Behaviors.Repository = behaviors.repository("MessageEntity")
@@ -108,6 +114,13 @@ class ChatService {
             std::fs::write(path, bytes).expect("publish");
         }
     }
+
+    async fn report(driver: &str) -> serde_json::Value {
+        let root = tempfile::tempdir().expect("project");
+        Self::built(root.path()).await;
+        StorePartitionProject::runtime_files(root.path());
+        run_driver(root.path(), driver)
+    }
 }
 
 #[tokio::test]
@@ -116,9 +129,16 @@ async fn a_kotlin_service_loads_one_partition_and_reads_it_from_memory() {
         eprintln!("skipping: kotlinc-js, the Kotlin wasm stdlib or node is unavailable");
         return;
     }
-    let root = tempfile::tempdir().expect("project");
-    KotlinStorePartitionProject::built(root.path()).await;
-    StorePartitionProject::runtime_files(root.path());
-    let report = run_driver(root.path(), StorePartitionProject::DRIVER);
+    let report = KotlinStorePartitionProject::report(StorePartitionProject::DRIVER).await;
     StorePartitionProject::assert_report(&report);
+}
+
+#[tokio::test]
+async fn a_kotlin_service_hears_a_store_change_from_another_tab() {
+    if !kotlin_web_ready() {
+        eprintln!("skipping: kotlinc-js, the Kotlin wasm stdlib or node is unavailable");
+        return;
+    }
+    let report = KotlinStorePartitionProject::report(StorePartitionProject::TAB_DRIVER).await;
+    StorePartitionProject::assert_tab_report(&report);
 }

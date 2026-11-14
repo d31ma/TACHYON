@@ -568,6 +568,8 @@ jobs:
 
       - name: Scan a QR code through the page's camera view
         run: bun run test:code-scanner-browser
+      - name: Share Store rows, LocalState and locks between two tabs
+        run: bun run test:tabs-browser
 
       - name: Keep, show and upload blobs in the page's IndexedDB
         run: bun run test:blobs-browser

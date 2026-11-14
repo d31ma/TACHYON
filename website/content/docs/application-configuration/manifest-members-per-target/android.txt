@@ -159,6 +159,9 @@ tac.browserApis peers
 tac.peers
   honored: the same checked server list in the page as on the web
 
+tac.browserApis locks
+  run owed: The Android WebView has navigator.locks on the secure https://appassets.tachyon.local; the app has one window (ADR 0141), so a lock always comes at once; where the web view has no Web Locks the page grants every lock at once; still to run: a Locks service in the built app
+
 tac.browserApis persistentStorage
   run owed: the host answers browserApi.storageSpace with persisted true and StatFs.getAvailableBytes of the files folder; usage comes from the WebView's navigator.storage.estimate() on https://appassets.tachyon.local (ADR 0123); still to run: a StorageSpace service in the app on the Android emulator
 

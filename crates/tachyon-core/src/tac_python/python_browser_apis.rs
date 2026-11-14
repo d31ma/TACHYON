@@ -39,19 +39,21 @@ impl PythonBrowserApis {
     const CRYPTO: &'static str = include_str!("web_apis/crypto.py");
     const PEERS: &'static str = include_str!("web_apis/peers.py");
     const BLOBS: &'static str = include_str!("web_apis/blobs.py");
+    const LOCKS: &'static str = include_str!("web_apis/locks.py");
     const REGISTER: &'static str = "_TacPythonBrowserClients.register";
 
     pub(crate) fn source() -> String {
         let support = Self::SUPPORT.join("\n");
         let names = WebApiClients::TYPE_NAMES.join(", ");
         format!(
-            "{support}\n{}{}{}\n{}\n{}\n{}\n{}({names})\n",
+            "{support}\n{}{}{}\n{}\n{}\n{}\n{}\n{}({names})\n",
             Self::CLIENTS,
             Self::PASSKEYS,
             Self::MEDIA,
             Self::CRYPTO,
             Self::PEERS,
             Self::BLOBS,
+            Self::LOCKS,
             Self::REGISTER
         )
     }

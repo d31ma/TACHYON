@@ -530,6 +530,16 @@
     "android": {"reach": "honored", "how": "the same checked server list in the page as on the web"}
   },
   {
+    "member": "tac.browserApis locks",
+    "paths": ["tac.browserApis[locks]"],
+    "web": {"reach": "honored", "how": "navigator.locks.request in a secure page: the tab holds the lock until it calls release or closes, under the name tachyon:<name> (ADR 0141); a page without Web Locks (plain http) gets every lock at once; checked with two tabs in Chromium, Firefox and WebKit (scripts/tabs-browser-test.mjs)"},
+    "macos": {"reach": "adapted", "note": "tachyon-app:// is not a secure context, so WKWebView has no navigator.locks. The macOS app has one window (ADR 0141), so the page grants every lock at once: LockGranted comes at once and release frees the name. A second window of the same app would not share its locks."},
+    "windows": {"reach": "runOwed", "how": "WebView2 has navigator.locks on the secure https://tachyon.local; the app has one window (ADR 0141), so a lock always comes at once; where the web view has no Web Locks the page grants every lock at once", "run": "a Locks service in the built app"},
+    "linux": {"reach": "runOwed", "how": "WebKitGTK 2.36 and later has navigator.locks on the secure tachyon:// scheme; the app has one window (ADR 0141), so a lock always comes at once; where the web view has no Web Locks the page grants every lock at once", "run": "a Locks service in the built app"},
+    "ios": {"reach": "adapted", "note": "tachyon-app:// is not a secure context, so WKWebView has no navigator.locks. The iOS app has one window (ADR 0141), so the page grants every lock at once: LockGranted comes at once and release frees the name. A second window of the same app would not share its locks."},
+    "android": {"reach": "runOwed", "how": "The Android WebView has navigator.locks on the secure https://appassets.tachyon.local; the app has one window (ADR 0141), so a lock always comes at once; where the web view has no Web Locks the page grants every lock at once", "run": "a Locks service in the built app"}
+  },
+  {
     "member": "tac.browserApis persistentStorage",
     "paths": ["tac.browserApis[persistentStorage]"],
     "web": {"reach": "honored", "how": "navigator.storage.persist(), persisted() and estimate() in a secure page (ADR 0123); an insecure page answers quota 0 and persisted false; Firefox asks the user, Chromium decides by itself, Safari 15.2 and later"},

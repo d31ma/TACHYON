@@ -153,3 +153,4 @@ design. Decide routine implementation choices in code review, not in an ADR.
 - [138. A Tac App Can Be Built Under a Path Prefix](0138-a-tac-app-can-be-built-under-a-path-prefix.md)
 - [139. A Shell Lists Its Page Apps and Builds Them as One Site](0139-a-shell-lists-its-page-apps-and-builds-them-as-one-site.md)
 - [140. Tac Services Connect to Peers over Data Channels](0140-tac-services-connect-to-peers-over-data-channels.md)
+- [141. Tabs Share Store and State Changes, and Take Locks](0141-tabs-share-store-and-state-changes-and-take-locks.md)

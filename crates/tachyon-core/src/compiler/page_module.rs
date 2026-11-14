@@ -30,6 +30,13 @@ impl PageModule {
         script_tag: r#"<script type="module" src="/.tachyon/tac-peers.js" data-tachyon-runtime></script>"#,
         insecure_note: "",
     };
+    pub(super) const LOCKS: Self = Self {
+        path: ".tachyon/tac-locks.js",
+        grant: "locks",
+        source: include_str!("../template/tac-locks.js"),
+        script_tag: r#"<script type="module" src="/.tachyon/tac-locks.js" data-tachyon-runtime></script>"#,
+        insecure_note: "Locks need a secure page: tac.origin is not https, so the browser has no Web Locks there and every tab gets each lock at once (ADR 0141).",
+    };
     const NO_TAG: &'static str = "";
     const SECURE_STARTS: [&'static str; 3] = ["https://", "http://localhost", "http://127.0.0.1"];
 

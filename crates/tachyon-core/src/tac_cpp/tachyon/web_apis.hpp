@@ -362,6 +362,13 @@ public:
     }
 };
 
+class Locks {
+public:
+    void request(const std::string& name) const { TacWebCall::answer("locks", "request", TacWebCall::arguments(name)); }
+
+    void release(const std::string& name) const { TacWebCall::answer("locks", "release", TacWebCall::arguments(name)); }
+};
+
 class Geolocation {
 public:
     void currentPosition() const { TacWebCall::answer("geolocation", "currentPosition"); }
@@ -404,5 +411,6 @@ using tachyon::web::Blobs;
 using tachyon::web::Media;
 using tachyon::web::CodeScanner;
 using tachyon::web::Crypto;
+using tachyon::web::Locks;
 using tachyon::web::Files;
 using tachyon::web::WindowControls;

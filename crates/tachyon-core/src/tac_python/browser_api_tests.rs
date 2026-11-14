@@ -267,6 +267,34 @@ impl BrowserApiPage {
          _report['failure'] = _ask('stamp', {'op': 'get', 'name': 'failure'})\n\
          _report['requests'] = [[item['api'], item['call'], item['args']] for item in _requests]\n";
 
+    const LOCKS: [(&'static str, &'static str); 1] = [(
+        "client/services/StampService.py",
+        "from typing import Annotated\n\n\
+         @service\n\
+         class StampService:\n\
+         \x20   locks: Annotated[Locks, needs]\n\
+         \x20   held: str = ''\n\n\
+         \x20   def take(self) -> None:\n\
+         \x20       self.locks.request('outbox')\n\n\
+         \x20   def give(self) -> None:\n\
+         \x20       self.locks.release('outbox')\n\n\
+         \x20   @on_event\n\
+         \x20   def granted(self, granted: LockGranted) -> None:\n\
+         \x20       self.held = granted.name\n",
+    )];
+
+    const LOCKS_DRIVER: &'static str = "_requests = []\n\
+         def _web(text):\n\
+         \x20   _requests.append(json.loads(text))\n\
+         \x20   return json.dumps({'value': None})\n\
+         _TacPythonRuntime.connect(_emitted.append, None, web=_web)\n\
+         _report = {'init': _ask('stamp', {'op': 'init', 'props': {}})}\n\
+         _report['take'] = _ask('stamp', {'op': 'call', 'name': 'take', 'args': []})\n\
+         _report['granted'] = _ask('stamp', {'op': 'event', 'name': 'granted', 'value': {'name': 'outbox'}})\n\
+         _report['held'] = _ask('stamp', {'op': 'get', 'name': 'held'})\n\
+         _report['give'] = _ask('stamp', {'op': 'call', 'name': 'give', 'args': []})\n\
+         _report['requests'] = [[item['api'], item['call'], item['args']] for item in _requests]\n";
+
     const CRYPTO: [(&'static str, &'static str); 1] = [(
         "client/services/StampService.py",
         "from typing import Annotated\n\n\
@@ -912,6 +940,30 @@ fn python_services_pick_read_and_upload_files_through_the_page() {
             ],
             ["files", "cancel", ["upload-1"]],
             ["files", "release", ["file-1"]],
+        ]),
+        "{report}"
+    );
+}
+
+#[test]
+fn a_python_web_service_takes_and_releases_a_lock() {
+    if !PythonPage::has_python() {
+        return;
+    }
+    let report = PythonPage::run(
+        &BrowserApiPage::LOCKS,
+        &["stamp"],
+        BrowserApiPage::LOCKS_DRIVER,
+    );
+    assert_eq!(report["take"], json!({"value": null}), "{report}");
+    assert_eq!(report["granted"], json!({"value": null}), "{report}");
+    assert_eq!(report["held"], json!({"value": "outbox"}), "{report}");
+    assert_eq!(report["give"], json!({"value": null}), "{report}");
+    assert_eq!(
+        report["requests"],
+        json!([
+            ["locks", "request", ["outbox"]],
+            ["locks", "release", ["outbox"]],
         ]),
         "{report}"
     );
