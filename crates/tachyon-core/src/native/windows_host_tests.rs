@@ -203,7 +203,7 @@ fn windows_host_always_shows_file_edit_and_window_menus_sent_to_the_web_view() {
         &source,
         "static BOOL tachyon_menu_edit(const char *command) {",
     );
-    assert!(edit.contains("ICoreWebView2Controller_MoveFocus(g_controller, COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC);"));
+    assert!(edit.contains("tachyon_web_view_focus();"));
     assert!(edit.contains("L\"Input.dispatchKeyEvent\""));
     assert!(edit.contains("\\\"commands\\\":[\\\"%hs\\\"]"));
 }
