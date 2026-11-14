@@ -72,7 +72,8 @@ in a later decision.
    and `toJSON()` where they exist, and its own small converter elsewhere
    (base64url for `challenge`, `user.id` and the credential ids; the same
    member names and values as `toJSON()`). Extensions pass through: their
-   inputs in the options, their results in `clientExtensionResults`.
+   inputs in the options, their results in `clientExtensionResults`, except
+   the PRF results (see the amendment of 2026-11-14).
 4. **Four built-in events** in a new `passkey` group of the event table, each
    sent only to the calling service and only on a page that grants
    `passkeys` (sender `WebEventSender::Grant("passkeys")`):
@@ -187,3 +188,37 @@ in a later decision.
 - Owed, by hand: one real `create` and `get` in branded Safari with Touch ID,
   and in Chrome on macOS or Windows with the platform authenticator, recorded
   in `docs/SUPPORT_TIERS.md`.
+
+## Amendment (2026-11-14): PRF results never reach the service
+
+### Context
+
+The WebAuthn PRF extension (`prf`) gives the page one or two 32-byte
+secrets from the authenticator, in `clientExtensionResults.prf.results`.
+Apps use them as keys, for example to unlock an encrypted backup. Decision 3
+passed every extension result through, and services send `credentialJson` to
+their server. So an app that asked for `prf` would send its secret to the
+server. For Mesail (CADUCEUS ADR 0011) this breaks end-to-end encryption of
+the chat backup.
+
+### Decision
+
+- The page removes `prf.results` (`first` and `second`) from
+  `credentialJson` in `PasskeyCreated` and `PasskeyAsserted`, from the
+  browser's own `toJSON()` and from Tachyon's own converter alike. The other
+  `prf` members stay, so `prf.enabled` still tells the service that the
+  passkey supports PRF.
+- No call gives a service the PRF secret today. A later decision (TACHYON
+  request P3) turns it into a key handle of the device `Crypto` client, so a
+  service can use it without ever holding its bytes.
+- Tachyon's own converter still does not decode the PRF inputs
+  (`prf.eval`, `prf.evalByCredential`); browsers without
+  `parseRequestOptionsFromJSON` answer such options with `invalid`. P3 adds
+  this.
+
+### Evidence
+
+- `compiler::page_passkeys_tests::the_page_runtime_answers_passkey_ceremonies_with_passkey_events`:
+  `create` and `get` with `prf.enabled` and both PRF results, through
+  `toJSON()` and through Tachyon's converter; the events keep
+  `prf.enabled` and contain neither result.

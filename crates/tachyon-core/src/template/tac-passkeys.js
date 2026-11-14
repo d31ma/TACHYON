@@ -133,9 +133,16 @@ class TacPasskeys {
 
   static answered(call, credential) {
     if (!credential) return TacPasskeys.failure(call, 'cancelled')
-    const credentialJson = JSON.stringify(TacPasskeys.json(credential))
+    const credentialJson = JSON.stringify(TacPasskeys.withoutPrfResults(TacPasskeys.json(credential)))
     if (call === 'create') return ['PasskeyCreated', { credentialJson }]
     return ['PasskeyAsserted', { credentialJson, conditional: call === 'offer' }]
+  }
+
+  static withoutPrfResults(json) {
+    const prf = json.clientExtensionResults?.prf
+    if (prf?.results === undefined) return json
+    const { results, ...kept } = prf
+    return { ...json, clientExtensionResults: { ...json.clientExtensionResults, prf: kept } }
   }
 
   static refused(pending, error) {

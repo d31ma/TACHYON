@@ -31,7 +31,7 @@ class FakeAssertion {
 }
 class FakeCredential {
   constructor(response) { this.id = 'AQI'; this.rawId = bytes(1, 2); this.type = 'public-key'; this.authenticatorAttachment = 'platform'; this.response = response }
-  getClientExtensionResults() { return { credProps: { rk: true }, prf: { results: { first: new Uint8Array([251, 255]) } } } }
+  getClientExtensionResults() { return { credProps: { rk: true }, prf: { enabled: true, results: { first: new Uint8Array([251, 255]), second: new Uint8Array([250, 254]) } } } }
 }
 const asked = []
 const browser = { answer: null }
@@ -82,7 +82,7 @@ await settle()
 PublicKeyCredential.parseCreationOptionsFromJSON = (json) => ({ ...json, challenge: new Uint8Array([42]), user: { ...json.user, id: new Uint8Array([43]) } })
 PublicKeyCredential.parseRequestOptionsFromJSON = (json) => ({ ...json, challenge: new Uint8Array([44]) })
 const assertion = new FakeCredential(new FakeAssertion())
-assertion.toJSON = () => ({ id: 'from-browser' })
+assertion.toJSON = () => ({ id: 'from-browser', clientExtensionResults: { credProps: { rk: true }, prf: { results: { first: '-_8', second: '-v4' } } } })
 browser.answer = assertion
 ask('parsed-create', 'create', [creation])
 await settle()
@@ -174,9 +174,11 @@ console.log(JSON.stringify(report))
         std::fs::write(root.join(name), bytes).expect("write");
     }
 
-    const ATTESTATION: &'static str = r#"{"id":"AQI","rawId":"AQI","response":{"clientDataJSON":"AQI","authenticatorData":"BQ","transports":["internal","hybrid"],"publicKey":"Bgc","publicKeyAlgorithm":-7,"attestationObject":"AwT6"},"authenticatorAttachment":"platform","clientExtensionResults":{"credProps":{"rk":true},"prf":{"results":{"first":"-_8"}}},"type":"public-key"}"#;
-    const ASSERTION: &'static str = r#"{"id":"AQI","rawId":"AQI","response":{"clientDataJSON":"AQ","authenticatorData":"CA","signature":"Cf8"},"authenticatorAttachment":"platform","clientExtensionResults":{"credProps":{"rk":true},"prf":{"results":{"first":"-_8"}}},"type":"public-key"}"#;
-    const FROM_BROWSER: &'static str = r#"{"id":"from-browser"}"#;
+    const ATTESTATION: &'static str = r#"{"id":"AQI","rawId":"AQI","response":{"clientDataJSON":"AQI","authenticatorData":"BQ","transports":["internal","hybrid"],"publicKey":"Bgc","publicKeyAlgorithm":-7,"attestationObject":"AwT6"},"authenticatorAttachment":"platform","clientExtensionResults":{"credProps":{"rk":true},"prf":{"enabled":true}},"type":"public-key"}"#;
+    const ASSERTION: &'static str = r#"{"id":"AQI","rawId":"AQI","response":{"clientDataJSON":"AQ","authenticatorData":"CA","signature":"Cf8"},"authenticatorAttachment":"platform","clientExtensionResults":{"credProps":{"rk":true},"prf":{"enabled":true}},"type":"public-key"}"#;
+    const FROM_BROWSER: &'static str =
+        r#"{"id":"from-browser","clientExtensionResults":{"credProps":{"rk":true},"prf":{}}}"#;
+    const PRF_RESULTS: [&'static str; 2] = ["-_8", "-v4"];
     const STARTED: &'static str = r#"{"value":null}"#;
 
     fn started() -> serde_json::Value {
@@ -289,6 +291,12 @@ fn the_page_runtime_answers_passkey_ceremonies_with_passkey_events() {
         assert!(
             !text.contains(secret),
             "no browser message reaches an event: {report}"
+        );
+    }
+    for secret in PasskeysDriver::PRF_RESULTS {
+        assert!(
+            !report["sent"].to_string().contains(secret),
+            "no PRF result reaches the service: {report}"
         );
     }
 }
