@@ -52,7 +52,11 @@ turns it on or off, because no host needed one.
 - **Windows.** WebView2 already goes back and forward on Alt+Left,
   Alt+Right and the mouse back and forward buttons (its browser accelerator
   keys are on, and no declared menu shortcut can take Alt+Left), so the
-  Windows host adds nothing. A run on a signed-in desktop proves it.
+  Windows host adds no key binding. A run on a signed-in desktop proves it.
+  Amendment (2026-11-14): the keys reach WebView2 only when it has keyboard
+  focus, so the host moves focus into WebView2 when its window gets focus
+  (`WM_SETFOCUS`) and once WebView2 is ready. Without this, focus could stay
+  on the host window and Alt+Left did nothing.
 
 The hosts record `navigation.back` (and `navigation.forward` where the host
 handles it) in the telemetry log. The support table has a "system back
