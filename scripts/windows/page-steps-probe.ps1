@@ -791,8 +791,9 @@ function Get-HistoryDirection([string] $direction) {
 
 function Invoke-HistoryKeys([string] $direction) {
     Show-AppWindow
+    $focus = [TachyonProbeNative]::ClassName([TachyonProbeNative]::KeyboardFocus($script:handle))
     [TachyonProbeNative]::PressWithAlt((Get-KeyCode (Get-HistoryDirection $direction)), $true)
-    Write-Line "OK: sent Alt+$(Get-HistoryDirection $direction) to the app window"
+    Write-Line "OK: sent Alt+$(Get-HistoryDirection $direction) to the app window, with keyboard focus on '$focus'"
 }
 
 function Invoke-HistoryButton([string] $direction) {
