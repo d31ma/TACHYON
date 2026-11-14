@@ -723,6 +723,7 @@ impl FyloError {
             "ENOFRAME" => failure(
                 "FYLO exited without an answer frame (ENOFRAME): a FYLO host setting or the fylo version is wrong.",
             ),
+            "EDOCEXISTS" => failure("A FYLO document with this id already exists (EDOCEXISTS)."),
             "EREMOTEROOT" => failure(
                 "FYLO refuses a root on a network file system (EREMOTEROOT); put the root on a local disk.",
             ),

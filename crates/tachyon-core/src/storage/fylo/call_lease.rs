@@ -1,3 +1,4 @@
+use std::ffi::OsString;
 use std::path::Path;
 use std::process::Stdio;
 use std::time::Duration;
@@ -21,42 +22,28 @@ pub(super) struct CallLease<'root> {
 impl<'root> CallLease<'root> {
     const CLEANUP_RESERVE: Duration = Duration::from_millis(200);
     const ANSWER_MARGIN: Duration = Duration::from_millis(100);
-    const PROBE_DEADLINE: Duration = Duration::from_secs(5);
     const MAX_REQUEST_BYTES: usize = 1024 * 1024;
     const MAX_RESPONSE_BYTES: usize = 8 * 1024 * 1024;
     const DOCUMENT_INSERT: &'static str = "putData";
     const DEADLINE_CODE: &'static str = "EDEADLINE";
-    const REFUSED_REQUEST_CODE: &'static str = "EBADREQUEST";
     const NO_FRAME_CODE: &'static str = "ENOFRAME";
-    const REFUSED_ON_THIS_SYSTEM: bool = cfg!(windows);
 
     pub(super) fn new(root: &'root Path) -> Self {
         Self { root }
     }
 
     pub(super) async fn prepare(&self) -> Result<(), Failure> {
-        Self::refuse_on_this_system(Self::REFUSED_ON_THIS_SYSTEM)?;
         NetworkRoot::refuse(self.root)?;
-        let probe = SortedJson::text(&json!({ "op": "handshake" }));
-        let answer = self
-            .run(&probe, (Self::PROBE_DEADLINE, Duration::ZERO))
-            .await;
-        Self::invocation_mode_confirmed(answer)
-    }
-
-    fn refuse_on_this_system(refused: bool) -> Result<(), Failure> {
-        if refused {
-            return Err(failure(
-                "FYLO lease \"call\" is refused on Windows until FYLO qualifies two invocation processes on one root there; use lease \"server\".",
-            ));
-        }
-        Ok(())
+        let handshake = SortedJson::text(&json!({ "op": "handshake" }));
+        let identity = self.run(&handshake, self.handshake_arguments()).await;
+        Self::invocation_mode_confirmed(identity)
     }
 
     pub(super) async fn answer(&self, operation: &str, fields: Value) -> Result<Value, FyloError> {
         let request = Self::request_line(operation, fields)?;
         let deadline = Self::process_deadline(OperationDeadline::time_left())?;
-        self.run(&request, (deadline, Self::CLEANUP_RESERVE)).await
+        self.run(&request, self.invocation_arguments(deadline))
+            .await
     }
 
     fn request_line(operation: &str, mut fields: Value) -> Result<String, FyloError> {
@@ -87,8 +74,8 @@ impl<'root> CallLease<'root> {
         Ok(deadline)
     }
 
-    async fn run(&self, request: &str, budget: (Duration, Duration)) -> Result<Value, FyloError> {
-        let mut child = self.spawn(budget)?;
+    async fn run(&self, request: &str, arguments: Vec<OsString>) -> Result<Value, FyloError> {
+        let mut child = Self::spawn(arguments)?;
         Self::send(&mut child, request).await?;
         let output = Self::read_output(&mut child).await?;
         child
@@ -99,18 +86,35 @@ impl<'root> CallLease<'root> {
         FrameAnswer::from_line(line)
     }
 
-    fn spawn(&self, (deadline, reserve): (Duration, Duration)) -> Result<Child, FyloError> {
+    fn handshake_arguments(&self) -> Vec<OsString> {
+        let mut arguments: Vec<OsString> = ["exec", "--request", "-", "--root"]
+            .map(OsString::from)
+            .to_vec();
+        arguments.push(self.root.as_os_str().to_owned());
+        arguments
+    }
+
+    fn invocation_arguments(&self, deadline: Duration) -> Vec<OsString> {
+        let mut arguments = self.handshake_arguments();
+        arguments.insert(1, OsString::from("--invocation"));
+        let limits = [
+            ("--deadline-ms", deadline.as_millis().to_string()),
+            (
+                "--cleanup-reserve-ms",
+                Self::CLEANUP_RESERVE.as_millis().to_string(),
+            ),
+            ("--max-request-bytes", Self::MAX_REQUEST_BYTES.to_string()),
+            ("--max-response-bytes", Self::MAX_RESPONSE_BYTES.to_string()),
+        ];
+        for (option, value) in limits {
+            arguments.extend([OsString::from(option), OsString::from(value)]);
+        }
+        arguments
+    }
+
+    fn spawn(arguments: Vec<OsString>) -> Result<Child, FyloError> {
         tokio::process::Command::new("fylo")
-            .args(["exec", "--invocation", "--request", "-", "--deadline-ms"])
-            .arg(deadline.as_millis().to_string())
-            .arg("--cleanup-reserve-ms")
-            .arg(reserve.as_millis().to_string())
-            .arg("--root")
-            .arg(self.root)
-            .arg("--max-request-bytes")
-            .arg(Self::MAX_REQUEST_BYTES.to_string())
-            .arg("--max-response-bytes")
-            .arg(Self::MAX_RESPONSE_BYTES.to_string())
+            .args(arguments)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
@@ -161,16 +165,25 @@ impl<'root> CallLease<'root> {
         Ok(line)
     }
 
-    fn invocation_mode_confirmed(answer: Result<Value, FyloError>) -> Result<(), Failure> {
-        let refused_zero_reserve = answer
-            .err()
-            .is_some_and(|error| error.code == Self::REFUSED_REQUEST_CODE);
-        if refused_zero_reserve {
-            return Ok(());
+    fn invocation_mode_confirmed(identity: Result<Value, FyloError>) -> Result<(), Failure> {
+        let capability = identity
+            .map(|identity| identity["capabilities"]["invocation"].clone())
+            .unwrap_or_default();
+        Self::usable_capability(&capability)
+    }
+
+    fn usable_capability(capability: &Value) -> Result<(), Failure> {
+        let found = [
+            capability["version"].clone(),
+            capability["waitsForRoot"].clone(),
+            capability["createRequiresId"].clone(),
+        ];
+        if found != [json!(1), json!(true), json!(true)] {
+            return Err(failure(
+                "FYLO lease \"call\" needs a fylo whose handshake offers capabilities.invocation version 1 (FYLO ADR 0028); upgrade FYLO or use lease \"server\".",
+            ));
         }
-        Err(failure(
-            "FYLO lease \"call\" needs a fylo with exec --invocation (FYLO ADR 0028); upgrade FYLO or use lease \"server\".",
-        ))
+        Ok(())
     }
 }
 
@@ -228,16 +241,6 @@ mod tests {
     }
 
     #[test]
-    fn the_call_lease_is_refused_where_fylo_has_not_qualified_it() {
-        let refused = CallLease::refuse_on_this_system(true).err();
-        let message = refused
-            .map(|failure| failure.to_string())
-            .unwrap_or_default();
-        assert!(message.contains("refused on Windows"), "{message}");
-        assert!(CallLease::refuse_on_this_system(false).is_ok());
-    }
-
-    #[test]
     fn an_empty_answer_is_a_missing_frame() {
         let refused = CallLease::frame_line(b"\n");
         assert_eq!(
@@ -247,14 +250,52 @@ mod tests {
     }
 
     #[test]
-    fn a_fylo_that_runs_the_probe_has_no_invocation_mode() {
-        let answered = CallLease::invocation_mode_confirmed(Ok(json!({"protocolVersion": 1})));
-        assert!(answered.is_err());
+    fn a_fylo_without_the_invocation_capability_is_refused() {
+        let old = Ok(json!({"protocolVersion": 1, "capabilities": {"handshake": true}}));
+        assert!(CallLease::invocation_mode_confirmed(old).is_err());
+        let wasm = Ok(json!({"capabilities": {"invocation": false}}));
+        assert!(CallLease::invocation_mode_confirmed(wasm).is_err());
+        let failed = Err(super::FyloError::coded("ENOFRAME"));
+        assert!(CallLease::invocation_mode_confirmed(failed).is_err());
     }
 
     #[test]
-    fn a_fylo_that_refuses_a_zero_reserve_has_the_invocation_mode() {
-        let refusal = Err(super::FyloError::coded("EBADREQUEST"));
-        assert!(CallLease::invocation_mode_confirmed(refusal).is_ok());
+    fn a_fylo_that_offers_invocation_version_one_is_used() {
+        let identity = Ok(json!({"capabilities": {"invocation": {
+            "version": 1,
+            "command": "exec --invocation",
+            "createRequiresId": true,
+            "waitsForRoot": true
+        }}}));
+        assert!(CallLease::invocation_mode_confirmed(identity).is_ok());
+    }
+
+    #[test]
+    fn the_invocation_command_names_its_budget_and_limits() {
+        let root = std::path::Path::new("/data/root");
+        let arguments = CallLease::new(root).invocation_arguments(Duration::from_millis(4_900));
+        let text: Vec<String> = arguments
+            .iter()
+            .map(|value| value.to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(
+            text,
+            [
+                "exec",
+                "--invocation",
+                "--request",
+                "-",
+                "--root",
+                "/data/root",
+                "--deadline-ms",
+                "4900",
+                "--cleanup-reserve-ms",
+                "200",
+                "--max-request-bytes",
+                "1048576",
+                "--max-response-bytes",
+                "8388608",
+            ]
+        );
     }
 }

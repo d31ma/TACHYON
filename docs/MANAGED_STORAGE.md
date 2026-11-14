@@ -158,15 +158,14 @@ With `"lease": "call"`:
 - Each FYLO request runs in its own `fylo exec --invocation` process. The
   process takes the root for that one request and gives it back before it
   answers. So two containers on one root take turns instead of failing.
-- It needs a FYLO with `exec --invocation` (FYLO ADR 0028). At startup the
-  server checks this: it sends a handshake with a zero cleanup reserve, which
-  such a FYLO refuses with `EBADREQUEST`. An older FYLO runs the handshake
-  instead, because it ignores the unknown option; the server then stops with
-  `TY2160` and says to upgrade FYLO.
-- It is refused on Windows: the server stops at startup with `TY2160`.
-  FYLO's own test of two invocation processes on one root failed there
-  (one waited about 10 seconds, then answered `EROOTLOCKED`), so the
-  refusal stays until FYLO qualifies it on Windows.
+- It needs a FYLO whose handshake offers `capabilities.invocation` with
+  `version` 1, `waitsForRoot` and `createRequiresId` (FYLO ADR 0028; FYLO
+  `c75f407` or later, which also makes waiting processes take turns fairly,
+  on Windows too). At startup the server sends a plain handshake
+  (`fylo exec --request`), which does not take the root, and stops with
+  `TY2160` when the capability is missing. An older FYLO lacks it; FYLO
+  v26.45.07 and older even run `exec --invocation` as a plain request,
+  because they ignore unknown options.
 - The root must be on a local disk. The server stops at startup with
   `TY2160` when the root is on a network file system: NFS (Amazon EFS is
   NFS), SMB or 9p on Linux (from `/proc/self/mounts`), and any mount that
@@ -196,7 +195,8 @@ With `"lease": "call"`:
   fields in one step.
 - Tachyon makes the TTID of every new document before it sends `putData`,
   because FYLO requires it here. A repeated insert with the same id is
-  refused as "already exists" and the document is stored once. Raw SQL
+  refused with `EDOCEXISTS` ("A FYLO document with this id already exists")
+  and the document is stored once. Raw SQL
   `INSERT` keeps FYLO's own id.
 - Tachyon never sends a request again in this mode: not inserts, deletes,
   restores or raw SQL. A failure after FYLO started the request can follow a
@@ -209,6 +209,9 @@ With `"lease": "call"`:
 - A scroll keeps its snapshot in the memory of the server that made it, as
   with `"server"`. In serverless containers, its cursor works only in the
   container that made it.
+- When FYLO's disk is slow, a request that runs out of time answers
+  `EDEADLINE`; `EROOTLOCKED` means another process held the root the whole
+  time.
 - FYLO's other codes in this mode (`EDEADLINE`, `EBADREQUEST`,
   `EFRAME_REQUEST_TOO_LARGE`, `EINVOCATION` and the operation's own codes)
   fail the call with `TY2160` "FYLO operation failed (CODE)." and are logged
@@ -218,8 +221,8 @@ With `"lease": "call"`:
   is an unexpected version, or the root is gone), the call fails with
   `TY2160` "FYLO exited without an answer frame (ENOFRAME)".
 - Cost: one process start, FYLO's recovery and a log checkpoint per request.
-  On a shared Mac mini an insert took p50 63 ms and a read p50 25 ms with
-  `"call"`, against 23 ms and 0.7 ms with `"server"`. A handler with many
+  On a shared Mac mini an insert took p50 58 ms and a read p50 28 ms with
+  `"call"`, against 8 ms and 1 ms with `"server"`. A handler with many
   storage calls gets slower; measure it with
   `fylo_latency_per_operation_in_each_lease_mode`, an ignored test in
   `crates/tachyon-core/src/storage/tests/fylo_call_lease.rs`.

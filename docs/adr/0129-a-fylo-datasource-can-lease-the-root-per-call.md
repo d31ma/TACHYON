@@ -53,7 +53,7 @@ marked "not qualified", and refused on a network file system.
    is left, then answers `EROOTLOCKED` with no change.
 4. **Tachyon makes the document id.** Before `putData`, Tachyon adds a TTID
    it made (FYLO requires a caller id here). A repeated insert with the same
-   id is refused as "already exists" and stored once. Tachyon never sends a
+   id is refused with `EDOCEXISTS` and stored once. Tachyon never sends a
    request again in this mode: not inserts, deletes, restores or raw SQL.
 5. **The answer frame decides.** A frame on standard output is the answer,
    as for `exec --request`. FYLO's codes (`EROOTLOCKED`, `EDEADLINE`,
@@ -70,16 +70,19 @@ marked "not qualified", and refused on a network file system.
    DataSource or repository method sends them. Should one ever be sent, it
    fails with `TY2160` and FYLO's code. No startup check is needed for them.
 7. **Startup checks, fail closed.**
-   - The `fylo` binary must have the mode. FYLO v26.45.07 and older ignore
-     unknown options, so they run `exec --invocation` as a plain one-shot
-     request, with no wait and no lease. The server sends a handshake with
-     `--cleanup-reserve-ms 0`: a FYLO with the mode refuses it with
-     `EBADREQUEST` before it touches the root; any other answer stops the
-     server with `TY2160`.
-   - Not on Windows. FYLO's own test of two `exec --invocation` processes
-     on one root fails there in 2 of 3 runs (one waits about 9.8 s, then
-     answers `EROOTLOCKED`). The server refuses `"call"` on Windows with
-     `TY2160` until FYLO sends a fix.
+   - The `fylo` binary must offer `capabilities.invocation` with `version`
+     1, `waitsForRoot` and `createRequiresId` in its handshake (FYLO
+     `c75f407`). The server sends a plain `exec --request` handshake, which
+     does not take the root, and stops with `TY2160` without it. A version
+     check is not used: FYLO develop builds report `<tag>-develop.<sha7>`.
+     FYLO v26.45.07 and older ignore unknown options and would run
+     `exec --invocation` as a plain request with no lease, and FYLO
+     `600aca6` has the mode but not the capability, so both are refused.
+   - Windows is allowed. FYLO `600aca6` starved a waiting process on
+     Windows (2 of 3 runs of FYLO's two-process test); FYLO `c75f407` adds
+     a turn lock (`.<root>.fylo-root-turn.lock`) and passes 10 of 10 there.
+     Tachyon needs a FYLO with `c75f407` anyway (the capability above), so
+     it refused Windows only until then.
    - The root must be on a local disk. Linux reads `/proc/self/mounts` and
      refuses NFS (EFS included), CIFS/SMB and 9p. macOS runs `/sbin/mount`
      and refuses a mount without the `local` flag. When the mount table
@@ -94,20 +97,19 @@ marked "not qualified", and refused on a network file system.
   failing. The tests run two `"call"` stores on one root with 48 inserts at
   once and see no `EROOTLOCKED`.
 - Each request pays a process start, FYLO's recovery and a log checkpoint.
-  On a shared Mac mini: insert p50 63 ms and read p50 25 ms with `"call"`,
-  against 23 ms and 0.7 ms with `"server"`. Handlers with many storage calls
+  On a shared Mac mini: insert p50 58 ms and read p50 28 ms with `"call"`,
+  against 8 ms and 1 ms with `"server"`. Handlers with many storage calls
   get slower.
 - Between the `patchDoc` and the `getDoc` of one patch, another container
   may write. The answer can already hold that change; no patch loses fields.
 - A failure after FYLO admitted a request can follow a committed change.
-  Only an insert is safe to repeat (it is refused as "already exists").
+  Only an insert is safe to repeat (it is refused with `EDOCEXISTS`).
 - Two TTIDs made in the same 100 ns by two containers would collide. The
-  second insert then fails with "already exists"; nothing is overwritten.
+  second insert then fails with `EDOCEXISTS`; nothing is overwritten.
 - A scroll cursor works only in the container that made it, as before.
 - The mode stays "not qualified" until FYLO qualifies ADR 0011 for
   deployment on Linux. It stays refused on NFS (EFS) until FYLO closes its
-  EFS gate (FYLO ADR 0010 profile), and refused on Windows until FYLO
-  qualifies two invocation processes on one root there.
+  EFS gate (FYLO ADR 0010 profile).
 - FYLO ADR 0029 (FYLO `22c127e`) makes FYLO itself refuse a network root
   with `EREMOTEROOT`, in every mode. Tachyon maps it to `TY2160` "FYLO
   refuses a root on a network file system (EREMOTEROOT); ...". Tachyon's own
@@ -121,9 +123,9 @@ marked "not qualified", and refused on a network file system.
   the TTID insert and a repeated insert, every document, queue and raw SQL
   command, an unknown lease, and the ignored latency benchmark.
 - Unit tests in `storage/fylo/call_lease.rs` (deadline, reserve, id, missing
-  frame, the startup probe), `fylo_lease.rs` and `mount_entry.rs` (Linux and
+  frame, the startup capability check), `fylo_lease.rs` and `mount_entry.rs` (Linux and
   macOS mount lines).
 - `TAC_STORAGE_TEST_LEASE=call` makes every FYLO test store use the call
   lease, so the FYLO filtersets run once per mode.
-- Built and tested against FYLO `600aca6` built from source, before a FYLO
-  release contained it; see the CHANGELOG entry for the runs.
+- Built and tested against FYLO develop `c75f407` built from source, before a
+  FYLO release contained it; see the CHANGELOG entry for the runs.

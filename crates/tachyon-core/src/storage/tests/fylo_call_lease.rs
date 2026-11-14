@@ -8,23 +8,16 @@ use super::fylo_root_lock::RootHolder;
 use super::{ManagedStorage, fylo_store_with_lease};
 
 fn fylo_has_invocation_mode() -> bool {
-    if cfg!(windows) {
-        return false;
-    }
     let directory = tempfile::tempdir().expect("probe root");
     let output = Command::new("fylo")
-        .args(["exec", "--invocation", "--request", r#"{"op":"handshake"}"#])
-        .args([
-            "--deadline-ms",
-            "5000",
-            "--cleanup-reserve-ms",
-            "0",
-            "--root",
-        ])
+        .args(["exec", "--request", r#"{"op":"handshake"}"#, "--root"])
         .arg(directory.path())
         .output();
-    let answer = output.map(|output| String::from_utf8_lossy(&output.stdout).into_owned());
-    let available = answer.is_ok_and(|answer| answer.contains("EBADREQUEST"));
+    let identity =
+        output.map(|output| serde_json::from_slice::<Value>(&output.stdout).unwrap_or_default());
+    let available = identity.is_ok_and(|identity| {
+        identity["result"]["capabilities"]["invocation"]["version"] == json!(1)
+    });
     assert!(
         available || std::env::var("TAC_STORAGE_REQUIRE_TOOLCHAINS").is_err(),
         "a fylo with exec --invocation (FYLO ADR 0028) is required on this runner"
@@ -177,12 +170,7 @@ async fn an_insert_carries_a_tachyon_identifier_and_a_repeated_insert_is_stored_
     let repeated = json!({"op":"putData","collection":"hd-events","id":id,"data":{"n":1}});
     let answer = invocation(&root, &repeated);
     assert_eq!(answer["ok"], json!(false), "{answer}");
-    assert!(
-        answer["error"]["message"]
-            .as_str()
-            .is_some_and(|message| message.contains("already exists")),
-        "{answer}"
-    );
+    assert_eq!(answer["error"]["code"], json!("EDOCEXISTS"), "{answer}");
     assert_eq!(document_count(&store).await, 1);
     let found = run(&store, &document("findById", &json!({ "id": id }))).await;
     assert_eq!(found["n"], json!(1));
@@ -225,16 +213,6 @@ async fn every_document_and_queue_command_answers_in_call_mode() {
     assert_eq!(run(&store, &select).await[0]["name"], json!("lamp"));
     let dropped = run(&store, &document("dropCollection", &json!({}))).await;
     assert_eq!(dropped, json!(true));
-}
-
-#[cfg(windows)]
-#[tokio::test]
-async fn the_call_lease_is_refused_on_windows_before_fylo_starts() {
-    let directory = tempfile::tempdir().expect("root");
-    let root = canonical_root(&directory);
-    let refused = fylo_store_with_lease(&root, "call", 1).await;
-    let failure = refused.expect_err("call lease on Windows").to_string();
-    assert!(failure.contains("refused on Windows"), "{failure}");
 }
 
 #[tokio::test]

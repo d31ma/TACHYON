@@ -36,7 +36,7 @@ The `fylo` driver ([ADR 0032](adr/0032-fylo-datasource.md)) has special rules:
   answer (1000 to 60000, default 5000). `lease` is `"server"` (the default:
   one `fylo` process for the life of the server) or `"call"` (one `fylo`
   process per request, for serverless containers that share a root; not
-  qualified, refused on Windows and on a network file system). See
+  qualified, refused on a network file system). See
   [MANAGED_STORAGE](MANAGED_STORAGE.md#the-lease-setting).
 - Its root directory must already exist, and the path must be written in
   canonical form.
@@ -365,7 +365,7 @@ port, hosts, origins, proxies, environment and maxbody."
 | `datasource.driver` | `postgresql`, `mysql`, `mariadb`, `sqlserver`, `sqlite` or `fylo`. |
 | `datasource.url` | The database location, without credentials: `postgresql://db:5432/catalog`, `sqlite:///var/lib/catalog.db`, `sqlite::memory:`, or an absolute FYLO root. |
 | `datasource.timeout` | FYLO only: the store deadline in milliseconds, shared by the store calls of one handler answer, a whole number from 1000 to 60000. Default 5000. The first page of a scroll keeps 30 seconds. |
-| `datasource.lease` | FYLO only: `server` (the default, one `fylo` process for the life of the server) or `call` (one `fylo exec --invocation` process per request; not qualified, refused on Windows and on a network file system; ADR 0129). |
+| `datasource.lease` | FYLO only: `server` (the default, one `fylo` process for the life of the server) or `call` (one `fylo exec --invocation` process per request; not qualified, refused on a network file system; ADR 0129). |
 | `datasource.username` | The database user. Usually it is `YON_DATASOURCE_USERNAME` in `.env`, next to `YON_DATASOURCE_PASSWORD`. Only `.env` may hold the password. SQLite and FYLO take neither. |
 | `datasource.tls.ca` | Absolute path of a CA (certificate authority) certificate to trust. |
 | `redis.url` | `redis://`, or `rediss://` for TLS. |
