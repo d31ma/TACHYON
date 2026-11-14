@@ -113,7 +113,7 @@ console.log(JSON.stringify(report))
     fn run() -> serde_json::Value {
         let root = tempfile::tempdir().expect("root");
         Self::write(root.path(), "tac-web.js", Self::WEB_RUNTIME.as_bytes());
-        let [(_, media), _] = PageMedia::files();
+        let [(_, media), _, _] = PageMedia::files();
         Self::write(root.path(), "tac-media.js", &media);
         Self::write(root.path(), "drive.mjs", Self::DRIVER.as_bytes());
         let mut command = NodeDriver::command();
@@ -160,6 +160,161 @@ console.log(JSON.stringify(report))
     fn device(id: &str, kind: &str, label: &str, chosen: bool, index: u8) -> serde_json::Value {
         serde_json::json!(["b", "MediaDeviceFound", {"request": "r1", "id": id, "kind": kind, "label": label, "chosen": chosen, "index": index, "count": 4}])
     }
+}
+
+struct FramesPageDriver;
+
+impl FramesPageDriver {
+    const DRIVER: &'static str = r"import { readFile } from 'node:fs/promises'
+globalThis.document = { querySelector: () => ({ content: 'camera crypto' }), addEventListener: () => {} }
+globalThis.addEventListener = () => {}
+const posted = []
+class FakeWorker extends EventTarget { constructor(url) { super(); this.url = url; FakeWorker.made.push(url); FakeWorker.last = this } postMessage(message) { posted.push(message) } }
+FakeWorker.made = []
+globalThis.Worker = FakeWorker
+class FakeTransform { constructor(worker, options) { this.worker = worker; this.options = options } }
+globalThis.RTCRtpScriptTransform = FakeTransform
+globalThis.RTCRtpReceiver = { getCapabilities: () => ({ codecs: [{ mimeType: 'video/H264' }, { mimeType: 'video/VP8' }, { mimeType: 'video/rtx' }] }) }
+const transceiver = (kind, mid) => ({ mid, preferred: null, sender: { transform: 'none' }, receiver: { transform: 'none', track: { kind } }, setCodecPreferences(codecs) { this.preferred = codecs.map((codec) => codec.mimeType) } })
+const peer = new EventTarget()
+peer.list = [transceiver('video', '0'), transceiver('audio', '1')]
+peer.getTransceivers = () => peer.list
+globalThis[Symbol.for('tachyon.tac.peers.hooks')] = { connection: (id) => id === 'peer-1' ? peer : null }
+;(0, eval)(await readFile('./tac-media.js', 'utf8'))
+const media = globalThis[Symbol.for('tachyon.tac.media')]
+const sent = []
+const reply = (event) => sent.push(event)
+const settle = async () => { for (let round = 0; round < 10; round += 1) await new Promise((resolve) => setTimeout(resolve, 0)) }
+const attempt = (work) => { try { work(); return 'ok' } catch (error) { return error.message } }
+const report = {}
+report.invalid = [attempt(() => media.useFrameKey(reply, -1, 'alice')), attempt(() => media.sendFrameKey(reply, 1.5)), attempt(() => media.forgetFrameKey(reply, 2 ** 53))]
+media.useFrameKey(reply, 4, 'alice')
+await settle()
+report.noCrypto = sent.splice(0)
+const keys = { alice: { name: 'alice-key' } }
+globalThis[Symbol.for('tachyon.tac.crypto.hooks')] = { key: async (name) => keys[name] ?? null }
+media.useFrameKey(reply, 5, 'nobody')
+media.useFrameKey(reply, 6, 'alice')
+await settle()
+report.unknownKey = sent.splice(0)
+report.workers = FakeWorker.made
+report.posted = posted.splice(0)
+media.sendFrameKey(reply, 6)
+media.forgetFrameKey(reply, 4)
+report.keyMessages = posted.splice(0)
+report.unknownConnection = attempt(() => media.encryptFrames(reply, 'peer-9', true))
+media.encryptFrames(reply, 'peer-1', true)
+const video = peer.list[0]
+const audio = peer.list[1]
+report.attached = [video.sender.transform.options, video.receiver.transform.options, audio.receiver.transform.options, video.preferred, audio.preferred]
+const later = transceiver('video', '2')
+const event = new Event('track')
+event.transceiver = later
+peer.dispatchEvent(event)
+report.later = later.receiver.transform.options
+media.encryptFrames(reply, 'peer-1', false)
+report.detached = [video.sender.transform, video.receiver.transform]
+report.workerCount = FakeWorker.made.length
+const emit = (data) => { const item = new Event('message'); item.data = data; FakeWorker.last.dispatchEvent(item) }
+sent.splice(0)
+emit({ kind: 'ready', keyId: 6, track: '' })
+emit({ kind: 'rejected', keyId: 0, track: 'peer-1.0' })
+emit({ kind: 'rejected', keyId: 0, track: 'peer-1.0' })
+emit({ kind: 'rejected', keyId: 0, track: 'peer-1.0' })
+emit({ kind: 'missing', keyId: 9, track: 'peer-1.0' })
+emit({ kind: 'missing', keyId: 9, track: 'peer-1.0' })
+emit({ kind: 'exhausted', keyId: 6, track: '' })
+report.workerEvents = sent.splice(0)
+delete globalThis.RTCRtpScriptTransform
+report.noTransform = attempt(() => media.encryptFrames(reply, 'peer-1', true))
+console.log(JSON.stringify(report))
+";
+
+    fn run() -> serde_json::Value {
+        let root = tempfile::tempdir().expect("root");
+        let [(_, media), _, _] = PageMedia::files();
+        std::fs::write(root.path().join("tac-media.js"), media).expect("media");
+        std::fs::write(root.path().join("drive.mjs"), Self::DRIVER).expect("driver");
+        let mut command = NodeDriver::command();
+        command.arg("drive.mjs").current_dir(root.path());
+        let output = NodeDriver::output(&mut command).expect("node drive.mjs");
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(
+            output.status.success(),
+            "{stdout}{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        serde_json::from_str(stdout.lines().last().unwrap_or_default()).expect("report")
+    }
+}
+
+#[test]
+fn the_page_runtime_hands_frame_keys_to_one_worker_and_encrypts_every_transceiver() {
+    if !NodeDriver::available() {
+        eprintln!("skipping: node is unavailable");
+        return;
+    }
+    let report = FramesPageDriver::run();
+    let invalid = "A frame key id is a whole number from 0 to 9007199254740991 (invalid).";
+    assert_eq!(
+        report["invalid"],
+        serde_json::json!([invalid, invalid, invalid])
+    );
+    assert_eq!(
+        report["noCrypto"],
+        serde_json::json!([["MediaFailed", {"track": "", "call": "useFrameKey", "reason": "unsupported", "message": "Frame keys need the crypto browser API."}]])
+    );
+    assert_eq!(
+        report["unknownKey"],
+        serde_json::json!([["MediaFailed", {"track": "", "call": "useFrameKey", "reason": "unknown", "message": "There is no Crypto key with that name."}]])
+    );
+    assert_eq!(
+        report["workers"],
+        serde_json::json!(["/.tachyon/tac-media-frames.js"])
+    );
+    assert_eq!(
+        report["posted"],
+        serde_json::json!([{"kind": "use", "keyId": 6, "key": {"name": "alice-key"}}]),
+        "the key object goes to the worker; the page never reads its bytes"
+    );
+    assert_eq!(
+        report["keyMessages"],
+        serde_json::json!([{"kind": "send", "keyId": 6}, {"kind": "forget", "keyId": 4}])
+    );
+    assert_eq!(
+        report["unknownConnection"],
+        "There is no peer connection named peer-9 (unknown)."
+    );
+    assert_eq!(
+        report["attached"],
+        serde_json::json!([
+            {"side": "send", "kind": "video"},
+            {"side": "receive", "kind": "video", "track": "peer-1.0"},
+            {"side": "receive", "kind": "audio", "track": "peer-1.1"},
+            ["video/VP8"],
+            null
+        ])
+    );
+    assert_eq!(
+        report["later"],
+        serde_json::json!({"side": "receive", "kind": "video", "track": "peer-1.2"})
+    );
+    assert_eq!(report["detached"], serde_json::json!([null, null]));
+    assert_eq!(report["workerCount"], 1);
+    assert_eq!(
+        report["workerEvents"],
+        serde_json::json!([
+            ["MediaFrameKeyReady", {"keyId": 6}],
+            ["MediaFrameRejected", {"track": "peer-1.0", "count": 1}],
+            ["MediaFrameKeyMissing", {"track": "peer-1.0", "keyId": 9}],
+            ["MediaFailed", {"track": "", "call": "sendFrameKey", "reason": "failed", "message": "The send frame key has used every counter value; send a new key."}]
+        ]),
+        "repeated reports wait 5 seconds"
+    );
+    assert_eq!(
+        report["noTransform"],
+        "Frame encryption is not available here (unsupported)."
+    );
 }
 
 #[test]
@@ -361,9 +516,11 @@ fn only_a_build_that_grants_a_media_api_ships_the_media_modules() {
             .expect("the page loads media-view");
         let runtime = page.find("/.tachyon/tac-client.js").expect("runtime");
         assert!(media < view && view < runtime, "{page}");
-        assert_eq!(shipped, [true, true], "{grant}");
+        assert_eq!(shipped, [true, true, true], "{grant}");
         assert!(
-            worker.contains("tac-media.js") && worker.contains("tac-media-view.js"),
+            worker.contains("tac-media.js")
+                && worker.contains("tac-media-view.js")
+                && worker.contains("tac-media-frames.js"),
             "{worker}"
         );
     }
@@ -373,5 +530,5 @@ fn only_a_build_that_grants_a_media_api_ships_the_media_modules() {
         !page.contains("tac-media"),
         "no grant, no media modules: {page}"
     );
-    assert_eq!(shipped, [false, false]);
+    assert_eq!(shipped, [false, false, false]);
 }

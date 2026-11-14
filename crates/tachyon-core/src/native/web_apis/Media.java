@@ -32,4 +32,20 @@ final class Media {
     void mute(String track, boolean muted) {
         TacWebHost.call(API, "mute", track, muted);
     }
+
+    void useFrameKey(long keyId, String key) {
+        TacWebHost.call(API, "useFrameKey", keyId, key);
+    }
+
+    void sendFrameKey(long keyId) {
+        TacWebHost.call(API, "sendFrameKey", keyId);
+    }
+
+    void forgetFrameKey(long keyId) {
+        TacWebHost.call(API, "forgetFrameKey", keyId);
+    }
+
+    void encryptFrames(String connection, boolean on) {
+        TacWebHost.call(API, "encryptFrames", connection, on);
+    }
 }

@@ -32,4 +32,20 @@ final class Media {
     func mute(track: String, muted: Bool) throws {
         _ = try TacWebHost.call(Self.api, "mute", [track, muted])
     }
+
+    func useFrameKey(keyId: Int, key: String) throws {
+        _ = try TacWebHost.call(Self.api, "useFrameKey", [keyId, key])
+    }
+
+    func sendFrameKey(keyId: Int) throws {
+        _ = try TacWebHost.call(Self.api, "sendFrameKey", [keyId])
+    }
+
+    func forgetFrameKey(keyId: Int) throws {
+        _ = try TacWebHost.call(Self.api, "forgetFrameKey", [keyId])
+    }
+
+    func encryptFrames(connection: String, on: Bool) throws {
+        _ = try TacWebHost.call(Self.api, "encryptFrames", [connection, on])
+    }
 }

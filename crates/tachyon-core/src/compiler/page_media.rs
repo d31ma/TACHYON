@@ -4,7 +4,7 @@ pub(super) struct PageMedia;
 
 impl PageMedia {
     const GRANTS: [&'static str; 3] = ["camera", "microphone", "screen"];
-    const SCRIPTS: [(&'static str, &'static str); 2] = [
+    const SCRIPTS: [(&'static str, &'static str); 3] = [
         (
             ".tachyon/tac-media.js",
             include_str!("../template/tac-media.js"),
@@ -12,6 +12,10 @@ impl PageMedia {
         (
             ".tachyon/tac-media-view.js",
             include_str!("../template/tac-media-view.js"),
+        ),
+        (
+            ".tachyon/tac-media-frames.js",
+            include_str!("../template/tac-media-frames.js"),
         ),
     ];
     const NO_TAG: &'static str = "";
@@ -30,7 +34,7 @@ impl PageMedia {
         [Self::NO_TAG, Self::SCRIPT_TAGS][usize::from(Self::granted(site))]
     }
 
-    pub(super) fn files() -> [(&'static str, Vec<u8>); 2] {
+    pub(super) fn files() -> [(&'static str, Vec<u8>); 3] {
         Self::SCRIPTS.map(|(path, source)| (path, Self::shipped(source)))
     }
 

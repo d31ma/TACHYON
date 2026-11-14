@@ -10,6 +10,14 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- **Tac services encrypt each media frame with SFrame** (ADR 0135). `Media`
+  gains `useFrameKey(keyId, key)`, `sendFrameKey(keyId)`,
+  `forgetFrameKey(keyId)` and `encryptFrames(connection, on)`: frames on a
+  `Peers` connection are encrypted with RFC 9605 SFrame
+  (AES_128_GCM_SHA256_128) in a worker, with keys from `Crypto`, so a
+  forwarding server cannot read them. The VP8 header stays in clear for the
+  server's layer switching. New events `MediaFrameKeyReady`,
+  `MediaFrameKeyMissing` and `MediaFrameRejected`.
 - **Crypto verifies an empty message on every engine** (ADR 0133).
   `Crypto.sign` and `Crypto.verify` accept empty data again. WebKit answers
   `false` when it verifies an Ed25519 signature over an empty message; the

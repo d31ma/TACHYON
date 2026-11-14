@@ -25,6 +25,7 @@ class TacMedia {
     busy: 'The device is used by another application.',
     unknown: 'There is no such track or device.',
     failed: 'The media call failed.',
+    exhausted: 'The send frame key has used every counter value; send a new key.',
   })
   static grants = Object.freeze({ captureMicrophone: 'microphone', captureCamera: 'camera', captureScreen: 'screen' })
   static grantTag = 'meta[name="tachyon-browser-apis"]'
@@ -35,6 +36,22 @@ class TacMedia {
     simulcast: ['RTCRtpTransceiver', 'setCodecPreferences'],
     frames: ['RTCRtpScriptTransform', ''],
     speakers: ['HTMLMediaElement', 'setSinkId'],
+  })
+  static framesPath = '/.tachyon/tac-media-frames.js'
+  static cryptoHooksKey = Symbol.for('tachyon.tac.crypto.hooks')
+  static peersHooksKey = Symbol.for('tachyon.tac.peers.hooks')
+  static largestKeyId = Number.MAX_SAFE_INTEGER
+  static reportGapMs = 5000
+  static vp8 = 'video/vp8'
+  static frames = null
+  static frameReply = null
+  static encrypted = new Map()
+  static listened = new Set()
+  static reported = new Map()
+  static rejected = new Map()
+  static callMessages = Object.freeze({
+    'useFrameKey unsupported': 'Frame keys need the crypto browser API.',
+    'useFrameKey unknown': 'There is no Crypto key with that name.',
   })
   static tracks = new Map()
   static listeners = new Set()
@@ -56,6 +73,10 @@ class TacMedia {
         captureScreen: (reply, track, withAudio) => TacMedia.captureScreen(reply, track, withAudio),
         stopTrack: (reply, track) => TacMedia.stopTrack(reply, track),
         mute: (reply, track, muted) => TacMedia.mute(track, muted),
+        useFrameKey: (reply, keyId, key) => TacMedia.useFrameKey(reply, keyId, key),
+        sendFrameKey: (reply, keyId) => TacMedia.postKey(reply, 'send', keyId),
+        forgetFrameKey: (reply, keyId) => TacMedia.postKey(reply, 'forget', keyId),
+        encryptFrames: (reply, connection, on) => TacMedia.encryptFrames(reply, connection, on),
       }),
     })
     Object.defineProperty(globalThis, TacMedia.tracksKey, {
@@ -65,6 +86,7 @@ class TacMedia {
         changed: (hook) => TacMedia.changedHooks.push(hook),
         ended: (hook) => TacMedia.endedHooks.push(hook),
         speaker: () => TacMedia.speaker,
+        attachFrames: (connection, transceiver) => TacMedia.attachIfEncrypted(String(connection), transceiver),
       }),
     })
     globalThis.navigator?.mediaDevices?.addEventListener?.('devicechange', () => TacMedia.devicesChanged())
@@ -269,6 +291,122 @@ class TacMedia {
     TacMedia.announce(TacMedia.changedHooks, entry.name, null)
   }
 
+  static useFrameKey(reply, keyId, key) {
+    const id = TacMedia.checkedKeyId(keyId)
+    TacMedia.frameReply = reply
+    TacMedia.ask(() => TacMedia.cryptoKey(key))
+      .then((cryptoKey) => TacMedia.worker().postMessage({ kind: 'use', keyId: id, key: cryptoKey }))
+      .catch((error) => reply(TacMedia.failure('', 'useFrameKey', error)))
+    return null
+  }
+
+  static postKey(reply, kind, keyId) {
+    const id = TacMedia.checkedKeyId(keyId)
+    TacMedia.frameReply = reply
+    TacMedia.worker().postMessage({ kind, keyId: id })
+    return null
+  }
+
+  static checkedKeyId(keyId) {
+    const id = Number(keyId)
+    if (!Number.isInteger(id) || id < 0 || id > TacMedia.largestKeyId) throw new Error('A frame key id is a whole number from 0 to 9007199254740991 (invalid).')
+    return id
+  }
+
+  static async cryptoKey(name) {
+    const hooks = globalThis[TacMedia.cryptoHooksKey]
+    if (!hooks) throw new Error('Frame keys need the crypto browser API (unsupported).')
+    return TacMedia.requireKey(await hooks.key(String(name)))
+  }
+
+  static requireKey(key) {
+    if (!key) throw new Error('There is no Crypto key with that name (unknown).')
+    return key
+  }
+
+  static worker() {
+    if (TacMedia.frames) return TacMedia.frames
+    TacMedia.ensureFrames()
+    TacMedia.frames = new Worker(TacMedia.framesPath)
+    TacMedia.frames.addEventListener('message', (event) => TacMedia.frameEvent(event.data))
+    return TacMedia.frames
+  }
+
+  static ensureFrames() {
+    if (typeof globalThis.RTCRtpScriptTransform !== 'function') throw new Error('Frame encryption is not available here (unsupported).')
+  }
+
+  static encryptFrames(reply, connection, on) {
+    TacMedia.ensureFrames()
+    const id = String(connection)
+    const peer = TacMedia.peer(id)
+    TacMedia.frameReply = reply
+    TacMedia.worker()
+    TacMedia.listen(id, peer)
+    TacMedia.markEncrypted(id, peer, on === true)
+    for (const transceiver of peer.getTransceivers()) TacMedia.attachIfEncrypted(id, transceiver)
+    return null
+  }
+
+  static peer(connection) {
+    const peer = globalThis[TacMedia.peersHooksKey]?.connection(connection) ?? null
+    if (!peer) throw new Error(`There is no peer connection named ${connection} (unknown).`)
+    return peer
+  }
+
+  static listen(connection, peer) {
+    if (TacMedia.listened.has(connection)) return
+    TacMedia.listened.add(connection)
+    peer.addEventListener('track', (event) => TacMedia.attachIfEncrypted(connection, event.transceiver))
+  }
+
+  static markEncrypted(connection, peer, on) {
+    if (on) return TacMedia.encrypted.set(connection, peer)
+    TacMedia.encrypted.delete(connection)
+  }
+
+  static attachIfEncrypted(connection, transceiver) {
+    const on = TacMedia.encrypted.has(connection)
+    const kind = transceiver.receiver.track.kind
+    if (on) TacMedia.preferVp8(transceiver, kind)
+    transceiver.sender.transform = on ? new RTCRtpScriptTransform(TacMedia.frames, { side: 'send', kind }) : null
+    transceiver.receiver.transform = on ? new RTCRtpScriptTransform(TacMedia.frames, { side: 'receive', kind, track: `${connection}.${transceiver.mid}` }) : null
+  }
+
+  static preferVp8(transceiver, kind) {
+    if (kind !== 'video' || typeof transceiver.setCodecPreferences !== 'function') return
+    const codecs = RTCRtpReceiver.getCapabilities('video')?.codecs ?? []
+    const vp8 = codecs.filter((codec) => codec.mimeType.toLowerCase() === TacMedia.vp8)
+    if (vp8.length > 0) transceiver.setCodecPreferences(vp8)
+  }
+
+  static frameEvent(message) {
+    if (message.kind === 'ready') return TacMedia.frameReply?.(['MediaFrameKeyReady', { keyId: message.keyId }])
+    if (message.kind === 'rejected') return TacMedia.frameRejected(message.track)
+    if (message.kind === 'missing') return TacMedia.frameMissing(message.track, message.keyId)
+    TacMedia.frameReply?.(['MediaFailed', { track: '', call: 'sendFrameKey', reason: 'failed', message: TacMedia.messages.exhausted }])
+  }
+
+  static frameMissing(track, keyId) {
+    if (!TacMedia.dueReport(`missing ${track} ${keyId}`)) return
+    TacMedia.frameReply?.(['MediaFrameKeyMissing', { track, keyId }])
+  }
+
+  static frameRejected(track) {
+    const count = (TacMedia.rejected.get(track) ?? 0) + 1
+    TacMedia.rejected.set(track, count)
+    if (!TacMedia.dueReport(`rejected ${track}`)) return
+    TacMedia.rejected.delete(track)
+    TacMedia.frameReply?.(['MediaFrameRejected', { track, count }])
+  }
+
+  static dueReport(name) {
+    const now = Date.now()
+    if (now - (TacMedia.reported.get(name) ?? -Infinity) < TacMedia.reportGapMs) return false
+    TacMedia.reported.set(name, now)
+    return true
+  }
+
   static devicesChanged() {
     for (const reply of TacMedia.listeners) reply(['MediaDevicesChanged', {}])
     TacMedia.ask(() => TacMedia.mediaDevices().enumerateDevices())
@@ -294,7 +432,11 @@ class TacMedia {
 
   static failure(track, call, error) {
     const reason = TacMedia.reasons[error?.name] ?? TacMedia.reasonIn(error)
-    return ['MediaFailed', { track, call, reason, message: TacMedia.messages[reason] ?? TacMedia.messages.failed }]
+    return ['MediaFailed', { track, call, reason, message: TacMedia.messageFor(call, reason) }]
+  }
+
+  static messageFor(call, reason) {
+    return TacMedia.callMessages[`${call} ${reason}`] ?? TacMedia.messages[reason] ?? TacMedia.messages.failed
   }
 
   static reasonIn(error) {

@@ -561,6 +561,9 @@ jobs:
       - name: Keep, show and upload blobs in the page's IndexedDB
         run: bun run test:blobs-browser
 
+      - name: Encrypt media frames with SFrame between two pages
+        run: bun run test:media-frames-browser
+
       - name: Run the real-browser web components contract
         run: bun run test:web-components-browser
         env:

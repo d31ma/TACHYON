@@ -28,4 +28,20 @@ class Media {
     fun mute(track: String, muted: Boolean) {
         TacWebHost.call("media", "mute", listOf(track, muted))
     }
+
+    fun useFrameKey(keyId: Long, key: String) {
+        TacWebHost.call("media", "useFrameKey", listOf(keyId, key))
+    }
+
+    fun sendFrameKey(keyId: Long) {
+        TacWebHost.call("media", "sendFrameKey", listOf(keyId))
+    }
+
+    fun forgetFrameKey(keyId: Long) {
+        TacWebHost.call("media", "forgetFrameKey", listOf(keyId))
+    }
+
+    fun encryptFrames(connection: String, on: Boolean) {
+        TacWebHost.call("media", "encryptFrames", listOf(connection, on))
+    }
 }

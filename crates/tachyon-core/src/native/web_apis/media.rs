@@ -41,6 +41,24 @@ impl Media {
         Self::send("mute", &arguments)
     }
 
+    pub fn use_frame_key(&self, key_id: u64, key: &str) -> Result<(), String> {
+        let arguments = format!("{key_id},{}", tac_quote(key));
+        Self::send("useFrameKey", &arguments)
+    }
+
+    pub fn send_frame_key(&self, key_id: u64) -> Result<(), String> {
+        Self::send("sendFrameKey", &key_id.to_string())
+    }
+
+    pub fn forget_frame_key(&self, key_id: u64) -> Result<(), String> {
+        Self::send("forgetFrameKey", &key_id.to_string())
+    }
+
+    pub fn encrypt_frames(&self, connection: &str, on: bool) -> Result<(), String> {
+        let arguments = format!("{},{on}", tac_quote(connection));
+        Self::send("encryptFrames", &arguments)
+    }
+
     fn send(call: &str, arguments: &str) -> Result<(), String> {
         TacWebHost::call(Self::API, call, arguments)?;
         Ok(())

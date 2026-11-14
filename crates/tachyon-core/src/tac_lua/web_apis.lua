@@ -254,6 +254,22 @@ function Media:mute(track, muted)
   TacWebHost.call("media", "mute", { track, muted })
 end
 
+function Media:use_frame_key(key_id, key)
+  TacWebHost.call("media", "useFrameKey", { key_id, key })
+end
+
+function Media:send_frame_key(key_id)
+  TacWebHost.call("media", "sendFrameKey", { key_id })
+end
+
+function Media:forget_frame_key(key_id)
+  TacWebHost.call("media", "forgetFrameKey", { key_id })
+end
+
+function Media:encrypt_frames(connection, on)
+  TacWebHost.call("media", "encryptFrames", { connection, on })
+end
+
 CodeScanner = {}
 
 function CodeScanner:supported()

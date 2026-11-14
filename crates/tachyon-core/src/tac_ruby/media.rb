@@ -40,4 +40,24 @@ class Media
     TacWebHost.call(API, "mute", [track, muted])
     nil
   end
+
+  def use_frame_key(key_id, key)
+    TacWebHost.call(API, "useFrameKey", [key_id, key])
+    nil
+  end
+
+  def send_frame_key(key_id)
+    TacWebHost.call(API, "sendFrameKey", [key_id])
+    nil
+  end
+
+  def forget_frame_key(key_id)
+    TacWebHost.call(API, "forgetFrameKey", [key_id])
+    nil
+  end
+
+  def encrypt_frames(connection, on)
+    TacWebHost.call(API, "encryptFrames", [connection, on])
+    nil
+  end
 end

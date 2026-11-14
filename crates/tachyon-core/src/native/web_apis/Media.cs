@@ -17,4 +17,12 @@ public sealed class Media
     public void StopTrack(string track) => TacWebHost.Call(Api, "stopTrack", new JsonArray(track));
 
     public void Mute(string track, bool muted) => TacWebHost.Call(Api, "mute", new JsonArray(track, muted));
+
+    public void UseFrameKey(long keyId, string key) => TacWebHost.Call(Api, "useFrameKey", new JsonArray(keyId, key));
+
+    public void SendFrameKey(long keyId) => TacWebHost.Call(Api, "sendFrameKey", new JsonArray(keyId));
+
+    public void ForgetFrameKey(long keyId) => TacWebHost.Call(Api, "forgetFrameKey", new JsonArray(keyId));
+
+    public void EncryptFrames(string connection, bool on) => TacWebHost.Call(Api, "encryptFrames", new JsonArray(connection, on));
 }

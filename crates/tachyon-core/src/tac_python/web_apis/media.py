@@ -24,3 +24,15 @@ class Media:
 
     def mute(self, track: str, muted: bool) -> None:
         _TacPythonWebHost.call(self.API, 'mute', (track, muted))
+
+    def use_frame_key(self, key_id: int, key: str) -> None:
+        _TacPythonWebHost.call(self.API, 'useFrameKey', (key_id, key))
+
+    def send_frame_key(self, key_id: int) -> None:
+        _TacPythonWebHost.call(self.API, 'sendFrameKey', (key_id,))
+
+    def forget_frame_key(self, key_id: int) -> None:
+        _TacPythonWebHost.call(self.API, 'forgetFrameKey', (key_id,))
+
+    def encrypt_frames(self, connection: str, on: bool) -> None:
+        _TacPythonWebHost.call(self.API, 'encryptFrames', (connection, on))

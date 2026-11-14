@@ -310,6 +310,15 @@ impl WebEventModels {
                 "MediaTrackEnded",
                 &[("track", Shape::Text), ("reason", Shape::Text)],
             ),
+            Self::media("MediaFrameKeyReady", &[("keyId", Shape::Number)]),
+            Self::media(
+                "MediaFrameKeyMissing",
+                &[("track", Shape::Text), ("keyId", Shape::Number)],
+            ),
+            Self::media(
+                "MediaFrameRejected",
+                &[("track", Shape::Text), ("count", Shape::Number)],
+            ),
             Self::media(
                 "MediaFailed",
                 &[

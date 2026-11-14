@@ -199,6 +199,18 @@ public:
     void stopTrack(const std::string& track) const { TacWebCall::answer("media", "stopTrack", TacWebCall::arguments(track)); }
 
     void mute(const std::string& track, bool muted) const { TacWebCall::answer("media", "mute", TacWebCall::arguments(track, muted)); }
+
+    void useFrameKey(long long keyId, const std::string& key) const {
+        TacWebCall::answer("media", "useFrameKey", TacWebCall::arguments(keyId, key));
+    }
+
+    void sendFrameKey(long long keyId) const { TacWebCall::answer("media", "sendFrameKey", TacWebCall::arguments(keyId)); }
+
+    void forgetFrameKey(long long keyId) const { TacWebCall::answer("media", "forgetFrameKey", TacWebCall::arguments(keyId)); }
+
+    void encryptFrames(const std::string& connection, bool on) const {
+        TacWebCall::answer("media", "encryptFrames", TacWebCall::arguments(connection, on));
+    }
 };
 
 class CodeScanner {
