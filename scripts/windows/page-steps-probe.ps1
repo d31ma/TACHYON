@@ -789,8 +789,19 @@ function Get-HistoryDirection([string] $direction) {
     return $directions[$direction]
 }
 
+function Wait-WebFocus {
+    $deadline = [DateTime]::UtcNow.AddSeconds(5)
+    do {
+        if (Test-WebFocus) { return }
+        Wait-Briefly 100
+    } while ([DateTime]::UtcNow -lt $deadline)
+    $focus = [TachyonProbeNative]::ClassName([TachyonProbeNative]::KeyboardFocus($script:handle))
+    throw "the app window is in front, but its keyboard focus stayed on '$focus' instead of moving into the WebView"
+}
+
 function Invoke-HistoryKeys([string] $direction) {
     Show-AppWindow
+    Wait-WebFocus
     $focus = [TachyonProbeNative]::ClassName([TachyonProbeNative]::KeyboardFocus($script:handle))
     [TachyonProbeNative]::PressWithAlt((Get-KeyCode (Get-HistoryDirection $direction)), $true)
     Write-Line "OK: sent Alt+$(Get-HistoryDirection $direction) to the app window, with keyboard focus on '$focus'"
