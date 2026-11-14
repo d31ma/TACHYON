@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
-import { chmod, mkdir, writeFile, appendFile, rm } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, writeFile, appendFile, rm } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
 
 class FyloRelease {
@@ -40,9 +41,10 @@ async function installExecutable(directory, bytes) {
   return executable;
 }
 
-async function probeExecutable(executable, directory) {
-  const probeRoot = join(directory, 'probe-root');
-  await mkdir(probeRoot, { recursive: true });
+async function probeExecutable(executable) {
+  const scratch = await mkdtemp(join(tmpdir(), 'fylo-probe-'));
+  const probeRoot = join(scratch, 'probe-root');
+  await mkdir(probeRoot);
   try {
     const answer = JSON.parse(execFileSync(executable, [
       'exec', '--request', '{"op":"createCollection","collection":"probe"}', '--root', probeRoot,
@@ -51,10 +53,7 @@ async function probeExecutable(executable, directory) {
       throw new Error('Pinned FYLO failed its machine-protocol capability probe');
     }
   } finally {
-    await rm(probeRoot, { recursive: true, force: true });
-    for (const suffix of ['', '.json']) {
-      await rm(join(directory, `.probe-root.fylo-root-owner.lock${suffix}`), { force: true });
-    }
+    await rm(scratch, { recursive: true, force: true });
   }
 }
 
@@ -70,7 +69,7 @@ async function main() {
     throw new Error('FYLO checksum mismatch; refusing to write or execute it');
   }
   const executable = await installExecutable(directory, bytes);
-  await probeExecutable(executable, directory);
+  await probeExecutable(executable);
   if (process.env.GITHUB_PATH) await appendFile(process.env.GITHUB_PATH, `${directory}\n`);
   console.log(`Verified FYLO ${FyloRelease.version} ${asset}: checksum and machine protocol`);
 }

@@ -179,6 +179,12 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- **The FYLO install script probes on a local disk.**
+  `scripts/ci/install-fylo.mjs` checked the downloaded `fylo` with a root
+  inside the install folder. FYLO from `22c127e` refuses a root on a network
+  file system (`EREMOTEROOT`), so an install folder on NFS failed the check.
+  The probe root is now a new folder in the system temp folder, removed
+  after the check.
 - **One store deadline per answer, and the FYLO operation in every deadline
   failure** (ADR 0128 amendment 2). All store calls of one handler run that
   answers once share one deadline from the first call (`timeout`,
