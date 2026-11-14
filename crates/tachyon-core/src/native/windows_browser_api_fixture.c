@@ -126,7 +126,8 @@ static void check_granted(void) {
   check_state("web notifications", tachyon_permission_state(COREWEBVIEW2_PERMISSION_KIND_NOTIFICATIONS, TRUE), COREWEBVIEW2_PERMISSION_STATE_DENY);
   check_state("own camera", tachyon_permission_state(COREWEBVIEW2_PERMISSION_KIND_CAMERA, TRUE), COREWEBVIEW2_PERMISSION_STATE_ALLOW);
   check_state("foreign camera", tachyon_permission_state(COREWEBVIEW2_PERMISSION_KIND_CAMERA, FALSE), COREWEBVIEW2_PERMISSION_STATE_DENY);
-  check_state("microphone", tachyon_permission_state(COREWEBVIEW2_PERMISSION_KIND_MICROPHONE, TRUE), COREWEBVIEW2_PERMISSION_STATE_DENY);
+  check_state("own microphone", tachyon_permission_state(COREWEBVIEW2_PERMISSION_KIND_MICROPHONE, TRUE), COREWEBVIEW2_PERMISSION_STATE_ALLOW);
+  check_state("foreign microphone", tachyon_permission_state(COREWEBVIEW2_PERMISSION_KIND_MICROPHONE, FALSE), COREWEBVIEW2_PERMISSION_STATE_DENY);
 }
 
 static void check_refused(void) {
@@ -143,6 +144,7 @@ static void check_refused(void) {
   check_state("refused geolocation", tachyon_permission_state(COREWEBVIEW2_PERMISSION_KIND_GEOLOCATION, TRUE), COREWEBVIEW2_PERMISSION_STATE_DENY);
   check_state("refused clipboard read", tachyon_permission_state(COREWEBVIEW2_PERMISSION_KIND_CLIPBOARD_READ, TRUE), COREWEBVIEW2_PERMISSION_STATE_DENY);
   check_state("refused camera", tachyon_permission_state(COREWEBVIEW2_PERMISSION_KIND_CAMERA, TRUE), COREWEBVIEW2_PERMISSION_STATE_DENY);
+  check_state("refused microphone", tachyon_permission_state(COREWEBVIEW2_PERMISSION_KIND_MICROPHONE, TRUE), COREWEBVIEW2_PERMISSION_STATE_DENY);
 }
 
 static void check_runtime(void) {

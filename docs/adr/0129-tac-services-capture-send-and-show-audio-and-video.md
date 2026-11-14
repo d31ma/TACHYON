@@ -89,6 +89,32 @@ bytes); the feature checks and the grant choice live in the media module.
 Its budget (`MOST_RUNTIME_BYTES`) rises from 16,500 to 16,900 bytes for
 that forwarder.
 
+### Native apps
+
+- **Reasons.** `tac.application.permissions.microphone` is required for iOS,
+  macOS and Android builds (`TY1601`), like `camera`. iOS and macOS write it
+  as `NSMicrophoneUsageDescription`; that text is also what makes WKWebView
+  show `navigator.mediaDevices` at all. macOS adds the hardened-runtime
+  entitlement `com.apple.security.device.audio-input`. The `screen` reason
+  is optional; no system shows it yet.
+- **Apple.** Both shells answer WebKit's media capture request
+  (`WKUIDelegate`, `requestMediaCapturePermissionFor`) through
+  `AppleMediaCapture`: it allows a request only for `tachyon-app://bundle`
+  with no port, and only when every kind asked for (camera, microphone) is
+  granted; anything else is denied. With a media grant the web view plays
+  media without a tap, and on iOS inline.
+- **Android.** The build adds `RECORD_AUDIO` and `MODIFY_AUDIO_SETTINGS`.
+  The WebView host grants `RESOURCE_AUDIO_CAPTURE` only to the app's own
+  pages, only with the `microphone` grant, and only after the runtime
+  permission, with the reason as its rationale (one row next to the
+  camera's).
+- **Windows.** The WebView2 host allows the `MICROPHONE` permission only for
+  the app's own page with the grant. An MSIX package declares
+  `<DeviceCapability Name="microphone"/>` and `webcam` for the granted
+  kinds. The host does not yet answer `ScreenCaptureStarting` (a newer
+  WebView2 interface): the page's own `screen` check and WebView2's picker
+  stand until it does.
+
 ## Security
 
 - Deny by default: each capture call checks its own grant in the page.
@@ -105,10 +131,8 @@ that forwarder.
 
 ## Consequences
 
-- Native permission texts and host rules (Info.plist, entitlements, the
-  Android capture row, the Windows microphone permission, the WKWebView
-  media capture answer) follow in slice M1's second part, after the
-  CodeScanner change lands, because they share its lines.
+- iOS is not probed yet; a capture on a phone, a Mac with a microphone, an
+  Android device and a Windows PC is still owed (`target_support.json`).
 - Linux (WebKitGTK) uses this same contract: the page captures and the host
   decides the permission per kind (ADR 0131 amendment). Sending tracks waits
   for a WebKitGTK with WebRTC.

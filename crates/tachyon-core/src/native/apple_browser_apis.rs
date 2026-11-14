@@ -10,7 +10,8 @@ impl AppleBrowserApis {
         include_str!("browser_apis/AppleStorageSpace.swift"),
         include_str!("browser_apis/AppleCodeScanner.swift"),
         include_str!("browser_apis/AppleCodeCapture.swift"),
-        include_str!("browser_apis/AppleCodeScannerView.swift")
+        include_str!("browser_apis/AppleCodeScannerView.swift"),
+        include_str!("browser_apis/AppleMediaCapture.swift")
     );
 
     pub(super) fn swift_grants(permissions: &BrowserApiPermissions) -> String {
@@ -102,5 +103,32 @@ mod tests {
             assert!(source.contains("globalThis.__tachyonNotificationPermission"));
             assert!(source.contains("globalThis.__tachyonCameraPresent"));
         }
+    }
+
+    #[test]
+    fn both_apple_hosts_let_only_their_own_page_capture_the_granted_media() {
+        let granted = hosts(
+            r#"{"tac":{"browserApis":["microphone","camera"],"application":{"permissions":{"microphone":"Calls","camera":"Video calls"}}}}"#,
+        );
+        for source in &granted {
+            assert!(source.contains("final class AppleMediaCapture"));
+            assert!(source.contains(
+                "AppleMediaCapture.prepare(configuration, AppleBrowserApis.shared.granted)"
+            ));
+            assert!(source.contains("requestMediaCapturePermissionFor origin: WKSecurityOrigin"));
+            assert!(source.contains(
+                "decisionHandler(AppleMediaCapture.decision(origin, type, AppleBrowserApis.shared.granted))"
+            ));
+            assert!(source.contains("guard Self.isOwnPage(origin) else { return .deny }"));
+            assert!(source.contains(
+                "origin.protocol == Self.scheme && origin.host == Self.host && origin.port == 0"
+            ));
+            assert!(
+                source.contains("case .cameraAndMicrophone: return [\"camera\", \"microphone\"]")
+            );
+            assert!(source.contains("view.uiDelegate = self"));
+        }
+        assert!(granted[1].contains("WKNavigationDelegate, WKUIDelegate {"));
+        assert!(granted[1].contains("configuration.allowsInlineMediaPlayback = true"));
     }
 }

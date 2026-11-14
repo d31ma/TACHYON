@@ -154,7 +154,23 @@ fn the_package_manifest_names_the_app_publisher_version_and_tiles() {
     assert!(xml.contains(r#"Square44x44Logo="Assets\Square44x44Logo.png""#));
     assert!(xml.contains(r"<Logo>Assets\StoreLogo.png</Logo>"));
     assert!(xml.contains(r#"<rescap:Capability Name="runFullTrust"/>"#));
+    assert!(!xml.contains("<DeviceCapability"));
     assert!(!xml.contains("<Extensions>"));
+    application.permissions = super::browser_api_permissions::BrowserApiPermissions::declared(
+        &[String::from("microphone"), String::from("camera")],
+        &std::collections::BTreeMap::new(),
+    );
+    let granted = WindowsPackageManifest {
+        application: &application,
+        publisher: "CN=Notes & Co, O=Notes, C=US",
+        architecture: WindowsArchitecture::ARM64,
+    }
+    .xml()
+    .expect("manifest with devices");
+    assert!(granted.contains(
+        "<rescap:Capability Name=\"runFullTrust\"/>\n    <DeviceCapability Name=\"webcam\"/>\n    <DeviceCapability Name=\"microphone\"/>\n  </Capabilities>"
+    ));
+    application.permissions = super::browser_api_permissions::BrowserApiPermissions::default();
     application.links = super::native_links::NativeLinks::declared(&["notes"], &[]);
     application.window.theme_color = Some(NativeThemeColor {
         red: 15,

@@ -7,10 +7,11 @@ use std::process::Command;
 struct WindowsBrowserApiTests;
 
 impl WindowsBrowserApiTests {
-    const ALL: [&'static str; 6] = [
+    const ALL: [&'static str; 7] = [
         "camera",
         "clipboard",
         "geolocation",
+        "microphone",
         "notifications",
         "persistentStorage",
         "share",

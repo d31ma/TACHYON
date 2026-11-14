@@ -4,18 +4,21 @@ pub(super) struct AndroidBrowserApis;
 
 impl AndroidBrowserApis {
     const JAVA: &'static str = include_str!("native_browser_apis_android.java");
-    const ANSWERED: [&'static str; 6] = [
+    const ANSWERED: [&'static str; 7] = [
         "camera",
+        "microphone",
         "clipboard",
         "share",
         "notifications",
         "geolocation",
         "persistentStorage",
     ];
-    const MANIFEST_PERMISSIONS: [(&'static str, &'static str); 4] = [
+    const MANIFEST_PERMISSIONS: [(&'static str, &'static str); 6] = [
         ("camera", "android.permission.CAMERA"),
         ("geolocation", "android.permission.ACCESS_COARSE_LOCATION"),
         ("geolocation", "android.permission.ACCESS_FINE_LOCATION"),
+        ("microphone", "android.permission.RECORD_AUDIO"),
+        ("microphone", "android.permission.MODIFY_AUDIO_SETTINGS"),
         ("notifications", "android.permission.POST_NOTIFICATIONS"),
     ];
     const MANIFEST_FEATURES: [(&'static str, &'static str); 1] =
@@ -171,5 +174,17 @@ mod tests {
         assert!(java.contains("reason == null ? getString(R.string.app_name) : reason"));
         assert!(java.contains("globalThis.__tachyonNotificationPermission = "));
         assert!(java.contains("WebViewFeature.DOCUMENT_START_SCRIPT"));
+    }
+
+    #[test]
+    fn the_microphone_goes_only_to_the_app_pages_with_its_two_permissions() {
+        let java = AndroidBrowserApis::template();
+        assert!(java.contains("{android.webkit.PermissionRequest.RESOURCE_AUDIO_CAPTURE, \"microphone\", \"android.permission.RECORD_AUDIO\"},"));
+        let microphone = granting(&["microphone"]);
+        assert_eq!(
+            AndroidBrowserApis::manifest_permissions(&microphone),
+            "\n  <uses-permission android:name=\"android.permission.RECORD_AUDIO\"/>\n  <uses-permission android:name=\"android.permission.MODIFY_AUDIO_SETTINGS\"/>"
+        );
+        assert!(AndroidBrowserApis::java(&microphone).contains("{\"microphone\"}"));
     }
 }

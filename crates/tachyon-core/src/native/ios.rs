@@ -251,6 +251,7 @@ pub(super) fn info_plist(
                 &super::browser_api_permissions::BrowserApiPermissions::IOS_LOCATION_KEYS
             ),
             application.permissions.camera_plist_entries(),
+            application.permissions.microphone_plist_entries(),
         ]
         .concat(),
         url_types = application
@@ -673,7 +674,7 @@ private func tachyonRelayPublish(_ payload: String) {
     }
 }
 
-private final class RootViewController: UIViewController, WKNavigationDelegate {
+private final class RootViewController: UIViewController, WKNavigationDelegate, WKUIDelegate {
     private var webView: WKWebView?
     var launchTarget: String?
 
@@ -699,6 +700,7 @@ private final class RootViewController: UIViewController, WKNavigationDelegate {
         let configuration = WKWebViewConfiguration()
         configuration.setURLSchemeHandler(TachyonAssetSchemeHandler.shared, forURLScheme: "tachyon-app")
         configuration.websiteDataStore = .default()
+        AppleMediaCapture.prepare(configuration, AppleBrowserApis.shared.granted)
         configuration.userContentController.addUserScript(
             WKUserScript(
                 source: TACHYON_NATIVE_SHIM + "\nglobalThis.__tachyonNativeFilePicker = true; globalThis.__tachyonNativeFilePickerRoute = true; globalThis.__tachyonNativeGrants = __NATIVE_GRANTS__;",
@@ -711,6 +713,7 @@ private final class RootViewController: UIViewController, WKNavigationDelegate {
         )
         let view = WKWebView(frame: .zero, configuration: configuration)
         view.navigationDelegate = self
+        view.uiDelegate = self
         view.allowsBackForwardNavigationGestures = true
         view.accessibilityIdentifier = "tachyon-application"
         view.translatesAutoresizingMaskIntoConstraints = false
@@ -773,6 +776,10 @@ private final class RootViewController: UIViewController, WKNavigationDelegate {
         if action.targetFrame?.isMainFrame != false && (web || mail) {
             UIApplication.shared.open(url)
         }
+    }
+
+    func webView(_ webView: WKWebView, requestMediaCapturePermissionFor origin: WKSecurityOrigin, initiatedByFrame frame: WKFrameInfo, type: WKMediaCaptureType, decisionHandler: @escaping @MainActor (WKPermissionDecision) -> Void) {
+        decisionHandler(AppleMediaCapture.decision(origin, type, AppleBrowserApis.shared.granted))
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {

@@ -15,6 +15,14 @@ machine contracts have their own, independent major versions.
   `false` when it verifies an Ed25519 signature over an empty message; the
   page then checks again with a strict copy of `@noble/ed25519` 3.2.0
   (MIT), shipped as `.tachyon/tac-ed25519.js` and loaded only in that case.
+- **Native apps can capture the microphone and camera for Media** (ADR 0129,
+  slice M1 part 2). `tac.application.permissions.microphone` is required on
+  iOS, macOS and Android and becomes `NSMicrophoneUsageDescription`, the
+  macOS audio-input entitlement and the Android `RECORD_AUDIO` rationale.
+  The Apple hosts allow WebKit's capture request only for the app's own page
+  and only for granted kinds; Android and Windows allow the microphone only
+  to the app's own pages; MSIX packages declare the microphone and webcam
+  device capabilities for the granted kinds.
 - **Tac services scan a QR code with the camera** (ADR 0130). Every Tac
   service language gets a `CodeScanner` client, with the new grant `camera`
   in `tac.browserApis` and its reason in `tac.application.permissions.camera`.

@@ -20,6 +20,16 @@ impl WindowsPackageManifest<'_> {
     const LONGEST_NAME: usize = 50;
     const MINIMUM_WINDOWS: &'static str = "10.0.17763.0";
     const TESTED_WINDOWS: &'static str = "10.0.26100.0";
+    const DEVICE_CAPABILITIES: [(&'static str, &'static str); 2] =
+        [("camera", "webcam"), ("microphone", "microphone")];
+
+    fn device_capabilities(application: &NativeApplication) -> String {
+        Self::DEVICE_CAPABILITIES
+            .iter()
+            .filter(|(api, _)| application.permissions.is_granted(api))
+            .map(|(_, name)| ["\n    <DeviceCapability Name=\"", name, "\"/>"].concat())
+            .collect()
+    }
 
     pub(super) fn identity_name(application_id: &str) -> Result<String, Failure> {
         let name: String = application_id
@@ -88,11 +98,12 @@ impl WindowsPackageManifest<'_> {
     </Application>
   </Applications>
   <Capabilities>
-    <rescap:Capability Name="runFullTrust"/>
+    <rescap:Capability Name="runFullTrust"/>{devices}
   </Capabilities>
 </Package>
 "#,
             identity = Self::identity_name(&application.application_id)?,
+            devices = Self::device_capabilities(application),
             publisher = xml_escape(self.publisher),
             version = NativeReleaseVersion::of(application).windows_dotted(),
             architecture = self.architecture.name(),

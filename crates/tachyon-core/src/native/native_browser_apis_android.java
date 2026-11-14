@@ -9,6 +9,7 @@
   private static final int CAPTURE_PERMISSION_REQUEST = 7304;
   private static final String[][] CAPTURE_GRANTS = {
       {android.webkit.PermissionRequest.RESOURCE_VIDEO_CAPTURE, "camera", "android.permission.CAMERA"},
+      {android.webkit.PermissionRequest.RESOURCE_AUDIO_CAPTURE, "microphone", "android.permission.RECORD_AUDIO"},
   };
 
   private final java.util.HashMap<Integer, java.util.ArrayList<Runnable>> permissionWaiters =

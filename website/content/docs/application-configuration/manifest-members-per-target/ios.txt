@@ -145,7 +145,7 @@ tac.storage.blobs
   run owed: the page reads the limits from its tachyon-blobs meta tag and checks maxBytes and maxBlobBytes in the same IndexedDB transaction as the write, as on the web (ADR 0134); still to run: a Blobs service that passes the quota in the built app
 
 tac.browserApis microphone
-  adapted: Not probed on iOS yet. Until the host part of ADR 0129 lands, the WKWebView has no navigator.mediaDevices, so captureMicrophone answers MediaFailed with reason unsupported.
+  adapted: The reason becomes NSMicrophoneUsageDescription; a microphone grant without a reason stops the build (TY1601). The host's WKUIDelegate allows a capture request only for tachyon-app://bundle and only for the granted kinds, and the web view plays media inline (ADR 0129). WKWebView's secure context and capture on iOS are not probed yet: simulator boots are held on this Mac, so a run on a phone is still owed.
 
 tac.browserApis screen
   adapted: The iOS WKWebView has no getDisplayMedia, so Media.supported("screen") answers false and captureScreen answers MediaFailed with reason unsupported; phones share screens later (ADR 0129).

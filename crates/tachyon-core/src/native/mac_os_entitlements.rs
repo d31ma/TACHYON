@@ -7,13 +7,18 @@ impl MacOsEntitlements {
     pub(super) const FILE_NAME: &'static str = "TachyonHost.entitlements";
     pub(super) const LOCATION: &'static str = "com.apple.security.personal-information.location";
     const CAMERA: &'static str = "com.apple.security.device.camera";
+    const MICROPHONE: &'static str = "com.apple.security.device.audio-input";
     const HEADER: &'static str = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n\
 <!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n\
 <plist version=\"1.0\">\n<dict>\n";
     const FOOTER: &'static str = "</dict>\n</plist>\n";
 
     pub(super) fn plist(permissions: &BrowserApiPermissions, signed_entries: &str) -> String {
-        let granted = [("geolocation", Self::LOCATION), ("camera", Self::CAMERA)];
+        let granted = [
+            ("geolocation", Self::LOCATION),
+            ("camera", Self::CAMERA),
+            ("microphone", Self::MICROPHONE),
+        ];
         let entries: String = granted
             .iter()
             .filter(|(api, _)| permissions.is_granted(api))
@@ -66,5 +71,17 @@ mod tests {
         );
         assert!(!plist.contains("location"), "{plist}");
         assert!(!plist.contains("microphone"), "{plist}");
+    }
+
+    #[test]
+    fn a_microphone_grant_adds_the_hardened_runtime_audio_input_entitlement() {
+        let permissions =
+            BrowserApiPermissions::declared(&[String::from("microphone")], &BTreeMap::new());
+        let plist = MacOsEntitlements::plist(&permissions, "");
+        assert!(
+            plist.contains("<key>com.apple.security.device.audio-input</key><true/>"),
+            "{plist}"
+        );
+        assert!(!plist.contains("device.camera"), "{plist}");
     }
 }

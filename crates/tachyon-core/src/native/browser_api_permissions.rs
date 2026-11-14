@@ -11,7 +11,13 @@ pub(super) struct BrowserApiPermissions {
 }
 
 impl BrowserApiPermissions {
-    const ASKING_APIS: [&'static str; 3] = ["camera", "geolocation", "notifications"];
+    const ASKING_APIS: [&'static str; 5] = [
+        "camera",
+        "geolocation",
+        "microphone",
+        "notifications",
+        "screen",
+    ];
     const HOST_CHECKED: [&'static str; 8] = [
         "camera",
         "clipboard",
@@ -23,17 +29,21 @@ impl BrowserApiPermissions {
         "share",
     ];
     const MOST_CHARACTERS: usize = 200;
-    const REQUIRED: [(&'static str, NativeTarget); 7] = [
+    const REQUIRED: [(&'static str, NativeTarget); 10] = [
         ("camera", NativeTarget::Ios),
         ("camera", NativeTarget::Macos),
         ("camera", NativeTarget::Android),
         ("geolocation", NativeTarget::Ios),
         ("geolocation", NativeTarget::Macos),
         ("geolocation", NativeTarget::Android),
+        ("microphone", NativeTarget::Ios),
+        ("microphone", NativeTarget::Macos),
+        ("microphone", NativeTarget::Android),
         ("notifications", NativeTarget::Android),
     ];
     pub(super) const IOS_LOCATION_KEYS: [&'static str; 1] = ["NSLocationWhenInUseUsageDescription"];
     const CAMERA_KEYS: [&'static str; 1] = ["NSCameraUsageDescription"];
+    const MICROPHONE_KEYS: [&'static str; 1] = ["NSMicrophoneUsageDescription"];
     pub(super) const MACOS_LOCATION_KEYS: [&'static str; 2] = [
         "NSLocationUsageDescription",
         "NSLocationWhenInUseUsageDescription",
@@ -73,6 +83,10 @@ impl BrowserApiPermissions {
 
     pub(super) fn camera_plist_entries(&self) -> String {
         self.usage_plist_entries("camera", &Self::CAMERA_KEYS)
+    }
+
+    pub(super) fn microphone_plist_entries(&self) -> String {
+        self.usage_plist_entries("microphone", &Self::MICROPHONE_KEYS)
     }
 
     fn usage_plist_entries(&self, api: &str, keys: &[&str]) -> String {
@@ -379,5 +393,51 @@ mod tests {
             ""
         );
         assert_eq!(silent.android_strings(), "");
+    }
+
+    #[test]
+    fn the_microphone_needs_a_reason_on_apple_and_android_and_writes_the_microphone_key() {
+        let unexplained = permissions(&["microphone"], &[]);
+        for target in [
+            NativeTarget::Ios,
+            NativeTarget::Macos,
+            NativeTarget::Android,
+        ] {
+            let error = message(&unexplained.validate_for(target).expect_err("refused"));
+            assert!(error.contains("TY1601"), "{error}");
+            assert!(
+                error.contains("tac.application.permissions.microphone"),
+                "{error}"
+            );
+        }
+        for target in [NativeTarget::Windows, NativeTarget::Linux] {
+            unexplained.validate_for(target).expect("no reason needed");
+        }
+        assert_eq!(unexplained.microphone_plist_entries(), "");
+        let explained = permissions(&["microphone"], &[("microphone", "Calls & <talks>")]);
+        explained.validate().expect("a valid reason");
+        assert_eq!(
+            explained.microphone_plist_entries(),
+            "\n<key>NSMicrophoneUsageDescription</key><string>Calls &amp; &lt;talks&gt;</string>"
+        );
+    }
+
+    #[test]
+    fn the_screen_takes_an_optional_reason_and_writes_no_key() {
+        let explained = permissions(&["screen"], &[("screen", "Shares your screen in a call")]);
+        explained.validate().expect("a valid reason");
+        for target in [
+            NativeTarget::Ios,
+            NativeTarget::Macos,
+            NativeTarget::Android,
+            NativeTarget::Windows,
+            NativeTarget::Linux,
+        ] {
+            permissions(&["screen"], &[])
+                .validate_for(target)
+                .expect("optional");
+        }
+        assert_eq!(explained.microphone_plist_entries(), "");
+        assert_eq!(explained.camera_plist_entries(), "");
     }
 }

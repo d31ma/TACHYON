@@ -266,6 +266,7 @@ fn info_plist(application: &NativeApplication, icon: Option<&str>) -> String {
                 &super::browser_api_permissions::BrowserApiPermissions::MACOS_LOCATION_KEYS
             ),
             application.permissions.camera_plist_entries(),
+            application.permissions.microphone_plist_entries(),
         ]
         .concat(),
         url_types = application
@@ -946,6 +947,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         let configuration = WKWebViewConfiguration()
         configuration.setURLSchemeHandler(TachyonAssetSchemeHandler.shared, forURLScheme: "tachyon-app")
         configuration.websiteDataStore = .default()
+        AppleMediaCapture.prepare(configuration, AppleBrowserApis.shared.granted)
         let shim = WKUserScript(
             source: TACHYON_NATIVE_SHIM + "\nglobalThis.__tachyonNativeFilePicker = true; globalThis.__tachyonNativeFilePickerRoute = true; globalThis.__tachyonNativeGrants = __NATIVE_GRANTS__;",
             injectionTime: .atDocumentStart,
@@ -1066,6 +1068,10 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         if action.targetFrame?.isMainFrame != false && (web || mail) {
             NSWorkspace.shared.open(url)
         }
+    }
+
+    func webView(_ webView: WKWebView, requestMediaCapturePermissionFor origin: WKSecurityOrigin, initiatedByFrame frame: WKFrameInfo, type: WKMediaCaptureType, decisionHandler: @escaping @MainActor (WKPermissionDecision) -> Void) {
+        decisionHandler(AppleMediaCapture.decision(origin, type, AppleBrowserApis.shared.granted))
     }
 
     func webView(_ webView: WKWebView, runOpenPanelWith parameters: WKOpenPanelParameters, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping @MainActor ([URL]?) -> Void) {
