@@ -1286,6 +1286,10 @@ final class Yon {
         return response.envelope();
     }
 
+    static boolean isCheckRejection(Throwable failure) {
+        return rejection(failure) != null;
+    }
+
     private static java.util.Map<?, ?> rejection(Throwable failure) {
         Throwable cause = failure;
         for (int depth = 0; cause != null && depth < MAX_CAUSE_DEPTH; depth++) {

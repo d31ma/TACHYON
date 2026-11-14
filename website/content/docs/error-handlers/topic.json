@@ -7,6 +7,9 @@
   "sections": [
     {
       "include": "../yon/error-handlers-in-every-yon-language/section.json"
+    },
+    {
+      "include": "../yon/error-shapes-in-every-yon-language/section.json"
     }
   ]
 }

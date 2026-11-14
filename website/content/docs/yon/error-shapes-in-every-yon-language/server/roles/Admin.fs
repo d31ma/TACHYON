@@ -1,0 +1,1 @@
+type Admin() = class end

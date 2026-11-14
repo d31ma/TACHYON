@@ -10,6 +10,16 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- **An error handler shapes the answers Tachyon makes itself** (ADR NNNN).
+  Every Yon language gets seven built-in error types: `NotSignedIn` (401),
+  `RoleMissing` (403), `IdentityCheckFailed` (500), `RequestRejected` (400),
+  `BodyTooLarge` (413), `CheckRejected` (422, with the broken rules) and
+  `UnexpectedError` (500). An `@HandlesError` method that names one shapes
+  the body of that answer; Tachyon keeps the status. Without such a method
+  every answer is unchanged. The handler never sees credentials, the
+  identity provider's error or the request body. If the method fails, the
+  plain answer is sent and `error_handler.failed` is logged.
+
 - **Yon handlers write logs on every answer** (ADR 0127). Every Yon language
   gets `YonLog` with the levels `debug`, `info`, `warn` and `error`, a
   message and optional fields. `ty start`, `ty serve`, `ty handler invoke` and
@@ -262,6 +272,13 @@ machine contracts have their own, independent major versions.
   fields" shows each language.
 
 ### Changed
+
+- **A root-type error method no longer takes the `@Check` error** (ADR NNNN).
+  A `@HandlesError` method for `Error`, `Exception`, Go `error`,
+  `std::exception` and the other root types used to catch the `@Check`
+  guard's error, so the route answered that method's status instead of 422.
+  Now the 422 follows, and a `CheckRejected` method can shape it. A method
+  that names the guard's own error type still takes it.
 
 - Go services may use the plain error check `if err != nil { return ..., err }`
   (or a `%w` wrap with `fmt.Errorf`) in a public method without `TY1314`, as

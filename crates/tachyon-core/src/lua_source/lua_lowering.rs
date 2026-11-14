@@ -1,6 +1,8 @@
 use super::{LuaEvents, LuaModels};
 use crate::events::EventModule;
 use crate::route_types::TypeText;
+use crate::yon::built_in_error::BuiltInError;
+use crate::yon::built_in_errors::BuiltInErrors;
 use crate::yon::plan::{
     ErrorMethod, ParameterSource, Plan, Provider, Route, RouteParameter, Scope,
 };
@@ -16,6 +18,7 @@ impl<'p> LuaLowering<'p> {
     const TYPE_SYNTAX: &'static str = "rb";
     const NO_ROUTE: &'static str = "error(setmetatable({ message = \"No controller method answers this route.\" }, YonNoRoute), 0)";
     const INDENTS: [&'static str; 2] = ["  ", "    "];
+    const BUILT_IN_ERRORS: &'static str = include_str!("lua_built_in_errors.lua");
     const REQUEST: &'static str = "YonRequest.of(request)";
     const MEMBERS: [&'static str; 2] = ["{ __index = {} }", "YonEvents.members({})"];
     const STREAMED: [&'static str; 2] = ["{}", "YonStream.of(function() return {} end)"];
@@ -31,7 +34,8 @@ impl<'p> LuaLowering<'p> {
     pub(super) fn program(&self, authored: &str) -> Result<String, String> {
         let controller = self.provider_index(&self.plan.controller)?;
         Ok(format!(
-            "{authored}\n{}{}{}Handler = {{ YON_FRAMES = true }}\n\n{}",
+            "{authored}\n{}{}{}{}Handler = {{ YON_FRAMES = true }}\n\n{}",
+            self.built_in_errors(),
             self.providers()?,
             self.route_functions(),
             self.error_function(),
@@ -51,13 +55,18 @@ impl<'p> LuaLowering<'p> {
         let controller = lowering.provider_index(&plan.controller)?;
         let owners = lowering.owner_list(", YonGenerated.resolve_", "(cache)");
         Ok(format!(
-            "{authored}\n{}\n{}{}{}Handler = {{ YON_FRAMES = true }}\n\n{}",
+            "{authored}\n{}\n{}{}{}{}Handler = {{ YON_FRAMES = true }}\n\n{}",
             LuaEvents::RUNTIME,
+            lowering.built_in_errors(),
             lowering.providers()?,
             lowering.route_functions(),
             lowering.error_function(),
             LuaEvents::new(plan, events).functions(&owners, controller)?
         ))
+    }
+
+    fn built_in_errors(&self) -> String {
+        Self::when(BuiltInErrors::used(self.plan), Self::BUILT_IN_ERRORS)
     }
 
     pub(super) fn providers(&self) -> Result<String, String> {
@@ -171,8 +180,17 @@ impl<'p> LuaLowering<'p> {
         );
         let body = Self::when(guarded, &protected) + &Self::when(!guarded, &plain);
         format!(
-            "function YonGenerated.route_{verb}(controller, request{owners})\n  local values = request.arguments or {{}}\n  local route = request.route\n{body}end\n\n"
+            "function YonGenerated.route_{verb}(controller, request{owners})\n  local values = request.arguments or {{}}\n  local route = request.route\n{}{body}end\n\n",
+            self.built_in_case(&owners)
         )
+    }
+
+    fn built_in_case(&self, owners: &str) -> String {
+        let case = format!(
+            "  if route == \"{}\" then\n    return YonGenerated.handle_error(YonBuiltInErrors.of(values[1]), request{owners})\n  end\n",
+            BuiltInError::ROUTE
+        );
+        Self::when(BuiltInErrors::used(self.plan), &case)
     }
 
     fn route_checks(&self, verb: &str, indent: &str) -> String {

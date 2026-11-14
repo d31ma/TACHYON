@@ -1,6 +1,7 @@
 use super::CppYonErrorType;
 use crate::Failure;
 use crate::tac_cpp::{CppFailure, CppFolder, CppProgram, CppSource};
+use crate::yon::built_in_error::BuiltInError;
 use std::path::Path;
 
 pub(crate) struct CppYonErrorTypes {
@@ -21,6 +22,7 @@ impl CppYonErrorTypes {
         ("std::overflow_error", 2),
         ("std::underflow_error", 2),
     ];
+    const BUILT_IN_DEPTH: usize = 2;
     pub(crate) const DERIVED: &'static str = "A C++ error type derives from std::exception, from a standard error such as std::runtime_error, or from another error type in server/errors, so that a [[HandlesError]] method can catch it";
 
     pub(crate) fn either(
@@ -59,7 +61,13 @@ impl CppYonErrorTypes {
             .iter()
             .find(|(found, _)| found.name == name)
             .map(|(_, depth)| *depth);
-        standard.or(own)
+        standard.or(own).or_else(|| Self::built_in_depth(name))
+    }
+
+    fn built_in_depth(name: &str) -> Option<usize> {
+        BuiltInError::named(name)
+            .filter(|built_in| built_in.name() == name)
+            .map(|_| Self::BUILT_IN_DEPTH)
     }
 
     pub(crate) fn located(&self) -> String {

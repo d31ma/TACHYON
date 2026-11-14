@@ -1,4 +1,5 @@
 use super::RouteAnswer;
+use crate::server::BuiltInCase;
 use crate::sorted_json::SortedJson;
 use axum::body::Body;
 use axum::http::header::CONTENT_TYPE;
@@ -21,7 +22,8 @@ impl Rejection {
     }
 
     pub(in crate::server) fn response(&self) -> Response<Body> {
-        RouteAnswer::json(StatusCode::BAD_REQUEST, &self.body(), None)
+        let response = RouteAnswer::json(StatusCode::BAD_REQUEST, &self.body(), None);
+        BuiltInCase::request_rejected(self.part, &self.field, &self.message).tag(response)
     }
 
     pub(in crate::server) fn handler_response(&self, request_id: &str) -> HandlerResponse {

@@ -264,6 +264,52 @@ declare global {
     readonly body?: BehaviorJsonValue;
   }
 
+  /** BrokenRule: one broken @Check rule of a CheckRejected error, such as { field: "name", rule: "NotEmpty" }. */
+  class BrokenRule {
+    readonly field: string;
+    readonly rule: string;
+  }
+
+  /** YonBuiltInError: the base of the errors Tachyon answers itself. A @HandlesError method for one of them shapes the body; Tachyon keeps the status. */
+  class YonBuiltInError extends Error {
+    readonly status: number;
+    /** reference: the request id, the same value as the x-tachyon-request-id header. */
+    readonly reference: string;
+  }
+
+  /** NotSignedIn: a @SignedIn or @Allow route was called without an identity. Tachyon answers 401. */
+  class NotSignedIn extends YonBuiltInError {}
+
+  /** RoleMissing: the caller is signed in but has none of the route's roles. Tachyon answers 403. */
+  class RoleMissing extends YonBuiltInError {}
+
+  /** IdentityCheckFailed: the @IdentityProvider failed. Tachyon answers 500. The provider's error never reaches the handler. */
+  class IdentityCheckFailed extends YonBuiltInError {}
+
+  /** RequestRejected: a path, query, header, cookie or body value is missing, has the wrong type, or the body is not valid JSON. Tachyon answers 400. */
+  class RequestRejected extends YonBuiltInError {
+    /** part: "path", "query", "header", "cookie" or "body". */
+    readonly part: string;
+    /** field: the parameter name, or "" for the whole body. */
+    readonly field: string;
+  }
+
+  /** BodyTooLarge: the request body is larger than the server's limit. Tachyon answers 413. */
+  class BodyTooLarge extends YonBuiltInError {
+    readonly limitBytes: number;
+  }
+
+  /** CheckRejected: a @Check argument breaks @Checked rules. Tachyon answers 422. */
+  class CheckRejected extends YonBuiltInError {
+    /** violations: the broken rules, sorted, at most 32. */
+    readonly violations: BrokenRule[];
+    /** truncated: true when more rules were broken than violations lists. */
+    readonly truncated: boolean;
+  }
+
+  /** UnexpectedError: the route could not answer: an error no other method takes, an error inside an error handler, or a crash. Tachyon answers 500. */
+  class UnexpectedError extends YonBuiltInError {}
+
   interface BehaviorFactory {
     create(configuration: BehaviorConfigurationSource, options: BehaviorCreateOptions): Promise<BehaviorContext>;
     construct<Value extends BehaviorConstructor>(type: Value, values: BehaviorConstructionFields<InstanceType<Value>>): InstanceType<Value>;

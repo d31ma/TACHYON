@@ -719,6 +719,7 @@ pub struct __YonAnswer {
     body: String,
     streamed: bool,
     violations: Vec<Json>,
+    unhandled: bool,
 }
 
 pub trait YonFailure {
@@ -1135,6 +1136,7 @@ impl __YonAnswer {
             body: body.into(),
             streamed: false,
             violations: Vec::new(),
+            unhandled: false,
         }
     }
 
@@ -1146,6 +1148,7 @@ impl __YonAnswer {
             body: String::new(),
             streamed: false,
             violations: Vec::new(),
+            unhandled: false,
         }
     }
 
@@ -1154,7 +1157,12 @@ impl __YonAnswer {
         let rejected = !violations.is_empty();
         rejected
             .then(|| Self::rejected(violations))
-            .unwrap_or_else(|| Self::json(Json::map([("error", F::MESSAGE)]).write()).status(500))
+            .unwrap_or_else(|| Self::json(Json::map([("error", F::MESSAGE)]).write()).status(500).unhandled())
+    }
+
+    fn unhandled(mut self) -> Self {
+        self.unhandled = true;
+        self
     }
 
     fn rejected(violations: Vec<(&'static str, &'static str)>) -> Self {
@@ -1199,6 +1207,9 @@ impl __YonAnswer {
         ];
         if !self.violations.is_empty() {
             fields.push((String::from("violations"), Json::List(self.violations.clone())));
+        }
+        if self.unhandled {
+            fields.push((String::from("unhandled"), Json::Bool(true)));
         }
         Json::Map(fields).write()
     }
