@@ -16,7 +16,6 @@ impl CppYonErrorType {
     const FOLDER: &'static str = "server/errors";
     const BASE_WORDS: [&'static str; 4] = ["public", "protected", "private", "virtual"];
     const PLACE: &'static str = "A C++ error type is one class directly in server/errors, named after its file, for example `class OrderNotFound : public std::runtime_error { public: using std::runtime_error::runtime_error; };`";
-    const RESERVED: &'static str = "This is the name of a Tachyon built-in error type (NotSignedIn, RoleMissing, IdentityCheckFailed, RequestRejected, BodyTooLarge, CheckRejected, UnexpectedError or BrokenRule). Give the application error type another name: a [[HandlesError]] method names the built-in type without a file in server/errors";
     const PLAIN: &'static str = "A C++ error type is a plain class without Tachyon markers. Put [[ErrorHandler]] on its handler in server/controllers";
 
     pub(crate) fn read(path: &Path, source: &str) -> Result<Self, Failure> {
@@ -34,7 +33,7 @@ impl CppYonErrorType {
         let free = !BuiltInError::is_reserved(&class.name);
         let problem = [
             (placed, Self::PLACE),
-            (free, Self::RESERVED),
+            (free, BuiltInError::APP_NAME_REFUSED),
             (plain, Self::PLAIN),
             (!bases.is_empty(), CppYonErrorTypes::DERIVED),
         ]

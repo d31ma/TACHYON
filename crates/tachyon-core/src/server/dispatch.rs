@@ -667,16 +667,10 @@ impl Dispatch {
                 );
                 let answer =
                     ServerResponse::failure_answer("Handler execution", request_id, &failure);
-                Self::unexpected_when_server_error(answer)
+                let server_error = answer.status() == StatusCode::INTERNAL_SERVER_ERROR;
+                Self::unexpected_when(server_error, answer)
             }
         }
-    }
-
-    fn unexpected_when_server_error(response: Response<Body>) -> Response<Body> {
-        if response.status() != StatusCode::INTERNAL_SERVER_ERROR {
-            return response;
-        }
-        BuiltInCase::plain(BuiltInError::UNEXPECTED_ERROR).tag(response)
     }
 
     fn checked_answer(
@@ -698,10 +692,8 @@ impl Dispatch {
     }
 
     fn unexpected_when(unexpected: bool, response: Response<Body>) -> Response<Body> {
-        if !unexpected {
-            return response;
-        }
-        BuiltInCase::plain(BuiltInError::UNEXPECTED_ERROR).tag(response)
+        let case = unexpected.then(|| BuiltInCase::plain(BuiltInError::UNEXPECTED_ERROR));
+        BuiltInCase::tag_option(case, response)
     }
 
     fn answer_or_mismatch(

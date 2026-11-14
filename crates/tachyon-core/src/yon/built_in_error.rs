@@ -26,6 +26,8 @@ impl BuiltInError {
         Self::UNEXPECTED_ERROR,
     ];
 
+    pub(crate) const APP_NAME_REFUSED: &'static str = "This is the name of a Tachyon built-in error type (NotSignedIn, RoleMissing, IdentityCheckFailed, RequestRejected, BodyTooLarge, CheckRejected, UnexpectedError or BrokenRule). Give the application error type another name: a @HandlesError method names the built-in type without a file in server/errors";
+
     const TYPE_PREFIXES: [&'static str; 2] = ["const ", "?"];
     const TYPE_MARKS: [char; 4] = ['&', '*', '?', ' '];
     const NAMESPACE_MARKS: [char; 3] = [':', '.', '\\'];
@@ -50,6 +52,18 @@ impl BuiltInError {
     pub(crate) fn is_reserved(name: &str) -> bool {
         let built_in = Self::named(name).is_some();
         [built_in, name == Self::BROKEN_RULE].contains(&true)
+    }
+
+    pub(crate) fn check_app_name(name: &str) -> Result<(), &'static str> {
+        let reserved = Self::is_reserved(name);
+        Self::refused_when(reserved)
+    }
+
+    fn refused_when(reserved: bool) -> Result<(), &'static str> {
+        if reserved {
+            return Err(Self::APP_NAME_REFUSED);
+        }
+        Ok(())
     }
 
     fn bare_name(type_text: &str) -> &str {

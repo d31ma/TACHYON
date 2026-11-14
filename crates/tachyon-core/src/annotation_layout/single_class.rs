@@ -57,7 +57,12 @@ pub(super) fn validate_error_source(path: &Path, source: &str) -> Result<(), Fai
             "Move this native error type to server/errors/<Type>.<ext>; Tac error handling is unchanged.",
         ));
     }
-    refuse_built_in_name(&input, path)?;
+    let stem = path
+        .file_stem()
+        .and_then(|name| name.to_str())
+        .unwrap_or("");
+    crate::yon::built_in_error::BuiltInError::check_app_name(stem)
+        .map_err(|message| input.failure(0, message, "Rename the file and its type."))?;
     let tokens = Tokens::read(&input)?;
     tokens.check_complete(&input)?;
     if tokens.has_framework_marker() {
@@ -75,21 +80,6 @@ pub(super) fn validate_error_source(path: &Path, source: &str) -> Result<(), Fai
         .filter(|name| super::ClassFileName::matches(path, name));
     parser.finish(matching.or_else(|| path.file_stem().and_then(|name| name.to_str())))?;
     Ok(())
-}
-
-fn refuse_built_in_name(input: &Input<'_>, path: &Path) -> Result<(), Failure> {
-    let stem = path
-        .file_stem()
-        .and_then(|name| name.to_str())
-        .unwrap_or("");
-    if !crate::yon::built_in_error::BuiltInError::is_reserved(stem) {
-        return Ok(());
-    }
-    Err(input.failure(
-        0,
-        format!("{stem} is the name of a Tachyon built-in error type"),
-        "Give the application error type another name. A @HandlesError method can name the built-in type without a file in server/errors.",
-    ))
 }
 
 pub(super) fn has_test_annotation(path: &Path, source: &str) -> Result<bool, Failure> {
