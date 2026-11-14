@@ -6,7 +6,7 @@ import { hkdfSync, pbkdf2Sync } from 'node:crypto'
 import { chromium, firefox, webkit } from 'playwright'
 
 class CryptoBrowserCheck {
-  static sources = ['tac-web.js', 'tac-crypto.js'].map((name) => new URL(`../crates/tachyon-core/src/template/${name}`, import.meta.url))
+  static sources = { '/tac-web.js': 'tac-web.js', '/tac-crypto.js': 'tac-crypto.js', '/.tachyon/tac-ed25519.js': 'vendor/noble-ed25519.js' }
 
   static engines = [chromium, firefox, webkit]
 
@@ -48,7 +48,7 @@ class CryptoBrowserCheck {
   static filled = (size, value) => Buffer.alloc(size, value).toString('base64url')
 
   static async run() {
-    const files = Object.fromEntries(await Promise.all(CryptoBrowserCheck.sources.map(async (source) => [`/${source.pathname.split('/').pop()}`, await readFile(source, 'utf8')])))
+    const files = Object.fromEntries(await Promise.all(Object.entries(CryptoBrowserCheck.sources).map(async ([path, name]) => [path, await readFile(new URL(`../crates/tachyon-core/src/template/${name}`, import.meta.url), 'utf8')])))
     const server = createServer((request, response) => {
       const script = files[request.url]
       response.writeHead(200, { 'content-type': script ? 'text/javascript' : 'text/html' })
@@ -76,7 +76,7 @@ class CryptoBrowserCheck {
       await CryptoBrowserCheck.roundTrips(page)
       await CryptoBrowserCheck.keptKeys(page)
       if (chromiumOnly) await CryptoBrowserCheck.insecure(context, port)
-      console.log(`crypto (${engine.name()}): check, RFC 8032 verify (test 2), RFC 5869 HKDF, SHA-256, NIST AES-256-GCM, PBKDF2-SHA-256 at 600,000 rounds, X25519 agreement both ways, a small-order key refused, sign and verify, 64 unique nonces, a 32,768-byte message, a kept key across a reload that cannot be exported, forget and forgetAll${chromiumOnly ? ', and unsupported on a plain http page' : ''}`)
+      console.log(`crypto (${engine.name()}): check, RFC 8032 verify (tests 1 and 2; a changed signature and another key on an empty message), RFC 5869 HKDF, SHA-256, NIST AES-256-GCM, PBKDF2-SHA-256 at 600,000 rounds, X25519 agreement both ways, a small-order key refused, sign and verify (also an empty message), 64 unique nonces, a 32,768-byte message, a kept key across a reload that cannot be exported, forget and forgetAll${chromiumOnly ? ', and unsupported on a plain http page' : ''}`)
     } finally {
       await browser.close()
     }
@@ -105,6 +105,11 @@ class CryptoBrowserCheck {
     const { hex } = CryptoBrowserCheck
     const rfc8032 = await CryptoBrowserCheck.ask(page, 'verify', [hex('3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c'), hex('72'), hex('92a009a9f0d4cab8720e820b5f642540a2b27b5416503f8fb3762223ebdb69da085ac1e43e15996e458f3613d0f11d8c387b2eaeb4302aeeb00d291612bb0c00')])
     assert.equal(rfc8032.valid, true, 'RFC 8032 test 2')
+    const rfc1 = [hex('d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a'), '', hex('e5564300c360ac729086e2cc806e828a84877f1eb8e5d974d873e065224901555fb8821590a33bacc61e39701cf9b46bd25bf5f0595bbe24655141438e7a100b')]
+    assert.equal((await CryptoBrowserCheck.ask(page, 'verify', rfc1)).valid, true, 'RFC 8032 test 1 (an empty message)')
+    const changed = Buffer.from(rfc1[2], 'base64url'); changed[40] ^= 1
+    assert.equal((await CryptoBrowserCheck.ask(page, 'verify', [rfc1[0], '', changed.toString('base64url')])).valid, false, 'a changed signature on an empty message')
+    assert.equal((await CryptoBrowserCheck.ask(page, 'verify', [hex('3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c'), '', rfc1[2]])).valid, false, 'another key on an empty message')
     const hkdf = await CryptoBrowserCheck.ask(page, 'hkdf', [CryptoBrowserCheck.filled(22, 11), hex('000102030405060708090a0b0c'), hex('f0f1f2f3f4f5f6f7f8f9'), 42])
     assert.equal(Buffer.from(hkdf.bytes, 'base64url').toString('hex'), '3cb25f25faacd57a90434f64d0362f2a2d2d0a90cf1a5a4c5db02d56ecc4c5bf34007208d5b887185865', 'RFC 5869 test 1')
     const digest = await CryptoBrowserCheck.ask(page, 'hash', [Buffer.from('abc').toString('base64url')])
@@ -138,6 +143,8 @@ class CryptoBrowserCheck {
     const signed = await CryptoBrowserCheck.ask(page, 'sign', ['signer', 'AQID'])
     assert.equal((await CryptoBrowserCheck.ask(page, 'verify', [signer.publicKey, 'AQID', signed.signature])).valid, true)
     assert.equal((await CryptoBrowserCheck.ask(page, 'verify', [signer.publicKey, 'AQIE', signed.signature])).valid, false)
+    const signedEmpty = await CryptoBrowserCheck.ask(page, 'sign', ['signer', ''])
+    assert.equal((await CryptoBrowserCheck.ask(page, 'verify', [signer.publicKey, '', signedEmpty.signature])).valid, true, 'an empty message signs and verifies')
     const nonces = new Set()
     for (let round = 0; round < 64; round += 1) {
       const { sealed } = await CryptoBrowserCheck.ask(page, 'encrypt', ['alice-bob', 'AQ', ''])

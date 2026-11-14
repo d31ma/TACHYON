@@ -41,6 +41,7 @@ mod page_code_scanner_tests;
 mod page_composition;
 #[cfg(test)]
 mod page_crypto_tests;
+mod page_crypto_verifier;
 mod page_files;
 #[cfg(test)]
 mod page_files_tests;

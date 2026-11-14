@@ -59,8 +59,8 @@ at most 32,768 bytes per message.
    | `check()` | `CryptoSupport { request, x25519, ed25519, aesGcm, hkdf, pbkdf2, keyStore }`, by a real probe of each algorithm; `keyStore` is `browser`, `os` or `none` |
    | `makeKeyPair(key, algorithm, keep)` | `CryptoKeyMade { request, key, publicKey }`; `x25519` or `ed25519`; `publicKey` is the raw 32 bytes |
    | `publicKey(key)` | `CryptoKeyMade` |
-   | `sign(key, data)` | `CryptoSigned { request, signature }` (Ed25519); `data` is 1 to 32,768 bytes |
-   | `verify(publicKey, data, signature)` | `CryptoVerified { request, valid }`; `data` is 1 to 32,768 bytes |
+   | `sign(key, data)` | `CryptoSigned { request, signature }` (Ed25519); `data` may be empty (ADR 0133) |
+   | `verify(publicKey, data, signature)` | `CryptoVerified { request, valid }`; `data` may be empty (ADR 0133) |
    | `agree(key, peerPublicKey, salt, info, newKey, use, keep)` | X25519, then HKDF-SHA-256 straight into a new key: `CryptoKeyMade` with `publicKey` `""` |
    | `deriveKey(fromKey, salt, info, newKey, use, keep)` | HKDF-SHA-256 from a `derive` key into a new key: `CryptoKeyMade` |
    | `importKey(newKey, secret, use, keep)` | `CryptoKeyMade`; `secret` is 32 bytes |
@@ -187,11 +187,9 @@ device identity key, the backup key and the backup encryption.
   six, `fromCode` five). The approved plan fixed these lists so that one
   call makes a ready key; splitting them would leave half-made keys in the
   store between calls.
-- `sign` and `verify` refuse empty data on every platform. WebKit (the
-  Safari 26.5 engine in Playwright) cannot sign or verify an empty message
-  with Ed25519: it rejects RFC 8032 test 1 and even its own signature of an
-  empty message, while one byte and more work (RFC 8032 test 2). Refusing
-  empty data keeps the answer the same everywhere.
+- `sign` and `verify` first refused empty data, because WebKit answers
+  `false` when it verifies an empty Ed25519 message. ADR 0133 lifts this:
+  an empty message signs and verifies on every engine.
 - Every answer is an event. A library that wants a synchronous signer must
   wait for the event (in Go, a goroutine can block on a channel).
 - The approved plan put a `request` argument on every call; it became a

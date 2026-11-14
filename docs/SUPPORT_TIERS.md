@@ -1864,8 +1864,13 @@ message, a kept key pair and a kept secret key across a page reload, which
 (`insecure.test` mapped to the loopback): `supported` is false, `check`
 reports nothing and `keyStore` `none`, and calls answer `unsupported`.
 
-WebKit cannot sign or verify an empty message with Ed25519, so `sign` and
-`verify` refuse empty data on every platform.
+WebKit answers `false` when it verifies an Ed25519 signature over an empty
+message (its CryptoKit bridge refuses empty data); its signatures over an
+empty message are correct. Since ADR 0133 the page checks such an answer
+again with a strict copy of `@noble/ed25519` 3.2.0, loaded only then.
+`scripts/crypto-browser-test.mjs` checks RFC 8032 test 1, a changed
+signature and another key on an empty message, and an empty message signed
+and verified, in all three engines.
 
 Owed: branded Safari and Chrome by hand; the native apps (`runOwed` in
 `target_support.json`): a Crypto check, the known answers and a kept key

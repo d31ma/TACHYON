@@ -6,6 +6,7 @@ use super::exported_elements::ExportedElements;
 use super::output_path::OutputPath;
 use super::page_code_scanner::PageCodeScanner;
 use super::page_composition::PageComposition;
+use super::page_crypto_verifier::PageCryptoVerifier;
 use super::page_head::PageHead;
 use super::page_media::PageMedia;
 use super::page_module::PageModule;
@@ -662,6 +663,7 @@ impl<'a> SiteBuild<'a> {
     fn add_crypto_file(&mut self) {
         if !self.crypto_tag.is_empty() {
             self.add_file(PageModule::CRYPTO.path, PageModule::CRYPTO.script());
+            self.add_file(PageCryptoVerifier::PATH, PageCryptoVerifier::script());
         }
     }
 

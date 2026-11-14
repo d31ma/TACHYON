@@ -61,8 +61,8 @@ class TacCrypto {
     check: () => [],
     makeKeyPair: (key, algorithm, keep) => [TacCrypto.keyText(key), TacCrypto.choice(algorithm, TacCrypto.algorithms, 'The algorithm'), TacCrypto.flag(keep)],
     publicKey: (key) => [TacCrypto.keyText(key)],
-    sign: (key, data) => [TacCrypto.keyText(key), TacCrypto.message(data)],
-    verify: (publicKey, data, signature) => [TacCrypto.sized(publicKey, TacCrypto.keyBytes, 'A public key'), TacCrypto.message(data), TacCrypto.bytes(signature)],
+    sign: (key, data) => [TacCrypto.keyText(key), TacCrypto.bytes(data)],
+    verify: (publicKey, data, signature) => [TacCrypto.sized(publicKey, TacCrypto.keyBytes, 'A public key'), TacCrypto.bytes(data), TacCrypto.bytes(signature)],
     agree: (key, peerPublicKey, salt, info, newKey, use, keep) => [TacCrypto.keyText(key), TacCrypto.sized(peerPublicKey, TacCrypto.keyBytes, 'A public key'), TacCrypto.bytes(salt), TacCrypto.bytes(info), ...TacCrypto.newKey(newKey, use, keep)],
     deriveKey: (fromKey, salt, info, newKey, use, keep) => [TacCrypto.keyText(fromKey), TacCrypto.bytes(salt), TacCrypto.bytes(info), ...TacCrypto.newKey(newKey, use, keep)],
     importKey: (newKey, secret, use, keep) => [TacCrypto.keyText(newKey), TacCrypto.sized(secret, TacCrypto.keyBytes, 'A secret'), TacCrypto.choice(use, TacCrypto.uses, 'The use'), TacCrypto.flag(keep)],
@@ -93,6 +93,8 @@ class TacCrypto {
   })
   static memory = new Map()
   static database = null
+  static verifierPath = '/.tachyon/tac-ed25519.js'
+  static verifier = null
   static counter = 0
   static queue = Promise.resolve()
   static installed = TacCrypto.install()
@@ -156,12 +158,6 @@ class TacCrypto {
     const text = String(value ?? '')
     if (!TacCrypto.base64url.test(text) || text.length % 4 === 1) throw new Error('Crypto bytes are base64url text without padding.')
     if (Math.floor(text.length * 3 / 4) > most) throw new Error(`Crypto bytes are at most ${most} bytes here.`)
-    return text
-  }
-
-  static message(value) {
-    const text = TacCrypto.bytes(value)
-    if (text === '') throw new Error(`Signed data is 1 to ${TacCrypto.mostBytes} bytes.`)
     return text
   }
 
@@ -256,10 +252,39 @@ class TacCrypto {
   }
 
   static async verified(publicKey, data, signature) {
+    const valid = await TacCrypto.webVerified(publicKey, data, signature)
+    return { valid: valid || await TacCrypto.emptyVerified(publicKey, data, signature) }
+  }
+
+  static async webVerified(publicKey, data, signature) {
     const subtle = TacCrypto.ensureSubtle()
     const signer = await subtle.importKey('raw', TacCrypto.decoded(publicKey), { name: 'Ed25519' }, true, ['verify'])
-    const valid = await subtle.verify({ name: 'Ed25519' }, signer, TacCrypto.decoded(signature), TacCrypto.decoded(data))
-    return { valid: valid === true }
+    return await subtle.verify({ name: 'Ed25519' }, signer, TacCrypto.decoded(signature), TacCrypto.decoded(data)) === true
+  }
+
+  static async emptyVerified(publicKey, data, signature) {
+    if (data !== '') return false
+    const ed25519 = await TacCrypto.ed25519()
+    return TacCrypto.strictlyVerified(ed25519, TacCrypto.decoded(publicKey), TacCrypto.decoded(signature))
+  }
+
+  static ed25519() {
+    TacCrypto.verifier ??= import(TacCrypto.verifierPath)
+    TacCrypto.verifier.catch(() => { TacCrypto.verifier = null })
+    return TacCrypto.verifier
+  }
+
+  static async strictlyVerified(ed25519, publicKey, signature) {
+    if (signature.length !== TacCrypto.signatureBytes || TacCrypto.smallOrder(ed25519, signature.subarray(0, TacCrypto.keyBytes))) return false
+    return await ed25519.verifyAsync(signature, new Uint8Array(0), publicKey, { zip215: false }) === true
+  }
+
+  static smallOrder(ed25519, encoded) {
+    try {
+      return ed25519.Point.fromBytes(encoded, false).isSmallOrder()
+    } catch {
+      return true
+    }
   }
 
   static async agreed(key, peerPublicKey, salt, info, newKey, use, keep) {

@@ -1,5 +1,6 @@
 #![allow(clippy::expect_used)]
 
+use super::page_crypto_verifier::PageCryptoVerifier;
 use super::page_module::PageModule;
 use crate::node_driver::NodeDriver;
 use serde_json::{Value, json};
@@ -56,7 +57,7 @@ const answer = async (owner, call, args) => {
   return request
 }
 const fields = async (call, args) => (await answer('app', call, args))[2]
-const module = await readFile('./tac-crypto.js', 'utf8')
+const module = (await readFile('./tac-crypto.js', 'utf8')).replace("'/.tachyon/tac-ed25519.js'", JSON.stringify(new URL('./verifier-counter.mjs', import.meta.url).href))
 const report = {}
 report.noGrant = ask('app', 'check')
 grants.content = 'share crypto'
@@ -75,6 +76,23 @@ report.verified = (await fields('verify', [devicePublic, b64(1, 2, 3), signature
 report.changed = (await fields('verify', [devicePublic, b64(1, 2, 4), signature])).valid
 report.rfc8032 = (await fields('verify', [hex('3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c'), hex('72'), hex('92a009a9f0d4cab8720e820b5f642540a2b27b5416503f8fb3762223ebdb69da085ac1e43e15996e458f3613d0f11d8c387b2eaeb4302aeeb00d291612bb0c00')])).valid
 report.shortSignature = (await fields('verify', [devicePublic, b64(1, 2, 3), b64(1)])).valid
+const rfc1 = [hex('d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a'), '', hex('e5564300c360ac729086e2cc806e828a84877f1eb8e5d974d873e065224901555fb8821590a33bacc61e39701cf9b46bd25bf5f0595bbe24655141438e7a100b')]
+report.emptyNative = (await fields('verify', rfc1)).valid
+report.loadsAfterNative = globalThis.verifierLoads ?? 0
+const realVerify = crypto.subtle.verify
+Object.defineProperty(crypto.subtle, 'verify', { configurable: true, value: (algorithm, key, signature, data) => data.byteLength === 0 ? Promise.resolve(false) : realVerify.call(crypto.subtle, algorithm, key, signature, data) })
+report.webkitNonEmptyWrong = (await fields('verify', [hex('3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c'), hex('73'), hex('92a009a9f0d4cab8720e820b5f642540a2b27b5416503f8fb3762223ebdb69da085ac1e43e15996e458f3613d0f11d8c387b2eaeb4302aeeb00d291612bb0c00')])).valid
+report.loadsAfterNonEmpty = globalThis.verifierLoads ?? 0
+report.webkitEmpty = (await fields('verify', rfc1)).valid
+const wrongSignature = Buffer.from(rfc1[2], 'base64url'); wrongSignature[40] ^= 1
+report.webkitEmptyWrongSignature = (await fields('verify', [rfc1[0], '', wrongSignature.toString('base64url')])).valid
+report.webkitEmptyWrongKey = (await fields('verify', [hex('3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c'), '', rfc1[2]])).valid
+report.webkitEmptySmallOrderR = (await fields('verify', [rfc1[0], '', hex('01' + '00'.repeat(63))])).valid
+report.webkitEmptyShortSignature = (await fields('verify', [rfc1[0], '', b64(1)])).valid
+report.loadsAfterEmpty = globalThis.verifierLoads ?? 0
+delete crypto.subtle.verify
+const emptySignature = (await fields('sign', ['device-sign', ''])).signature
+report.emptySignRoundTrip = (await fields('verify', [devicePublic, '', emptySignature])).valid
 report.rfc5869 = (await fields('hkdf', [filled(22, 11), hex('000102030405060708090a0b0c'), hex('f0f1f2f3f4f5f6f7f8f9'), 42])).bytes
 report.sha256 = (await fields('hash', [Buffer.from('abc').toString('base64url')])).digest
 const nistKey = hex('feffe9928665731c6d6a8f9467308308feffe9928665731c6d6a8f9467308308')
@@ -142,7 +160,6 @@ report.sync = [
   ['sign', ['ok', 'a+b/']],
   ['sign', ['ok', 'A']],
   ['sign', ['ok', filled(32769, 1)]],
-  ['sign', ['ok', '']],
   ['decrypt', ['ok', filled(32798, 1), '']],
   ['verify', [filled(31, 1), '', '']],
   ['importKey', ['ok', filled(16, 1), 'encrypt', false]],
@@ -194,10 +211,22 @@ report.noStoreMemory = (await fields('makeKeyPair', ['held', 'ed25519', false]))
 console.log(JSON.stringify(report))
 "#;
 
+    const VERIFIER_COUNTER: &'static str = "globalThis.verifierLoads = (globalThis.verifierLoads ?? 0) + 1\nexport * from './tac-ed25519.mjs'\n";
+
     fn run() -> Value {
         let root = tempfile::tempdir().expect("root");
         Self::write(root.path(), "tac-web.js", Self::WEB_RUNTIME.as_bytes());
         Self::write(root.path(), "tac-crypto.js", &PageModule::CRYPTO.script());
+        Self::write(
+            root.path(),
+            "tac-ed25519.mjs",
+            &PageCryptoVerifier::script(),
+        );
+        Self::write(
+            root.path(),
+            "verifier-counter.mjs",
+            Self::VERIFIER_COUNTER.as_bytes(),
+        );
         Self::write(root.path(), "drive.mjs", Self::DRIVER.as_bytes());
         let mut command = NodeDriver::command();
         command.arg("drive.mjs").current_dir(root.path());
@@ -291,7 +320,7 @@ fn the_page_runtime_answers_crypto_calls_with_known_answers() {
     );
     assert_eq!(
         report["nistWrongAad"],
-        CryptoDriver::failed("crypto-13", "decrypt", "rejected")
+        CryptoDriver::failed("crypto-22", "decrypt", "rejected")
     );
     for name in ["nistTampered", "otherVersion", "tooShort"] {
         assert_eq!(CryptoDriver::reason(&report, name), "rejected", "{name}");
@@ -385,7 +414,6 @@ fn the_page_runtime_refuses_bad_crypto_input_at_once() {
             padding,
             padding,
             "Crypto bytes are at most 32768 bytes here.",
-            "Signed data is 1 to 32768 bytes.",
             "Crypto bytes are at most 32797 bytes here.",
             "A public key is 32 bytes.",
             "A secret is 32 bytes.",
@@ -496,7 +524,9 @@ fn only_a_build_that_grants_crypto_ships_the_crypto_module() {
             .any(|note| note.starts_with("Crypto needs a secure page"));
         let page = std::fs::read_to_string(output.path().join("index.html")).expect("page");
         let worker = std::fs::read_to_string(output.path().join("tachyon-sw.js")).expect("sw");
-        let shipped = output.path().join(PageModule::CRYPTO.path).is_file();
+        let shipped = [PageModule::CRYPTO.path, PageCryptoVerifier::PATH]
+            .iter()
+            .all(|path| output.path().join(path).is_file());
         (page, worker, shipped, noted)
     };
     let tag =
@@ -527,4 +557,49 @@ fn only_a_build_that_grants_crypto_ships_the_crypto_module() {
         "no grant, no crypto module: {page}"
     );
     assert!(!shipped);
+    assert!(
+        !page.contains("tac-ed25519"),
+        "the verifier never loads up front: {page}"
+    );
+}
+
+#[test]
+fn the_page_runtime_checks_an_empty_message_with_the_strict_verifier_only_when_webcrypto_says_no() {
+    if !NodeDriver::available() {
+        return;
+    }
+    let report = CryptoDriver::run();
+    assert_eq!(report["emptyNative"], json!(true), "{report}");
+    assert_eq!(report["loadsAfterNative"], json!(0), "WebCrypto said yes");
+    assert_eq!(report["webkitNonEmptyWrong"], json!(false));
+    assert_eq!(
+        report["loadsAfterNonEmpty"],
+        json!(0),
+        "a message with bytes"
+    );
+    assert_eq!(report["webkitEmpty"], json!(true), "RFC 8032 test 1");
+    for name in [
+        "webkitEmptyWrongSignature",
+        "webkitEmptyWrongKey",
+        "webkitEmptySmallOrderR",
+        "webkitEmptyShortSignature",
+    ] {
+        assert_eq!(report[name], json!(false), "{name}: {report}");
+    }
+    assert_eq!(report["loadsAfterEmpty"], json!(1), "loaded once");
+    assert_eq!(report["emptySignRoundTrip"], json!(true));
+}
+
+#[test]
+fn the_shipped_verifier_keeps_the_pinned_noble_bytes_and_its_license() {
+    use sha2::{Digest, Sha256};
+    let pinned = "a4f631d1876b5d9e43a86cd71194ca27b5e1451edf4ba4db9a418f40a475569a";
+    let vendored = include_bytes!("../template/vendor/noble-ed25519.js");
+    assert_eq!(super::hex_digest(Sha256::digest(vendored)), pinned);
+    let shipped = PageCryptoVerifier::script();
+    assert!(shipped.ends_with(vendored));
+    let notice = String::from_utf8_lossy(&shipped[..shipped.len() - vendored.len()]).into_owned();
+    assert!(notice.contains("noble-ed25519 3.2.0"), "{notice}");
+    assert!(notice.contains("MIT License"), "{notice}");
+    assert!(include_str!("../template/vendor/noble-ed25519.LICENSE").contains("MIT License"));
 }

@@ -195,3 +195,18 @@ file dist/jsQR.js as .tachyon/tac-qr-decoder.js to apps that grant the camera
 browser API (ADR 0130). The full license text is in
 crates/tachyon-core/src/template/vendor/jsQR.LICENSE and at
 https://www.apache.org/licenses/LICENSE-2.0.
+
+noble-ed25519-3.2.0
+===================
+
+Copyright (c) 2019 Paul Miller. https://github.com/paulmillr/noble-ed25519
+
+Licensed under the MIT License. Tachyon ships the unchanged file index.js of
+the npm package @noble/ed25519 3.2.0 as .tachyon/tac-ed25519.js to apps that
+grant the crypto browser API, and loads it only to verify an Ed25519
+signature over an empty message (ADR 0133). Source:
+https://registry.npmjs.org/@noble/ed25519/-/ed25519-3.2.0.tgz (integrity
+sha512-criDgRlnUA09hchYrTy/JUWPIEap5rZxQe6wDWzRx51oWWpDRcUpuNzlgPxDJaOK6AsW9c0wKcj3rKRv6t+bPQ==);
+SHA-256 of the shipped index.js:
+a4f631d1876b5d9e43a86cd71194ca27b5e1451edf4ba4db9a418f40a475569a. The full
+license text is in crates/tachyon-core/src/template/vendor/noble-ed25519.LICENSE.

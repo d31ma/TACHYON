@@ -10,6 +10,11 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- **Crypto verifies an empty message on every engine** (ADR 0133).
+  `Crypto.sign` and `Crypto.verify` accept empty data again. WebKit answers
+  `false` when it verifies an Ed25519 signature over an empty message; the
+  page then checks again with a strict copy of `@noble/ed25519` 3.2.0
+  (MIT), shipped as `.tachyon/tac-ed25519.js` and loaded only in that case.
 - **Tac services scan a QR code with the camera** (ADR 0130). Every Tac
   service language gets a `CodeScanner` client, with the new grant `camera`
   in `tac.browserApis` and its reason in `tac.application.permissions.camera`.
