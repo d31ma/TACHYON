@@ -1,3 +1,4 @@
+use super::root_error_type::RootErrorType;
 use super::{ErrorCalls, Plan, RouteCalls};
 use std::fmt::Write as _;
 
@@ -22,11 +23,11 @@ pub(super) fn functions(plan: &Plan, typed: bool) -> String {
             (true, false) => ", YonHttp.request(request)",
             (true, true) => ", (globalThis as any).YonHttp.request(request)",
         };
-        let skip_check = if kind == "Error" {
-            " && !__yon_is_check_rejection__(error)"
-        } else {
-            ""
-        };
+        let skip_check = RootErrorType::condition(
+            &RootErrorType::JAVASCRIPT,
+            kind,
+            " && !__yon_is_check_rejection__(error)",
+        );
         let _ = writeln!(
             source,
             "  if (!({kind} === Error || {kind}.prototype instanceof Error)) throw new TypeError('HandlesError requires an Error type');\n  if (error instanceof {kind}{skip_check}) {{\n    let distance = 0;\n    let current = Object.getPrototypeOf(error);\n    while (current !== {kind}.prototype && current !== null) {{ distance += 1; current = Object.getPrototypeOf(current); }}\n    matches.push({{ distance, status: {}, call: () => handler{index}.{}(error{request}) }});\n  }}",

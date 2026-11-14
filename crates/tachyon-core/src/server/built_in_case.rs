@@ -12,16 +12,7 @@ pub(in crate::server) struct BuiltInCase {
 }
 
 impl BuiltInCase {
-    const TYPE: &'static str = "type";
-    const STATUS: &'static str = "status";
-    const REFERENCE: &'static str = "reference";
-    const PART: &'static str = "part";
-    const FIELD: &'static str = "field";
-    const MESSAGE: &'static str = "message";
-    const LIMIT_BYTES: &'static str = "limitBytes";
-    const VIOLATIONS: &'static str = "violations";
     const TRUNCATED: &'static str = "truncated";
-    const PROBLEM_ERRORS: &'static str = "errors";
 
     pub(in crate::server) fn plain(error: BuiltInError) -> Self {
         Self {
@@ -31,19 +22,19 @@ impl BuiltInCase {
     }
 
     pub(in crate::server) fn request_rejected(part: &str, field: &str, message: &str) -> Self {
-        let details = json!({ Self::PART: part, Self::FIELD: field, Self::MESSAGE: message });
+        let details = json!({ "part": part, "field": field, "message": message });
         Self::with_details(BuiltInError::REQUEST_REJECTED, details)
     }
 
     pub(in crate::server) fn body_too_large(limit_bytes: usize) -> Self {
-        let details = json!({ Self::LIMIT_BYTES: limit_bytes });
+        let details = json!({ "limitBytes": limit_bytes });
         Self::with_details(BuiltInError::BODY_TOO_LARGE, details)
     }
 
     pub(in crate::server) fn check_rejected(violations: &[HandlerViolation]) -> Self {
         let problem = serde_json::to_value(CheckProblem::new(violations, "")).unwrap_or_default();
         let details = json!({
-            Self::VIOLATIONS: problem[Self::PROBLEM_ERRORS].clone(),
+            "violations": problem["errors"].clone(),
             Self::TRUNCATED: problem[Self::TRUNCATED].clone(),
         });
         Self::with_details(BuiltInError::CHECK_REJECTED, details)
@@ -60,20 +51,31 @@ impl BuiltInCase {
         self.error
     }
 
-    pub(in crate::server) fn tag(self, mut response: Response<Body>) -> Response<Body> {
-        response.extensions_mut().insert(self);
+    pub(in crate::server) fn tag(self, response: Response<Body>) -> Response<Body> {
+        Self::tag_option(Some(self), response)
+    }
+
+    pub(in crate::server) fn tag_option(
+        case: Option<Self>,
+        mut response: Response<Body>,
+    ) -> Response<Body> {
+        response.extensions_mut().insert(case);
         response
     }
 
     pub(in crate::server) fn of(response: &Response<Body>) -> Option<Self> {
-        response.extensions().get::<Self>().cloned()
+        response
+            .extensions()
+            .get::<Option<Self>>()
+            .cloned()
+            .flatten()
     }
 
     pub(in crate::server) fn argument(&self, reference: &str) -> Value {
         let mut argument = self.details.clone();
-        argument.insert(String::from(Self::TYPE), json!(self.error.name()));
-        argument.insert(String::from(Self::STATUS), json!(self.error.status()));
-        argument.insert(String::from(Self::REFERENCE), json!(reference));
+        argument.insert(String::from("type"), json!(self.error.name()));
+        argument.insert(String::from("status"), json!(self.error.status()));
+        argument.insert(String::from("reference"), json!(reference));
         Value::Object(argument)
     }
 }

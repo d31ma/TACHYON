@@ -1,5 +1,4 @@
 use super::RouteCalls;
-use crate::yon::built_in_error::BuiltInError;
 use crate::yon::built_in_errors::BuiltInErrors;
 use crate::yon::plan::{ParameterSource, Plan, Route};
 use std::fmt::Write as _;
@@ -7,6 +6,8 @@ use std::fmt::Write as _;
 pub(super) struct PythonRoutes;
 
 impl PythonRoutes {
+    const BUILT_IN_CASE: &'static str = "    if route == \"{route}\":\n        return await __yon_handle_error__(__yon_built_in_error__(values[0] if values else None), request{arguments})\n";
+
     pub(super) fn functions(plan: &Plan) -> String {
         let mut output = String::new();
         let errors = !plan.errors.is_empty();
@@ -18,7 +19,7 @@ impl PythonRoutes {
             let _ = write!(
                 output,
                 "\n\n{asynchronous}def __yon_route_{verb}__(controller, request{parameters}):\n    values = request.get(\"arguments\") or []\n    route = request.get(\"route\")\n{}{guard}",
-                Self::built_in_case(plan)
+                BuiltInErrors::route_case(plan, "py", Self::BUILT_IN_CASE)
             );
             for route in RouteCalls::routes_for(plan, verb) {
                 let call = format!("controller.{}({})", route.method, Self::arguments(route));
@@ -49,17 +50,6 @@ impl PythonRoutes {
             }
         }
         output
-    }
-
-    fn built_in_case(plan: &Plan) -> String {
-        if !BuiltInErrors::used(plan) {
-            return String::new();
-        }
-        let arguments = super::super::error_calls::ErrorCalls::arguments(plan, "py");
-        format!(
-            "    if route == \"{}\":\n        return await __yon_handle_error__(__yon_built_in_error__(values[0] if values else None), request{arguments})\n",
-            BuiltInError::ROUTE
-        )
     }
 
     fn arguments(route: &Route) -> String {

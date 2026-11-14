@@ -129,7 +129,7 @@ fn error_sources_cannot_take_a_built_in_error_name() {
         assert!(
             failure
                 .to_string()
-                .contains("is the name of a Tachyon built-in error type"),
+                .contains("This is the name of a Tachyon built-in error type"),
             "{path}: {failure}"
         );
     }

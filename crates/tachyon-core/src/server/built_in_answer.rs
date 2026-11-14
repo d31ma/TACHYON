@@ -27,6 +27,16 @@ impl BuiltInAnswer {
         response: Response<Body>,
     ) -> Response<Body> {
         let case = BuiltInCase::of(&response).filter(|case| Self::declares(entry, case));
+        Self::shape_case(state, entry, request, case, response).await
+    }
+
+    async fn shape_case(
+        state: &Dispatch,
+        entry: &DispatchRoute,
+        request: &BuiltInRequest,
+        case: Option<BuiltInCase>,
+        response: Response<Body>,
+    ) -> Response<Body> {
         match case {
             None => response,
             Some(case) => Self::ask(state, entry, request, &case, response).await,

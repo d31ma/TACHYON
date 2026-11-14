@@ -1,5 +1,4 @@
 use super::RouteCalls;
-use crate::yon::built_in_error::BuiltInError;
 use crate::yon::built_in_errors::BuiltInErrors;
 use crate::yon::error_calls::{ErrorCalls, rust::RustErrors};
 use crate::yon::plan::{ParameterSource, Plan, Route};
@@ -8,6 +7,8 @@ use std::fmt::Write as _;
 pub(super) struct RustRoutes;
 
 impl RustRoutes {
+    const BUILT_IN_CASE: &'static str = "    if request.route() == \"{route}\" {\n        if let Some(error) = __yon_built_in_error__(&value(0)) { return __yon_handle_error__(error.as_ref(), request{arguments}); }\n    }\n";
+
     pub(crate) const STREAM_SHAPE_HELP: &'static str = "A Rust @StreamRoute method returns impl Iterator<Item = Model>, or impl Iterator<Item = Result<Model, E>> when the stream can fail; Box<dyn Iterator<Item = Model>> works too";
 
     pub(super) fn functions(plan: &Plan) -> Result<String, String> {
@@ -19,7 +20,7 @@ impl RustRoutes {
                 output,
                 "\n#[allow(non_snake_case, unused_variables)]\nfn __yon_route_{verb}__(controller: &{}, request: &__YonFrame{parameters}) -> __YonAnswer {{\n    let values = request.arguments();\n    let value = |index: usize| values.get(index).cloned().unwrap_or(Json::Null);\n{}    match request.route().as_str() {{\n",
                 plan.controller,
-                Self::built_in_case(plan, &error_arguments)
+                BuiltInErrors::route_case(plan, "rs", Self::BUILT_IN_CASE)
             );
             for route in RouteCalls::routes_for(plan, verb) {
                 if route.streaming {
@@ -58,16 +59,6 @@ impl RustRoutes {
             output.push_str("        _ => __YonAnswer::json(\"{\\\"error\\\":\\\"No controller method answers this route.\\\"}\").status(500),\n    }\n}\n");
         }
         Ok(output)
-    }
-
-    fn built_in_case(plan: &Plan, error_arguments: &str) -> String {
-        if !BuiltInErrors::used(plan) {
-            return String::new();
-        }
-        format!(
-            "    if request.route() == \"{}\" {{\n        if let Some(error) = __yon_built_in_error__(&value(0)) {{ return __yon_handle_error__(error.as_ref(), request{error_arguments}); }}\n    }}\n",
-            BuiltInError::ROUTE
-        )
     }
 
     fn is_stream_shape(returns: &str) -> bool {

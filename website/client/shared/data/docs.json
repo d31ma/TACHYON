@@ -4207,6 +4207,497 @@
               "run": "1c7698305bb4d6c3"
             }
           ]
+        },
+        {
+          "heading": "Shape the answers Tachyon makes itself, in every Yon language",
+          "axis": "language",
+          "summary": "Tachyon answers some requests itself: 401 without an identity, 403 without a role, 500 when the identity provider fails, 400 for a bad value or body, 413 for a body over the limit, 422 for broken @Checked rules, and 500 when the route could not answer. Name one of the seven built-in error types on a @HandlesError method, and that method writes the body. Tachyon keeps the status, so the method takes no ResponseStatus (ADR NNNN).",
+          "body": "Choose a language below. `OrdersController` says `Allow(Admin)`. `AppIdentityProvider` knows two sessions, `ada-token` (with the role `Admin`) and `bob-token` (no roles), and fails for `broken-token`. `OrdersErrorHandler` has one method for each built-in type, and each method answers a `Problem` with a code and a numbered message, such as `{\"code\":\"not_signed_in\",\"message\":\"[MS0001]: Sign in again.\"}`.\n\n- `GET /orders` without a token answers 401 from `NotSignedIn`; with `bob-token`, 403 from `RoleMissing`; with `broken-token`, 500 from `IdentityCheckFailed`.\n- `POST /orders` with `ada-token` and the body `{` answers 400 from `RequestRejected` (`part` is `body`). A body over `yon.server.maxbody` answers 413 from `BodyTooLarge`. `{\"name\":\"\",\"level\":0}` answers 422 from `CheckRejected`, whose `violations` list `level:Min`, `name:NotEmpty` and `name:Length`.\n- `GET /orders` with `ada-token` fails with an error that no method takes, so `UnexpectedError` answers 500.\n\nEvery shaped answer keeps Tachyon's status and has the `x-tachyon-request-id` header; the error's `reference` field holds the same id. The handler never sees the `authorization` or `cookie` header, the identity provider's error or the request body. If a method is missing, the answer stays as Tachyon writes it. If the method fails, Tachyon sends its own answer and logs `error_handler.failed`.",
+          "files": [
+            {
+              "name": "server/roles/Admin.js",
+              "code": "export default class Admin {}\n"
+            },
+            {
+              "name": "server/models/OrderInput.js",
+              "code": "@Checked\nexport default class OrderInput {\n  /** @type {string} */\n  @NotEmpty\n  @Length({\"min\":1,\"max\":80})\n  name;\n  /** @type {number} */\n  @Required\n  @Min(1)\n  @Max(9)\n  level;\n}\n"
+            },
+            {
+              "name": "server/services/OrderService.js",
+              "code": "@Service\nexport default class OrderService {\n  /**\n   * @param {OrderInput} order\n   * @returns {OrderInput}\n   */\n  accept(@Check order) {\n    return order;\n  }\n}\n"
+            },
+            {
+              "name": "server/controllers/AppIdentityProvider.js",
+              "code": "@IdentityProvider\nexport class AppIdentityProvider {\n  /** @type {Map<string, { user: string, roles: string[] }>} */\n  static _SESSIONS = new Map([\n    ['ada-token', { user: 'ada', roles: ['Admin'] }],\n    ['bob-token', { user: 'bob', roles: [] }],\n  ])\n\n  static _BROKEN_TOKEN = 'broken-token'\n\n  /**\n   * @param {Request} request\n   * @returns {{ user: string, roles: string[] } | null}\n   */\n  identify(request) {\n    const token = String(request.headers.get('authorization'))\n    this._refuseBroken(token)\n    return this._find(token)\n  }\n\n  /** @param {string} token */\n  _refuseBroken(token) {\n    if (token === AppIdentityProvider._BROKEN_TOKEN) throw new Error('the session store is down')\n  }\n\n  /**\n   * @param {string} token\n   * @returns {{ user: string, roles: string[] } | null}\n   */\n  _find(token) {\n    return AppIdentityProvider._SESSIONS.get(token) ?? null\n  }\n}\n"
+            },
+            {
+              "name": "server/controllers/OrdersController.js",
+              "code": "@RequestRoute(\"/orders\")\n@Allow(Admin)\nexport class OrdersController {\n  /** @type {OrderService} */\n  @Needs\n  orderService;\n\n  /** @returns {string[]} */\n  @GetRoute\n  getOrders() {\n    throw new RangeError('the order store is down')\n  }\n\n  /**\n   * @param {any} order\n   * @returns {any}\n   */\n  @PostRoute\n  postOrder(@FromBody order) {\n    return this.orderService.accept(order)\n  }\n}\n",
+              "run": "dd21ace35188eed6"
+            },
+            {
+              "name": "server/controllers/OrdersErrorHandler.js",
+              "code": "/** @import { Problem } from '/models/Problem.ts' */\n@ErrorHandler\nexport class OrdersErrorHandler {\n  /**\n   * @param {NotSignedIn} error\n   * @returns {Problem}\n   */\n  @HandlesError\n  signInNeeded(error) {\n    return { code: 'not_signed_in', message: '[MS0001]: Sign in again.' }\n  }\n\n  /**\n   * @param {RoleMissing} error\n   * @returns {Problem}\n   */\n  @HandlesError\n  notAllowed(error) {\n    return { code: 'forbidden', message: '[MS0002]: You may not do this.' }\n  }\n\n  /**\n   * @param {IdentityCheckFailed} error\n   * @returns {Problem}\n   */\n  @HandlesError\n  identityDown(error) {\n    return { code: 'identity_failed', message: '[MS0003]: Try again later.' }\n  }\n\n  /**\n   * @param {RequestRejected} error\n   * @returns {Problem}\n   */\n  @HandlesError\n  badRequest(error) {\n    return { code: 'invalid_request', message: `[MS0004]: ${error.part}.${error.field}` }\n  }\n\n  /**\n   * @param {BodyTooLarge} error\n   * @returns {Problem}\n   */\n  @HandlesError\n  tooLarge(error) {\n    return { code: 'too_large', message: `[MS0005]: ${error.limitBytes}` }\n  }\n\n  /**\n   * @param {CheckRejected} error\n   * @returns {Problem}\n   */\n  @HandlesError\n  brokenRules(error) {\n    return { code: 'invalid_input', message: `[MS0006]: ${this._rules(error.violations)}` }\n  }\n\n  /**\n   * @param {UnexpectedError} error\n   * @returns {Problem}\n   */\n  @HandlesError\n  unexpected(error) {\n    return { code: 'unexpected', message: '[MS0000]: Something went wrong.' }\n  }\n\n  /**\n   * @param {BrokenRule[]} violations\n   * @returns {string}\n   */\n  _rules(violations) {\n    return violations.map((violation) => `${violation.field}:${violation.rule}`).join(',')\n  }\n}\n"
+            },
+            {
+              "name": "server/roles/Admin.ts",
+              "code": "export default class Admin {}\n"
+            },
+            {
+              "name": "server/models/Identity.ts",
+              "code": "export interface Identity {\n  user: string;\n  roles: string[];\n}\n"
+            },
+            {
+              "name": "server/models/OrderInput.ts",
+              "code": "@Checked\nexport default class OrderInput {\n  @NotEmpty\n  @Length({\"min\":1,\"max\":80})\n  name!: string;\n  @Required\n  @Min(1)\n  @Max(9)\n  level!: number;\n}\n"
+            },
+            {
+              "name": "server/models/Problem.ts",
+              "code": "export interface Problem {\n  code: string;\n  message: string;\n}\n"
+            },
+            {
+              "name": "server/services/OrderService.ts",
+              "code": "@Service\nexport default class OrderService {\n  accept(@Check order: OrderInput): OrderInput {\n    return order;\n  }\n}\n"
+            },
+            {
+              "name": "server/controllers/AppIdentityProvider.ts",
+              "code": "import type { Identity } from '/models/Identity.ts';\n\n@IdentityProvider\nexport class AppIdentityProvider {\n  private static readonly SESSIONS = new Map<string, Identity>([\n    ['ada-token', { user: 'ada', roles: ['Admin'] }],\n    ['bob-token', { user: 'bob', roles: [] }],\n  ]);\n\n  private static readonly BROKEN_TOKEN = 'broken-token';\n\n  identify(request: Request): Identity | null {\n    const token = String(request.headers.get('authorization'));\n    this.refuseBroken(token);\n    return this.find(token);\n  }\n\n  private refuseBroken(token: string): void {\n    if (token === AppIdentityProvider.BROKEN_TOKEN) throw new Error('the session store is down');\n  }\n\n  private find(token: string): Identity | null {\n    return AppIdentityProvider.SESSIONS.get(token) ?? null;\n  }\n}\n"
+            },
+            {
+              "name": "server/controllers/OrdersController.ts",
+              "code": "@RequestRoute(\"/orders\")\n@Allow(Admin)\nexport class OrdersController {\n  @Needs\n  readonly orders!: OrderService;\n\n  @GetRoute\n  getOrders(): string[] {\n    throw new RangeError('the order store is down');\n  }\n\n  @PostRoute\n  postOrder(@FromBody order: any) {\n    return this.orders.accept(order);\n  }\n}\n",
+              "run": "a3df1e114cd1d837"
+            },
+            {
+              "name": "server/controllers/OrdersErrorHandler.ts",
+              "code": "import type { Problem } from '/models/Problem.ts'\n\n@ErrorHandler\nexport class OrdersErrorHandler {\n  @HandlesError\n  signInNeeded(error: NotSignedIn): Problem {\n    return { code: 'not_signed_in', message: '[MS0001]: Sign in again.' }\n  }\n\n  @HandlesError\n  notAllowed(error: RoleMissing): Problem {\n    return { code: 'forbidden', message: '[MS0002]: You may not do this.' }\n  }\n\n  @HandlesError\n  identityDown(error: IdentityCheckFailed): Problem {\n    return { code: 'identity_failed', message: '[MS0003]: Try again later.' }\n  }\n\n  @HandlesError\n  badRequest(error: RequestRejected): Problem {\n    return { code: 'invalid_request', message: `[MS0004]: ${error.part}.${error.field}` }\n  }\n\n  @HandlesError\n  tooLarge(error: BodyTooLarge): Problem {\n    return { code: 'too_large', message: `[MS0005]: ${error.limitBytes}` }\n  }\n\n  @HandlesError\n  brokenRules(error: CheckRejected): Problem {\n    return { code: 'invalid_input', message: `[MS0006]: ${this.rules(error.violations)}` }\n  }\n\n  @HandlesError\n  unexpected(error: UnexpectedError): Problem {\n    return { code: 'unexpected', message: '[MS0000]: Something went wrong.' }\n  }\n\n  private rules(violations: BrokenRule[]): string {\n    return violations.map((violation) => `${violation.field}:${violation.rule}`).join(',')\n  }\n}\n"
+            },
+            {
+              "name": "server/roles/Admin.py",
+              "code": "class Admin:\n    pass\n"
+            },
+            {
+              "name": "server/models/Identity.py",
+              "code": "from dataclasses import dataclass\n\n\n@dataclass\nclass Identity:\n    user: str\n    roles: list[str]\n"
+            },
+            {
+              "name": "server/models/OrderInput.py",
+              "code": "from typing import Annotated\n\n@checked\nclass OrderInput:\n    name: Annotated[str, not_empty, length({\"min\":1,\"max\":80})] = ''\n    level: Annotated[int, required, min(1), max(9)] = 0\n"
+            },
+            {
+              "name": "server/models/Problem.py",
+              "code": "from dataclasses import dataclass\n\n\n@dataclass\nclass Problem:\n    code: str\n    message: str\n"
+            },
+            {
+              "name": "server/services/OrderService.py",
+              "code": "from typing import Annotated\nfrom models import OrderInput\n\n@service\nclass OrderService:\n    def accept(self, order: Annotated[OrderInput, check]) -> OrderInput:\n        return order\n"
+            },
+            {
+              "name": "server/controllers/AppIdentityProvider.py",
+              "code": "from typing import Optional\nfrom urllib.request import Request\nfrom models import Identity\n\n\n@identity_provider\nclass AppIdentityProvider:\n    _SESSIONS: dict[str, Identity] = {\n        \"ada-token\": Identity(\"ada\", [\"Admin\"]),\n        \"bob-token\": Identity(\"bob\", []),\n    }\n    _BROKEN_TOKEN: str = \"broken-token\"\n\n    def identify(self, request: Request) -> Optional[Identity]:\n        token = str(request.get_header(\"Authorization\"))\n        self._refuse_broken(token)\n        return self._find(token)\n\n    def _refuse_broken(self, token: str) -> None:\n        if token == self._BROKEN_TOKEN:\n            raise ConnectionError(\"the session store is down\")\n\n    def _find(self, token: str) -> Optional[Identity]:\n        return self._SESSIONS.get(token)\n"
+            },
+            {
+              "name": "server/controllers/OrdersController.py",
+              "code": "from typing import Annotated\n\n\n@request_route(\"/orders\")\n@allow(Admin)\nclass OrdersController:\n    order_service: Annotated[OrderService, needs]\n\n    @get_route\n    def get_orders(self) -> list[str]:\n        raise OSError(\"the order store is down\")\n\n    @post_route\n    def post_order(self, order: Annotated[dict, from_body]) -> dict:\n        return self.order_service.accept(order)\n",
+              "run": "cb979e6f0c818ed3"
+            },
+            {
+              "name": "server/controllers/OrdersErrorHandler.py",
+              "code": "from models import Problem\n\n\n@error_handler\nclass OrdersErrorHandler:\n    @handles_error\n    def sign_in_needed(self, error: NotSignedIn) -> Problem:\n        return Problem(\"not_signed_in\", \"[MS0001]: Sign in again.\")\n\n    @handles_error\n    def not_allowed(self, error: RoleMissing) -> Problem:\n        return Problem(\"forbidden\", \"[MS0002]: You may not do this.\")\n\n    @handles_error\n    def identity_down(self, error: IdentityCheckFailed) -> Problem:\n        return Problem(\"identity_failed\", \"[MS0003]: Try again later.\")\n\n    @handles_error\n    def bad_request(self, error: RequestRejected) -> Problem:\n        return Problem(\"invalid_request\", f\"[MS0004]: {error.part}.{error.field}\")\n\n    @handles_error\n    def too_large(self, error: BodyTooLarge) -> Problem:\n        return Problem(\"too_large\", f\"[MS0005]: {error.limit_bytes}\")\n\n    @handles_error\n    def broken_rules(self, error: CheckRejected) -> Problem:\n        return Problem(\"invalid_input\", f\"[MS0006]: {self._rules(error.violations)}\")\n\n    @handles_error\n    def unexpected(self, error: UnexpectedError) -> Problem:\n        return Problem(\"unexpected\", \"[MS0000]: Something went wrong.\")\n\n    def _rules(self, violations: list[BrokenRule]) -> str:\n        return \",\".join(f\"{violation.field}:{violation.rule}\" for violation in violations)\n"
+            },
+            {
+              "name": "server/roles/Admin.php",
+              "code": "<?php\nclass Admin {}\n"
+            },
+            {
+              "name": "server/models/OrderInput.php",
+              "code": "<?php\n\n#[Checked]\nclass OrderInput {\n    #[NotEmpty]\n    #[Length({\"min\":1,\"max\":80})]\n    public string $name = '';\n    #[Required]\n    #[Min(1)]\n    #[Max(9)]\n    public int $level = 0;\n}\n"
+            },
+            {
+              "name": "server/models/Problem.php",
+              "code": "<?php\nclass Problem\n{\n    public function __construct(public string $code, public string $message) {}\n}\n"
+            },
+            {
+              "name": "server/services/OrderService.php",
+              "code": "<?php\n\n#[Service]\nclass OrderService {\n    public function accept(#[Check(OrderInput::class)] array $order): array { return $order; }\n}\n"
+            },
+            {
+              "name": "server/controllers/AppIdentityProvider.php",
+              "code": "<?php\n#[IdentityProvider]\nclass AppIdentityProvider {\n    private const SESSIONS = [\n        'ada-token' => ['user' => 'ada', 'roles' => ['Admin']],\n        'bob-token' => ['user' => 'bob', 'roles' => []],\n    ];\n    private const BROKEN_TOKEN = 'broken-token';\n\n    public function identify(): ?array {\n        $token = $this->token($_SERVER);\n        $this->refuseBroken($token);\n        return $this->session($token);\n    }\n\n    /** @param array<string, mixed> $server */\n    private function token(array $server): string {\n        return strval($server['HTTP_AUTHORIZATION'] ?? '');\n    }\n\n    private function refuseBroken(string $token): void {\n        if ($token === self::BROKEN_TOKEN) {\n            throw new RuntimeException('the session store is down');\n        }\n    }\n\n    private function session(string $token): ?array {\n        return self::SESSIONS[$token] ?? null;\n    }\n}\n"
+            },
+            {
+              "name": "server/controllers/OrdersController.php",
+              "code": "<?php\n#[RequestRoute(\"/orders\")]\n#[Allow(Admin::class)]\nclass OrdersController {\n    #[Needs]\n    public OrderService $orderService;\n\n    #[GetRoute]\n    public function getOrders(): array {\n        throw new RuntimeException('the order store is down');\n    }\n\n    #[PostRoute]\n    public function postOrder(#[FromBody] array $order): array {\n        return $this->orderService->accept($order);\n    }\n}\n",
+              "run": "44370a732292dfd4"
+            },
+            {
+              "name": "server/controllers/OrdersErrorHandler.php",
+              "code": "<?php\nuse Models\\Problem;\n\n#[ErrorHandler]\nclass OrdersErrorHandler {\n    #[HandlesError]\n    public function signInNeeded(NotSignedIn $error): Problem {\n        return new Problem('not_signed_in', '[MS0001]: Sign in again.');\n    }\n\n    #[HandlesError]\n    public function notAllowed(RoleMissing $error): Problem {\n        return new Problem('forbidden', '[MS0002]: You may not do this.');\n    }\n\n    #[HandlesError]\n    public function identityDown(IdentityCheckFailed $error): Problem {\n        return new Problem('identity_failed', '[MS0003]: Try again later.');\n    }\n\n    #[HandlesError]\n    public function badRequest(RequestRejected $error): Problem {\n        return new Problem('invalid_request', '[MS0004]: ' . $error->part . '.' . $error->field);\n    }\n\n    #[HandlesError]\n    public function tooLarge(BodyTooLarge $error): Problem {\n        return new Problem('too_large', '[MS0005]: ' . $error->limitBytes);\n    }\n\n    #[HandlesError]\n    public function brokenRules(CheckRejected $error): Problem {\n        return new Problem('invalid_input', '[MS0006]: ' . $this->rules($error->violations));\n    }\n\n    #[HandlesError]\n    public function unexpected(UnexpectedError $error): Problem {\n        return new Problem('unexpected', '[MS0000]: Something went wrong.');\n    }\n\n    /** @param list<BrokenRule> $violations */\n    private function rules(array $violations): string {\n        return implode(',', array_map(fn (BrokenRule $violation): string => $violation->field . ':' . $violation->rule, $violations));\n    }\n}\n"
+            },
+            {
+              "name": "server/roles/Admin.java",
+              "code": "class Admin {}\n"
+            },
+            {
+              "name": "server/models/Identity.java",
+              "code": "record Identity(String user, java.util.List<String> roles) {}\n"
+            },
+            {
+              "name": "server/models/OrderInput.java",
+              "code": "@Checked\nclass OrderInput {\n    @NotEmpty\n    @Length({\"min\":1,\"max\":80})\n    String name;\n    @Required\n    @Min(1)\n    @Max(9)\n    Object level;\n}\n"
+            },
+            {
+              "name": "server/models/Problem.java",
+              "code": "record Problem(String code, String message) {}\n"
+            },
+            {
+              "name": "server/services/OrderService.java",
+              "code": "@Service\nclass OrderService {\n    Object accept(@Check(OrderInput.class) Object order) { return order; }\n}\n"
+            },
+            {
+              "name": "server/controllers/AppIdentityProvider.java",
+              "code": "import com.sun.net.httpserver.HttpExchange;\nimport java.util.List;\nimport java.util.Map;\nimport models.Identity;\n\n@IdentityProvider\nclass AppIdentityProvider {\n    private static final Map<String, Identity> SESSIONS = Map.of(\n        \"ada-token\", new Identity(\"ada\", List.of(\"Admin\")),\n        \"bob-token\", new Identity(\"bob\", List.of()));\n    private static final String BROKEN_TOKEN = \"broken-token\";\n\n    Identity identify(HttpExchange exchange) {\n        String token = String.valueOf(exchange.getRequestHeaders().getFirst(\"Authorization\"));\n        refuseBroken(token);\n        return find(token);\n    }\n\n    private void refuseBroken(String token) {\n        if (token.equals(BROKEN_TOKEN)) throw new IllegalStateException(\"the session store is down\");\n    }\n\n    private Identity find(String token) {\n        return SESSIONS.get(token);\n    }\n}\n"
+            },
+            {
+              "name": "server/controllers/OrdersController.java",
+              "code": "import java.util.List;\n\n@RequestRoute(\"/orders\")\n@Allow(Admin.class)\nclass OrdersController {\n    @Needs\n    final OrderService orders;\n\n    @GetRoute\n    List<String> getOrders() {\n        throw new IllegalStateException(\"the order store is down\");\n    }\n\n    @PostRoute\n    Object postOrder(@FromBody Object order) {\n        return orders.accept(order);\n    }\n}\n",
+              "run": "3f7e47411e062c31"
+            },
+            {
+              "name": "server/controllers/OrdersErrorHandler.java",
+              "code": "import java.util.List;\nimport java.util.stream.Collectors;\nimport models.Problem;\n\n@ErrorHandler\nclass OrdersErrorHandler {\n    @HandlesError\n    Problem signInNeeded(NotSignedIn error) {\n        return new Problem(\"not_signed_in\", \"[MS0001]: Sign in again.\");\n    }\n\n    @HandlesError\n    Problem notAllowed(RoleMissing error) {\n        return new Problem(\"forbidden\", \"[MS0002]: You may not do this.\");\n    }\n\n    @HandlesError\n    Problem identityDown(IdentityCheckFailed error) {\n        return new Problem(\"identity_failed\", \"[MS0003]: Try again later.\");\n    }\n\n    @HandlesError\n    Problem badRequest(RequestRejected error) {\n        return new Problem(\"invalid_request\", \"[MS0004]: \" + error.getPart() + \".\" + error.getField());\n    }\n\n    @HandlesError\n    Problem tooLarge(BodyTooLarge error) {\n        return new Problem(\"too_large\", \"[MS0005]: \" + error.getLimitBytes());\n    }\n\n    @HandlesError\n    Problem brokenRules(CheckRejected error) {\n        return new Problem(\"invalid_input\", \"[MS0006]: \" + rules(error.getViolations()));\n    }\n\n    @HandlesError\n    Problem unexpected(UnexpectedError error) {\n        return new Problem(\"unexpected\", \"[MS0000]: Something went wrong.\");\n    }\n\n    private String rules(List<BrokenRule> violations) {\n        return violations.stream()\n            .map(violation -> violation.getField() + \":\" + violation.getRule())\n            .collect(Collectors.joining(\",\"));\n    }\n}\n"
+            },
+            {
+              "name": "server/roles/Admin.groovy",
+              "code": "class Admin {}\n"
+            },
+            {
+              "name": "server/models/Identity.groovy",
+              "code": "record Identity(String user, java.util.List<String> roles) {}\n"
+            },
+            {
+              "name": "server/models/OrderInput.groovy",
+              "code": "@Checked\nclass OrderInput {\n    @NotEmpty\n    @Length({\"min\":1,\"max\":80})\n    String name\n    @Required\n    @Min(1)\n    @Max(9)\n    Object level\n}\n"
+            },
+            {
+              "name": "server/models/Problem.groovy",
+              "code": "record Problem(String code, String message) {}\n"
+            },
+            {
+              "name": "server/services/OrderService.groovy",
+              "code": "@Service\nclass OrderService {\n    Object accept(@Check(OrderInput.class) Object order) { return order }\n}\n"
+            },
+            {
+              "name": "server/controllers/AppIdentityProvider.groovy",
+              "code": "import com.sun.net.httpserver.HttpExchange\nimport java.util.List\nimport java.util.Map\nimport models.Identity\n\n@IdentityProvider\nclass AppIdentityProvider {\n    private static final Map<String, Identity> SESSIONS = Map.of(\n        \"ada-token\", new Identity(\"ada\", List.of(\"Admin\")),\n        \"bob-token\", new Identity(\"bob\", List.of()))\n    private static final String BROKEN_TOKEN = \"broken-token\"\n\n    Identity identify(HttpExchange exchange) {\n        String token = String.valueOf(exchange.getRequestHeaders().getFirst(\"Authorization\"))\n        refuseBroken(token)\n        return find(token)\n    }\n\n    private void refuseBroken(String token) {\n        if (token.equals(BROKEN_TOKEN)) throw new IllegalStateException(\"the session store is down\")\n    }\n\n    private Identity find(String token) {\n        return SESSIONS.get(token)\n    }\n}\n"
+            },
+            {
+              "name": "server/controllers/OrdersController.groovy",
+              "code": "import java.util.List\n\n@RequestRoute(\"/orders\")\n@Allow(Admin.class)\nclass OrdersController {\n    @Needs\n    final OrderService orders\n\n    @GetRoute\n    List<String> getOrders() {\n        throw new IllegalStateException(\"the order store is down\")\n    }\n\n    @PostRoute\n    Object postOrder(@FromBody Object order) {\n        return orders.accept(order)\n    }\n}\n",
+              "run": "d9386a410a563cb6"
+            },
+            {
+              "name": "server/controllers/OrdersErrorHandler.groovy",
+              "code": "import java.util.List\nimport models.Problem\n\n@ErrorHandler\nclass OrdersErrorHandler {\n    @HandlesError\n    Problem signInNeeded(NotSignedIn error) {\n        return new Problem(\"not_signed_in\", \"[MS0001]: Sign in again.\")\n    }\n\n    @HandlesError\n    Problem notAllowed(RoleMissing error) {\n        return new Problem(\"forbidden\", \"[MS0002]: You may not do this.\")\n    }\n\n    @HandlesError\n    Problem identityDown(IdentityCheckFailed error) {\n        return new Problem(\"identity_failed\", \"[MS0003]: Try again later.\")\n    }\n\n    @HandlesError\n    Problem badRequest(RequestRejected error) {\n        return new Problem(\"invalid_request\", \"[MS0004]: \" + error.part + \".\" + error.field)\n    }\n\n    @HandlesError\n    Problem tooLarge(BodyTooLarge error) {\n        return new Problem(\"too_large\", \"[MS0005]: \" + error.limitBytes)\n    }\n\n    @HandlesError\n    Problem brokenRules(CheckRejected error) {\n        return new Problem(\"invalid_input\", \"[MS0006]: \" + rules(error.violations))\n    }\n\n    @HandlesError\n    Problem unexpected(UnexpectedError error) {\n        return new Problem(\"unexpected\", \"[MS0000]: Something went wrong.\")\n    }\n\n    private String rules(List<BrokenRule> violations) {\n        return violations.collect { violation -> violation.field + \":\" + violation.rule }.join(\",\")\n    }\n}\n"
+            },
+            {
+              "name": "server/roles/Admin.kt",
+              "code": "class Admin\n"
+            },
+            {
+              "name": "server/models/Identity.kt",
+              "code": "data class Identity(val user: String, val roles: List<String>)\n"
+            },
+            {
+              "name": "server/models/OrderInput.kt",
+              "code": "@Checked\nclass OrderInput {\n    @NotEmpty\n    @Length({\"min\":1,\"max\":80})\n    var name: String? = null\n    @Required\n    @Min(1)\n    @Max(9)\n    var level: Any? = null\n}\n"
+            },
+            {
+              "name": "server/models/Problem.kt",
+              "code": "data class Problem(val code: String, val message: String)\n"
+            },
+            {
+              "name": "server/services/OrderService.kt",
+              "code": "@Service\nclass OrderService {\n    fun accept(@Check(OrderInput::class) order: Any?): Any? { return order }\n}\n"
+            },
+            {
+              "name": "server/controllers/AppIdentityProvider.kt",
+              "code": "import com.sun.net.httpserver.HttpExchange\nimport models.Identity\n\n@IdentityProvider\nclass AppIdentityProvider {\n    fun identify(exchange: HttpExchange): Identity? {\n        val token = exchange.requestHeaders.getFirst(\"Authorization\").orEmpty()\n        refuseBroken(token)\n        return find(token)\n    }\n\n    private fun refuseBroken(token: String) {\n        if (token == BROKEN_TOKEN) throw IllegalStateException(\"the session store is down\")\n    }\n\n    private fun find(token: String): Identity? {\n        return SESSIONS[token]\n    }\n\n    companion object {\n        val SESSIONS = mapOf(\n            \"ada-token\" to Identity(\"ada\", listOf(\"Admin\")),\n            \"bob-token\" to Identity(\"bob\", listOf()),\n        )\n        const val BROKEN_TOKEN = \"broken-token\"\n    }\n}\n"
+            },
+            {
+              "name": "server/controllers/OrdersController.kt",
+              "code": "@RequestRoute(\"/orders\")\n@Allow(Admin::class)\nclass OrdersController {\n    @Needs\n    val orders: OrderService\n\n    @GetRoute\n    fun getOrders(): List<String> {\n        throw IllegalStateException(\"the order store is down\")\n    }\n\n    @PostRoute\n    fun postOrder(@FromBody order: Any?): Any? = orders.accept(order)\n}\n",
+              "run": "ebf654476843b84c"
+            },
+            {
+              "name": "server/controllers/OrdersErrorHandler.kt",
+              "code": "import models.Problem\n\n@ErrorHandler\nclass OrdersErrorHandler {\n    @HandlesError\n    fun signInNeeded(error: NotSignedIn): Problem {\n        return Problem(\"not_signed_in\", \"[MS0001]: Sign in again.\")\n    }\n\n    @HandlesError\n    fun notAllowed(error: RoleMissing): Problem {\n        return Problem(\"forbidden\", \"[MS0002]: You may not do this.\")\n    }\n\n    @HandlesError\n    fun identityDown(error: IdentityCheckFailed): Problem {\n        return Problem(\"identity_failed\", \"[MS0003]: Try again later.\")\n    }\n\n    @HandlesError\n    fun badRequest(error: RequestRejected): Problem {\n        return Problem(\"invalid_request\", \"[MS0004]: ${error.part}.${error.field}\")\n    }\n\n    @HandlesError\n    fun tooLarge(error: BodyTooLarge): Problem {\n        return Problem(\"too_large\", \"[MS0005]: ${error.limitBytes}\")\n    }\n\n    @HandlesError\n    fun brokenRules(error: CheckRejected): Problem {\n        return Problem(\"invalid_input\", \"[MS0006]: ${rules(error.violations)}\")\n    }\n\n    @HandlesError\n    fun unexpected(error: UnexpectedError): Problem {\n        return Problem(\"unexpected\", \"[MS0000]: Something went wrong.\")\n    }\n\n    private fun rules(violations: List<BrokenRule>): String {\n        return violations.joinToString(\",\") { violation -> \"${violation.field}:${violation.rule}\" }\n    }\n}\n"
+            },
+            {
+              "name": "server/roles/Admin.cs",
+              "code": "class Admin {}\n"
+            },
+            {
+              "name": "server/models/Identity.cs",
+              "code": "using System.Collections.Generic;\n\npublic record Identity(string User, List<string> Roles);\n"
+            },
+            {
+              "name": "server/models/OrderInput.cs",
+              "code": "[Checked]\nclass OrderInput {\n    [NotEmpty]\n    [Length({\"min\":1,\"max\":80})]\n    public BehaviorJSON name;\n    [Required]\n    [Min(1)]\n    [Max(9)]\n    public BehaviorJSON level;\n}\n"
+            },
+            {
+              "name": "server/models/Problem.cs",
+              "code": "public record Problem(string Code, string Message);\n"
+            },
+            {
+              "name": "server/services/OrderService.cs",
+              "code": "using Models;\n\n[Service]\nclass OrderService {\n    public BehaviorJSON accept([Check(typeof(OrderInput))] BehaviorJSON order) { return order; }\n}\n"
+            },
+            {
+              "name": "server/controllers/AppIdentityProvider.cs",
+              "code": "using System;\nusing System.Collections.Generic;\nusing System.Net.Http;\nusing Models;\n\n[IdentityProvider]\nclass AppIdentityProvider {\n    private const string BrokenToken = \"broken-token\";\n\n    private static readonly Dictionary<string, Identity> Sessions = new() {\n        [\"ada-token\"] = new Identity(\"ada\", new List<string> { \"Admin\" }),\n        [\"bob-token\"] = new Identity(\"bob\", new List<string>()),\n    };\n\n    public Identity? Identify(HttpRequestMessage request) {\n        var token = Convert.ToString(request.Headers.Authorization);\n        RefuseBroken(token);\n        return Find(token);\n    }\n\n    private static void RefuseBroken(string? token) {\n        if (token == BrokenToken) {\n            throw new InvalidOperationException(\"the session store is down\");\n        }\n    }\n\n    private static Identity? Find(string? token) {\n        return Sessions.GetValueOrDefault(token ?? \"\");\n    }\n}\n"
+            },
+            {
+              "name": "server/controllers/OrdersController.cs",
+              "code": "using System;\nusing System.Collections.Generic;\n\n[RequestRoute(\"/orders\")]\n[Allow(typeof(Admin))]\nclass OrdersController {\n    [Needs]\n    readonly OrderService _orders;\n\n    [GetRoute]\n    public List<string> GetOrders() {\n        throw new InvalidOperationException(\"the order store is down\");\n    }\n\n    [PostRoute]\n    public BehaviorJSON PostOrder([FromBody] BehaviorJSON order) {\n        return _orders.accept(order);\n    }\n}\n",
+              "run": "8f8d367ef51f15c5"
+            },
+            {
+              "name": "server/controllers/OrdersErrorHandler.cs",
+              "code": "using System.Collections.Generic;\nusing System.Linq;\nusing Models;\n\n[ErrorHandler]\nclass OrdersErrorHandler {\n    [HandlesError]\n    public Problem SignInNeeded(NotSignedIn failure) {\n        return new Problem(\"not_signed_in\", \"[MS0001]: Sign in again.\");\n    }\n\n    [HandlesError]\n    public Problem NotAllowed(RoleMissing failure) {\n        return new Problem(\"forbidden\", \"[MS0002]: You may not do this.\");\n    }\n\n    [HandlesError]\n    public Problem IdentityDown(IdentityCheckFailed failure) {\n        return new Problem(\"identity_failed\", \"[MS0003]: Try again later.\");\n    }\n\n    [HandlesError]\n    public Problem BadRequest(RequestRejected failure) {\n        return new Problem(\"invalid_request\", \"[MS0004]: \" + failure.Part + \".\" + failure.Field);\n    }\n\n    [HandlesError]\n    public Problem TooLarge(BodyTooLarge failure) {\n        return new Problem(\"too_large\", \"[MS0005]: \" + failure.LimitBytes);\n    }\n\n    [HandlesError]\n    public Problem BrokenRules(CheckRejected failure) {\n        return new Problem(\"invalid_input\", \"[MS0006]: \" + Rules(failure.Violations));\n    }\n\n    [HandlesError]\n    public Problem Unexpected(UnexpectedError failure) {\n        return new Problem(\"unexpected\", \"[MS0000]: Something went wrong.\");\n    }\n\n    private static string Rules(IEnumerable<BrokenRule> violations) {\n        return string.Join(\",\", violations.Select(violation => violation.Field + \":\" + violation.Rule));\n    }\n}\n"
+            },
+            {
+              "name": "server/roles/Admin.fs",
+              "code": "type Admin() = class end\n"
+            },
+            {
+              "name": "server/models/Identity.fs",
+              "code": "type Identity = { User: string; Roles: string[] }\n"
+            },
+            {
+              "name": "server/models/OrderInput.fs",
+              "code": "[<Checked>]\ntype OrderInput() =\n    [<NotEmpty>]\n    [<Length({\"min\":1,\"max\":80})>]\n    member val name : BehaviorJSON = BehaviorJSON.Parse(\"null\") with get, set\n\n    [<Required>]\n    [<Min(1)>]\n    [<Max(9)>]\n    member val level : BehaviorJSON = BehaviorJSON.Parse(\"null\") with get, set\n"
+            },
+            {
+              "name": "server/models/Problem.fs",
+              "code": "type Problem = { Code: string; Message: string }\n"
+            },
+            {
+              "name": "server/services/OrderService.fs",
+              "code": "[<Service>]\ntype OrderService() =\n    member this.accept([<Check(typeof<OrderInput>)>] order: BehaviorJSON) : BehaviorJSON = order\n"
+            },
+            {
+              "name": "server/controllers/AppIdentityProvider.fs",
+              "code": "open System.Net.Http\nopen Models\n\n[<IdentityProvider>]\ntype AppIdentityProvider() =\n    static let brokenToken = \"broken-token\"\n\n    static let sessions =\n        dict [\n            \"ada-token\", { User = \"ada\"; Roles = [| \"Admin\" |] }\n            \"bob-token\", { User = \"bob\"; Roles = [||] }\n        ]\n\n    member this.Identify(request: HttpRequestMessage) : Identity option =\n        let token = string request.Headers.Authorization\n        this.RefuseBroken(token)\n        this.Find(token)\n\n    member private this.RefuseBroken(token: string) : unit =\n        if token = brokenToken then failwith \"the session store is down\"\n\n    member private this.Find(token: string) : Identity option =\n        match sessions.TryGetValue(token) with\n        | true, identity -> Some identity\n        | _ -> None\n"
+            },
+            {
+              "name": "server/controllers/OrdersController.fs",
+              "code": "[<RequestRoute(\"/orders\")>]\n[<Allow(typeof<Admin>)>]\ntype OrdersController(orders: OrderService) =\n    [<GetRoute>]\n    member this.GetOrders() : string list =\n        failwith \"the order store is down\"\n\n    [<PostRoute>]\n    member this.PostOrder([<FromBody>] order: BehaviorJSON) : BehaviorJSON =\n        orders.accept(order)\n",
+              "run": "1089779fccc4e07a"
+            },
+            {
+              "name": "server/controllers/OrdersErrorHandler.fs",
+              "code": "open Models\n\n[<ErrorHandler>]\ntype OrdersErrorHandler() =\n    [<HandlesError>]\n    member this.SignInNeeded(failure: NotSignedIn) : Problem =\n        { Code = \"not_signed_in\"; Message = \"[MS0001]: Sign in again.\" }\n\n    [<HandlesError>]\n    member this.NotAllowed(failure: RoleMissing) : Problem =\n        { Code = \"forbidden\"; Message = \"[MS0002]: You may not do this.\" }\n\n    [<HandlesError>]\n    member this.IdentityDown(failure: IdentityCheckFailed) : Problem =\n        { Code = \"identity_failed\"; Message = \"[MS0003]: Try again later.\" }\n\n    [<HandlesError>]\n    member this.BadRequest(failure: RequestRejected) : Problem =\n        { Code = \"invalid_request\"; Message = \"[MS0004]: \" + failure.Part + \".\" + failure.Field }\n\n    [<HandlesError>]\n    member this.TooLarge(failure: BodyTooLarge) : Problem =\n        { Code = \"too_large\"; Message = \"[MS0005]: \" + string failure.LimitBytes }\n\n    [<HandlesError>]\n    member this.BrokenRules(failure: CheckRejected) : Problem =\n        { Code = \"invalid_input\"; Message = \"[MS0006]: \" + this.Rules(failure) }\n\n    [<HandlesError>]\n    member this.Unexpected(failure: UnexpectedError) : Problem =\n        { Code = \"unexpected\"; Message = \"[MS0000]: Something went wrong.\" }\n\n    member private this.Rules(failure: CheckRejected) : string =\n        failure.Violations\n        |> Seq.map (fun violation -> violation.Field + \":\" + violation.Rule)\n        |> String.concat \",\"\n"
+            },
+            {
+              "name": "server/roles/Admin.rs",
+              "code": "pub struct Admin {}\n"
+            },
+            {
+              "name": "server/models/Identity.rs",
+              "code": "pub struct Identity {\n    pub user: String,\n    pub roles: Vec<String>,\n}\n"
+            },
+            {
+              "name": "server/models/OrderInput.rs",
+              "code": "#[Checked]\npub struct OrderInput {\n    #[NotEmpty]\n    #[Length({\"min\":1,\"max\":80})]\n    name: String,\n    #[Required]\n    #[Min(1)]\n    #[Max(9)]\n    level: f64,\n}\n"
+            },
+            {
+              "name": "server/models/Problem.rs",
+              "code": "pub struct Problem {\n    pub code: String,\n    pub message: String,\n}\n"
+            },
+            {
+              "name": "server/services/OrderService.rs",
+              "code": "use crate::models::OrderInput;\n\n#[yon::service]\nstruct OrderService {}\nimpl OrderService {\n    fn new() -> Self { Self {} }\n    fn accept(&self, #[Check(OrderInput)] order: BehaviorValue) -> BehaviorResult<BehaviorValue> { Ok(order) }\n}\n"
+            },
+            {
+              "name": "server/controllers/AppIdentityProvider.rs",
+              "code": "use crate::models::Identity;\n\n#[IdentityProvider]\nstruct AppIdentityProvider {}\nimpl AppIdentityProvider {\n    fn new() -> Self {\n        Self {}\n    }\n\n    fn identify(&self, request: &http::Request<Vec<u8>>) -> Option<Identity> {\n        let token = request.headers().get(\"authorization\");\n        Self::find(token.map(http::HeaderValue::as_bytes).unwrap_or_default())\n    }\n\n    fn find(token: &[u8]) -> Option<Identity> {\n        match token {\n            b\"ada-token\" => Some(Identity { user: String::from(\"ada\"), roles: vec![String::from(\"Admin\")] }),\n            b\"bob-token\" => Some(Identity { user: String::from(\"bob\"), roles: Vec::new() }),\n            b\"broken-token\" => panic!(\"the session store is down\"),\n            _ => None,\n        }\n    }\n}\n"
+            },
+            {
+              "name": "server/controllers/OrdersController.rs",
+              "code": "use std::sync::Arc;\n\n#[RequestRoute(\"/orders\")]\n#[Allow(Admin)]\nstruct OrdersController {\n    #[Needs]\n    orders: Arc<OrderService>,\n}\nimpl OrdersController {\n    #[GetRoute]\n    fn get_orders(&self) -> Result<Vec<String>, std::io::Error> {\n        Err(std::io::Error::other(\"the order store is down\"))\n    }\n\n    #[PostRoute]\n    fn post_order(&self, #[FromBody] order: Json) -> Result<Json, BehaviorError> {\n        self.orders.accept(order.into()).map(Json::from)\n    }\n}\n",
+              "run": "10d2d4ab2f01046b"
+            },
+            {
+              "name": "server/controllers/OrdersErrorHandler.rs",
+              "code": "use crate::models::Problem;\n\n#[ErrorHandler]\nstruct OrdersErrorHandler {}\n\nimpl OrdersErrorHandler {\n    fn new() -> Self {\n        Self {}\n    }\n\n    #[HandlesError]\n    fn sign_in_needed(&self, error: &NotSignedIn) -> Problem {\n        Problem { code: String::from(\"not_signed_in\"), message: String::from(\"[MS0001]: Sign in again.\") }\n    }\n\n    #[HandlesError]\n    fn not_allowed(&self, error: &RoleMissing) -> Problem {\n        Problem { code: String::from(\"forbidden\"), message: String::from(\"[MS0002]: You may not do this.\") }\n    }\n\n    #[HandlesError]\n    fn identity_down(&self, error: &IdentityCheckFailed) -> Problem {\n        Problem { code: String::from(\"identity_failed\"), message: String::from(\"[MS0003]: Try again later.\") }\n    }\n\n    #[HandlesError]\n    fn bad_request(&self, error: &RequestRejected) -> Problem {\n        Problem { code: String::from(\"invalid_request\"), message: format!(\"[MS0004]: {}.{}\", error.part, error.field) }\n    }\n\n    #[HandlesError]\n    fn too_large(&self, error: &BodyTooLarge) -> Problem {\n        Problem { code: String::from(\"too_large\"), message: format!(\"[MS0005]: {}\", error.limit_bytes) }\n    }\n\n    #[HandlesError]\n    fn broken_rules(&self, error: &CheckRejected) -> Problem {\n        Problem { code: String::from(\"invalid_input\"), message: format!(\"[MS0006]: {}\", Self::rules(&error.violations)) }\n    }\n\n    #[HandlesError]\n    fn unexpected(&self, error: &UnexpectedError) -> Problem {\n        Problem { code: String::from(\"unexpected\"), message: String::from(\"[MS0000]: Something went wrong.\") }\n    }\n\n    fn rules(violations: &[BrokenRule]) -> String {\n        let names: Vec<String> = violations.iter().map(|violation| format!(\"{}:{}\", violation.field, violation.rule)).collect();\n        names.join(\",\")\n    }\n}\n"
+            },
+            {
+              "name": "server/roles/Admin.dart",
+              "code": "class Admin {}\n"
+            },
+            {
+              "name": "server/models/Identity.dart",
+              "code": "class Identity {\n  final String user;\n  final List<String> roles;\n\n  const Identity(this.user, this.roles);\n}\n"
+            },
+            {
+              "name": "server/models/OrderInput.dart",
+              "code": "@Checked\nclass OrderInput {\n  @NotEmpty\n  @Length({\"min\":1,\"max\":80})\n  Object? name;\n  @Required\n  @Min(1)\n  @Max(9)\n  Object? level;\n}\n"
+            },
+            {
+              "name": "server/models/Problem.dart",
+              "code": "class Problem {\n  final String code;\n  final String message;\n  const Problem(this.code, this.message);\n}\n"
+            },
+            {
+              "name": "server/services/OrderService.dart",
+              "code": "@Service\nclass OrderService {\n  Object? accept(@Check(OrderInput) Object? order) {\n    return order;\n  }\n}\n"
+            },
+            {
+              "name": "server/controllers/AppIdentityProvider.dart",
+              "code": "import 'package:shelf/shelf.dart';\nimport 'models/Identity.dart';\n\n@IdentityProvider\nclass AppIdentityProvider {\n  static const _brokenToken = 'broken-token';\n\n  static const _sessions = {\n    'ada-token': Identity('ada', ['Admin']),\n    'bob-token': Identity('bob', []),\n  };\n\n  Identity? identify(Request request) {\n    final token = '${request.headers['authorization']}';\n    _refuseBroken(token);\n    return _find(token);\n  }\n\n  void _refuseBroken(String token) {\n    if (token == _brokenToken) {\n      throw Exception('the session store is down');\n    }\n  }\n\n  Identity? _find(String token) {\n    return _sessions[token];\n  }\n}\n"
+            },
+            {
+              "name": "server/controllers/OrdersController.dart",
+              "code": "@RequestRoute(\"/orders\")\n@Allow(Admin)\nclass OrdersController {\n  @Needs\n  final OrderService orders;\n\n  @GetRoute\n  List<String> getOrders() {\n    throw StateError('the order store is down');\n  }\n\n  @PostRoute\n  Object? postOrder(@FromBody Object? order) => orders.accept(order);\n}\n",
+              "run": "542a0c51802dc367"
+            },
+            {
+              "name": "server/controllers/OrdersErrorHandler.dart",
+              "code": "import 'models/Problem.dart';\n\n@ErrorHandler\nclass OrdersErrorHandler {\n  @HandlesError\n  Problem signInNeeded(NotSignedIn failure) {\n    return const Problem('not_signed_in', '[MS0001]: Sign in again.');\n  }\n\n  @HandlesError\n  Problem notAllowed(RoleMissing failure) {\n    return const Problem('forbidden', '[MS0002]: You may not do this.');\n  }\n\n  @HandlesError\n  Problem identityDown(IdentityCheckFailed failure) {\n    return const Problem('identity_failed', '[MS0003]: Try again later.');\n  }\n\n  @HandlesError\n  Problem badRequest(RequestRejected failure) {\n    return Problem('invalid_request', '[MS0004]: ${failure.part}.${failure.field}');\n  }\n\n  @HandlesError\n  Problem tooLarge(BodyTooLarge failure) {\n    return Problem('too_large', '[MS0005]: ${failure.limitBytes}');\n  }\n\n  @HandlesError\n  Problem brokenRules(CheckRejected failure) {\n    return Problem('invalid_input', '[MS0006]: ${_rules(failure.violations)}');\n  }\n\n  @HandlesError\n  Problem unexpected(UnexpectedError failure) {\n    return const Problem('unexpected', '[MS0000]: Something went wrong.');\n  }\n\n  String _rules(List<BrokenRule> violations) {\n    return violations.map((violation) => '${violation.field}:${violation.rule}').join(',');\n  }\n}\n"
+            },
+            {
+              "name": "server/roles/Admin.go",
+              "code": "type Admin struct{}\n"
+            },
+            {
+              "name": "server/models/Identity.go",
+              "code": "type Identity struct {\n\tUser  string   `json:\"user\"`\n\tRoles []string `json:\"roles\"`\n}\n"
+            },
+            {
+              "name": "server/models/OrderInput.go",
+              "code": "// @Checked\ntype OrderInput struct {\n\t// @NotEmpty\n\t// @Length({\"min\":1,\"max\":80})\n\tname string\n\t// @Required\n\t// @Min(1)\n\t// @Max(9)\n\tlevel float64\n}\n"
+            },
+            {
+              "name": "server/models/Problem.go",
+              "code": "type Problem struct {\n\tCode    string `json:\"code\"`\n\tMessage string `json:\"message\"`\n}\n"
+            },
+            {
+              "name": "server/services/OrderService.go",
+              "code": "// @Service\ntype OrderService struct{}\n\nfunc (service *OrderService) Accept(\n\t// @Check(OrderInput)\n\torder BehaviorValue,\n) (BehaviorValue, error) {\n\treturn order, nil\n}\n"
+            },
+            {
+              "name": "server/controllers/AppIdentityProvider.go",
+              "code": "import (\n\t\"errors\"\n\t\"net/http\"\n)\n\n// @IdentityProvider\ntype AppIdentityProvider struct {\n}\n\nfunc (provider *AppIdentityProvider) Identify(request *http.Request) (*Identity, error) {\n\treturn provider.find(request.Header.Get(\"Authorization\"))\n}\n\nfunc (provider *AppIdentityProvider) find(token string) (*Identity, error) {\n\tif token == \"broken-token\" {\n\t\treturn nil, errors.New(\"the session store is down\")\n\t}\n\treturn provider.sessions()[token], nil\n}\n\nfunc (provider *AppIdentityProvider) sessions() map[string]*Identity {\n\treturn map[string]*Identity{\n\t\t\"ada-token\": {User: \"ada\", Roles: []string{\"Admin\"}},\n\t\t\"bob-token\": {User: \"bob\", Roles: []string{}},\n\t}\n}\n"
+            },
+            {
+              "name": "server/controllers/OrdersController.go",
+              "code": "import \"errors\"\n\n// @RequestRoute(\"/orders\")\n// @Allow(Admin)\ntype OrdersController struct {\n\t// @Needs\n\torders *OrderService\n}\n\n// @GetRoute\nfunc (controller *OrdersController) GetOrders() ([]string, error) {\n\treturn nil, errors.New(\"the order store is down\")\n}\n\n// @PostRoute\nfunc (controller *OrdersController) PostOrder(\n\t// @FromBody\n\torder any,\n) (any, error) {\n\treturn controller.orders.Accept(order)\n}\n",
+              "run": "4838d68ee6ede2cc"
+            },
+            {
+              "name": "server/controllers/OrdersErrorHandler.go",
+              "code": "import (\n\t\"fmt\"\n\t\"strings\"\n)\n\n// @ErrorHandler\ntype OrdersErrorHandler struct{}\n\n// @HandlesError\nfunc (handler *OrdersErrorHandler) SignInNeeded(failure *NotSignedIn) Problem {\n\treturn Problem{Code: \"not_signed_in\", Message: \"[MS0001]: Sign in again.\"}\n}\n\n// @HandlesError\nfunc (handler *OrdersErrorHandler) NotAllowed(failure *RoleMissing) Problem {\n\treturn Problem{Code: \"forbidden\", Message: \"[MS0002]: You may not do this.\"}\n}\n\n// @HandlesError\nfunc (handler *OrdersErrorHandler) IdentityDown(failure *IdentityCheckFailed) Problem {\n\treturn Problem{Code: \"identity_failed\", Message: \"[MS0003]: Try again later.\"}\n}\n\n// @HandlesError\nfunc (handler *OrdersErrorHandler) BadRequest(failure *RequestRejected) Problem {\n\treturn Problem{Code: \"invalid_request\", Message: \"[MS0004]: \" + failure.Part + \".\" + failure.Field}\n}\n\n// @HandlesError\nfunc (handler *OrdersErrorHandler) TooLarge(failure *BodyTooLarge) Problem {\n\treturn Problem{Code: \"too_large\", Message: fmt.Sprintf(\"[MS0005]: %d\", failure.LimitBytes)}\n}\n\n// @HandlesError\nfunc (handler *OrdersErrorHandler) BrokenRules(failure *CheckRejected) Problem {\n\treturn Problem{Code: \"invalid_input\", Message: \"[MS0006]: \" + handler.rules(failure.Violations)}\n}\n\n// @HandlesError\nfunc (handler *OrdersErrorHandler) Unexpected(failure *UnexpectedError) Problem {\n\treturn Problem{Code: \"unexpected\", Message: \"[MS0000]: Something went wrong.\"}\n}\n\nfunc (handler *OrdersErrorHandler) rules(violations []BrokenRule) string {\n\tnames := make([]string, 0, len(violations))\n\tfor _, violation := range violations {\n\t\tnames = append(names, violation.Field+\":\"+violation.Rule)\n\t}\n\treturn strings.Join(names, \",\")\n}\n"
+            },
+            {
+              "name": "server/roles/Admin.rb",
+              "code": "class Admin\nend\n"
+            },
+            {
+              "name": "server/models/Identity.rb",
+              "code": "# @!attribute [r] user\n#   @return [String]\n# @!attribute [r] roles\n#   @return [Array<String>]\nIdentity = Data.define(:user, :roles)\n"
+            },
+            {
+              "name": "server/models/OrderInput.rb",
+              "code": "#[Checked]\nclass OrderInput\n  # @return [String]\n  #[NotEmpty]\n  #[Length({\"min\":1,\"max\":80})]\n  attr_reader :name\n\n  # @return [Integer]\n  #[Required]\n  #[Min(1)]\n  #[Max(9)]\n  attr_reader :level\nend\n"
+            },
+            {
+              "name": "server/models/Problem.rb",
+              "code": "# @!attribute [r] code\n#   @return [String]\n# @!attribute [r] message\n#   @return [String]\nProblem = Data.define(:code, :message)\n"
+            },
+            {
+              "name": "server/services/OrderService.rb",
+              "code": "#[Service]\nclass OrderService\n  # @param order [Hash]\n  # @return [Hash]\n  def accept(\n    #[Check(OrderInput)]\n    order\n  )\n    order\n  end\nend\n"
+            },
+            {
+              "name": "server/controllers/AppIdentityProvider.rb",
+              "code": "#[IdentityProvider]\nclass AppIdentityProvider\n  SESSIONS = {\n    \"ada-token\" => Identity.new(user: \"ada\", roles: [\"Admin\"]),\n    \"bob-token\" => Identity.new(user: \"bob\", roles: [])\n  }.freeze\n  BROKEN_TOKEN = \"broken-token\"\n\n  # @param request [Net::HTTPGenericRequest]\n  # @return [Identity, nil]\n  def identify(request)\n    token = request[\"authorization\"].to_s\n    refuse_broken(token)\n    find(token)\n  end\n\n  private\n\n  # @param token [String]\n  # @return [void]\n  def refuse_broken(token)\n    raise IOError, \"the session store is down\" if token == BROKEN_TOKEN\n  end\n\n  # @param token [String]\n  # @return [Identity, nil]\n  def find(token)\n    SESSIONS[token]\n  end\nend\n"
+            },
+            {
+              "name": "server/controllers/OrdersController.rb",
+              "code": "#[RequestRoute(\"/orders\")]\n#[Allow(Admin)]\nclass OrdersController\n  #[Needs]\n  # @return [OrderService]\n  attr_reader :order_service\n\n  # @return [Array<String>]\n  #[GetRoute]\n  def get_orders\n    raise IOError, \"the order store is down\"\n  end\n\n  # @param order [Hash]\n  # @return [Hash]\n  #[PostRoute]\n  def post_order(\n    #[FromBody]\n    order\n  )\n    order_service.accept(order)\n  end\nend\n",
+              "run": "9f28f57d373d5e04"
+            },
+            {
+              "name": "server/controllers/OrdersErrorHandler.rb",
+              "code": "#[ErrorHandler]\nclass OrdersErrorHandler\n  # @param error [NotSignedIn]\n  # @return [Problem]\n  #[HandlesError]\n  def sign_in_needed(error)\n    Problem.new(code: \"not_signed_in\", message: \"[MS0001]: Sign in again.\")\n  end\n\n  # @param error [RoleMissing]\n  # @return [Problem]\n  #[HandlesError]\n  def not_allowed(error)\n    Problem.new(code: \"forbidden\", message: \"[MS0002]: You may not do this.\")\n  end\n\n  # @param error [IdentityCheckFailed]\n  # @return [Problem]\n  #[HandlesError]\n  def identity_down(error)\n    Problem.new(code: \"identity_failed\", message: \"[MS0003]: Try again later.\")\n  end\n\n  # @param error [RequestRejected]\n  # @return [Problem]\n  #[HandlesError]\n  def bad_request(error)\n    Problem.new(code: \"invalid_request\", message: \"[MS0004]: #{error.part}.#{error.field}\")\n  end\n\n  # @param error [BodyTooLarge]\n  # @return [Problem]\n  #[HandlesError]\n  def too_large(error)\n    Problem.new(code: \"too_large\", message: \"[MS0005]: #{error.limit_bytes}\")\n  end\n\n  # @param error [CheckRejected]\n  # @return [Problem]\n  #[HandlesError]\n  def broken_rules(error)\n    Problem.new(code: \"invalid_input\", message: \"[MS0006]: #{rules(error.violations)}\")\n  end\n\n  # @param error [UnexpectedError]\n  # @return [Problem]\n  #[HandlesError]\n  def unexpected(error)\n    Problem.new(code: \"unexpected\", message: \"[MS0000]: Something went wrong.\")\n  end\n\n  private\n\n  # @param violations [Array<BrokenRule>]\n  # @return [String]\n  def rules(violations)\n    violations.map { |violation| \"#{violation.field}:#{violation.rule}\" }.join(\",\")\n  end\nend\n"
+            },
+            {
+              "name": "server/roles/Admin.hpp",
+              "code": "#pragma once\n\nclass Admin {};\n"
+            },
+            {
+              "name": "server/models/Identity.hpp",
+              "code": "#pragma once\n#include <string>\n#include <vector>\n\nstruct Identity {\n    std::string user;\n    std::vector<std::string> roles;\n};\n"
+            },
+            {
+              "name": "server/models/OrderInput.hpp",
+              "code": "#pragma once\n#include <optional>\n#include <string>\n\nstruct [[Checked]] OrderInput {\n    [[NotEmpty, Length({\"min\":1,\"max\":80})]] std::string name;\n    [[Required, Min(1), Max(9)]] std::optional<int> level;\n};\n"
+            },
+            {
+              "name": "server/models/Problem.hpp",
+              "code": "#pragma once\n#include <string>\n\nstruct Problem {\n    std::string code;\n    std::string message;\n};\n"
+            },
+            {
+              "name": "server/services/OrderService.hpp",
+              "code": "#pragma once\n#include \"../models/OrderInput.hpp\"\n\nclass [[Service]] OrderService {\npublic:\n    OrderInput accept([[Check]] const OrderInput& order) { return order; }\n};\n"
+            },
+            {
+              "name": "server/controllers/AppIdentityProvider.hpp",
+              "code": "#pragma once\n#include <optional>\n#include <stdexcept>\n#include <string>\n#include \"../models/Identity.hpp\"\n\nclass [[IdentityProvider]] AppIdentityProvider {\npublic:\n    std::optional<Identity> identify(const tachyon::http::HttpRequestMessage& request) {\n        std::string token = request.headers.get(\"authorization\").value_or(\"\");\n        refuseBroken(token);\n        return find(token);\n    }\n\nprivate:\n    static void refuseBroken(const std::string& token) {\n        if (token == \"broken-token\") {\n            throw std::runtime_error(\"the session store is down\");\n        }\n    }\n\n    static std::optional<Identity> find(const std::string& token) {\n        if (token == \"ada-token\") {\n            return Identity{\"ada\", {\"Admin\"}};\n        }\n        if (token == \"bob-token\") {\n            return Identity{\"bob\", {}};\n        }\n        return std::nullopt;\n    }\n};\n"
+            },
+            {
+              "name": "server/controllers/OrdersController.hpp",
+              "code": "#pragma once\n#include <stdexcept>\n#include <string>\n#include <vector>\n#include \"../models/OrderInput.hpp\"\n\nclass [[RequestRoute(\"/orders\")]] [[Allow(Admin)]] OrdersController {\n    [[Needs]] OrderService& orders;\n\npublic:\n    [[GetRoute]]\n    std::vector<std::string> getOrders() {\n        throw std::runtime_error(\"the order store is down\");\n    }\n\n    [[PostRoute]]\n    OrderInput postOrder([[FromBody]] const OrderInput& order) { return orders.accept(order); }\n};\n",
+              "run": "d26b5ce80d57514c"
+            },
+            {
+              "name": "server/controllers/OrdersErrorHandler.hpp",
+              "code": "#pragma once\n#include <string>\n#include <vector>\n#include \"../models/Problem.hpp\"\n\nclass [[ErrorHandler]] OrdersErrorHandler {\npublic:\n    [[HandlesError]]\n    Problem signInNeeded(const NotSignedIn& error) {\n        return Problem{\"not_signed_in\", \"[MS0001]: Sign in again.\"};\n    }\n\n    [[HandlesError]]\n    Problem notAllowed(const RoleMissing& error) {\n        return Problem{\"forbidden\", \"[MS0002]: You may not do this.\"};\n    }\n\n    [[HandlesError]]\n    Problem identityDown(const IdentityCheckFailed& error) {\n        return Problem{\"identity_failed\", \"[MS0003]: Try again later.\"};\n    }\n\n    [[HandlesError]]\n    Problem badRequest(const RequestRejected& error) {\n        return Problem{\"invalid_request\", \"[MS0004]: \" + error.part + \".\" + error.field};\n    }\n\n    [[HandlesError]]\n    Problem tooLarge(const BodyTooLarge& error) {\n        return Problem{\"too_large\", \"[MS0005]: \" + std::to_string(error.limitBytes)};\n    }\n\n    [[HandlesError]]\n    Problem brokenRules(const CheckRejected& error) {\n        return Problem{\"invalid_input\", \"[MS0006]: \" + rules(error.violations)};\n    }\n\n    [[HandlesError]]\n    Problem unexpected(const UnexpectedError& error) {\n        return Problem{\"unexpected\", \"[MS0000]: Something went wrong.\"};\n    }\n\nprivate:\n    static std::string rules(const std::vector<BrokenRule>& violations) {\n        std::string joined;\n        for (const BrokenRule& violation : violations) {\n            joined += \",\" + violation.field + \":\" + violation.rule;\n        }\n        return joined.erase(0, 1);\n    }\n};\n"
+            },
+            {
+              "name": "server/roles/Admin.lua",
+              "code": "---@class Admin\nAdmin = {}\n"
+            },
+            {
+              "name": "server/models/Identity.lua",
+              "code": "---@class Identity\n---@field user string\n---@field roles string[]\nIdentity = {}\n"
+            },
+            {
+              "name": "server/models/OrderInput.lua",
+              "code": "-- @Checked\n---@class OrderInput\nOrderInput = {\n  -- @NotEmpty\n  -- @Length({\"min\":1,\"max\":80})\n  ---@type string\n  name = nil,\n  -- @Required\n  -- @Min(1)\n  -- @Max(9)\n  ---@type integer\n  level = nil,\n}\n"
+            },
+            {
+              "name": "server/models/Problem.lua",
+              "code": "---@class Problem\n---@field code string\n---@field message string\nProblem = {}\n"
+            },
+            {
+              "name": "server/services/OrderService.lua",
+              "code": "-- @Service\n---@class OrderService\nOrderService = {}\n\n---@param order table\n---@return table\nfunction OrderService:accept(\n  -- @Check(OrderInput)\n  order\n)\n  return order\nend\n"
+            },
+            {
+              "name": "server/controllers/AppIdentityProvider.lua",
+              "code": "-- @IdentityProvider\n---@class AppIdentityProvider\nAppIdentityProvider = {}\n\n---@param request table\n---@return Identity|nil\nfunction AppIdentityProvider:identify(request)\n  local token = request.headers[\"authorization\"]\n  self:_refuse_broken(token)\n  return self:_find(token)\nend\n\n---@param token string|nil\nfunction AppIdentityProvider:_refuse_broken(token)\n  if token == \"broken-token\" then\n    error(\"the session store is down\")\n  end\nend\n\n---@param token string|nil\n---@return Identity|nil\nfunction AppIdentityProvider:_find(token)\n  if token == \"ada-token\" then\n    return { user = \"ada\", roles = { \"Admin\" } }\n  end\n  if token == \"bob-token\" then\n    return { user = \"bob\", roles = {} }\n  end\n  return nil\nend\n"
+            },
+            {
+              "name": "server/controllers/OrdersController.lua",
+              "code": "-- @RequestRoute(\"/orders\")\n-- @Allow(Admin)\n---@class OrdersController\nOrdersController = {\n  -- @Needs\n  ---@type OrderService\n  order_service = nil,\n}\n\n---@return string[]\n-- @GetRoute\nfunction OrdersController:get_orders()\n  error(\"the order store is down\")\nend\n\n---@param order table\n---@return table\n-- @PostRoute\nfunction OrdersController:post_order(\n  -- @FromBody\n  order\n)\n  return self.order_service:accept(order)\nend\n",
+              "run": "2ac62b19505718a3"
+            },
+            {
+              "name": "server/controllers/OrdersErrorHandler.lua",
+              "code": "-- @ErrorHandler\n---@class OrdersErrorHandler\nOrdersErrorHandler = {}\n\n---@param failure NotSignedIn\n---@return Problem\n-- @HandlesError\nfunction OrdersErrorHandler:sign_in_needed(failure)\n  return { code = \"not_signed_in\", message = \"[MS0001]: Sign in again.\" }\nend\n\n---@param failure RoleMissing\n---@return Problem\n-- @HandlesError\nfunction OrdersErrorHandler:not_allowed(failure)\n  return { code = \"forbidden\", message = \"[MS0002]: You may not do this.\" }\nend\n\n---@param failure IdentityCheckFailed\n---@return Problem\n-- @HandlesError\nfunction OrdersErrorHandler:identity_down(failure)\n  return { code = \"identity_failed\", message = \"[MS0003]: Try again later.\" }\nend\n\n---@param failure RequestRejected\n---@return Problem\n-- @HandlesError\nfunction OrdersErrorHandler:bad_request(failure)\n  return { code = \"invalid_request\", message = \"[MS0004]: \" .. failure.part .. \".\" .. failure.field }\nend\n\n---@param failure BodyTooLarge\n---@return Problem\n-- @HandlesError\nfunction OrdersErrorHandler:too_large(failure)\n  return { code = \"too_large\", message = \"[MS0005]: \" .. failure.limit_bytes }\nend\n\n---@param failure CheckRejected\n---@return Problem\n-- @HandlesError\nfunction OrdersErrorHandler:broken_rules(failure)\n  return { code = \"invalid_input\", message = \"[MS0006]: \" .. self:_rules(failure.violations) }\nend\n\n---@param failure UnexpectedError\n---@return Problem\n-- @HandlesError\nfunction OrdersErrorHandler:unexpected(failure)\n  return { code = \"unexpected\", message = \"[MS0000]: Something went wrong.\" }\nend\n\n---@param violations table\n---@return string\nfunction OrdersErrorHandler:_rules(violations)\n  local names = {}\n  for index, violation in ipairs(violations) do\n    names[index] = violation.field .. \":\" .. violation.rule\n  end\n  return table.concat(names, \",\")\nend\n"
+            }
+          ]
         }
       ]
     },
