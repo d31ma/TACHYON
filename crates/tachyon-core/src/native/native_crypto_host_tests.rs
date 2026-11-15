@@ -121,6 +121,7 @@ return results.join(',');";
         String::from(store.split(',').next().unwrap_or_default())
     }
 
+    #[cfg(target_os = "macos")]
     fn expect(output: &str, phase: &str, checks: &[(&str, Expected)], store: &str) {
         let wanted: Vec<String> = checks.iter().map(|(_, expected)| expected(store)).collect();
         assert_eq!(Self::answers(output, phase), wanted, "{output}");
