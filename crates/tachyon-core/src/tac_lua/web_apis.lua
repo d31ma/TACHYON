@@ -204,16 +204,16 @@ function Passkeys:check()
   TacWebHost.call("passkeys", "check")
 end
 
-function Passkeys:create(options_json)
-  TacWebHost.call("passkeys", "create", { options_json })
+function Passkeys:create(options_json, prf_key)
+  TacWebHost.call("passkeys", "create", { options_json, prf_key })
 end
 
-function Passkeys:get(options_json)
-  TacWebHost.call("passkeys", "get", { options_json })
+function Passkeys:get(options_json, prf_key)
+  TacWebHost.call("passkeys", "get", { options_json, prf_key })
 end
 
-function Passkeys:offer(options_json)
-  TacWebHost.call("passkeys", "offer", { options_json })
+function Passkeys:offer(options_json, prf_key)
+  TacWebHost.call("passkeys", "offer", { options_json, prf_key })
 end
 
 function Passkeys:cancel()

@@ -1,6 +1,8 @@
 class TacPasskeys {
   static key = Symbol.for('tachyon.tac.passkeys')
   static webKey = Symbol.for('tachyon.tac.web')
+  static cryptoHooksKey = Symbol.for('tachyon.tac.crypto.hooks')
+  static noPrfKeys = Object.freeze({ prfKey: '', prfSecondKey: '' })
   static mostOptionBytes = 65536
   static base64url = /^[A-Za-z0-9_-]*={0,2}$/
   static errorName = /^[A-Za-z]{1,40}$/
@@ -13,6 +15,7 @@ class TacPasskeys {
     TypeError: 'invalid',
     SyntaxError: 'invalid',
     EncodingError: 'invalid',
+    KeyExistsError: 'keyExists',
   })
   static messages = Object.freeze({
     cancelled: 'The person closed the passkey prompt, or chose no passkey.',
@@ -21,6 +24,7 @@ class TacPasskeys {
     refused: 'The relying party does not match this page.',
     busy: 'Another passkey prompt is already open.',
     invalid: 'The passkey options are not WebAuthn JSON of at most 65536 bytes.',
+    keyExists: 'A Crypto key with the PRF key name is already on this device. Forget it first.',
     failed: 'The passkey call failed.',
   })
   static pending = null
@@ -31,9 +35,9 @@ class TacPasskeys {
       configurable: true,
       value: Object.freeze({
         check: () => TacPasskeys.check().catch((error) => TacPasskeys.failed('check', error)),
-        create: (options) => TacPasskeys.ceremony('create', options),
-        get: (options) => TacPasskeys.ceremony('get', options),
-        offer: (options) => TacPasskeys.ceremony('offer', options),
+        create: (options, prfKey) => TacPasskeys.ceremony('create', options, prfKey),
+        get: (options, prfKey) => TacPasskeys.ceremony('get', options, prfKey),
+        offer: (options, prfKey) => TacPasskeys.ceremony('offer', options, prfKey),
         cancel: () => TacPasskeys.stop(),
       }),
     })
@@ -52,15 +56,15 @@ class TacPasskeys {
     return ['PasskeySupport', { platform: platform === true, conditional: conditional === true }]
   }
 
-  static ceremony(call, text) {
+  static ceremony(call, text, prfKey = '') {
     if (!TacPasskeys.usable()) return TacPasskeys.failure(call, 'unsupported')
     if (TacPasskeys.pending && TacPasskeys.pending.call !== 'offer') return TacPasskeys.failure(call, 'busy')
-    return TacPasskeys.begin(call, text)
+    return TacPasskeys.begin(call, text, prfKey)
   }
 
-  static begin(call, text) {
+  static begin(call, text, prfKey) {
     try {
-      return TacPasskeys.ask(call, TacPasskeys.options(call, text))
+      return TacPasskeys.ask(call, TacPasskeys.options(call, text), prfKey)
     } catch (error) {
       return TacPasskeys.failed(call, error)
     }
@@ -91,12 +95,34 @@ class TacPasskeys {
   static decodedCreation(json) {
     const user = { ...json.user, id: TacPasskeys.bytes(json.user?.id) }
     const excludeCredentials = json.excludeCredentials?.map((credential) => TacPasskeys.descriptor(credential))
-    return { ...json, challenge: TacPasskeys.bytes(json.challenge), user, excludeCredentials }
+    return { ...json, challenge: TacPasskeys.bytes(json.challenge), user, excludeCredentials, extensions: TacPasskeys.decodedExtensions(json.extensions) }
   }
 
   static decodedRequest(json) {
     const allowCredentials = json.allowCredentials?.map((credential) => TacPasskeys.descriptor(credential))
-    return { ...json, challenge: TacPasskeys.bytes(json.challenge), allowCredentials }
+    return { ...json, challenge: TacPasskeys.bytes(json.challenge), allowCredentials, extensions: TacPasskeys.decodedExtensions(json.extensions) }
+  }
+
+  static decodedExtensions(extensions) {
+    if (extensions?.prf === undefined) return extensions
+    return { ...extensions, prf: TacPasskeys.decodedPrf(extensions.prf) }
+  }
+
+  static decodedPrf(prf) {
+    const decoded = { ...prf }
+    if (prf.eval !== undefined) decoded.eval = TacPasskeys.prfInputs(prf.eval)
+    if (prf.evalByCredential !== undefined) decoded.evalByCredential = TacPasskeys.prfInputsByCredential(prf.evalByCredential)
+    return decoded
+  }
+
+  static prfInputsByCredential(inputs) {
+    return Object.fromEntries(Object.entries(inputs).map(([id, values]) => [id, TacPasskeys.prfInputs(values)]))
+  }
+
+  static prfInputs(values) {
+    const decoded = { first: TacPasskeys.bytes(values?.first) }
+    if (values.second !== undefined) decoded.second = TacPasskeys.bytes(values.second)
+    return decoded
   }
 
   static descriptor(credential) {
@@ -113,12 +139,12 @@ class TacPasskeys {
     return typeof text === 'string' && TacPasskeys.base64url.test(text) && text.replace(/=+$/, '').length % 4 !== 1
   }
 
-  static ask(call, publicKey) {
+  static ask(call, publicKey, prfKey) {
     TacPasskeys.pending?.controller.abort()
     const pending = { call, controller: new AbortController() }
     TacPasskeys.pending = pending
     const asking = call === 'offer' ? TacPasskeys.offered(pending, publicKey) : TacPasskeys.modal(call, { publicKey, signal: pending.controller.signal })
-    return asking.then((credential) => TacPasskeys.answered(call, credential)).catch((error) => TacPasskeys.refused(pending, error)).finally(() => TacPasskeys.release(pending))
+    return asking.then((credential) => TacPasskeys.answered(call, credential, prfKey)).catch((error) => TacPasskeys.refused(pending, error)).finally(() => TacPasskeys.release(pending))
   }
 
   static modal(call, options) {
@@ -131,11 +157,22 @@ class TacPasskeys {
     return navigator.credentials.get({ publicKey, mediation: 'conditional', signal: pending.controller.signal })
   }
 
-  static answered(call, credential) {
+  static async answered(call, credential, prfKey) {
     if (!credential) return TacPasskeys.failure(call, 'cancelled')
     const credentialJson = JSON.stringify(TacPasskeys.withoutPrfResults(TacPasskeys.json(credential)))
-    if (call === 'create') return ['PasskeyCreated', { credentialJson }]
-    return ['PasskeyAsserted', { credentialJson, conditional: call === 'offer' }]
+    const keys = await TacPasskeys.prfKeys(prfKey, credential.getClientExtensionResults?.().prf?.results)
+    if (call === 'create') return ['PasskeyCreated', { credentialJson, ...keys }]
+    return ['PasskeyAsserted', { credentialJson, conditional: call === 'offer', ...keys }]
+  }
+
+  static prfKeys(prfKey, results) {
+    if (prfKey === '' || !results?.first) return TacPasskeys.noPrfKeys
+    const second = results.second ? TacPasskeys.view(results.second) : null
+    return globalThis[TacPasskeys.cryptoHooksKey].prf(prfKey, { first: TacPasskeys.view(results.first), second }).catch((error) => { throw TacPasskeys.keyError(error) })
+  }
+
+  static keyError(error) {
+    return new DOMException('', error?.reason === 'exists' ? 'KeyExistsError' : 'OperationError')
   }
 
   static withoutPrfResults(json) {
@@ -214,9 +251,12 @@ class TacPasskeys {
     return Object.fromEntries(Object.entries(value).map(([name, item]) => [name, TacPasskeys.plain(item)]))
   }
 
+  static view(data) {
+    return ArrayBuffer.isView(data) ? new Uint8Array(data.buffer, data.byteOffset, data.byteLength) : new Uint8Array(data)
+  }
+
   static text(data) {
-    const bytes = ArrayBuffer.isView(data) ? new Uint8Array(data.buffer, data.byteOffset, data.byteLength) : new Uint8Array(data)
-    const binary = Array.from(bytes, (byte) => String.fromCharCode(byte)).join('')
+    const binary = Array.from(TacPasskeys.view(data), (byte) => String.fromCharCode(byte)).join('')
     return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
   }
 }

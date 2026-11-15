@@ -6,11 +6,11 @@ public sealed class Passkeys
 
     public void Check() => TacWebHost.Call(Api, "check", new JsonArray());
 
-    public void Create(string optionsJson) => TacWebHost.Call(Api, "create", new JsonArray(optionsJson));
+    public void Create(string optionsJson, string prfKey) => TacWebHost.Call(Api, "create", new JsonArray(optionsJson, prfKey));
 
-    public void Get(string optionsJson) => TacWebHost.Call(Api, "get", new JsonArray(optionsJson));
+    public void Get(string optionsJson, string prfKey) => TacWebHost.Call(Api, "get", new JsonArray(optionsJson, prfKey));
 
-    public void Offer(string optionsJson) => TacWebHost.Call(Api, "offer", new JsonArray(optionsJson));
+    public void Offer(string optionsJson, string prfKey) => TacWebHost.Call(Api, "offer", new JsonArray(optionsJson, prfKey));
 
     public void Cancel() => TacWebHost.Call(Api, "cancel", new JsonArray());
 }

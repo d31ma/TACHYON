@@ -1893,6 +1893,23 @@ Owed, by hand: one real `create` and `get` with Touch ID in branded Safari on
 macOS, and with the platform authenticator in Chrome on macOS or Windows.
 Native apps answer `unsupported` until the platform passkey APIs are built.
 
+### Passkey PRF into a Crypto key (2026-11-14, ADR 0126 amendment P3)
+
+`scripts/passkeys-browser-test.mjs` ran on the macOS test machine
+(Playwright 1.62.1). Chromium ran real ceremonies against a DevTools virtual
+authenticator with `hasPrf: true`: a `get` with `prf.eval` and a `prfKey`
+answered `prfKey` and `prfSecondKey`, `credentialJson` held no PRF result,
+and the Crypto key equalled HKDF over the browser's own PRF output; another
+salt gave another key; a taken name answered `keyExists`. Chromium, Firefox
+and WebKit all report `extension:prf` in `getClientCapabilities()`, and in
+all three Tachyon's converter decodes `prf.eval` and `prf.evalByCredential`
+like the browser's own `parseRequestOptionsFromJSON`. Firefox and WebKit have
+no virtual authenticator, so no PRF ceremony ran there.
+
+Owed, by hand: PRF with Touch ID in branded Safari (iCloud Keychain passkey,
+Safari 18 or later) and with Chrome's platform authenticator. Native apps
+answer `unsupported` until native passkeys (T14).
+
 ### Branded browsers (BR2, runner 2026-10-25)
 
 `scripts/branded-browser-gate.mjs --browser=<name>` runs the web gates

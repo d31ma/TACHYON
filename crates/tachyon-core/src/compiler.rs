@@ -58,6 +58,8 @@ mod page_media_frames_tests;
 mod page_media_tests;
 mod page_module;
 #[cfg(test)]
+mod page_passkeys_prf_tests;
+#[cfg(test)]
 mod page_passkeys_tests;
 mod page_state;
 mod page_transfer;

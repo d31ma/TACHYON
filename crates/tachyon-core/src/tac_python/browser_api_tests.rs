@@ -161,13 +161,13 @@ impl BrowserApiPage {
          \x20   def enroll(self) -> None:\n\
          \x20       self.ready = self.passkeys.supported()\n\
          \x20       self.passkeys.check()\n\
-         \x20       self.passkeys.create('{}')\n\
-         \x20       self.passkeys.get('{}')\n\
-         \x20       self.passkeys.offer('{}')\n\
+         \x20       self.passkeys.create('{}', '')\n\
+         \x20       self.passkeys.get('{}', 'unlock')\n\
+         \x20       self.passkeys.offer('{}', '')\n\
          \x20       self.passkeys.cancel()\n\n\
          \x20   @on_event\n\
          \x20   def created_key(self, passkey: PasskeyCreated) -> None:\n\
-         \x20       self.created = passkey.credentialJson\n\n\
+         \x20       self.created = passkey.credentialJson + ' ' + passkey.prfKey\n\n\
          \x20   @on_event\n\
          \x20   def failed(self, failed: PasskeyFailed) -> None:\n\
          \x20       self.failure = f'{failed.call} {failed.reason}'\n",
@@ -181,7 +181,7 @@ impl BrowserApiPage {
          _TacPythonRuntime.connect(_emitted.append, None, web=_web)\n\
          _report = {'init': _ask('stamp', {'op': 'init', 'props': {}})}\n\
          _report['enroll'] = _ask('stamp', {'op': 'call', 'name': 'enroll', 'args': []})\n\
-         _report['heard'] = _ask('stamp', {'op': 'event', 'name': 'created_key', 'value': {'credentialJson': '{\"id\":\"AQ\"}'}})\n\
+         _report['heard'] = _ask('stamp', {'op': 'event', 'name': 'created_key', 'value': {'credentialJson': '{\"id\":\"AQ\"}', 'prfKey': 'unlock', 'prfSecondKey': ''}})\n\
          _report['failed'] = _ask('stamp', {'op': 'event', 'name': 'failed', 'value': {'call': 'get', 'reason': 'cancelled', 'message': 'closed'}})\n\
          _report['ready'] = _ask('stamp', {'op': 'get', 'name': 'ready'})\n\
          _report['created'] = _ask('stamp', {'op': 'get', 'name': 'created'})\n\
@@ -619,7 +619,7 @@ fn a_python_web_service_creates_and_uses_passkeys() {
     assert_eq!(report["ready"], json!({"value": true}), "{report}");
     assert_eq!(
         report["created"],
-        json!({"value": "{\"id\":\"AQ\"}"}),
+        json!({"value": "{\"id\":\"AQ\"} unlock"}),
         "{report}"
     );
     assert_eq!(
@@ -632,9 +632,9 @@ fn a_python_web_service_creates_and_uses_passkeys() {
         json!([
             ["passkeys", "supported", []],
             ["passkeys", "check", []],
-            ["passkeys", "create", ["{}"]],
-            ["passkeys", "get", ["{}"]],
-            ["passkeys", "offer", ["{}"]],
+            ["passkeys", "create", ["{}", ""]],
+            ["passkeys", "get", ["{}", "unlock"]],
+            ["passkeys", "offer", ["{}", ""]],
             ["passkeys", "cancel", []],
         ]),
         "{report}"

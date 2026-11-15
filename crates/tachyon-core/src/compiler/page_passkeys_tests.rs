@@ -214,11 +214,11 @@ console.log(JSON.stringify(report))
     }
 
     fn asserted(owner: &str, credential: &str, conditional: bool) -> serde_json::Value {
-        serde_json::json!([owner, "PasskeyAsserted", {"credentialJson": credential, "conditional": conditional}])
+        serde_json::json!([owner, "PasskeyAsserted", {"credentialJson": credential, "conditional": conditional, "prfKey": "", "prfSecondKey": ""}])
     }
 
     fn created(owner: &str, credential: &str) -> serde_json::Value {
-        serde_json::json!([owner, "PasskeyCreated", {"credentialJson": credential}])
+        serde_json::json!([owner, "PasskeyCreated", {"credentialJson": credential, "prfKey": "", "prfSecondKey": ""}])
     }
 
     fn asked(

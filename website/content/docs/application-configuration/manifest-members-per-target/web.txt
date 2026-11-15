@@ -136,7 +136,7 @@ tac.browserApis push
   honored: PushManager on a push service worker at /.tachyon/push/ that shows the message and opens its same-origin path when clicked (ADR 0118); Safari on iPhone and iPad gives Web Push only to the app added to the Home Screen, iOS 16.4 and later
 
 tac.browserApis passkeys
-  honored: navigator.credentials.create and get with the browser's own WebAuthn in a secure page (ADR 0126): WebAuthn JSON text in and out, conditional mediation for autofill, a PasskeyFailed reason word for each failure; Chromium is checked with the DevTools virtual authenticator, Firefox and WebKit without one (scripts/passkeys-browser-test.mjs)
+  honored: navigator.credentials.create and get with the browser's own WebAuthn in a secure page (ADR 0126): WebAuthn JSON text in and out, conditional mediation for autofill, a PasskeyFailed reason word for each failure, PRF results turned into Crypto keys that the service never reads (prfKey, with the crypto grant); Chromium is checked with the DevTools virtual authenticator, Firefox and WebKit without one (scripts/passkeys-browser-test.mjs)
 
 tac.browserApis blobs
   honored: IndexedDB Blob values in the database tachyon-blobs (ADR 0134): saveHeld, download, list, read, remove, open, upload; blob: URLs for img and video; checked in Chromium, Firefox and WebKit (scripts/blobs-browser-test.mjs)

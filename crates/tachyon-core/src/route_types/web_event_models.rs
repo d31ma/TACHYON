@@ -266,7 +266,11 @@ impl WebEventModels {
             Self::record(
                 WebEventSender::Grant("passkeys"),
                 "PasskeyCreated",
-                &[("credentialJson", Shape::Text)],
+                &[
+                    ("credentialJson", Shape::Text),
+                    ("prfKey", Shape::Text),
+                    ("prfSecondKey", Shape::Text),
+                ],
             ),
             Self::record(
                 WebEventSender::Grant("passkeys"),
@@ -274,6 +278,8 @@ impl WebEventModels {
                 &[
                     ("credentialJson", Shape::Text),
                     ("conditional", Shape::Boolean),
+                    ("prfKey", Shape::Text),
+                    ("prfSecondKey", Shape::Text),
                 ],
             ),
         ]

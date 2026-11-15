@@ -18,6 +18,20 @@ machine contracts have their own, independent major versions.
   forwarding server cannot read them. The VP8 header stays in clear for the
   server's layer switching. New events `MediaFrameKeyReady`,
   `MediaFrameKeyMissing` and `MediaFrameRejected`.
+- **A passkey's PRF result becomes a Crypto key the service never reads**
+  (ADR 0126 amendment, TACHYON request P3). `Passkeys.create`, `get` and
+  `offer` take a second argument, `prfKey` (`prf_key` in Python, Ruby and
+  Lua); pass `""` to keep the old behaviour. Passkeys is not in a release
+  yet (it is new in this Unreleased section), so this changes an unreleased
+  API and breaks no shipped app. With a name of 1 to 57
+  characters and the `crypto` grant, the page imports the authenticator's
+  `prf.results.first` as a not-kept Crypto `derive` key of that name, and
+  `second` as `<prfKey>.second`, then clears the bytes. `PasskeyCreated` and
+  `PasskeyAsserted` get `prfKey` and `prfSecondKey` (`""` when there was no
+  result). The service derives its own key with `Crypto.deriveKey`; neither
+  the service nor the server ever holds the PRF bytes. A taken name answers
+  `PasskeyFailed` with the new reason `keyExists`. Tachyon's own WebAuthn
+  converter now decodes `prf.eval` and `prf.evalByCredential`.
 - **Crypto verifies an empty message on every engine** (ADR 0133).
   `Crypto.sign` and `Crypto.verify` accept empty data again. WebKit answers
   `false` when it verifies an Ed25519 signature over an empty message; the

@@ -46,22 +46,25 @@ in a later decision.
    | --- | --- | --- |
    | `supported()` | no; no grant | at once: true in a secure page with `PublicKeyCredential`, false in a native app |
    | `check()` | no | `PasskeySupport { platform, conditional }` |
-   | `create(optionsJson)` | yes | `PasskeyCreated { credentialJson }` |
-   | `get(optionsJson)` | yes | `PasskeyAsserted { credentialJson, conditional: false }` |
-   | `offer(optionsJson)` | no | `PasskeyAsserted { credentialJson, conditional: true }` when the person picks a passkey in autofill |
+   | `create(optionsJson, prfKey)` | yes | `PasskeyCreated { credentialJson, prfKey, prfSecondKey }` |
+   | `get(optionsJson, prfKey)` | yes | `PasskeyAsserted { credentialJson, conditional: false, prfKey, prfSecondKey }` |
+   | `offer(optionsJson, prfKey)` | no | `PasskeyAsserted { credentialJson, conditional: true, prfKey, prfSecondKey }` when the person picks a passkey in autofill |
+
+   `prfKey` and the two event fields come from the second amendment of
+   2026-11-14 (P3): pass `""` when the app does not use PRF.
    | `cancel()` | no | nothing |
 
    | Language | Field | Calls |
    | --- | --- | --- |
-   | JavaScript, TypeScript | `@Needs passkeys` (`TacPasskeys`) | `supported()`, `check()`, `create(optionsJson)`, `get`, `offer`, `cancel()` |
+   | JavaScript, TypeScript | `@Needs passkeys` (`TacPasskeys`) | `supported()`, `check()`, `create(optionsJson, prfKey)`, `get`, `offer`, `cancel()` |
    | Rust | a `passkeys: Passkeys` field filled by `Default` | the same, each returns `Result`; `supported` gives `Result<bool, String>` |
-   | Go | a `// @Needs` field `passkeys Passkeys` | `Supported() (bool, error)`, `Check() error`, `Create(optionsJSON string) error`, `Get`, `Offer`, `Cancel()` |
-   | C#, F# | `new()` field, `let passkeys = Passkeys()` | `Supported()`, `Check()`, `Create(optionsJson)`, `Get`, `Offer`, `Cancel()` |
-   | Kotlin, Java, Dart, C++ | `Passkeys()`, `new Passkeys()`, a `@Needs()` field, `[[Needs]] Passkeys&` | `supported()`, `check()`, `create(optionsJson)`, `get`, `offer`, `cancel()` |
-   | Swift | `Passkeys()` | `supported()`, `check()`, `create(optionsJson:)`, `get(optionsJson:)`, `offer(optionsJson:)`, `cancel()`, all `throws` |
-   | Ruby | `Passkeys.new` | `supported`, `check`, `create(options_json)`, `get`, `offer`, `cancel` |
-   | Lua | the global table `Passkeys` | `Passkeys:create(options_json)` and the others |
-   | Python | a `needs` field `passkeys: Annotated[Passkeys, needs]` | `supported()`, `check()`, `create(options_json)`, `get`, `offer`, `cancel()` |
+   | Go | a `// @Needs` field `passkeys Passkeys` | `Supported() (bool, error)`, `Check() error`, `Create(optionsJSON string, prfKey string) error`, `Get`, `Offer`, `Cancel()` |
+   | C#, F# | `new()` field, `let passkeys = Passkeys()` | `Supported()`, `Check()`, `Create(optionsJson, prfKey)`, `Get`, `Offer`, `Cancel()` |
+   | Kotlin, Java, Dart, C++ | `Passkeys()`, `new Passkeys()`, a `@Needs()` field, `[[Needs]] Passkeys&` | `supported()`, `check()`, `create(optionsJson, prfKey)`, `get`, `offer`, `cancel()` |
+   | Swift | `Passkeys()` | `supported()`, `check()`, `create(optionsJson:prfKey:)`, `get(optionsJson:prfKey:)`, `offer(optionsJson:prfKey:)`, `cancel()`, all `throws` |
+   | Ruby | `Passkeys.new` | `supported`, `check`, `create(options_json, prf_key)`, `get`, `offer`, `cancel` |
+   | Lua | the global table `Passkeys` | `Passkeys:create(options_json, prf_key)` and the others |
+   | Python | a `needs` field `passkeys: Annotated[Passkeys, needs]` | `supported()`, `check()`, `create(options_json, prf_key)`, `get`, `offer`, `cancel()` |
 
    Natively linked services cannot use `Passkeys`, like every page client
    (`TY1317`).
@@ -214,7 +217,7 @@ the chat backup.
 - Tachyon's own converter still does not decode the PRF inputs
   (`prf.eval`, `prf.evalByCredential`); browsers without
   `parseRequestOptionsFromJSON` answer such options with `invalid`. P3 adds
-  this.
+  this (see the next amendment).
 
 ### Evidence
 
@@ -222,3 +225,113 @@ the chat backup.
   `create` and `get` with `prf.enabled` and both PRF results, through
   `toJSON()` and through Tachyon's converter; the events keep
   `prf.enabled` and contain neither result.
+
+## Amendment (2026-11-14, P3): a PRF result becomes a Crypto key
+
+- Also amends: [ADR 0132](0132-tac-services-sign-agree-and-encrypt-with-keys-that-stay-on-the-device.md)
+  (a second way to make a `Crypto` key, and two page hooks).
+
+### Context
+
+The first amendment keeps the PRF secret away from the server, but a service
+still cannot use it. Mesail (TACHYON request P3, from CADUCEUS ADR 0011)
+needs the PRF result as the root of its backup key, and the raw bytes must
+stay on the device, out of service code and out of the server. ADR 0132
+already holds secret keys as named handles that no call returns.
+
+### Decision
+
+1. `create`, `get` and `offer` take a second argument, `prfKey`, in every
+   Tac language (`prf_key` in Python, Ruby and Lua). `""` means no PRF key:
+   the call works as before, and needs no `crypto` grant. Passkeys was not in
+   a release yet, so the new required argument breaks no shipped app.
+2. A non-empty `prfKey` is a `Crypto` key name of **1 to 57** letters,
+   digits, dots, dashes or underscores, so that `<prfKey>.second` (at most
+   64) is a key name too. It needs the `crypto` grant and the Crypto page
+   module. Otherwise the call fails at once, as the call's own error (the
+   service sees it like any other page error): "The crypto browser API is not
+   granted...", "The crypto browser API did not load on this page." or the
+   name rule.
+3. When the authenticator answers with `prf.results`, the page imports
+   `first` as a `Crypto` key named `prfKey`, and `second` (when present) as
+   `<prfKey>.second`. Both have use `derive` (HKDF-SHA-256) and are **not
+   kept**: they live in the page's memory and end with the page. The page
+   writes zeros over the result bytes after the import. The PRF results are
+   still removed from `credentialJson` (first amendment).
+4. `PasskeyCreated` and `PasskeyAsserted` get two Text fields, `prfKey` and
+   `prfSecondKey`: the names of the keys made, or `""` when the authenticator
+   gave no such result (or `prfKey` was `""`).
+5. The service then uses `Crypto.deriveKey(prfKey, salt, info, newKey, use,
+   keep)` to get its own key, for example a kept backup key, and may
+   `Crypto.forget(prfKey)`. No call returns the PRF bytes.
+6. If a key with either name already exists (kept or not), the page makes
+   neither key and answers `PasskeyFailed { call, reason: "keyExists" }`.
+   The new reason is not `exists`, which already means a credential in
+   `excludeCredentials`. The old key stays as it was. A service forgets its
+   PRF key after use, or picks a new name.
+7. Tachyon's own converter (browsers without `parse...OptionsFromJSON`) now
+   decodes the PRF inputs: `extensions.prf.eval.first` and `.second`, and
+   every `extensions.prf.evalByCredential[id].first` and `.second`, from
+   base64url to bytes, as the browsers do.
+8. The Crypto page module gets two hooks for other page modules
+   (`Symbol.for('tachyon.tac.crypto.hooks')`): `prfName(name)` checks the
+   name rule, and `prf(name, { first, second })` imports the results in the
+   Crypto call queue. `prf` refuses when the host answers `crypto` natively
+   (macOS and iOS, P2b), where passkeys are `unsupported` anyway.
+9. Native shells keep answering `unsupported` for passkeys until native
+   passkeys (T14).
+10. The size budget of `tac-web.js` (`MOST_RUNTIME_BYTES`) rises from 18,200
+    to 18,400 bytes for the name check.
+
+### Platform support
+
+| Platform | PRF into a Crypto key |
+| --- | --- |
+| Chromium, Chrome, Edge (web) | yes; PRF since Chrome 116 |
+| Firefox (web) | yes where the authenticator supports PRF; Playwright's Firefox reports `extension:prf` in `getClientCapabilities()`, but has no virtual authenticator to run a ceremony |
+| Safari, WebKit (web) | yes for iCloud Keychain passkeys (Safari 18); Playwright's WebKit reports `extension:prf`, no virtual authenticator |
+| Native shells | `unsupported` until T14 |
+
+### Security
+
+- Service code, the event bus and the server never hold the PRF bytes; only
+  the page's WebCrypto holds them, as a non-extractable `CryptoKey`.
+- The PRF bytes do pass through page script memory (the browser's own
+  `toJSON()` text and the result buffers) for the time of the import. Page
+  script is trusted Tachyon code; the same holds for every Crypto key.
+- A session key ends with the page, so a reload needs a new passkey prompt,
+  which is the point of a passkey-bound key.
+
+### Evidence
+
+- `compiler::page_passkeys_prf_tests` (Node, the real `tac-web.js`,
+  `tac-crypto.js` and `tac-passkeys.js` with WebCrypto):
+  - `a_passkey_prf_result_becomes_a_crypto_key_that_the_service_never_sees`:
+    both results become HKDF keys; the result bytes are zero afterwards; a
+    key derived from the PRF key decrypts what a key derived by hand with
+    HKDF over the same bytes encrypted; no event holds a result.
+  - `a_passkey_without_prf_results_or_without_a_prf_key_name_makes_no_crypto_key`:
+    only `first`, no results, an empty name, no `crypto` grant with an
+    empty name, a 57-letter name.
+  - `a_taken_or_invalid_prf_key_name_is_refused_and_keeps_the_old_key`:
+    `keyExists` for a taken first or second name, the old key unchanged,
+    neither key made; the name rule, the missing grant and the missing module
+    as the call's own error.
+  - `the_fallback_converter_decodes_prf_inputs_for_the_browser`.
+- `tac_web::web_api_tests::passkeys_tests` (Rust, Go, C#, F#, Swift,
+  Kotlin, Java, Dart, Ruby, Lua, C++) and
+  `tac_python::browser_api_tests::a_python_web_service_creates_and_uses_passkeys`:
+  every language passes `prfKey` (`""` and a name) and reads `prfKey` and
+  `prfSecondKey`.
+- `bun run test:passkeys-browser`: in Chromium with a CDP virtual
+  authenticator with `hasPrf: true`, a `get` with `prf.eval` gives
+  `prfKey` and `prfSecondKey`, `credentialJson` has no result, and the key
+  equals HKDF over the browser's own PRF output (checked by encrypting with
+  one and decrypting with the other); another salt gives another key; a
+  second `get` with the same name answers `keyExists`. In Chromium, Firefox
+  and WebKit: the name rule, the missing `crypto` grant, and Tachyon's
+  converter decodes `prf.eval` and `prf.evalByCredential` like the
+  browser's `parseRequestOptionsFromJSON`.
+- Owed, by hand (as for the rest of this ADR): PRF with Touch ID in branded
+  Safari and with Chrome's platform authenticator, recorded in
+  `docs/SUPPORT_TIERS.md`.

@@ -9,16 +9,16 @@ final class Passkeys {
         _ = try TacWebHost.call(Self.api, "check")
     }
 
-    func create(optionsJson: String) throws {
-        _ = try TacWebHost.call(Self.api, "create", [optionsJson])
+    func create(optionsJson: String, prfKey: String) throws {
+        _ = try TacWebHost.call(Self.api, "create", [optionsJson, prfKey])
     }
 
-    func get(optionsJson: String) throws {
-        _ = try TacWebHost.call(Self.api, "get", [optionsJson])
+    func get(optionsJson: String, prfKey: String) throws {
+        _ = try TacWebHost.call(Self.api, "get", [optionsJson, prfKey])
     }
 
-    func offer(optionsJson: String) throws {
-        _ = try TacWebHost.call(Self.api, "offer", [optionsJson])
+    func offer(optionsJson: String, prfKey: String) throws {
+        _ = try TacWebHost.call(Self.api, "offer", [optionsJson, prfKey])
     }
 
     func cancel() throws {

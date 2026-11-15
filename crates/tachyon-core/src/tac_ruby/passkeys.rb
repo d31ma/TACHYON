@@ -11,18 +11,18 @@ class Passkeys
     nil
   end
 
-  def create(options_json)
-    TacWebHost.call(API, "create", [options_json])
+  def create(options_json, prf_key)
+    TacWebHost.call(API, "create", [options_json, prf_key])
     nil
   end
 
-  def get(options_json)
-    TacWebHost.call(API, "get", [options_json])
+  def get(options_json, prf_key)
+    TacWebHost.call(API, "get", [options_json, prf_key])
     nil
   end
 
-  def offer(options_json)
-    TacWebHost.call(API, "offer", [options_json])
+  def offer(options_json, prf_key)
+    TacWebHost.call(API, "offer", [options_json, prf_key])
     nil
   end
 

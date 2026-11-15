@@ -9,16 +9,16 @@ final class Passkeys {
         TacWebHost.call(API, "check");
     }
 
-    void create(String optionsJson) {
-        TacWebHost.call(API, "create", optionsJson);
+    void create(String optionsJson, String prfKey) {
+        TacWebHost.call(API, "create", optionsJson, prfKey);
     }
 
-    void get(String optionsJson) {
-        TacWebHost.call(API, "get", optionsJson);
+    void get(String optionsJson, String prfKey) {
+        TacWebHost.call(API, "get", optionsJson, prfKey);
     }
 
-    void offer(String optionsJson) {
-        TacWebHost.call(API, "offer", optionsJson);
+    void offer(String optionsJson, String prfKey) {
+        TacWebHost.call(API, "offer", optionsJson, prfKey);
     }
 
     void cancel() {

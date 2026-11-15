@@ -119,7 +119,10 @@ at most 32,768 bytes per message.
     answers a promise of the non-extractable `CryptoKey` of a `encrypt` or
     `derive` key, or `null`. It never gives a key pair's private key. The
     media session's frame encryption (SFrame) uses this to derive its frame
-    keys in a worker without key bytes reaching page script.
+    keys in a worker without key bytes reaching page script. The same hooks
+    object has `prfName(name)` and `prf(name, { first, second })`, which the
+    passkeys module uses to turn a passkey's PRF results into not-kept
+    `derive` keys (ADR 0126, amendment P3 of 2026-11-14).
 12. **A native app may answer the calls itself.** When the host lists
     `crypto` in `__tachyonBrowserApiBridge`, the page module still checks the
     arguments and makes the request id, then sends

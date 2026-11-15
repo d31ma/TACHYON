@@ -5,22 +5,23 @@ import { createServer } from 'node:http'
 import { chromium, firefox, webkit } from 'playwright'
 
 class PasskeysBrowserCheck {
-  static sources = ['tac-web.js', 'tac-passkeys.js'].map((name) => new URL(`../crates/tachyon-core/src/template/${name}`, import.meta.url))
+  static sources = ['tac-web.js', 'tac-crypto.js', 'tac-passkeys.js'].map((name) => new URL(`../crates/tachyon-core/src/template/${name}`, import.meta.url))
 
   static engines = [chromium, firefox, webkit]
 
   static page = `<!doctype html><html lang="en"><head><meta charset="utf-8">
-    <meta name="tachyon-browser-apis" content="passkeys">
+    <meta name="tachyon-browser-apis" content="passkeys crypto">
     <title>Passkeys</title></head><body>
     <button id="go">Go</button>
     <input id="name" autocomplete="username webauthn" aria-label="Name">
     <script src="/tac-web.js"></script>
+    <script src="/tac-crypto.js"></script>
     <script src="/tac-passkeys.js"></script>
     <script>
       window.sent = []
       TacWebApis.events = { publish: () => {}, send: (owner, name, value) => window.sent.push([owner, name, value]) }
       const web = globalThis[Symbol.for('tachyon.tac.web')]
-      window.ask = (owner, call, args = []) => JSON.parse(web.calling(owner, () => web.host(JSON.stringify({ api: 'passkeys', call, args }))))
+      window.ask = (owner, call, args = [], api = 'passkeys') => JSON.parse(web.calling(owner, () => web.host(JSON.stringify({ api, call, args }))))
       window.next = null
       window.answered = null
       document.getElementById('go').addEventListener('click', () => { window.answered = window.next?.() })
@@ -37,13 +38,20 @@ class PasskeysBrowserCheck {
     timeout: 60000,
   })
 
-  static request = (challenge, allow = [], timeout = 60000) => JSON.stringify({
+  static request = (challenge, allow = [], timeout = 60000, extensions = undefined) => JSON.stringify({
     rpId: 'localhost',
     challenge,
     allowCredentials: allow.map((id) => ({ type: 'public-key', id })),
     userVerification: 'required',
     timeout,
+    extensions,
   })
+
+  static prfSalt = (value) => Buffer.alloc(32, value).toString('base64url')
+
+  static prfRequest = (challenge, id, first, second = undefined) => PasskeysBrowserCheck.request(challenge, [id], 60000, { prf: { eval: second === undefined ? { first } : { first, second } } })
+
+  static cryptoSalt = Buffer.alloc(16, 3).toString('base64url')
 
   static async run() {
     const files = Object.fromEntries(await Promise.all(PasskeysBrowserCheck.sources.map(async (source) => [`/${source.pathname.split('/').pop()}`, await readFile(source, 'utf8')])))
@@ -68,7 +76,8 @@ class PasskeysBrowserCheck {
       await page.goto(url)
       await PasskeysBrowserCheck.everyBrowser(page)
       if (engine.name() === 'chromium') await PasskeysBrowserCheck.ceremonies(page)
-      console.log(`passkeys (${engine.name()}): ${engine.name() === 'chromium' ? 'create, get, exists, refused, cancelled, busy, cancel, the conditional offer and an offer stopped by a modal get with the virtual authenticator; ' : ''}supported, check, grant and user-action errors, invalid options and the JSON converter`)
+      if (engine.name() === 'chromium') await PasskeysBrowserCheck.prfCeremonies(page)
+      console.log(`passkeys (${engine.name()}): ${engine.name() === 'chromium' ? 'create, get, exists, refused, cancelled, busy, cancel, the conditional offer and an offer stopped by a modal get with the virtual authenticator; PRF results become Crypto keys that equal HKDF over the browser\'s own PRF output and never reach credentialJson; ' : ''}supported, check, grant and user-action errors, invalid options, PRF key names and the JSON converter with PRF inputs; the browser says PRF is ${await PasskeysBrowserCheck.prfCapability(page)}`)
     } finally {
       await browser.close()
     }
@@ -85,8 +94,8 @@ class PasskeysBrowserCheck {
     await page.evaluate(() => window.sent.splice(0))
   }
 
-  static async clicked(page, owner, call, options) {
-    await page.evaluate(([who, name, text]) => { window.next = () => window.ask(who, name, [text]) }, [owner, call, options])
+  static async clicked(page, owner, call, options, prfKey = '') {
+    await page.evaluate(([who, name, text, key]) => { window.next = () => window.ask(who, name, [text, key]) }, [owner, call, options, prfKey])
     await page.click('#go')
     return page.evaluate(() => window.answered)
   }
@@ -106,10 +115,34 @@ class PasskeysBrowserCheck {
       document.querySelector('meta[name="tachyon-browser-apis"]').content = 'share'
       const answers = [window.ask('page', 'supported'), window.ask('page', 'check')]
       document.querySelector('meta[name="tachyon-browser-apis"]').content = 'passkeys'
+      answers.push(window.ask('page', 'get', ['{}', 'unlock']))
+      document.querySelector('meta[name="tachyon-browser-apis"]').content = 'passkeys crypto'
+      answers.push(window.ask('page', 'get', ['{}', 'bad name!']))
       return answers
     })
     assert.deepEqual(refused[0], { value: true })
     assert.match(refused[1].error ?? '', /The passkeys browser API is not granted/)
+    assert.match(refused[2].error ?? '', /The crypto browser API is not granted/)
+    assert.match(refused[3].error ?? '', /A PRF key name is 1 to 57 letters/)
+    await PasskeysBrowserCheck.prfInputsAgree(page)
+  }
+
+  static async prfInputsAgree(page) {
+    const decoded = await page.evaluate(([text]) => {
+      const bytes = (value) => [...new Uint8Array(value.buffer ?? value, value.byteOffset ?? 0, value.byteLength)]
+      const listed = (options) => ({ eval: [bytes(options.extensions.prf.eval.first), bytes(options.extensions.prf.eval.second)], byCredential: Object.entries(options.extensions.prf.evalByCredential).map(([id, values]) => [id, bytes(values.first)]) })
+      const own = listed(TacPasskeys.decodedRequest(JSON.parse(text)))
+      const browser = typeof PublicKeyCredential.parseRequestOptionsFromJSON === 'function' ? listed(PublicKeyCredential.parseRequestOptionsFromJSON(JSON.parse(text))) : own
+      return { own, browser }
+    }, [PasskeysBrowserCheck.request('EBEODw', ['AAEC'], 60000, { prf: { eval: { first: 'AQI', second: 'AwQ' }, evalByCredential: { AAEC: { first: 'BQY' } } } })])
+    assert.deepEqual(decoded.own, { eval: [[1, 2], [3, 4]], byCredential: [['AAEC', [5, 6]]] })
+    assert.deepEqual(decoded.own, decoded.browser, 'the own converter decodes PRF inputs like the browser')
+  }
+
+  static async prfCapability(page) {
+    const capabilities = await page.evaluate(async () => await PublicKeyCredential.getClientCapabilities?.().catch(() => null) ?? null)
+    if (!capabilities) return 'unknown (no getClientCapabilities)'
+    return capabilities['extension:prf'] === true ? 'supported (extension:prf)' : 'not reported (extension:prf is not true)'
   }
 
   static async converterAgrees(page) {
@@ -150,8 +183,56 @@ class PasskeysBrowserCheck {
     await client.send('WebAuthn.removeVirtualAuthenticator', { authenticatorId })
   }
 
-  static async created(page) {
-    assert.deepEqual(await PasskeysBrowserCheck.clicked(page, 'maker', 'create', PasskeysBrowserCheck.creation('AQIDBAUGBwgJCgsMDQ4PEA')), { value: null })
+  static async prfCeremonies(page) {
+    const client = await page.context().newCDPSession(page)
+    await client.send('WebAuthn.enable')
+    const { authenticatorId } = await client.send('WebAuthn.addVirtualAuthenticator', {
+      options: { protocol: 'ctap2', ctap2Version: 'ctap2_1', transport: 'internal', hasResidentKey: true, hasUserVerification: true, isUserVerified: true, hasPrf: true, automaticPresenceSimulation: true },
+    })
+    const id = await PasskeysBrowserCheck.created(page, JSON.stringify({ ...JSON.parse(PasskeysBrowserCheck.creation('BQIDBAUGBwgJCgsMDQ4PEA')), extensions: { prf: {} } }))
+    const salt = PasskeysBrowserCheck.prfSalt(1)
+    await PasskeysBrowserCheck.clicked(page, 'unlock', 'get', PasskeysBrowserCheck.prfRequest('Eg', id, salt, PasskeysBrowserCheck.prfSalt(2)), 'unlock')
+    const [[owner, name, asserted]] = await PasskeysBrowserCheck.taken(page)
+    assert.deepEqual([owner, name, asserted.prfKey, asserted.prfSecondKey], ['unlock', 'PasskeyAsserted', 'unlock', 'unlock.second'])
+    const assertion = JSON.parse(asserted.credentialJson)
+    assert.equal(assertion.id, id)
+    assert.equal(assertion.clientExtensionResults.prf?.results, undefined, 'credentialJson carries no PRF result')
+    const raw = await page.evaluate(async ([text]) => {
+      const credential = await navigator.credentials.get({ publicKey: PublicKeyCredential.parseRequestOptionsFromJSON(JSON.parse(text)) })
+      return TacPasskeys.text(credential.getClientExtensionResults().prf.results.first)
+    }, [PasskeysBrowserCheck.prfRequest('Ew', id, salt)])
+    assert.ok(!JSON.stringify(asserted).includes(raw), 'the event never holds the PRF bytes')
+    assert.deepEqual(await PasskeysBrowserCheck.sealedAndOpened(page, 'unlock', raw), ['CryptoDecrypted', 'AQID'], 'the PRF key is the browser\'s own PRF result')
+    await PasskeysBrowserCheck.clicked(page, 'other', 'get', PasskeysBrowserCheck.prfRequest('FA', id, PasskeysBrowserCheck.prfSalt(9)), 'other')
+    const [[, , other]] = await PasskeysBrowserCheck.taken(page)
+    assert.deepEqual([other.prfKey, other.prfSecondKey], ['other', ''])
+    assert.deepEqual(await PasskeysBrowserCheck.sealedAndOpened(page, 'other', raw), ['CryptoFailed', 'rejected'], 'another PRF salt gives another key')
+    await PasskeysBrowserCheck.clicked(page, 'twice', 'get', PasskeysBrowserCheck.prfRequest('FQ', id, salt), 'unlock')
+    const [[, , twice]] = await PasskeysBrowserCheck.taken(page)
+    assert.deepEqual([twice.call, twice.reason], ['get', 'keyExists'])
+    await PasskeysBrowserCheck.clicked(page, 'plain', 'get', PasskeysBrowserCheck.prfRequest('Fg', id, salt))
+    const [[, plainName, plain]] = await PasskeysBrowserCheck.taken(page)
+    assert.deepEqual([plainName, plain.prfKey, JSON.parse(plain.credentialJson).clientExtensionResults.prf?.results], ['PasskeyAsserted', '', undefined])
+    await client.send('WebAuthn.removeVirtualAuthenticator', { authenticatorId })
+  }
+
+  static async sealedAndOpened(page, prfKey, raw) {
+    const call = async (owner, name, args) => {
+      await page.evaluate(([who, what, values]) => window.ask(who, what, values, 'crypto'), [owner, name, args])
+      const [[, event, value]] = await PasskeysBrowserCheck.taken(page)
+      return [event, value]
+    }
+    const salt = PasskeysBrowserCheck.cryptoSalt
+    await call(`${prfKey}-derive`, 'deriveKey', [prfKey, salt, 'BQ', `${prfKey}-backup`, 'encrypt', false])
+    const [, { bytes }] = await call(`${prfKey}-hkdf`, 'hkdf', [raw, salt, 'BQ', 32])
+    await call(`${prfKey}-import`, 'importKey', [`${prfKey}-by-hand`, bytes, 'encrypt', false])
+    const [, { sealed }] = await call(`${prfKey}-seal`, 'encrypt', [`${prfKey}-backup`, 'AQID', ''])
+    const [event, value] = await call(`${prfKey}-open`, 'decrypt', [`${prfKey}-by-hand`, sealed, ''])
+    return [event, value.data ?? value.reason]
+  }
+
+  static async created(page, options = PasskeysBrowserCheck.creation('AQIDBAUGBwgJCgsMDQ4PEA')) {
+    assert.deepEqual(await PasskeysBrowserCheck.clicked(page, 'maker', 'create', options), { value: null })
     const [[owner, name, { credentialJson }]] = await PasskeysBrowserCheck.taken(page)
     assert.deepEqual([owner, name], ['maker', 'PasskeyCreated'])
     const credential = JSON.parse(credentialJson)
@@ -160,7 +241,7 @@ class PasskeysBrowserCheck {
     assert.equal(credential.authenticatorAttachment, 'platform')
     assert.ok(credential.response.attestationObject && credential.response.clientDataJSON)
     const client = JSON.parse(Buffer.from(credential.response.clientDataJSON, 'base64url').toString())
-    assert.deepEqual([client.type, client.challenge], ['webauthn.create', 'AQIDBAUGBwgJCgsMDQ4PEA'])
+    assert.deepEqual([client.type, client.challenge], ['webauthn.create', JSON.parse(options).challenge])
     return credential.id
   }
 

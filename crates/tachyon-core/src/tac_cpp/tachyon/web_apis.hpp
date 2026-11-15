@@ -159,16 +159,16 @@ public:
 
     void check() const { TacWebCall::answer("passkeys", "check"); }
 
-    void create(const std::string& optionsJson) const {
-        TacWebCall::answer("passkeys", "create", TacWebCall::arguments(optionsJson));
+    void create(const std::string& optionsJson, const std::string& prfKey) const {
+        TacWebCall::answer("passkeys", "create", TacWebCall::arguments(optionsJson, prfKey));
     }
 
-    void get(const std::string& optionsJson) const {
-        TacWebCall::answer("passkeys", "get", TacWebCall::arguments(optionsJson));
+    void get(const std::string& optionsJson, const std::string& prfKey) const {
+        TacWebCall::answer("passkeys", "get", TacWebCall::arguments(optionsJson, prfKey));
     }
 
-    void offer(const std::string& optionsJson) const {
-        TacWebCall::answer("passkeys", "offer", TacWebCall::arguments(optionsJson));
+    void offer(const std::string& optionsJson, const std::string& prfKey) const {
+        TacWebCall::answer("passkeys", "offer", TacWebCall::arguments(optionsJson, prfKey));
     }
 
     void cancel() const { TacWebCall::answer("passkeys", "cancel"); }

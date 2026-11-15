@@ -17,6 +17,8 @@ class TacCrypto {
   static rounds = 600000
   static base64url = /^[A-Za-z0-9_-]*$/
   static keyName = /^[A-Za-z0-9_.-]{1,64}$/
+  static prfKeyName = /^[A-Za-z0-9_.-]{1,57}$/
+  static secondSuffix = '.second'
   static algorithms = ['x25519', 'ed25519']
   static uses = ['encrypt', 'derive']
   static knownReasons = ['unsupported', 'invalid', 'unknown', 'exists', 'rejected', 'locked', 'failed']
@@ -102,7 +104,7 @@ class TacCrypto {
   static install() {
     const calls = Object.keys(TacCrypto.checked).map((call) => [call, (reply, ...values) => TacCrypto.start(reply, call, TacCrypto.checked[call](...values))])
     Object.defineProperty(globalThis, TacCrypto.key, { configurable: true, value: Object.freeze(Object.fromEntries(calls)) })
-    Object.defineProperty(globalThis, TacCrypto.hooksKey, { configurable: true, value: Object.freeze({ key: (name) => TacCrypto.hookKey(name) }) })
+    Object.defineProperty(globalThis, TacCrypto.hooksKey, { configurable: true, value: Object.freeze({ key: (name) => TacCrypto.hookKey(name), prfName: (name) => TacCrypto.prfName(name), prf: (name, results) => TacCrypto.prfKeys(name, results) }) })
     return true
   }
 
@@ -423,6 +425,37 @@ class TacCrypto {
     const database = await TacCrypto.opened().catch(() => null)
     if (!database) throw TacCrypto.refusal('unsupported')
     return TacCrypto.stores('readwrite', (store) => store.add(record))
+  }
+
+  static prfName(value) {
+    if (typeof value !== 'string' || !TacCrypto.prfKeyName.test(value)) throw new Error(`A PRF key name is 1 to 57 letters, digits, dots, dashes or underscores, so that the name with ${TacCrypto.secondSuffix} is a key name too.`)
+    return value
+  }
+
+  static prfKeys(name, results) {
+    const running = TacCrypto.queue.then(() => TacCrypto.prfStored(TacCrypto.prfName(name), results))
+    TacCrypto.queue = running.catch(() => null)
+    return running
+  }
+
+  static async prfStored(name, { first, second }) {
+    const secondName = second ? `${name}${TacCrypto.secondSuffix}` : ''
+    try {
+      await TacCrypto.ensurePrfFree(name, secondName)
+      await TacCrypto.stored(name, first, 'derive', false)
+      if (second) await TacCrypto.stored(secondName, second, 'derive', false)
+      return { prfKey: name, prfSecondKey: secondName }
+    } finally {
+      first.fill(0)
+      second?.fill(0)
+    }
+  }
+
+  static async ensurePrfFree(name, secondName) {
+    if (TacCrypto.bridged()) throw TacCrypto.refusal('unsupported')
+    TacCrypto.ensureSubtle()
+    await TacCrypto.ensureFree(name)
+    if (secondName) await TacCrypto.ensureFree(secondName)
   }
 
   static async hookKey(name) {

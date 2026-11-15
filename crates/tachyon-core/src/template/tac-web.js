@@ -15,6 +15,7 @@ class TacWebApis {
   static pushKey = Symbol.for('tachyon.tac.push')
   static passkeysKey = Symbol.for('tachyon.tac.passkeys')
   static scannerKey = Symbol.for('tachyon.tac.codeScanner')
+  static cryptoHooksKey = Symbol.for('tachyon.tac.crypto.hooks')
   static clock = Object.freeze({
     now: () => Date.now(),
     monotonic: () => performance.now(),
@@ -70,9 +71,9 @@ class TacWebApis {
   static passkeys = Object.freeze({
     supported: () => TacWebApis.passkeysUsable(),
     check: () => TacWebApis.passkeyLater('check', false, []),
-    create: (options) => TacWebApis.passkeyLater('create', true, [options]),
-    get: (options) => TacWebApis.passkeyLater('get', true, [options]),
-    offer: (options) => TacWebApis.passkeyLater('offer', false, [options]),
+    create: (options, prfKey) => TacWebApis.passkeyLater('create', true, [options, TacWebApis.prfName(prfKey)]),
+    get: (options, prfKey) => TacWebApis.passkeyLater('get', true, [options, TacWebApis.prfName(prfKey)]),
+    offer: (options, prfKey) => TacWebApis.passkeyLater('offer', false, [options, TacWebApis.prfName(prfKey)]),
     cancel: () => TacWebApis.passkeyLater('cancel', false, []),
   })
   static media = TacWebApis.calls('media', 'supported devices chooseSpeaker captureMicrophone captureCamera captureScreen stopTrack mute useFrameKey sendFrameKey forgetFrameKey encryptFrames')
@@ -267,6 +268,12 @@ class TacWebApis {
 
   static passkeyLater(call, gesture, values) {
     return TacWebApis.later({ api: 'passkeys', call, gesture }, () => TacWebApis.loaded(TacWebApis.passkeysKey, 'The passkeys browser API')[call](...values), (event) => event)
+  }
+
+  static prfName(name = '') {
+    if (name === '') return name
+    TacWebApis.allowed('crypto', false)
+    return TacWebApis.loaded(TacWebApis.cryptoHooksKey, 'The crypto browser API').prfName(name)
   }
 
   static loaded(key, name) {

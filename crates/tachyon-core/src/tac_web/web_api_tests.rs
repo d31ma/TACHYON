@@ -9,7 +9,7 @@ struct WebApis;
 
 impl WebApis {
     const RUNTIME: &str = include_str!("../template/tac-web.js");
-    const MOST_RUNTIME_BYTES: usize = 18_200;
+    const MOST_RUNTIME_BYTES: usize = 18_400;
     const DRIVER_DEADLINE: std::time::Duration = std::time::Duration::from_mins(2);
 
     const RUNTIME_DRIVER: &str = ";(0, eval)(await readFile('./tac-web.js', 'utf8'))\n\

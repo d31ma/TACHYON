@@ -14,7 +14,8 @@ impl PasskeysTests {
 const { default: TacApplicationEvents } = await import('./application-events.mjs')
 const { default: StampService, __tachyon_event_plan__: plan } = await import('./StampService.js')
 __GRANT_STUBS__
-grants.content = 'passkeys'
+grants.content = 'passkeys crypto'
+globalThis[Symbol.for('tachyon.tac.crypto.hooks')] = { prfName: (name) => { asked.push(['prf', name]); return name } }
 globalThis.isSecureContext = true
 const asked = []
 globalThis.PublicKeyCredential = class {
@@ -54,16 +55,16 @@ impl StampService {
     }
 
     pub fn enroll(&self) {
-        let _ = self.passkeys.create("{}");
+        let _ = self.passkeys.create("{}", "");
     }
 
     pub fn sign(&self) {
-        let _ = self.passkeys.get("{}");
+        let _ = self.passkeys.get("{}", "unlock");
     }
 
     #[OnEvent]
     pub fn hear_created(&mut self, created: PasskeyCreated) {
-        self.created = created.credentialJson;
+        self.created = format!("{}|{}|{}", created.credentialJson, created.prfKey, created.prfSecondKey);
     }
 
     #[OnEvent]
@@ -87,16 +88,16 @@ func (stamp *StampService) Available() bool {
 }
 
 func (stamp *StampService) Enroll() {
-	_ = stamp.passkeys.Create("{}")
+	_ = stamp.passkeys.Create("{}", "")
 }
 
 func (stamp *StampService) Sign() {
-	_ = stamp.passkeys.Get("{}")
+	_ = stamp.passkeys.Get("{}", "unlock")
 }
 
 // @OnEvent
 func (stamp *StampService) HearCreated(created PasskeyCreated) {
-	stamp.Created = created.CredentialJson
+	stamp.Created = created.CredentialJson + "|" + created.PrfKey + "|" + created.PrfSecondKey
 }
 
 // @OnEvent
@@ -114,14 +115,14 @@ public class StampService
 
     public bool Available() => passkeys.Supported();
 
-    public void Enroll() => passkeys.Create("{}");
+    public void Enroll() => passkeys.Create("{}", "");
 
-    public void Sign() => passkeys.Get("{}");
+    public void Sign() => passkeys.Get("{}", "unlock");
 
     [OnEvent]
     public void HearCreated(PasskeyCreated created)
     {
-        Created = created.CredentialJson;
+        Created = created.CredentialJson + "|" + created.PrfKey + "|" + created.PrfSecondKey;
     }
 
     [OnEvent]
@@ -138,10 +139,10 @@ type StampService() =
     member val Created: string = "" with get, set
     member val Failure: string = "" with get, set
     member this.Available() : bool = passkeys.Supported()
-    member this.Enroll() : unit = passkeys.Create("{}")
-    member this.Sign() : unit = passkeys.Get("{}")
+    member this.Enroll() : unit = passkeys.Create("{}", "")
+    member this.Sign() : unit = passkeys.Get("{}", "unlock")
     [<OnEvent>]
-    member this.HearCreated(created: PasskeyCreated) : unit = this.Created <- created.CredentialJson
+    member this.HearCreated(created: PasskeyCreated) : unit = this.Created <- created.CredentialJson + "|" + created.PrfKey + "|" + created.PrfSecondKey
     [<OnEvent>]
     member this.HearFailed(failed: PasskeyFailed) : unit = this.Failure <- failed.Call + " " + failed.Reason
 "#;
@@ -157,16 +158,16 @@ final class StampService {
     }
 
     func enroll() throws {
-        try passkeys.create(optionsJson: "{}")
+        try passkeys.create(optionsJson: "{}", prfKey: "")
     }
 
     func sign() throws {
-        try passkeys.get(optionsJson: "{}")
+        try passkeys.get(optionsJson: "{}", prfKey: "unlock")
     }
 
     @OnEvent
     func hearCreated(_ passkey: PasskeyCreated) {
-        created = passkey.credentialJson
+        created = "\(passkey.credentialJson)|\(passkey.prfKey)|\(passkey.prfSecondKey)"
     }
 
     @OnEvent
@@ -185,16 +186,16 @@ class StampService {
     fun available(): Boolean = passkeys.supported()
 
     fun enroll() {
-        passkeys.create("{}")
+        passkeys.create("{}", "")
     }
 
     fun sign() {
-        passkeys.get("{}")
+        passkeys.get("{}", "unlock")
     }
 
     @OnEvent
     fun hearCreated(passkey: PasskeyCreated) {
-        created = passkey.credentialJson
+        created = passkey.credentialJson + "|" + passkey.prfKey + "|" + passkey.prfSecondKey
     }
 
     @OnEvent
@@ -215,16 +216,16 @@ class StampService {
     }
 
     void enroll() {
-        passkeys.create("{}");
+        passkeys.create("{}", "");
     }
 
     void sign() {
-        passkeys.get("{}");
+        passkeys.get("{}", "unlock");
     }
 
     @OnEvent
     void hearCreated(PasskeyCreated passkey) {
-        created = passkey.credentialJson();
+        created = passkey.credentialJson() + "|" + passkey.prfKey() + "|" + passkey.prfSecondKey();
     }
 
     @OnEvent
@@ -243,13 +244,13 @@ class StampService {
 
   bool available() => passkeys.supported();
 
-  void enroll() => passkeys.create('{}');
+  void enroll() => passkeys.create('{}', '');
 
-  void sign() => passkeys.get('{}');
+  void sign() => passkeys.get('{}', 'unlock');
 
   @OnEvent
   void hearCreated(PasskeyCreated passkey) {
-    created = passkey.credentialJson;
+    created = '${passkey.credentialJson}|${passkey.prfKey}|${passkey.prfSecondKey}';
   }
 
   @OnEvent
@@ -273,17 +274,17 @@ class StampService
   end
 
   def enroll
-    Passkeys.new.create("{}")
+    Passkeys.new.create("{}", "")
   end
 
   def sign
-    Passkeys.new.get("{}")
+    Passkeys.new.get("{}", "unlock")
   end
 
   # @param passkey [PasskeyCreated]
   #[OnEvent]
   def hear_created(passkey)
-    @created = passkey.credentialJson
+    @created = [passkey.credentialJson, passkey.prfKey, passkey.prfSecondKey].join("|")
   end
 
   # @param failed [PasskeyFailed]
@@ -310,19 +311,19 @@ end
 
 ---@return nil
 function StampService:enroll()
-  Passkeys:create("{}")
+  Passkeys:create("{}", "")
 end
 
 ---@return nil
 function StampService:sign()
-  Passkeys:get("{}")
+  Passkeys:get("{}", "unlock")
 end
 
 ---@param passkey PasskeyCreated
 ---@return nil
 -- @OnEvent
 function StampService:hear_created(passkey)
-  self.created = passkey.credentialJson
+  self.created = passkey.credentialJson .. "|" .. passkey.prfKey .. "|" .. passkey.prfSecondKey
 end
 
 ---@param failed PasskeyFailed
@@ -344,11 +345,11 @@ public:
 
     bool available() { return passkeys.supported(); }
 
-    void enroll() { passkeys.create("{}"); }
+    void enroll() { passkeys.create("{}", ""); }
 
-    void sign() { passkeys.get("{}"); }
+    void sign() { passkeys.get("{}", "unlock"); }
 
-    [[OnEvent]] void hearCreated(const PasskeyCreated& passkey) { created = passkey.credentialJson; }
+    [[OnEvent]] void hearCreated(const PasskeyCreated& passkey) { created = passkey.credentialJson + "|" + passkey.prfKey + "|" + passkey.prfSecondKey; }
 
     [[OnEvent]] void hearFailed(const PasskeyFailed& failed) { failure = failed.call + " " + failed.reason; }
 };
@@ -372,9 +373,9 @@ public:
             report,
             serde_json::json!({
                 "ready": true,
-                "created": "{\"id\":\"AQ\",\"type\":\"public-key\"}",
+                "created": "{\"id\":\"AQ\",\"type\":\"public-key\"}||",
                 "failure": "get cancelled",
-                "asked": [["create", [1]], ["get", [2]]]
+                "asked": [["create", [1]], ["prf", "unlock"], ["get", [2]]]
             })
         );
     }
