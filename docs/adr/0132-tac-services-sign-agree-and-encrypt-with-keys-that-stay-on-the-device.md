@@ -130,10 +130,13 @@ at most 32,768 bytes per message.
     order above. The host answers `{ "value": { ...the event's fields } }`,
     or `{ "value": { "reason": "<reason>" } }` for `CryptoFailed`; an
     `error`, a missing value or an unknown reason becomes `failed`. The page
-    sets `request` itself, so a host cannot answer for another call. No
-    host answers Crypto yet; native CryptoKit and the Keychain on Apple,
-    and OpenSSL with the Secret Service on Linux, come in later decisions
-    and use this path without changing the service API.
+    sets `request` itself, so a host cannot answer for another call. The
+    Linux app answers Crypto this way with OpenSSL and the Secret Service
+    (ADR 0131 amendment); native CryptoKit and the Keychain on Apple come in
+    a later decision and use the same path without changing the service
+    API. Where the host answers, the frame-encryption hook (`key(name)`)
+    finds no `CryptoKey` in the page and answers `null`; the host hands
+    SFrame its frame keys in a later change (ADR 0131).
 13. The size budget of `tac-web.js` (`MOST_RUNTIME_BYTES`) rises from 17,600
     to 18,200 bytes. The `crypto` entry adds about 630 bytes: the list of fifteen
     calls and the `supported` check. The rest of the code is in the module,
@@ -155,10 +158,11 @@ What Crypto protects against:
 - **Nonce reuse.** The service never chooses a nonce.
 
 What Crypto does not protect against:
-- **A copy of the disk** of a Chromium, Firefox, WebView2 or WebKitGTK
-  profile taken while the disk is not encrypted: these engines store
-  `CryptoKey` bytes in IndexedDB without their own encryption (WebKitGTK:
-  checked in the Linux probe of 2026-11-14). Safari wraps them with a key
+- **A copy of the disk** of a Chromium, Firefox or WebView2 profile, or of
+  WebKitGTK outside the Linux app, taken while the disk is not encrypted:
+  these engines store `CryptoKey` bytes in IndexedDB without their own
+  encryption (WebKitGTK: checked in the Linux probe of 2026-11-14). The
+  Linux app keeps its keys in the Secret Service instead. Safari wraps them with a key
   from the Keychain. Full-disk encryption (FileVault, BitLocker, LUKS)
   closes this. The approved plan chose this trade over wrapping each key
   under an OS-held key, because page script could unwrap such a key and

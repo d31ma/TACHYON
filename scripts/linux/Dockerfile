@@ -33,9 +33,13 @@ RUN apt-get update \
       dunst \
       geoclue-2-demo \
       geoclue-2.0 \
+      gnome-keyring \
       gir1.2-atspi-2.0 \
       libgtk-4-dev \
       libjson-glib-dev \
+      libsecret-1-dev \
+      libsecret-tools \
+      libssl-dev \
       libwebkitgtk-6.0-dev \
       mutter \
       pkg-config \

@@ -90,7 +90,7 @@ impl LinuxPackageFiles {
              Version: {version}\n\
              Architecture: {architecture}\n\
              Maintainer: {maintainer}\n\
-             Depends: libc6, libgtk-4-1, libwebkitgtk-6.0-4 (>= {major}.{minor})\n\
+             Depends: libc6, libgtk-4-1, libwebkitgtk-6.0-4 (>= {major}.{minor}){crypto}\n\
              Section: utils\n\
              Priority: optional\n\
              Description: {summary}\n \
@@ -100,6 +100,7 @@ impl LinuxPackageFiles {
             architecture = names.deb_architecture,
             major = floor.major(),
             minor = floor.minor(),
+            crypto = super::linux_crypto::LinuxCrypto::package_depends(&application.permissions),
             summary = Self::summary(application),
             description = Self::description(application),
         )

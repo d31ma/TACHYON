@@ -1848,6 +1848,37 @@ the page had `getDisplayMedia`; with `camera` and the portal, and with
 its GTK backend has none), it had not, so `Media.supported` answers false for
 screen there.
 
+### Crypto in the Linux app (2026-11-14, ADR 0131 and ADR 0132)
+
+`linux_crypto_tests::linux_crypto_runs_natively_and_keeps_keys_in_the_secret_service`
+compiled the generated Linux host with `crypto` granted (OpenSSL 3 and
+libsecret) in the Linux gate image's `gate` stage (Debian 13, WebKitGTK from
+its security updates) and ran it three times under Xvfb on Colima (aarch64),
+with GNOME Keyring on the session bus. The page called the host through
+`browserApi.crypto.*`, and checked the answers against WebKitGTK's own
+WebCrypto in the same page:
+- `check` reported `keyStore` `os`; SHA-256 of `abc`, RFC 5869 test 1 (HKDF)
+  and RFC 8032 tests 1 (empty message) and 2 (Ed25519 verify) matched; a
+  changed signature was invalid;
+- a host signature verified in WebKitGTK; an empty message signed and
+  verified;
+- AES-256-GCM both ways between the host and WebKitGTK, and `rejected` with
+  the wrong additional data;
+- X25519 agreement with a WebKitGTK key pair, then HKDF, gave the same key on
+  both sides; a small-order public key answered `invalid`;
+- `deriveKey` and `fromCode` (PBKDF2-SHA-256, 600,000 rounds) gave the keys
+  WebKitGTK derives from the same inputs;
+- `unknown`, `exists` and `invalid` (wrong key kind) answered as specified.
+A second app run read the kept key pair and the kept code key back from the
+keyring, found the in-memory key gone, and `forgetAll` removed the kept ones.
+A third run with a locked keyring (a GNOME Keyring that knows no password)
+answered `locked` for `keep: true` after the host's unlock request found no
+way to unlock, while an in-memory key still worked.
+
+Owed, by hand: a Linux PC with GNOME (GNOME Keyring unlocked at sign-in) and
+one with KDE Plasma (KDE Wallet), each with a kept key across a restart, and
+the desktop's own unlock dialog for a locked keyring.
+
 ### Crypto in the browser (2026-11-14, ADR 0132)
 
 `scripts/crypto-browser-test.mjs` ran on the macOS test machine in

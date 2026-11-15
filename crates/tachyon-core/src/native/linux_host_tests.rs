@@ -135,7 +135,9 @@ impl LinuxHostTests {
         let check = root.join("linux_host_check.c");
         Self::write(&check, &format!("{host}\n{fixture}"));
         let executable = bundle.join("bin/LinuxHostCheck");
-        super::linux::compile_c(&check, &executable)
+        let modules =
+            super::linux_crypto::LinuxCrypto::pkg_config_modules(&application.permissions);
+        super::linux::compile_c(&check, &executable, modules)
             .await
             .expect("actual GTK 4 and WebKitGTK 6.0 toolchain");
         executable

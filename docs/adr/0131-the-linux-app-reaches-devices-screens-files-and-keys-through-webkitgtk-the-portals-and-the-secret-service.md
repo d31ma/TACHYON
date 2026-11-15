@@ -91,6 +91,29 @@ every media permission request, while WebKitGTK's own default left
 This change builds decisions 2 to 5. `Crypto`, the recorder sink, the
 WebRTC check and the package changes land with their page clients.
 
+Amendment (L2, native Crypto): an app that grants `crypto` gets the native
+Crypto code in its Linux host, links libsecret and OpenSSL's libcrypto, and
+its `.deb` depends on `libsecret-1-0` and OpenSSL 3; an app without the grant
+gets neither. The host lists `crypto` in `__tachyonBrowserApiBridge` and
+answers the fifteen calls of ADR 0132 in a worker thread, one at a time, so
+neither PBKDF2 nor a Secret Service prompt freezes the window. Kept keys are
+Secret Service items of the schema `dev.tachyon.CryptoKey` with the
+attributes `application` (the app's bundle id) and `key` (the key name),
+labelled "<app name> key <name>". `check` reports `keyStore` `os` when a
+Secret Service answers and `none` otherwise. Keys go to the keyring with the
+`default` alias, or else the first kept (not in-memory) collection. When a
+call must save, read or forget a kept key and that keyring is locked, the
+host asks the Secret Service to unlock it: GNOME Keyring does this silently
+when it knows the login password, and otherwise shows the desktop's own
+password dialog. After 60 seconds without an answer, or with no Secret
+Service or keyring at all, the call answers `locked`, and for the next 60
+seconds the host asks no more, so a declined dialog does not come back at
+once. `check` and keys that
+are not kept never ask. On GNOME and KDE Plasma the login keyring is unlocked
+at sign-in. A host call is at most
+64 KiB, so `encrypt` with 32 KiB of data and 32 KiB of additional data
+together is refused there (`failed`); the page limits each value to 32 KiB.
+
 ## Consequences
 
 - On a Linux PC, an app can scan a QR code and capture the camera and the

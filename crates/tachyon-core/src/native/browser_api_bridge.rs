@@ -4,12 +4,32 @@ pub(super) struct BrowserApiBridge;
 
 impl BrowserApiBridge {
     #[cfg(test)]
-    const OPERATIONS: [(&'static str, &'static [&'static str]); 5] = [
+    const OPERATIONS: [(&'static str, &'static [&'static str]); 6] = [
         ("clipboard", &["writeText", "readText"]),
         ("share", &["open"]),
         ("notifications", &["requestPermission", "show"]),
         ("geolocation", &["currentPosition"]),
         ("codeScanner", &["scan", "cancel"]),
+        (
+            "crypto",
+            &[
+                "check",
+                "makeKeyPair",
+                "publicKey",
+                "sign",
+                "verify",
+                "agree",
+                "deriveKey",
+                "importKey",
+                "fromCode",
+                "encrypt",
+                "decrypt",
+                "hkdf",
+                "hash",
+                "forget",
+                "forgetAll",
+            ],
+        ),
     ];
     #[cfg(test)]
     const EVERY_HOST: [&'static str; 2] = [
@@ -45,7 +65,7 @@ impl BrowserApiBridge {
             NativeTarget::Windows,
             &["clipboard", "share", "notifications"],
         ),
-        (NativeTarget::Linux, &["share", "notifications"]),
+        (NativeTarget::Linux, &["share", "notifications", "crypto"]),
     ];
 
     pub(super) fn bridged(target: NativeTarget) -> &'static [&'static str] {
@@ -137,7 +157,11 @@ mod tests {
             ),
             (
                 NativeTarget::Linux,
-                super::super::linux::host_source().to_owned(),
+                [
+                    super::super::linux::host_source(),
+                    super::super::linux_crypto::LinuxCrypto::SOURCE,
+                ]
+                .concat(),
             ),
         ] {
             let answered = BrowserApiBridge::operations(target)
@@ -161,16 +185,19 @@ mod tests {
         assert_eq!(BrowserApiBridge::operations(NativeTarget::Windows).len(), 5);
         assert_eq!(
             BrowserApiBridge::page_list(NativeTarget::Linux),
-            "['share', 'notifications']"
+            "['share', 'notifications', 'crypto']"
         );
+        let linux = BrowserApiBridge::operations(NativeTarget::Linux);
         assert_eq!(
-            BrowserApiBridge::operations(NativeTarget::Linux),
+            linux[..3],
             [
                 "browserApi.share.open",
                 "browserApi.notifications.requestPermission",
                 "browserApi.notifications.show"
             ]
         );
+        assert_eq!(linux.len(), 18);
+        assert_eq!(linux[3], "browserApi.crypto.check");
     }
 
     #[test]

@@ -65,7 +65,9 @@ impl LinuxHostGenerator {
         }
 
         let executable = bundle.join("bin").join(&application.executable_name);
-        let compiler_version = compile_c(&source_path, &executable).await?;
+        let modules =
+            super::linux_crypto::LinuxCrypto::pkg_config_modules(&application.permissions);
+        let compiler_version = compile_c(&source_path, &executable, modules).await?;
         compile_rust_companion(application, rust_companion.as_deref(), &bundle).await?;
         let application_bundle =
             LinuxPackages::published(application, options.release, web_bundle, stage).await?;
@@ -98,7 +100,11 @@ async fn compile_rust_companion(
     Ok(())
 }
 
-pub(super) async fn compile_c(source: &Path, executable: &Path) -> Result<String, Failure> {
+pub(super) async fn compile_c(
+    source: &Path,
+    executable: &Path,
+    modules: &[&str],
+) -> Result<String, Failure> {
     if !cfg!(target_os = "linux") {
         return Err(native_tool_failure(
             1605,
@@ -113,6 +119,7 @@ pub(super) async fn compile_c(source: &Path, executable: &Path) -> Result<String
     for stage in ["--cflags", "--libs"] {
         let mut arguments = vec![stage];
         arguments.extend_from_slice(&LinuxHostGenerator::PKG_CONFIG_MODULES);
+        arguments.extend_from_slice(modules);
         let output = run_tool("pkg-config", &arguments).await?;
         flags.extend(output.split_whitespace().map(String::from));
     }
@@ -222,6 +229,10 @@ pub(super) fn c_source_serving(
             &super::linux_browser_apis::LinuxBrowserApis::source(&application.permissions),
         )
         .replace(
+            "__NATIVE_CRYPTO__",
+            super::linux_crypto::LinuxCrypto::source(&application.permissions),
+        )
+        .replace(
             "__NATIVE_TITLE_BAR__",
             &super::linux_title_bar::LinuxTitleBar::source(&application.window),
         )
@@ -322,6 +333,8 @@ static gboolean tachyon_trusted_view(WebKitWebView *view) {
 __NATIVE_SYSTEM_BACK__
 
 __NATIVE_BROWSER_APIS__
+
+__NATIVE_CRYPTO__
 
 __NATIVE_TITLE_BAR__
 
@@ -626,6 +639,13 @@ static gboolean tachyon_on_host_call(WebKitUserContentManager *manager, JSCValue
   if (capability == NULL || payload == NULL || strlen(capability) > 64 || strlen(payload) > TACHYON_MESSAGE_LIMIT) {
     g_free(capability); g_free(payload);
     webkit_script_message_reply_return_error_message(reply, "Native message exceeds its bounds."); return TRUE;
+  }
+
+  if (g_str_has_prefix(capability, "browserApi.crypto.")) {
+    tachyon_crypto_start(capability, payload, value, reply);
+    g_free(capability);
+    g_free(payload);
+    return TRUE;
   }
 
   gchar *answer = NULL;
