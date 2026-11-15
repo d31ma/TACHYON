@@ -1848,6 +1848,16 @@ the page had `getDisplayMedia`; with `camera` and the portal, and with
 its GTK backend has none), it had not, so `Media.supported` answers false for
 screen there.
 
+Speaker choice on Linux (2026-11-14, ADR 0131): with a media grant the host
+turns on WebKitGTK's `ExposeSpeakers` and `PerElementSpeakerSelection`
+flags. `linux_media_permission_tests::linux_media_capture_follows_the_manifest_grants_in_the_real_web_view`
+found `setSinkId` in the page for every media grant (Debian 13, WebKitGTK from
+its security updates). A probe on WebKitGTK 2.54.0 with WebKit's mock devices
+chose the default speaker and a listed one and refused an unknown one. Not
+probed: Ubuntu 24.04's WebKitGTK 2.52.6 (where the flags are missing,
+`Media.supported` answers false for speakers). Owed, by hand: a call's
+audio moved to a second speaker or a headset on a Linux PC.
+
 ### Crypto in the Linux app (2026-11-14, ADR 0131 and ADR 0132)
 
 `linux_crypto_tests::linux_crypto_runs_natively_and_keeps_keys_in_the_secret_service`

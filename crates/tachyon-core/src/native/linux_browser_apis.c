@@ -42,6 +42,55 @@ static const gchar *tachyon_screen_share_page(void) {
   return tachyon_browser_api_granted("screen") && tachyon_screen_cast_ready() ? "" : TACHYON_SCREEN_SHARE_HIDDEN;
 }
 
+typedef gpointer (*TachyonFeatureList)(void);
+typedef gsize (*TachyonFeatureCount)(gpointer);
+typedef gpointer (*TachyonFeatureAt)(gpointer, gsize);
+typedef const char *(*TachyonFeatureName)(gpointer);
+typedef void (*TachyonFeatureEnable)(WebKitSettings *, gpointer, gboolean);
+typedef void (*TachyonFeatureListFree)(gpointer);
+
+typedef struct {
+  TachyonFeatureList all;
+  TachyonFeatureCount count;
+  TachyonFeatureAt at;
+  TachyonFeatureName name;
+  TachyonFeatureEnable enable;
+  TachyonFeatureListFree free;
+} TachyonFeatureCalls;
+
+static const char *const TACHYON_SPEAKER_FEATURES[] = {"ExposeSpeakers", "PerElementSpeakerSelection"};
+
+static gboolean tachyon_feature_calls(TachyonFeatureCalls *calls) {
+  GModule *self = g_module_open(NULL, G_MODULE_BIND_LAZY);
+  gboolean found = self != NULL &&
+                   g_module_symbol(self, "webkit_settings_get_all_features", (gpointer *)&calls->all) &&
+                   g_module_symbol(self, "webkit_feature_list_get_length", (gpointer *)&calls->count) &&
+                   g_module_symbol(self, "webkit_feature_list_get", (gpointer *)&calls->at) &&
+                   g_module_symbol(self, "webkit_feature_get_identifier", (gpointer *)&calls->name) &&
+                   g_module_symbol(self, "webkit_settings_set_feature_enabled", (gpointer *)&calls->enable) &&
+                   g_module_symbol(self, "webkit_feature_list_unref", (gpointer *)&calls->free);
+  if (self != NULL) g_module_close(self);
+  return found;
+}
+
+static gboolean tachyon_speaker_feature(const char *name) {
+  for (gsize index = 0; index < G_N_ELEMENTS(TACHYON_SPEAKER_FEATURES); index++) {
+    if (g_strcmp0(name, TACHYON_SPEAKER_FEATURES[index]) == 0) return TRUE;
+  }
+  return FALSE;
+}
+
+static void tachyon_speaker_choice(WebKitSettings *settings) {
+  TachyonFeatureCalls calls = {NULL, NULL, NULL, NULL, NULL, NULL};
+  if (!tachyon_media_granted() || !tachyon_feature_calls(&calls)) return;
+  gpointer features = calls.all();
+  for (gsize index = 0; index < calls.count(features); index++) {
+    gpointer feature = calls.at(features, index);
+    if (tachyon_speaker_feature(calls.name(feature))) calls.enable(settings, feature, TRUE);
+  }
+  calls.free(features);
+}
+
 static gboolean tachyon_media_kind_allowed(gboolean asked, const char *api) {
   return !asked || tachyon_browser_api_granted(api);
 }

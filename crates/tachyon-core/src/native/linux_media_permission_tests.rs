@@ -16,22 +16,25 @@ results.push(await ask({video: true}));
 results.push(await ask({audio: true}));
 results.push(await ask({audio: true, video: true}));
 results.push('screen:' + typeof navigator.mediaDevices.getDisplayMedia);
+results.push('speakers:' + typeof HTMLMediaElement.prototype.setSinkId);
 return results.join(',');";
     #[cfg(target_os = "linux")]
-    const CAMERA: &'static str = "video,NotAllowedError,NotAllowedError,screen:undefined";
+    const CAMERA: &'static str =
+        "video,NotAllowedError,NotAllowedError,screen:undefined,speakers:function";
     #[cfg(target_os = "linux")]
-    const BOTH: &'static str = "video,audio,audio+video,screen:undefined";
+    const BOTH: &'static str = "video,audio,audio+video,screen:undefined,speakers:function";
     #[cfg(target_os = "linux")]
-    const MICROPHONE: &'static str = "NotAllowedError,audio,NotAllowedError,screen:undefined";
+    const MICROPHONE: &'static str =
+        "NotAllowedError,audio,NotAllowedError,screen:undefined,speakers:function";
     #[cfg(target_os = "linux")]
     const SCREEN_WITHOUT_PORTAL: &'static str =
-        "NotAllowedError,NotAllowedError,NotAllowedError,screen:undefined";
+        "NotAllowedError,NotAllowedError,NotAllowedError,screen:undefined,speakers:function";
     #[cfg(target_os = "linux")]
     const SCREEN_WITH_PORTAL: &'static str =
-        "NotAllowedError,NotAllowedError,NotAllowedError,screen:function";
+        "NotAllowedError,NotAllowedError,NotAllowedError,screen:function,speakers:function";
     #[cfg(target_os = "linux")]
     const CAMERA_WITH_PORTAL: &'static str =
-        "video,NotAllowedError,NotAllowedError,screen:undefined";
+        "video,NotAllowedError,NotAllowedError,screen:undefined,speakers:function";
     #[cfg(target_os = "linux")]
     const NOTHING: &'static str = "no-media-devices";
 
@@ -136,6 +139,20 @@ fn the_linux_host_allows_each_capture_kind_only_with_its_grant() {
         "if (WEBKIT_IS_DEVICE_INFO_PERMISSION_REQUEST(request)) return tachyon_media_granted();"
     ));
     assert!(source.contains("if (tachyon_trusted_view(view) && tachyon_permission_granted(request)) webkit_permission_request_allow(request);"));
+}
+
+#[test]
+fn the_linux_host_turns_on_speaker_choice_for_a_media_grant_when_webkit_has_it() {
+    let source = LinuxMediaPermissionTests::host(&["microphone"]);
+    assert!(source.contains("  tachyon_speaker_choice(settings);\n"));
+    assert!(source.contains(
+        "static const char *const TACHYON_SPEAKER_FEATURES[] = {\"ExposeSpeakers\", \"PerElementSpeakerSelection\"};"
+    ));
+    assert!(
+        source.contains("if (!tachyon_media_granted() || !tachyon_feature_calls(&calls)) return;")
+    );
+    assert!(source.contains("g_module_symbol(self, \"webkit_settings_get_all_features\""));
+    assert!(!source.contains("webkit_settings_get_all_features()"));
 }
 
 #[test]

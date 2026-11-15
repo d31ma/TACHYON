@@ -114,6 +114,18 @@ at sign-in. A host call is at most
 64 KiB, so `encrypt` with 32 KiB of data and 32 KiB of additional data
 together is refused there (`failed`); the page limits each value to 32 KiB.
 
+Amendment (speaker choice): WebKitGTK has no `setSinkId` by default; it
+keeps speaker choice behind two feature flags, `ExposeSpeakers` and
+`PerElementSpeakerSelection`, which it lists as internal. When the manifest
+grants a media API, the host turns both on, if the installed WebKitGTK lists
+them; it looks the feature calls up at run time, so the app still starts on
+WebKitGTK 2.40, which has none. `Media.supported("speakers")` tests the real
+`setSinkId`, so where the flags are missing or later removed it answers false
+and calls use the system's default speaker. A probe on WebKitGTK 2.54.0 (Debian
+13) with WebKit's mock devices listed the speakers as `audiooutput` devices,
+chose the default and a listed speaker, and refused an unknown one with
+`NotFoundError`.
+
 ## Consequences
 
 - On a Linux PC, an app can scan a QR code and capture the camera and the
