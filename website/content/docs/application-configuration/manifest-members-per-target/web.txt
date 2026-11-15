@@ -180,6 +180,9 @@ tac.mount
 tac.apps
   honored: the shell builds every listed page app into one site, or lists them for separate deploys
 
+tac.include
+  honored: the components, services, models and shared files of each listed folder are built into the app
+
 tac.python
   honored: Python services on Pyodide (WebAssembly)
 

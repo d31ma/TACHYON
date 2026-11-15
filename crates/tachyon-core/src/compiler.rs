@@ -33,6 +33,8 @@ mod foundation_properties;
 mod foundation_rules;
 mod foundation_selectors;
 mod foundation_values;
+#[cfg(test)]
+mod included_folder_tests;
 mod module_code;
 mod mounted_app;
 mod output_path;

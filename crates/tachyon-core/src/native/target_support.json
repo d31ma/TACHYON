@@ -600,6 +600,16 @@
     "android": {"reach": "refused", "code": 1601, "alternative": "A native app of a site with tac.apps is not built yet (ADR 0139)."}
   },
   {
+    "member": "tac.include",
+    "paths": ["tac.include"],
+    "web": {"reach": "honored", "how": "the components, services, models and shared files of each listed folder are built into the app"},
+    "macos": {"reach": "honored", "how": "the listed folders are built into the app like its own client files"},
+    "windows": {"reach": "honored", "how": "the listed folders are built into the app like its own client files"},
+    "linux": {"reach": "honored", "how": "the listed folders are built into the app like its own client files"},
+    "ios": {"reach": "honored", "how": "the listed folders are built into the app like its own client files"},
+    "android": {"reach": "honored", "how": "the listed folders are built into the app like its own client files"}
+  },
+  {
     "member": "tac.python",
     "paths": ["tac.python"],
     "web": {"reach": "honored", "how": "Python services on Pyodide (WebAssembly)"},

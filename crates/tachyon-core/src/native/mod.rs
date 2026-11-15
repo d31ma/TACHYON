@@ -320,6 +320,7 @@ mod rust_standard_library;
 pub(crate) mod rust_wasm_cache;
 mod rust_web_module;
 mod service_companions;
+mod sibling_folder;
 mod site;
 mod site_association;
 mod site_map;
@@ -415,6 +416,7 @@ pub use release_packaging::ReleasePackaging;
 #[cfg(test)]
 pub(crate) use rust::companion_prelude;
 pub(crate) use rust::{RustCompanion, tac_value_source, web_assembly};
+pub(crate) use sibling_folder::SiblingFolder;
 pub(crate) use site::{CacheRule, PageMetadata, SiteSettings};
 pub(crate) use site_association::SiteAssociation;
 pub(crate) use site_map::SiteMap;

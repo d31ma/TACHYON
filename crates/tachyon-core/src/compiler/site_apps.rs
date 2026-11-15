@@ -122,23 +122,9 @@ impl SiteApps {
     }
 
     fn app_root(shell_root: &Path, folder: &str) -> Result<PathBuf, Failure> {
-        let relative = Self::relative_folder(folder)?;
-        let root = std::fs::canonicalize(shell_root.join(relative)).map_err(|error| {
-            Self::failure(&format!(
-                "tac.apps names the folder '{folder}', which cannot be opened: {error}"
-            ))
-        })?;
+        let root = crate::native::SiblingFolder::resolve(shell_root, "tac.apps", folder)
+            .map_err(|message| Self::failure(&message))?;
         Self::outside_shell(shell_root, folder, root)
-    }
-
-    fn relative_folder(folder: &str) -> Result<&Path, Failure> {
-        let path = Path::new(folder);
-        if path.is_relative() {
-            return Ok(path);
-        }
-        Err(Self::failure(&format!(
-            "tac.apps names the folder '{folder}'. Name it relative to the shell's project folder, such as ../chat."
-        )))
     }
 
     fn outside_shell(shell_root: &Path, folder: &str, root: PathBuf) -> Result<PathBuf, Failure> {

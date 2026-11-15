@@ -186,10 +186,7 @@ fn an_app_folder_inside_the_shell_is_refused() {
 #[test]
 fn an_absolute_app_folder_is_refused() {
     let error = SiteFixture::failure(r#"{"name":"Site","tac":{"apps":{"/chat":"/tmp/chat"}}}"#);
-    assert!(
-        error.contains("relative to the shell's project folder"),
-        "{error}"
-    );
+    assert!(error.contains("relative to the project folder"), "{error}");
 }
 
 #[test]
