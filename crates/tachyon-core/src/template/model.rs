@@ -85,6 +85,7 @@ pub(crate) enum TemplateNodeKind {
         children: Vec<TemplateNode>,
     },
     Slot(Option<String>),
+    Outlet,
 }
 
 impl TemplateNodeKind {
@@ -97,7 +98,7 @@ impl TemplateNodeKind {
             | Self::Switch { children, .. }
             | Self::Case { children, .. }
             | Self::Component { children, .. } => Some(children),
-            Self::Text(_) | Self::Comment(_) | Self::Slot(_) => None,
+            Self::Text(_) | Self::Comment(_) | Self::Slot(_) | Self::Outlet => None,
         }
     }
 
@@ -110,7 +111,7 @@ impl TemplateNodeKind {
             | Self::Switch { children, .. }
             | Self::Case { children, .. }
             | Self::Component { children, .. } => Some(children),
-            Self::Text(_) | Self::Comment(_) | Self::Slot(_) => None,
+            Self::Text(_) | Self::Comment(_) | Self::Slot(_) | Self::Outlet => None,
         }
     }
 }
@@ -310,6 +311,11 @@ fn lower_node(node: &TemplateNode) -> Option<ViewNode> {
             children,
         } => Some(lower_component(name, properties, *hydrate, children)),
         TemplateNodeKind::CountedIteration { .. } => Some(lower_counted_iteration(&node.kind)),
+        TemplateNodeKind::Outlet => Some(ViewNode::Element {
+            tag: String::from("outlet"),
+            attributes: BTreeMap::new(),
+            children: Vec::new(),
+        }),
         TemplateNodeKind::Slot(name) => Some(ViewNode::Element {
             tag: String::from("slot"),
             attributes: name

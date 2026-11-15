@@ -8,6 +8,17 @@ class ClientView {
   static plan = ClientView.page ?? { nodes: [], services: {}, state: {} }
 }
 
+const readShellPlan = () => {
+  const planElement = document.getElementById('tachyon-shell')
+  return planElement ? JSON.parse(planElement.textContent || '{}') : null
+}
+
+class ShellView {
+  static plan = readShellPlan()
+  static pageEnvironment = null
+  static servicesFolder = '/.tachyon/services/'
+}
+
 const runtimeApp = () => {
   try { return new URL('../', import.meta.url).pathname } catch { return '/' }
 }
@@ -929,7 +940,8 @@ const persistScope = (id, properties) =>
 const importAsset = (raw) => {
   const url = new URL(raw, location.href)
   const sameOrigin = url.origin === location.origin
-  const web = sameOrigin && url.pathname.startsWith(new URL('./services/', import.meta.url).pathname)
+  const folders = [new URL('./services/', import.meta.url).pathname, ShellView.servicesFolder]
+  const web = sameOrigin && folders.some((folder) => url.pathname.startsWith(folder))
   const native = sameOrigin && url.pathname.includes('/WebBundle/tachyon-runtime/services/')
   if (!web && !native) throw new TypeError('Tac service asset is not a generated same-origin URL.')
   return import(url.href)
@@ -965,8 +977,8 @@ const disposeManagedOwner = (owner) => {
 }
 
 class Services {
-  static catalog = ClientView.plan.services || {}
-  static saved = ClientView.plan.saved || {}
+  static catalog = { ...ShellView.plan?.services, ...ClientView.plan.services }
+  static saved = { ...ShellView.plan?.saved, ...ClientView.plan.saved }
   static singletons = new Map()
   static resolved = new Map()
   static creating = new Set()
@@ -1651,6 +1663,7 @@ const renderNode = async (node, environment, path, context) => {
   if (Rendering.nodeCount > 100000) throw new RangeError('Tac client view exceeds 100,000 nodes.')
   if (node.k === 'text') return renderText(node.parts, environment)
   if (node.k === 'comment') return document.createComment(node.value || '')
+  if (node.k === 'outlet') return renderOutlet(context)
   if (node.k === 'slot') {
     const slot = context.slot
     const nodes = node.name ? slot?.named[node.name] : slot?.nodes
@@ -1802,6 +1815,15 @@ class TacElements {
   }
 }
 
+const renderPage = (environment) => {
+  if (!ShellView.plan) return renderNodes(ClientView.plan.nodes || [], environment, 'body')
+  ShellView.pageEnvironment = environment
+  return renderNodes([ShellView.plan.node], environment, 'shell')
+}
+
+const renderOutlet = (context) =>
+  renderNodes(ClientView.plan.nodes || [], ShellView.pageEnvironment, `outlet:${ClientView.plan.route}`, { slot: null, namespace: context.namespace })
+
 const renderDocument = async (environment) => {
   Rendering.nodeCount = 0
   Rendering.iterationCount = 0
@@ -1812,7 +1834,7 @@ const renderDocument = async (environment) => {
   TacEventOptions.begin()
   const focused = focusedElement()
   const editingAtStart = { element: focused, value: focused?.value }
-  if (ClientView.page) commitRoot(document.body, await renderNodes(ClientView.plan.nodes || [], environment, 'body'), editingAtStart)
+  if (ClientView.page) commitRoot(document.body, await renderPage(environment), editingAtStart)
   for (const element of TacElements.connected) await TacElements.renderInto(element, environment, editingAtStart)
   retainComponentRoots()
   TacEventOptions.commit()
