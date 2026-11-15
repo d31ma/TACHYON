@@ -652,7 +652,7 @@ Safety:
 Tachyon answers some requests before or around your code. Name one of
 these seven built-in error types on a `@HandlesError` method to shape the
 body of that answer. Tachyon keeps the status, so the method takes no
-`@ResponseStatus` (ADR NNNN).
+`@ResponseStatus` (ADR 0136).
 
 | Type | Status | When | Fields |
 | --- | --- | --- | --- |
