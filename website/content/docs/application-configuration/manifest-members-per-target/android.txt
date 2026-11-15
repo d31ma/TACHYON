@@ -186,6 +186,9 @@ tac.budgets
 tac.outgoing
   adapted: The Android app lets page requests reach the hosts in tac.outgoing.hosts over https only: the platform refuses cleartext http and ws. It asks for the INTERNET permission only when the list names a host. On the Android 15 emulator, connect-src refused a page fetch to a host outside the list, and that host saw no request (MA3, scripts/android/page-checks-test.mjs).
 
+tac.media
+  run owed: tac.media.background adds a foreground service of type microphone (and camera when granted) with FOREGROUND_SERVICE permissions, and tac.media.callNotice becomes its ongoing notification (required, TY1601); Media.callActive sets MODE_IN_COMMUNICATION and starts or stops the service, and the host lists and chooses communication devices (ADR 0129); still to run: a call on an Android phone with the screen off
+
 tac.yon
   honored: the page and its linked Kotlin and Rust HTTP clients reach tac.yon.origin from https://appassets.tachyon.local, the app asks for the INTERNET permission, and a local http origin may use cleartext to that one host only; run by scripts/android/yon-origin-test.mjs and rust-services-test.mjs on the Android 15 emulator, also on its Google Play production image (ADR 0103)
 

@@ -51,3 +51,7 @@ func (Media) ForgetFrameKey(keyID int) error {
 func (Media) EncryptFrames(connection string, on bool) error {
 	return Web.Call("media", "encryptFrames", []any{connection, on}, nil)
 }
+
+func (Media) CallActive(on bool, title string) error {
+	return Web.Call("media", "callActive", []any{on, title}, nil)
+}

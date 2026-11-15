@@ -327,6 +327,10 @@ impl WebEventModels {
                 &[("track", Shape::Text), ("count", Shape::Number)],
             ),
             Self::media(
+                "MediaCallActive",
+                &[("on", Shape::Boolean), ("background", Shape::Boolean)],
+            ),
+            Self::media(
                 "MediaFailed",
                 &[
                     ("track", Shape::Text),

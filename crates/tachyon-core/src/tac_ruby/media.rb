@@ -60,4 +60,9 @@ class Media
     TacWebHost.call(API, "encryptFrames", [connection, on])
     nil
   end
+
+  def call_active(on, title)
+    TacWebHost.call(API, "callActive", [on, title])
+    nil
+  end
 end

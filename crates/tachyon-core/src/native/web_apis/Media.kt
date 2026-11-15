@@ -44,4 +44,8 @@ class Media {
     fun encryptFrames(connection: String, on: Boolean) {
         TacWebHost.call("media", "encryptFrames", listOf(connection, on))
     }
+
+    fun callActive(on: Boolean, title: String) {
+        TacWebHost.call("media", "callActive", listOf(on, title))
+    }
 }

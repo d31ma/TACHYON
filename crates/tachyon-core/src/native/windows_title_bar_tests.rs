@@ -47,6 +47,7 @@ impl WindowsTitleBarTests {
             minimum_system: super::minimum_system::MinimumSystem::default(),
             description: String::new(),
             links: super::native_links::NativeLinks::default(),
+            media: super::media_member::MediaMember::default(),
             tray: None,
         }
     }

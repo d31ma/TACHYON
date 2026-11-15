@@ -28,8 +28,7 @@ impl Media {
     }
 
     pub fn capture_screen(&self, track: &str, with_audio: bool) -> Result<(), String> {
-        let arguments = format!("{},{with_audio}", tac_quote(track));
-        Self::send("captureScreen", &arguments)
+        Self::send("captureScreen", &Self::text_and_flag(track, with_audio))
     }
 
     pub fn stop_track(&self, track: &str) -> Result<(), String> {
@@ -37,8 +36,7 @@ impl Media {
     }
 
     pub fn mute(&self, track: &str, muted: bool) -> Result<(), String> {
-        let arguments = format!("{},{muted}", tac_quote(track));
-        Self::send("mute", &arguments)
+        Self::send("mute", &Self::text_and_flag(track, muted))
     }
 
     pub fn use_frame_key(&self, key_id: u64, key: &str) -> Result<(), String> {
@@ -55,8 +53,16 @@ impl Media {
     }
 
     pub fn encrypt_frames(&self, connection: &str, on: bool) -> Result<(), String> {
-        let arguments = format!("{},{on}", tac_quote(connection));
-        Self::send("encryptFrames", &arguments)
+        Self::send("encryptFrames", &Self::text_and_flag(connection, on))
+    }
+
+    pub fn call_active(&self, on: bool, title: &str) -> Result<(), String> {
+        let arguments = format!("{on},{}", tac_quote(title));
+        Self::send("callActive", &arguments)
+    }
+
+    fn text_and_flag(text: &str, flag: bool) -> String {
+        format!("{},{flag}", tac_quote(text))
     }
 
     fn send(call: &str, arguments: &str) -> Result<(), String> {

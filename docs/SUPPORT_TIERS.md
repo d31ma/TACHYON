@@ -1874,6 +1874,33 @@ probed: Ubuntu 24.04's WebKitGTK 2.52.6 (where the flags are missing,
 `Media.supported` answers false for speakers). Owed, by hand: a call's
 audio moved to a second speaker or a headset on a Linux PC.
 
+### Call audio on phones (2026-11-14, ADR 0129 slice M4)
+
+Status: run owed on iOS and Android (`tac.media` is `runOwed` in
+`target_support.json`). Phone call audio is not yet proven on a device: not
+the iOS audio session in `playAndRecord` and `voiceChat` with the `audio`
+background mode, and not the Android foreground service of type microphone
+(and camera) with its call notification. No simulator, emulator or phone run
+has called `Media.callActive` or chosen a speaker.
+
+What was checked on the macOS test machine: the generated iOS `Info.plist`
+gets `UIBackgroundModes` `audio` only with `tac.media.background`; the
+generated Android manifest gets `FOREGROUND_SERVICE`, the per-kind
+`FOREGROUND_SERVICE_MICROPHONE` and `FOREGROUND_SERVICE_CAMERA` and
+`POST_NOTIFICATIONS`, and the `CallService` entry, only with it; an Android
+build with `background` and no `callNotice` is refused. `AppleCallAudio.swift`
+typechecks for iOS and macOS. `page_media_tests::on_a_phone_the_host_lists_and_chooses_speakers_and_runs_call_audio`
+drove the page runtime against a fake host bridge: host speakers replace the
+browser's, a chosen and an unknown speaker, `callActive` on and its failure,
+and on the web `callActive` only answers.
+
+Owed: a device gate on the Android emulator (ticket TAC-P5-DEV) and a check
+by hand on a real iPhone and a real Android phone: call audio keeps running
+with the screen locked or the app in the background, the Android notification
+shows, and the earpiece, speaker and a Bluetooth headset can be chosen.
+This is not a release blocker. A call bug that Mesail's own test of a
+`develop` build finds on a phone still blocks a release.
+
 ### Crypto in the Linux app (2026-11-14, ADR 0131 and ADR 0132)
 
 `linux_crypto_tests::linux_crypto_runs_natively_and_keeps_keys_in_the_secret_service`

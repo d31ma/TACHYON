@@ -110,6 +110,12 @@ machine contracts have their own, independent major versions.
   Where a native host answers Crypto, `Media.useFrameKey` and
   `Media.encryptFrames(connection, true)` answer `unsupported` until the
   hosts hand SFrame its frame keys.
+- **Calls keep their audio on phones** (ADR 0129, slice M4). The manifest
+  object `tac.media` has `background` and `callNotice`: iOS apps get the
+  `audio` background mode, Android apps a foreground call service with its
+  notification. `Media.callActive(on, title)` starts and stops call audio and
+  answers `MediaCallActive { on, background }`. On phones the host lists
+  and chooses the earpiece, the speaker and headsets.
 - **Crypto verifies an empty message on every engine** (ADR 0133).
   `Crypto.sign` and `Crypto.verify` accept empty data again. WebKit answers
   `false` when it verifies an Ed25519 signature over an empty message; the

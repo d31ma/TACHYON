@@ -148,7 +148,7 @@ export default class ` + service + ' {\n  pageLabel = ' + JSON.stringify(label) 
         JSON.stringify({ '\u0301': '😀', route: ownRoute, service: iosGateService, owner: iosGateOwner, op: 'get', name: 'count' })));
       if (unicode.value !== expected) throw new Error('Unicode JSON failed at native boundary');
       if (this.pageLabel === 'root' && !returned) {
-        if (bridgedApis() !== 'clipboard,share,notifications,geolocation,codeScanner,crypto') throw new Error('Native browser API bridge list');
+        if (bridgedApis() !== 'clipboard,share,notifications,geolocation,codeScanner,crypto,media') throw new Error('Native browser API bridge list');
         const written = JSON.parse(await __tachyonNativeHostCall('browserApi.clipboard.writeText', JSON.stringify({ text: 'tachyon ios bridge' })));
         const read = JSON.parse(await __tachyonNativeHostCall('browserApi.clipboard.readText', '{}'));
         const share = JSON.parse(await __tachyonNativeHostCall('browserApi.share.open', JSON.stringify({ text: 'not granted' })));

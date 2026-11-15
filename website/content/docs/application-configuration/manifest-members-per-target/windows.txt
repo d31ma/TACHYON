@@ -186,6 +186,9 @@ tac.budgets
 tac.outgoing
   honored: the build checks request hosts and the resource handler's connect-src allows only them; a page fetch to an undeclared host was refused and the host saw no request (SD1)
 
+tac.media
+  not applicable: A desktop app keeps running when its window is in the background, so tac.media.background changes nothing; Media.callActive only answers MediaCallActive with background false (ADR 0129).
+
 tac.yon
   honored: the page sends Yon calls to tac.yon.origin and its connect-src allows it; linked Rust and C# HTTPClient calls go there through WinHTTP and HttpClient; scripts/windows/yon-reach.ps1 passed inside WebView2 on a signed-in Windows desktop (NET3, ADR 0103)
 

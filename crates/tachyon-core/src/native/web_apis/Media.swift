@@ -48,4 +48,8 @@ final class Media {
     func encryptFrames(connection: String, on: Bool) throws {
         _ = try TacWebHost.call(Self.api, "encryptFrames", [connection, on])
     }
+
+    func callActive(on: Bool, title: String) throws {
+        _ = try TacWebHost.call(Self.api, "callActive", [on, title])
+    }
 }

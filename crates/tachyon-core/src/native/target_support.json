@@ -620,6 +620,16 @@
     "android": {"reach": "adapted", "note": "The Android app lets page requests reach the hosts in tac.outgoing.hosts over https only: the platform refuses cleartext http and ws. It asks for the INTERNET permission only when the list names a host. On the Android 15 emulator, connect-src refused a page fetch to a host outside the list, and that host saw no request (MA3, scripts/android/page-checks-test.mjs)."}
   },
   {
+    "member": "tac.media",
+    "paths": ["tac.media.background", "tac.media.callNotice"],
+    "web": {"reach": "notApplicable", "note": "A web page cannot keep call audio running after the person leaves it. Media.callActive only answers MediaCallActive with background false (ADR 0129)."},
+    "macos": {"reach": "notApplicable", "note": "A desktop app keeps running when its window is in the background, so tac.media.background changes nothing; Media.callActive only answers MediaCallActive with background false (ADR 0129)."},
+    "windows": {"reach": "notApplicable", "note": "A desktop app keeps running when its window is in the background, so tac.media.background changes nothing; Media.callActive only answers MediaCallActive with background false (ADR 0129)."},
+    "linux": {"reach": "notApplicable", "note": "A desktop app keeps running when its window is in the background, so tac.media.background changes nothing; Media.callActive only answers MediaCallActive with background false (ADR 0129)."},
+    "ios": {"reach": "runOwed", "how": "tac.media.background adds UIBackgroundModes audio to Info.plist; Media.callActive sets the audio session to playAndRecord in voiceChat mode with Bluetooth, and the host lists and chooses the earpiece, the speaker and connected headsets (ADR 0129)", "run": "a call on an iPhone with the screen locked"},
+    "android": {"reach": "runOwed", "how": "tac.media.background adds a foreground service of type microphone (and camera when granted) with FOREGROUND_SERVICE permissions, and tac.media.callNotice becomes its ongoing notification (required, TY1601); Media.callActive sets MODE_IN_COMMUNICATION and starts or stops the service, and the host lists and chooses communication devices (ADR 0129)", "run": "a call on an Android phone with the screen off"}
+  },
+  {
     "member": "tac.yon",
     "paths": ["tac.yon"],
     "web": {"reach": "honored", "how": "pages send Yon calls to tac.yon.origin over CORS without cookies, and connect-src allows it (ADR 0103)"},

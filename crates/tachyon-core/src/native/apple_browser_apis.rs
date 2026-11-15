@@ -16,7 +16,8 @@ impl AppleBrowserApis {
         include_str!("browser_apis/AppleCryptoValues.swift"),
         include_str!("browser_apis/AppleCryptoKey.swift"),
         include_str!("browser_apis/AppleCryptoRefusal.swift"),
-        include_str!("browser_apis/AppleKeyStore.swift")
+        include_str!("browser_apis/AppleKeyStore.swift"),
+        include_str!("browser_apis/AppleCallAudio.swift")
     );
 
     pub(super) fn swift_grants(permissions: &BrowserApiPermissions) -> String {
@@ -69,11 +70,14 @@ mod tests {
                 "if capability.hasPrefix(\"browserApi.\") {\n            AppleBrowserApis.shared.call(capability, request, webView) { replyHandler($0, nil) }"
             ));
             assert!(source.contains("AppleBrowserApis.shared.prepare(view) {"));
-            assert!(source.contains(
-                "globalThis.__tachyonBrowserApiBridge = Object.freeze(['clipboard', 'share', 'notifications', 'geolocation', 'codeScanner', 'crypto'])"
-            ));
             assert!(!source.contains("__NATIVE_BROWSER_API"));
         }
+        assert!(granted[0].contains(
+            "globalThis.__tachyonBrowserApiBridge = Object.freeze(['clipboard', 'share', 'notifications', 'geolocation', 'codeScanner', 'crypto'])"
+        ));
+        assert!(granted[1].contains(
+            "globalThis.__tachyonBrowserApiBridge = Object.freeze(['clipboard', 'share', 'notifications', 'geolocation', 'codeScanner', 'crypto', 'media'])"
+        ));
     }
 
     #[test]

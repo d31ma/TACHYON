@@ -186,6 +186,9 @@ tac.budgets
 tac.outgoing
   honored: the build checks request hosts and the scheme handler's connect-src allows only them; a page fetch to an undeclared host was refused in the Linux app (RL1)
 
+tac.media
+  not applicable: A desktop app keeps running when its window is in the background, so tac.media.background changes nothing; Media.callActive only answers MediaCallActive with background false (ADR 0129).
+
 tac.yon
   honored: the Linux app sends page and linked Rust service calls to tac.yon.origin from tachyon://app, and its connect-src allows it (ADR 0103, run under Xvfb and headless Wayland)
 

@@ -98,6 +98,7 @@ int main(void) {
             description: String::new(),
             tray: None,
             links: crate::native::native_links::NativeLinks::default(),
+            media: crate::native::media_member::MediaMember::default(),
         };
         let index = super::routes::NativeRouteIndex {
             contract_version: 2,
