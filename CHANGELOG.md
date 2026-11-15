@@ -25,6 +25,14 @@ machine contracts have their own, independent major versions.
   `.tachyon/tac-locks.js`, shipped only to pages that grant `locks`.
   `bun run test:tabs-browser` checks two tabs in Chromium, Firefox and
   WebKit.
+- **Links between page apps swap the outlet without a reload** (ADR QQQQ,
+  step 2 of micro-frontends, slice 4b). In a document with a shell layout, a
+  same-origin link fetches the target document and renders its page in the
+  outlet; the shell keeps its state and services, Back and Forward work the
+  same way, and focus moves to the new page's heading. A target that needs
+  another shell or new head scripts loads as a normal page.
+  `bun run test:page-apps-browser` checks it in Chromium, Firefox and WebKit.
+
 - **A shell layout renders every page in its outlet** (ADR PPPP, step 2 of
   micro-frontends, slice 4a). `"tac": { "layout": "app-shell" }` in the shell
   names a component whose template holds one `<outlet />`. Every page of the
