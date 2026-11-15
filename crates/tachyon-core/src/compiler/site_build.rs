@@ -21,6 +21,7 @@ use super::service_script::ServiceScript;
 use super::service_worker::ServiceWorker;
 use super::setup_sharing::SetupSharing;
 use super::shared_assets::SharedAssets;
+use super::shell_layout::ShellLayout;
 use super::tool_build::ToolBuild;
 use super::web_artifact_manifest::WebArtifactManifest;
 use super::web_push::WebPush;
@@ -69,6 +70,7 @@ pub(super) struct SiteBuild<'a> {
     crypto_tag: &'static str,
     blobs_tag: String,
     app_budgets: Vec<(&'a Path, crate::routing::MountPath)>,
+    layout: ShellLayout,
     phase_started: Instant,
     timings: Vec<(String, Duration)>,
     service_timings: Vec<(String, Duration)>,
@@ -131,6 +133,7 @@ impl<'a> SiteBuild<'a> {
             crypto_tag: "",
             blobs_tag: String::new(),
             app_budgets: Vec::new(),
+            layout: ShellLayout::none(),
             phase_started,
             timings: Vec::new(),
             service_timings: Vec::new(),
@@ -184,6 +187,19 @@ impl<'a> SiteBuild<'a> {
         );
         self.add_component_styles_file();
         self.add_client_runtime_file(has_tac_routes);
+        Ok(())
+    }
+
+    pub(super) fn add_layout(&mut self, site: &crate::native::SiteSettings) -> Result<(), Failure> {
+        let renderer = ClientViewRenderer::new(&self.components, &self.services, &self.shared_data);
+        let layout = ShellLayout::build(
+            site.layout.as_deref(),
+            self.project.mount(),
+            renderer,
+            &self.components,
+        )?;
+        self.view_services.extend(layout.services().iter().cloned());
+        self.layout = layout.with_styles(!self.component_styles.is_empty());
         Ok(())
     }
 
@@ -268,7 +284,7 @@ impl<'a> SiteBuild<'a> {
 
     fn add_app(&mut self, app: SiteBuild<'a>) -> Result<(), Failure> {
         let mount = app.project.mount().clone();
-        let files = mount.bundled(app.files);
+        let files = self.layout.app_documents(mount.bundled(app.files));
         self.check_new_files(&files)?;
         self.files.extend(files);
         self.app_budgets.push((app.snapshot_root, mount));
@@ -693,6 +709,7 @@ impl<'a> SiteBuild<'a> {
                 route.route(),
             )?;
         Self::check_page_bindings(route.route(), rendered.page_bindings)?;
+        ShellLayout::check_page(route.route(), &rendered.html)?;
         self.view_services.extend(rendered.services.iter().cloned());
         let html = PageHead::apply(site, rendered.html, route.route());
         let html = self.add_runtime_links(&html);
@@ -754,6 +771,7 @@ impl<'a> SiteBuild<'a> {
         html = PageHead::inject_before_runtime(&html, &self.code_scanner_tag);
         html = PageHead::inject_before_runtime(&html, self.crypto_tag);
         html = PageHead::inject_before_runtime(&html, &self.blobs_tag);
+        html = PageHead::inject_before_runtime(&html, self.layout.tag());
         html = PageHead::inject_before(&html, "</body>", self.service_worker_link());
         self.project.mount().document(&html)
     }

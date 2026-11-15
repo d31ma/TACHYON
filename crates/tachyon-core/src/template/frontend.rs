@@ -490,6 +490,7 @@ impl<'a> Parser<'a> {
                 "Use a colocated Tac island companion.",
             )),
             "slot" => Self::slot_kind(&mut attributes, source_path, range),
+            "outlet" => Self::outlet_kind(&mut attributes, source_path, range),
             _ if self.components.contains(name) => {
                 component_kind(name, attributes, source_path, range)
             }
@@ -641,6 +642,15 @@ fn switch_value(
 }
 
 impl Parser<'_> {
+    fn outlet_kind(
+        attributes: &mut BTreeMap<String, TemplateAttribute>,
+        source_path: &str,
+        range: SourceRange,
+    ) -> Result<TemplateNodeKind, Failure> {
+        reject_attributes(attributes, source_path, range, "outlet")?;
+        Ok(TemplateNodeKind::Outlet)
+    }
+
     fn slot_kind(
         attributes: &mut BTreeMap<String, TemplateAttribute>,
         source_path: &str,

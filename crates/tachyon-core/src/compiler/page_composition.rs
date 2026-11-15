@@ -65,6 +65,7 @@ impl PageComposition {
             TemplateNodeKind::Text(_) => Some("text or an expression"),
             TemplateNodeKind::Element { .. } => Some("a plain element"),
             TemplateNodeKind::Slot(_) => Some("a slot"),
+            TemplateNodeKind::Outlet => Some("an outlet"),
             _ => Some("control flow"),
         }
     }

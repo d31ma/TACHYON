@@ -10,6 +10,14 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- **A shell layout renders every page in its outlet** (ADR PPPP, step 2 of
+  micro-frontends, slice 4a). `"tac": { "layout": "app-shell" }` in the shell
+  names a component whose template holds one `<outlet />`. Every page of the
+  shell, and every page app built into the same bundle, renders inside that
+  layout; the page keeps its own state and services. A page with
+  `<outlet />` or a layout without exactly one outlet stops the build
+  (`TY1601`).
+
 - **A Tac app can include shared client folders** (ADR NNNN, step 2 of
   micro-frontends, slice 3b). `"tac": { "include": ["../kit"] }` adds the
   components, services, entities, models and shared files of each listed
