@@ -80,6 +80,19 @@ console.log(JSON.stringify({
   value: late.data,
 }))
 ";
+    const CHAINED: &'static str = r"
+define('w-chain', CountingElement)
+const chart = element('w-chain')
+const record = (value) => ({ properties: new Map([['data', value]]) })
+const renders = [[1], [2], [2], [3], [3, 4]]
+let previous = record(renders[0])
+for (const value of renders.slice(1)) {
+  const next = record([...value])
+  BoundProperty.sync(chart, previous, next)
+  previous = next
+}
+console.log(JSON.stringify(CountingElement.writes))
+";
     const READ_ONLY: &'static str = r"
 define('w-sparkline', ReadOnlyElement)
 const first = Object.assign(element('w-sparkline'), { id: 'probe' })
@@ -214,4 +227,16 @@ fn a_property_refused_after_a_late_definition_logs_one_error() {
     let message = result["message"].as_str().expect("message");
     assert!(message.contains("<w-gauge>"), "{message}");
     assert!(message.contains(":values"), "{message}");
+}
+
+#[test]
+fn every_later_render_that_gives_new_content_writes_the_property_once() {
+    if !NodeDriver::available() {
+        eprintln!("skipping: node is unavailable");
+        return;
+    }
+    assert_eq!(
+        BoundPropertyDriver::run(BoundPropertyDriver::CHAINED),
+        serde_json::json!([[2], [3], [3, 4]])
+    );
 }

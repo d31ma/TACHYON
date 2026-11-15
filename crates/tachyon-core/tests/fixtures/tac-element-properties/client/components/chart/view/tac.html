@@ -7,4 +7,11 @@
   <probe-late id="late" :points="chart.points"></probe-late>
   <probe-fixed id="fixed" :values="chart.points"></probe-fixed>
   <div id="plain" :data-points="chart.points"></div>
+  <section id="feed">
+    <button id="next-view" on:click="feed.next()">Next view</button>
+    <button id="repeat-view" on:click="feed.repeat()">Same points</button>
+    <p id="view-title">{chart.view.title}</p>
+    <probe-chart id="nested" :points="chart.view.series.points"></probe-chart>
+    <probe-light id="light" :points="chart.view.series.points"></probe-light>
+  </section>
 </main>

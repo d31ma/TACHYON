@@ -31,6 +31,13 @@ class ElementPropertiesBrowserGate {
     customElements.define('probe-fixed', class extends HTMLElement {
       get values() { return [] }
     })
+    globalThis.probeLightWrites = []
+    customElements.define('probe-light', class extends HTMLElement {
+      get points() { return this._points }
+      set points(value) { globalThis.probeLightWrites.push(value); this._points = value; this._paint() }
+      connectedCallback() { this._paint() }
+      _paint() { this.textContent = (this._points ?? []).join(',') }
+    })
   `
   static _refusedBinding = '<probe-fixed id="fixed">'
 
@@ -94,6 +101,8 @@ class ElementPropertiesBrowserGate {
       await ElementPropertiesBrowserGate._checkRemovedBinding(page)
       diagnostics.phase = 'late-definition'
       await ElementPropertiesBrowserGate._checkLateDefinition(page)
+      diagnostics.phase = 'replaced-view'
+      await ElementPropertiesBrowserGate._checkReplacedView(page)
       diagnostics.phase = 'refused-property'
       await ElementPropertiesBrowserGate._checkRefusedProperty(page, diagnostics)
       assert.deepEqual(diagnostics.errors, [])
@@ -177,6 +186,42 @@ class ElementPropertiesBrowserGate {
     assert.equal(state.ownPoints, false)
     assert.deepEqual(state.points, [1, 2, 3, 4])
     assert.equal(state.attributes.includes('points'), false)
+  }
+
+  /** @param {import('playwright').Page} page @returns {Promise<void>} */
+  static async _checkReplacedView(page) {
+    await page.locator('#nested').evaluate((element) => { element.dataset.marker = 'kept' })
+    await page.locator('#light').evaluate((element) => { element.dataset.marker = 'kept' })
+    const before = await ElementPropertiesBrowserGate._state(page, '#nested')
+    for (const turn of [1, 2]) await ElementPropertiesBrowserGate._nextView(page, turn)
+    const after = await ElementPropertiesBrowserGate._state(page, '#nested')
+    assert.equal(after.marker, 'kept')
+    assert.deepEqual(after.points, [2, 20])
+    assert.equal(after.pointsWrites, before.pointsWrites + 2)
+    const light = await page.evaluate(() => ({
+      text: document.querySelector('#light')?.textContent,
+      last: globalThis.probeLightWrites.at(-1),
+      marker: document.querySelector('#light')?.dataset.marker ?? null,
+    }))
+    assert.deepEqual({ last: light.last, marker: light.marker }, { last: [2, 20], marker: 'kept' })
+    await ElementPropertiesBrowserGate._checkRepeatedView(page, after.pointsWrites)
+  }
+
+  /** @param {import('playwright').Page} page @param {number} writes @returns {Promise<void>} */
+  static async _checkRepeatedView(page, writes) {
+    await page.locator('#repeat-view').click()
+    await page.waitForFunction(() => document.querySelector('#view-title')?.textContent === 'View 2 again')
+    const repeated = await ElementPropertiesBrowserGate._state(page, '#nested')
+    assert.equal(repeated.marker, 'kept')
+    assert.equal(repeated.pointsWrites, writes)
+    assert.deepEqual(repeated.points, [2, 20])
+  }
+
+  /** @param {import('playwright').Page} page @param {number} turn @returns {Promise<void>} */
+  static async _nextView(page, turn) {
+    await page.locator('#next-view').click()
+    await page.waitForFunction((title) => document.querySelector('#view-title')?.textContent === title, `View ${turn}`)
+    await page.waitForFunction((first) => document.querySelector('#light')?.textContent?.startsWith(`${first},`), turn)
   }
 
   /** @param {import('playwright').Page} page @param {PropertyDiagnostics} diagnostics @returns {Promise<void>} */

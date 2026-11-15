@@ -1,3 +1,4 @@
+/** @import { ChartView } from '/models/ChartView.ts' */
 @Service
 export default class ChartService {
   /** @type {number[]} */
@@ -8,6 +9,8 @@ export default class ChartService {
   label = 'Load'
   /** @type {number} */
   count = 3
+  /** @type {ChartView} */
+  view = { title: 'View 0', series: { points: [] } }
 
   /** @returns {void} */
   addPoint() {
@@ -18,5 +21,11 @@ export default class ChartService {
   /** @returns {void} */
   clearOptions() {
     this.options = null
+  }
+
+  /** @param {ChartView} view */
+  @OnEvent
+  receive(view) {
+    this.view = view
   }
 }
