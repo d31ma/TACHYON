@@ -56,6 +56,8 @@ mod page_media;
 #[cfg(test)]
 mod page_media_frames_tests;
 #[cfg(test)]
+mod page_media_native_keys_tests;
+#[cfg(test)]
 mod page_media_tests;
 mod page_module;
 #[cfg(test)]
