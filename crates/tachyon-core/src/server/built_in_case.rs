@@ -92,8 +92,8 @@ mod tests {
     fn a_plain_case_carries_its_type_status_and_reference() {
         let case = BuiltInCase::plain(BuiltInError::NOT_SIGNED_IN);
         assert_eq!(
-            case.argument("ref1").to_string(),
-            r#"{"type":"NotSignedIn","status":401,"reference":"ref1"}"#
+            case.argument("ref1"),
+            serde_json::json!({"type": "NotSignedIn", "status": 401, "reference": "ref1"})
         );
     }
 
