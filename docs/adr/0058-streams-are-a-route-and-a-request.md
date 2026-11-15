@@ -346,9 +346,11 @@ services in WebView2").
 PLAT-1 built a status page whose server sends `event: state` messages and
 `: ping` comment lines, and whose charts change their time window. The page
 received nothing, reconnected every minute and could not change the window.
-This amendment closes those gaps (tickets TAC-S1 to TAC-S4). It replaces the
+This amendment closes those gaps (tickets TAC-S1 to TAC-S5). It replaces the
 sentence "`@StreamRequest` takes no parameter markers" above: a stream still
-takes no parameter markers, but it takes parameters from a model.
+takes no parameter markers, but it takes parameters from a model. For a
+stream without a declared reconnect policy, it also replaces "and then stops"
+in the reconnect sentence above (TAC-S5 below).
 
 ### A stream reads one named event type (TAC-S1)
 
@@ -389,8 +391,12 @@ takes no parameter markers, but it takes parameters from a model.
   field, counts as a listener failure and keeps the open stream.
 - A value that gives a new address closes the old `EventSource` first and
   then opens the new one, with the reconnect count at 0. A value that gives
-  the same address while the stream is open changes nothing. After the server
-  sends `end`, a new value opens the stream again.
+  the same address while the stream is open changes nothing.
+- Publishing a value reopens a stream that is not open, even when the value
+  gives the same address: after the server sent `end`, after a declared
+  policy ran out of tries, or while the bus waits for its next try. The bus
+  opens it at once, with the reconnect count at 0. So a page can reconnect a
+  stream on purpose by publishing its current query value again.
 - A stream without `query` opens when its owner starts, as before. A path
   with a `{name}` part and no `query` stops the build, and so does a
   `{name}` part that is not a letter or underscore followed by letters,
@@ -426,6 +432,27 @@ takes no parameter markers, but it takes parameters from a model.
   least every 30 seconds instead of a comment line. Yon's own `@StreamRoute`
   sends no comment lines, so it needs no change.
 
+### A stream keeps trying after a long outage (TAC-S5)
+
+PLAT-1's status page stopped its stream after a 50-second server outage and
+stayed on polling until a reload: the five fast tries (1 + 2 + 4 + 8 + 16
+seconds) end about 31 seconds after the first error.
+
+- A stream without a declared reconnect policy (no `reconnect` key, ADR 0124)
+  still tries after 1, 2, 4, 8 and 16 seconds. It then does not stop: while
+  its owner stays mounted, it tries again every 30 to 35 seconds (30 seconds
+  plus up to 5 seconds of random jitter, so many pages do not return at the
+  same moment). A message, a heartbeat or an open connection restarts the
+  count, so the next error starts with the fast tries again.
+- A slow try waits while the page is hidden; showing the page again, or the
+  browser going online, opens the stream at once, as before.
+- When the owner goes away, the waiting try is cancelled, so a stream never
+  outlives the component or service that needs it.
+- A declared policy is the author's choice and is kept: a stream with
+  `"maxTries": 3` still stops after three tries, and `"maxTries": 0` tries
+  forever at its own delays. Sockets keep their declared or default policy
+  (ADR 0124); this change is for `EventSource` streams only.
+
 ### One model per stream method (TAC-S3, design note)
 
 A `@StreamRequest` method still has one message model. A server that sends
@@ -452,7 +479,8 @@ The always-shipped event bus (`template/application-events.js`) grows by
 1,737 bytes before compression, from 18,425 to 20,162. The byte budget in
 `scripts/application-events-test.mjs` was 14,338 and already failed on
 develop, because earlier changes had grown the bus without updating it. It
-is now 20,480: the measured size plus a 318-byte margin.
+is now 20,480: the measured size plus a 318-byte margin. The slow retry
+(TAC-S5) adds 313 bytes, to 20,475; the budget did not change.
 
 Evidence: `events::stream_address_tests` (JavaScript, TypeScript, Go, Ruby,
 Rust, Dart, Swift, Kotlin, Java, C# and Python write the event and query
@@ -460,7 +488,11 @@ parts, and the refusals), `tac_cpp::tests::a_cpp_stream_client_writes_its_event_
 `native::fsharp_service::tests::a_held_fsharp_stream_client_carries_its_event_name_and_query`
 and `tac_lua::tests::stream_tests::a_lua_stream_client_carries_its_event_name_and_query`
 for C++, F# and Lua; `scripts/application-events-test.mjs` (the bus with a
-fake `EventSource`); and `scripts/streams-browser-test.mjs`, which runs the
+fake `EventSource`, including the slow try and a slow try that reopens the
+stream); `template::reconnect_tests::a_stream_without_a_policy_keeps_trying_slowly_while_its_page_is_shown`
+and `a_stream_with_a_declared_policy_still_stops_after_its_tries`; and
+`scripts/streams-browser-test.mjs`, which CI runs as `bun run
+test:streams-browser` beside the other browser gates, and which runs the
 bus in Chromium, Firefox and WebKit against a real server-sent event stream
 with a comment, an unnamed message, a heartbeat, two named types and a
 parameter change. All 14 client languages that write `@StreamRequest` are
