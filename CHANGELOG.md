@@ -316,6 +316,13 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- **A property that a custom element refuses no longer blanks the page**
+  (ADR 0136 amendment, TAC-B1F). An element with a getter and no setter,
+  such as `get values()`, threw a TypeError that stopped the whole render.
+  Now Tac skips that one binding, writes no attribute for it, and logs one
+  console error that names the binding and the element. Every failed render
+  also reports its cause once with `reportError`, even when its caller
+  handles the error, so a blank page always shows its cause in the console.
 - **Views accept every SVG 2 and MathML Core element.** A view with
   `<linearGradient><stop ...></stop></linearGradient>` failed with "Unknown
   Tac component '<stop>'", because the compiler's tag list missed `<stop>`

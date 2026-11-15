@@ -2,6 +2,8 @@
 
 - Status: Accepted
 - Date: 2026-11-14
+- Amended: 2026-11-14 (TAC-B1F: a refused property skips one binding, not
+  the page; a failed render logs its cause)
 - Amends: [ADR 0015](0015-tac-is-exclusively-client-rendered.md) (how the
   client writes a bound value) and [ADR 0086](0086-a-component-can-be-exported-as-a-custom-element.md)
   (a Tac view now uses the property door of an element)
@@ -62,7 +64,39 @@ There were two ways to fix this:
    client still sets the property. When the definition arrives, the client
    upgrades the element and gives the saved value to the element's own
    setter, so the value is not hidden behind an own property.
-7. There is no new syntax and no compiler change. The compiler already
+7. An element can refuse a property: it has a getter and no setter, or
+   its setter throws. DuVay's `w-sparkline` has only `get values()`, so
+   `<w-sparkline :values="svc.points">` threw a `TypeError` (ticket
+   TAC-B1F, found by PLAT-1). Before this amendment the throw stopped the
+   whole render: the page stayed blank, the document got
+   `data-tachyon-render-error="render_failed"`, and the console showed
+   nothing. Now:
+   - The client catches the failure for that one binding, skips it, and
+     renders the rest of the page. The same rule holds for every write of a
+     bound property: the first render, an update, clearing a removed
+     binding, and the write after a late definition.
+   - It logs one `console.error` that names the binding and the element,
+     for example `Tac could not give :values to <w-sparkline
+     id="b1-probe">`, with the error that the element threw. It logs once
+     per element name and property for the life of the page, so a page
+     that renders often does not fill the console.
+   - It does not fall back to the attribute as text. The element did not
+     take the value through its property, and Tac cannot know which text
+     form the attribute expects (a comma list, JSON, or none at all). An
+     object would also lose its identity. The author decides: the element
+     gets a setter, or the view binds text, for example from a service
+     getter that returns a string.
+8. Every render failure that sets `data-tachyon-render-error="render_failed"`
+   on the document reports its cause once with `reportError`, so the
+   console shows it and the window's `error` event fires. This holds when
+   the caller of the render (an activation, an event handler, a service
+   change, `__tachyonTac.render()`, or the follow-up render of ADR 0137)
+   handles the error itself. Before, only
+   the start-up render's error reached the console, as an uncaught
+   rejection; the start-up render now leaves the report to the renderer, so
+   the cause is never logged twice. A blank page with a silent console is a
+   defect.
+9. There is no new syntax and no compiler change. The compiler already
    sends the expression to the client. Every path that renders a view uses
    the same client code: the first render, an update that keeps elements,
    an update with the focus inside, a hot update, the shadow root of an
@@ -82,7 +116,10 @@ There were two ways to fix this:
 - An element that wants text from an object gets the object. A view that
   wants text writes it in the expression, for example with a getter that
   returns a string.
-- The client gains about 2 KB of source, before compaction. `tac-web.js`
+- A binding that an element refuses shows as one console error, and the
+  rest of the page still renders. The element keeps its own value for that
+  property.
+- The client gains about 3 KB of source, before compaction. `tac-web.js`
   does not change.
 
 ## Evidence
@@ -99,3 +136,14 @@ There were two ways to fix this:
   rule; an update keeps the element and writes only the changed property;
   a removed binding clears the property; an element defined after the
   first render gets the value through its setter.
+- `template::bound_property_tests` (TAC-B1F): a getter-only property never
+  throws out of a write, an update or a clear, and gives one console error
+  that names the element and the binding; the same after a late definition.
+- `scripts/element-properties-browser-gate.mjs` (TAC-B1F): a `probe-fixed`
+  element with a getter-only `values` gives exactly one console error in
+  Chromium, Firefox and WebKit, keeps its own value, gets no attribute, and
+  every other check on the page still passes.
+- `scripts/runtime-browser-test.mjs` (TAC-B1F): a render started by
+  `__tachyonTac.render()` that hits the loop item cap sets `render_failed`
+  and reports its cause exactly once, although the caller handles the
+  error; a failed follow-up render (ADR 0137) reports its own cause too.

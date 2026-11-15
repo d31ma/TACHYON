@@ -1129,6 +1129,8 @@ async function checkMountCancellation(browser, origin) {
 
 async function checkLoops(browser, origin) {
   const loops = await browser.newPage();
+  const pageErrors = [];
+  loops.on('pageerror', (error) => pageErrors.push(error.message));
   await loops.addInitScript(rootDelegate);
   await loops.goto(`${origin}/loops/`);
   await loops.waitForSelector('#entities');
@@ -1158,8 +1160,25 @@ async function checkLoops(browser, origin) {
   });
   assert.equal(bounded, 'bounded-error', 'iteration cap fails rather than hanging the renderer');
   assert.equal(await loops.getAttribute('html', 'data-tachyon-render-error'), 'render_failed');
+  assert.equal(pageErrors.filter((message) => message.includes('Tac iteration exceeds')).length, 1,
+    `a failed render reports its cause once, even when its caller handles the error: ${pageErrors.join(' | ')}`);
   await loops.evaluate(async () => { __root('runtimeLoops').limit = 3; await __tachyonTac.render(); });
   assert.deepEqual(await values('#ascending'), ['0', '1', '2'], 'renderer recovers after bounded failure');
+  assert.equal(await loops.getAttribute('html', 'data-tachyon-render-error'), null);
+  const capErrors = () => pageErrors.filter((message) => message.includes('Tac iteration exceeds')).length;
+  const beforeFollowUp = capErrors();
+  await loops.evaluate(async () => {
+    __root('runtimeLoops').limit = 10001;
+    const first = __tachyonTac.render();
+    void __tachyonTac.render();
+    await first.catch(() => {});
+  });
+  const followUpDeadline = Date.now() + 5000;
+  while (capErrors() < beforeFollowUp + 2 && Date.now() < followUpDeadline) await loops.waitForTimeout(50);
+  assert.equal(capErrors(), beforeFollowUp + 2,
+    `a failed follow-up render reports its own cause too: ${pageErrors.join(' | ')}`);
+  await loops.evaluate(async () => { __root('runtimeLoops').limit = 3; await __tachyonTac.render(); });
+  assert.deepEqual(await values('#ascending'), ['0', '1', '2'], 'renderer recovers after a failed follow-up render');
   assert.equal(await loops.getAttribute('html', 'data-tachyon-render-error'), null);
 
   const nestedBounded = await loops.evaluate(async () => {

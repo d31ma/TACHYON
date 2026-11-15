@@ -5,5 +5,6 @@
   <output id="count">{chart.count}</output>
   <probe-chart id="early" :points="chart.points" :chart-options="chart.options" :label="chart.label" :count="chart.count"></probe-chart>
   <probe-late id="late" :points="chart.points"></probe-late>
+  <probe-fixed id="fixed" :values="chart.points"></probe-fixed>
   <div id="plain" :data-points="chart.points"></div>
 </main>

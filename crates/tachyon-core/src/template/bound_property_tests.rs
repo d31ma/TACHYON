@@ -23,6 +23,11 @@ const element = (localName, namespaceURI = 'http://www.w3.org/1999/xhtml') => {
   return Object.assign(created, { localName, namespaceURI })
 }
 const define = (name, type) => { defined.set(name, type); waiting.get(name)?.() }
+class ReadOnlyElement {
+  get values() { return [] }
+}
+const consoleErrors = []
+console.error = (...parts) => consoleErrors.push(parts.map(String).join(' '))
 ";
     const TAKES: &'static str = r"
 const svg = 'http://www.w3.org/2000/svg'
@@ -74,6 +79,27 @@ console.log(JSON.stringify({
   throughSetter: CountingElement.writes.length === 1 && CountingElement.writes[0] === points,
   value: late.data,
 }))
+";
+    const READ_ONLY: &'static str = r"
+define('w-sparkline', ReadOnlyElement)
+const first = Object.assign(element('w-sparkline'), { id: 'probe' })
+const second = element('w-sparkline')
+const record = (entries) => ({ properties: new Map(entries) })
+const thrown = []
+const attempt = (work) => { try { work() } catch (error) { thrown.push(error.name) } }
+attempt(() => BoundProperty.write(first, 'values', [1, 2]))
+attempt(() => BoundProperty.write(second, 'values', [3]))
+attempt(() => BoundProperty.sync(first, record([['values', [1, 2]]]), record([['values', [4]]])))
+attempt(() => BoundProperty.sync(first, record([['values', [4]]]), record([])))
+console.log(JSON.stringify({ thrown, errors: consoleErrors.length, message: consoleErrors[0] ?? '' }))
+";
+    const READ_ONLY_LATE: &'static str = r"
+const late = element('w-gauge')
+BoundProperty.write(late, 'values', [4, 5])
+define('w-gauge', ReadOnlyElement)
+await Promise.resolve()
+await Promise.resolve()
+console.log(JSON.stringify({ errors: consoleErrors.length, message: consoleErrors[0] ?? '', own: Object.hasOwn(late, 'values') }))
 ";
 
     fn run(harness: &str) -> serde_json::Value {
@@ -160,4 +186,32 @@ fn a_value_given_before_the_element_is_defined_reaches_its_setter_after_the_defi
         BoundPropertyDriver::run(BoundPropertyDriver::LATE),
         serde_json::json!({ "before": true, "ownAfter": false, "throughSetter": true, "value": [4, 5] })
     );
+}
+
+#[test]
+fn a_property_the_element_will_not_take_logs_one_error_and_never_throws() {
+    if !NodeDriver::available() {
+        eprintln!("skipping: node is unavailable");
+        return;
+    }
+    let result = BoundPropertyDriver::run(BoundPropertyDriver::READ_ONLY);
+    assert_eq!(result["thrown"], serde_json::json!([]));
+    assert_eq!(result["errors"], serde_json::json!(1));
+    let message = result["message"].as_str().expect("message");
+    assert!(message.contains("<w-sparkline id=\"probe\">"), "{message}");
+    assert!(message.contains(":values"), "{message}");
+}
+
+#[test]
+fn a_property_refused_after_a_late_definition_logs_one_error() {
+    if !NodeDriver::available() {
+        eprintln!("skipping: node is unavailable");
+        return;
+    }
+    let result = BoundPropertyDriver::run(BoundPropertyDriver::READ_ONLY_LATE);
+    assert_eq!(result["errors"], serde_json::json!(1));
+    assert_eq!(result["own"], serde_json::json!(false));
+    let message = result["message"].as_str().expect("message");
+    assert!(message.contains("<w-gauge>"), "{message}");
+    assert!(message.contains(":values"), "{message}");
 }

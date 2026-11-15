@@ -39,6 +39,9 @@ class Rendering {
   static elements = new Map()
   static mounts = []
   static loopContents = new WeakMap()
+
+  /** @returns {void} */
+  static alreadyReported() {}
 }
 
 /** @typedef {{nodes: object[], named: Record<string, object[]>, environment: object}} RenderSlot */
@@ -427,7 +430,9 @@ class BoundAttribute {
 class BoundProperty {
   static #htmlNamespace = 'http://www.w3.org/1999/xhtml'
   static #wordStart = /-([a-z])/g
+  static #capital = /[A-Z]/g
   static #written = new WeakMap()
+  static #refused = new Set()
 
   /** @param {Element} element @param {unknown} value @returns {boolean} */
   static takes(element, value) {
@@ -465,9 +470,14 @@ class BoundProperty {
     return letter.toUpperCase()
   }
 
+  /** @param {string} letter @returns {string} */
+  static #dashed(letter) {
+    return `-${letter.toLowerCase()}`
+  }
+
   /** @param {Element} element @param {string} property @param {Map<string, unknown>} next @returns {void} */
   static #clearRemoved(element, property, next) {
-    if (!next.has(property)) element[property] = undefined
+    if (!next.has(property)) BoundProperty.#set(element, property, undefined)
   }
 
   /** @param {Element} element @param {string} property @param {Map<string, unknown>} previous @param {unknown} value @returns {void} */
@@ -478,7 +488,7 @@ class BoundProperty {
 
   /** @param {Element} element @param {string} property @param {unknown} value @returns {void} */
   static #assign(element, property, value) {
-    element[property] = value
+    BoundProperty.#set(element, property, value)
     if (!customElements.get(element.localName)) void customElements.whenDefined(element.localName).then(() => BoundProperty.#upgrade(element, property))
   }
 
@@ -488,7 +498,36 @@ class BoundProperty {
     if (!Object.hasOwn(element, property)) return
     const value = element[property]
     delete element[property]
-    element[property] = value
+    BoundProperty.#set(element, property, value)
+  }
+
+  /** @param {Element} element @param {string} property @param {unknown} value @returns {void} */
+  static #set(element, property, value) {
+    try {
+      element[property] = value
+    } catch (error) {
+      BoundProperty.#report(element, property, error)
+    }
+  }
+
+  /** @param {Element} element @param {string} property @param {unknown} error @returns {void} */
+  static #report(element, property, error) {
+    const key = `${element.localName}|${property}`
+    if (BoundProperty.#refused.has(key)) return
+    BoundProperty.#refused.add(key)
+    console.error(BoundProperty.#refusal(element, property, error), error)
+  }
+
+  /** @param {Element} element @param {string} property @param {unknown} error @returns {string} */
+  static #refusal(element, property, error) {
+    const binding = property.replace(BoundProperty.#capital, BoundProperty.#dashed)
+    return `Tac could not give :${binding} to ${BoundProperty.#describe(element)}. The element refused its '${property}' property (${String(error)}). Tac skipped this binding and rendered the rest of the page. Give the element a setter for '${property}', or bind text instead.`
+  }
+
+  /** @param {Element} element @returns {string} */
+  static #describe(element) {
+    if (!element.id) return `<${element.localName}>`
+    return `<${element.localName} id="${element.id}">`
   }
 }
 
@@ -1747,6 +1786,7 @@ const render = async () => {
     TacFocus.settle()
   })().catch((error) => {
     markDocument('tachyonRenderError', 'render_failed')
+    globalThis.reportError?.(error)
     throw error
   }).finally(finishRender).then(announceRendered)
   return Rendering.current
@@ -2003,7 +2043,7 @@ Object.defineProperty(globalThis, '__tachyonTac', {
 globalThis.__tc_rerender = render
 addEventListener('tachyon:rerender', render)
 await TacStorage.ready()
-await render()
+await render().catch(Rendering.alreadyReported)
 
 const whenIdle = (task) => globalThis.requestIdleCallback ? requestIdleCallback(task) : setTimeout(task, 1)
 whenIdle(() => {

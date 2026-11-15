@@ -10,7 +10,7 @@ import { chromium, firefox, webkit } from 'playwright'
 import { withServer } from './release/server-probe.mjs'
 
 /** @typedef {'chromium' | 'firefox' | 'webkit'} PropertyEngine */
-/** @typedef {{engine: PropertyEngine, phase: string, errors: string[], failedRequests: string[], externalRequests: string[]}} PropertyDiagnostics */
+/** @typedef {{engine: PropertyEngine, phase: string, errors: string[], consoleErrors: string[], failedRequests: string[], externalRequests: string[]}} PropertyDiagnostics */
 /** @typedef {{kind: string, points: unknown, pointsWrites: number, options: unknown, optionsWrites: number, attributes: string[], ownPoints: boolean, marker: string | null}} ProbeState */
 
 class ElementPropertiesBrowserGate {
@@ -28,7 +28,11 @@ class ElementPropertiesBrowserGate {
     }
     globalThis.ProbeChart = ProbeChart
     customElements.define('probe-chart', ProbeChart)
+    customElements.define('probe-fixed', class extends HTMLElement {
+      get values() { return [] }
+    })
   `
+  static _refusedBinding = '<probe-fixed id="fixed">'
 
   /** @returns {Promise<void>} */
   static async run() {
@@ -72,7 +76,7 @@ class ElementPropertiesBrowserGate {
   /** @param {PropertyEngine} engine @param {string} origin @returns {Promise<void>} */
   static async _runEngine(engine, origin) {
     /** @type {PropertyDiagnostics} */
-    const diagnostics = { engine, phase: 'starting', errors: [], failedRequests: [], externalRequests: [] }
+    const diagnostics = { engine, phase: 'starting', errors: [], consoleErrors: [], failedRequests: [], externalRequests: [] }
     const browser = await ElementPropertiesBrowserGate._browser(engine).launch({ timeout: ElementPropertiesBrowserGate._timeout })
     try {
       const page = await browser.newPage()
@@ -90,6 +94,8 @@ class ElementPropertiesBrowserGate {
       await ElementPropertiesBrowserGate._checkRemovedBinding(page)
       diagnostics.phase = 'late-definition'
       await ElementPropertiesBrowserGate._checkLateDefinition(page)
+      diagnostics.phase = 'refused-property'
+      await ElementPropertiesBrowserGate._checkRefusedProperty(page, diagnostics)
       assert.deepEqual(diagnostics.errors, [])
       assert.deepEqual(diagnostics.failedRequests, [])
       assert.deepEqual(diagnostics.externalRequests, [])
@@ -173,11 +179,31 @@ class ElementPropertiesBrowserGate {
     assert.equal(state.attributes.includes('points'), false)
   }
 
+  /** @param {import('playwright').Page} page @param {PropertyDiagnostics} diagnostics @returns {Promise<void>} */
+  static async _checkRefusedProperty(page, diagnostics) {
+    const refused = diagnostics.consoleErrors.filter((message) => message.includes(ElementPropertiesBrowserGate._refusedBinding))
+    assert.equal(refused.length, 1, diagnostics.consoleErrors.join('\n'))
+    assert.ok(refused[0].includes(':values'), refused[0])
+    const fixed = await page.locator('#fixed').evaluate((element) => ({
+      values: element.values,
+      own: Object.hasOwn(element, 'values'),
+      attributes: element.getAttributeNames().sort(),
+    }))
+    assert.deepEqual(fixed, { values: [], own: false, attributes: ['id'] })
+    assert.equal(await page.locator('html').getAttribute('data-tachyon-render-error'), null)
+  }
+
   /** @param {import('playwright').Page} page @param {string} origin @param {PropertyDiagnostics} diagnostics @returns {void} */
   static _observe(page, origin, diagnostics) {
     page.on('pageerror', (error) => diagnostics.errors.push(error.message))
+    page.on('console', (message) => ElementPropertiesBrowserGate._consoleError(message, diagnostics))
     page.on('requestfailed', (request) => diagnostics.failedRequests.push(request.url()))
     page.on('request', (request) => ElementPropertiesBrowserGate._external(request.url(), origin, diagnostics))
+  }
+
+  /** @param {import('playwright').ConsoleMessage} message @param {PropertyDiagnostics} diagnostics @returns {void} */
+  static _consoleError(message, diagnostics) {
+    if (message.type() === 'error') diagnostics.consoleErrors.push(message.text())
   }
 
   /** @param {string} url @param {string} origin @param {PropertyDiagnostics} diagnostics @returns {void} */
