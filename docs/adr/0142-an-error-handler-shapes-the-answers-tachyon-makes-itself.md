@@ -1,4 +1,4 @@
-# ADR 0144: An Error Handler Shapes the Answers Tachyon Makes Itself
+# ADR 0142: An Error Handler Shapes the Answers Tachyon Makes Itself
 
 - Status: Accepted
 - Date: 2026-11-14

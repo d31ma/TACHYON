@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-10-18
-- Amended by: [ADR 0144](0144-an-error-handler-shapes-the-answers-tachyon-makes-itself.md): a
+- Amended by: [ADR 0142](0142-an-error-handler-shapes-the-answers-tachyon-makes-itself.md): a
   `CheckRejected` method can shape the 422 body, and a root-type method no
   longer takes the `@Check` error
 - Amends: [ADR 0092](0092-settings-and-validation-data-live-in-models.md)
