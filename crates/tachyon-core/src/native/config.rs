@@ -564,10 +564,12 @@ pub(crate) struct TacMember {
     pub(super) peers: Option<super::peers_member::PeersMember>,
     #[serde(default)]
     pub(super) media: Option<super::media_member::MediaMember>,
+    #[serde(default)]
+    pub(super) include: Vec<String>,
 }
 
 impl TacMember {
-    pub(crate) const FRAMEWORK_MEMBERS: [&str; 36] = [
+    pub(crate) const FRAMEWORK_MEMBERS: [&str; 37] = [
         "origin",
         "application",
         "scripts",
@@ -604,6 +606,7 @@ impl TacMember {
         "mount",
         "apps",
         "media",
+        "include",
     ];
 }
 

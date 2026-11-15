@@ -1,5 +1,6 @@
 use super::{
-    CaptureProblem, CapturedSources, Discovered, Project, SnapshotContext, WorkerSchedules,
+    CaptureProblem, CapturedSources, Discovered, IncludedFolders, Project, SnapshotContext,
+    WorkerSchedules,
 };
 use crate::Failure;
 use crate::failure::diagnostic;
@@ -36,6 +37,8 @@ impl ProjectDiscovery {
         crate::ApplicationConfig::load_directory_for_client(project)?;
         let mut found = Discovered::default();
         let mut captured = CapturedSources::capture(project, &mut found.diagnostics);
+        let included = IncludedFolders::open(&canonical_root)?;
+        captured.include(&included, &mut found.diagnostics)?;
         let source_root = OwnedSourceRoot::new_project(Self::CONTROLLER_ROOT)?;
         let cohesion = crate::annotation_layout::RuleSwitch::cohesion(project);
         captured.stage(&source_root, cohesion, &mut found.diagnostics);

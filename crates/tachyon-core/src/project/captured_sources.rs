@@ -1,4 +1,6 @@
-use super::{CaptureProblem, CaptureVendor, CapturedFile, ProjectDiscovery, SourceWalk};
+use super::{
+    CaptureProblem, CaptureVendor, CapturedFile, IncludedFolders, ProjectDiscovery, SourceWalk,
+};
 use crate::Failure;
 use crate::annotation_layout::{
     DesignCheck, DesignSwitches, DuplicationCheck, NativeModuleVendor, NativePackageFolder,
@@ -6,6 +8,7 @@ use crate::annotation_layout::{
 };
 use crate::handler::OwnedSourceRoot;
 use cap_std::fs::{Dir, DirEntry};
+use std::collections::BTreeSet;
 use std::path::Path;
 use tachyon_diagnostics::Diagnostic;
 
@@ -52,10 +55,7 @@ impl CapturedSources {
             SourceWalk::capture(project, Path::new(ProjectDiscovery::TAC_ROOT), diagnostics);
         let components = SourceWalk::capture(project, Path::new(Self::COMPONENT_ROOT), diagnostics);
         let shared = SourceWalk::capture(project, Path::new(Self::SHARED_ROOT), diagnostics);
-        let client_roles = Self::CLIENT_ROLE_ROOTS
-            .iter()
-            .flat_map(|root| SourceWalk::capture(project, Path::new(root), diagnostics))
-            .collect();
+        let client_roles = Self::role_files(project, diagnostics);
         let configs = Self::CONFIG_FILES
             .iter()
             .filter_map(|relative| {
@@ -76,6 +76,58 @@ impl CapturedSources {
             server,
             controllers,
         }
+    }
+
+    pub(super) fn include(
+        &mut self,
+        included: &IncludedFolders,
+        diagnostics: &mut Vec<Diagnostic>,
+    ) -> Result<(), Failure> {
+        included
+            .folders()
+            .iter()
+            .try_for_each(|(name, folder)| self.include_folder(name, folder, diagnostics))
+    }
+
+    fn include_folder(
+        &mut self,
+        name: &str,
+        folder: &Dir,
+        diagnostics: &mut Vec<Diagnostic>,
+    ) -> Result<(), Failure> {
+        let components = SourceWalk::capture(folder, Path::new(Self::COMPONENT_ROOT), diagnostics);
+        let shared = SourceWalk::capture(folder, Path::new(Self::SHARED_ROOT), diagnostics);
+        let roles = Self::role_files(folder, diagnostics);
+        self.check_new(name, components.iter().chain(&shared).chain(&roles))?;
+        self.components.extend(components);
+        self.shared.extend(shared);
+        self.client_roles.extend(roles);
+        Ok(())
+    }
+
+    fn check_new<'a>(
+        &self,
+        name: &str,
+        files: impl Iterator<Item = &'a CapturedFile>,
+    ) -> Result<(), Failure> {
+        let known: BTreeSet<&Path> = self
+            .components
+            .iter()
+            .chain(&self.shared)
+            .chain(&self.client_roles)
+            .map(|file| file.relative.as_path())
+            .collect();
+        let repeated = files
+            .map(|file| file.relative.as_path())
+            .find(|path| known.contains(path));
+        repeated.map_or(Ok(()), |path| Err(IncludedFolders::repeated(name, path)))
+    }
+
+    fn role_files(root: &Dir, diagnostics: &mut Vec<Diagnostic>) -> Vec<CapturedFile> {
+        Self::CLIENT_ROLE_ROOTS
+            .iter()
+            .flat_map(|role| SourceWalk::capture(root, Path::new(role), diagnostics))
+            .collect()
     }
 
     pub(super) fn stage(
