@@ -582,6 +582,11 @@ jobs:
         env:
           TAC_BIN: ${{ github.workspace }}/target/release/ty
 
+      - name: Move between page apps inside one shell in every browser
+        run: bun run test:page-apps-browser
+        env:
+          TAC_BIN: ${{ github.workspace }}/target/release/ty
+
       - name: Keep SVG namespaces across Tac updates in every browser
         run: bun run test:svg-namespace-browser
         env:
