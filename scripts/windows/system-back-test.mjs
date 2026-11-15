@@ -11,9 +11,9 @@ class WindowsSystemBackTest {
   static steps() {
     const { HEADING, LINK, ABOUT_HEADING } = MobileAccessibilityFixture
     return [
-      ['wait', HEADING], ['click', LINK], ['wait', ABOUT_HEADING],
-      ['historyKeys', 'back'], ['wait', HEADING], ['gone', ABOUT_HEADING],
-      ['historyKeys', 'forward'], ['wait', ABOUT_HEADING],
+      ['wait', HEADING], ['showFocus', ''], ['click', LINK], ['wait', ABOUT_HEADING],
+      ['pointer', ABOUT_HEADING], ['historyKeys', 'back'], ['wait', HEADING], ['gone', ABOUT_HEADING],
+      ['pointer', HEADING], ['historyKeys', 'forward'], ['wait', ABOUT_HEADING],
       ['historyButton', 'back'], ['wait', HEADING],
       ['historyButton', 'forward'], ['wait', ABOUT_HEADING],
       ['quit', 'Exit'],

@@ -343,7 +343,12 @@ machine contracts have their own, independent major versions.
   keyboard focus into WebView2 when its window gets focus, and once WebView2
   is ready. Before, focus could stay on the host window, so Alt+Left and
   Alt+Right (back and forward) and typing did nothing until the user clicked
-  the page, and the `windows-system-back` release gate failed now and then.
+  the page. The `windows-system-back` release gate failed now and then for a
+  second reason: its UI Automation click on a link could leave keyboard focus
+  on Chromium's accessibility child window, where WebView2 never sees the
+  keys. The gate now clicks the page with the mouse before it presses
+  Alt+Left or Alt+Right, as a user does, and fails with a clear message when
+  focus is not on WebView2's input window.
 - **One store deadline per answer, and the FYLO operation in every deadline
   failure** (ADR 0128 amendment 2). All store calls of one handler run that
   answers once share one deadline from the first call (`timeout`,

@@ -789,20 +789,31 @@ function Get-HistoryDirection([string] $direction) {
     return $directions[$direction]
 }
 
-function Wait-WebFocus {
+function Get-FocusClass {
+    return [TachyonProbeNative]::ClassName([TachyonProbeNative]::KeyboardFocus($script:handle))
+}
+
+function Test-WebInputFocus {
+    return (Get-FocusClass).StartsWith('Chrome_WidgetWin_')
+}
+
+function Wait-WebInputFocus {
     $deadline = [DateTime]::UtcNow.AddSeconds(5)
     do {
-        if (Test-WebFocus) { return }
+        if (Test-WebInputFocus) { return }
         Wait-Briefly 100
     } while ([DateTime]::UtcNow -lt $deadline)
-    $focus = [TachyonProbeNative]::ClassName([TachyonProbeNative]::KeyboardFocus($script:handle))
-    throw "the app window is in front, but its keyboard focus stayed on '$focus' instead of moving into the WebView"
+    throw "keyboard focus is on '$(Get-FocusClass)', not on the WebView's input window, so WebView2 would not see the keys"
+}
+
+function Write-FocusNote {
+    Write-Line "NOTE: keyboard focus is on '$(Get-FocusClass)'"
 }
 
 function Invoke-HistoryKeys([string] $direction) {
     Show-AppWindow
-    Wait-WebFocus
-    $focus = [TachyonProbeNative]::ClassName([TachyonProbeNative]::KeyboardFocus($script:handle))
+    Wait-WebInputFocus
+    $focus = Get-FocusClass
     [TachyonProbeNative]::PressWithAlt((Get-KeyCode (Get-HistoryDirection $direction)), $true)
     Write-Line "OK: sent Alt+$(Get-HistoryDirection $direction) to the app window, with keyboard focus on '$focus'"
 }
@@ -1040,6 +1051,7 @@ function Invoke-Step([string] $kind, $value) {
         'roles' { Assert-Roles $value }
         'size' { Wait-Size @($value) }
         'activate' { Show-App }
+        'showFocus' { Write-FocusNote }
         'deactivate' { Show-OtherWindow ([string]$value) }
         'minimize' { Hide-App }
         'historyKeys' { Invoke-HistoryKeys ([string]$value) }

@@ -56,7 +56,14 @@ turns it on or off, because no host needed one.
   Amendment (2026-11-14): the keys reach WebView2 only when it has keyboard
   focus, so the host moves focus into WebView2 when its window gets focus
   (`WM_SETFOCUS`) and once WebView2 is ready. Without this, focus could stay
-  on the host window and Alt+Left did nothing.
+  on the host window and Alt+Left did nothing. Runs on WebView2
+  157.0.4341.46 also showed that the keys are lost when Windows keyboard
+  focus is on Chromium's accessibility child window
+  (`Chrome_RenderWidgetHostHWND`), which a UI Automation click can leave it
+  on: not even WebView2's `AcceleratorKeyPressed` event fires, so a host key
+  binding would not help either. The gate clicks the page with the mouse
+  before the keys, and checks that focus is on WebView2's input window
+  (`Chrome_WidgetWin_*`).
 
 The hosts record `navigation.back` (and `navigation.forward` where the host
 handles it) in the telemetry log. The support table has a "system back
