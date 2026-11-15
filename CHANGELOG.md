@@ -10,6 +10,13 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- **A Tac app can include shared client folders** (ADR NNNN, step 2 of
+  micro-frontends, slice 3b). `"tac": { "include": ["../kit"] }` adds the
+  components, services, entities, models and shared files of each listed
+  folder to the app's build, as if they were its own. A folder with pages or
+  server code, a folder inside the project, or a file that the app already
+  has stops the build (`TY1601`).
+
 - **A shell lists its page apps and builds them as one site** (ADR 0139,
   step 2 of micro-frontends, slice 3). `"tac": { "apps": { "/chat":
   "../chat" } }` in the shell's manifest lists the site's page apps.

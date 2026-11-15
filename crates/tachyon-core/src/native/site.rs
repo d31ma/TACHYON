@@ -126,6 +126,14 @@ impl SiteSettings {
         )
     }
 
+    pub(crate) fn include(project_root: &Path) -> Vec<String> {
+        read_manifest(project_root)
+            .ok()
+            .flatten()
+            .map(|manifest| manifest.into_tac().include)
+            .unwrap_or_default()
+    }
+
     pub(crate) fn exports_elements(project_root: &Path) -> bool {
         read_manifest(project_root)
             .ok()
