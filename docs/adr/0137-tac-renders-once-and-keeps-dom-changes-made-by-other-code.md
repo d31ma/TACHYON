@@ -4,6 +4,8 @@
 - Date: 2026-11-14
 - Amended: 2026-11-15 (TAC-B1F: nodes an element paints into itself while
   Tac builds it are not Tac's children)
+- Amended: 2026-11-15 (TAC-RND2: a changed observed attribute no longer
+  replaces a custom element)
 - Amends: [ADR 0052](0052-the-manifest-is-the-tac-configuration.md) (what a script in
   `tac.scripts` can count on)
 
@@ -79,6 +81,61 @@ WebKit, with `ty preview --static` and with the development server:
      value wins.
    - The same rule holds when the focus is inside the update (the focused
      update path) and when a component element is put back after a render.
+   - **A changed observed attribute keeps the element** (TAC-RND2, amended
+     2026-11-15). Before, when a bound attribute that a custom element lists
+     in `observedAttributes` changed, Tac replaced the whole element. The
+     rule came from an early runtime (2026-08-30) and protected Tac's
+     children from an `attributeChangedCallback` that rebuilds the
+     element's inner DOM. Its cost was found by DuVay's DUVAY-7 test on
+     448e35032: `<w-input :hint>` and `<w-select :hint>` were replaced on
+     every update, the focus went to `<body>`, and the typed text and the
+     chosen option were lost. The full rule for a custom element that Tac
+     rendered before is now:
+     - **Only its attributes change** (observed or not): Tac keeps the
+       element and sets only the changed attributes in place:
+       `setAttribute`, or `removeAttribute` when the value is `null`,
+       `false` or `undefined`. B1's bound-property rules (ADR 0136) and
+       B1F's rule above do not change.
+     - **Its tag changes:** Tac replaces it.
+     - **Other code moved Tac's children into another node:** Tac replaces
+       it (the limit below).
+     - **Its own `attributeChangedCallback` detached Tac's children** while
+       Tac wrote an observed attribute (the children have no parent now):
+       Tac keeps the element and renders those children again inside it,
+       after the element's own nodes, as on the first render. Why: Tac must
+       write the attribute to keep the element, so Tac itself caused the
+       removal. Leaving the children out loses Tac's content, and replacing
+       the element brings the focus loss back. The element's own nodes are
+       not touched, and Tac's children appear once.
+     - Tac writes the changed attributes of such an element while it plans
+       the update, before it checks the element's children, so the check
+       sees what the element holds after its callback. Tac does not write
+       the same value again later in the update, because setting an
+       attribute to its current value runs the callback again. So the
+       callback runs once per changed attribute and update.
+     - **Focus:** Tac gives the focus back to a control it rendered again
+       only when the focus was inside the detached Tac children and is now
+       on `<body>` (or nowhere). It never moves the focus when the user or
+       other code already put it somewhere else. Focus inside nodes that
+       the element paints itself is the element's job.
+     - Two older browser assertions changed on purpose: the `observed-wrap`
+       cases in `scripts/runtime-browser-test.mjs` and
+       `scripts/authored-node-browser-gate.mjs` expected the element to be
+       replaced and its callback not to run. They now expect the same
+       element, one callback, and the focus and caret on the input that
+       Tac rendered again.
+     - `scripts/dom-keep-browser-gate.mjs` checks this in Chromium, Firefox
+       and WebKit. A plain custom element with a bound observed attribute
+       holds an `<input>` and a `<select>`: after typing, after choosing an
+       option and after three updates each (one removes the attribute),
+       the element, the controls, the focus, the typed text, the caret and
+       the choice are the same, and the element saw each value once. A
+       second element rebuilds its inner DOM in its callback: it is kept,
+       shows the new value, and Tac adds nothing to it. A third element's
+       callback detaches Tac's `<input>`: it is kept, the callback runs once
+       per update, the input is rendered again exactly once after the
+       element's own node, and the focus comes back to it; when the user
+       moved the focus elsewhere first, the focus stays there.
 3. **Tac fires `tachyon:rendered` on `document` after each render.**
    - The event is a `CustomEvent`. Its `detail` is `{ count, first }`:
      `count` is the number of renders on this page so far, starting at 1,
@@ -95,7 +152,9 @@ WebKit, with `ty preview --static` and with the development server:
 ## Limits
 
 - When other code removes or moves a node that Tac owns, Tac replaces the
-  parent element, as before. A vendor element that wraps Tac's children in
+  parent element, as before. One exception (TAC-RND2): a node that an
+  element's `attributeChangedCallback` removed while Tac wrote an observed
+  attribute is rendered again in the kept element. A vendor element that wraps Tac's children in
   its own node is still replaced (the `authored-node` browser gate checks
   this).
 - In the focused update path, the children of the focused element itself

@@ -13,6 +13,8 @@ import { withServer } from './release/server-probe.mjs'
 /** @typedef {{engine: KeepEngine, phase: string, errors: string[]}} KeepDiagnostics */
 /** @typedef {{count: number, first: boolean}} RenderedDetail */
 /** @typedef {{renders: number, events: RenderedDetail[], boxInserted: number, pinnedRemoved: string[], applied: Record<string, boolean>, kept: Record<string, boolean>, titleKept: boolean, sameBox: boolean, order: string[], count: string, renderedAtLoad: boolean}} KeepSnapshot */
+/** @typedef {{sameField: boolean, sameInput: boolean, sameSelect: boolean, sameRepaint: boolean, active: string, value: string, caret: Array<number | null>, choice: string, hint: string | null, seen: Array<string | null>, repaintHint: string | null, repaintShows: string | null, repaintChildren: number}} FormSnapshot */
+/** @typedef {{sameHost: boolean, calls: number, tacInputs: number, inputInHost: boolean, ownNodes: number, ownFirst: boolean, ownShows: string | null, hint: string | null, active: string}} RebuildSnapshot */
 
 class DomKeepBrowserGate {
   static _timeout = 15_000
@@ -26,6 +28,12 @@ class DomKeepBrowserGate {
   static _mountRenders = [1, 2]
   static _repository = fileURLToPath(new URL('..', import.meta.url))
   static _fixture = 'crates/tachyon-core/tests/fixtures/tac-dom-keep'
+  static _typedFirst = 'abc'
+  static _typedLater = 'def'
+  static _choice = 'Cherry'
+  static _updates = 3
+  static _inputHints = ['Hint 0', 'Hint 1', null, 'Hint 3']
+  static _selectHints = ['Hint 4', null, 'Hint 6']
 
   /** @returns {Promise<void>} */
   static async run() {
@@ -82,6 +90,7 @@ class DomKeepBrowserGate {
     page.on('pageerror', (error) => diagnostics.errors.push(error.message))
     page.on('console', (message) => DomKeepBrowserGate._recordConsole(message, diagnostics))
     await page.addInitScript(DomKeepBrowserGate._probe)
+    await page.addInitScript(DomKeepBrowserGate._formElements)
     try {
       diagnostics.phase = 'plain-load'
       await page.goto(`${origin}/`, { waitUntil: 'load', timeout: DomKeepBrowserGate._timeout })
@@ -94,6 +103,15 @@ class DomKeepBrowserGate {
       await DomKeepBrowserGate._checkMountedLoad(page)
       diagnostics.phase = 'tac-update'
       await DomKeepBrowserGate._checkTacUpdate(page)
+      diagnostics.phase = 'form-input'
+      await page.goto(`${origin}/form/`, { waitUntil: 'load', timeout: DomKeepBrowserGate._timeout })
+      await DomKeepBrowserGate._checkFormInput(page)
+      diagnostics.phase = 'form-select'
+      await DomKeepBrowserGate._checkFormSelect(page)
+      diagnostics.phase = 'rebuilt-children'
+      await DomKeepBrowserGate._checkRebuiltChildren(page)
+      diagnostics.phase = 'focus-not-stolen'
+      await DomKeepBrowserGate._checkFocusNotStolen(page)
       assert.deepEqual(diagnostics.errors, [])
       console.log(JSON.stringify({ status: 'pass', engine, browserVersion: browser.version() }))
     } catch (error) {
@@ -214,6 +232,180 @@ class DomKeepBrowserGate {
     assert.deepEqual(snapshot.kept, everyChange, 'every pinned child and attribute is still there')
     assert.equal(snapshot.titleKept, true, 'an attribute-only change is still there')
     assert.deepEqual(snapshot.pinnedRemoved, [], 'Tac removed nothing the pinned script added')
+  }
+
+  /** @type {() => void} */
+  static _formElements = () => {
+    customElements.define('field-box', class extends HTMLElement {
+      static observedAttributes = ['hint']
+      seen = []
+      attributeChangedCallback(name, previous, value) {
+        this.seen.push(value)
+      }
+    })
+    customElements.define('field-repaint', class extends HTMLElement {
+      static observedAttributes = ['hint']
+      attributeChangedCallback(name, previous, value) {
+        const input = document.createElement('input')
+        input.setAttribute('aria-label', 'Repainted')
+        const shown = document.createElement('small')
+        shown.textContent = value ?? ''
+        this.replaceChildren(input, shown)
+      }
+    })
+    customElements.define('field-rebuild', class extends HTMLElement {
+      static observedAttributes = ['hint']
+      calls = 0
+      own = null
+      attributeChangedCallback(name, previous, value) {
+        if (!this.isConnected) return
+        this.calls += 1
+        this.own = document.createElement('small')
+        this.own.className = 'own'
+        this.own.textContent = value ?? ''
+        this.replaceChildren(this.own)
+      }
+    })
+  }
+
+  /** @param {import('playwright').Page} page @returns {Promise<RebuildSnapshot>} */
+  static _rebuildSnapshot(page) {
+    return page.evaluate(() => {
+      const host = document.getElementById('rebuild')
+      return {
+        sameHost: host === globalThis.__keptRebuild,
+        calls: host.calls,
+        tacInputs: document.querySelectorAll('#rebuild-input').length,
+        inputInHost: document.getElementById('rebuild-input')?.parentNode === host,
+        ownNodes: host.querySelectorAll('.own').length,
+        ownFirst: host.firstChild === host.own,
+        ownShows: host.own?.textContent ?? null,
+        hint: host.getAttribute('hint'),
+        active: document.activeElement?.id ?? '',
+      }
+    })
+  }
+
+  /** @param {import('playwright').Page} page @returns {Promise<void>} */
+  static async _checkRebuiltChildren(page) {
+    await page.evaluate(() => { globalThis.__keptRebuild = document.getElementById('rebuild') })
+    await page.focus('#rebuild-input')
+    const before = (await DomKeepBrowserGate._rebuildSnapshot(page)).calls
+    for (let turn = 1; turn <= DomKeepBrowserGate._updates; turn += 1) {
+      await DomKeepBrowserGate._updateHint(page)
+      const snapshot = await DomKeepBrowserGate._rebuildSnapshot(page)
+      assert.equal(snapshot.sameHost, true, 'an element whose callback removed Tac children is kept')
+      assert.equal(snapshot.calls, before + turn, 'the callback runs once per update')
+      assert.equal(snapshot.tacInputs, 1, 'Tac renders its removed child again exactly once')
+      assert.equal(snapshot.inputInHost, true, 'the child is rendered again inside the kept element')
+      assert.equal(snapshot.ownNodes, 1, 'the element keeps only its own new node')
+      assert.equal(snapshot.ownFirst, true, 'Tac leaves the element\'s own node in place, before its child')
+      assert.equal(snapshot.ownShows, snapshot.hint ?? '', 'the element painted the new value')
+      assert.equal(snapshot.active, 'rebuild-input', 'the focus comes back to the child Tac rendered again')
+    }
+  }
+
+  /** @param {import('playwright').Page} page @returns {Promise<void>} */
+  static async _checkFocusNotStolen(page) {
+    await page.focus('#rebuild-input')
+    await page.focus('#elsewhere')
+    const before = (await DomKeepBrowserGate._rebuildSnapshot(page)).calls
+    await DomKeepBrowserGate._updateHint(page)
+    const snapshot = await DomKeepBrowserGate._rebuildSnapshot(page)
+    assert.equal(snapshot.calls, before + 1, 'the callback runs once per update')
+    assert.equal(snapshot.tacInputs, 1, 'Tac renders its removed child again exactly once')
+    assert.equal(snapshot.active, 'elsewhere', 'Tac does not take the focus from where the user put it')
+  }
+
+  /** @param {import('playwright').Page} page @returns {Promise<void>} */
+  static async _keepFormNodes(page) {
+    await page.evaluate(() => {
+      globalThis.__keptForm = ['field', 'field-input', 'field-select', 'repaint'].map((id) => document.getElementById(id))
+    })
+  }
+
+  /** @param {import('playwright').Page} page @returns {Promise<FormSnapshot>} */
+  static _formSnapshot(page) {
+    return page.evaluate(() => {
+      const [field, input, select, repaint] = globalThis.__keptForm
+      const current = document.getElementById('repaint')
+      return {
+        sameField: document.getElementById('field') === field,
+        sameInput: document.getElementById('field-input') === input,
+        sameSelect: document.getElementById('field-select') === select,
+        sameRepaint: current === repaint,
+        active: document.activeElement?.id ?? '',
+        value: input.value,
+        caret: [input.selectionStart, input.selectionEnd],
+        choice: select.value,
+        hint: field.getAttribute('hint'),
+        seen: field.seen,
+        repaintHint: current.getAttribute('hint'),
+        repaintShows: current.querySelector('small')?.textContent ?? null,
+        repaintChildren: current.childNodes.length,
+      }
+    })
+  }
+
+  /** @param {import('playwright').Page} page @returns {Promise<void>} */
+  static async _updateHint(page) {
+    const before = await page.evaluate(() => globalThis.__keepProbe.events.length)
+    await page.evaluate(() => document.getElementById('hint-bump').click())
+    await page.waitForFunction((count) => globalThis.__keepProbe.events.length > count, before, { timeout: DomKeepBrowserGate._timeout })
+  }
+
+  /** @param {import('playwright').Page} page @param {number} times @returns {Promise<void>} */
+  static async _updateHints(page, times) {
+    for (let turn = 0; turn < times; turn += 1) await DomKeepBrowserGate._updateHint(page)
+  }
+
+  /** @param {import('playwright').Page} page @returns {Promise<void>} */
+  static async _checkFormInput(page) {
+    await DomKeepBrowserGate._settle(page)
+    await DomKeepBrowserGate._keepFormNodes(page)
+    await page.focus('#field-input')
+    await page.keyboard.type(DomKeepBrowserGate._typedFirst)
+    await DomKeepBrowserGate._updateHints(page, DomKeepBrowserGate._updates)
+    const snapshot = await DomKeepBrowserGate._formSnapshot(page)
+    DomKeepBrowserGate._assertSameNodes(snapshot)
+    assert.equal(snapshot.active, 'field-input', 'the focused input keeps the focus after three updates')
+    assert.equal(snapshot.value, DomKeepBrowserGate._typedFirst, 'the typed text is kept')
+    assert.deepEqual(snapshot.caret, [DomKeepBrowserGate._typedFirst.length, DomKeepBrowserGate._typedFirst.length], 'the caret is kept')
+    assert.equal(snapshot.hint, 'Hint 3', 'the element has the new attribute value')
+    assert.deepEqual(snapshot.seen, DomKeepBrowserGate._inputHints, 'the element sees each change once, removal included')
+    DomKeepBrowserGate._assertRepainted(snapshot, 'Hint 3')
+    await page.keyboard.type(DomKeepBrowserGate._typedLater)
+    const typed = await DomKeepBrowserGate._formSnapshot(page)
+    assert.equal(typed.value, `${DomKeepBrowserGate._typedFirst}${DomKeepBrowserGate._typedLater}`, 'typing goes on in the same input')
+  }
+
+  /** @param {import('playwright').Page} page @returns {Promise<void>} */
+  static async _checkFormSelect(page) {
+    await page.selectOption('#field-select', DomKeepBrowserGate._choice)
+    await page.focus('#field-select')
+    await DomKeepBrowserGate._updateHints(page, DomKeepBrowserGate._updates)
+    const snapshot = await DomKeepBrowserGate._formSnapshot(page)
+    DomKeepBrowserGate._assertSameNodes(snapshot)
+    assert.equal(snapshot.active, 'field-select', 'the focused select keeps the focus after three updates')
+    assert.equal(snapshot.choice, DomKeepBrowserGate._choice, 'the chosen option is kept')
+    assert.equal(snapshot.hint, 'Hint 6', 'the element has the new attribute value')
+    assert.deepEqual(snapshot.seen.slice(-3), DomKeepBrowserGate._selectHints, 'the element sees each change once')
+    DomKeepBrowserGate._assertRepainted(snapshot, 'Hint 6')
+  }
+
+  /** @param {FormSnapshot} snapshot @returns {void} */
+  static _assertSameNodes(snapshot) {
+    assert.equal(snapshot.sameField, true, 'the custom element with a changed observed attribute is kept')
+    assert.equal(snapshot.sameInput, true, 'the input inside it is kept')
+    assert.equal(snapshot.sameSelect, true, 'the select inside it is kept')
+    assert.equal(snapshot.sameRepaint, true, 'an element that rebuilds itself on an attribute change is kept')
+  }
+
+  /** @param {FormSnapshot} snapshot @param {string} hint @returns {void} */
+  static _assertRepainted(snapshot, hint) {
+    assert.equal(snapshot.repaintHint, hint, 'the rebuilding element has the new attribute value')
+    assert.equal(snapshot.repaintShows, hint, 'the rebuilding element painted the new value')
+    assert.equal(snapshot.repaintChildren, 2, 'Tac adds nothing to what the element painted')
   }
 
   /** @param {KeepSnapshot} snapshot @param {string[]} expected @returns {void} */

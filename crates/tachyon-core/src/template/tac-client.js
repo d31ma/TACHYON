@@ -1323,7 +1323,6 @@ const preflightFocus = (chain, fragment, container) => {
   const distributions = new Map()
   for (let depth = 0; depth < chain.length; depth += 1) {
     const pair = chain[depth]
-    if (changesObservedAttribute(pair)) return null
     const parent = depth ? chain[depth - 1].old : container
     if (pair.old.parentNode === parent) continue
     const source = depth ? chain[depth - 1].fresh : fragment
@@ -1334,13 +1333,25 @@ const preflightFocus = (chain, fragment, container) => {
   return distributions
 }
 
-const commitAndRefocus = (authored, active, replacement) => {
-  const selection = [active.selectionStart, active.selectionEnd, active.selectionDirection]
-  authored.commit()
-  replacement.focus({ preventScroll: true })
+const selectionOf = (active) => [active?.selectionStart, active?.selectionEnd, active?.selectionDirection]
+
+const focusIsFree = () => document.activeElement === null || document.activeElement === document.body
+
+const refocus = (target, selection) => {
+  if (!focusIsFree()) return
+  target.focus({ preventScroll: true })
   if (selection[0] !== null && selection[0] !== undefined) {
-    try { replacement.setSelectionRange(...selection) } catch {}
+    try { target.setSelectionRange(...selection) } catch {}
   }
+}
+
+const commitAndRefocus = (authored, selection, replacement) => {
+  authored.commit()
+  refocus(replacement, selection)
+}
+
+const refocusIfLost = (active, selection) => {
+  if (active.isConnected) refocus(active, selection)
 }
 
 const syncAuthoredAttributes = (element, previous, next) => {
@@ -1348,7 +1359,7 @@ const syncAuthoredAttributes = (element, previous, next) => {
     if (!next.attributes.has(name)) Elements.removeAttribute(element, name)
   }
   for (const [name, value] of next.attributes) {
-    if (previous.attributes.get(name) !== value) Elements.setAttribute(element, name, value)
+    if (previous.attributes.get(name) !== value && element.getAttribute(name) !== value) Elements.setAttribute(element, name, value)
   }
 }
 
@@ -1403,7 +1414,7 @@ class FocusedRootUpdate {
       if (!parent.matches('input, textarea, [contenteditable]')) parent.replaceChildren(...source.childNodes)
       return
     }
-    if (pair.old.parentNode !== parent) {
+    if (this.distributions.has(pair)) {
       this.commitSlots(pair, depth)
       return
     }
@@ -1457,16 +1468,18 @@ const focusedElement = () => {
 
 const commitRoot = (container, fragment, editingAtStart) => {
   const active = container.getRootNode().activeElement
+  const selection = selectionOf(active)
   const chain = focusChain(active, fragment, container)
   const authored = new AuthoredRootUpdate(container, fragment, active, editingAtStart).prepare()
   if (!chain.length || authored.retains(active)) { authored.commit(); return }
   const distributions = preflightFocus(chain, fragment, container)
-  if (!distributions || authored.refuses(chain)) { commitAndRefocus(authored, active, chain.at(-1).fresh); return }
+  if (!distributions || authored.refuses(chain)) { commitAndRefocus(authored, selection, chain.at(-1).fresh); return }
   const update = new FocusedRootUpdate(chain, distributions, active, editingAtStart)
   const desired = [...fragment.childNodes]
   update.commit(container, fragment, 0)
   update.finalize()
   update.recordRoot(container, desired)
+  refocusIfLost(active, selection)
 }
 
 const retainComponentRoots = () => {

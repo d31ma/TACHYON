@@ -152,11 +152,23 @@ class AuthoredRootUpdate {
     return pair.old.parentNode === parent
   }
   _layout(pair) {
-    if (changesObservedAttribute(pair)) return null
     if (!this._retainable(pair)) return null
+    const rewritten = AuthoredRootUpdate._writeObserved(pair)
     const slots = this._lightSlots(pair)
-    if (slots.length) return this._slotLayout(pair, slots)
-    return this._directLayout(pair)
+    if (slots.length) return this._slotLayout(pair, slots, rewritten)
+    return this._directLayout(pair, rewritten)
+  }
+  static _writeObserved(pair) {
+    if (!changesObservedAttribute(pair)) return false
+    syncAuthoredAttributes(pair.old, pair.previous, Elements.records.get(pair.fresh))
+    return true
+  }
+  static _ownedAfterWrite(children, rewritten) {
+    if (!rewritten) return children
+    return AuthoredRootUpdate._attached(children)
+  }
+  static _attached(children) {
+    return children.filter((child) => child.parentNode !== null)
   }
   _retainable(pair) {
     const element = pair.old
@@ -172,13 +184,14 @@ class AuthoredRootUpdate {
     if (!AuthoredRootUpdate._isCustom(pair.old)) return []
     return ownedSlots(pair.old)
   }
-  _directLayout(pair) {
+  _directLayout(pair, rewritten) {
     const current = [...pair.old.childNodes]
-    if (!AuthoredRootUpdate._holdsInOrder(current, pair.previous.children)) return null
+    const owned = AuthoredRootUpdate._ownedAfterWrite(pair.previous.children, rewritten)
+    if (!AuthoredRootUpdate._holdsInOrder(current, owned)) return null
     const desired = Elements.records.get(pair.fresh).children
     return [{ parent: pair.old, previous: pair.previous.children, desired }]
   }
-  _slotLayout(pair, slots) {
+  _slotLayout(pair, slots, rewritten) {
     const groups = new Map()
     for (const slot of slots) {
       const name = slot.getAttribute('name') ?? AuthoredRootUpdate._defaultSlot
@@ -188,7 +201,7 @@ class AuthoredRootUpdate {
     const desired = Elements.records.get(pair.fresh).children
     if (!this._assign(pair.previous.children, groups, 'previous')) return null
     if (!this._assign(desired, groups, 'desired')) return null
-    if (!this._slotsUnchanged(groups)) return null
+    if (!this._slotsUnchanged(groups, rewritten)) return null
     if (!this._sameAssignments(pair.previous.children, desired)) return null
     return [...groups.values()]
   }
@@ -201,10 +214,11 @@ class AuthoredRootUpdate {
     }
     return true
   }
-  _slotsUnchanged(groups) {
+  _slotsUnchanged(groups, rewritten) {
     for (const group of groups.values()) {
       const current = [...group.parent.childNodes]
-      if (!AuthoredRootUpdate._holdsInOrder(current, group.previous)) return false
+      const owned = AuthoredRootUpdate._ownedAfterWrite(group.previous, rewritten)
+      if (!AuthoredRootUpdate._holdsInOrder(current, owned)) return false
       if (!group.previous.every((child) => this._keepsSlotAttribute(child))) return false
     }
     return true

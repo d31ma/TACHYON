@@ -1081,17 +1081,17 @@ async function checkFocusBoundaries(browser, origin) {
   await observed.evaluate((input) => input.setSelectionRange(2, 2));
   const attributeFallback = await boundaries.evaluate(async () => {
     const old = document.activeElement;
+    const host = document.querySelector('observed-wrap');
     __root('runtimeBoundaries').mode = 'after';
     __root('runtimeBoundaries').status = 'after-observed';
     await __tachyonTac.render();
     const current = document.querySelector('[aria-label="Observed"]');
-    return { replaced: old !== current && !old.isConnected, focused: document.activeElement === current,
-      caret: current.selectionStart, liveMutations: observedLiveMutations,
-      mode: document.querySelector('observed-wrap').getAttribute('mode'),
-      status: document.querySelector('#boundary-status').textContent };
+    return { sameHost: document.querySelector('observed-wrap') === host, replaced: old !== current && !old.isConnected,
+      focused: document.activeElement === current, caret: current.selectionStart, liveMutations: observedLiveMutations,
+      mode: host.getAttribute('mode'), status: document.querySelector('#boundary-status').textContent };
   });
-  assert.deepEqual(attributeFallback, { replaced: true, focused: true, caret: 2, liveMutations: 0, mode: 'after', status: 'after-observed' },
-    'observed-attribute fallback is decided before touching the connected custom element');
+  assert.deepEqual(attributeFallback, { sameHost: true, replaced: true, focused: true, caret: 2, liveMutations: 1, mode: 'after', status: 'after-observed' },
+    'a changed observed attribute is written once on the kept element; a child its callback removed is rendered again and keeps the focus');
 }
 
 async function checkMountCancellation(browser, origin) {

@@ -351,6 +351,18 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- **A form control keeps its focus and value when a bound observed attribute
+  changes** (ADR 0137 amendment, TAC-RND2). When a bound attribute that a
+  custom element lists in `observedAttributes` changed, such as
+  `<w-input :hint="form.hint">`, Tac replaced the whole element. The focus
+  went to `<body>`, and the typed text and the chosen option were lost on
+  every update, so a live-validated form lost the user's typing. Tac now
+  keeps the element and sets only the changed attribute in place
+  (`setAttribute`, or `removeAttribute` for `null`, `false` or
+  `undefined`), and the element's `attributeChangedCallback` runs once per
+  change. If that callback removes children that Tac rendered, Tac renders
+  them again inside the same element and moves the focus back when it fell
+  to `<body>`.
 - **A property that a custom element refuses no longer blanks the page**
   (ADR 0136 amendment, TAC-B1F). An element with a getter and no setter,
   such as `get values()`, threw a TypeError that stopped the whole render.
@@ -500,6 +512,17 @@ machine contracts have their own, independent major versions.
   fields" shows each language.
 
 ### Changed
+
+- **Behavior change: Tac keeps a custom element when only its attributes
+  change** (ADR 0137 amendment, TAC-RND2). Before, a changed bound attribute
+  that the element observes made Tac replace the element, and its
+  `attributeChangedCallback` did not run on the element in the page. Now Tac
+  sets the attribute on the same element, so the callback runs there, once
+  per change. When that callback detaches children that Tac rendered, Tac
+  renders them again inside the same element, after the element's own
+  nodes, and gives the focus back only if it fell to `<body>`. Tac still
+  replaces an element whose tag changed or whose Tac children other code
+  moved into another node.
 
 - Go services may use the plain error check `if err != nil { return ..., err }`
   (or a `%w` wrap with `fmt.Errorf`) in a public method without `TY1314`, as
