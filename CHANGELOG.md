@@ -363,6 +363,20 @@ machine contracts have their own, independent major versions.
   change. If that callback removes children that Tac rendered, Tac renders
   them again inside the same element and moves the focus back when it fell
   to `<body>`.
+- **A stream message over 64 KiB is reported once in the console** (TAC-EV1,
+  ADR 0058 amendment). The bus still drops a server-sent message larger than
+  64 KiB, but it no longer does so silently: the first one on each stream and
+  event name logs one `console.error` that names the stream path, the event
+  name, the message size and the 64 KiB (65,536-byte) limit. Later messages
+  that fit still arrive. To make room in the bus, `filled()`, which fills a
+  query stream's address, moved to `TacStreamQuery.address()` in
+  `template/tac-stream-query.js` (the first step of TAC-BUS1).
+- **Streams keep trying after a long server outage** (TAC-S5, ADR 0058
+  amendment). A stream without a declared reconnect policy no longer stops
+  after its five fast tries (1, 2, 4, 8 and 16 seconds). While its owner
+  stays mounted and the page is shown, it tries again every 30 to 35
+  seconds, so a long-lived page recovers after a server restart. A declared
+  policy and sockets keep their own limits.
 - **A property that a custom element refuses no longer blanks the page**
   (ADR 0136 amendment, TAC-B1F). An element with a getter and no setter,
   such as `get values()`, threw a TypeError that stopped the whole render.

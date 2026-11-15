@@ -1824,7 +1824,7 @@ const signalFailure = () => {
 class Runtime {
   static events = new TacApplicationEvents({
     changed: () => { void render().catch(signalFailure) },
-    failed: signalFailure,
+    failed: (error, path, event, data) => { TacStreamReport.failed(error, path, event, data); signalFailure() },
     calling: (owner, work) => TacWebApis.calling(owner, work),
     announced: (view, name, value) => TacElements.announce(view, name, value),
   })

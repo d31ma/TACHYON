@@ -16,6 +16,8 @@ Use a release ty built with `--features shipped` for tier 3 (`TAC_BIN=<path>`).
 | If you change | Run |
 | --- | --- |
 | `template/application-events.js` | `test:application-events` (byte budget, now 20,480) and `test:streams-browser` |
+| `template/tac-stream-report.js` | `test:streams-browser` and `test:application-events` |
+| `template/tac-stream-query.js` | `test:streams-browser` and `test:application-events` |
 | `template/tac-client.js` | `test:native-task-answers`, `test:native-bridge-bounds` (and tier 3 below) |
 | `crates/tachyon-core/src/behavior/runtime.js` | `test:behavior-runtime` |
 | `scripts/python-tac-public-assets.mjs` | `test:python-tac-public-assets` |

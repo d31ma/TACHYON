@@ -9,7 +9,8 @@ class Budget {
 async function loadApplicationEvents() {
   const source = await readFile(new URL('../crates/tachyon-core/src/template/application-events.js', import.meta.url), 'utf8')
   assert.ok(Buffer.byteLength(source) <= Budget.bytes, `application-events.js must stay within ${Budget.bytes} bytes`)
-  const moduleUrl = `data:text/javascript;base64,${Buffer.from(`${source}\nexport { TacApplicationEvents }`).toString('base64')}`
+  const query = await readFile(new URL('../crates/tachyon-core/src/template/tac-stream-query.js', import.meta.url), 'utf8')
+  const moduleUrl = `data:text/javascript;base64,${Buffer.from(`${source}\n${query}\nexport { TacApplicationEvents }`).toString('base64')}`
   const { TacApplicationEvents } = await import(moduleUrl)
   return TacApplicationEvents
 }
@@ -232,8 +233,8 @@ async function checkStreamRequests(TacApplicationEvents, resources) {
   globalThis.EventSource = FakeEventSource
   globalThis.setTimeout = (run, delay) => { timers.push({ run, delay }); return timers.length }
   try {
-    let failures = 0
-    const bus = new TacApplicationEvents({ changed: () => {}, failed: () => failures++ })
+    let failures = 0, lastFailure = []
+    const bus = new TacApplicationEvents({ changed: () => {}, failed: (error, ...stream) => { failures++; lastFailure = [error?.message, ...stream] } })
     const models = { Tick: { open: false, fields: { sku: '!string', level: '!integer' } } }
     const client = new TicksClient()
     const listener = new TicksListener()
@@ -289,6 +290,10 @@ async function checkStreamRequests(TacApplicationEvents, resources) {
     state.emit('state', '{"sku":"N","level":7}')
     assert.deepEqual(TicksClient.received.at(-1), 7, 'a message of the named event type reaches the method')
     assert.deepEqual(TicksListener.heard.at(-1), 7, 'a message of the named event type is published')
+    const large = `{"sku":"N","level":8,"note":"${'x'.repeat(70000)}"}`
+    state.emit('state', large)
+    assert.deepEqual(lastFailure, ['Application event exceeds 64 KiB.', '/named', 'state', large], 'a message over 64 KiB gives its error, stream path, event name and text to the failure handler')
+    assert.deepEqual(TicksClient.received.at(-1), 7, 'a message over 64 KiB reaches no method')
     const quiet = timers.length
     state.emit('heartbeat', '')
     assert.equal(timers.at(-1).delay, 60000, 'a heartbeat restarts the sixty-second silence timer')

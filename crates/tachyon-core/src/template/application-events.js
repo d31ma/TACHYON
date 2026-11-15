@@ -41,17 +41,6 @@ class TacApplicationEvents {
     return { path: inner, event, query, declared: rest !== path, served: TacApplicationEvents.namedOrigin.exec(inner)?.[2] ?? inner, tries: Number(tries), delay: Number(delay), most: Number(most), jitter: Number(jitter) }
   }
 
-  static filled(template, value) {
-    if (value?.constructor !== Object) throw new TypeError('Stream parameters must be a model object.')
-    const rest = { ...value }, plain = (item) => {
-      if (!['string', 'number', 'boolean'].includes(typeof item)) throw new TypeError('A stream parameter must be text, a number or a boolean.')
-      return String(item)
-    }
-    const path = template.replace(/\{(\w+)\}/g, (_, name) => { const item = rest[name]; delete rest[name]; return encodeURIComponent(plain(item)) })
-    const query = new URLSearchParams(Object.entries(rest).filter(([, item]) => item !== null).map(([key, item]) => [key, plain(item)])).toString()
-    return query ? `${path}?${query}` : path
-  }
-
   static slow = { delay: 30000, most: 30000, jitter: 5000 }
 
   static delay(policy, tries) {
@@ -358,7 +347,7 @@ class TacApplicationEvents {
         const message = this.snapshot(JSON.parse(data))
         if (!stream.topic) this.deliver(entry, message)
         if (!stream.models || this.fits(stream.models, stream.event, message)) this.publish(stream.event, message)
-      } catch { this.failed() }
+      } catch (error) { this.failed(error, path, policy.event, data) }
     }
     const connect = () => {
       if (socket) {
@@ -398,7 +387,7 @@ class TacApplicationEvents {
       try { connect() } catch { source = null; this.failed() }
     }
     const change = (value) => {
-      const next = TacApplicationEvents.filled(policy.path, value)
+      const next = TacStreamQuery.address(policy.path, value)
       if (next === path && source) return
       path = next
       tries = 0
