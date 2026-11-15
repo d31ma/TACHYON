@@ -219,7 +219,7 @@ machine contracts have their own, independent major versions.
   and 64 MiB by default) and is checked before each write. The code ships in
   `.tachyon/tac-blobs.js` only to pages that grant `blobs`. Page
   Content-Security-Policies now allow `blob:` images and media.
-- **An error handler shapes the answers Tachyon makes itself** (ADR 0136).
+- **An error handler shapes the answers Tachyon makes itself** (ADR 0144).
   Every Yon language gets seven built-in error types: `NotSignedIn` (401),
   `RoleMissing` (403), `IdentityCheckFailed` (500), `RequestRejected` (400),
   `BodyTooLarge` (413), `CheckRejected` (422, with the broken rules) and
@@ -562,7 +562,7 @@ machine contracts have their own, independent major versions.
   nodes, and gives the focus back only if it fell to `<body>`. Tac still
   replaces an element whose tag changed or whose Tac children other code
   moved into another node.
-- **A root-type error method no longer takes the `@Check` error** (ADR 0136).
+- **A root-type error method no longer takes the `@Check` error** (ADR 0144).
   A `@HandlesError` method for `Error`, `Exception`, Go `error`,
   `std::exception` and the other root types used to catch the `@Check`
   guard's error, so the route answered that method's status instead of 422.

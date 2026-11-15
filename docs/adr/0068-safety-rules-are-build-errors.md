@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-09-27
-- Amended by: [ADR 0136](0136-an-error-handler-shapes-the-answers-tachyon-makes-itself.md): an error
+- Amended by: [ADR 0144](0144-an-error-handler-shapes-the-answers-tachyon-makes-itself.md): an error
   handler can shape the body of the 401, 403 and 500 answers of the identity
   gate; the status stays
 - Amended by: [ADR 0113](0113-the-operating-system-confines-handler-egress.md)

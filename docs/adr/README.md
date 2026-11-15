@@ -155,3 +155,4 @@ design. Decide routine implementation choices in code review, not in an ADR.
 - [140. Tac Services Connect to Peers over Data Channels](0140-tac-services-connect-to-peers-over-data-channels.md)
 - [141. Tabs Share Store and State Changes, and Take Locks](0141-tabs-share-store-and-state-changes-and-take-locks.md)
 - [136. An Error Handler Shapes the Answers Tachyon Makes Itself](0136-an-error-handler-shapes-the-answers-tachyon-makes-itself.md)
+- [144. An Error Handler Shapes the Answers Tachyon Makes Itself](0144-an-error-handler-shapes-the-answers-tachyon-makes-itself.md)
