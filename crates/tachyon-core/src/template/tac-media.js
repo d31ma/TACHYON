@@ -292,6 +292,7 @@ class TacMedia {
   }
 
   static useFrameKey(reply, keyId, key) {
+    TacMedia.ensurePageKeys()
     const id = TacMedia.checkedKeyId(keyId)
     TacMedia.frameReply = reply
     TacMedia.ask(() => TacMedia.cryptoKey(key))
@@ -332,11 +333,20 @@ class TacMedia {
     return TacMedia.frames
   }
 
+  static ensurePageKeys() {
+    if (globalThis.__tachyonBrowserApiBridge?.includes('crypto')) throw new Error('Frame encryption is not available in this app yet: its Crypto keys stay in native code (unsupported).')
+  }
+
+  static ensureEncryption(on) {
+    if (on === true) TacMedia.ensurePageKeys()
+  }
+
   static ensureFrames() {
     if (typeof globalThis.RTCRtpScriptTransform !== 'function') throw new Error('Frame encryption is not available here (unsupported).')
   }
 
   static encryptFrames(reply, connection, on) {
+    TacMedia.ensureEncryption(on)
     TacMedia.ensureFrames()
     const id = String(connection)
     const peer = TacMedia.peer(id)

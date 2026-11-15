@@ -152,6 +152,7 @@ fn write_project(
         android_manifest(application, has_icon).as_bytes(),
     )?;
     reach.write_network_security(project)?;
+    super::android_backup_rules::AndroidBackupRules::write(project)?;
     write(
         &project.join("app/src/main/res/values/strings.xml"),
         strings_xml(application).as_bytes(),
@@ -381,7 +382,7 @@ fn android_manifest(application: &NativeApplication, has_icon: bool) -> String {
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">__INTERNET_PERMISSION____BROWSER_API_PERMISSIONS__
   <application
       android:label="@string/app_name"__ICON__
-      android:allowBackup="false"
+      android:allowBackup="false"__DATA_EXTRACTION_RULES__
       android:enableOnBackInvokedCallback="true"
       android:usesCleartextTraffic="false"__NETWORK_SECURITY__
       android:theme="__THEME__">
@@ -399,6 +400,10 @@ fn android_manifest(application: &NativeApplication, has_icon: bool) -> String {
 </manifest>
 "#
     .replace("__ICON__", icon)
+    .replace(
+        "__DATA_EXTRACTION_RULES__",
+        super::android_backup_rules::AndroidBackupRules::MANIFEST_ATTRIBUTE,
+    )
     .replace("__THEME__", AndroidWindowSettings::THEME)
     .replace(
         "__ACTIVITY_ATTRIBUTES__",
@@ -1684,6 +1689,9 @@ mod tests {
         let manifest = android_manifest(&application(), false);
         assert!(manifest.contains("android:usesCleartextTraffic=\"false\""));
         assert!(manifest.contains("android:enableOnBackInvokedCallback=\"true\""));
+        assert!(manifest.contains(
+            "android:allowBackup=\"false\"\n      android:dataExtractionRules=\"@xml/tachyon_data_extraction_rules\""
+        ));
         assert!(manifest.contains("android.intent.category.LAUNCHER"));
         assert!(!manifest.contains("android:icon"));
         assert!(

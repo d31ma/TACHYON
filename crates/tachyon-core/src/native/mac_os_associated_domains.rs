@@ -17,6 +17,7 @@ impl MacOsAssociatedDomains {
     const DECODED_PROFILE: &'static str = "provisioning-profile.plist";
     const APPLICATION_IDENTIFIER: &'static str = "<key>com.apple.application-identifier</key>";
     const UNICODE: &'static str = "Provisioning profile path is not valid Unicode.";
+    const KEYCHAIN_GRANT: &'static str = "crypto";
 
     pub(super) async fn prepare(
         signing: &MacOsSigning,
@@ -25,7 +26,7 @@ impl MacOsAssociatedDomains {
     ) -> Result<Option<Self>, Failure> {
         let profile = signing
             .provisioning_profile()
-            .filter(|_| !application.links.hosts().is_empty());
+            .filter(|_| Self::wanted(application));
         Self::prepare_with(profile, signing, application, stage).await
     }
 
@@ -71,7 +72,7 @@ impl MacOsAssociatedDomains {
             ),
         )?;
         Self::require(
-            profile.has_associated_domains(),
+            Self::domains_allowed(profile, application),
             &format!(
                 "tac.application.links lists hosts, but the provisioning profile '{name}' has no Associated Domains capability. Turn on Associated Domains for the app ID in your Apple Developer account, then download the Developer ID profile again."
             ),
@@ -79,19 +80,38 @@ impl MacOsAssociatedDomains {
         Ok(Self::entitlement_entries(team, application))
     }
 
+    fn domains_allowed(profile: &IosProvisioningProfile, application: &NativeApplication) -> bool {
+        application.links.hosts().is_empty() || profile.has_associated_domains()
+    }
+
+    fn wanted(application: &NativeApplication) -> bool {
+        let keychain = application.permissions.is_granted(Self::KEYCHAIN_GRANT);
+        keychain || !application.links.hosts().is_empty()
+    }
+
     fn entitlement_entries(team: &str, application: &NativeApplication) -> String {
-        let domains = application
+        format!(
+            "{}<string>{}</string>\n<key>com.apple.developer.team-identifier</key><string>{}</string>\n{}",
+            Self::APPLICATION_IDENTIFIER,
+            xml_escape(&format!("{team}.{}", application.application_id)),
+            xml_escape(team),
+            Self::domains_entry(application),
+        )
+    }
+
+    fn domains_entry(application: &NativeApplication) -> String {
+        let domains: Vec<String> = application
             .links
             .hosts()
             .iter()
             .map(|host| format!("<string>applinks:{}</string>", xml_escape(host)))
-            .collect::<Vec<_>>()
-            .concat();
+            .collect();
+        if domains.is_empty() {
+            return String::new();
+        }
         format!(
-            "{}<string>{}</string>\n<key>com.apple.developer.team-identifier</key><string>{}</string>\n<key>com.apple.developer.associated-domains</key><array>{domains}</array>\n",
-            Self::APPLICATION_IDENTIFIER,
-            xml_escape(&format!("{team}.{}", application.application_id)),
-            xml_escape(team),
+            "<key>com.apple.developer.associated-domains</key><array>{}</array>\n",
+            domains.concat()
         )
     }
 
@@ -228,6 +248,31 @@ mod tests {
             assert!(text.contains("TY1605"), "{text}");
             assert!(text.contains(expected), "{text}");
         }
+    }
+
+    #[test]
+    fn a_crypto_grant_without_hosts_signs_the_application_identifier_for_the_keychain() {
+        let mut keys = application(&[]);
+        keys.permissions = crate::native::browser_api_permissions::BrowserApiPermissions::declared(
+            &[String::from("crypto")],
+            &std::collections::BTreeMap::new(),
+        );
+        assert!(MacOsAssociatedDomains::wanted(&keys));
+        assert!(!MacOsAssociatedDomains::wanted(&application(&[])));
+        assert!(MacOsAssociatedDomains::wanted(&application(&[
+            "example.com"
+        ])));
+        let entries = MacOsAssociatedDomains::checked(
+            &profile("A1B2C3D4E5.com.example.shop", false),
+            "A1B2C3D4E5",
+            &keys,
+        )
+        .expect("entitlements");
+        assert_eq!(
+            entries,
+            "<key>com.apple.application-identifier</key><string>A1B2C3D4E5.com.example.shop</string>\n\
+             <key>com.apple.developer.team-identifier</key><string>A1B2C3D4E5</string>\n"
+        );
     }
 
     #[test]

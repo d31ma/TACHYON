@@ -1,5 +1,8 @@
 import AVFoundation
+import CommonCrypto
 import CoreLocation
+import CryptoKit
+import Security
 import UserNotifications
 import Vision
 import WebKit
@@ -8,6 +11,7 @@ import WebKit
 final class AppleBrowserApis: NSObject, UNUserNotificationCenterDelegate {
     static let shared = AppleBrowserApis()
     static let bridged = ["clipboard", "share", "notifications", "geolocation"]
+    static let cryptoPrefix = "browserApi.crypto."
     static let notAnswered = "The native app could not run that browser call."
     static let notificationsRefused = "Notifications are not allowed. Call requestPermission first."
     var granted: [String] = []
@@ -15,6 +19,7 @@ final class AppleBrowserApis: NSObject, UNUserNotificationCenterDelegate {
     private var share: AppleShareSheet?
     private lazy var position = AppleCurrentPosition()
     private lazy var scanner = AppleCodeScanner()
+    private lazy var crypto = AppleCrypto()
 
     func prepare(_ view: WKWebView, _ load: @escaping () -> Void) {
         if granted.contains("camera") { publish("globalThis.__tachyonCameraPresent", String(AppleCodeScanner.present), view) }
@@ -56,6 +61,15 @@ final class AppleBrowserApis: NSObject, UNUserNotificationCenterDelegate {
         case "browserApi.geolocation.currentPosition": position.find(Self.timeout(request), reply)
         default: reply(Self.failure(Self.notAnswered))
         }
+    }
+
+    func crypto(_ capability: String, _ payload: String, _ reply: @escaping (String) -> Void) {
+        guard AppleCrypto.knows(capability) else { reply(Self.failure(Self.notAnswered)); return }
+        guard granted.contains("crypto") else {
+            reply(Self.failure("The crypto browser API is not granted. Add \"crypto\" to tac.browserApis in client/manifest.json."))
+            return
+        }
+        crypto.call(capability, payload, reply)
     }
 
     nonisolated func userNotificationCenter(

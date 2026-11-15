@@ -45,6 +45,7 @@ impl BrowserApiBridge {
                 "notifications",
                 "geolocation",
                 "codeScanner",
+                "crypto",
             ],
         ),
         (
@@ -55,6 +56,7 @@ impl BrowserApiBridge {
                 "notifications",
                 "geolocation",
                 "codeScanner",
+                "crypto",
             ],
         ),
         (
@@ -205,9 +207,9 @@ mod tests {
         for target in [NativeTarget::Macos, NativeTarget::Ios] {
             assert_eq!(
                 BrowserApiBridge::page_list(target),
-                "['clipboard', 'share', 'notifications', 'geolocation', 'codeScanner']"
+                "['clipboard', 'share', 'notifications', 'geolocation', 'codeScanner', 'crypto']"
             );
-            assert_eq!(BrowserApiBridge::operations(target).len(), 8);
+            assert_eq!(BrowserApiBridge::operations(target).len(), 23);
         }
     }
 }

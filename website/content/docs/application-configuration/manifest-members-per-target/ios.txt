@@ -118,7 +118,7 @@ tac.browserApis clipboard
   honored: UIPasteboard through the host bridge (browserApi.clipboard)
 
 tac.browserApis crypto
-  run owed: the page uses the web view's own WebCrypto where WKWebView has it on tachyon-app://; where it does not, check reports none and every call answers unsupported; native CryptoKit and the Keychain come later (ADR 0132); still to run: Crypto.check, the known answers and a kept key across a relaunch in the iOS app
+  run owed: the iOS host answers Crypto itself with CryptoKit and CommonCrypto PBKDF2 (ADR 0132 amendment P2b); kept keys are data-protection Keychain items, this device only and not synced, and a new install deletes the items an earlier install left; still to run: Crypto.check, the known answers, a kept key across a relaunch and a clean store after a reinstall in the iOS simulator
 
 tac.browserApis files
   adapted: WKWebView's own chooser picks files; drops reach the page on iPad only. Not yet run in a native release gate.
