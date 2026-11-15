@@ -282,6 +282,7 @@ impl<'a> Encoder<'a> {
                 children,
             } => self.component(node, name, properties, *hydrate, children),
             TemplateNodeKind::Slot(name) => Ok(slot_value(name.as_deref())),
+            TemplateNodeKind::Outlet => Ok(json!({ "k": "outlet" })),
         }
     }
 
@@ -916,7 +917,7 @@ fn collect_node_names(
             collect_loop_body_names(binding, children, loop_bindings, names);
             return;
         }
-        TemplateNodeKind::Comment(_) | TemplateNodeKind::Slot(_) => {}
+        TemplateNodeKind::Comment(_) | TemplateNodeKind::Slot(_) | TemplateNodeKind::Outlet => {}
     }
     if let Some(children) = node.kind.children() {
         collect_names_in_scope(children, loop_bindings, names);

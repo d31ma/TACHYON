@@ -111,6 +111,9 @@ mod shared_assets;
 pub(crate) mod shared_scripts;
 #[cfg(test)]
 mod shared_scripts_tests;
+mod shell_layout;
+#[cfg(test)]
+mod shell_layout_tests;
 mod site_apps;
 #[cfg(test)]
 mod site_apps_tests;
@@ -548,6 +551,7 @@ impl WebCompiler {
             .flatten();
         build.finish_phase("discovery");
         let mut manifest = project.route_graph().manifest();
+        build.add_layout(&site)?;
         build.add_route_files(&programs, previous.as_ref(), &site)?;
         build.finish_phase("routes");
         let needs_static_files =

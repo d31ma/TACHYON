@@ -183,6 +183,9 @@ tac.apps
 tac.include
   honored: the listed folders are built into the app like its own client files
 
+tac.layout
+  honored: the layout renders around every page in the web view
+
 tac.python
   honored: Pyodide in the web view (ADR 0093)
 
