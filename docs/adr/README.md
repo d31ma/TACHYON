@@ -148,3 +148,4 @@ design. Decide routine implementation choices in code review, not in an ADR.
 - [133. Crypto Verifies an Empty Message on Every Engine](0133-crypto-verifies-an-empty-message-on-every-engine.md)
 - [134. Tac Services Keep Blobs](0134-tac-services-keep-blobs.md)
 - [135. Tac Services Encrypt Each Media Frame with SFrame](0135-tac-services-encrypt-each-media-frame-with-sframe.md)
+- [136. An Error Handler Shapes the Answers Tachyon Makes Itself](0136-an-error-handler-shapes-the-answers-tachyon-makes-itself.md)

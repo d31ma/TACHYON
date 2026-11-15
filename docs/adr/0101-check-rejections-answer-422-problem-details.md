@@ -2,6 +2,9 @@
 
 - Status: Accepted
 - Date: 2026-10-18
+- Amended by: [ADR 0136](0136-an-error-handler-shapes-the-answers-tachyon-makes-itself.md): a
+  `CheckRejected` method can shape the 422 body, and a root-type method no
+  longer takes the `@Check` error
 - Amends: [ADR 0092](0092-settings-and-validation-data-live-in-models.md)
   (what an invalid `@Check` argument answers over HTTP)
 - Related: [ADR 0058](0058-streams-are-a-route-and-a-request.md) (fixed
