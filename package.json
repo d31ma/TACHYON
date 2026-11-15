@@ -67,6 +67,7 @@
     "test:web-components-browser": "node scripts/web-components-browser-test.mjs",
     "test:authored-node-browser": "node scripts/authored-node-browser-gate.mjs",
     "test:dom-keep-browser": "node scripts/dom-keep-browser-gate.mjs",
+    "test:page-apps-browser": "node scripts/page-apps-browser-gate.mjs",
     "test:svg-namespace-browser": "node scripts/svg-namespace-browser-gate.mjs",
     "test:element-properties-browser": "node scripts/element-properties-browser-gate.mjs",
     "test:component-scope-browser": "node scripts/component-scope-browser-gate.mjs",

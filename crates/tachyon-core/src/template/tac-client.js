@@ -16,7 +16,13 @@ const readShellPlan = () => {
 class ShellView {
   static plan = readShellPlan()
   static pageEnvironment = null
-  static servicesFolder = '/.tachyon/services/'
+  static serviceFolders = new Set(['/.tachyon/services/'])
+
+  static join() {
+    if (!ShellView.plan) return
+    Services.catalog = { ...ShellView.plan.services, ...Services.catalog }
+    Services.saved = { ...ShellView.plan.saved, ...Services.saved }
+  }
 }
 
 const runtimeApp = () => {
@@ -940,7 +946,7 @@ const persistScope = (id, properties) =>
 const importAsset = (raw) => {
   const url = new URL(raw, location.href)
   const sameOrigin = url.origin === location.origin
-  const folders = [new URL('./services/', import.meta.url).pathname, ShellView.servicesFolder]
+  const folders = [new URL('./services/', import.meta.url).pathname, ...ShellView.serviceFolders]
   const web = sameOrigin && folders.some((folder) => url.pathname.startsWith(folder))
   const native = sameOrigin && url.pathname.includes('/WebBundle/tachyon-runtime/services/')
   if (!web && !native) throw new TypeError('Tac service asset is not a generated same-origin URL.')
@@ -977,8 +983,8 @@ const disposeManagedOwner = (owner) => {
 }
 
 class Services {
-  static catalog = { ...ShellView.plan?.services, ...ClientView.plan.services }
-  static saved = { ...ShellView.plan?.saved, ...ClientView.plan.saved }
+  static catalog = ClientView.plan.services || {}
+  static saved = ClientView.plan.saved || {}
   static singletons = new Map()
   static resolved = new Map()
   static creating = new Set()
@@ -2127,6 +2133,149 @@ Object.defineProperty(globalThis, '__tachyonTac', {
 })
 globalThis.__tc_rerender = render
 addEventListener('tachyon:rerender', render)
+class SoftNavigation {
+  static runtimeScript = 'script[type="module"][src$="/.tachyon/tac-client.js"]'
+  static current = 0
+
+  static start() {
+    if (!ShellView.plan) return
+    document.addEventListener('click', SoftNavigation.click)
+    addEventListener('popstate', SoftNavigation.pop)
+  }
+
+  static click(event) {
+    const link = SoftNavigation.link(event)
+    if (!link) return
+    event.preventDefault()
+    void SoftNavigation.go(new URL(link.href), true)
+  }
+
+  static link(event) {
+    if (event.defaultPrevented || event.button !== 0) return null
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return null
+    const link = event.composedPath().find((node) => node instanceof HTMLAnchorElement && node.hasAttribute('href'))
+    if (!link || link.hasAttribute('download')) return null
+    if (link.target && link.target !== '_self') return null
+    const url = new URL(link.href)
+    if (url.origin !== location.origin) return null
+    const samePage = url.pathname === location.pathname && url.search === location.search
+    return samePage && url.hash ? null : link
+  }
+
+  static pop() {
+    void SoftNavigation.go(new URL(location.href), false)
+  }
+
+  static async go(url, push) {
+    const turn = SoftNavigation.current += 1
+    const scroll = { x: scrollX, y: scrollY }
+    const next = await SoftNavigation.page(url).catch(() => null)
+    if (turn !== SoftNavigation.current) return
+    if (!next) return SoftNavigation.load(url, push)
+    const target = new URL(next.url)
+    target.hash = url.hash
+    if (push) SoftNavigation.push(target, scroll)
+    await SoftNavigation.styles(next.document)
+    SoftNavigation.enter(next)
+    await SoftNavigation.show()
+    SoftNavigation.place(target, push)
+  }
+
+  static load(url, push) {
+    if (push) location.assign(url.href)
+    else location.reload()
+  }
+
+  static push(url, scroll) {
+    history.replaceState({ ...history.state, tachyonScroll: scroll }, '')
+    history.pushState({ tachyonScroll: { x: 0, y: 0 } }, '', url.href)
+  }
+
+  static async page(url) {
+    const response = await fetch(url.href, { headers: { accept: 'text/html' }, credentials: 'same-origin' })
+    if (!response.ok || new URL(response.url).origin !== location.origin) return null
+    const parsed = new DOMParser().parseFromString(await response.text(), 'text/html')
+    const view = parsed.getElementById('tachyon-view')
+    const sameShell = parsed.getElementById('tachyon-shell')?.textContent === document.getElementById('tachyon-shell')?.textContent
+    if (!view || !sameShell || !SoftNavigation.knownScripts(parsed)) return null
+    return { plan: JSON.parse(view.textContent || '{}'), document: parsed, url: response.url }
+  }
+
+  static knownScripts(parsed) {
+    const loaded = new Set([...document.scripts].map((script) => script.src))
+    const needed = [...parsed.head.querySelectorAll('script[src]')].filter((script) => !script.matches(SoftNavigation.runtimeScript))
+    return needed.every((script) => loaded.has(new URL(script.getAttribute('src'), location.href).href))
+  }
+
+  static async styles(parsed) {
+    const present = new Set([...document.querySelectorAll('link[rel="stylesheet"]')].map((link) => link.href))
+    const added = [...parsed.querySelectorAll('link[rel="stylesheet"]')]
+      .filter((link) => !present.has(new URL(link.getAttribute('href'), location.href).href))
+      .map((link) => SoftNavigation.addStyle(link.getAttribute('href')))
+    await Promise.all(added)
+  }
+
+  static addStyle(href) {
+    const link = document.createElement('link')
+    link.rel = 'stylesheet'
+    link.href = href
+    const loaded = new Promise((resolve) => { link.onload = resolve; link.onerror = resolve })
+    document.head.append(link)
+    return loaded
+  }
+
+  static enter({ plan, document: parsed }) {
+    SoftNavigation.disposePageServices()
+    ClientView.page = plan
+    ClientView.plan = plan
+    Page.owner = Object.assign(Object.create(null), plan.state)
+    Services.catalog = { ...ShellView.plan.services, ...plan.services }
+    Services.saved = { ...ShellView.plan.saved, ...plan.saved }
+    SoftNavigation.enterApp(parsed)
+    document.title = parsed.title
+  }
+
+  static enterApp(parsed) {
+    const script = parsed.querySelector(SoftNavigation.runtimeScript)
+    if (!script) return
+    const runtime = new URL(script.getAttribute('src'), location.href)
+    ShellView.serviceFolders.add(new URL('./services/', runtime).pathname)
+    TacEntityStorage.app = new URL('../', runtime).pathname
+  }
+
+  static disposePageServices() {
+    const shell = ShellView.plan.services || {}
+    for (const name of [...Services.singletons.keys()]) {
+      if (Object.hasOwn(shell, name)) continue
+      const instance = Services.resolved.get(name)
+      if (instance) disposeSharedInstance(instance)
+      Services.resolved.delete(name)
+      Services.singletons.delete(name)
+    }
+  }
+
+  static show() {
+    if (!document.startViewTransition) return render()
+    return document.startViewTransition(() => render()).updateCallbackDone
+  }
+
+  static place(url, push) {
+    const target = push ? { x: 0, y: 0 } : history.state?.tachyonScroll ?? { x: 0, y: 0 }
+    scrollTo(target.x, target.y)
+    if (url.hash) document.getElementById(decodeURIComponent(url.hash.slice(1)))?.scrollIntoView()
+    SoftNavigation.focus()
+  }
+
+  static focus() {
+    const heading = document.querySelector('main h1') ?? document.querySelector('h1')
+    if (!heading) return
+    if (!heading.hasAttribute('tabindex')) heading.setAttribute('tabindex', '-1')
+    heading.focus({ preventScroll: true })
+  }
+}
+
+ShellView.join()
+SoftNavigation.start()
 await TacStorage.ready()
 await render().catch(Rendering.alreadyReported)
 
