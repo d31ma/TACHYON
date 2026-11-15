@@ -8,6 +8,7 @@ pub(crate) struct StreamEventName {
 impl StreamEventName {
     pub(crate) const PREFIX: &'static str = "/.tachyon/event/";
     const MOST_LENGTH: usize = 64;
+    const NAME_MARKS: &'static [u8; 3] = b".-_";
     const RESERVED: [&'static str; 4] = ["message", "end", "error", "heartbeat"];
     const FORM: &'static str = "event names the server-sent event type that carries the messages, the text after `event:` in the stream, such as \"state\". A name starts with a letter and has at most 64 letters, digits, dots, dashes and underscores. Leave event out for messages without a name";
     const TAKEN: &'static str = "event cannot be \"message\", \"end\", \"error\" or \"heartbeat\": Tachyon reads those itself. Leave event out for messages without a name";
@@ -34,8 +35,12 @@ impl StreamEventName {
         [starts_with_letter, short, plain] == [true, true, true]
     }
 
-    const fn is_name_byte(byte: u8) -> bool {
-        byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'-' | b'_')
+    fn is_name_byte(byte: u8) -> bool {
+        [
+            byte.is_ascii_alphanumeric(),
+            Self::NAME_MARKS.contains(&byte),
+        ]
+        .contains(&true)
     }
 
     fn refuse_reserved(name: &str) -> Result<(), String> {

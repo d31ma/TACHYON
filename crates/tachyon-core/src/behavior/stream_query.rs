@@ -46,20 +46,23 @@ impl StreamQuery {
 
     fn is_path_part(piece: &str) -> bool {
         let (name, after) = piece.split_once('}').unwrap_or(("", "}"));
-        let starts_well =
-            name.starts_with(|letter: char| letter.is_ascii_alphabetic() || letter == '_');
-        let plain = name
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_');
+        let starts_well = name.starts_with(Self::is_word_start);
+        let plain = name.bytes().all(Self::is_word_byte);
         [starts_well, plain, after.contains('}')] == [true, true, false]
     }
 
     fn is_model(model: &str) -> bool {
         let starts_with_letter = model.starts_with(|letter: char| letter.is_ascii_alphabetic());
         let short = model.len() <= Self::MOST_LENGTH;
-        let plain = model
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_');
+        let plain = model.bytes().all(Self::is_word_byte);
         [starts_with_letter, short, plain] == [true, true, true]
+    }
+
+    fn is_word_start(letter: char) -> bool {
+        [letter.is_ascii_alphabetic(), letter == '_'].contains(&true)
+    }
+
+    fn is_word_byte(byte: u8) -> bool {
+        [byte.is_ascii_alphanumeric(), byte == b'_'].contains(&true)
     }
 }
