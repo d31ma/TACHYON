@@ -60,13 +60,12 @@ class Elements {
   static #htmlIntegrationPoints = [Elements.#foreignObjectTag, 'desc', 'title']
   /** @type {Map<string, string>} */
   static #svgTags = new Map([
-    'altGlyph', 'altGlyphDef', 'altGlyphItem', 'animateColor', 'animateMotion',
-    'animateTransform', 'clipPath', 'feBlend', 'feColorMatrix', 'feComponentTransfer',
-    'feComposite', 'feConvolveMatrix', 'feDiffuseLighting', 'feDisplacementMap',
-    'feDistantLight', 'feDropShadow', 'feFlood', 'feFuncA', 'feFuncB', 'feFuncG',
-    'feFuncR', 'feGaussianBlur', 'feImage', 'feMerge', 'feMergeNode', 'feMorphology',
-    'feOffset', 'fePointLight', 'feSpecularLighting', 'feSpotLight', 'feTile',
-    'feTurbulence', Elements.#foreignObjectTag, 'glyphRef', 'linearGradient', 'radialGradient',
+    'animateMotion', 'animateTransform', 'clipPath', 'feBlend', 'feColorMatrix',
+    'feComponentTransfer', 'feComposite', 'feConvolveMatrix', 'feDiffuseLighting',
+    'feDisplacementMap', 'feDistantLight', 'feDropShadow', 'feFlood', 'feFuncA', 'feFuncB',
+    'feFuncG', 'feFuncR', 'feGaussianBlur', 'feImage', 'feMerge', 'feMergeNode',
+    'feMorphology', 'feOffset', 'fePointLight', 'feSpecularLighting', 'feSpotLight',
+    'feTile', 'feTurbulence', Elements.#foreignObjectTag, 'linearGradient', 'radialGradient',
     'textPath',
   ].map(name => /** @type {[string, string]} */ ([name.toLowerCase(), name])))
   /** @type {Map<string, string>} */

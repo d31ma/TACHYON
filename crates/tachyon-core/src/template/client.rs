@@ -402,7 +402,11 @@ impl<'a> Encoder<'a> {
         children: &[TemplateNode],
     ) -> Result<Value, Failure> {
         let component = self.components.get(name).ok_or_else(|| {
-            client_failure(node, 1402, &format!("Unknown Tac component '<{name}>'."))
+            client_failure(
+                node,
+                ComponentRegistry::UNKNOWN_COMPONENT_CODE,
+                &format!("Unknown Tac component '<{name}>'."),
+            )
         })?;
         let template_nodes = &component.program().nodes;
         let slotted = SlottedChildren::split(children);

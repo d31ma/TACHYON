@@ -882,6 +882,18 @@ describe('documentation structure', () => {
     expect(new Set(ids).size).toBe(ids.length)
   })
 
+  test('the error code index gives each code one row, and an unknown tag its own code', async () => {
+    const docs = await SiteData.docs()
+    const rows = docs.topics['error-codes'].sections.flatMap((section) => section.body.split('\n'))
+    const codes = rows.flatMap((row) => [...row.matchAll(/^\| `(TY\d{4})` \|/g)].map((match) => match[1]))
+    expect(codes.length).toBeGreaterThan(100)
+    expect(new Set(codes).size).toBe(codes.length)
+    const notEmpty = Found.required(rows.find((row) => row.startsWith('| `TY1402`')))
+    const unknownTag = Found.required(rows.find((row) => row.startsWith('| `TY1411`')))
+    expect(notEmpty).not.toContain('component')
+    expect(unknownTag).toContain('client/components/')
+  })
+
   test('the sidebar reaches every page, and the pager passes through all of them', async () => {
     const catalogue = await SiteData.features()
     const groups = [...new Set(catalogue.features.map((feature) => feature.group))]

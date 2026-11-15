@@ -1,3 +1,4 @@
+use super::ComponentRegistry;
 use super::braced_attribute::BracedAttribute;
 use super::event_name::EventName;
 use super::expression::Expression;
@@ -496,7 +497,7 @@ impl<'a> Parser<'a> {
                 self.element_kind(name, attributes, range)
             }
             _ => Err(self.failure(
-                1402,
+                ComponentRegistry::UNKNOWN_COMPONENT_CODE,
                 range,
                 &format!("Unknown Tac component '<{name}>'."),
                 "Register a custom-element-shaped component or use standard HTML.",
@@ -1789,6 +1790,23 @@ mod tests {
             failure.diagnostics()[0]
                 .message
                 .contains("no preceding if branch")
+        );
+    }
+
+    #[test]
+    fn svg_gradient_stops_compile_as_standard_elements() {
+        let source = "<svg viewBox=\"0 0 100 40\"><defs><linearGradient id=\"g\" x1=\"0\" y1=\"0\" x2=\"1\" y2=\"0\"><stop offset=\"0%\" stop-color=\"#f72047\"></stop><stop offset=\"100%\" stop-color=\"#1feaea\"></stop></linearGradient></defs><path d=\"M4,30 L96,6\" stroke=\"url(#g)\"></path></svg>";
+        compile_without_components(source).expect("gradient view");
+    }
+
+    #[test]
+    fn unknown_component_has_its_own_code() {
+        let failure = compile_without_components("<hero></hero>").expect_err("unknown tag");
+        assert_eq!(failure.diagnostics()[0].code.number(), 1411);
+        assert!(
+            failure.diagnostics()[0]
+                .message
+                .contains("Unknown Tac component '<hero>'")
         );
     }
 

@@ -292,6 +292,18 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- **Views accept every SVG 2 and MathML Core element.** A view with
+  `<linearGradient><stop ...></stop></linearGradient>` failed with "Unknown
+  Tac component '<stop>'", because the compiler's tag list missed `<stop>`
+  and most other SVG elements. The list now holds every SVG 2 element
+  (except `<script>` and `<switch>`, which Tac reserves) and every MathML
+  Core element. The client runtime's SVG case map now names exactly the
+  mixed-case SVG 2 tags, and a test keeps the two lists the same. A
+  component folder can no longer use one of the new names (TY1401).
+- **"Unknown Tac component" has its own code, `TY1411`.** It shared
+  `TY1402` with `ty init` and `ty add`, which stop with `TY1402` when they
+  would overwrite a file. `TY1402` now means only that. A website test
+  checks that the error code index lists each code once.
 - **One store deadline per answer, and the FYLO operation in every deadline
   failure** (ADR 0128 amendment 2). All store calls of one handler run that
   answers once share one deadline from the first call (`timeout`,

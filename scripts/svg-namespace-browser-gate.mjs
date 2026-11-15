@@ -175,6 +175,8 @@ class SvgNamespaceBrowserGate {
     assert.equal(svg.xlinkNamespace, 'http://www.w3.org/1999/xlink')
     assert.deepEqual(await page.locator('#moon, #gradient, #reference, #conditional-path, #switched, #foreign').evaluateAll(elements => elements.map(element => element.namespaceURI)), Array(6).fill(SvgNamespaceBrowserGate.#svgNamespace))
     assert.deepEqual(await page.locator('#gradient').evaluate(element => ({ name: element.localName, units: element.getAttribute('gradientUnits'), transform: element.getAttribute('gradientTransform') })), { name: 'linearGradient', units: 'userSpaceOnUse', transform: 'rotate(20)' })
+    assert.deepEqual(await page.locator('#gradient stop').evaluateAll(elements => elements.map(element => ({ name: element.constructor.name, color: getComputedStyle(element).getPropertyValue('stop-color') }))), [{ name: 'SVGStopElement', color: 'rgb(247, 32, 71)' }, { name: 'SVGStopElement', color: 'rgb(31, 234, 234)' }])
+    assert.deepEqual(await page.locator('#shadow, #shadow > *').evaluateAll(elements => elements.map(element => element.constructor.name)), ['SVGFilterElement', 'SVGFEDropShadowElement'])
     assert.deepEqual(await page.locator('[data-probe="listed"]').evaluateAll(elements => elements.map(element => element.namespaceURI)), Array(2).fill(SvgNamespaceBrowserGate.#svgNamespace))
     assert.deepEqual(await page.locator('[data-probe="counted"]').evaluateAll(elements => elements.map(element => element.namespaceURI)), Array(2).fill(SvgNamespaceBrowserGate.#svgNamespace))
     assert.equal(await page.locator('#foreign').evaluate(element => element.localName), 'foreignObject')

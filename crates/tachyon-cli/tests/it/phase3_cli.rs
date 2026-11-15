@@ -593,7 +593,7 @@ fn check_parser_errors(parser: &tempfile::TempDir) {
         .iter()
         .filter_map(|value| value["code"].as_str())
         .collect::<Vec<_>>();
-    for code in ["TY1303", "TY1306", "TY1402", "TY1404"] {
+    for code in ["TY1303", "TY1306", "TY1404", "TY1411"] {
         assert!(codes.contains(&code), "missing {code}: {codes:?}");
     }
 }
