@@ -1,5 +1,7 @@
 use super::controller_dispatch::{RouteArguments, RouteRequest};
-use super::{AccessVerdict, Dispatch, IdentityAnswer, InvocationLog, ProtocolRequest};
+use super::{
+    AccessVerdict, Dispatch, IdentityAnswer, InvocationLog, ProtocolRequest, RouteAdmission,
+};
 use crate::Failure;
 use crate::handler::HandlerSource;
 use crate::yon::plan::Route;
@@ -22,6 +24,17 @@ impl RouteGuard {
     ) -> Option<Response<Body>> {
         let answer = Self::answer_when_needed(state, access, uri, headers).await;
         AccessVerdict::of(access, &answer).response()
+    }
+
+    pub(in crate::server) async fn admission(
+        state: &Dispatch,
+        access: &RouteAccess,
+        uri: &Uri,
+        headers: &HeaderMap,
+    ) -> RouteAdmission {
+        let answer = Self::answer_when_needed(state, access, uri, headers).await;
+        let refusal = AccessVerdict::of(access, &answer).response();
+        RouteAdmission::new(refusal, answer.into_identity())
     }
 
     pub(crate) fn allows_anonymous(access: &RouteAccess) -> bool {
@@ -107,6 +120,7 @@ impl RouteGuard {
             query: uri.query(),
             headers,
             body: &[],
+            identity: None,
         };
         RouteArguments::build(route, &request, source.models()).map_err(|_| IdentityAnswer::Nobody)
     }

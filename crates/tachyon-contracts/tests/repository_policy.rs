@@ -1078,7 +1078,9 @@ fn every_dispatch_path_reaches_the_route_guard_or_is_declared_public()
     let server = repository_root().join("crates/tachyon-core/src/server");
     let dispatch = fs::read_to_string(server.join("dispatch.rs"))?;
     let topics = fs::read_to_string(server.join("topic_stream.rs"))?;
+    let guard = fs::read_to_string(server.join("route_guard.rs"))?;
     let route_guard = "RouteGuard::refusal(";
+    let route_admission = "RouteGuard::admission(";
     let guarded = [
         (
             "dispatch.rs",
@@ -1089,7 +1091,7 @@ fn every_dispatch_path_reaches_the_route_guard_or_is_declared_public()
         (
             "dispatch.rs",
             &dispatch,
-            route_guard,
+            route_admission,
             "self.serve_allowed_route(",
         ),
         (
@@ -1103,6 +1105,12 @@ fn every_dispatch_path_reaches_the_route_guard_or_is_declared_public()
             &topics,
             "Self::refusal(",
             "Self::subscribe(",
+        ),
+        (
+            "route_guard.rs",
+            &guard,
+            "AccessVerdict::of(access, &answer)",
+            "RouteAdmission::new(",
         ),
     ];
     for (file, source, guard, sink) in guarded {

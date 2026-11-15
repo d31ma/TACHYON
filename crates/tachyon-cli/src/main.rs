@@ -504,7 +504,7 @@ enum MigrateCommand {
 enum HandlerCommand {
     #[command(
         about = "Invoke one Yon handler through Handler Protocol v1",
-        long_about = "Invoke one Yon handler through Handler Protocol v1.\n\nFor an annotated controller, the command binds @FromPath, @FromQuery, @FromHeader, @FromCookie and @FromBody arguments with the same code as the server, from --target (or --route when there is no --target), --header and --body. A value that does not match its model gets the same 400 answer as the server, and the controller does not run. A plain Handler gets the request without arguments.\n\nThis is a local operator tool. It does not run the identity provider, the route access rules (@Public, @SignedIn, @Allow) or the root middleware, so it can call routes that the server would refuse."
+        long_about = "Invoke one Yon handler through Handler Protocol v1.\n\nFor an annotated controller, the command binds @FromPath, @FromQuery, @FromHeader, @FromCookie and @FromBody arguments with the same code as the server, from --target (or --route when there is no --target), --header and --body. A value that does not match its model gets the same 400 answer as the server, and the controller does not run. A plain Handler gets the request without arguments.\n\nThis is a local operator tool. It does not run the identity provider, the route access rules (@Public, @SignedIn, @Allow) or the root middleware, so it can call routes that the server would refuse. It has no identity to give, so a route method with a @FromIdentity parameter does not run here: the command answers 400 with the part `identity`."
     )]
     Invoke {
         #[arg(help = "Project-relative controller or worker source file")]

@@ -30,6 +30,7 @@ mod go_package_types;
 mod go_streams;
 mod handler_process;
 mod host_names;
+mod identity_parameter;
 mod implicit_mapping;
 mod java_checked_models;
 mod local_events;

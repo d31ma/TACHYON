@@ -105,7 +105,7 @@ impl RouteSchema {
             ParameterSource::Header => Some("headers"),
             ParameterSource::Cookie => Some("cookies"),
             ParameterSource::Body => Some("body"),
-            ParameterSource::Request => None,
+            ParameterSource::Request | ParameterSource::Identity => None,
         }
     }
 }
@@ -157,5 +157,21 @@ mod tests {
         let plain = route(false);
         let schema = RouteSchema::api_route("/chat", &[], &[(&plain, &table)]);
         assert!(schema["methods"]["GET"].get("socket").is_none());
+    }
+
+    #[test]
+    fn an_identity_parameter_is_not_part_of_the_described_request() {
+        let table = ModelTable::default();
+        let mut me = route(false);
+        me.parameters = vec![crate::yon::plan::RouteParameter {
+            source: crate::yon::plan::ParameterSource::Identity,
+            name: String::from("caller"),
+            code_name: String::from("caller"),
+            type_text: String::from("Identity"),
+            shape: Shape::Model(String::from("Identity")),
+        }];
+        let schema = RouteSchema::api_route("/me", &[], &[(&me, &table)]);
+        assert_eq!(schema["methods"]["GET"]["request"], serde_json::json!({}));
+        assert!(!schema.to_string().contains("Identity"), "{schema}");
     }
 }

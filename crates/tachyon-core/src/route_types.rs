@@ -604,7 +604,7 @@ impl RouteTypes {
                 )
             })?;
             Self::check_place(parameter.source, &parameter.code_name, &shape)?;
-            if parameter.source == ParameterSource::Body {
+            if [ParameterSource::Body, ParameterSource::Identity].contains(&parameter.source) {
                 models.check_readable(&shape).map_err(|message| {
                     format!(
                         "The parameter '{}' of {}: {message}",
@@ -660,8 +660,10 @@ impl RouteTypes {
     }
 
     fn check_place(source: ParameterSource, name: &str, shape: &Shape) -> Result<(), String> {
-        if source == ParameterSource::Body {
-            return Ok(());
+        match source {
+            ParameterSource::Body => return Ok(()),
+            ParameterSource::Identity => return Self::check_identity_model(name, shape),
+            _ => {}
         }
         let inner = shape.inner();
         let scalar = matches!(
@@ -676,6 +678,15 @@ impl RouteTypes {
         Err(format!(
             "The parameter '{name}' reads text from the request, so its type must be text, a number, or true or false. Use @FromBody for an object or a list"
         ))
+    }
+
+    fn check_identity_model(name: &str, shape: &Shape) -> Result<(), String> {
+        let modelled = matches!(shape, Shape::Model(_));
+        modelled.then_some(()).ok_or_else(|| {
+            format!(
+                "The parameter '{name}' receives the identity of the signed-in caller, so its type must be a model from server/models/ whose fields are the fields your identity provider returns, such as Identity with user and roles"
+            )
+        })
     }
 
     pub(crate) fn documented_type(documentation: &str, tag: &str, name: &str) -> String {

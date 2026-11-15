@@ -48,7 +48,7 @@ impl AccessVerdict {
 
     fn held_roles(answer: &IdentityAnswer) -> &[String] {
         match answer {
-            IdentityAnswer::Roles(roles) => roles,
+            IdentityAnswer::SignedIn { roles, .. } => roles,
             _ => &[],
         }
     }
@@ -58,7 +58,7 @@ impl AccessVerdict {
             (RouteAccess::Public, _) => Self::Allowed,
             (RouteAccess::Missing, _) => Self::NoRule,
             (_, IdentityAnswer::Failed) => Self::Failed,
-            (_, IdentityAnswer::Roles(_)) => Self::for_roles(access.roles(), held, access),
+            (_, IdentityAnswer::SignedIn { .. }) => Self::for_roles(access.roles(), held, access),
             _ => Self::NotSignedIn,
         }
     }

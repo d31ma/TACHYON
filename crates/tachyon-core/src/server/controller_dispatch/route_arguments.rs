@@ -45,6 +45,7 @@ impl RouteArguments {
             ParameterSource::Cookie => {
                 Self::text(parameter, Self::cookie(request.headers, &parameter.name))
             }
+            ParameterSource::Identity => Self::identity(request.identity, &parameter.shape, models),
         }
     }
 
@@ -54,6 +55,7 @@ impl RouteArguments {
             ParameterSource::Query => "query",
             ParameterSource::Header => "header",
             ParameterSource::Cookie => "cookie",
+            ParameterSource::Identity => "identity",
             ParameterSource::Body | ParameterSource::Request => "body",
         }
     }
@@ -182,6 +184,18 @@ impl RouteArguments {
                 &format!("The request body does not fit: {message}."),
             )
         })?;
+        Ok(value)
+    }
+
+    fn identity(
+        identity: Option<&Value>,
+        shape: &Shape,
+        models: &ModelTable,
+    ) -> Result<Value, Rejection> {
+        let value = identity.cloned().unwrap_or_default();
+        models
+            .check(shape, &value, "identity")
+            .map_err(|_| Rejection::identity_mismatch())?;
         Ok(value)
     }
 

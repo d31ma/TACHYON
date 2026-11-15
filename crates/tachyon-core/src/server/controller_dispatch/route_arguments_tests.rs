@@ -1,4 +1,4 @@
-use super::{RouteArguments, RouteRequest};
+use super::{Rejection, RouteArguments, RouteRequest};
 use crate::route_types::{ModelTable, Shape};
 use crate::yon::plan::{ParameterSource, Route, RouteParameter};
 use axum::http::header::{AUTHORIZATION, COOKIE};
@@ -67,6 +67,7 @@ fn build(route: &Route, headers: &HeaderMap, body: &[u8]) -> Result<Vec<Value>, 
         query: Some("tag=a&tag=b"),
         headers,
         body,
+        identity: None,
     };
     RouteArguments::build(route, &request, &order_models()).map_err(|rejection| {
         let answer = rejection.handler_response("request-1");
@@ -233,5 +234,86 @@ fn a_missing_required_value_names_its_part() {
     assert_eq!(
         build(&route, &headers, b""),
         Ok(vec![json!(1), Value::Null])
+    );
+}
+
+fn identity_models() -> ModelTable {
+    let root = tempfile::tempdir().expect("project");
+    let models = root.path().join("server/models");
+    std::fs::create_dir_all(&models).expect("models folder");
+    std::fs::write(
+        models.join("Identity.ts"),
+        "interface Identity { user: string; roles: string[] }\n",
+    )
+    .expect("Identity model");
+    ModelTable::read(root.path(), "ts").expect("model table")
+}
+
+fn identity_route() -> Route {
+    route(vec![
+        parameter(
+            ParameterSource::Identity,
+            "caller",
+            Shape::Model(String::from("Identity")),
+        ),
+        parameter(ParameterSource::Path, "shop", Shape::Integer),
+    ])
+}
+
+fn build_with_identity(identity: Option<&Value>) -> Result<Vec<Value>, Rejection> {
+    let parameters = BTreeMap::from([(String::from("shop"), String::from("42"))]);
+    let headers = HeaderMap::new();
+    let request = RouteRequest {
+        parameters: &parameters,
+        query: None,
+        headers: &headers,
+        body: b"",
+        identity,
+    };
+    RouteArguments::build(&identity_route(), &request, &identity_models())
+}
+
+async fn server_error_text(rejection: &Rejection) -> String {
+    let response = rejection.response("/orders/_shop");
+    assert_eq!(
+        response.status(),
+        axum::http::StatusCode::INTERNAL_SERVER_ERROR
+    );
+    let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .expect("answer body");
+    String::from_utf8(bytes.to_vec()).expect("text answer")
+}
+
+#[test]
+fn an_identity_that_fits_its_model_becomes_the_argument() {
+    let identity = json!({"user": "ada", "roles": ["Admin"]});
+    let Ok(arguments) = build_with_identity(Some(&identity)) else {
+        panic!("the identity was refused");
+    };
+    assert_eq!(arguments, vec![identity.clone(), json!(42)]);
+}
+
+#[tokio::test]
+async fn an_identity_that_does_not_fit_its_model_is_a_server_error_without_its_values() {
+    let identity = json!({"user": "ada", "roles": ["Admin"], "secret": "hunter2"});
+    let rejection = build_with_identity(Some(&identity)).expect_err("refused identity");
+    let text = server_error_text(&rejection).await;
+    assert!(
+        text.starts_with("Handler execution failed. Reference: "),
+        "{text}"
+    );
+    for value in ["ada", "Admin", "secret", "hunter2"] {
+        assert!(!text.contains(value), "{value} is in {text}");
+    }
+}
+
+#[tokio::test]
+async fn a_missing_identity_is_a_server_error_not_a_bad_request() {
+    let rejection = build_with_identity(None).expect_err("missing identity");
+    let text = server_error_text(&rejection).await;
+    assert!(
+        text.starts_with("Handler execution failed. Reference: "),
+        "{text}"
     );
 }

@@ -5,8 +5,8 @@ use super::socket_dispatch::{SocketHub, SocketSession};
 use super::{
     AssetCachePolicy, BuiltInAnswer, BuiltInCase, BuiltInRequest, CheckAnswer, CrossOrigin,
     DispatchRoute, ForwardedHeaders, HandlerEventBridge, HostGuard, HotUpdateHub, InvocationLog,
-    Middleware, MiddlewareOutcome, ProducerTasks, ProtocolRequest, RouteGuard, ServerResponse,
-    StaticFiles, TopicHub, TopicStream,
+    Middleware, MiddlewareOutcome, ProducerTasks, ProtocolRequest, RouteAdmission, RouteGuard,
+    ServerResponse, StaticFiles, TopicHub, TopicStream,
 };
 use crate::Failure;
 use crate::handler::{HandlerCancellation, HandlerSource, HandlerSupervisor};
@@ -19,6 +19,7 @@ use axum::http::header::{ACCEPT, CONTENT_LENGTH, VARY};
 use axum::http::request::Parts;
 use axum::http::response::Parts as ResponseParts;
 use axum::http::{HeaderMap, HeaderValue, Method, Request, Response, StatusCode, Uri};
+use serde_json::Value;
 use std::sync::Arc;
 use tachyon_contracts::{
     HandlerBody, HandlerBodyEncoding, HandlerRequest, HandlerResponse, HttpMethod,
@@ -476,7 +477,7 @@ impl Dispatch {
         matched: RouteMatch,
         request: Request<Body>,
     ) -> Response<Body> {
-        let refusal = RouteGuard::refusal(
+        let admission = RouteGuard::admission(
             self,
             &entry.mapping.access,
             request.uri(),
@@ -484,9 +485,12 @@ impl Dispatch {
         )
         .await;
         let built_in = BuiltInRequest::of(&request);
-        let response = match refusal {
-            Some(response) => response,
-            None => self.serve_allowed_route(entry, matched, request).await,
+        let response = match admission {
+            RouteAdmission::Refused(response) => response,
+            RouteAdmission::Admitted(identity) => {
+                self.serve_allowed_route(entry, matched, request, identity.as_ref())
+                    .await
+            }
         };
         BuiltInAnswer::shape(self, entry, &built_in, response).await
     }
@@ -496,6 +500,7 @@ impl Dispatch {
         entry: &DispatchRoute,
         matched: RouteMatch,
         request: Request<Body>,
+        identity: Option<&Value>,
     ) -> Response<Body> {
         let limit = self.supervisor.application().max_request_bytes();
         let (parts, body) = request.into_parts();
@@ -503,7 +508,8 @@ impl Dispatch {
             .await
             .ok()
             .filter(|body| body.len() <= limit);
-        self.serve_route_body(entry, matched, &parts, body).await
+        self.serve_route_body(entry, matched, &parts, body, identity)
+            .await
     }
 
     async fn serve_route_body(
@@ -512,11 +518,12 @@ impl Dispatch {
         matched: RouteMatch,
         parts: &Parts,
         body: Option<Bytes>,
+        identity: Option<&Value>,
     ) -> Response<Body> {
         match body {
             None => self.body_too_large(),
             Some(body) => {
-                self.serve_route_with_body(entry, matched, parts, &body)
+                self.serve_route_with_body(entry, matched, parts, &body, identity)
                     .await
             }
         }
@@ -535,12 +542,14 @@ impl Dispatch {
         matched: RouteMatch,
         parts: &Parts,
         body: &Bytes,
+        identity: Option<&Value>,
     ) -> Response<Body> {
         let route_request = RouteRequest {
             parameters: &matched.parameters,
             query: parts.uri.query(),
             headers: &parts.headers,
             body,
+            identity,
         };
         let arguments = RouteArguments::build(
             entry.mapping.as_ref(),
@@ -560,7 +569,7 @@ impl Dispatch {
         body: &Bytes,
     ) -> Response<Body> {
         match arguments {
-            Err(rejection) => rejection.response(),
+            Err(rejection) => rejection.response(&matched.route),
             Ok(arguments) => {
                 self.serve_with_arguments(arguments, entry, matched, parts, body)
                     .await

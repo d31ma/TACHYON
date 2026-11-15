@@ -13,6 +13,9 @@
     },
     {
       "include": "../yon/who-may-call-a-route-in-every-yon-language/section.json"
+    },
+    {
+      "include": "../yon/identity-in-every-yon-language/section.json"
     }
   ]
 }

@@ -791,6 +791,8 @@ declare global {
   const FromHeader: BehaviorNamedParameterAnnotation;
   /** FromCookie: this argument is the value of a cookie. */
   const FromCookie: BehaviorNamedParameterAnnotation;
+  /** FromIdentity: this argument is the identity of the signed-in caller, as the identity provider returned it. */
+  const FromIdentity: BehaviorParameterAnnotation & (() => BehaviorParameterAnnotation);
   /** HTTPClient: this class sends HTTP requests, and their paths start with this path, like "/api/orders". */
   const HTTPClient: BehaviorClassAnnotation & ((options?: string | BehaviorHttpClientOptions) => BehaviorClassAnnotation);
   /** GetRequest: calling this method sends a GET request to this path (added to the class path). */

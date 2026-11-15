@@ -367,8 +367,9 @@ Controller endpoints are instance methods marked `GetRoute`, `PostRoute`,
 `getOrders`, `GetOrders` or `get_orders`. In Python they take self, in Rust
 &self, and in Go a receiver. A method path follows the class path.
 
-`FromPath`, `FromQuery`, `FromBody`, `FromHeader` and `FromCookie` bind
-arguments. One unmarked argument may receive the request in the language's own
+`FromPath`, `FromQuery`, `FromBody`, `FromHeader`, `FromCookie` and
+`FromIdentity` bind arguments. `FromIdentity` receives the identity of the
+signed-in caller (see Who may call a route). One unmarked argument may receive the request in the language's own
 type (ADR 0062): a Fetch `Request` in JavaScript and TypeScript,
 `urllib.request.Request` in Python, a `Net::HTTP` request in Ruby,
 `com.sun.net.httpserver.HttpExchange` in Java and Kotlin, `HttpRequestMessage`
@@ -549,6 +550,44 @@ that Tachyon makes itself" below). A guarded route without an identity provider,
 providers, stops the build with `TY1323`. In C++ the method is
 `std::optional<Identity> identify(const tachyon::http::HttpRequestMessage& request)`
 and returns `std::nullopt` when nobody is signed in.
+
+### A route receives the caller's identity
+
+A `@SignedIn` or `@Allow` route method can take the object that `identify`
+returned for this request as an argument (ADR NNNN). Mark the parameter with
+`FromIdentity`, in the spelling of the language: `@FromIdentity` in
+JavaScript, TypeScript, Java, Groovy, Kotlin and Dart,
+`Annotated[Identity, from_identity]` in Python, `// @FromIdentity` on the
+line before the parameter in Go and `-- @FromIdentity` in Lua,
+`#[FromIdentity]` in Ruby, PHP and Rust, `[FromIdentity]` in C#,
+`[<FromIdentity>]` in F# and `[[FromIdentity]]` in C++.
+
+```ts
+@GetRoute
+getMe(@FromIdentity caller: Identity): string {
+  return caller.user;
+}
+```
+
+The parameter type is a model in `server/models/` whose fields are the
+fields `identify` returns: at least `user` and `roles`, and any other
+fields your provider adds. The server checks the identity against the model
+like a body. The identity provider is still called once per request.
+
+- One `FromIdentity` parameter per method, and only on a route or stream
+  method. An identity provider, a worker, a socket method or a gateway with
+  it stops the build with `TY2015`.
+- A route whose rule is `@Public` cannot take it: a public route does not
+  ask who is calling. The rule on the method wins over the rule on the
+  class. The build stops with `TY1322`.
+- An identity that does not fit the model is a server defect, not a bad
+  request: the server answers the fixed 500
+  `Handler execution failed. Reference: <id>.` (the built-in case
+  `UnexpectedError`), the method does not run, and stderr gets one line
+  `{"event":"route.identity_mismatch","request_id":...,"route":...}`
+  without any identity value.
+- The identity is not part of `/api.json`, the `OPTIONS` schema, any log
+  line or the request that asks an error handler for a body.
 
 A `@Topic` model in `server/` says who may read its stream
 (`/.tachyon/topics/<name>`) with the same three markers, written next to
