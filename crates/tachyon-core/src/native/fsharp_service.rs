@@ -418,4 +418,21 @@ mod tests {
             "{body}"
         );
     }
+
+    #[test]
+    fn a_held_fsharp_stream_client_carries_its_event_name_and_query() {
+        let message = "type Tick = { Level: int }\n";
+        let client = "open Models\n\n[<HTTPClient(\"/jobs\")>]\ntype TicksClient =\n    [<StreamRequest({\"path\": \"/state/{window}\", \"event\": \"state\", \"query\": \"StatsWindow\"})>]\n    abstract Receive: Tick -> unit\n";
+        let service = "open Models\n\n[<Service>]\ntype TicksService() =\n    [<Needs>]\n    member val TicksClient : TicksClient = Unchecked.defaultof<TicksClient> with get, set\n";
+        let others = [
+            ("client/remotes/TicksClient.fs", client),
+            ("client/models/Tick.fs", message),
+        ];
+        let body = table_with("TicksService", service, true, &others)
+            .unwrap_or_else(|failure| panic!("{failure}"));
+        assert!(
+            body.contains("/.tachyon/event/state/.tachyon/query/StatsWindow/jobs/state/{window}"),
+            "{body}"
+        );
+    }
 }

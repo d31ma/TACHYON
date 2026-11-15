@@ -17,6 +17,8 @@ class TacApplicationEvents {
 
   static namedOrigin = /^\/\.tachyon\/origin\/([a-z][a-z0-9-]{0,31})(\/(?!\/).*)?$/
   static reconnecting = /^\/\.tachyon\/reconnect\/(\d{1,3})\/(\d{1,6})\/(\d{1,6})\/(\d{1,5})(\/.*)$/
+  static named = /^\/\.tachyon\/event\/([A-Za-z][\w.-]{0,63})(\/.*)$/
+  static queried = /^\/\.tachyon\/query\/([A-Za-z]\w{0,63})(\/.*)$/
 
   yonPath(path) {
     const [, name, rest] = TacApplicationEvents.namedOrigin.exec(path) ?? []
@@ -34,7 +36,20 @@ class TacApplicationEvents {
 
   static policy(path) {
     const [, tries = 5, delay = 1000, most = 16000, jitter = 0, rest = path] = TacApplicationEvents.reconnecting.exec(path) ?? []
-    return { path: rest, served: TacApplicationEvents.namedOrigin.exec(rest)?.[2] ?? rest, tries: Number(tries), delay: Number(delay), most: Number(most), jitter: Number(jitter) }
+    const [, event = 'message', named = rest] = TacApplicationEvents.named.exec(rest) ?? []
+    const [, query = null, inner = named] = TacApplicationEvents.queried.exec(named) ?? []
+    return { path: inner, event, query, served: TacApplicationEvents.namedOrigin.exec(inner)?.[2] ?? inner, tries: Number(tries), delay: Number(delay), most: Number(most), jitter: Number(jitter) }
+  }
+
+  static filled(template, value) {
+    if (value?.constructor !== Object) throw new TypeError('Stream parameters must be a model object.')
+    const rest = { ...value }, plain = (item) => {
+      if (!['string', 'number', 'boolean'].includes(typeof item)) throw new TypeError('A stream parameter must be text, a number or a boolean.')
+      return String(item)
+    }
+    const path = template.replace(/\{(\w+)\}/g, (_, name) => { const item = rest[name]; delete rest[name]; return encodeURIComponent(plain(item)) })
+    const query = new URLSearchParams(Object.entries(rest).filter(([, item]) => item !== null).map(([key, item]) => [key, plain(item)])).toString()
+    return query ? `${path}?${query}` : path
   }
 
   static delay(policy, tries) {
@@ -316,7 +331,8 @@ class TacApplicationEvents {
   stream(owner, state, stream) {
     const socket = stream.socket, Kind = globalThis[socket ? 'WebSocket' : 'EventSource']
     if (typeof Kind !== 'function') { this.failed(); return }
-    const policy = TacApplicationEvents.policy(stream.path), path = policy.path, served = policy.served
+    const policy = TacApplicationEvents.policy(stream.path), served = policy.served
+    let path = policy.query ? null : policy.path
     const entry = { ...stream, owner, state }, waiting = []
     let source = null, timer, tries = 0, last = null, opened = false, ended = false
     const offline = () => globalThis.navigator?.onLine === false
@@ -326,9 +342,9 @@ class TacApplicationEvents {
     const retry = () => { close(); if (!state.disposed && !offline() && more()) timer = setTimeout(open, TacApplicationEvents.delay(policy, tries++)) }
     const resume = () => { if (!state.disposed && !source && !ended && !offline() && !TacApplicationEvents.hidden()) { tries = 0; clearTimeout(timer); open() } }
     const end = () => { ended = true; close() }
+    const beat = () => { tries = 0; wait() }
     const receive = ({ data, lastEventId }) => {
-      tries = 0
-      wait()
+      beat()
       if (lastEventId) last = Number(lastEventId)
       try {
         const message = this.snapshot(JSON.parse(data))
@@ -363,13 +379,24 @@ class TacApplicationEvents {
         source.onopen = () => { tries = 0 }
         source.onerror = retry
         source.addEventListener('end', end)
+        source.addEventListener('heartbeat', beat)
       }
-      source.onmessage = receive
+      if (policy.event === 'message') source.onmessage = receive
+      else source.addEventListener(policy.event, receive)
       wait()
     }
     const open = () => {
-      if (state.disposed) return
+      if (state.disposed || path === null) return
       try { connect() } catch { source = null; this.failed() }
+    }
+    const change = (value) => {
+      const next = TacApplicationEvents.filled(policy.path, value)
+      if (next === path && source) return
+      path = next
+      tries = 0
+      ended = false
+      close()
+      open()
     }
     if (socket) Object.defineProperty(owner, stream.sender ?? 'send', { configurable: true, value: async (message) => {
       this.alive(state)
@@ -383,6 +410,12 @@ class TacApplicationEvents {
     globalThis.document?.addEventListener?.('visibilitychange', resume, { signal: state.controller.signal })
     state.controller.signal.addEventListener('abort', close, { once: true })
     open()
+    if (policy.query) {
+      try {
+        this.listen({ change }, state, { method: 'change', event: policy.query })
+        if (this.retained.has(policy.query)) change(this.retained.get(policy.query))
+      } catch { this.failed() }
+    }
   }
 
   dispose(owner) {

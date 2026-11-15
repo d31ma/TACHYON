@@ -27,6 +27,8 @@ use built_in_name_clash::BuiltInNameClash;
 pub(crate) use event_timer::EventTimer;
 pub(crate) use held_streams::HeldStreams;
 pub(crate) use stream_arguments::StreamArguments;
+mod stream_options;
+pub(crate) use stream_options::StreamOptions;
 
 #[derive(Clone, Debug, Default, Serialize)]
 pub(crate) struct EventType {
@@ -1125,13 +1127,13 @@ fn stream_request(
             ),
         ));
     };
-    let (own, reconnect) = StreamArguments::read(written, marker.arguments.trim())
+    let options = StreamArguments::read(written, marker.arguments.trim())
         .map_err(|message| failure(path, at, message))?;
-    let mut full = format!("{base}{own}");
+    let mut full = format!("{base}{}", options.path);
     if full.is_empty() {
         full.push('/');
     }
-    let full = reconnect.map_or_else(|| full.clone(), |policy| policy.addressed(&full));
+    let full = options.addressed(&full);
     Ok(EventStream {
         method: method.name.clone(),
         path: full,

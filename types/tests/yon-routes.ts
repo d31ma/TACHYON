@@ -72,6 +72,12 @@ class OrderTicksClient {
   @StreamRequest
   async streamMore(tick: OrderTick): Promise<void> {}
 
+  @StreamRequest({ path: '/state', event: 'state', reconnect: { maxTries: 0, jitterMs: 1000 } })
+  streamState(tick: OrderTick) {}
+
+  @StreamRequest({ path: '/window/{window}', event: 'state', query: 'OrderWindow' })
+  streamWindow(tick: OrderTick) {}
+
   // @ts-expect-error StreamRequest methods take one message parameter.
   @StreamRequest
   streamTwo(tick: OrderTick, other: OrderTick) {}
@@ -82,6 +88,20 @@ class OrderTicksClient {
 }
 
 interface ChatMessage { text: string }
+
+@HTTPClient('/api/chat')
+class ChatRoomClient {
+  @SocketRequest({ path: '/ws' })
+  receive(message: ChatMessage) {}
+
+  // @ts-expect-error A socket sends its own messages, so SocketRequest takes no query model.
+  @SocketRequest({ path: '/ws', query: 'Room' })
+  receiveQueried(message: ChatMessage) {}
+
+  // @ts-expect-error A WebSocket message has no event type, so SocketRequest takes no event name.
+  @SocketRequest({ path: '/ws', event: 'state' })
+  receiveNamed(message: ChatMessage) {}
+}
 
 @SocketRoute('/chat')
 class ChatController {

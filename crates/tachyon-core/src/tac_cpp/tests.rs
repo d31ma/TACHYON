@@ -1322,3 +1322,41 @@ fn a_cpp_client_refuses_an_origin_that_is_not_a_plain_name() {
         "{refused}"
     );
 }
+
+#[test]
+fn a_cpp_stream_client_writes_its_event_name_and_query_into_the_stream_address() {
+    let root = tempfile::tempdir().expect("project");
+    let files = [
+        (
+            "client/models/Tick.hpp",
+            "struct Tick {\n    int level;\n};\n",
+        ),
+        (
+            "client/remotes/TicksClient.hpp",
+            "class [[HTTPClient(\"/jobs\")]] TicksClient {\npublic:\n    [[StreamRequest({\"path\": \"/state/{window}\", \"event\": \"state\", \"query\": \"StatsWindow\"})]] void receive(const Tick& tick);\n};\n",
+        ),
+        (
+            "client/services/TicksService.hpp",
+            "class [[Service]] TicksService {\npublic:\n    [[Needs]] TicksClient& ticks;\n};\n",
+        ),
+    ];
+    for (relative, source) in files {
+        let path = root.path().join(relative);
+        std::fs::create_dir_all(path.parent().expect("folder")).expect("folder");
+        std::fs::write(path, source).expect("file");
+    }
+    let chosen = [(
+        String::from("ticks"),
+        String::from("TicksService"),
+        root.path().join("client/services/TicksService.hpp"),
+    )];
+    let program = super::CppProgram::read(root.path(), &chosen)
+        .expect("program")
+        .web_source();
+    assert!(
+        program.contains(
+            "\"path\":\"/.tachyon/event/state/.tachyon/query/StatsWindow/jobs/state/{window}\""
+        ),
+        "{program}"
+    );
+}

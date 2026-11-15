@@ -3,7 +3,12 @@ pub(crate) struct RemoteOrigin;
 impl RemoteOrigin {
     pub(crate) const PREFIX: &'static str = "/.tachyon/origin/";
     const MOST_NAME_LENGTH: usize = 32;
-    const RESERVED: [&'static str; 2] = [Self::PREFIX, crate::behavior::ReconnectPolicy::PREFIX];
+    const RESERVED: [&'static str; 4] = [
+        Self::PREFIX,
+        crate::behavior::ReconnectPolicy::PREFIX,
+        crate::behavior::StreamEventName::PREFIX,
+        crate::behavior::StreamQuery::PREFIX,
+    ];
 
     pub(crate) fn addressed(name: &str, path: &str) -> Result<String, String> {
         Self::refuse_bad_name(Self::is_name(name), name)?;
@@ -44,7 +49,7 @@ impl RemoteOrigin {
             return Ok(());
         }
         Err(String::from(
-            "A client path cannot start with /.tachyon/origin/ or /.tachyon/reconnect/: Tachyon writes those itself. Name a server with \"origin\" instead, such as @HTTPClient({\"path\": \"/chat\", \"origin\": \"realtime\"})",
+            "A client path cannot start with /.tachyon/origin/, /.tachyon/reconnect/, /.tachyon/event/ or /.tachyon/query/: Tachyon writes those itself. Name a server with \"origin\" instead, such as @HTTPClient({\"path\": \"/chat\", \"origin\": \"realtime\"})",
         ))
     }
 }

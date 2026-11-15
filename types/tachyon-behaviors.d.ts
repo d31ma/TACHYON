@@ -654,11 +654,18 @@ declare global {
     maxDelayMs?: number;
     jitterMs?: number;
   }
-  interface BehaviorStreamRequestOptions {
+  interface BehaviorSocketRequestOptions {
     path?: string;
     reconnect?: BehaviorReconnectPolicy;
   }
+  interface BehaviorStreamRequestOptions extends BehaviorSocketRequestOptions {
+    /** The server-sent event type that carries the messages (the text after `event:`), like "state". Leave it out for messages without a name. */
+    event?: string;
+    /** The model whose events set the stream's parameters, like "StatsWindow". Each published value fills the {name} parts of the path, sends the other fields after `?`, and opens the stream again; the stream waits for the first value. */
+    query?: string;
+  }
   type BehaviorStreamPathAnnotation = BehaviorStreamRequestAnnotation & ((options?: string | BehaviorStreamRequestOptions) => BehaviorStreamRequestAnnotation);
+  type BehaviorSocketPathAnnotation = BehaviorStreamRequestAnnotation & ((options?: string | BehaviorSocketRequestOptions) => BehaviorStreamRequestAnnotation);
   /** RequestRoute: this class is a controller, and all its routes start with this path, like "/orders". */
   const RequestRoute: BehaviorPathAnnotation<BehaviorClassAnnotation>;
   type BehaviorAccessAnnotation = BehaviorClassAnnotation & BehaviorMethodAnnotation;
@@ -720,10 +727,10 @@ declare global {
   const PatchRequest: BehaviorPathAnnotation<BehaviorRequestMethodAnnotation>;
   /** DeleteRequest: calling this method sends a DELETE request to this path (added to the class path). */
   const DeleteRequest: BehaviorPathAnnotation<BehaviorRequestMethodAnnotation>;
-  /** StreamRequest: Tachyon opens a stream of server-sent events at this path (added to the class path) when the client is first used, and closes it with the component or service that uses it. Each message is checked against the model type of the method's one parameter, passed to the method, and then published as that model's event for OnEvent listeners, like `streamTicks(tick: Tick) {}`. */
+  /** StreamRequest: Tachyon opens a stream of server-sent events at this path (added to the class path) when the client is first used, and closes it with the component or service that uses it. Each message is checked against the model type of the method's one parameter, passed to the method, and then published as that model's event for OnEvent listeners, like `streamTicks(tick: Tick) {}`. With `{"event": "state"}` it reads only messages of that server-sent event type. */
   const StreamRequest: BehaviorStreamPathAnnotation;
   /** SocketRequest: Tachyon opens a WebSocket at this path (added to the class path) when the client is first used, and closes it with the component or service that uses it. Each message is checked against the model type of the method's one parameter, passed to the method, and published as that model's event for OnEvent listeners, like `receive(message: ChatMessage) {}`. The client also gets `send(message)`: declare it with `declare send: SocketSend<ChatMessage>`. */
-  const SocketRequest: BehaviorStreamPathAnnotation;
+  const SocketRequest: BehaviorSocketPathAnnotation;
   /** PathVariable: this argument fills a part of the request path, like {id}. */
   const PathVariable: BehaviorNamedParameterAnnotation;
   /** RequestParam: this argument is sent as a value in the query string (after `?`). */

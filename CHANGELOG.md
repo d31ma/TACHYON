@@ -40,6 +40,23 @@ machine contracts have their own, independent major versions.
   the service nor the server ever holds the PRF bytes. A taken name answers
   `PasskeyFailed` with the new reason `keyExists`. Tachyon's own WebAuthn
   converter now decodes `prf.eval` and `prf.evalByCredential`.
+- **Streams read named events, take parameters from a typed event, and
+  accept heartbeats** (ADR 0058, amendment of 2026-11-14). `@StreamRequest`
+  takes `"event"`, so `@StreamRequest({"path": "/state", "event":
+  "state"})` reads `event: state` messages, and `"query"`, a model whose
+  published events fill the `{name}` parts of the path and the `?` values
+  and open the stream again, closing the old one first. A stream with a
+  query waits for its first value; a stream without one opens at once, as
+  before. An `event: heartbeat` message keeps a quiet stream open without
+  reaching a method; comment lines cannot, because the browser drops them.
+  Every client language that writes `@StreamRequest` accepts both options,
+  and `@SocketRequest` refuses them. `bun run test:streams-browser` checks
+  the bus in Chromium, Firefox and WebKit.
+- **The event bus byte budget is 20,480 bytes** (was 14,338).
+  `scripts/application-events-test.mjs` already failed on develop: the bus
+  (`application-events.js`) had grown to 18,425 bytes through earlier
+  changes without a budget update. The stream options above add 1,737 bytes
+  (20,162 in all); the new budget is that size plus a 318-byte margin.
 - **Crypto verifies an empty message on every engine** (ADR 0133).
   `Crypto.sign` and `Crypto.verify` accept empty data again. WebKit answers
   `false` when it verifies an Ed25519 signature over an empty message; the

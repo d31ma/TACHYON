@@ -273,3 +273,22 @@ fn a_lua_socket_client_carries_its_origin_and_reconnect_policy() {
         "{registration}"
     );
 }
+
+#[test]
+fn a_lua_stream_client_carries_its_event_name_and_query() {
+    let root = tempfile::tempdir().unwrap_or_else(|error| panic!("project: {error}"));
+    StreamPage::write_files(root.path());
+    Page::write(
+        root.path(),
+        "client/remotes/TicksClient.lua",
+        "-- @HTTPClient({\"path\":\"/ticks\"})\n---@class TicksClient\nTicksClient = {}\n\n---@param tick Tick\n---@return nil\n-- @StreamRequest({\"path\":\"/state/{window}\",\"event\":\"state\",\"query\":\"StatsWindow\"})\nfunction TicksClient:receive(tick)\nend\n",
+    );
+    let program = StreamPage::program(root.path(), StreamPage::SERVICE);
+    let registration = StreamPage::registration(&program);
+    assert!(
+        registration.contains(
+            "\"path\":\"/.tachyon/event/state/.tachyon/query/StatsWindow/ticks/state/{window}\""
+        ),
+        "{registration}"
+    );
+}

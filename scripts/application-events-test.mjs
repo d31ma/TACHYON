@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 
 class Budget {
-  static bytes = 14338
+  static bytes = 20480
 }
 
 async function loadApplicationEvents() {
@@ -211,6 +211,7 @@ class FakeEventSource {
   addEventListener(type, listener) { this.listeners.set(type, listener) }
   close() { this.closed = true }
   send(data, lastEventId = '') { this.onmessage({ data, lastEventId }) }
+  emit(type, data) { this.listeners.get(type)?.({ data, lastEventId: '' }) }
   fail() { this.onerror({}) }
   end() { this.listeners.get('end')({}) }
 }
@@ -273,6 +274,50 @@ async function checkStreamRequests(TacApplicationEvents, resources) {
     const owned = FakeEventSource.opened.at(-1)
     bus.dispose(client3)
     assert.equal(owned.closed, true, 'the stream closes with its owner')
+    const named = new TicksClient()
+    bus.attach(named, { streams: [{ method: 'streamTicks', path: '/.tachyon/reconnect/0/500/30000/1000/.tachyon/event/state/named', event: 'Tick', models }] }, resources)
+    await bus.initialize(named)
+    const state = FakeEventSource.opened.at(-1)
+    assert.equal(state.url, '/named', 'a named stream opens at its server path')
+    assert.equal(state.onmessage, undefined, 'a named stream does not read unnamed messages')
+    state.emit('state', '{"sku":"N","level":7}')
+    assert.deepEqual(TicksClient.received.at(-1), 7, 'a message of the named event type reaches the method')
+    assert.deepEqual(TicksListener.heard.at(-1), 7, 'a message of the named event type is published')
+    const quiet = timers.length
+    state.emit('heartbeat', '')
+    assert.equal(timers.at(-1).delay, 60000, 'a heartbeat restarts the sixty-second silence timer')
+    assert.ok(timers.length > quiet, 'a heartbeat counts as a sign of life')
+    assert.deepEqual(TicksClient.received.at(-1), 7, 'a heartbeat reaches no method')
+    bus.dispose(named)
+    const queried = new TicksClient()
+    const failedBefore = failures
+    bus.attach(queried, { streams: [{ method: 'streamTicks', path: '/.tachyon/event/state/.tachyon/query/StatsWindow/stats/{window}', event: 'Tick', models }] }, resources)
+    const openedBefore = FakeEventSource.opened.length
+    await bus.initialize(queried)
+    assert.equal(FakeEventSource.opened.length, openedBefore, 'a stream with a query model waits for its first value')
+    bus.publish('StatsWindow', { window: '1 h', limit: 20, note: null })
+    const firstWindow = FakeEventSource.opened.at(-1)
+    assert.equal(firstWindow.url, '/stats/1%20h?limit=20', 'the first value fills the path and the query')
+    assert.equal(FakeEventSource.opened.length, openedBefore + 1, 'the first value opens one stream')
+    bus.publish('StatsWindow', { window: '1 h', limit: 20 })
+    assert.equal(FakeEventSource.opened.length, openedBefore + 1, 'the same parameters keep the open stream')
+    bus.publish('StatsWindow', { window: '24h', limit: 20 })
+    const secondWindow = FakeEventSource.opened.at(-1)
+    assert.equal(firstWindow.closed, true, 'new parameters close the old stream first')
+    assert.equal(secondWindow.url, '/stats/24h?limit=20', 'new parameters open the stream again')
+    secondWindow.emit('state', '{"sku":"Q","level":24}')
+    assert.equal(TicksClient.received.at(-1), 24, 'the reopened stream delivers its messages')
+    bus.publish('StatsWindow', { window: { nested: true } })
+    assert.equal(failures, failedBefore + 1, 'a parameter that is not text, a number or a boolean is a failure')
+    assert.equal(secondWindow.closed, false, 'a bad value keeps the open stream')
+    bus.dispose(queried)
+    assert.equal(secondWindow.closed, true, 'the query stream closes with its owner')
+    const later = new TicksClient()
+    bus.publish('LaterWindow', { window: '7d' }, { retain: true })
+    bus.attach(later, { streams: [{ method: 'streamTicks', path: '/.tachyon/query/LaterWindow/stats/{window}', event: 'Tick', models }] }, resources)
+    await bus.initialize(later)
+    assert.equal(FakeEventSource.opened.at(-1).url, '/stats/7d', 'a retained value opens the stream at once')
+    bus.dispose(later)
   } finally {
     globalThis.setTimeout = realSetTimeout
     delete globalThis.EventSource
@@ -398,7 +443,7 @@ async function main() {
   await checkStreamRequests(TacApplicationEvents, resources)
   await checkTopicStreams(TacApplicationEvents, resources)
   await checkSocketRequests(TacApplicationEvents, resources)
-  console.log('Application events runtime passed: lifecycle, resources, publication, isolation, replay, disposal, cancellation, payload and recursion bounds, model payloads, returned models, StreamRequest streams, shared topic streams and SocketRequest sockets.')
+  console.log('Application events runtime passed: lifecycle, resources, publication, isolation, replay, disposal, cancellation, payload and recursion bounds, model payloads, returned models, StreamRequest streams with named events, heartbeats and query parameters, shared topic streams and SocketRequest sockets.')
 }
 
 await main()

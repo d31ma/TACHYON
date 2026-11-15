@@ -340,3 +340,128 @@ signed-in Windows desktop, and a linked Rust service heard a topic there;
 `scripts/windows/async-listener-native-test.mjs` ran a linked Rust async
 `@OnEvent` listener in the same app (`docs/SUPPORT_TIERS.md` "Linked
 services in WebView2").
+
+## Amendment (2026-11-14): named events, stream parameters, heartbeats and one model per stream
+
+PLAT-1 built a status page whose server sends `event: state` messages and
+`: ping` comment lines, and whose charts change their time window. The page
+received nothing, reconnected every minute and could not change the window.
+This amendment closes those gaps (tickets TAC-S1 to TAC-S4). It replaces the
+sentence "`@StreamRequest` takes no parameter markers" above: a stream still
+takes no parameter markers, but it takes parameters from a model.
+
+### A stream reads one named event type (TAC-S1)
+
+- `@StreamRequest` takes `event` in its object form:
+  `@StreamRequest({"path": "/state", "event": "state"})`. The bus then reads
+  only messages of that server-sent event type (the text after `event:`), and
+  no unnamed messages. Without `event` it reads only unnamed messages, as
+  before.
+- A name starts with a letter and has at most 64 ASCII letters, digits,
+  dots, dashes and underscores. `message`, `end`, `error` and `heartbeat` are
+  refused, because the bus reads them itself. Any other value stops the build.
+- `@SocketRequest` refuses `event`: a WebSocket message has no event type.
+- Every language that writes `@StreamRequest` accepts the same object
+  (Python `@stream_request({...})`, C++ `[[StreamRequest({...})]]`, F#
+  `[<StreamRequest({...})>]`, Lua `-- @StreamRequest({...})`, and so on),
+  because one shared reader (`StreamArguments`) reads the marker for all of
+  them.
+- The name is compile-time data, so it travels like the reconnect policy and
+  the origin of ADR 0124: the build writes it into the stream address as
+  `/.tachyon/event/<name><path>`, inside the reconnect part and outside the
+  origin part, for example
+  `/.tachyon/reconnect/0/500/30000/1000/.tachyon/event/state/.tachyon/origin/realtime/jobs`.
+  No language runtime changes. The bus removes the part and listens with
+  `addEventListener(name)`. An authored path may not start with
+  `/.tachyon/event/`.
+
+### A typed event sets the stream's parameters (TAC-S2)
+
+- `@StreamRequest` takes `query` in its object form, the name of a model:
+  `@StreamRequest({"path": "/stats/{window}", "event": "state", "query":
+  "StatsWindow"})`. A stream with a query model does not open when its owner
+  starts. It opens when a value of that model's event is published on the
+  page's bus, by any service in any Tac language, or at once when such a
+  value was published with retain before.
+- Each value fills each `{name}` part of the path with the field of that name
+  (URL-encoded) and sends every other field after `?`; a `null` field is left
+  out. A field that is not text, a number or a boolean, or a missing `{name}`
+  field, counts as a listener failure and keeps the open stream.
+- A value that gives a new address closes the old `EventSource` first and
+  then opens the new one, with the reconnect count at 0. A value that gives
+  the same address while the stream is open changes nothing. After the server
+  sends `end`, a new value opens the stream again.
+- A stream without `query` opens when its owner starts, as before. A path
+  with a `{name}` part and no `query` stops the build, and so does a
+  `{name}` part that is not a letter or underscore followed by letters,
+  digits and underscores. `@SocketRequest` refuses `query`: a socket sends
+  its own messages with `send(message)`.
+- The query model is compile-time data and travels like the event name, as
+  `/.tachyon/query/<Model><path>`, inside the event part:
+  `/.tachyon/event/state/.tachyon/query/StatsWindow/stats/{window}`. The
+  `{name}` parts stay in the address, and the bus fills them. An authored
+  path may not start with `/.tachyon/query/`.
+- The build does not check that the model has a field for each `{name}`
+  part; a missing field fails when the value arrives, as above.
+- Rejected: a Spring-style method that the page calls with `@RequestParam`
+  values (like `client.openStats("1h")`). Every language would need its own
+  generated method and runtime glue, as socket `send` did (ADR 0090), and the
+  languages would differ until all were done. A typed event already reaches
+  the bus from every Tac language. The hub chose this for the user on
+  2026-11-14.
+
+### Comment lines cannot count as liveness; a heartbeat event does (TAC-S4)
+
+- The browser's `EventSource` drops comment lines (lines that start with `:`)
+  before JavaScript sees them; the HTML standard defines it that way. So the
+  bus cannot count `: ping` lines, and we do not parse the stream ourselves
+  with `fetch`, which would lose the browser's own reconnect and
+  `Last-Event-ID` handling and grow the always-shipped bus.
+- The 60-second rule stays: 60 seconds without a message counts as an error,
+  and the bus reconnects by the stream's policy.
+- A message of the reserved type `heartbeat` (`event: heartbeat` with any
+  `data:` line, such as `data:` with nothing after it) counts as a message
+  for that rule and restarts the reconnect count, but reaches no method and
+  no listener. A server whose stream can be quiet for a minute sends one at
+  least every 30 seconds instead of a comment line. Yon's own `@StreamRoute`
+  sends no comment lines, so it needs no change.
+
+### One model per stream method (TAC-S3, design note)
+
+A `@StreamRequest` method still has one message model. A server that sends
+two kinds of message has two patterns:
+
+- **A wrapper model** (recommended when the messages must keep their order or
+  share one connection): one model with a kind field and one optional field
+  per kind, such as `JobsUpdate { kind: string, state?: JobsState, stats?:
+  JobsStats }`. The `@OnEvent(JobsUpdate)` listener reads `kind`.
+- **Two named streams** (when the kinds are independent): two
+  `@StreamRequest` methods on the same path with different `event` names and
+  their own models. Each method opens its own `EventSource`, so the server
+  sees two connections and the two kinds are not ordered with each other.
+  Two streams on the same address and the same query model change together.
+
+Several models on one method, or one shared `EventSource` for several named
+methods, was not built: it needs a per-event model table in every client
+language's annotation form, and the two patterns above cover the use cases
+PLAT-1 found.
+
+### Cost
+
+The always-shipped event bus (`template/application-events.js`) grows by
+1,737 bytes before compression, from 18,425 to 20,162. The byte budget in
+`scripts/application-events-test.mjs` was 14,338 and already failed on
+develop, because earlier changes had grown the bus without updating it. It
+is now 20,480: the measured size plus a 318-byte margin.
+
+Evidence: `events::stream_address_tests` (JavaScript, TypeScript, Go, Ruby,
+Rust, Dart, Swift, Kotlin, Java, C# and Python write the event and query
+parts, and the refusals), `tac_cpp::tests::a_cpp_stream_client_writes_its_event_name_and_query_into_the_stream_address`,
+`native::fsharp_service::tests::a_held_fsharp_stream_client_carries_its_event_name_and_query`
+and `tac_lua::tests::stream_tests::a_lua_stream_client_carries_its_event_name_and_query`
+for C++, F# and Lua; `scripts/application-events-test.mjs` (the bus with a
+fake `EventSource`); and `scripts/streams-browser-test.mjs`, which runs the
+bus in Chromium, Firefox and WebKit against a real server-sent event stream
+with a comment, an unnamed message, a heartbeat, two named types and a
+parameter change. All 14 client languages that write `@StreamRequest` are
+covered; none is left out, because the page's bus holds every stream.
