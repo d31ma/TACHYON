@@ -195,6 +195,7 @@ class AuthoredRootUpdate {
   }
   _syncElement(pair) {
     const next = Elements.records.get(pair.fresh)
+    BoundProperty.sync(pair.old, pair.previous, next)
     syncAuthoredAttributes(pair.old, pair.previous, next)
     syncControlValue(pair.old, pair.fresh, next, this._active, this._editingAtStart)
     syncControlFlags(pair.old, pair.fresh, pair.previous, next)

@@ -1,0 +1,7 @@
+{
+  "heading": "Lists and objects for custom elements",
+  "body": "A custom element is an element whose name has a dash, for example `w-chart` from a component library. When a binding on a custom element gives an object or an array, the page sets it as a JavaScript property of the element, not as an attribute. So `:data=\"stats.points\"` gives the chart the array itself. The property name is the attribute name in camel case: `:chart-options` sets the property `chartOptions`. Text, numbers and `true` or `false` stay attributes, so the element can still watch them and CSS can still select them. Plain HTML elements, such as `div` or `input`, keep the attribute rules.\n\nAfter an update the page writes the property again only when the value changed. A new array with the same values is not written again. A change inside the same array is not seen, so give the field a new array, for example `this.points = [...this.points, next]`. When the binding gives `null` or text again, the page sets the property to `undefined` and writes the attribute as before. The element's library can load after the page: the element gets the value through its own setter when it is defined. Functions are not passed to elements. ADR 0136 records this rule.",
+  "code": {
+    "file": "example.html"
+  }
+}

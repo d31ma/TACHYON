@@ -1,0 +1,9 @@
+<main>
+  <h1>Element properties</h1>
+  <button id="add-point" on:click="chart.addPoint()">Add point</button>
+  <button id="clear-options" on:click="chart.clearOptions()">Clear options</button>
+  <output id="count">{chart.count}</output>
+  <probe-chart id="early" :points="chart.points" :chart-options="chart.options" :label="chart.label" :count="chart.count"></probe-chart>
+  <probe-late id="late" :points="chart.points"></probe-late>
+  <div id="plain" :data-points="chart.points"></div>
+</main>

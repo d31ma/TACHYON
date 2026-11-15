@@ -70,7 +70,8 @@ Each prop has two doors:
   parse JSON in attributes.
 - A JavaScript property with the prop name. It takes any value: a number,
   an object or an array. React 19, Vue and Angular set properties on custom
-  elements, so rich values pass without any help.
+  elements, so rich values pass without any help. A Tac view does the same
+  for objects and arrays (ADR 0136).
 
 The last write wins, whichever door it uses. When a prop changes, the view
 shows the new value. A field that a service needs is read once, when the

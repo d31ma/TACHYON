@@ -18,6 +18,9 @@
       "include": "aria-states-from-boolean-fields/section.json"
     },
     {
+      "include": "lists-and-objects-for-custom-elements/section.json"
+    },
+    {
       "include": "control-flow/section.json"
     },
     {

@@ -2,6 +2,9 @@ mod accessibility;
 #[cfg(test)]
 #[allow(clippy::expect_used)]
 pub(crate) mod bound_attribute_tests;
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod bound_property_tests;
 mod braced_attribute;
 #[cfg(test)]
 #[allow(clippy::expect_used)]

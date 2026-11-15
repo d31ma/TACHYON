@@ -10,6 +10,14 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- **Tac bindings give objects and arrays to custom elements as properties**
+  (ADR 0136). On an element whose name has a dash, such as `w-chart`, a
+  binding that gives an object or an array now sets a JavaScript property
+  instead of an empty attribute: `<w-chart :data="stats.points">` gives the
+  chart the array. `:chart-options` sets `chartOptions`. Text, numbers and
+  booleans stay attributes, and plain HTML elements keep the old rules. An
+  update writes the property only when the value changed, and an element
+  defined after the first render gets the value through its own setter.
 - **Tac services encrypt each media frame with SFrame** (ADR 0135). `Media`
   gains `useFrameKey(keyId, key)`, `sendFrameKey(keyId)`,
   `forgetFrameKey(keyId)` and `encryptFrames(connection, on)`: frames on a

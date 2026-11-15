@@ -1,0 +1,4 @@
+<section class="load">
+  <w-chart :data="stats.points" :chart-options="stats.options" :label="stats.title"></w-chart>
+  <button on:click="stats.refresh()">Refresh</button>
+</section>

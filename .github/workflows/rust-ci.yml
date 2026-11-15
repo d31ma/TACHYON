@@ -579,6 +579,11 @@ jobs:
         env:
           TAC_BIN: ${{ github.workspace }}/target/release/ty
 
+      - name: Give objects and arrays to custom elements as properties in every browser
+        run: bun run test:element-properties-browser
+        env:
+          TAC_BIN: ${{ github.workspace }}/target/release/ty
+
       - name: Keep component styles out of nested components in every browser
         run: bun run test:component-scope-browser
         env:

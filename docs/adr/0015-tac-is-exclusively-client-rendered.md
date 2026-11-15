@@ -3,7 +3,7 @@
 - Status: Accepted
 - Date: 2026-08-10
 - Supersedes: ADR 0006, ADR 0009, ADR 0010, and the production-rendering assumptions of ADR 0013
-- Amended: 2026-10-03 (control elements), 2026-11-10 (`aria-*` booleans)
+- Amended: 2026-10-03 (control elements), 2026-11-10 (`aria-*` booleans), 2026-11-14 (objects and arrays on custom elements, ADR 0136)
 
 ## Context
 

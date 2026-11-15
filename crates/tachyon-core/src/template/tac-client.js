@@ -417,6 +417,74 @@ class BoundAttribute {
   }
 }
 
+class BoundProperty {
+  static #htmlNamespace = 'http://www.w3.org/1999/xhtml'
+  static #wordStart = /-([a-z])/g
+  static #written = new WeakMap()
+
+  /** @param {Element} element @param {unknown} value @returns {boolean} */
+  static takes(element, value) {
+    return BoundProperty.#isCustomData(element, value)
+  }
+
+  /** @param {Element} element @param {string} name @param {unknown} value @returns {void} */
+  static write(element, name, value) {
+    const property = name.replace(BoundProperty.#wordStart, BoundProperty.#upper)
+    const written = BoundProperty.recorded(element)
+    written.set(property, value)
+    BoundProperty.#written.set(element, written)
+    BoundProperty.#assign(element, property, value)
+  }
+
+  /** @param {Element} element @returns {Map<string, unknown>} */
+  static recorded(element) {
+    return BoundProperty.#written.get(element) ?? new Map()
+  }
+
+  /** @param {Element} element @param {{properties: Map<string, unknown>}} previous @param {{properties: Map<string, unknown>}} next @returns {void} */
+  static sync(element, previous, next) {
+    for (const property of previous.properties.keys()) BoundProperty.#clearRemoved(element, property, next.properties)
+    for (const [property, value] of next.properties) BoundProperty.#writeChanged(element, property, previous.properties, value)
+  }
+
+  /** @param {Element} element @param {unknown} value @returns {boolean} */
+  static #isCustomData(element, value) {
+    if (value === null || typeof value !== 'object') return false
+    return element.namespaceURI === BoundProperty.#htmlNamespace && element.localName.includes('-')
+  }
+
+  /** @param {string} _match @param {string} letter @returns {string} */
+  static #upper(_match, letter) {
+    return letter.toUpperCase()
+  }
+
+  /** @param {Element} element @param {string} property @param {Map<string, unknown>} next @returns {void} */
+  static #clearRemoved(element, property, next) {
+    if (!next.has(property)) element[property] = undefined
+  }
+
+  /** @param {Element} element @param {string} property @param {Map<string, unknown>} previous @param {unknown} value @returns {void} */
+  static #writeChanged(element, property, previous, value) {
+    if (previous.has(property) && sameLocal(previous.get(property), value)) return
+    BoundProperty.#assign(element, property, value)
+  }
+
+  /** @param {Element} element @param {string} property @param {unknown} value @returns {void} */
+  static #assign(element, property, value) {
+    element[property] = value
+    if (!customElements.get(element.localName)) void customElements.whenDefined(element.localName).then(() => BoundProperty.#upgrade(element, property))
+  }
+
+  /** @param {Element} element @param {string} property @returns {void} */
+  static #upgrade(element, property) {
+    customElements.upgrade(element)
+    if (!Object.hasOwn(element, property)) return
+    const value = element[property]
+    delete element[property]
+    element[property] = value
+  }
+}
+
 const applyAttributes = async (element, attributes, environment, path) => {
   let safeHtml
   for (const attribute of attributes || []) {
@@ -429,6 +497,10 @@ const applyAttributes = async (element, attributes, environment, path) => {
       : attribute.value
     if (attribute.name === 'safe-html') {
       safeHtml = value === false || value === null || value === undefined ? '' : String(value)
+      continue
+    }
+    if (BoundProperty.takes(element, value)) {
+      BoundProperty.write(element, attribute.name, value)
       continue
     }
     const rendered = BoundAttribute.text(attribute.name, value)
@@ -1103,7 +1175,7 @@ const recordElement = (element, node, environment, path) => {
   const locals = []
   for (const name in environment.locals) locals.push([name, environment.locals[name]])
   Elements.records.set(element, { node, owner: environment.owner, path,
-    locals, children: [...element.childNodes],
+    locals, children: [...element.childNodes], properties: BoundProperty.recorded(element),
     attributes: new Map(element.getAttributeNames().map((name) => [name, element.getAttribute(name)])) })
   Rendering.elements.set(path, element)
   return element
@@ -1258,6 +1330,7 @@ class FocusedRootUpdate {
   syncElement(element, fresh) {
     const previous = Elements.records.get(element)
     const next = Elements.records.get(fresh)
+    BoundProperty.sync(element, previous, next)
     syncAuthoredAttributes(element, previous, next)
     syncControlValue(element, fresh, next, this.active, this.editingAtStart)
     syncControlFlags(element, fresh, previous, next)
