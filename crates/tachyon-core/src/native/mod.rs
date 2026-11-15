@@ -2,6 +2,7 @@ mod android;
 mod android_architecture;
 mod android_backup_rules;
 mod android_browser_apis;
+mod android_call_audio;
 mod android_file_picker;
 mod android_gradle_build;
 mod android_gradle_cache;
@@ -153,6 +154,7 @@ mod macos_menu_tests;
 mod managed_capability_tests;
 mod managed_native_capabilities;
 mod manifest_setting;
+mod media_member;
 mod minimum_system;
 #[cfg(test)]
 mod mobile_menu_host_tests;

@@ -115,7 +115,30 @@ that forwarder.
   WebView2 interface): the page's own `screen` check and WebView2's picker
   stand until it does.
 
-## Security
+### Calls on phones (slice M4)
+
+- `tac.media.background` (default `false`) keeps call audio running when a
+  phone app leaves the screen. iOS writes `UIBackgroundModes` `audio`;
+  Android declares a foreground service of type `microphone` (and `camera`
+  when that grant is on), with `FOREGROUND_SERVICE` permissions.
+  `tac.media.callNotice` (1 to 100 characters) is the text of Android's
+  ongoing call notification, required on Android when `background` is
+  true (`TY1601`).
+- `Media.callActive(on, title)` answers `MediaCallActive { on, background }`.
+  On iOS it sets the audio session to `playAndRecord` in `voiceChat` mode
+  with Bluetooth, and turns it off again. On Android it sets
+  `MODE_IN_COMMUNICATION` and starts or stops the foreground service; the
+  notification shows `title`, or `callNotice` when `title` is empty. On the
+  web and on computers it only answers, with `background` false.
+- On phones the host lists the speakers: the earpiece (iPhone only), the
+  loudspeaker and connected Bluetooth or wired headsets on iOS, and the
+  communication devices on Android 12 and newer (earpiece and loudspeaker
+  before). `chooseSpeaker` routes call audio to one of them, and
+  `supported("speakers")` answers true.
+- The app decides when a call starts and ends; this is the single place where
+  a later change can report calls to CallKit and ConnectionService.
+
+
 
 - Deny by default: each capture call checks its own grant in the page.
 - **Services never get audio or video samples.** Tracks are names; no call

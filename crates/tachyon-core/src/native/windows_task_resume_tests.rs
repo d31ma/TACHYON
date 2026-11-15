@@ -87,6 +87,7 @@ int main(void) {
             description: String::new(),
             tray: None,
             links: super::native_links::NativeLinks::default(),
+            media: super::media_member::MediaMember::default(),
         };
         let index = super::routes::NativeRouteIndex {
             contract_version: 2,

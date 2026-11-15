@@ -49,9 +49,11 @@ class TacMedia {
   static listened = new Set()
   static reported = new Map()
   static rejected = new Map()
+  static hostApi = 'media'
   static callMessages = Object.freeze({
     'useFrameKey unsupported': 'Frame keys need the crypto browser API.',
     'useFrameKey unknown': 'There is no Crypto key with that name.',
+    'callActive failed': 'The call audio could not start or stop.',
   })
   static tracks = new Map()
   static listeners = new Set()
@@ -77,6 +79,7 @@ class TacMedia {
         sendFrameKey: (reply, keyId) => TacMedia.postKey(reply, 'send', keyId),
         forgetFrameKey: (reply, keyId) => TacMedia.postKey(reply, 'forget', keyId),
         encryptFrames: (reply, connection, on) => TacMedia.encryptFrames(reply, connection, on),
+        callActive: (reply, on, title) => TacMedia.callActive(reply, on, title),
       }),
     })
     Object.defineProperty(globalThis, TacMedia.tracksKey, {
@@ -95,6 +98,7 @@ class TacMedia {
   }
 
   static supported(feature) {
+    if (feature === 'speakers' && TacMedia.bridged()) return true
     const [holder, member] = TacMedia.features[feature] ?? ['', '']
     if (feature === 'background') return globalThis.__tachyonMediaBackground === true
     return TacMedia.hasMember(holder === 'mediaDevices' ? globalThis.navigator?.mediaDevices : globalThis[holder], member)
@@ -112,8 +116,8 @@ class TacMedia {
 
   static devices(reply, request) {
     TacMedia.listeners.add(reply)
-    TacMedia.ask(() => TacMedia.mediaDevices().enumerateDevices())
-      .then((devices) => TacMedia.sendDevices(reply, String(request), devices))
+    TacMedia.ask(() => Promise.all([TacMedia.mediaDevices().enumerateDevices(), TacMedia.hostSpeakers()]))
+      .then(([devices, speakers]) => TacMedia.sendDevices(reply, String(request), TacMedia.withSpeakers(devices, speakers)))
       .catch((error) => reply(TacMedia.failure('', 'devices', error)))
     return null
   }
@@ -127,7 +131,7 @@ class TacMedia {
 
   static found(request, device, index, count) {
     const kind = TacMedia.deviceKinds[device.kind]
-    const chosen = TacMedia.isChosen(kind, device.deviceId)
+    const chosen = device.hostChosen ?? TacMedia.isChosen(kind, device.deviceId)
     return ['MediaDeviceFound', { request, id: device.deviceId, kind, label: device.label, chosen, index, count }]
   }
 
@@ -138,12 +142,55 @@ class TacMedia {
 
   static chooseSpeaker(reply, device) {
     const id = String(device ?? '')
+    if (TacMedia.bridged()) return TacMedia.chooseHostSpeaker(reply, id)
     TacMedia.ensureSpeakers()
     TacMedia.speaker = id
     Promise.all(TacMedia.changedHooks.map((hook) => hook('speaker', null)))
       .then(() => reply(['MediaSpeakerChosen', { device: id }]))
       .catch((error) => reply(TacMedia.failure('', 'chooseSpeaker', error)))
     return null
+  }
+
+  static chooseHostSpeaker(reply, id) {
+    TacMedia.host('chooseSpeaker', { device: id })
+      .then(() => reply(['MediaSpeakerChosen', { device: id }]))
+      .catch((error) => reply(TacMedia.failure('', 'chooseSpeaker', error)))
+    return null
+  }
+
+  static hostSpeakers() {
+    if (!TacMedia.bridged()) return null
+    return TacMedia.host('speakers', {})
+  }
+
+  static withSpeakers(devices, speakers) {
+    if (speakers === null) return devices
+    const hosted = speakers.map((speaker) => ({ kind: 'audiooutput', deviceId: speaker.id, label: speaker.label, hostChosen: speaker.chosen === true }))
+    return devices.filter((device) => device.kind !== 'audiooutput').concat(hosted)
+  }
+
+  static callActive(reply, on, title) {
+    const values = { on: on === true, title: String(title ?? '') }
+    TacMedia.ask(() => TacMedia.callState(values))
+      .then((state) => reply(['MediaCallActive', { on: state.on === true, background: state.background === true }]))
+      .catch((error) => reply(TacMedia.failure('', 'callActive', error)))
+    return null
+  }
+
+  static callState(values) {
+    if (!TacMedia.bridged()) return { on: values.on, background: false }
+    return TacMedia.host('callActive', values)
+  }
+
+  static bridged() {
+    return typeof globalThis.__tachyonNativeHostCall === 'function' && globalThis.__tachyonBrowserApiBridge?.includes(TacMedia.hostApi) === true
+  }
+
+  static async host(call, values) {
+    const raw = await globalThis.__tachyonNativeHostCall(`browserApi.${TacMedia.hostApi}.${call}`, JSON.stringify(values))
+    const answer = typeof raw === 'string' ? JSON.parse(raw) : raw
+    if (!answer || 'error' in answer) throw new Error(answer?.error ?? 'The native app could not run that media call.')
+    return answer.value
   }
 
   static ensureSpeakers() {

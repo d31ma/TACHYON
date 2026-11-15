@@ -262,6 +262,7 @@ impl NativeCompiler {
         super::native_release_version::NativeReleaseVersion::of(&application)
             .validate_for(options.target)?;
         application.permissions.validate_for(options.target)?;
+        application.media.validate_for(options.target)?;
         super::linux_packages::LinuxPackages::check(&application, options.target, options.release)?;
         let notes = super::target_support::TargetSupport::native_notes(
             project.snapshot_root(),

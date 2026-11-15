@@ -120,6 +120,10 @@
       answer.send(storageSpace(capability));
       return;
     }
+    if (capability.startsWith("browserApi.media.")) {
+      answer.send(media(capability, payload));
+      return;
+    }
     String[] parts = capability.split("\\.");
     if (parts.length != 3 || !browserApiGranted(parts[1])) {
       answer.send(browserApiError("The Android app does not grant " + safeName(capability)

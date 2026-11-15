@@ -211,6 +211,8 @@ public:
     void encryptFrames(const std::string& connection, bool on) const {
         TacWebCall::answer("media", "encryptFrames", TacWebCall::arguments(connection, on));
     }
+
+    void callActive(bool on, const std::string& title) const { TacWebCall::answer("media", "callActive", TacWebCall::arguments(on, title)); }
 };
 
 class CodeScanner {

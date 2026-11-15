@@ -25,4 +25,6 @@ public sealed class Media
     public void ForgetFrameKey(long keyId) => TacWebHost.Call(Api, "forgetFrameKey", new JsonArray(keyId));
 
     public void EncryptFrames(string connection, bool on) => TacWebHost.Call(Api, "encryptFrames", new JsonArray(connection, on));
+
+    public void CallActive(bool on, string title) => TacWebHost.Call(Api, "callActive", new JsonArray(on, title));
 }

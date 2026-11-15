@@ -315,7 +315,7 @@ export default class ProbeService {
       const page = browser.contexts()[0].pages()[0];
       assert.ok(page, 'Android WebView exposes a live document');
       await page.getByRole('button', { name: 'Copy' }).waitFor();
-      assert.deepEqual(await page.evaluate(() => globalThis.__tachyonBrowserApiBridge), ['clipboard', 'share', 'notifications']);
+      assert.deepEqual(await page.evaluate(() => globalThis.__tachyonBrowserApiBridge), ['clipboard', 'share', 'notifications', 'media']);
       await gate.checkClipboard(page);
       await gate.checkShare(page);
       await gate.checkNotifications(page);

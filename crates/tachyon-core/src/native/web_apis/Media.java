@@ -48,4 +48,8 @@ final class Media {
     void encryptFrames(String connection, boolean on) {
         TacWebHost.call(API, "encryptFrames", connection, on);
     }
+
+    void callActive(boolean on, String title) {
+        TacWebHost.call(API, "callActive", on, title);
+    }
 }

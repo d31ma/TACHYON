@@ -26,6 +26,7 @@ pub(super) struct NativeApplication {
     pub(super) minimum_system: super::minimum_system::MinimumSystem,
     pub(super) description: String,
     pub(super) links: super::native_links::NativeLinks,
+    pub(super) media: super::media_member::MediaMember,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
@@ -273,6 +274,11 @@ fn validate_manifest(manifest: &WebAppManifest) -> Result<(), Failure> {
         && let Some(yon) = &tac.yon
     {
         yon.validate(tac.outgoing.as_ref())?;
+    }
+    if let Some(tac) = &manifest.tac
+        && let Some(media) = &tac.media
+    {
+        media.validate()?;
     }
     let Some(application) = manifest.application() else {
         return Ok(());
@@ -556,10 +562,12 @@ pub(crate) struct TacMember {
     pub(super) apps: BTreeMap<String, String>,
     #[serde(default)]
     pub(super) peers: Option<super::peers_member::PeersMember>,
+    #[serde(default)]
+    pub(super) media: Option<super::media_member::MediaMember>,
 }
 
 impl TacMember {
-    pub(crate) const FRAMEWORK_MEMBERS: [&str; 35] = [
+    pub(crate) const FRAMEWORK_MEMBERS: [&str; 36] = [
         "origin",
         "application",
         "scripts",
@@ -595,6 +603,7 @@ impl TacMember {
         "storage",
         "mount",
         "apps",
+        "media",
     ];
 }
 
@@ -691,6 +700,11 @@ impl NativeApplication {
         self.icons = manifest.raster_icons();
         self.description = manifest.description.clone().unwrap_or_default();
         self.permissions = manifest.browser_api_permissions();
+        self.media = manifest
+            .tac
+            .as_ref()
+            .and_then(|tac| tac.media.clone())
+            .unwrap_or_default();
         self
     }
 
@@ -750,6 +764,7 @@ impl NativeApplication {
             rust: super::native_rust_project::NativeRustProject::default(),
             outgoing: super::native_outgoing_hosts::NativeOutgoingHosts::default(),
             permissions: super::browser_api_permissions::BrowserApiPermissions::default(),
+            media: super::media_member::MediaMember::default(),
             minimum_system: super::minimum_system::MinimumSystem::default(),
             description: String::new(),
             links: super::native_links::NativeLinks::default(),

@@ -162,6 +162,121 @@ console.log(JSON.stringify(report))
     }
 }
 
+struct PhoneDriver;
+
+impl PhoneDriver {
+    const DRIVER: &'static str = r"import { readFile } from 'node:fs/promises'
+globalThis.document = { querySelector: () => ({ content: 'microphone' }), addEventListener: () => {} }
+globalThis.addEventListener = () => {}
+const media = new EventTarget()
+media.enumerateDevices = async () => [
+  { kind: 'audioinput', deviceId: 'mic-1', groupId: 'g1', label: 'Built-in' },
+  { kind: 'audiooutput', deviceId: 'default', groupId: 'g1', label: 'Browser speaker' },
+]
+Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: media })
+const asked = []
+const answers = {
+  'browserApi.media.speakers': () => ({ value: [{ id: 'earpiece', label: 'iPhone', chosen: true }, { id: 'speaker', label: 'Speaker', chosen: false }] }),
+  'browserApi.media.chooseSpeaker': (values) => values.device === 'speaker' ? { value: { device: 'speaker' } } : { error: 'There is no such speaker (unknown).' },
+  'browserApi.media.callActive': (values) => values.title === 'fail' ? { error: 'Allow the microphone before a call runs in the background.' } : { value: { on: values.on, background: true } },
+}
+globalThis.__tachyonNativeHostCall = async (capability, payload) => { asked.push([capability, JSON.parse(payload)]); return JSON.stringify(answers[capability](JSON.parse(payload))) }
+globalThis.__tachyonBrowserApiBridge = Object.freeze(['media'])
+;(0, eval)(await readFile('./tac-media.js', 'utf8'))
+const api = globalThis[Symbol.for('tachyon.tac.media')]
+const sent = []
+const reply = (event) => sent.push(event)
+const settle = async () => { for (let round = 0; round < 10; round += 1) await new Promise((resolve) => setTimeout(resolve, 0)) }
+const report = {}
+report.speakers = api.supported('speakers')
+api.devices(reply, 'r')
+await settle()
+report.devices = sent.splice(0)
+api.chooseSpeaker(reply, 'speaker')
+api.chooseSpeaker(reply, 'nothing')
+await settle()
+report.chosen = sent.splice(0)
+api.callActive(reply, true, 'Call with Ana')
+api.callActive(reply, true, 'fail')
+await settle()
+report.phone = sent.splice(0)
+report.asked = asked.splice(0)
+globalThis.__tachyonBrowserApiBridge = Object.freeze([])
+api.callActive(reply, true, 'Call with Ana')
+await settle()
+report.web = sent.splice(0)
+report.webAsked = asked.length
+console.log(JSON.stringify(report))
+";
+
+    fn run() -> serde_json::Value {
+        let root = tempfile::tempdir().expect("root");
+        let [(_, media), _, _] = PageMedia::files();
+        std::fs::write(root.path().join("tac-media.js"), media).expect("media");
+        std::fs::write(root.path().join("drive.mjs"), Self::DRIVER).expect("driver");
+        let mut command = NodeDriver::command();
+        command.arg("drive.mjs").current_dir(root.path());
+        let output = NodeDriver::output(&mut command).expect("node drive.mjs");
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(
+            output.status.success(),
+            "{stdout}{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        serde_json::from_str(stdout.lines().last().unwrap_or_default()).expect("report")
+    }
+}
+
+#[test]
+fn on_a_phone_the_host_lists_and_chooses_speakers_and_runs_call_audio() {
+    if !NodeDriver::available() {
+        eprintln!("skipping: node is unavailable");
+        return;
+    }
+    let report = PhoneDriver::run();
+    assert_eq!(report["speakers"], true);
+    let found = |id: &str, kind: &str, label: &str, chosen: bool, index: u8| serde_json::json!(["MediaDeviceFound", {"request": "r", "id": id, "kind": kind, "label": label, "chosen": chosen, "index": index, "count": 3}]);
+    assert_eq!(
+        report["devices"],
+        serde_json::json!([
+            found("mic-1", "microphone", "Built-in", false, 0),
+            found("earpiece", "speaker", "iPhone", true, 1),
+            found("speaker", "speaker", "Speaker", false, 2),
+        ]),
+        "the host's speakers replace the browser's"
+    );
+    assert_eq!(
+        report["chosen"],
+        serde_json::json!([
+            ["MediaSpeakerChosen", {"device": "speaker"}],
+            ["MediaFailed", {"track": "", "call": "chooseSpeaker", "reason": "unknown", "message": "There is no such track or device."}],
+        ])
+    );
+    assert_eq!(
+        report["phone"],
+        serde_json::json!([
+            ["MediaCallActive", {"on": true, "background": true}],
+            ["MediaFailed", {"track": "", "call": "callActive", "reason": "failed", "message": "The call audio could not start or stop."}],
+        ])
+    );
+    assert_eq!(
+        report["asked"],
+        serde_json::json!([
+            ["browserApi.media.speakers", {}],
+            ["browserApi.media.chooseSpeaker", {"device": "speaker"}],
+            ["browserApi.media.chooseSpeaker", {"device": "nothing"}],
+            ["browserApi.media.callActive", {"on": true, "title": "Call with Ana"}],
+            ["browserApi.media.callActive", {"on": true, "title": "fail"}],
+        ])
+    );
+    assert_eq!(
+        report["web"],
+        serde_json::json!([["MediaCallActive", {"on": true, "background": false}]]),
+        "on the web callActive only answers"
+    );
+    assert_eq!(report["webAsked"], 0);
+}
+
 struct FramesPageDriver;
 
 impl FramesPageDriver {

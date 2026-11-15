@@ -252,6 +252,7 @@ pub(super) fn info_plist(
             ),
             application.permissions.camera_plist_entries(),
             application.permissions.microphone_plist_entries(),
+            String::from(application.media.plist_entries()),
         ]
         .concat(),
         url_types = application
@@ -366,6 +367,7 @@ pub(super) fn swift_source_serving(
         &[
             ("__NATIVE_MENU_ROUTES__", &menu_routes),
             ("__NATIVE_GRANTS__", &grants),
+            ("__MEDIA_BACKGROUND__", application.media.page_script()),
         ],
     )
 }
@@ -707,7 +709,7 @@ private final class RootViewController: UIViewController, WKNavigationDelegate, 
         AppleMediaCapture.prepare(configuration, AppleBrowserApis.shared.granted)
         configuration.userContentController.addUserScript(
             WKUserScript(
-                source: TACHYON_NATIVE_SHIM + "\nglobalThis.__tachyonNativeFilePicker = true; globalThis.__tachyonNativeFilePickerRoute = true; globalThis.__tachyonNativeGrants = __NATIVE_GRANTS__;",
+                source: TACHYON_NATIVE_SHIM + "\nglobalThis.__tachyonNativeFilePicker = true; globalThis.__tachyonNativeFilePickerRoute = true; globalThis.__tachyonNativeGrants = __NATIVE_GRANTS__; __MEDIA_BACKGROUND__",
                 injectionTime: .atDocumentStart,
                 forMainFrameOnly: true
             )
@@ -890,6 +892,7 @@ mod tests {
             description: String::new(),
             tray: None,
             links: crate::native::native_links::NativeLinks::default(),
+            media: crate::native::media_member::MediaMember::default(),
         }
     }
 
@@ -1153,5 +1156,24 @@ mod tests {
         ));
         assert!(route.contains("$0.host == \"bundle\" }) ?? false,"));
         assert!(!route.contains("?? true"));
+    }
+
+    #[test]
+    fn background_call_audio_adds_the_audio_mode_and_tells_the_page() {
+        let mut calling = application();
+        calling.media = serde_json::from_str(r#"{"background": true}"#).unwrap_or_default();
+        let plist = info_plist(&calling, &[], &IosDestination::SIMULATOR.plist_keys(""));
+        assert!(
+            plist.contains("<key>UIBackgroundModes</key><array><string>audio</string></array>"),
+            "{plist}"
+        );
+        let source = swift_source(&calling, "tacRustInvoke(payload)", &index());
+        assert!(source.contains("globalThis.__tachyonMediaBackground = true;"));
+        let quiet = application();
+        let plain = info_plist(&quiet, &[], &IosDestination::SIMULATOR.plist_keys(""));
+        assert!(!plain.contains("UIBackgroundModes"), "{plain}");
+        let source = swift_source(&quiet, "tacRustInvoke(payload)", &index());
+        assert!(!source.contains("__tachyonMediaBackground"));
+        assert!(!source.contains("__MEDIA_BACKGROUND__"));
     }
 }

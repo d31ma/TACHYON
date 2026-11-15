@@ -36,3 +36,6 @@ class Media:
 
     def encrypt_frames(self, connection: str, on: bool) -> None:
         _TacPythonWebHost.call(self.API, 'encryptFrames', (connection, on))
+
+    def call_active(self, on: bool, title: str) -> None:
+        _TacPythonWebHost.call(self.API, 'callActive', (on, title))

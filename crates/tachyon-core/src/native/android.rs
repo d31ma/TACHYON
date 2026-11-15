@@ -379,7 +379,7 @@ fn android_manifest(application: &NativeApplication, has_icon: bool) -> String {
         ""
     };
     r#"<?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">__INTERNET_PERMISSION____BROWSER_API_PERMISSIONS__
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">__INTERNET_PERMISSION____BROWSER_API_PERMISSIONS____CALL_PERMISSIONS__
   <application
       android:label="@string/app_name"__ICON__
       android:allowBackup="false"__DATA_EXTRACTION_RULES__
@@ -395,7 +395,7 @@ fn android_manifest(application: &NativeApplication, has_icon: bool) -> String {
         <action android:name="android.intent.action.MAIN"/>
         <category android:name="android.intent.category.LAUNCHER"/>
       </intent-filter>__LINK_INTENT_FILTERS__
-    </activity>
+    </activity>__CALL_SERVICE__
   </application>
 </manifest>
 "#
@@ -425,6 +425,20 @@ fn android_manifest(application: &NativeApplication, has_icon: bool) -> String {
     .replace(
         "__BROWSER_API_PERMISSIONS__",
         &super::android_browser_apis::AndroidBrowserApis::manifest_permissions(
+            &application.permissions,
+        ),
+    )
+    .replace(
+        "__CALL_PERMISSIONS__",
+        &super::android_call_audio::AndroidCallAudio::manifest_permissions(
+            &application.media,
+            &application.permissions,
+        ),
+    )
+    .replace(
+        "__CALL_SERVICE__",
+        &super::android_call_audio::AndroidCallAudio::service_entry(
+            &application.media,
             &application.permissions,
         ),
     )
@@ -491,15 +505,7 @@ pub(super) fn serving_java_source(
     index: &NativeRouteIndex,
     pages: super::development_pages::DevelopmentPages<'_>,
 ) -> String {
-    let native_shim = format!(
-        "{}{}{}",
-        super::host::native_shim(
-            &application.window,
-            tachyon_contracts::NativeTarget::Android,
-        ),
-        application.window.title_bar.mobile_page_script(),
-        AndroidFilePicker::page_script(&application.native_capabilities)
-    );
+    let native_shim = AndroidHostGenerator::page_shim(application);
     let route_documents = super::routes::route_documents_json(index);
     let companion_call = if has_companion {
         "TachyonCompanionKt.tacNativeInvoke(request)"
@@ -534,7 +540,7 @@ pub(super) fn serving_java_source(
         )
         .replace(
             "__NATIVE_BROWSER_APIS__",
-            &super::android_browser_apis::AndroidBrowserApis::java(&application.permissions),
+            &AndroidHostGenerator::browser_apis(application),
         )
         .replace(
             "__APPLICATION_STATE__",
@@ -598,9 +604,12 @@ pub(super) fn host_source() -> &'static str {
     static SOURCE: std::sync::OnceLock<String> = std::sync::OnceLock::new();
     SOURCE.get_or_init(|| {
         format!(
-            "{}{}",
+            "{}{}{}",
             AndroidHostGenerator::JAVA_HOST,
-            super::android_browser_apis::AndroidBrowserApis::template()
+            super::android_browser_apis::AndroidBrowserApis::template(),
+            super::android_call_audio::AndroidCallAudio::java(
+                &super::media_member::MediaMember::default()
+            )
         )
     })
 }
@@ -650,6 +659,27 @@ impl AndroidHostGenerator {
 
     fn application_stop(rust: bool) -> &'static str {
         ["", Self::APPLICATION_STOP][usize::from(rust)]
+    }
+
+    fn page_shim(application: &NativeApplication) -> String {
+        [
+            super::host::native_shim(
+                &application.window,
+                tachyon_contracts::NativeTarget::Android,
+            ),
+            String::from(application.window.title_bar.mobile_page_script()),
+            AndroidFilePicker::page_script(&application.native_capabilities),
+            String::from(application.media.page_script()),
+        ]
+        .concat()
+    }
+
+    fn browser_apis(application: &NativeApplication) -> String {
+        [
+            super::android_browser_apis::AndroidBrowserApis::java(&application.permissions),
+            super::android_call_audio::AndroidCallAudio::java(&application.media),
+        ]
+        .join("\n")
     }
 
     fn menu_calls(menus: &super::native_menu_config::NativeMenuConfig, rust: bool) -> &'static str {
@@ -1404,6 +1434,7 @@ mod tests {
             description: String::new(),
             tray: None,
             links: crate::native::native_links::NativeLinks::default(),
+            media: crate::native::media_member::MediaMember::default(),
         }
     }
 
@@ -1859,5 +1890,29 @@ mod tests {
         assert!(source.contains(
             "headers.put(\"Content-Security-Policy\", CONTENT_SECURITY_POLICY);\n    headers.put(\"X-Content-Type-Options\", \"nosniff\");"
         ));
+    }
+
+    #[test]
+    fn background_call_audio_declares_the_call_service_in_the_manifest() {
+        let mut calling = application();
+        calling.media =
+            serde_json::from_str(r#"{"background": true, "callNotice": "Call in progress"}"#)
+                .unwrap_or_default();
+        calling.permissions =
+            super::super::browser_api_permissions::BrowserApiPermissions::declared(
+                &[String::from("microphone")],
+                &std::collections::BTreeMap::new(),
+            );
+        let manifest = android_manifest(&calling, false);
+        assert!(
+            manifest.contains("android.permission.FOREGROUND_SERVICE_MICROPHONE"),
+            "{manifest}"
+        );
+        assert!(manifest.contains(
+            "<service android:name=\".MainActivity$CallService\" android:exported=\"false\" android:foregroundServiceType=\"microphone\"/>\n  </application>"
+        ), "{manifest}");
+        let quiet = android_manifest(&application(), false);
+        assert!(!quiet.contains("CallService"), "{quiet}");
+        assert!(!quiet.contains("__CALL_"), "{quiet}");
     }
 }

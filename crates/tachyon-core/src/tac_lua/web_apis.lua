@@ -270,6 +270,10 @@ function Media:encrypt_frames(connection, on)
   TacWebHost.call("media", "encryptFrames", { connection, on })
 end
 
+function Media:call_active(on, title)
+  TacWebHost.call("media", "callActive", { on, title })
+end
+
 CodeScanner = {}
 
 function CodeScanner:supported()

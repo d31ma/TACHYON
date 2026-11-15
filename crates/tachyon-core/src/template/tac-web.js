@@ -76,7 +76,7 @@ class TacWebApis {
     offer: (options, prfKey) => TacWebApis.passkeyLater('offer', false, [options, TacWebApis.prfName(prfKey)]),
     cancel: () => TacWebApis.passkeyLater('cancel', false, []),
   })
-  static media = TacWebApis.calls('media', 'supported devices chooseSpeaker captureMicrophone captureCamera captureScreen stopTrack mute useFrameKey sendFrameKey forgetFrameKey encryptFrames')
+  static media = TacWebApis.calls('media', 'supported devices chooseSpeaker captureMicrophone captureCamera captureScreen stopTrack mute useFrameKey sendFrameKey forgetFrameKey encryptFrames callActive')
   static codeScanner = Object.freeze({
     supported: () => TacWebApis.bridged('codeScanner') ? globalThis.__tachyonCameraPresent === true : globalThis[TacWebApis.scannerKey]?.supported() === true,
     scan: () => TacWebApis.scanLater('scan', true),
