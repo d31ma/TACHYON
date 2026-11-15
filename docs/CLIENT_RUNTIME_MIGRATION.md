@@ -461,11 +461,33 @@ files: markup, a `tac.css` or a `tac.js` beside a page fails with `TY1309`.
 script into `client/shared/scripts/<name>-page.js`. See
 [Upgrading a 26.36.01 app](../README.md#upgrading-a-263601-app).
 
+## Scripts in `tac.scripts` and Tac renders
+
+A script listed in `tac.scripts` runs after the Tac runtime module starts, but
+usually before Tac's first render, so the page can still be empty. Tac renders
+once per page load, once more after a component that uses a service starts its
+services, and again after each change. After each render it fires
+`tachyon:rendered` on `document`; `event.detail` is `{ count, first }`, and
+`first` is `true` only for the first render. Wait for it like this:
+
+```js
+const ready = () => { /* the page Tac rendered is in place */ }
+if (document.documentElement.dataset.tachyonRendered === 'client') ready()
+else document.addEventListener('tachyon:rendered', (event) => { if (event.detail.first) ready() }, { once: true })
+```
+
+Tac keeps nodes and attributes that such a script adds to an element Tac
+rendered. It updates, adds and removes only its own nodes, and sets only the
+attributes it writes. It still replaces an element when other code removed or
+moved a child that Tac rendered, and it owns the whole `<body>` until its first
+render (ADR 0137).
+
 ## Acceptance against the installed or published binary
 
 ```sh
 TAC_BIN=/absolute/path/to/ty node scripts/runtime-browser-test.mjs
 TAC_BIN=/absolute/path/to/ty node scripts/authored-node-browser-gate.mjs
+TAC_BIN=/absolute/path/to/ty node scripts/dom-keep-browser-gate.mjs
 TAC_BIN=/absolute/path/to/ty node scripts/service-worker-browser-test.mjs
 TAC_BIN=/absolute/path/to/ty node scripts/storage-browser-test.mjs
 TAC_BIN=/absolute/path/to/ty node scripts/native/companion-test.mjs

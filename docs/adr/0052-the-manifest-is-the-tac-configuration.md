@@ -448,3 +448,12 @@ integrated title bar insets and drag region) need a Windows desktop signed
 in at a scaled screen, because Remote Desktop always gives 100% scaling.
 They are left to the developer (iteration 7, D21; `docs/SUPPORT_TIERS.md`,
 "Windows application manifest").
+
+## Amendment (2026-11-14): Scripts in `tac.scripts` and Tac renders
+
+A script in `tac.scripts` is a deferred module after the Tac runtime, and the
+runtime waits for storage before its first render, so the script usually runs
+before the first render. Tac fires `tachyon:rendered` on `document` after each
+render (`detail.first` is `true` for the first one), and it keeps the nodes and
+attributes that such a script adds to elements Tac rendered
+([ADR 0137](0137-tac-renders-once-and-keeps-dom-changes-made-by-other-code.md)).

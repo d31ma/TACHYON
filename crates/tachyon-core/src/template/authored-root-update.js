@@ -5,6 +5,7 @@ class AuthoredRootUpdate {
   static _componentKind = 'component'
   static _editingControls = 'textarea, [contenteditable]'
   static _defaultSlot = ''
+  static _rootChildren = new WeakMap()
   _container
   _source
   _active
@@ -40,9 +41,34 @@ class AuthoredRootUpdate {
     const selections = this._pairs.filter((pair) => pair.old instanceof HTMLSelectElement).map((pair) => this._selection(pair))
     for (const pair of this._pairs) this._syncElement(pair)
     for (const text of this._texts) this._syncText(text)
-    for (const [parent, desired] of this._children) this._commitGroup(parent, desired)
+    for (const [parent, group] of this._children) this._commitGroup(parent, group)
     for (const selection of selections) AuthoredRootUpdate._restoreSelection(selection)
     this._recordElements()
+    AuthoredRootUpdate.recordRoot(this._container, this.committedChildren())
+  }
+  committedChildren() {
+    return this._children.get(this._container).desired.map((child) => this._resolve(child))
+  }
+  static ownedChildren(parent) {
+    return AuthoredRootUpdate._recordedChildren(parent)
+  }
+  static recordRoot(container, children) {
+    if (Elements.records.has(container)) return
+    AuthoredRootUpdate._rootChildren.set(container, children)
+  }
+  static placeInOrder(parent, children) {
+    const wanted = new Set(children)
+    let cursor = parent.firstChild
+    for (const child of children) {
+      cursor = AuthoredRootUpdate._skipForeign(cursor, wanted)
+      if (child !== cursor) parent.insertBefore(child, cursor)
+      cursor = child.nextSibling
+    }
+  }
+  static _skipForeign(node, wanted) {
+    let current = node
+    while (current && !wanted.has(current)) current = current.nextSibling
+    return current
   }
   _selection(pair) {
     const rendered = [...pair.fresh.selectedOptions].map((option) => this._resolve(option))
@@ -64,7 +90,7 @@ class AuthoredRootUpdate {
   static _recordedChildren(parent) {
     const record = Elements.records.get(parent)
     if (record) return record.children
-    return [...parent.childNodes]
+    return AuthoredRootUpdate._rootChildren.get(parent) ?? [...parent.childNodes]
   }
   static _isCustom(element) {
     return element.localName.includes('-')
@@ -73,9 +99,12 @@ class AuthoredRootUpdate {
     const record = Elements.records.get(node)
     return record?.attributes.get('slot') ?? AuthoredRootUpdate._defaultSlot
   }
-  static _sameChildren(current, previous) {
-    if (current.length !== previous.length) return false
-    return previous.every((child, index) => child === current[index])
+  static _holdsInOrder(current, owned) {
+    let found = 0
+    for (const child of current) {
+      if (child === owned[found]) found += 1
+    }
+    return found === owned.length
   }
   static _byPath(children) {
     const index = new Map()
@@ -86,7 +115,7 @@ class AuthoredRootUpdate {
     return index
   }
   _planChildren(group) {
-    this._children.set(group.parent, group.desired)
+    this._children.set(group.parent, group)
     const previousByPath = AuthoredRootUpdate._byPath(group.previous)
     for (let index = 0; index < group.desired.length; index += 1) {
       const fresh = group.desired[index]
@@ -145,7 +174,7 @@ class AuthoredRootUpdate {
   }
   _directLayout(pair) {
     const current = [...pair.old.childNodes]
-    if (!AuthoredRootUpdate._sameChildren(current, pair.previous.children)) return null
+    if (!AuthoredRootUpdate._holdsInOrder(current, pair.previous.children)) return null
     const desired = Elements.records.get(pair.fresh).children
     return [{ parent: pair.old, previous: pair.previous.children, desired }]
   }
@@ -175,7 +204,7 @@ class AuthoredRootUpdate {
   _slotsUnchanged(groups) {
     for (const group of groups.values()) {
       const current = [...group.parent.childNodes]
-      if (!AuthoredRootUpdate._sameChildren(current, group.previous)) return false
+      if (!AuthoredRootUpdate._holdsInOrder(current, group.previous)) return false
       if (!group.previous.every((child) => this._keepsSlotAttribute(child))) return false
     }
     return true
@@ -205,16 +234,14 @@ class AuthoredRootUpdate {
   _syncText(text) {
     if (text.old.data !== text.fresh.data) text.old.data = text.fresh.data
   }
-  _commitGroup(parent, desired) {
-    const children = desired.map((child) => this._resolve(child))
-    const wanted = new Set(children)
-    for (const child of [...parent.childNodes]) {
-      if (!wanted.has(child)) child.remove()
-    }
-    let cursor = parent.firstChild
-    for (const child of children) {
-      if (child !== cursor) parent.insertBefore(child, cursor)
-      cursor = child.nextSibling
+  _commitGroup(parent, group) {
+    const children = group.desired.map((child) => this._resolve(child))
+    AuthoredRootUpdate.removeDropped(parent, group.previous, new Set(children))
+    AuthoredRootUpdate.placeInOrder(parent, children)
+  }
+  static removeDropped(parent, owned, wanted) {
+    for (const child of owned) {
+      if (child.parentNode === parent && !wanted.has(child)) child.remove()
     }
   }
   _resolve(child) {

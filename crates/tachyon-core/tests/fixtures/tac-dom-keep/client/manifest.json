@@ -1,0 +1,16 @@
+{
+  "name": "Tac keeps DOM changes made by other code",
+  "tac": {
+    "scripts": [
+      "/shared/scripts/pinned.js"
+    ],
+    "scriptSources": {
+      "/shared/scripts/pinned.js": {
+        "package": "dom-keep-pinned",
+        "version": "1.0.0",
+        "license": "MIT",
+        "sha256": "f63e3a2d544fb8f35611cfad1503bd066b91ccf79a2d9a849020c83443d9b2aa"
+      }
+    }
+  }
+}

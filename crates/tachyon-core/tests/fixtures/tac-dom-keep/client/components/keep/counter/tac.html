@@ -1,0 +1,11 @@
+<section class="box">
+  <h1 id="title">Box</h1>
+  <output id="count">{counter.count}</output>
+  <button id="bump" on:click="counter.bump()">Bump</button>
+  <logic :if="counter.count === 0"><p id="zero">Zero</p></logic>
+  <logic :if="counter.count > 0"><p id="positive">Positive</p></logic>
+  <nav>
+    <a href="/">One</a>
+    <a id="to-two" href="/two">Two</a>
+  </nav>
+</section>

@@ -267,12 +267,13 @@ class AuthoredNodeBrowserGate {
         step()
         document.getElementById('update').click()
         await new Promise((resolve) => setTimeout(resolve, settle))
-        results.push({ hostReplaced: host !== document.getElementById('mutation-card'), cardKept: card === document.getElementById('card-plan') })
+        results.push({ hostReplaced: host !== document.getElementById('mutation-card'), cardKept: card === document.getElementById('card-plan'), addedKept: document.querySelector('#mutation-card small') !== null })
       }
       return { results, slot: document.getElementById('named').getAttribute('slot') }
     }, AuthoredNodeBrowserGate._settle)
-    const expected = { hostReplaced: true, cardKept: true }
-    assert.deepEqual(changes, { results: [expected, expected, expected, expected], slot: 'actions' })
+    const kept = { hostReplaced: false, cardKept: true, addedKept: true }
+    const replaced = { hostReplaced: true, cardKept: true, addedKept: false }
+    assert.deepEqual(changes, { results: [kept, replaced, replaced, replaced], slot: 'actions' })
   }
 
   /** @param {import('playwright').Page} page @returns {Promise<void>} */

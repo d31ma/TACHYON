@@ -23,6 +23,8 @@ class Page {
 }
 
 class Rendering {
+  static renderedEvent = 'tachyon:rendered'
+  static completed = 0
   static current = null
   static renderAgain = false
   static nodeCount = 0
@@ -1324,6 +1326,11 @@ const transferEventListeners = (element, fresh) => {
 class FocusedRootUpdate {
   constructor(chain, distributions, active, editingAtStart) {
     Object.assign(this, { chain, distributions, active, editingAtStart })
+    this.owned = new Map(chain.map((pair) => [pair.old, AuthoredRootUpdate.ownedChildren(pair.old)]))
+  }
+
+  ownedChildren(parent) {
+    return this.owned.get(parent) ?? AuthoredRootUpdate.ownedChildren(parent)
   }
 
   syncElement(element, fresh) {
@@ -1365,16 +1372,19 @@ class FocusedRootUpdate {
   }
 
   commitSiblings(parent, source, pair, depth) {
-    for (const child of [...parent.childNodes]) if (child !== pair.old) child.remove()
-    let before = true
-    for (const child of [...source.childNodes]) {
-      if (child === pair.fresh) {
-        this.syncElement(pair.old, pair.fresh)
-        this.commit(pair.old, pair.fresh, depth + 1)
-        before = false
-      } else if (before) parent.insertBefore(child, pair.old)
-      else parent.append(child)
-    }
+    const children = FocusedRootUpdate.keptChildren([...source.childNodes], pair)
+    AuthoredRootUpdate.removeDropped(parent, this.ownedChildren(parent), new Set(children))
+    this.syncElement(pair.old, pair.fresh)
+    AuthoredRootUpdate.placeInOrder(parent, children)
+    this.commit(pair.old, pair.fresh, depth + 1)
+  }
+
+  static keptChildren(children, pair) {
+    return children.map((child) => child === pair.fresh ? pair.old : child)
+  }
+
+  recordRoot(container, desired) {
+    AuthoredRootUpdate.recordRoot(container, FocusedRootUpdate.keptChildren(desired, this.chain[0]))
   }
 
   finalize() {
@@ -1401,8 +1411,10 @@ const commitRoot = (container, fragment, editingAtStart) => {
   const distributions = preflightFocus(chain, fragment, container)
   if (!distributions || authored.refuses(chain)) { commitAndRefocus(authored, active, chain.at(-1).fresh); return }
   const update = new FocusedRootUpdate(chain, distributions, active, editingAtStart)
+  const desired = [...fragment.childNodes]
   update.commit(container, fragment, 0)
   update.finalize()
+  update.recordRoot(container, desired)
 }
 
 const retainComponentRoots = () => {
@@ -1419,8 +1431,9 @@ const retainComponentRoots = () => {
     const editing = active && fresh.contains(active) ? active : null
     const selection = editing && typeof editing.selectionStart === 'number'
       ? [editing.selectionStart, editing.selectionEnd, editing.selectionDirection] : null
-    new AuthoredRootUpdate(previous, fresh, active, null).prepare().commit()
-    Elements.records.set(previous, { ...Elements.records.get(fresh), children: [...previous.childNodes] })
+    const authored = new AuthoredRootUpdate(previous, fresh, active, null).prepare()
+    authored.commit()
+    Elements.records.set(previous, { ...Elements.records.get(fresh), children: authored.committedChildren() })
     previous.tachyonComponent = fresh.tachyonComponent
     fresh.replaceWith(previous)
     if (editing && document.activeElement !== editing) {
@@ -1707,6 +1720,12 @@ const renderDocument = async (environment) => {
   }
 }
 
+const announceRendered = () => {
+  Rendering.completed += 1
+  const detail = Object.freeze({ count: Rendering.completed, first: Rendering.completed === 1 })
+  document.dispatchEvent(new CustomEvent(Rendering.renderedEvent, { detail }))
+}
+
 const render = async () => {
   if (Rendering.current) { Rendering.renderAgain = true; return Rendering.current }
   Rendering.current = (async () => {
@@ -1723,8 +1742,13 @@ const render = async () => {
   })().catch((error) => {
     markDocument('tachyonRenderError', 'render_failed')
     throw error
-  }).finally(() => { Rendering.current = null })
+  }).finally(finishRender).then(announceRendered)
   return Rendering.current
+}
+
+const finishRender = () => {
+  Rendering.current = null
+  if (Rendering.renderAgain) void render().catch(signalFailure)
 }
 
 const signalFailure = () => {
@@ -1973,7 +1997,6 @@ Object.defineProperty(globalThis, '__tachyonTac', {
 globalThis.__tc_rerender = render
 addEventListener('tachyon:rerender', render)
 await TacStorage.ready()
-await render()
 await render()
 
 const whenIdle = (task) => globalThis.requestIdleCallback ? requestIdleCallback(task) : setTimeout(task, 1)

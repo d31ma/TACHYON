@@ -149,3 +149,4 @@ design. Decide routine implementation choices in code review, not in an ADR.
 - [134. Tac Services Keep Blobs](0134-tac-services-keep-blobs.md)
 - [135. Tac Services Encrypt Each Media Frame with SFrame](0135-tac-services-encrypt-each-media-frame-with-sframe.md)
 - [136. Tac Bindings Give Objects and Arrays to Custom Elements as Properties](0136-tac-bindings-give-objects-and-arrays-to-custom-elements-as-properties.md)
+- [137. Tac Renders Once and Keeps DOM Changes Made by Other Code](0137-tac-renders-once-and-keeps-dom-changes-made-by-other-code.md)
