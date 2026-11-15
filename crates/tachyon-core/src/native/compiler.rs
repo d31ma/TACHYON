@@ -230,7 +230,7 @@ impl NativeCompiler {
             return Ok(());
         }
         Err(super::config::config_failure(&format!(
-            "This page app has tac.mount {}. A native app holds the whole site: build its shell's project for this target instead (ADR NNNN).",
+            "This page app has tac.mount {}. A native app holds the whole site: build its shell's project for this target instead (ADR 0138).",
             project.mount().prefix()
         )))
     }

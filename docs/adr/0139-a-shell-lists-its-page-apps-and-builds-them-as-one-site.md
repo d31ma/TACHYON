@@ -1,8 +1,8 @@
-# ADR MMMM: A Shell Lists Its Page Apps and Builds Them as One Site
+# ADR 0139: A Shell Lists Its Page Apps and Builds Them as One Site
 
 - Status: Accepted (slice 3 of step 2 of micro-frontends)
 - Date: 2026-11-14
-- Relates to: [ADR NNNN](NNNN-a-tac-app-can-be-built-under-a-path-prefix.md)
+- Relates to: [ADR 0138](0138-a-tac-app-can-be-built-under-a-path-prefix.md)
   (a Tac app can be built under a path prefix),
   [ADR 0086](0086-a-component-can-be-exported-as-a-custom-element.md)
   (step 1 of micro-frontends),

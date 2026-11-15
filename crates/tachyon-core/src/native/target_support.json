@@ -553,21 +553,21 @@
     "member": "tac.mount",
     "paths": ["tac.mount"],
     "web": {"reach": "honored", "how": "the app's pages and files under one path prefix of the site"},
-    "macos": {"reach": "refused", "code": 1601, "alternative": "A page app with tac.mount is not built alone for macOS. Build its shell's app instead (ADR NNNN)."},
-    "windows": {"reach": "refused", "code": 1601, "alternative": "A page app with tac.mount is not built alone for Windows. Build its shell's app instead (ADR NNNN)."},
-    "linux": {"reach": "refused", "code": 1601, "alternative": "A page app with tac.mount is not built alone for Linux. Build its shell's app instead (ADR NNNN)."},
-    "ios": {"reach": "refused", "code": 1601, "alternative": "A page app with tac.mount is not built alone for iOS. Build its shell's app instead (ADR NNNN)."},
-    "android": {"reach": "refused", "code": 1601, "alternative": "A page app with tac.mount is not built alone for Android. Build its shell's app instead (ADR NNNN)."}
+    "macos": {"reach": "refused", "code": 1601, "alternative": "A page app with tac.mount is not built alone for macOS. Build its shell's app instead (ADR 0138)."},
+    "windows": {"reach": "refused", "code": 1601, "alternative": "A page app with tac.mount is not built alone for Windows. Build its shell's app instead (ADR 0138)."},
+    "linux": {"reach": "refused", "code": 1601, "alternative": "A page app with tac.mount is not built alone for Linux. Build its shell's app instead (ADR 0138)."},
+    "ios": {"reach": "refused", "code": 1601, "alternative": "A page app with tac.mount is not built alone for iOS. Build its shell's app instead (ADR 0138)."},
+    "android": {"reach": "refused", "code": 1601, "alternative": "A page app with tac.mount is not built alone for Android. Build its shell's app instead (ADR 0138)."}
   },
   {
     "member": "tac.apps",
     "paths": ["tac.apps"],
     "web": {"reach": "honored", "how": "the shell builds every listed page app into one site, or lists them for separate deploys"},
-    "macos": {"reach": "refused", "code": 1601, "alternative": "A native app of a site with tac.apps is not built yet (ADR MMMM)."},
-    "windows": {"reach": "refused", "code": 1601, "alternative": "A native app of a site with tac.apps is not built yet (ADR MMMM)."},
-    "linux": {"reach": "refused", "code": 1601, "alternative": "A native app of a site with tac.apps is not built yet (ADR MMMM)."},
-    "ios": {"reach": "refused", "code": 1601, "alternative": "A native app of a site with tac.apps is not built yet (ADR MMMM)."},
-    "android": {"reach": "refused", "code": 1601, "alternative": "A native app of a site with tac.apps is not built yet (ADR MMMM)."}
+    "macos": {"reach": "refused", "code": 1601, "alternative": "A native app of a site with tac.apps is not built yet (ADR 0139)."},
+    "windows": {"reach": "refused", "code": 1601, "alternative": "A native app of a site with tac.apps is not built yet (ADR 0139)."},
+    "linux": {"reach": "refused", "code": 1601, "alternative": "A native app of a site with tac.apps is not built yet (ADR 0139)."},
+    "ios": {"reach": "refused", "code": 1601, "alternative": "A native app of a site with tac.apps is not built yet (ADR 0139)."},
+    "android": {"reach": "refused", "code": 1601, "alternative": "A native app of a site with tac.apps is not built yet (ADR 0139)."}
   },
   {
     "member": "tac.python",

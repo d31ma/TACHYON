@@ -13,7 +13,7 @@ impl SiteApps {
     const MAX_APPS: usize = 32;
     const CODE: u16 = 1601;
     pub(super) const LIST_PATH: &'static str = ".tachyon/apps.json";
-    const HELP: &'static str = "tac.apps maps each page app's path prefix to its project folder, such as {\"/chat\": \"../chat\"}, in the manifest of the shell, the app at / (ADR MMMM).";
+    const HELP: &'static str = "tac.apps maps each page app's path prefix to its project folder, such as {\"/chat\": \"../chat\"}, in the manifest of the shell, the app at / (ADR 0139).";
 
     pub(super) fn resolve(shell: &Project, site: &SiteSettings) -> Result<Self, Failure> {
         Self::check_shell(shell, &site.apps)?;

@@ -166,10 +166,10 @@ tac.elements
   adapted: tac.elements are bundled into the iOS app for its own pages only. Other sites cannot load them from the app.
 
 tac.mount
-  refused with TY1601: A page app with tac.mount is not built alone for iOS. Build its shell's app instead (ADR NNNN).
+  refused with TY1601: A page app with tac.mount is not built alone for iOS. Build its shell's app instead (ADR 0138).
 
 tac.apps
-  refused with TY1601: A native app of a site with tac.apps is not built yet (ADR MMMM).
+  refused with TY1601: A native app of a site with tac.apps is not built yet (ADR 0139).
 
 tac.python
   honored: Pyodide in the web view (ADR 0093); a Python service answered the page on the iOS 26.5 simulator (RM2)

@@ -557,7 +557,7 @@ pub(crate) struct TacMember {
 }
 
 impl TacMember {
-    pub(crate) const FRAMEWORK_MEMBERS: [&str; 33] = [
+    pub(crate) const FRAMEWORK_MEMBERS: [&str; 34] = [
         "origin",
         "application",
         "scripts",

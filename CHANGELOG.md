@@ -10,7 +10,7 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
-- **A shell lists its page apps and builds them as one site** (ADR MMMM,
+- **A shell lists its page apps and builds them as one site** (ADR 0139,
   step 2 of micro-frontends, slice 3). `"tac": { "apps": { "/chat":
   "../chat" } }` in the shell's manifest lists the site's page apps.
   `ty bundle <shell>` builds the shell and every app into one site, with one
@@ -26,7 +26,7 @@ machine contracts have their own, independent major versions.
   table; a page app that splits a shared table by another partition field
   stops with `storage_table_conflict` instead of rebuilding the other apps'
   index.
-- **A Tac app can be built under a path prefix** (ADR NNNN, step 2 of
+- **A Tac app can be built under a path prefix** (ADR 0138, step 2 of
   micro-frontends, slice 1). `"tac": { "mount": "/chat" }` makes the app's
   pages keep their full addresses under `/chat` and writes its runtime,
   services and shared files under `/chat/`, so several separately built

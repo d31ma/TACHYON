@@ -7,9 +7,9 @@ pub(super) struct MountedApp;
 
 impl MountedApp {
     const PUSH_GRANT: &'static str = "push";
-    const PUSH: &'static str = "grants push. Web Push has one worker for the whole site, so grant push in the shell's manifest (ADR NNNN).";
-    const LINKS: &'static str = "declares tac.application.links. Deep links open any page of the site, so declare them in the shell's manifest (ADR NNNN).";
-    const SITEMAP: &'static str = "declares tac.sitemap. The site has one site map, so declare it in the shell's manifest (ADR NNNN).";
+    const PUSH: &'static str = "grants push. Web Push has one worker for the whole site, so grant push in the shell's manifest (ADR 0138).";
+    const LINKS: &'static str = "declares tac.application.links. Deep links open any page of the site, so declare them in the shell's manifest (ADR 0138).";
+    const SITEMAP: &'static str = "declares tac.sitemap. The site has one site map, so declare it in the shell's manifest (ADR 0138).";
     const HELP: &'static str =
         "Move the setting into the manifest of the site's shell, the app at /.";
 

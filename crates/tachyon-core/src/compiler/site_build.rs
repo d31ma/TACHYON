@@ -296,7 +296,7 @@ impl<'a> SiteBuild<'a> {
                 PortablePath::of(path)
             ),
             Some(String::from(
-                "A page app writes its files under its tac.mount prefix and the shell writes the rest of the site (ADR MMMM).",
+                "A page app writes its files under its tac.mount prefix and the shell writes the rest of the site (ADR 0139).",
             )),
             None,
         ))

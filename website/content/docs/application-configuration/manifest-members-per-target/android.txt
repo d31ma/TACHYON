@@ -166,10 +166,10 @@ tac.elements
   adapted: tac.elements are bundled into the Android app for its own pages only. Other sites cannot load them from the app.
 
 tac.mount
-  refused with TY1601: A page app with tac.mount is not built alone for Android. Build its shell's app instead (ADR NNNN).
+  refused with TY1601: A page app with tac.mount is not built alone for Android. Build its shell's app instead (ADR 0138).
 
 tac.apps
-  refused with TY1601: A native app of a site with tac.apps is not built yet (ADR MMMM).
+  refused with TY1601: A native app of a site with tac.apps is not built yet (ADR 0139).
 
 tac.python
   honored: Pyodide in the web view, loaded from https://appassets.tachyon.local; a Python service answered on the Android 15 emulator in scripts/android/python-service-test.mjs (ADR 0093)
