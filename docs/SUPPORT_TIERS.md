@@ -1699,6 +1699,22 @@ then snapped back. So the host's gesture works on iOS 26.5, and injected
 swipes complete it only some of the time. A release gate run that ends LIMITED
 is listed as LIMITED, not passed.
 
+Known limit on Windows (2026-11-14, WebView2 157.0.4341.46, arm64): Alt+Left
+and Alt+Right do nothing while Windows keyboard focus is on Chromium's
+accessibility child window (`Chrome_RenderWidgetHostHWND`) instead of
+WebView2's input window (`Chrome_WidgetWin_1`). A UI Automation client can
+leave focus there: in 18 gate runs, after the probe activated a link through
+UI Automation, focus was on that window 8 times, and Alt+Left failed all 8
+times, even with a host key binding in `AcceleratorKeyPressed` (the event did
+not fire). The mouse back and forward buttons still worked, and a mouse click
+in the page moves focus back to the input window. So a person who uses a
+screen reader or another UI Automation tool may find that Alt+Left does
+nothing until they click the page. The host does not move focus out of that
+window: it would need a focus hook on WebView2's browser process, and taking
+focus from the window Chromium chose for accessibility could break screen
+readers, which no unattended gate here can check. `scripts/windows/system-back-test.mjs`
+clicks the page before the keys and checks that focus is on the input window.
+
 ### Component styles on WebKitGTK (2026-10-25, GP1)
 
 ADR 0108 amendment. Component styles compile to CSS `@scope`. The Linux floor
