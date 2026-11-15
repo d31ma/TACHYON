@@ -1154,6 +1154,8 @@ Start with:
 - [docs/PARITY_LEDGER.md](docs/PARITY_LEDGER.md) for compatibility decisions;
 - [docs/ENGINEERING_STANDARDS.md](docs/ENGINEERING_STANDARDS.md) for the test,
   security, and review standard;
+- [docs/testing/touch-x-run-y.md](docs/testing/touch-x-run-y.md) for the
+  `bun run test:*` checks to run when you change a file;
 - [CONTRIBUTING.md](CONTRIBUTING.md) for the contributor workflow;
 - [docs/RELEASE_ENGINEERING.md](docs/RELEASE_ENGINEERING.md) for release and
   rollback policy.
