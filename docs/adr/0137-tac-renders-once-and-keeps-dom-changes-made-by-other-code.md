@@ -2,6 +2,8 @@
 
 - Status: Accepted (the number is the next free one at merge)
 - Date: 2026-11-14
+- Amended: 2026-11-15 (TAC-B1F: nodes an element paints into itself while
+  Tac builds it are not Tac's children)
 - Amends: [ADR 0052](0052-the-manifest-is-the-tac-configuration.md) (what a script in
   `tac.scripts` can count on)
 
@@ -59,6 +61,12 @@ WebKit, with `ty preview --static` and with the development server:
      render it owns everything in the `<body>`. In a vendor element whose
      own `<slot>` elements hold Tac's children, Tac owns the children it put
      in each slot, so a node that other code adds to such a slot stays too.
+   - Nodes that an element adds to itself while Tac builds it are the
+     element's own, not Tac's. A custom element may paint when Tac gives it
+     a bound property (ADR 0136), before Tac adds the view's children. Tac
+     records only the children it rendered, so an update that keeps the
+     element never moves the element's own paint into it a second time
+     (TAC-B1F, amended 2026-11-15).
    - Tac keeps an element when the children it owns are still direct
      children of that element, in the same order. Other nodes before,
      between or after them may be there too.

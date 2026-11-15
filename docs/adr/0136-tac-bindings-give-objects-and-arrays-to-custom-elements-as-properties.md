@@ -143,6 +143,10 @@ There were two ways to fix this:
   element with a getter-only `values` gives exactly one console error in
   Chromium, Firefox and WebKit, keeps its own value, gets no attribute, and
   every other check on the page still passes.
+- `scripts/element-properties-browser-gate.mjs` "replaced-view" (TAC-B1F):
+  a typed event replaces a nested view; a kept element's setter runs once
+  per new array and not for an unchanged one, and an element that paints
+  its own children stays the same node and shows its paint once.
 - `scripts/runtime-browser-test.mjs` (TAC-B1F): a render started by
   `__tachyonTac.render()` that hits the loop item cap sets `render_failed`
   and reports its cause exactly once, although the caller handles the

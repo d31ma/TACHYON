@@ -50,6 +50,13 @@ class Rendering {
 class Elements {
   static records = new WeakMap()
   static listeners = new WeakMap()
+
+  /** @param {Element} element @param {Node[]} painted @returns {Element} */
+  static withoutPainted(element, painted) {
+    const record = Elements.records.get(element)
+    record.children = record.children.filter((child) => !painted.includes(child))
+    return element
+  }
   static #scopeProperty = '--_tac-owner'
   /** @type {string} */
   static #htmlNamespace = 'http://www.w3.org/1999/xhtml'
@@ -1603,6 +1610,7 @@ const renderNode = async (node, environment, path, context) => {
   if (node.k !== 'element') return document.createDocumentFragment()
   const element = Elements.create(node.tag, context.namespace)
   const safeHtml = await applyAttributes(element, node.attributes, environment, path)
+  const painted = [...element.childNodes]
   if (!node.void && safeHtml !== undefined) element.append(TacSafeHtml.fill(element, safeHtml))
   else if (!node.void) {
     const children = node.children || []
@@ -1610,7 +1618,7 @@ const renderNode = async (node, environment, path, context) => {
     element.append(await renderNodes(children, environment, `${path}.children`, childContext))
   }
   if (element instanceof HTMLSelectElement && element.hasAttribute('value')) element.value = element.getAttribute('value')
-  return recordElement(element, node, environment, path)
+  return Elements.withoutPainted(recordElement(element, node, environment, path), painted)
 }
 
 /** @param {RenderContext} [context] @returns {Promise<DocumentFragment>} */

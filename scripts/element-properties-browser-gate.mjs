@@ -38,6 +38,16 @@ class ElementPropertiesBrowserGate {
       connectedCallback() { this._paint() }
       _paint() { this.textContent = (this._points ?? []).join(',') }
     })
+    customElements.define('probe-paint', class extends HTMLElement {
+      get points() { return this._points }
+      set points(value) { this._points = value; this._paint() }
+      connectedCallback() { this._paint() }
+      _paint() {
+        const mark = this.querySelector(':scope > b.paint') ?? this.insertBefore(document.createElement('b'), this.firstChild)
+        mark.className = 'paint'
+        mark.textContent = (this._points ?? []).join(',')
+      }
+    })
   `
   static _refusedBinding = '<probe-fixed id="fixed">'
 
@@ -192,6 +202,7 @@ class ElementPropertiesBrowserGate {
   static async _checkReplacedView(page) {
     await page.locator('#nested').evaluate((element) => { element.dataset.marker = 'kept' })
     await page.locator('#light').evaluate((element) => { element.dataset.marker = 'kept' })
+    await page.locator('#mixed').evaluate((element) => { element.dataset.marker = 'kept' })
     const before = await ElementPropertiesBrowserGate._state(page, '#nested')
     for (const turn of [1, 2]) await ElementPropertiesBrowserGate._nextView(page, turn)
     const after = await ElementPropertiesBrowserGate._state(page, '#nested')
@@ -203,8 +214,19 @@ class ElementPropertiesBrowserGate {
       last: globalThis.probeLightWrites.at(-1),
       marker: document.querySelector('#light')?.dataset.marker ?? null,
     }))
-    assert.deepEqual({ last: light.last, marker: light.marker }, { last: [2, 20], marker: 'kept' })
+    assert.deepEqual(light, { text: '2,20', last: [2, 20], marker: 'kept' })
+    await ElementPropertiesBrowserGate._checkPaintBesideTacChildren(page)
     await ElementPropertiesBrowserGate._checkRepeatedView(page, after.pointsWrites)
+  }
+
+  /** @param {import('playwright').Page} page @returns {Promise<void>} */
+  static async _checkPaintBesideTacChildren(page) {
+    const mixed = await page.locator('#mixed').evaluate((element) => ({
+      paint: [...element.querySelectorAll(':scope > b.paint')].map((node) => node.textContent),
+      own: [...element.querySelectorAll(':scope > i.own')].map((node) => node.textContent),
+      marker: element.dataset.marker ?? null,
+    }))
+    assert.deepEqual(mixed, { paint: ['2,20'], own: ['View 2'], marker: 'kept' })
   }
 
   /** @param {import('playwright').Page} page @param {number} writes @returns {Promise<void>} */

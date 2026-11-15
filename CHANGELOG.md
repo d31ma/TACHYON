@@ -323,6 +323,10 @@ machine contracts have their own, independent major versions.
   console error that names the binding and the element. Every failed render
   also reports its cause once with `reportError`, even when its caller
   handles the error, so a blank page always shows its cause in the console.
+- **An element that paints in its property setter shows its paint once**
+  (ADR 0137 amendment, TAC-B1F). When an update kept such an element, Tac
+  moved the paint from the new copy of the element into the kept one, so
+  the paint showed twice. Tac now records only the children it rendered.
 - **Views accept every SVG 2 and MathML Core element.** A view with
   `<linearGradient><stop ...></stop></linearGradient>` failed with "Unknown
   Tac component '<stop>'", because the compiler's tag list missed `<stop>`

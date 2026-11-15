@@ -13,5 +13,6 @@
     <p id="view-title">{chart.view.title}</p>
     <probe-chart id="nested" :points="chart.view.series.points"></probe-chart>
     <probe-light id="light" :points="chart.view.series.points"></probe-light>
+    <probe-paint id="mixed" :points="chart.view.series.points"><i class="own">{chart.view.title}</i></probe-paint>
   </section>
 </main>
