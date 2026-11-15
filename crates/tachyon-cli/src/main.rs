@@ -15,10 +15,12 @@ mod package_plan;
 mod release_choice;
 mod resilient_serve;
 mod restart;
+mod shell_bundle;
 mod shutdown;
 mod start_step;
 mod test_output;
 mod tool_step;
+mod web_build_report;
 
 use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
 use std::hash::{Hash as _, Hasher as _};
@@ -52,8 +54,10 @@ use package_architectures::PackageArchitectures;
 use package_plan::PackagePlan;
 use release_choice::ReleaseChoice;
 use resilient_serve::ResilientServe;
+use shell_bundle::ShellBundle;
 use shutdown::{LongRunningCommand, ShutdownSignals};
 use test_output::TestOutput;
+use web_build_report::WebBuildReport;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
 enum DiagnosticFormat {
@@ -228,6 +232,11 @@ enum Command {
             long
         )]
         explain_targets: bool,
+        #[arg(
+            help = "For a shell with tac.apps: build only the shell (its pages, the service worker, the web app manifest and the list of page apps). Each page app is built and deployed apart",
+            long
+        )]
+        shell_only: bool,
     },
     #[command(about = "Rewrite-internal deterministic build command", hide = true)]
     Build {
@@ -709,6 +718,7 @@ async fn execute_bundle_command(command: &Command) -> Result<(), Failure> {
         render_mode,
         skip_package,
         explain_targets,
+        shell_only,
         ..
     } = command
     else {
@@ -742,6 +752,9 @@ async fn execute_bundle_command(command: &Command) -> Result<(), Failure> {
     let device = DeviceChoice::for_targets(*device, *native || *skip_package, &targets)?;
     DeviceChoice::print_note(device, &targets);
     let output = bundle_output(out_dir.as_deref(), &targets);
+    if *shell_only {
+        return ShellBundle::execute(project, &output, &targets, *no_incremental).await;
+    }
     let options = BundleExecution {
         no_incremental: *no_incremental,
         watch: *watch,
@@ -1683,29 +1696,7 @@ async fn execute_web_build(
         },
     )
     .await?;
-    let noun = if result.route_count() == 1 {
-        "route"
-    } else {
-        "routes"
-    };
-    println!(
-        "Built {} {noun} to {} ({}) compiled={} reused={}",
-        result.route_count(),
-        result.output_directory().display(),
-        result.sha256(),
-        result.compiled_routes(),
-        result.reused_routes()
-    );
-    if let Some(line) = result.compression().line() {
-        println!("{line}");
-    }
-    for note in result.service_notes() {
-        println!("{note}");
-    }
-    for note in TargetSupport::notes(project, AppTarget::Web)? {
-        println!("{note}");
-    }
-    Ok(())
+    WebBuildReport::print(project, &result)
 }
 
 async fn execute_native_build(

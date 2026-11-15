@@ -168,6 +168,9 @@ tac.elements
 tac.mount
   honored: the app's pages and files under one path prefix of the site
 
+tac.apps
+  honored: the shell builds every listed page app into one site, or lists them for separate deploys
+
 tac.python
   honored: Python services on Pyodide (WebAssembly)
 

@@ -10,6 +10,14 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- **A shell lists its page apps and builds them as one site** (ADR MMMM,
+  step 2 of micro-frontends, slice 3). `"tac": { "apps": { "/chat":
+  "../chat" } }` in the shell's manifest lists the site's page apps.
+  `ty bundle <shell>` builds the shell and every app into one site, with one
+  service worker over every file, one web app manifest, one route manifest
+  and each app's own route budget; `ty bundle <shell> --shell-only` builds
+  the shell alone for separate deploys. Both write `/.tachyon/apps.json`.
+  `ty start <shell>` serves the whole site.
 - **Page apps of one site share the device Store safely** (ADR 0059
   amendment, step 2 of micro-frontends). When another tab adds tables at the
   same time, or is several versions ahead, a page opens the IndexedDB

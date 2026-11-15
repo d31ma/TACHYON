@@ -18,19 +18,21 @@ impl BudgetCheck {
         release: bool,
         sent_bytes: &dyn Fn(&str) -> Option<u64>,
     ) -> Result<(), Failure> {
-        Self::check(project_root, files, release, sent_bytes).map(|_| ())
+        Self::check_pages(project_root, files, release, sent_bytes, &|_| true).map(|_| ())
     }
 
-    pub(crate) fn check(
+    pub(crate) fn check_pages(
         project_root: &Path,
         files: &[(PathBuf, Vec<u8>)],
         release: bool,
         sent_bytes: &dyn Fn(&str) -> Option<u64>,
+        pages: &dyn Fn(&str) -> bool,
     ) -> Result<Vec<String>, Failure> {
         let profile = crate::tac_python::RuntimeProfile::for_project(project_root)?;
         let settings = RouteBudgetSettings::read(project_root);
         let checked = Self::checked(files, settings.check & release);
-        let (diagnostics, notes) = Self::diagnostics(checked, settings, profile, sent_bytes)?;
+        let (diagnostics, notes) =
+            Self::diagnostics(checked, settings, profile, sent_bytes, pages)?;
         Self::result(diagnostics)?;
         Ok(notes)
     }
@@ -63,6 +65,7 @@ impl BudgetCheck {
         settings: RouteBudgetSettings,
         profile: Option<crate::tac_python::RuntimeProfile>,
         sent_bytes: &dyn Fn(&str) -> Option<u64>,
+        pages: &dyn Fn(&str) -> bool,
     ) -> Result<(Vec<Diagnostic>, Vec<String>), Failure> {
         let by_path: BTreeMap<String, &[u8]> = files
             .iter()
@@ -75,7 +78,10 @@ impl BudgetCheck {
         let budget = PageBudget::new(settings, profile, sent_bytes);
         let mut diagnostics = Vec::new();
         let mut notes = Vec::new();
-        for page in by_path.keys().filter(|path| Self::is_page(path)) {
+        for page in by_path
+            .keys()
+            .filter(|path| Self::is_checked_page(path, pages))
+        {
             let (page_diagnostics, page_notes) = budget.diagnostics(page, &by_path, &sizes)?;
             diagnostics.extend(page_diagnostics);
             notes.extend(page_notes);
@@ -86,6 +92,10 @@ impl BudgetCheck {
     fn size(path: &str, bytes: &[u8], sent_bytes: &dyn Fn(&str) -> Option<u64>) -> u64 {
         let length = u64::try_from(bytes.len()).unwrap_or(u64::MAX);
         sent_bytes(path).unwrap_or(length)
+    }
+
+    fn is_checked_page(path: &str, pages: &dyn Fn(&str) -> bool) -> bool {
+        [Self::is_page(path), pages(path)] == [true, true]
     }
 
     fn is_page(path: &str) -> bool {

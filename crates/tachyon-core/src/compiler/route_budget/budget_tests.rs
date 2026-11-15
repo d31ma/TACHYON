@@ -222,7 +222,7 @@ fn real_runtime_reports_auxiliary_bytes_and_keeps_the_wasm_transfer_budget() {
         "pyodide-lock.json" => Some(21689),
         _ => None,
     };
-    let notes = BudgetCheck::check(root.path(), &files, true, &proxy_sent)
+    let notes = BudgetCheck::check_pages(root.path(), &files, true, &proxy_sent, &|_| true)
         .unwrap_or_else(|error| panic!("proxy size accounting: {error:?}"));
     assert!(notes[0].contains("5522230 bytes"));
     assert!(notes[0].contains("2567326 auxiliary ZIP/lock bytes"));

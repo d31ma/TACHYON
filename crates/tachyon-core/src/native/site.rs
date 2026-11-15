@@ -24,6 +24,7 @@ pub(crate) struct SiteSettings {
     pub(crate) outgoing_hosts: Vec<String>,
     pub(crate) camera_reason: Option<String>,
     pub(crate) blob_limits: super::BlobLimits,
+    pub(crate) apps: BTreeMap<String, String>,
 }
 
 impl SiteSettings {
@@ -78,6 +79,7 @@ impl SiteSettings {
             outgoing_hosts,
             camera_reason,
             blob_limits,
+            apps: tac.apps,
         })
     }
 

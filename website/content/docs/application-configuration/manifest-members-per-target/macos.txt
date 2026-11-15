@@ -168,6 +168,9 @@ tac.elements
 tac.mount
   refused with TY1601: A page app with tac.mount is not built alone for macOS. Build its shell's app instead (ADR NNNN).
 
+tac.apps
+  refused with TY1601: A native app of a site with tac.apps is not built yet (ADR MMMM).
+
 tac.python
   honored: Pyodide in the web view (ADR 0093)
 

@@ -68,6 +68,7 @@ pub(super) struct SiteBuild<'a> {
     code_scanner: bool,
     crypto_tag: &'static str,
     blobs_tag: String,
+    app_budgets: Vec<(&'a Path, crate::routing::MountPath)>,
     phase_started: Instant,
     timings: Vec<(String, Duration)>,
     service_timings: Vec<(String, Duration)>,
@@ -129,6 +130,7 @@ impl<'a> SiteBuild<'a> {
             code_scanner: false,
             crypto_tag: "",
             blobs_tag: String::new(),
+            app_budgets: Vec::new(),
             phase_started,
             timings: Vec::new(),
             service_timings: Vec::new(),
@@ -217,6 +219,89 @@ impl<'a> SiteBuild<'a> {
         Ok(())
     }
 
+    pub(super) fn add_apps(
+        &mut self,
+        apps: Vec<SiteBuild<'a>>,
+        manifest: &mut tachyon_contracts::RouteManifest,
+    ) -> Result<(), Failure> {
+        self.merge_apps(apps, manifest)
+    }
+
+    pub(super) fn add_apps_list(
+        &mut self,
+        apps: &super::site_apps::SiteApps,
+    ) -> Result<(), Failure> {
+        let listed = Self::apps_list(apps)?;
+        let path = PathBuf::from(super::site_apps::SiteApps::LIST_PATH);
+        self.files.extend(listed.map(|bytes| (path, bytes)));
+        Ok(())
+    }
+
+    fn apps_list(apps: &super::site_apps::SiteApps) -> Result<Option<Vec<u8>>, Failure> {
+        if apps.is_empty() {
+            return Ok(None);
+        }
+        apps.list_file().map(Some)
+    }
+
+    fn merge_apps(
+        &mut self,
+        apps: Vec<SiteBuild<'a>>,
+        manifest: &mut tachyon_contracts::RouteManifest,
+    ) -> Result<(), Failure> {
+        for app in apps {
+            manifest.routes.extend(Self::view_routes(app.project));
+            self.add_app(app)?;
+        }
+        Ok(())
+    }
+
+    fn view_routes(project: &Project) -> Vec<tachyon_contracts::RouteEntry> {
+        project
+            .route_graph()
+            .manifest()
+            .routes
+            .into_iter()
+            .filter(|entry| entry.view.is_some())
+            .collect()
+    }
+
+    fn add_app(&mut self, app: SiteBuild<'a>) -> Result<(), Failure> {
+        let mount = app.project.mount().clone();
+        let files = mount.bundled(app.files);
+        self.check_new_files(&files)?;
+        self.files.extend(files);
+        self.app_budgets.push((app.snapshot_root, mount));
+        self.service_notes.extend(app.service_notes);
+        self.service_timings.extend(app.service_timings);
+        self.view_services.extend(app.view_services);
+        self.compiled_routes += app.compiled_routes;
+        self.reused_routes += app.reused_routes;
+        Ok(())
+    }
+
+    fn check_new_files(&self, files: &[(PathBuf, Vec<u8>)]) -> Result<(), Failure> {
+        let written: BTreeSet<&Path> = self.files.iter().map(|(path, _)| path.as_path()).collect();
+        let repeated = files
+            .iter()
+            .find(|(path, _)| written.contains(path.as_path()));
+        repeated.map_or(Ok(()), |(path, _)| Err(Self::repeated_file(path)))
+    }
+
+    fn repeated_file(path: &Path) -> Failure {
+        Failure::one(diagnostic(
+            1601,
+            format!(
+                "Two apps of the site write the file {}. Rename the file in one of them.",
+                PortablePath::of(path)
+            ),
+            Some(String::from(
+                "A page app writes its files under its tac.mount prefix and the shell writes the rest of the site (ADR MMMM).",
+            )),
+            None,
+        ))
+    }
+
     pub(super) fn add_manifest_and_worker_files(
         &mut self,
         manifest: &impl Serialize,
@@ -291,13 +376,19 @@ impl<'a> SiteBuild<'a> {
         files.sort_by_key(|value| PortablePath::of(&value.0));
         let compressed = CompressedFiles::create(&files, &self.output_directory, self.compress)?;
         self.finish_compression_phase();
+        let sent_bytes = |path: &str| compressed.sent_bytes(path);
+        let mounts: Vec<&crate::routing::MountPath> =
+            self.app_budgets.iter().map(|(_, mount)| mount).collect();
         self.service_notes
-            .extend(super::route_budget::BudgetCheck::check(
+            .extend(super::route_budget::BudgetCheck::check_pages(
                 self.snapshot_root,
                 &files,
                 self.compress,
-                &|path| compressed.sent_bytes(path),
+                &sent_bytes,
+                &|page| !Self::in_any_app(&mounts, page),
             )?);
+        let app_notes = self.app_budget_notes(&files, &sent_bytes)?;
+        self.service_notes.extend(app_notes);
         super::ApiBaselineCheck::verify(
             self.snapshot_root,
             &crate::handler::ApiReference::contract(self.project.route_graph()),
@@ -328,6 +419,28 @@ impl<'a> SiteBuild<'a> {
             compression: compressed.totals(&files),
             view_services: self.view_services,
         })
+    }
+
+    fn in_any_app(mounts: &[&crate::routing::MountPath], page: &str) -> bool {
+        mounts.iter().any(|mount| mount.contains_file(page))
+    }
+
+    fn app_budget_notes(
+        &self,
+        files: &[(PathBuf, Vec<u8>)],
+        sent_bytes: &dyn Fn(&str) -> Option<u64>,
+    ) -> Result<Vec<String>, Failure> {
+        let mut notes = Vec::new();
+        for (snapshot_root, mount) in &self.app_budgets {
+            notes.extend(super::route_budget::BudgetCheck::check_pages(
+                snapshot_root,
+                files,
+                self.compress,
+                sent_bytes,
+                &|page| mount.contains_file(page),
+            )?);
+        }
+        Ok(notes)
     }
 
     fn finish_compression_phase(&mut self) {

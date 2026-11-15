@@ -64,6 +64,23 @@ impl MountPath {
             })
     }
 
+    pub(crate) fn bundled(&self, files: Vec<(PathBuf, Vec<u8>)>) -> Vec<(PathBuf, Vec<u8>)> {
+        self.files(files)
+            .into_iter()
+            .filter(|(path, _)| !Self::deploy_owned(path))
+            .collect()
+    }
+
+    pub(crate) fn contains_file(&self, path: &str) -> bool {
+        let folder = format!("{}/", self.prefix.trim_start_matches('/'));
+        [!self.is_root(), path.starts_with(&folder)] == [true, true]
+    }
+
+    pub(crate) fn contains_route(&self, route: &str) -> bool {
+        let below = format!("{}/", self.prefix);
+        [route == self.prefix, route.starts_with(&below)].contains(&true)
+    }
+
     pub(crate) fn files(&self, files: Vec<(PathBuf, Vec<u8>)>) -> Vec<(PathBuf, Vec<u8>)> {
         files
             .into_iter()
@@ -139,10 +156,13 @@ impl MountPath {
     }
 
     fn stays(&self, path: &Path) -> bool {
+        [Self::deploy_owned(path), path.starts_with(self.folder())].contains(&true)
+    }
+
+    fn deploy_owned(path: &Path) -> bool {
         [
             Self::deploy_file(path),
             path.starts_with(Self::DEPLOY_FOLDER),
-            path.starts_with(self.folder()),
         ]
         .contains(&true)
     }

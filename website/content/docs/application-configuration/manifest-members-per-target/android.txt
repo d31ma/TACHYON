@@ -168,6 +168,9 @@ tac.elements
 tac.mount
   refused with TY1601: A page app with tac.mount is not built alone for Android. Build its shell's app instead (ADR NNNN).
 
+tac.apps
+  refused with TY1601: A native app of a site with tac.apps is not built yet (ADR MMMM).
+
 tac.python
   honored: Pyodide in the web view, loaded from https://appassets.tachyon.local; a Python service answered on the Android 15 emulator in scripts/android/python-service-test.mjs (ADR 0093)
 

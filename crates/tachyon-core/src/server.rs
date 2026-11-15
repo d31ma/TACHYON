@@ -238,6 +238,7 @@ impl DevServer {
         supervisor.preflight(&requirements).await?;
         let (routes, page_routes) = DispatchRoute::discover(project);
         let (build, output_directory) = Self::prepare_dev_output(project, options).await?;
+        let page_routes = DispatchRoute::with_app_pages(page_routes, project, &output_directory);
         let (listener, address) =
             ServerListener::bind(options.host, options.port, "development server").await?;
         let middleware = project.middleware().cloned().map(Arc::new);

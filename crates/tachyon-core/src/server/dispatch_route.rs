@@ -11,6 +11,27 @@ pub(in crate::server) struct DispatchRoute {
 }
 
 impl DispatchRoute {
+    pub(in crate::server) fn with_app_pages(
+        pages: Vec<String>,
+        project: &Project,
+        output_directory: &std::path::Path,
+    ) -> Vec<String> {
+        let known: std::collections::BTreeSet<&str> = project
+            .route_graph()
+            .routes()
+            .iter()
+            .map(RouteNode::route)
+            .collect();
+        let built = super::static_files::StaticFiles::preview_route_patterns(output_directory);
+        let mut all = pages;
+        all.extend(
+            built
+                .into_iter()
+                .filter(|route| !known.contains(route.as_str())),
+        );
+        all
+    }
+
     pub(in crate::server) fn discover(project: &Project) -> (Vec<Self>, Vec<String>) {
         let page_routes = project
             .route_graph()

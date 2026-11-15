@@ -102,6 +102,9 @@ mod shared_assets;
 pub(crate) mod shared_scripts;
 #[cfg(test)]
 mod shared_scripts_tests;
+mod site_apps;
+#[cfg(test)]
+mod site_apps_tests;
 mod site_build;
 mod speculation_rules;
 mod split_styles;
@@ -394,6 +397,8 @@ if ('serviceWorker' in navigator) {
 }
 
 impl WebCompiler {
+    const APP_OUTPUT: &'static str = "dist";
+
     pub(crate) fn native_worker_registration() -> &'static str {
         Self::SERVICE_WORKER_REGISTRATION
     }
@@ -452,11 +457,73 @@ impl WebCompiler {
         Self::build_project_with_target(project, options, Some(target)).await
     }
 
+    pub async fn build_shell_async(
+        project_root: impl AsRef<Path>,
+        options: &BuildOptions,
+    ) -> Result<BuildResult, Failure> {
+        let project = ProjectDiscovery::discover(project_root)?;
+        let apps = Self::site_apps(&project)?;
+        let build = Self::assembled(&project, &apps, Vec::new(), options, None).await?;
+        build.write_output()
+    }
+
     async fn build_project_with_target(
         project: &Project,
         options: &BuildOptions,
         native_target: Option<tachyon_contracts::NativeTarget>,
     ) -> Result<BuildResult, Failure> {
+        let apps = Self::site_apps(project)?;
+        let app_projects = Self::app_projects(&apps, native_target)?;
+        let app_builds = Self::app_builds(&app_projects, options).await?;
+        let build = Self::assembled(project, &apps, app_builds, options, native_target).await?;
+        build.write_output()
+    }
+
+    fn site_apps(project: &Project) -> Result<site_apps::SiteApps, Failure> {
+        let site = crate::native::SiteSettings::load(project.snapshot_root())?;
+        site_apps::SiteApps::resolve(project, &site)
+    }
+
+    fn app_projects(
+        apps: &site_apps::SiteApps,
+        native_target: Option<tachyon_contracts::NativeTarget>,
+    ) -> Result<Vec<Project>, Failure> {
+        apps.refuse_native(native_target)?;
+        apps.projects()
+    }
+
+    async fn app_builds<'a>(
+        projects: &'a [Project],
+        options: &BuildOptions,
+    ) -> Result<Vec<SiteBuild<'a>>, Failure> {
+        let app_options = BuildOptions {
+            output_directory: PathBuf::from(Self::APP_OUTPUT),
+            incremental: false,
+            profile: options.profile,
+        };
+        let mut builds = Vec::with_capacity(projects.len());
+        for project in projects {
+            builds.push(
+                Self::assembled(
+                    project,
+                    &site_apps::SiteApps::none(),
+                    Vec::new(),
+                    &app_options,
+                    None,
+                )
+                .await?,
+            );
+        }
+        Ok(builds)
+    }
+
+    async fn assembled<'a>(
+        project: &'a Project,
+        apps: &site_apps::SiteApps,
+        app_builds: Vec<SiteBuild<'a>>,
+        options: &BuildOptions,
+        native_target: Option<tachyon_contracts::NativeTarget>,
+    ) -> Result<SiteBuild<'a>, Failure> {
         let types_root = Self::composed_types_root(project, native_target);
         crate::ComposedTypes::write(types_root)?;
         let mut build = SiteBuild::discover(project, options, native_target)?;
@@ -471,7 +538,7 @@ impl WebCompiler {
             .then(|| BuildState::load(&build.output_directory))
             .flatten();
         build.finish_phase("discovery");
-        let manifest = project.route_graph().manifest();
+        let mut manifest = project.route_graph().manifest();
         build.add_route_files(&programs, previous.as_ref(), &site)?;
         build.finish_phase("routes");
         let needs_static_files =
@@ -481,11 +548,13 @@ impl WebCompiler {
         build.finish_phase("static files");
         build.add_service_files().await?;
         build.finish_phase(SiteBuild::SERVICES_PHASE);
+        build.add_apps(app_builds, &mut manifest)?;
+        build.add_apps_list(apps)?;
         build.add_manifest_and_worker_files(&manifest, &cache_rules)?;
         build.add_site_map_files(&site)?;
         build.add_site_association_files(&site)?;
         build.finish_phase("manifest and service worker");
-        build.write_output()
+        Ok(build)
     }
 
     fn needs_static_files(has_routes: bool, has_elements: bool) -> bool {
