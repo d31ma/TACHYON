@@ -592,6 +592,10 @@ private final class NativeBridge: NSObject, WKScriptMessageHandlerWithReply {
             return
         }
         let payload = body["payload"] as? String ?? "{}"
+        if capability.hasPrefix(AppleBrowserApis.cryptoPrefix) {
+            AppleBrowserApis.shared.crypto(capability, payload) { replyHandler($0, nil) }
+            return
+        }
         guard capability.utf8.count <= 64,
               let request = tachyonParseJSONRequest(payload) else {
             replyHandler(nil, "invalid or oversized host call"); return

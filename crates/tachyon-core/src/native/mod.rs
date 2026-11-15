@@ -1,5 +1,6 @@
 mod android;
 mod android_architecture;
+mod android_backup_rules;
 mod android_browser_apis;
 mod android_file_picker;
 mod android_gradle_build;
@@ -176,6 +177,10 @@ mod native_capability_tests;
 mod native_cfg_impl_tests;
 #[cfg(test)]
 mod native_content_security_policy_tests;
+#[cfg(test)]
+mod native_crypto_checks;
+#[cfg(test)]
+mod native_crypto_host_tests;
 mod native_deep_link;
 #[cfg(test)]
 mod native_deep_link_tests;

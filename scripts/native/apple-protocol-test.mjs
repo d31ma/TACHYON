@@ -55,8 +55,12 @@ func tacServiceMembers(_ service: String, _ tacProps: [String: Any]) -> [String:
 struct WKUserContentController {}
 final class AppleBrowserApis {
     static let shared = AppleBrowserApis()
+    static let cryptoPrefix = "browserApi.crypto."
     func call(_ capability: String, _ request: [String: Any], _ view: WKWebView?, _ reply: @escaping (String) -> Void) {
         reply("{\"value\":\"" + capability + "\"}")
+    }
+    func crypto(_ capability: String, _ payload: String, _ reply: @escaping (String) -> Void) {
+        reply("{\"value\":\"" + capability + " " + payload + "\"}")
     }
 }
 final class IosFilePicker {
@@ -118,15 +122,18 @@ func bridgeProbe(_ view: WKWebView, _ receive: (WKUserContentController, WKScrip
     check(#"{"route":"/other","service":"probe","owner":"00000000-0000-4000-8000-000000000001","op":"get","name":"count"}"#, denied: true)
     check(#"{"route":"/","service":"probe","owner":"00000000-0000-4000-8000-000000000001","route":"/other","op":"get","name":"count"}"#, denied: true)
     check(#"{"route":"/","service":"probe","owner":"00000000-0000-4000-8000-000000000001","\u0072oute":"/other","op":"get","name":"count"}"#, denied: true)
-    let browserCalls: [(String, String?)] = [
-        ("tachyon-app://bundle/index.html", "{\"value\":\"browserApi.clipboard.readText\"}"), ("https://foreign.example/", nil),
+    let browserCalls: [(String, String, String, String?)] = [
+        ("tachyon-app://bundle/index.html", "browserApi.clipboard.readText", "{}", "{\"value\":\"browserApi.clipboard.readText\"}"),
+        ("https://foreign.example/", "browserApi.clipboard.readText", "{}", nil),
+        ("tachyon-app://bundle/index.html", "browserApi.crypto.hash", "[\"YWJj\"]", "{\"value\":\"browserApi.crypto.hash [\"YWJj\"]\"}"),
+        ("https://foreign.example/", "browserApi.crypto.hash", "[\"YWJj\"]", nil),
     ]
-    for (url, expected) in browserCalls {
+    for (url, capability, payload, expected) in browserCalls {
         var answered: Any?
         var refused: String?
         let message = WKScriptMessage(webView: view,
             frameInfo: TestFrame(isMainFrame: true, request: TestRequest(url: URL(string: url))),
-            body: ["capability": "browserApi.clipboard.readText", "payload": "{}"])
+            body: ["capability": capability, "payload": payload])
         receive(WKUserContentController(), message) { answer, error in answered = answer; refused = error }
         if let expected { require(answered as? String == expected, "A browser API call did not reach AppleBrowserApis") }
         else { require(refused != nil && answered == nil, "A foreign frame reached AppleBrowserApis") }

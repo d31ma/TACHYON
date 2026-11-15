@@ -97,6 +97,19 @@ machine contracts have their own, independent major versions.
   are checked in Chromium, Firefox and WebKit, directly and through coturn
   (`bun run test:peers-browser`). The Linux app answers `unsupported`
   (WebKitGTK has no WebRTC); the other native apps are not checked yet.
+- **The macOS and iOS apps answer Crypto with CryptoKit and the Keychain**
+  (ADR 0132 amendment, slice P2b). The Apple hosts list `crypto` in the native bridge,
+  so every `Crypto` call runs in Swift: CryptoKit for Ed25519, X25519,
+  AES-256-GCM, HKDF-SHA-256 and SHA-256, and CommonCrypto for PBKDF2-SHA-256.
+  Kept keys are data-protection Keychain items, this device only and not
+  synced; key bytes never enter the web view. A reinstalled iOS app starts
+  with an empty key store. An ad hoc signed macOS app has no Keychain
+  entitlement, so it reports `keyStore` `none` and `keep: true` answers
+  `unsupported`. Android apps now keep their private data out of cloud
+  backup and device-to-device transfer (`android:dataExtractionRules`).
+  Where a native host answers Crypto, `Media.useFrameKey` and
+  `Media.encryptFrames(connection, true)` answer `unsupported` until the
+  hosts hand SFrame its frame keys.
 - **Crypto verifies an empty message on every engine** (ADR 0133).
   `Crypto.sign` and `Crypto.verify` accept empty data again. WebKit answers
   `false` when it verifies an Ed25519 signature over an empty message; the

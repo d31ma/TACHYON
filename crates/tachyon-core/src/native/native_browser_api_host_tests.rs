@@ -3,22 +3,24 @@
 #[cfg(target_os = "macos")]
 use std::path::{Path, PathBuf};
 
-struct BrowserApiHostTests;
+pub(super) struct BrowserApiHostTests;
 
 impl BrowserApiHostTests {
+    const FIXTURE: &str = include_str!("NativeBrowserApiCheck.fixture.swift");
     #[cfg(target_os = "macos")]
     const BUNDLE: &str = "BrowserApiCheck.app/Contents";
 
     #[cfg(target_os = "macos")]
-    fn write(root: &Path, path: &str, source: &str) -> PathBuf {
+    pub(super) fn write(root: &Path, path: &str, source: &str) -> PathBuf {
         let path = root.join(path);
         std::fs::create_dir_all(path.parent().expect("parent")).expect("directory");
         std::fs::write(&path, source).expect("fixture");
         path
     }
 
-    fn host() -> String {
-        let application = super::config::NativeApplication {
+    pub(super) fn application(granted: &[&str]) -> super::config::NativeApplication {
+        let granted: Vec<String> = granted.iter().map(|api| String::from(*api)).collect();
+        super::config::NativeApplication {
             name: String::from("Browser API Check"),
             executable_name: String::from("BrowserApiCheck"),
             application_id: String::from("org.tachyon.browser-api-check"),
@@ -32,15 +34,18 @@ impl BrowserApiHostTests {
             rust: super::native_rust_project::NativeRustProject::default(),
             outgoing: super::native_outgoing_hosts::NativeOutgoingHosts::default(),
             permissions: super::browser_api_permissions::BrowserApiPermissions::declared(
-                &[String::from("clipboard")],
+                &granted,
                 &std::collections::BTreeMap::new(),
             ),
             minimum_system: super::minimum_system::MinimumSystem::default(),
             description: String::new(),
             tray: None,
             links: crate::native::native_links::NativeLinks::default(),
-        };
-        let index = super::routes::NativeRouteIndex {
+        }
+    }
+
+    pub(super) fn index() -> super::routes::NativeRouteIndex {
+        super::routes::NativeRouteIndex {
             contract_version: 2,
             entry_route: String::from("/"),
             entry_document: String::from("index.html"),
@@ -48,18 +53,18 @@ impl BrowserApiHostTests {
                 route: String::from("/"),
                 document: String::from("index.html"),
             }],
-        };
+        }
+    }
+
+    pub(super) fn host(granted: &[&str], fixture: &str) -> String {
         let call = super::macos::companion_call(None, None);
-        let host = super::macos::swift_source(&application, call, &index);
+        let host = super::macos::swift_source(&Self::application(granted), call, &Self::index());
         let body = host.rsplit_once("\n@main\n").expect("generated main").0;
-        format!(
-            "{body}\n{}",
-            include_str!("NativeBrowserApiCheck.fixture.swift")
-        )
+        format!("{body}\n{fixture}")
     }
 
     #[cfg(target_os = "macos")]
-    async fn compile(root: &Path) -> PathBuf {
+    pub(super) async fn compile(root: &Path, host: &str) -> PathBuf {
         Self::write(
             root,
             &format!("{}/Resources/WebBundle/index.html", Self::BUNDLE),
@@ -70,7 +75,7 @@ impl BrowserApiHostTests {
             &format!("{}/Info.plist", Self::BUNDLE),
             "<?xml version=\"1.0\"?><plist version=\"1.0\"><dict><key>CFBundleExecutable</key><string>BrowserApiCheck</string><key>CFBundleIdentifier</key><string>org.tachyon.browser-api-check</string><key>CFBundlePackageType</key><string>APPL</string></dict></plist>",
         );
-        let host = Self::write(root, "BrowserApiCheck.swift", &Self::host());
+        let host = Self::write(root, "BrowserApiCheck.swift", host);
         let executable = root.join(format!("{}/MacOS/BrowserApiCheck", Self::BUNDLE));
         std::fs::create_dir_all(executable.parent().expect("binary directory"))
             .expect("binary directory");
@@ -96,7 +101,7 @@ impl BrowserApiHostTests {
 
 #[test]
 fn the_macos_browser_api_check_runs_against_the_generated_host() {
-    let source = BrowserApiHostTests::host();
+    let source = BrowserApiHostTests::host(&["clipboard"], BrowserApiHostTests::FIXTURE);
     assert!(source.contains("AppleBrowserApis.shared.granted = [\"clipboard\"]"));
     assert!(source.contains("private final class BrowserApiCheck"));
     assert!(source.contains("browserApi.clipboard.writeText"));
@@ -109,7 +114,8 @@ fn the_macos_browser_api_check_runs_against_the_generated_host() {
 #[ignore = "Requires an actual AppKit/WebKit window and the general pasteboard; run explicitly in coordinator SDK lane"]
 async fn macos_page_calls_reach_the_pasteboard_through_the_browser_api_bridge() {
     let root = tempfile::tempdir().expect("fixture");
-    let executable = BrowserApiHostTests::compile(root.path()).await;
+    let host = BrowserApiHostTests::host(&["clipboard"], BrowserApiHostTests::FIXTURE);
+    let executable = BrowserApiHostTests::compile(root.path(), &host).await;
     let output = super::host::run_tool(executable.to_str().expect("binary"), &[])
         .await
         .expect("actual generated host browser API bridge");

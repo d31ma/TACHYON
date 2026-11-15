@@ -1934,6 +1934,29 @@ Owed: branded Safari and Chrome by hand; the native apps (`runOwed` in
 across a relaunch in each app. Kept keys on Chromium, Firefox, WebView2 and
 WebKitGTK are stored without the engine's own encryption (ADR 0132).
 
+### Crypto in the Apple apps (2026-11-14, ADR 0132 amendment P2b)
+
+`native_crypto_host_tests::macos_crypto_runs_natively_through_the_generated_host`
+built the generated macOS host with the `crypto` grant on macOS 27.2.1 and
+ran the page checks that the Linux host also runs
+(`native_crypto_checks.rs`) through the native bridge: `check`, SHA-256,
+RFC 5869 test 1, RFC 8032 tests 1 and 2 and a changed signature, a
+signature the web view's own WebCrypto accepts, an empty message signed
+and verified, AES-256-GCM both ways with the web view's WebCrypto and a
+wrong AAD (`rejected`), X25519 agreement checked against WebCrypto, a
+small-order key (`invalid`), `deriveKey`, PBKDF2 at 600,000 rounds checked
+against WebCrypto, `unknown`, `exists`, a key of the wrong kind
+(`invalid`), `forget` and `forgetAll`. The test machine has no Apple
+signing identity, so the app is ad hoc signed: the data-protection
+Keychain answers `errSecMissingEntitlement`, `keyStore` is `none` and
+`keep: true` answers `unsupported`.
+
+Owed: kept keys across a relaunch in a signed macOS app; the iOS simulator
+check
+(`native_crypto_host_tests::ios_crypto_keeps_keys_in_the_simulator_keychain_across_a_relaunch`,
+inside a `mac-heavy --vm=ios` job with `TAC_IOS_DEVICE` booted); a signed
+iOS device by hand.
+
 ### Passkeys in the browser (2026-11-12, ADR 0126)
 
 `scripts/passkeys-browser-test.mjs` ran on the macOS test machine in

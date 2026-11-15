@@ -227,6 +227,15 @@ emit({ kind: 'exhausted', keyId: 6, track: '' })
 report.workerEvents = sent.splice(0)
 delete globalThis.RTCRtpScriptTransform
 report.noTransform = attempt(() => media.encryptFrames(reply, 'peer-1', true))
+globalThis.RTCRtpScriptTransform = class { constructor(worker, options) { this.options = options } }
+globalThis.__tachyonBrowserApiBridge = ['clipboard', 'crypto']
+posted.splice(0)
+report.nativeKeys = [attempt(() => media.useFrameKey(reply, 1, 'alice')), attempt(() => media.encryptFrames(reply, 'peer-1', true))]
+await settle()
+report.nativeSent = sent.splice(0)
+report.nativePosted = posted.splice(0)
+report.nativeTransforms = [video.sender.transform, video.receiver.transform, audio.sender.transform, audio.receiver.transform]
+report.nativeOff = attempt(() => media.encryptFrames(reply, 'peer-1', false))
 console.log(JSON.stringify(report))
 ";
 
@@ -315,6 +324,24 @@ fn the_page_runtime_hands_frame_keys_to_one_worker_and_encrypts_every_transceive
         report["noTransform"],
         "Frame encryption is not available here (unsupported)."
     );
+    let native = "Frame encryption is not available in this app yet: its Crypto keys stay in native code (unsupported).";
+    assert_eq!(
+        report["nativeKeys"],
+        serde_json::json!([native, native]),
+        "a native Crypto host keeps keys out of the page, so SFrame refuses at once"
+    );
+    assert_eq!(report["nativeSent"], serde_json::json!([]));
+    assert_eq!(
+        report["nativePosted"],
+        serde_json::json!([]),
+        "no frame key reaches the worker"
+    );
+    assert_eq!(
+        report["nativeTransforms"],
+        serde_json::json!([null, null, null, null]),
+        "no frame transform is attached, so no frame passes as if it were encrypted"
+    );
+    assert_eq!(report["nativeOff"], "ok");
 }
 
 #[test]
