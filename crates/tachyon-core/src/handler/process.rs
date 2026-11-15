@@ -340,7 +340,10 @@ impl HandlerSupervisor {
             .handler_json()
             .map(Self::parse_resource_configuration)
             .transpose()?;
-        Ok(configuration.filter(Self::declares_storage))
+        let allowed = self.options.storage_may_use_system_disk;
+        Ok(configuration
+            .filter(Self::declares_storage)
+            .map(|configuration| ManagedStorage::with_system_disk(configuration, allowed)))
     }
 
     fn parse_resource_configuration(json: &str) -> Result<Value, Failure> {

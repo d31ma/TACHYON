@@ -12,6 +12,7 @@ fn fylo_has_invocation_mode() -> bool {
     let output = Command::new("fylo")
         .args(["exec", "--request", r#"{"op":"handshake"}"#, "--root"])
         .arg(directory.path())
+        .arg("--allow-system-disk")
         .output();
     let identity =
         output.map(|output| serde_json::from_slice::<Value>(&output.stdout).unwrap_or_default());
@@ -83,6 +84,7 @@ fn invocation(root: &Path, request: &Value) -> Value {
             "--root",
         ])
         .arg(root)
+        .arg("--allow-system-disk")
         .output()
         .expect("fylo invocation");
     serde_json::from_slice(&output.stdout).expect("fylo answer")

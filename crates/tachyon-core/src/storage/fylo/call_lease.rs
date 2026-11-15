@@ -1,5 +1,4 @@
 use std::ffi::OsString;
-use std::path::Path;
 use std::process::Stdio;
 use std::time::Duration;
 
@@ -9,6 +8,7 @@ use tokio::process::Child;
 
 use super::FyloError;
 use super::frame_answer::FrameAnswer;
+use super::fylo_root::FyloRoot;
 use super::network_root::NetworkRoot;
 use super::operation_deadline::OperationDeadline;
 use crate::Failure;
@@ -16,7 +16,7 @@ use crate::sorted_json::SortedJson;
 use crate::storage::failure;
 
 pub(super) struct CallLease<'root> {
-    root: &'root Path,
+    root: &'root FyloRoot,
 }
 
 impl<'root> CallLease<'root> {
@@ -28,12 +28,12 @@ impl<'root> CallLease<'root> {
     const DEADLINE_CODE: &'static str = "EDEADLINE";
     const NO_FRAME_CODE: &'static str = "ENOFRAME";
 
-    pub(super) fn new(root: &'root Path) -> Self {
+    pub(super) fn new(root: &'root FyloRoot) -> Self {
         Self { root }
     }
 
     pub(super) async fn prepare(&self) -> Result<(), Failure> {
-        NetworkRoot::refuse(self.root)?;
+        NetworkRoot::refuse(self.root.path())?;
         let handshake = SortedJson::text(&json!({ "op": "handshake" }));
         let identity = self.run(&handshake, self.handshake_arguments()).await;
         Self::invocation_mode_confirmed(identity)
@@ -87,10 +87,8 @@ impl<'root> CallLease<'root> {
     }
 
     fn handshake_arguments(&self) -> Vec<OsString> {
-        let mut arguments: Vec<OsString> = ["exec", "--request", "-", "--root"]
-            .map(OsString::from)
-            .to_vec();
-        arguments.push(self.root.as_os_str().to_owned());
+        let mut arguments: Vec<OsString> = ["exec", "--request", "-"].map(OsString::from).to_vec();
+        arguments.extend(self.root.arguments());
         arguments
     }
 
@@ -194,6 +192,8 @@ mod tests {
     use serde_json::json;
 
     use super::CallLease;
+    use crate::storage::fylo::fylo_root::FyloRoot;
+    use crate::storage::fylo::system_disk::SystemDisk;
 
     #[test]
     fn an_insert_gets_an_identifier_made_by_tachyon() {
@@ -272,8 +272,8 @@ mod tests {
 
     #[test]
     fn the_invocation_command_names_its_budget_and_limits() {
-        let root = std::path::Path::new("/data/root");
-        let arguments = CallLease::new(root).invocation_arguments(Duration::from_millis(4_900));
+        let root = FyloRoot::new(std::path::PathBuf::from("/data/root"), SystemDisk::Allowed);
+        let arguments = CallLease::new(&root).invocation_arguments(Duration::from_millis(4_900));
         let text: Vec<String> = arguments
             .iter()
             .map(|value| value.to_string_lossy().into_owned())
@@ -287,6 +287,7 @@ mod tests {
                 "-",
                 "--root",
                 "/data/root",
+                "--allow-system-disk",
                 "--deadline-ms",
                 "4900",
                 "--cleanup-reserve-ms",

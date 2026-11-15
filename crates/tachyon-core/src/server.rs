@@ -188,6 +188,7 @@ impl DevServer {
         let mut policy = crate::HandlerSupervisorOptions::from_environment()?;
         let private = application.private_hosts().clone();
         policy.application = application;
+        policy.storage_may_use_system_disk = options.kind == ServerKind::Development;
         let supervisor = Arc::new(HandlerSupervisor::new(policy)?);
         let hosts = crate::safety::DeclaredHosts::yon(&project.capability()).with_private(private);
         supervisor

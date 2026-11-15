@@ -6,6 +6,7 @@ mod frame_answer;
 mod fylo_lease;
 mod fylo_pipes;
 mod fylo_process;
+mod fylo_root;
 mod interruption;
 #[cfg(any(target_os = "linux", target_os = "macos", test))]
 mod mount_entry;
@@ -22,6 +23,7 @@ mod scroll_request;
 mod scroll_snapshot;
 mod scroll_snapshots;
 mod sql_statement;
+mod system_disk;
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -45,15 +47,17 @@ pub(super) use collection_name::CollectionName;
 use document_commands::DocumentCommands;
 use fylo_lease::FyloLease;
 use fylo_process::FyloProcess;
+use fylo_root::FyloRoot;
 use operation_deadline::OperationDeadline;
 use operation_timeout::OperationTimeout;
 use patch_queue::{PatchAnswer, PatchQueue};
 use queue_commands::QueueCommands;
 use scroll_snapshots::ScrollSnapshots;
 pub(super) use sql_statement::SqlStatement;
+use system_disk::SystemDisk;
 
 pub(super) struct FyloStore {
-    root: PathBuf,
+    root: FyloRoot,
     lease: FyloLease,
     operation_timeout: Duration,
     process: Mutex<Option<FyloProcess>>,
@@ -67,8 +71,12 @@ impl FyloStore {
     const MAX_SCAN: usize = 10_000;
 
     pub(super) async fn connect(settings: &Value) -> Result<Self, Failure> {
-        object_keys(settings, &["driver", "url", "lease", "timeout"])?;
+        object_keys(
+            settings,
+            &["driver", "url", "lease", "timeout", SystemDisk::KEY],
+        )?;
         let lease = FyloLease::from_settings(settings)?;
+        let system_disk = SystemDisk::from_settings(settings)?;
         let operation_timeout = OperationTimeout::from_settings(settings)?;
         let raw = text(settings, "url")?;
         let path = Self::root_path(raw)
@@ -82,6 +90,7 @@ impl FyloStore {
         if !root.is_dir() {
             return Err(failure("FYLO root must be a directory."));
         }
+        let root = FyloRoot::new(root, system_disk);
         let process = Self::first_process(lease, &root).await?;
         Ok(Self {
             root,
@@ -95,7 +104,21 @@ impl FyloStore {
         })
     }
 
-    async fn first_process(lease: FyloLease, root: &Path) -> Result<Option<FyloProcess>, Failure> {
+    pub(super) fn allow_system_disk(datasource: Option<&mut Map<String, Value>>, allowed: bool) {
+        let fylo = datasource.filter(|settings| settings.get("driver") == Some(&json!("fylo")));
+        Self::add_system_disk_setting(fylo, allowed);
+    }
+
+    fn add_system_disk_setting(fylo: Option<&mut Map<String, Value>>, allowed: bool) {
+        if let (Some(settings), true) = (fylo, allowed) {
+            settings.entry(SystemDisk::KEY).or_insert(Value::Bool(true));
+        }
+    }
+
+    async fn first_process(
+        lease: FyloLease,
+        root: &FyloRoot,
+    ) -> Result<Option<FyloProcess>, Failure> {
         match lease {
             FyloLease::Server => Ok(Some(FyloProcess::started(root).await?)),
             FyloLease::Call => {
@@ -726,6 +749,9 @@ impl FyloError {
             "EDOCEXISTS" => failure("A FYLO document with this id already exists (EDOCEXISTS)."),
             "EREMOTEROOT" => failure(
                 "FYLO refuses a root on a network file system (EREMOTEROOT); put the root on a local disk.",
+            ),
+            "ESYSTEMDISK" => failure(
+                "FYLO refuses a root on the system disk (ESYSTEMDISK); put the root on another local disk, or allow the system disk with \"allowsystemdisk\": true on the datasource in server/application.json or with FYLO_ALLOW_SYSTEM_DISK=1 in the environment of ty start.",
             ),
             code => Failure::one(crate::failure::diagnostic(
                 2160,

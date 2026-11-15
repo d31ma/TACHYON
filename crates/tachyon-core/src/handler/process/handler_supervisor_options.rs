@@ -14,6 +14,7 @@ pub struct HandlerSupervisorOptions {
     pub runtimes: HandlerRuntimePrograms,
     pub environment: EnvironmentPolicy,
     pub isolation: YonIsolationPolicy,
+    pub storage_may_use_system_disk: bool,
 }
 
 impl Default for HandlerSupervisorOptions {
@@ -27,6 +28,7 @@ impl Default for HandlerSupervisorOptions {
             runtimes: HandlerRuntimePrograms::default(),
             environment: EnvironmentPolicy::default(),
             isolation: YonIsolationPolicy::default(),
+            storage_may_use_system_disk: true,
         }
     }
 }

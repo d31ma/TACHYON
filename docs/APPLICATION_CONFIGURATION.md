@@ -31,13 +31,18 @@ configure. For connection settings and repository injection, see
 
 The `fylo` driver ([ADR 0032](adr/0032-fylo-datasource.md)) has special rules:
 
-- It takes only `driver`, `url`, `timeout` and `lease`. `timeout` is the
+- It takes only `driver`, `url`, `timeout`, `lease` and `allowsystemdisk`.
+  `timeout` is the
   store deadline in milliseconds, shared by the store calls of one handler
   answer (1000 to 60000, default 5000). `lease` is `"server"` (the default:
   one `fylo` process for the life of the server) or `"call"` (one `fylo`
   process per request, for serverless containers that share a root; not
   qualified, refused on a network file system). See
   [MANAGED_STORAGE](MANAGED_STORAGE.md#the-lease-setting).
+  `allowsystemdisk` (`true` or `false`, the default) lets `ty start` use a
+  root on the system disk, which FYLO otherwise refuses (`ESYSTEMDISK`);
+  `ty dev`, `ty preview` and the tests allow it on their own. See
+  [MANAGED_STORAGE](MANAGED_STORAGE.md#a-root-on-the-system-disk).
 - Its root directory must already exist, and the path must be written in
   canonical form.
 - It runs local `fylo` subprocesses. It does not connect to a database server.

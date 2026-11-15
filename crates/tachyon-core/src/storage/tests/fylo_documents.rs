@@ -46,6 +46,7 @@ fn fylo_request(root: &Path, request: &Value) -> Value {
     let output = std::process::Command::new("fylo")
         .args(["exec", "--request", &request.to_string(), "--root"])
         .arg(root)
+        .arg("--allow-system-disk")
         .output()
         .expect("fylo request");
     let answer: Value = serde_json::from_slice(&output.stdout).expect("fylo answer");

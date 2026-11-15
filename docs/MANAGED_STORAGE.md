@@ -79,12 +79,13 @@ Configuration rules:
 - The root directory must already exist.
 - The path must be spelled canonically. FYLO refuses a path that goes through a
   symlink or that uses different letter case.
-- FYLO accepts no credentials and no TLS keys. It has two other settings.
+- FYLO accepts no credentials and no TLS keys. It has three other settings.
   `timeout` is the store deadline in milliseconds, a whole number from 1000
   to 60000 (default 5000); the store calls of one handler answer share it,
   and the first page of a scroll keeps its 30 seconds. (Keys in
   `application.json` hold only lowercase letters and digits.) `lease` is
-  described in "The `lease` setting" below.
+  described in "The `lease` setting" below, and `allowsystemdisk` in "A root
+  on the system disk".
 
 How the server runs FYLO:
 
@@ -125,6 +126,38 @@ How the server runs FYLO:
   "datasource": {
     "driver": "fylo",
     "url": "fylo:///srv/catalog"
+  }
+}
+```
+
+### A root on the system disk
+
+FYLO refuses a root on the system disk (the disk that holds the operating
+system) when it runs as a server (FYLO ADR 0032). It also refuses a root on
+`tmpfs` on Linux. Tachyon answers that refusal by command (ADR 0130):
+
+- `ty dev`, `ty preview`, `ty serve`, `ty handler invoke` and Tachyon's own
+  tests allow the system disk on their own. Nothing to set.
+- `ty start` does not. Put the root on another local disk (a disk under
+  `/Volumes` on macOS, a mounted disk such as `/mnt/data` on Linux, a drive
+  other than the Windows drive), or allow the system disk in one of two ways:
+  - the datasource setting `"allowsystemdisk": true` in
+    `server/application.json`;
+  - `FYLO_ALLOW_SYSTEM_DISK=1` in the environment of `ty start`.
+- Without either, the first storage call fails with `TY2160` "FYLO refuses a
+  root on the system disk (ESYSTEMDISK); ..." and the message names both
+  ways.
+- The setting never admits a network file system root (`EREMOTEROOT`).
+- Native apps do not run FYLO today. A FYLO store inside a native app would
+  keep its root in the app's own data folder with FYLO's app-owned mode
+  (`--app-id`), not with this setting.
+
+```json
+{
+  "datasource": {
+    "driver": "fylo",
+    "url": "fylo:///Users/me/catalog",
+    "allowsystemdisk": true
   }
 }
 ```

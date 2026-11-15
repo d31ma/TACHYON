@@ -504,6 +504,45 @@ fn assert_pinned_actions(root: &Path, workflow: &Path, contents: &str) {
     }
 }
 
+fn variables_fylo_owns() -> [&'static str; 1] {
+    ["FYLO_ALLOW_SYSTEM_DISK"]
+}
+
+fn names_removed_namespace(line: &str, namespace: &str) -> bool {
+    line.match_indices(namespace)
+        .any(|(index, _)| !is_variable_fylo_owns(line, index))
+}
+
+fn is_variable_fylo_owns(line: &str, index: usize) -> bool {
+    let word_character = |character: char| character.is_ascii_alphanumeric() || character == '_';
+    let starts_a_word = !line[..index].ends_with(word_character);
+    let rest = &line[index..];
+    starts_a_word
+        && variables_fylo_owns().iter().any(|name| {
+            rest.strip_prefix(name)
+                .is_some_and(|after| !after.starts_with(word_character))
+        })
+}
+
+#[test]
+fn only_fylos_own_opt_out_variable_escapes_the_removed_namespace_adr_0130() {
+    let namespace = ["FY", "LO_"].concat();
+    let allowed = ["FY", "LO_ALLOW_SYSTEM_DISK"].concat();
+    assert!(!names_removed_namespace(
+        &format!("set {allowed}=1"),
+        &namespace
+    ));
+    let refused = [
+        ["FY", "LO_ROOT"].concat(),
+        format!("{allowed}S"),
+        format!("TAC_{allowed}"),
+        format!("{allowed} and {}", ["FY", "LO_ROOT"].concat()),
+    ];
+    for line in refused {
+        assert!(names_removed_namespace(&line, &namespace), "{line}");
+    }
+}
+
 #[test]
 fn project_environment_variables_use_domain_namespaces() -> Result<(), Box<dyn std::error::Error>> {
     let root = repository_root();
@@ -544,7 +583,7 @@ fn project_environment_variables_use_domain_namespaces() -> Result<(), Box<dyn s
                 .is_some_and(|value| value.contains(':'));
             if workflow_environment
                 || forbidden.iter().any(|pattern| line.contains(pattern))
-                || line.contains(&removed_data_namespace)
+                || names_removed_namespace(line, &removed_data_namespace)
                 || line.contains(&removed_packaging_name)
             {
                 violations.push(format!("{}:{}", file.display(), index + 1));

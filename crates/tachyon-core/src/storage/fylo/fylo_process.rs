@@ -1,4 +1,3 @@
-use std::path::Path;
 use std::process::Stdio;
 
 use serde_json::{Value, json};
@@ -6,6 +5,7 @@ use tokio::process::Child;
 
 use super::FyloError;
 use super::fylo_pipes::FyloPipes;
+use super::fylo_root::FyloRoot;
 use super::interruption::Interruption;
 use super::request_watch::RequestWatch;
 use crate::Failure;
@@ -18,10 +18,10 @@ pub(super) struct FyloProcess {
 }
 
 impl FyloProcess {
-    pub(super) fn spawn(root: &Path) -> Result<Self, FyloError> {
+    pub(super) fn spawn(root: &FyloRoot) -> Result<Self, FyloError> {
         let mut child = tokio::process::Command::new("fylo")
-            .args(["exec", "--loop", "--root"])
-            .arg(root)
+            .args(["exec", "--loop"])
+            .args(root.arguments())
             .args(["--max-request-bytes", "1048576", "--max-response-bytes", "8388608"])
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -48,7 +48,7 @@ impl FyloProcess {
         })
     }
 
-    pub(super) async fn started(root: &Path) -> Result<Self, Failure> {
+    pub(super) async fn started(root: &FyloRoot) -> Result<Self, Failure> {
         let mut process = Self::spawn(root).map_err(FyloError::into_failure)?;
         let identity = process
             .pipes

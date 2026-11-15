@@ -47,7 +47,7 @@ async function probeExecutable(executable) {
   await mkdir(probeRoot);
   try {
     const answer = JSON.parse(execFileSync(executable, [
-      'exec', '--request', '{"op":"createCollection","collection":"probe"}', '--root', probeRoot,
+      'exec', '--request', '{"op":"createCollection","collection":"probe"}', '--root', probeRoot, '--allow-system-disk',
     ], { encoding: 'utf8', timeout: 30_000, maxBuffer: 256 * 1024 }));
     if (answer.protocolVersion !== 1 || answer.op !== 'createCollection' || answer.ok !== true) {
       throw new Error('Pinned FYLO failed its machine-protocol capability probe');

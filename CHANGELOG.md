@@ -8,6 +8,20 @@ machine contracts have their own, independent major versions.
 
 ## [Unreleased]
 
+### Breaking
+
+- **`ty start` asks before a FYLO root uses the system disk** (ADR 0130).
+  FYLO now refuses a database root on the system disk when it runs as a
+  server (FYLO ADR 0032). `ty dev`, `ty preview`, `ty handler invoke` and the
+  tests allow it on their own, but `ty start` does not. A project that runs
+  `ty start` with its FYLO root on the system disk (a laptop, or a server
+  with one disk) now fails its first storage call with `TY2160` "FYLO refuses
+  a root on the system disk (ESYSTEMDISK)". Move the root to another local
+  disk, or allow the system disk in one of two ways:
+  - set `"allowsystemdisk": true` on the datasource:
+    `{"datasource": {"driver": "fylo", "url": "fylo:///Users/me/catalog", "allowsystemdisk": true}}`
+  - or start the server with the variable: `FYLO_ALLOW_SYSTEM_DISK=1 ty start`.
+
 ### Added
 
 - **A FYLO datasource can lease the root per call** (ADR 0129; not

@@ -69,7 +69,7 @@ async function buildCli() {
 }
 
 function fyloExec(fyloRoot, request) {
-  const answer = JSON.parse(command('fylo', ['exec', '--request', JSON.stringify(request), '--root', fyloRoot], { timeout: 30_000 }))
+  const answer = JSON.parse(command('fylo', ['exec', '--request', JSON.stringify(request), '--root', fyloRoot, '--allow-system-disk'], { timeout: 30_000 }))
   if (answer.protocolVersion !== 1 || answer.ok !== true) throw new Error(`fylo ${request.op} failed: ${JSON.stringify(answer.error ?? answer)}`)
   return answer.result
 }

@@ -142,3 +142,4 @@ design. Decide routine implementation choices in code review, not in an ADR.
 - [127. Yon Handlers Write Logs on Every Answer](0127-yon-handlers-write-logs-on-every-answer.md)
 - [128. A Busy FYLO Root Waits, and Store Failures Are Logged](0128-a-busy-fylo-root-waits-and-store-failures-are-logged.md)
 - [129. A FYLO Datasource Can Lease the Root per Call](0129-a-fylo-datasource-can-lease-the-root-per-call.md)
+- [130. A Production Server Asks Before a FYLO Root Uses the System Disk](0130-a-production-server-asks-before-a-fylo-root-uses-the-system-disk.md)

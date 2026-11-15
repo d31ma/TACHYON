@@ -252,6 +252,7 @@ class EventsController:
         let mut holder = Command::new("fylo")
             .args(["exec", "--loop", "--root"])
             .arg(self.root())
+            .arg("--allow-system-disk")
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::null())

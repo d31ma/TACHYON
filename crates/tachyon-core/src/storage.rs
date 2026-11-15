@@ -63,6 +63,14 @@ impl ManagedStorage {
         "id",
     ];
 
+    pub(crate) fn with_system_disk(mut configuration: Value, allowed: bool) -> Value {
+        let datasource = configuration
+            .pointer_mut("/yon/datasource")
+            .and_then(Value::as_object_mut);
+        FyloStore::allow_system_disk(datasource, allowed);
+        configuration
+    }
+
     pub(crate) async fn connect(configuration: &Value) -> Result<Self, Failure> {
         Self::connect_with_deadline_factor(configuration, 1).await
     }

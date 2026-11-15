@@ -404,7 +404,8 @@ async fn fylo_store_with_lease(
     lease: &str,
     deadline_factor: u32,
 ) -> Result<ManagedStorage, crate::Failure> {
-    let datasource = json!({"driver":"fylo","url":fylo_url(root),"lease":lease});
+    let datasource =
+        json!({"driver":"fylo","url":fylo_url(root),"lease":lease,"allowsystemdisk":true});
     let configuration = json!({"yon":{"datasource":datasource}});
     ManagedStorage::connect_with_deadline_factor(&configuration, deadline_factor).await
 }
@@ -425,6 +426,7 @@ fn create_fylo_products_collection(root: &std::path::Path) {
             "--root",
         ])
         .arg(root)
+        .arg("--allow-system-disk")
         .output()
         .expect("create collection");
     assert!(
@@ -560,3 +562,4 @@ mod fylo_documents;
 mod fylo_frozen_disk;
 mod fylo_root_lock;
 mod fylo_sql;
+mod fylo_system_disk;
