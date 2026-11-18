@@ -11,7 +11,7 @@ on:
         required: true
         type: string
       target:
-        description: after-staging waits for kestrel's Floci staging check; production deploys at once (rollback)
+        description: after-staging waits for kestrel's K3s staging check; production deploys at once (rollback)
         required: true
         type: choice
         default: after-staging
@@ -155,7 +155,7 @@ jobs:
       - name: Verify the zip is the released one
         run: bun scripts/site-deploy.mjs verify "site/$SITE_ASSET_PREFIX-$VERSION.zip" "$SHA256"
 
-      - name: Wait for the same zip to pass staging on Floci
+      - name: Wait for the same zip to pass staging on K3s
         if: needs.resolve.outputs.target == 'after-staging'
         env:
           GITHUB_TOKEN: ${{ github.token }}

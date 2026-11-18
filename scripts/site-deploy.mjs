@@ -25,10 +25,10 @@ export class SiteDeploy {
     static JOB_WAIT_SECONDS = 15
     static VERSION_ATTEMPTS = 12
     static VERSION_WAIT_SECONDS = 15
-    static STAGING_CONTEXT = 'site-staging/floci'
+    static STAGING_CONTEXT = 'site-staging/k3s'
     static STAGING_PASSED = 'success'
     static STAGING_FAILED = ['failure', 'error']
-    static STAGING_MISSING = { context: 'site-staging/floci', state: 'missing', description: '' }
+    static STAGING_MISSING = { context: 'site-staging/k3s', state: 'missing', description: '' }
     static STAGING_ATTEMPTS = 40
     static STAGING_WAIT_SECONDS = 30
     static SHA256_PREFIX_LENGTH = 12
@@ -176,7 +176,7 @@ export class SiteDeploy {
 
     /** @param {CommitStatus} status */
     #requireStagingNotFailed(status) {
-        if (SiteDeploy.STAGING_FAILED.includes(status.state)) throw new Error(`Staging on Floci reported ${status.state}: ${status.description}`)
+        if (SiteDeploy.STAGING_FAILED.includes(status.state)) throw new Error(`Staging on K3s reported ${status.state}: ${status.description}`)
     }
 
     /**

@@ -117,9 +117,9 @@ recordings to `develop`, replacing the contents of `website/runs/`. A
 recording whose example files changed since it was recorded is left out of the
 site (see "Recorded runs" in `website/README.md`).
 
-Staging (`staging.tachyon.del.ma`) is hosted on Floci on kestrel and is reachable
+Staging (`staging.tachyon.del.ma`) is hosted in the K3s pilot on kestrel and is reachable
 only on the tailnet and the CITADEL LAN. kestrel's pull deployer deploys the
-release's zip there, probes it, and sets the commit status `site-staging/floci`
+release's zip there, probes it, and sets the commit status `site-staging/k3s`
 on the release commit, with the description
 `<version> <first 12 hex of the zip SHA-256>`.
 

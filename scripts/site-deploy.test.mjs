@@ -57,7 +57,7 @@ function fakeTools(responses = {}) {
     }
 }
 
-function status(state, description, context = 'site-staging/floci') {
+function status(state, description, context = 'site-staging/k3s') {
     return { context, state, description }
 }
 
@@ -137,11 +137,16 @@ describe('SiteDeploy.waitForStaging', () => {
         assert.equal(new SiteDeploy(fakeTools().tools).stagingDescription('26.46.01', SHA256), '26.46.01 99682b0a0ca3')
     })
 
-    test('passes on the newest site-staging/floci success for this zip', async () => {
+    test('passes on the newest site-staging/k3s success for this zip', async () => {
         const fake = fakeTools({ statusRounds: [[status('success', '26.46.01 99682b0a0ca3'), status('pending', '26.46.01 99682b0a0ca3')]] })
         await new SiteDeploy(fake.tools).waitForStaging(GATE)
-        assert.equal(fake.logs.at(-1), 'site-staging/floci passed on abc123: 26.46.01 99682b0a0ca3')
+        assert.equal(fake.logs.at(-1), 'site-staging/k3s passed on abc123: 26.46.01 99682b0a0ca3')
         assert.deepEqual(fake.sleeps, [])
+    })
+
+    test('ignores the retired site-staging/floci status', async () => {
+        const fake = fakeTools({ statusRounds: Array(SiteDeploy.STAGING_ATTEMPTS).fill([status('success', '26.46.01 99682b0a0ca3', 'site-staging/floci')]) })
+        await assert.rejects(new SiteDeploy(fake.tools).waitForStaging(GATE), /No\ site\-staging\/k3s\ success/)
     })
 
     test('reads the statuses with the workflow token', async () => {
@@ -167,7 +172,7 @@ describe('SiteDeploy.waitForStaging', () => {
 
     test('stops at once when staging reports a failure', async () => {
         const fake = fakeTools({ statusRounds: [[status('failure', '26.46.01 99682b0a0ca3')]] })
-        await assert.rejects(new SiteDeploy(fake.tools).waitForStaging(GATE), /Staging\ on\ Floci\ reported\ failure/)
+        await assert.rejects(new SiteDeploy(fake.tools).waitForStaging(GATE), /Staging\ on\ K3s\ reported\ failure/)
         assert.deepEqual(fake.sleeps, [])
     })
 
@@ -178,7 +183,7 @@ describe('SiteDeploy.waitForStaging', () => {
 
     test('fails closed after 20 minutes without a matching success', async () => {
         const fake = fakeTools({ statusRounds: Array(SiteDeploy.STAGING_ATTEMPTS).fill([status('pending', '26.46.01 99682b0a0ca3')]) })
-        await assert.rejects(new SiteDeploy(fake.tools).waitForStaging(GATE), /No\ site\-staging\/floci\ success\ "26\.46\.01\ 99682b0a0ca3"\ on\ abc123\ in\ time/)
+        await assert.rejects(new SiteDeploy(fake.tools).waitForStaging(GATE), /No\ site\-staging\/k3s\ success\ "26\.46\.01\ 99682b0a0ca3"\ on\ abc123\ in\ time/)
         assert.equal(fake.sleeps.reduce((total, seconds) => total + seconds, 0), 1200)
     })
 
