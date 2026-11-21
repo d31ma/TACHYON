@@ -104,6 +104,7 @@ impl NativeRustCrateTests {
             .to_path_buf()
     }
 
+    #[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
     fn run_helper(helper: &Path, target: NativeTarget) {
         let output = std::process::Command::new(helper)
             .output()
