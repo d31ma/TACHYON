@@ -5,7 +5,8 @@ class TacPeers {
   static mostConnections = 32
   static mostChannels = 16
   static mostMessageBytes = 32768
-  static mostTextBytes = 65536
+  static mostDescriptionBytes = 262144
+  static mostCandidateBytes = 65536
   static mostLabelLength = 64
   static mostWaitingBytes = 1048576
   static readyBytes = 262144
@@ -20,11 +21,13 @@ class TacPeers {
     OperationError: 'invalid',
     SyntaxError: 'invalid',
     TypeError: 'invalid',
+    TacDescriptionTooLarge: 'tooLarge',
   })
   static messages = Object.freeze({
     invalid: 'The description, candidate or message is not valid for this connection.',
     tooLarge: 'A message from the other side is larger than 32768 bytes; the channel was closed.',
     failed: 'The peer connection call failed.',
+    TacDescriptionTooLarge: 'This connection made a description larger than 262144 bytes; offer fewer tracks on one connection.',
   })
   static connections = new Map()
   static openedHooks = []
@@ -162,7 +165,7 @@ class TacPeers {
 
   static answer(connection, sdp) {
     const entry = TacPeers.entry(connection)
-    const offer = { type: 'offer', sdp: TacPeers.text(sdp) }
+    const offer = { type: 'offer', sdp: TacPeers.descriptionText(sdp) }
     TacPeers.describe(entry, 'answer', () => entry.peer.setRemoteDescription(offer).then(() => entry.peer.createAnswer()))
     return null
   }
@@ -173,19 +176,24 @@ class TacPeers {
 
   static description(entry) {
     const local = entry.peer.localDescription
-    return ['PeerDescription', { connection: entry.id, kind: local.type, sdp: local.sdp }]
+    return ['PeerDescription', { connection: entry.id, kind: local.type, sdp: TacPeers.localText(local.sdp) }]
+  }
+
+  static localText(sdp) {
+    if (new TextEncoder().encode(sdp).length <= TacPeers.mostDescriptionBytes) return sdp
+    throw Object.assign(new Error('description too large'), { name: 'TacDescriptionTooLarge' })
   }
 
   static accept(connection, sdp) {
     const entry = TacPeers.entry(connection)
-    const answer = { type: 'answer', sdp: TacPeers.text(sdp) }
+    const answer = { type: 'answer', sdp: TacPeers.descriptionText(sdp) }
     TacPeers.later(entry, 'accept', entry.peer.setRemoteDescription(answer).then(() => null))
     return null
   }
 
   static addCandidate(connection, candidate) {
     const entry = TacPeers.entry(connection)
-    const text = TacPeers.text(candidate)
+    const text = TacPeers.candidateText(candidate)
     TacPeers.later(entry, 'addCandidate', Promise.resolve().then(() => entry.peer.addIceCandidate(TacPeers.candidate(text))).then(() => null))
     return null
   }
@@ -197,9 +205,17 @@ class TacPeers {
     return parsed
   }
 
-  static text(value) {
+  static descriptionText(value) {
+    return TacPeers.limited(value, TacPeers.mostDescriptionBytes, `A description is at most ${TacPeers.mostDescriptionBytes} bytes; offer fewer tracks on one connection.`)
+  }
+
+  static candidateText(value) {
+    return TacPeers.limited(value, TacPeers.mostCandidateBytes, `A candidate is at most ${TacPeers.mostCandidateBytes} bytes.`)
+  }
+
+  static limited(value, most, message) {
     const text = String(value ?? '')
-    if (new TextEncoder().encode(text).length > TacPeers.mostTextBytes) throw new Error(`A description or candidate is at most ${TacPeers.mostTextBytes} bytes.`)
+    if (new TextEncoder().encode(text).length > most) throw new Error(message)
     return text
   }
 
@@ -217,11 +233,11 @@ class TacPeers {
 
   static failed(entry, call, error) {
     const name = String(error?.name ?? '')
-    TacPeers.failure(entry, call, TacPeers.reasons[name] ?? 'failed')
+    TacPeers.failure(entry, call, TacPeers.reasons[name] ?? 'failed', TacPeers.messages[name])
   }
 
-  static failure(entry, call, reason) {
-    TacPeers.emit(entry, ['PeerFailed', { connection: entry.id, call, reason, message: TacPeers.messages[reason] }])
+  static failure(entry, call, reason, message = TacPeers.messages[reason]) {
+    TacPeers.emit(entry, ['PeerFailed', { connection: entry.id, call, reason, message }])
   }
 
   static openChannel(connection, label, ordered) {
