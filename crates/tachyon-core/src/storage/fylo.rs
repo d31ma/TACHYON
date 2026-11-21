@@ -63,6 +63,7 @@ pub(super) struct FyloStore {
 impl FyloStore {
     const MAX_SCAN: usize = 10_000;
     const PROTOCOLS_WITH_V1_OPERATIONS: [u64; 2] = [1, 2];
+    const MIN_SEND_TIME: Duration = Duration::from_millis(100);
 
     pub(super) async fn connect(settings: &Value) -> Result<Self, Failure> {
         object_keys(settings, &["driver", "url", "timeout"])?;
@@ -175,7 +176,7 @@ impl FyloStore {
         self.closed.store(true, Ordering::Release);
         let closed = std::time::Instant::now();
         self.live_input.close();
-        let slot = tokio::time::timeout(FyloProcess::EXIT_GRACE, self.process.lock()).await;
+        let slot = tokio::time::timeout(FyloProcess::SHUTDOWN_GRACE, self.process.lock()).await;
         let process = slot.ok().and_then(|mut slot| slot.take());
         OptionFuture::from(process.map(|process| process.close(closed))).await;
     }
@@ -191,7 +192,7 @@ impl FyloStore {
 
     fn interrupted_failure(operation: &str) -> Failure {
         let message = format!(
-            "Managed storage operation deadline exceeded during FYLO {operation}; writes may have committed. Tachyon stops that FYLO process, and the next call waits until it has exited."
+            "Managed storage operation deadline exceeded during FYLO {operation}; the store-time budget is spent and writes may have committed. Tachyon stops that FYLO process, and the next call waits until it has exited."
         );
         Failure::one(diagnostic(2160, message, None, None))
     }
@@ -471,6 +472,16 @@ impl FyloStore {
         self.send_each(process, requests).await
     }
 
+    fn refuse_without_time(startup: bool) -> Result<(), FyloError> {
+        let left = StoreCall::time_left(startup).unwrap_or(Duration::MAX);
+        if left < Self::MIN_SEND_TIME {
+            return Err(FyloError {
+                code: String::from("ENOTSENT"),
+            });
+        }
+        Ok(())
+    }
+
     fn refuse_when_closed(&self) -> Result<(), FyloError> {
         if self.closed.load(Ordering::Acquire) {
             return Err(FyloError::protocol("FYLO datasource is closed."));
@@ -488,6 +499,7 @@ impl FyloStore {
             fields["op"] = json!(operation);
             let target = StartupRequests::target_of(&fields);
             let startup = self.first_requests.is_first(&target);
+            Self::refuse_without_time(startup)?;
             self.busy.mark(operation);
             let answer = process.request(operation, &fields, startup).await;
             self.busy.clear();
@@ -501,7 +513,7 @@ impl FyloStore {
         &self,
         slot: &'slot mut Option<FyloProcess>,
     ) -> Result<&'slot mut FyloProcess, FyloError> {
-        StoreCall::waiting(Self::stop_interrupted(slot)).await;
+        Self::stop_interrupted(slot).await;
         self.busy.clear();
         self.spawn_when_empty(slot)?;
         let process = slot
@@ -523,7 +535,7 @@ impl FyloStore {
         let Some(process) = slot.as_mut().filter(|process| process.must_stop()) else {
             return;
         };
-        process.wait_for_exit().await;
+        StoreCall::startup(process.wait_for_exit()).await;
         *slot = None;
     }
 }
@@ -729,6 +741,9 @@ impl FyloError {
             "EPROTOCOL" => {
                 failure("FYLO subprocess failed; the datasource reconnects on the next call.")
             }
+            "ENOTSENT" => failure(
+                "Managed storage operation deadline exceeded before the FYLO request was sent; the store-time budget is spent and nothing was written.",
+            ),
             code => Failure::one(crate::failure::diagnostic(
                 2160,
                 format!("FYLO operation failed ({code})."),

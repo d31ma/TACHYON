@@ -287,8 +287,17 @@ waited for the FYLO process or worked.
    input was closed (FYLO 26.45.07 handles no signals, so TERM would be a
    kill too). The `storage.fylo_process_stopped` line gains
    `"stop":"closed"` or `"stop":"killed"`; `exit_ms` now counts from
-   closing the input.
-12. **Stop FYLO gently when `ty` stops.** Floci stops an old Lambda
+   closing the input to the moment Tachyon saw the exit (the next store call
+   or the stop of `ty`), and a new field `wait_ms` says how long that wait
+   took. Mesail saw `exit_ms` 38240 with `stop` `closed`: FYLO had exited
+   long before, and the next call came 38 seconds later. A new FYLO process
+   is still never started before the old one has exited (amendment 1). The
+   next call's wait for that exit (the grace, a kill, and a disk read the
+   kill must wait for, which can take seconds on a busy disk) counts as
+   start-up time under decision 9: it shows in `wait_ms` and `startup_ms`
+   and may use the start-up allowance, so the caller fails with `TY2160` at
+   the cap instead of waiting forever.
+11. **Stop FYLO gently when `ty` stops.** Floci stops an old Lambda
    container with `docker stop --time 10`: SIGTERM to `ty`, then SIGKILL to
    everything 10 seconds later, which could cut a FYLO write in half. `ty`
    already turns SIGTERM and SIGINT (Ctrl-C and Ctrl-Break on Windows) into
@@ -296,11 +305,17 @@ waited for the FYLO process or worked.
    default 10), then the supervisor closes its resources within 3 seconds.
    No second signal handler is added. Closing the FYLO datasource now closes
    the input of the live FYLO process at once, also while a store call holds
-   the process, then waits for that call at most 1 second, waits for the
-   exit only for what is left of that second, kills the process if it is
+   the process, then waits for that call at most 2 seconds, waits for the
+   exit only for what is left of those 2 seconds, kills the process if it is
    still running, and writes `storage.fylo_process_stopped` with
-   `"operation":"shutdown"`. So the whole FYLO stop takes about 1 second at
-   most, also when FYLO is stuck. When the platform's kill comes sooner than
+   `"operation":"shutdown"`. So the whole FYLO stop takes about 2 seconds at
+   most, also when FYLO is stuck, inside the 3 seconds of the resource close.
+   (Mesail saw an idle FYLO need more than 1 second to exit under heavy disk
+   load, so the stop of `ty` waits 2 seconds; after a store-call deadline
+   the wait stays 1 second, because a call is waiting.) On Linux, a
+   `killed` line also has `state`, FYLO's process state from
+   `/proc/<pid>/stat` at the kill (`D` is a disk wait, where even a kill
+   waits for the disk); elsewhere it is null. When the platform's kill comes sooner than
    the request drain plus this step, `TAC_SHUTDOWN_GRACE_SECONDS` must be set
    lower. On Windows, a console close, logoff or shutdown event starts the
    same stop as Ctrl-C and Ctrl-Break (tokio keeps the handler running, so
@@ -310,7 +325,7 @@ waited for the FYLO process or worked.
    console processes without window libraries; and a hard end
    (`TerminateProcess`, `taskkill /F`, SIGKILL) reaches no handler. FYLO
    then sees its input close when `ty` ends and still finishes its request.
-13. **Keep the end of FYLO's error output.** FYLO's standard error was
+12. **Keep the end of FYLO's error output.** FYLO's standard error was
    thrown away, so a FYLO crash left no reason. Tachyon now reads it on its
    own task, so FYLO never waits, and keeps only the last 20 lines or 4 KiB,
    whichever is smaller, each line cut at 512 bytes. Only when a process ends
@@ -321,7 +336,17 @@ waited for the FYLO process or worked.
    replaced with `<root>`, and the text never reaches a handler answer or
    `handler.storage_failed`. Process IDs in it stay: they help an operator
    match the lines with the system's own logs and name no data.
-11. **Log slow store calls.** When a storage command of a Yon handler takes
+13. **Send a request only when it can be answered.** A request dropped by
+   the deadline stops FYLO, because its late answer could be read as the
+   answer of the next request. Mesail's handler spent its store deadline on
+   outbound HTTP; its next store call still had a few milliseconds left, so
+   it was sent, dropped at once, and FYLO was stopped for nothing. Now a FYLO
+   request is sent only when at least 100 ms of the deadline is left (for a
+   start-up request, the start-up allowance counts too). Otherwise the call
+   fails at once with `TY2160` "Managed storage operation deadline exceeded
+   before the FYLO request was sent; nothing was written." and FYLO keeps
+   running.
+14. **Log slow store calls.** When a storage command of a Yon handler takes
    `datasource.slowcall` milliseconds or more (1 to 60000, default 1000),
    the supervisor writes one `handler.storage_slow` line to the standard
    error of `ty`, with `request_id`, `datasource` (the driver, or `redis`),
@@ -338,6 +363,21 @@ waited for the FYLO process or worked.
    debugging. The line never holds stored data, SQL text, Redis keys or the
    token. The two keys apply to every driver and are removed before the
    driver reads its settings.
+15. **A store-time budget per answer, not a wall-clock deadline.** Decision 6
+   (amendment 2) started one deadline at the answer's first store call, so
+   time spent outside store calls used it up: Mesail's directory spent about
+   5 seconds on outbound HTTP between two store calls, and its next store
+   calls failed with no store work at all. Now each handler answer has a
+   store-time budget of `timeout`: only the time while at least one store
+   call of the answer runs counts, waits included, and calls that run at the
+   same time count once (the union of their time spans, not the sum). Time
+   outside store calls, such as outbound HTTP, does not count. A call that
+   stalls still uses up the budget, and every later store call of the answer
+   then fails at once, so amendment 2's goal holds: one stall fails the
+   answer after about one `timeout`. Start-up time given back by decision 9
+   adds to the budget. The `TY2160` deadline messages say "the store-time
+   budget is spent". Deadlines only get longer in practice, so this is not a
+   breaking change.
 
 ### Consequences
 

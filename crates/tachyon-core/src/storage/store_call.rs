@@ -13,6 +13,7 @@ pub(crate) struct StoreCall {
     waited: Mutex<Duration>,
     waiting_since: Mutex<Option<Instant>>,
     started_up: Mutex<Duration>,
+    startup_since: Mutex<Option<Instant>>,
     extended: Mutex<Duration>,
     activity: Arc<StartupActivity>,
     startup_open: Mutex<bool>,
@@ -32,6 +33,7 @@ impl StoreCall {
             waited: Mutex::new(Duration::ZERO),
             waiting_since: Mutex::new(None),
             started_up: Mutex::new(Duration::ZERO),
+            startup_since: Mutex::new(None),
             extended: Mutex::new(Duration::ZERO),
             activity,
             startup_open: Mutex::new(false),
@@ -47,15 +49,32 @@ impl StoreCall {
     }
 
     pub(crate) fn waited(&self) -> Duration {
-        *Self::locked(&self.waited)
+        *Self::locked(&self.waited) + Self::open_part(&self.waiting_since)
     }
 
     pub(crate) fn started_up(&self) -> Duration {
-        *Self::locked(&self.started_up)
+        *Self::locked(&self.started_up) + Self::open_part(&self.startup_since)
+    }
+
+    fn open_part(since: &Mutex<Option<Instant>>) -> Duration {
+        Self::locked(since).map_or(Duration::ZERO, |since| since.elapsed())
     }
 
     pub(crate) fn extended(&self) -> Duration {
         *Self::locked(&self.extended)
+    }
+
+    pub(crate) fn time_left(startup: bool) -> Option<Duration> {
+        Self::with_current(|call| call.room(startup))
+    }
+
+    fn room(&self, startup: bool) -> Duration {
+        let left = self
+            .deadline
+            .borrow()
+            .saturating_duration_since(Instant::now());
+        let allowance = [Duration::ZERO, *Self::locked(&self.startup_left)];
+        left + allowance[usize::from(startup)]
     }
 
     pub(super) async fn waiting<Work: Future>(work: Work) -> Work::Output {
@@ -166,6 +185,7 @@ impl StoreCall {
         self.begin_wait();
         self.activity.begin();
         *Self::locked(&self.startup_open) = true;
+        *Self::locked(&self.startup_since) = Some(Instant::now());
         let before = *self.deadline.borrow();
         let allowance = *Self::locked(&self.startup_left);
         self.deadline.send_replace(before + allowance);
@@ -175,6 +195,7 @@ impl StoreCall {
     fn close_startup(&self, before: Instant, took: Duration) {
         let extra = self.spend_allowance(took);
         self.deadline.send_replace(before + extra);
+        *Self::locked(&self.startup_since) = None;
         *Self::locked(&self.started_up) += took;
         *Self::locked(&self.extended) += extra;
         self.end_wait();
@@ -386,6 +407,36 @@ mod tests {
         let answer = call.run(StoreCall::startup(pause(1_000))).await;
         assert_eq!(answer, None);
         assert!(!activity.is_running());
+    }
+
+    #[tokio::test]
+    async fn the_time_left_counts_the_allowance_only_for_a_startup_request() {
+        let call = call(300, 1_000);
+        let rooms = call
+            .run(async { (StoreCall::time_left(false), StoreCall::time_left(true)) })
+            .await
+            .unwrap_or_default();
+        assert!(
+            rooms
+                .0
+                .is_some_and(|left| left <= Duration::from_millis(300))
+        );
+        assert!(rooms.1.is_some_and(|left| left > Duration::from_secs(1)));
+        assert_eq!(StoreCall::time_left(false), None);
+    }
+
+    #[tokio::test]
+    async fn a_call_that_is_dropped_still_shows_its_open_wait_and_startup() {
+        let call = call(5_000, 10_000);
+        let measured = Arc::clone(&call);
+        let dropped = tokio::time::timeout(
+            Duration::from_millis(150),
+            measured.run(StoreCall::startup(pause(2_000))),
+        )
+        .await;
+        assert!(dropped.is_err());
+        assert!(call.waited() >= Duration::from_millis(150));
+        assert!(call.started_up() >= Duration::from_millis(150));
     }
 
     #[tokio::test]

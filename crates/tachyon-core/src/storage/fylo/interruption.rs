@@ -8,6 +8,7 @@ pub(super) struct Interruption {
     operation: String,
     stopping: Option<Instant>,
     killed: bool,
+    state: Option<String>,
 }
 
 impl Interruption {
@@ -19,6 +20,7 @@ impl Interruption {
             operation: operation.to_owned(),
             stopping: None,
             killed: false,
+            state: None,
         }
     }
 
@@ -33,12 +35,13 @@ impl Interruption {
         self.stopping = Some(earliest);
     }
 
-    pub(super) fn mark_killed(&mut self) {
+    pub(super) fn mark_killed(&mut self, state: Option<String>) {
         self.killed = true;
+        self.state = state;
     }
 
-    pub(super) fn report_stopped(&self) {
-        eprintln!("{}", SortedJson::text(&self.stopped_event()));
+    pub(super) fn report_stopped(&self, waited: Duration) {
+        eprintln!("{}", SortedJson::text(&self.stopped_event(waited)));
     }
 
     pub(super) fn operation(&self) -> &str {
@@ -54,12 +57,14 @@ impl Interruption {
         Self::STOP_PATHS[usize::from(self.killed)]
     }
 
-    fn stopped_event(&self) -> Value {
+    fn stopped_event(&self, waited: Duration) -> Value {
         json!({
             "event": Self::STOPPED_EVENT,
             "operation": self.operation,
             "exit_ms": self.time_since_stop().as_millis(),
             "stop": self.stop_path(),
+            "wait_ms": waited.as_millis(),
+            "state": self.state,
         })
     }
 }
@@ -77,7 +82,8 @@ mod tests {
         let mut interruption = Interruption::new("putData");
         interruption.mark_stopping();
         std::thread::sleep(Duration::from_millis(20));
-        let event = interruption.stopped_event();
+        let event = interruption.stopped_event(Duration::from_millis(7));
+        assert_eq!(event["wait_ms"], json!(7));
         assert_eq!(event["event"], json!("storage.fylo_process_stopped"));
         assert_eq!(event["operation"], json!("putData"));
         assert_eq!(event["stop"], json!("closed"));
@@ -91,8 +97,10 @@ mod tests {
     fn a_process_that_had_to_be_killed_says_so() {
         let mut interruption = Interruption::new("putData");
         interruption.mark_stopping();
-        interruption.mark_killed();
-        assert_eq!(interruption.stopped_event()["stop"], json!("killed"));
+        interruption.mark_killed(Some(String::from("D")));
+        let event = interruption.stopped_event(Duration::ZERO);
+        assert_eq!(event["stop"], json!("killed"));
+        assert_eq!(event["state"], json!("D"));
     }
 
     #[test]

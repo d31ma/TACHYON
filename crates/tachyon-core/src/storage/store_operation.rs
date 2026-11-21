@@ -1,4 +1,4 @@
-use serde_json::Value;
+use serde_json::{Value, json};
 
 pub(crate) struct StoreOperation;
 
@@ -46,6 +46,17 @@ impl StoreOperation {
     ];
     const REPOSITORY_OPERATIONS: [&'static str; 4] = ["save", "delete", "find", "query"];
     const MAX_NAME_LENGTH: usize = 64;
+
+    pub(crate) fn summary(command: &Value) -> Value {
+        json!({
+            "operation": command["operation"],
+            "command": command["command"],
+            "mode": command["mode"],
+            "action": command["action"],
+            "table": command["table"],
+            "query": {"kind": command.pointer("/query/kind")},
+        })
+    }
 
     pub(crate) fn kind(command: &Value) -> &'static str {
         let named = Self::full_name(command);
@@ -164,6 +175,20 @@ mod tests {
         ] {
             assert_eq!(StoreOperation::collection(&command), None, "{command}");
         }
+    }
+
+    #[test]
+    fn a_summary_keeps_the_name_and_table_but_no_data() {
+        let save =
+            json!({"operation": "save", "table": "people", "value": {"email": "a@example.com"}});
+        let summary = StoreOperation::summary(&save);
+        assert_eq!(StoreOperation::kind(&summary), "save");
+        assert_eq!(StoreOperation::collection(&summary), Some("people"));
+        assert!(!summary.to_string().contains("example.com"));
+        let find = json!({"operation": "query", "query": {"kind": "find", "where": [{"field": "email", "value": "a@example.com"}]}});
+        let summary = StoreOperation::summary(&find);
+        assert_eq!(StoreOperation::kind(&summary), "query.find");
+        assert!(!summary.to_string().contains("example.com"));
     }
 
     #[test]

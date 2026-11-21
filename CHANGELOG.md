@@ -519,8 +519,12 @@ machine contracts have their own, independent major versions.
   1 second. `storage.fylo_process_stopped` gains `stop` (`closed` or
   `killed`). When `ty` stops (SIGTERM, SIGINT, Ctrl-C), it closes FYLO the
   same way after the request drain, even while a store call runs, and waits
-  about 1 second in all, so a container stop no longer cuts a FYLO write in
-  half. On Windows, a console close, logoff or shutdown event now starts the
+  about 2 seconds in all, so a container stop no longer cuts a FYLO write in
+  half. On Linux a `killed` line names FYLO's process state (`state`), and
+  every line has `wait_ms`. A FYLO request is no longer sent with less than
+  100 ms of the deadline left; such a call fails with `TY2160` "... before
+  the FYLO request was sent; ... nothing was written." and FYLO keeps
+  running. On Windows, a console close, logoff or shutdown event now starts the
   same graceful stop as Ctrl-C.
 - **FYLO's error output is no longer lost** (ADR 0128, amendment 4). The last
   20 lines (at most 4 KiB) of a FYLO process's standard error are written as
@@ -692,6 +696,13 @@ machine contracts have their own, independent major versions.
   guard's error, so the route answered that method's status instead of 422.
   Now the 422 follows, and a `CheckRejected` method can shape it. A method
   that names the guard's own error type still takes it.
+- **The store deadline of a handler answer is now a store-time budget**
+  (ADR 0128, amendment 3). Only the time while at least one store call of
+  the answer runs counts against `timeout`; time outside store calls, such
+  as outbound HTTP, no longer uses it up. A stalled call still fails the
+  whole answer after about one `timeout`. Deadlines only get longer in
+  practice, so this is not a breaking change. The `TY2160` deadline messages
+  now say "the store-time budget is spent".
 
 - Go services may use the plain error check `if err != nil { return ..., err }`
   (or a `%w` wrap with `fmt.Errorf`) in a public method without `TY1314`, as

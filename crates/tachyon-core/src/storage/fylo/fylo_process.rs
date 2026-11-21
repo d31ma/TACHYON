@@ -23,6 +23,7 @@ pub(super) struct FyloProcess {
 
 impl FyloProcess {
     pub(super) const EXIT_GRACE: Duration = Duration::from_secs(1);
+    pub(super) const SHUTDOWN_GRACE: Duration = Duration::from_secs(2);
     const SHUTDOWN: &'static str = "shutdown";
     const UNKNOWN_OPERATION: &'static str = "unknown";
 
@@ -85,7 +86,7 @@ impl FyloProcess {
         self.interruption
             .get_or_insert_with(|| Interruption::new(Self::SHUTDOWN))
             .mark_stopping_at(closed);
-        self.wait_for_exit().await;
+        self.stop_within(Self::SHUTDOWN_GRACE).await;
     }
 
     pub(super) fn must_stop(&self) -> bool {
@@ -93,13 +94,19 @@ impl FyloProcess {
     }
 
     pub(super) async fn wait_for_exit(&mut self) {
+        self.stop_within(Self::EXIT_GRACE).await;
+    }
+
+    async fn stop_within(&mut self, grace: Duration) {
+        let started = Instant::now();
         self.pipes.input().close();
-        let status = self.exit_within(self.grace_left()).await;
+        let status = self.exit_within(self.grace_left(grace)).await;
         let ended_well = status.is_some_and(|status| status.success());
         self.kill_unless(status.is_some()).await;
+        let waited = started.elapsed();
         self.interruption
             .iter()
-            .for_each(Interruption::report_stopped);
+            .for_each(|interruption| interruption.report_stopped(waited));
         self.report_errors_unless(ended_well).await;
     }
 
@@ -114,12 +121,12 @@ impl FyloProcess {
         OptionFuture::from(self.stderr.as_mut().map(|tail| tail.report(operation))).await;
     }
 
-    fn grace_left(&self) -> Duration {
+    fn grace_left(&self, grace: Duration) -> Duration {
         let since_stop = self
             .interruption
             .as_ref()
             .map_or(Duration::ZERO, Interruption::time_since_stop);
-        Self::EXIT_GRACE.saturating_sub(since_stop)
+        grace.saturating_sub(since_stop)
     }
 
     async fn exit_within(&mut self, grace: Duration) -> Option<ExitStatus> {
@@ -137,11 +144,24 @@ impl FyloProcess {
         if exited {
             return;
         }
+        let state = Self::process_state(self.child.id());
         self.interruption
             .iter_mut()
-            .for_each(Interruption::mark_killed);
+            .for_each(|interruption| interruption.mark_killed(state.clone()));
         let _already_exited = self.child.start_kill();
         let _exit_status_is_not_needed = self.child.wait().await;
+    }
+
+    #[cfg(target_os = "linux")]
+    fn process_state(id: Option<u32>) -> Option<String> {
+        let stat = std::fs::read_to_string(format!("/proc/{}/stat", id?)).ok()?;
+        let (_name, rest) = stat.rsplit_once(')')?;
+        rest.split_whitespace().next().map(str::to_owned)
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    fn process_state(_id: Option<u32>) -> Option<String> {
+        None
     }
 }
 
