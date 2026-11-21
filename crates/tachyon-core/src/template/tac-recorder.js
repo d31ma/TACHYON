@@ -352,11 +352,16 @@ class TacRecorder {
   static finished(entry) {
     if (entry.failed) return
     entry.writing = entry.writing
+      .then(() => TacRecorder.ensureRecorded(entry))
       .then(() => TacRecorder.patchDuration(entry))
       .then(() => entry.sink.close())
       .then(() => TacRecorder.download(entry))
       .then(() => TacRecorder.done(entry))
       .catch((error) => TacRecorder.fail(entry, 'stop', error))
+  }
+
+  static ensureRecorded(entry) {
+    if (entry.bytes === 0) throw new Error('Nothing was recorded (failed).')
   }
 
   static patchDuration(entry) {

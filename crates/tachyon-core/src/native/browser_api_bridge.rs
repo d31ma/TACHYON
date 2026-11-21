@@ -150,7 +150,12 @@ mod tests {
         for (target, source) in [
             (
                 NativeTarget::Macos,
-                [super::super::macos::host_source(), apple].concat(),
+                [
+                    super::super::macos::host_source(),
+                    apple,
+                    super::super::apple_browser_apis::AppleBrowserApis::MACOS_SWIFT,
+                ]
+                .concat(),
             ),
             (
                 NativeTarget::Ios,

@@ -30,7 +30,7 @@ tracks without copying every frame out of the web view.
 | `addAudio(recording, track)`, `removeAudio(recording, track)` | at once; for people who join or leave |
 | `showVideo(recording, track)` | at once; the next frames show that video; `""` shows black |
 | `pause(recording)`, `resume(recording)` | `RecordingPaused`, `RecordingResumed` |
-| `stop(recording)` | `RecordingStopped { recording, bytes, seconds }` after the last bytes are on disk |
+| `stop(recording)` | `RecordingStopped { recording, bytes, seconds }` after the last bytes are on disk; a recording that got no bytes at all answers `RecordingFailed` with `failed` (slice M5b1) |
 | (while it runs) | `RecordingProgress { recording, bytes, seconds }` every 5 seconds |
 | (a failure) | `RecordingFailed { recording, call, reason, message }`: `unsupported`, `cancelled` (the save dialog was closed), `denied`, `full`, `invalid`, `unknown` or `failed`; what was written stays in the file |
 

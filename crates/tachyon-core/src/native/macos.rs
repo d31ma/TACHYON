@@ -354,7 +354,11 @@ pub(super) fn swift_source_serving(
         .replace("__DEVELOPMENT_PAGES__", &pages.swift())
         .replace(
             "__NATIVE_BROWSER_APIS__",
-            super::apple_browser_apis::AppleBrowserApis::SWIFT,
+            &[
+                super::apple_browser_apis::AppleBrowserApis::SWIFT,
+                super::apple_browser_apis::AppleBrowserApis::MACOS_SWIFT,
+            ]
+            .concat(),
         );
     let framed = with_window_settings(&host, &application.window)
         .replace(
