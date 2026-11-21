@@ -299,13 +299,14 @@ fn a_bad_slowcall_setting_stops_the_store() {
         return;
     }
     let project = TimedProject::new(&serde_json::json!({"slowcall": 0}));
-    let output = Command::new(env!("CARGO_BIN_EXE_ty"))
+    let mut command = Command::new(env!("CARGO_BIN_EXE_ty"));
+    command
         .arg("start")
         .arg(project.project())
         .args(["--host", "127.0.0.1", "--port", "0"])
-        .env_remove("YON_PROFILE")
-        .output()
-        .expect("ty start");
+        .env_remove("YON_PROFILE");
+    WindowsEgress::proxied_where_unconfinable(&mut command);
+    let output = command.output().expect("ty start");
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(!output.status.success(), "{stderr}");
     assert!(stderr.contains("slowcall"), "{stderr}");

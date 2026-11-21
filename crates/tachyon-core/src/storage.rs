@@ -181,7 +181,7 @@ impl ManagedStorage {
             .try_acquire()
             .map_err(|_| failure("Managed storage admission is closed or full."))?;
         self.refuse_when_past(deadline)?;
-        call.run(self.dispatch(command, deadline))
+        call.run(Box::pin(self.dispatch(command, deadline)))
             .await
             .unwrap_or_else(|| Err(self.deadline_failure()))
     }
