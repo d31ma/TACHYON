@@ -554,7 +554,7 @@ and returns `std::nullopt` when nobody is signed in.
 ### A route receives the caller's identity
 
 A `@SignedIn` or `@Allow` route method can take the object that `identify`
-returned for this request as an argument (ADR NNNN). Mark the parameter with
+returned for this request as an argument (ADR 0143). Mark the parameter with
 `FromIdentity`, in the spelling of the language: `@FromIdentity` in
 JavaScript, TypeScript, Java, Groovy, Kotlin and Dart,
 `Annotated[Identity, from_identity]` in Python, `// @FromIdentity` on the

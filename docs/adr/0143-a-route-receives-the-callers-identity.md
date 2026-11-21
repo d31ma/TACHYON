@@ -1,4 +1,4 @@
-# ADR NNNN: A Route Receives the Caller's Identity
+# ADR 0143: A Route Receives the Caller's Identity
 
 - Status: Accepted
 - Date: 2026-11-14
@@ -83,7 +83,7 @@ func (c *MessagesController) PostMessage(
   `Handler execution failed. Reference: <id>.` with the
   `x-tachyon-request-id` header, never a 400, and the route method does not
   run. The answer carries the built-in case `UnexpectedError`
-  ([ADR NNNN](NNNN-an-error-handler-shapes-the-answers-tachyon-makes-itself.md)),
+  ([ADR 0142](0142-an-error-handler-shapes-the-answers-tachyon-makes-itself.md)),
   so an app can shape its body. The server writes one line on stderr:
   `{"event":"route.identity_mismatch","request_id":...,"route":...}`.
 

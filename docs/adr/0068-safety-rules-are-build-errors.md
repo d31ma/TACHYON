@@ -2,6 +2,9 @@
 
 - Status: Accepted
 - Date: 2026-09-27
+- Amended by: [ADR 0143](0143-a-route-receives-the-callers-identity.md): a
+  `@SignedIn` or `@Allow` route can receive the caller's identity with
+  `@FromIdentity`; a `@Public` route cannot
 - Amended by: [ADR 0142](0142-an-error-handler-shapes-the-answers-tachyon-makes-itself.md): an error
   handler can shape the body of the 401, 403 and 500 answers of the identity
   gate; the status stays

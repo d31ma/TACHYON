@@ -219,7 +219,7 @@ machine contracts have their own, independent major versions.
   and 64 MiB by default) and is checked before each write. The code ships in
   `.tachyon/tac-blobs.js` only to pages that grant `blobs`. Page
   Content-Security-Policies now allow `blob:` images and media.
-- **A route receives the caller's identity** (ADR NNNN). A new route
+- **A route receives the caller's identity** (ADR 0143). A new route
   parameter marker, `FromIdentity` (`@FromIdentity`, `from_identity` in
   Python, `#[FromIdentity]`, `[FromIdentity]`, `[<FromIdentity>]`,
   `[[FromIdentity]]`), gives a `@SignedIn` or `@Allow` route method the
@@ -233,7 +233,7 @@ machine contracts have their own, independent major versions.
   never part of `/api.json`, `OPTIONS`, a log line or an error-handler
   request.
 
-- **An error handler shapes the answers Tachyon makes itself** (ADR NNNN).
+- **An error handler shapes the answers Tachyon makes itself** (ADR 0142).
   Every Yon language gets seven built-in error types: `NotSignedIn` (401),
   `RoleMissing` (403), `IdentityCheckFailed` (500), `RequestRejected` (400),
   `BodyTooLarge` (413), `CheckRejected` (422, with the broken rules) and
