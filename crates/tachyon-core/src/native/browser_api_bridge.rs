@@ -4,7 +4,7 @@ pub(super) struct BrowserApiBridge;
 
 impl BrowserApiBridge {
     #[cfg(test)]
-    const OPERATIONS: [(&'static str, &'static [&'static str]); 7] = [
+    const OPERATIONS: [(&'static str, &'static [&'static str]); 8] = [
         ("clipboard", &["writeText", "readText"]),
         ("share", &["open"]),
         ("notifications", &["requestPermission", "show"]),
@@ -31,6 +31,7 @@ impl BrowserApiBridge {
             ],
         ),
         ("media", &["callActive", "speakers", "chooseSpeaker"]),
+        ("recorder", &["open", "write", "close"]),
     ];
     #[cfg(test)]
     const EVERY_HOST: [&'static str; 2] = [
@@ -47,6 +48,7 @@ impl BrowserApiBridge {
                 "geolocation",
                 "codeScanner",
                 "crypto",
+                "recorder",
             ],
         ),
         (
@@ -208,9 +210,9 @@ mod tests {
     fn the_apple_hosts_bridge_every_browser_api() {
         assert_eq!(
             BrowserApiBridge::page_list(NativeTarget::Macos),
-            "['clipboard', 'share', 'notifications', 'geolocation', 'codeScanner', 'crypto']"
+            "['clipboard', 'share', 'notifications', 'geolocation', 'codeScanner', 'crypto', 'recorder']"
         );
-        assert_eq!(BrowserApiBridge::operations(NativeTarget::Macos).len(), 23);
+        assert_eq!(BrowserApiBridge::operations(NativeTarget::Macos).len(), 26);
         assert_eq!(
             BrowserApiBridge::page_list(NativeTarget::Ios),
             "['clipboard', 'share', 'notifications', 'geolocation', 'codeScanner', 'crypto', 'media']"

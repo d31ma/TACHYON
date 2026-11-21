@@ -16,6 +16,8 @@ class TacRecorder {
   static sliceMs = 1000
   static progressMs = 5000
   static privateFolder = 'tachyon-recordings'
+  static hostApi = 'recorder'
+  static hostChunkBytes = 45 * 1024
   static reasons = Object.freeze({
     NotAllowedError: 'denied',
     SecurityError: 'denied',
@@ -70,7 +72,7 @@ class TacRecorder {
   }
 
   static sinkKind() {
-    if (globalThis.__tachyonBrowserApiBridge?.includes('recorder') === true) return 'host'
+    if (typeof globalThis.__tachyonNativeHostCall === 'function' && globalThis.__tachyonBrowserApiBridge?.includes(TacRecorder.hostApi) === true) return 'host'
     if (typeof globalThis.showSaveFilePicker === 'function') return 'picker'
     if (typeof globalThis.navigator?.storage?.getDirectory === 'function') return 'private'
     return ''
@@ -129,9 +131,40 @@ class TacRecorder {
 
   static openSink(entry) {
     const kind = TacRecorder.sinkKind()
+    if (kind === 'host') return TacRecorder.hostSink(entry)
     if (kind === 'picker') return TacRecorder.pickerSink(entry)
     if (kind === 'private') return TacRecorder.privateSink(entry)
     throw new Error('This app does not save recordings yet (unsupported).')
+  }
+
+  static async hostSink(entry) {
+    const opened = await TacRecorder.host('open', { recording: entry.name, fileName: entry.file, format: entry.kind })
+    entry.file = String(opened?.fileName ?? entry.file)
+    return {
+      write: (position, data) => TacRecorder.hostWrite(entry.name, position, new Blob([data])),
+      close: () => TacRecorder.host('close', { recording: entry.name }),
+      saved: null,
+    }
+  }
+
+  static async hostWrite(recording, position, blob) {
+    for (let offset = 0; offset < blob.size; offset += TacRecorder.hostChunkBytes) {
+      const data = await TacRecorder.base64(blob.slice(offset, offset + TacRecorder.hostChunkBytes))
+      await TacRecorder.host('write', { recording, position: position + offset, data })
+    }
+  }
+
+  static async base64(blob) {
+    let text = ''
+    for (const byte of new Uint8Array(await blob.arrayBuffer())) text += String.fromCharCode(byte)
+    return btoa(text)
+  }
+
+  static async host(call, values) {
+    const raw = await globalThis.__tachyonNativeHostCall(`browserApi.${TacRecorder.hostApi}.${call}`, JSON.stringify(values))
+    const answer = typeof raw === 'string' ? JSON.parse(raw) : raw
+    if (!answer || 'error' in answer) throw new Error(answer?.error ?? 'The native app could not save the recording (failed).')
+    return answer.value
   }
 
   static async pickerSink(entry) {
@@ -317,6 +350,7 @@ class TacRecorder {
   }
 
   static finished(entry) {
+    if (entry.failed) return
     entry.writing = entry.writing
       .then(() => TacRecorder.patchDuration(entry))
       .then(() => entry.sink.close())
@@ -357,7 +391,7 @@ class TacRecorder {
   }
 
   static reasonIn(error) {
-    const word = /\((unsupported|unknown|invalid)\)/.exec(String(error?.message ?? ''))
+    const word = /\((unsupported|unknown|invalid|cancelled|denied|full)\)/.exec(String(error?.message ?? ''))
     return word ? word[1] : 'failed'
   }
 

@@ -51,6 +51,10 @@ final class AppleBrowserApis: NSObject, UNUserNotificationCenterDelegate {
             media(capability, request, reply)
             return
         }
+        if parts.count == 3, parts[1] == "recorder" {
+            record(capability, request, view, reply)
+            return
+        }
         guard parts.count == 3, Self.bridged.contains(parts[1]) else { reply(Self.failure(Self.notAnswered)); return }
         guard granted.contains(parts[1]) else {
             reply(Self.failure("The \(parts[1]) browser API is not granted. Add \"\(parts[1])\" to tac.browserApis in client/manifest.json."))
@@ -171,6 +175,18 @@ final class AppleBrowserApis: NSObject, UNUserNotificationCenterDelegate {
             return
         }
         AppleCallAudio.shared.answer(capability, request, reply)
+    }
+
+    private func record(_ capability: String, _ request: [String: Any], _ view: WKWebView?, _ reply: @escaping (String) -> Void) {
+        guard granted.contains("files"), ["microphone", "camera", "screen"].contains(where: granted.contains) else {
+            reply(Self.failure("The recorder needs \"files\" and \"microphone\", \"camera\" or \"screen\" in tac.browserApis in client/manifest.json (denied)."))
+            return
+        }
+        #if os(macOS)
+        AppleRecorderFiles.shared.answer(capability, request, view, reply)
+        #else
+        reply(Self.failure(Self.notAnswered))
+        #endif
     }
 
     private func scan(_ capability: String, _ view: WKWebView?, _ reply: @escaping (String) -> Void) {

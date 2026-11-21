@@ -223,6 +223,8 @@ mod native_packaged_utility_tests;
 mod native_page_call_contract_tests;
 #[cfg(test)]
 mod native_page_graph_tests;
+#[cfg(test)]
+mod native_recorder_host_tests;
 mod native_release_version;
 mod native_reproducibility;
 #[cfg(test)]

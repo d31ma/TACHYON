@@ -143,6 +143,39 @@ await settle()
 report.private = [files, log.splice(0), sent.splice(0).map((event) => event[0])]
 Object.defineProperty(globalThis, 'navigator', { configurable: true, value: {} })
 report.noSink = [api.supported(), attempt(() => api.start(reply, 'none', 'mic', '', 'None', ''))]
+const hostCalls = []
+let hostAnswers = {}
+globalThis.__tachyonBrowserApiBridge = ['recorder']
+globalThis.__tachyonNativeHostCall = async (capability, payload) => {
+  hostCalls.push([capability.split('.')[2], JSON.parse(payload)])
+  return JSON.stringify(hostAnswers[capability] ?? { value: capability.endsWith('.open') ? { fileName: 'Chosen.mp4' } : null })
+}
+supportedTypes.add('audio/mp4;codecs=mp4a.40.2')
+report.hostSupported = api.supported()
+api.start(reply, 'host', 'mic', '', 'Meeting', '')
+await settle()
+report.hostStarted = sent.splice(0)
+const big = Array.from({ length: 45 * 1024 + 3 }, (unused, index) => index % 251)
+FakeRecorder.last.emit(big)
+FakeRecorder.last.emit([7, 8])
+await settle()
+api.stop(reply, 'host')
+await settle()
+const decoded = (values) => [...Buffer.from(values.data ?? '', 'base64')]
+report.hostSame = hostCalls.flatMap(([call, values]) => call === 'write' ? decoded(values) : []).join() === [...big, 7, 8].join()
+report.hostCalls = hostCalls.splice(0).map(([call, values]) => [call, values.recording, values.position ?? null, decoded(values).length, values.fileName ?? null, values.format ?? null])
+report.hostStopped = sent.splice(0).map((event) => [event[0], event[1].bytes])
+hostAnswers = { 'browserApi.recorder.open': { error: 'The save dialog was closed (cancelled).' } }
+api.start(reply, 'closed', 'mic', '', 'Meeting', '')
+await settle()
+report.hostCancelled = [sent.splice(0), hostCalls.splice(0).map(([call]) => call)]
+hostAnswers = { 'browserApi.recorder.write': { error: 'There is no disk space left for the recording (full).' } }
+api.start(reply, 'filled', 'mic', '', 'Meeting', '')
+await settle()
+sent.splice(0)
+FakeRecorder.last.emit([1])
+await settle()
+report.hostFull = [sent.splice(0).map((event) => event[1].reason), hostCalls.splice(0).map(([call]) => call), Recorder.current]
 console.log(JSON.stringify(report))
 ";
 
@@ -174,6 +207,7 @@ fn the_recorder_mixes_switches_writes_pieces_and_stops() {
     assert_calls_formats_and_refusals(&report);
     assert_audio_video_pieces_and_stop(&report);
     assert_webm_duration_and_other_sinks(&report);
+    assert_the_native_host_saves_the_file(&report);
 }
 
 fn assert_calls_formats_and_refusals(report: &serde_json::Value) {
@@ -327,5 +361,45 @@ fn assert_webm_duration_and_other_sinks(report: &serde_json::Value) {
     assert_eq!(
         report["noSink"],
         serde_json::json!([false, "Recording is not available here (unsupported)."])
+    );
+}
+
+fn assert_the_native_host_saves_the_file(report: &serde_json::Value) {
+    assert_eq!(report["hostSupported"], true);
+    assert_eq!(
+        report["hostStarted"],
+        serde_json::json!([["RecordingStarted", {"recording": "host", "format": "mp4", "fileName": "Chosen.mp4"}]]),
+        "the started event names the file the person chose in the save dialog"
+    );
+    assert_eq!(
+        report["hostCalls"],
+        serde_json::json!([
+            ["open", "host", null, 0, "Meeting.mp4", "mp4"],
+            ["write", "host", 0, 46080, null, null],
+            ["write", "host", 46080, 3, null, null],
+            ["write", "host", 46083, 2, null, null],
+            ["close", "host", null, 0, null, null]
+        ]),
+        "a piece goes to the host in chunks of at most 45 KiB, each at its place in the file"
+    );
+    assert_eq!(
+        report["hostSame"], true,
+        "the host gets every byte in order"
+    );
+    assert_eq!(
+        report["hostStopped"],
+        serde_json::json!([["RecordingStopped", 46085]])
+    );
+    assert_eq!(
+        report["hostCancelled"],
+        serde_json::json!([
+            [["RecordingFailed", {"recording": "closed", "call": "start", "reason": "cancelled", "message": "The save dialog was closed."}]],
+            ["open"]
+        ])
+    );
+    assert_eq!(
+        report["hostFull"],
+        serde_json::json!([["full"], ["open", "write", "close"], null]),
+        "a host write failure keeps its reason, and the file is closed once"
     );
 }

@@ -17,7 +17,8 @@ impl AppleBrowserApis {
         include_str!("browser_apis/AppleCryptoKey.swift"),
         include_str!("browser_apis/AppleCryptoRefusal.swift"),
         include_str!("browser_apis/AppleKeyStore.swift"),
-        include_str!("browser_apis/AppleCallAudio.swift")
+        include_str!("browser_apis/AppleCallAudio.swift"),
+        include_str!("browser_apis/AppleRecorderFiles.swift")
     );
 
     pub(super) fn swift_grants(permissions: &BrowserApiPermissions) -> String {
@@ -73,7 +74,7 @@ mod tests {
             assert!(!source.contains("__NATIVE_BROWSER_API"));
         }
         assert!(granted[0].contains(
-            "globalThis.__tachyonBrowserApiBridge = Object.freeze(['clipboard', 'share', 'notifications', 'geolocation', 'codeScanner', 'crypto'])"
+            "globalThis.__tachyonBrowserApiBridge = Object.freeze(['clipboard', 'share', 'notifications', 'geolocation', 'codeScanner', 'crypto', 'recorder'])"
         ));
         assert!(granted[1].contains(
             "globalThis.__tachyonBrowserApiBridge = Object.freeze(['clipboard', 'share', 'notifications', 'geolocation', 'codeScanner', 'crypto', 'media'])"
