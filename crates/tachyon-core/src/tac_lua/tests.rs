@@ -21,15 +21,17 @@ impl Page {
          one.count = 40\n\
          const after = one.increment()\n\
          const added = one.add(new Event('click'), 9, 'now')\n\
-         let bigCall = ''\n\
-         try { one.add(new Event('click'), 1, 'x'.repeat(70000)) } catch (error) { bigCall = error.message }\n\
+         let bigCall = '', atLimit = ''\n\
+         const spare = new CounterService({})\n\
+             try { spare.add(new Event('click'), 1, 'x'.repeat(393095)); atLimit = 'accepted' } catch (error) { atLimit = error.message }\n\
+             try { one.add(new Event('click'), 1, 'x'.repeat(393096)) } catch (error) { bigCall = error.message }\n\
          const hidden = typeof one._total\n\
          const notes = [one.notes, two.notes]\n\
          const labels = [one.label, two.label]\n\
          one.__tachyonDispose()\n\
          let stale = false\n\
          try { one.count } catch { stale = true }\n\
-         console.log(JSON.stringify({ doubled, after, other: two.count, added, bigCall, hidden, notes, labels, stale, keys: Object.keys(two) }))\n\
+         console.log(JSON.stringify({ doubled, after, other: two.count, added, bigCall, atLimit, hidden, notes, labels, stale, keys: Object.keys(two) }))\n\
          process.exit(0)\n";
 
     const EVENT_COUNTER: &str = "-- @Service\n-- @Lifetime({\"value\":\"prototype\"})\n-- @NeedsAll\n---@class TallyService\nTallyService = {\n  ---@type integer\n  count = 0,\n  ---@type string\n  label = \"\",\n  ---@type ApplicationEventPublisher\n  application_event_publisher = nil,\n}\n\n---@return nil\n-- @OnStart\nfunction TallyService:start()\n  self.label = self.label .. \" clicks\"\n  self.application_event_publisher:publish_event(setmetatable({ label = self.label }, CounterStarted))\nend\n\n---@return integer\nfunction TallyService:increment()\n  self.count = self.count + 1\n  self.application_event_publisher:publish_event(setmetatable({ count = self.count }, CounterAdded))\n  return self.count\nend\n\n---@return nil\n-- @OnStop\nfunction TallyService:stop()\n  print(\"stopped \" .. self.count)\nend\n";
@@ -300,8 +302,9 @@ async fn a_lua_service_answers_the_page_from_the_lua_runtime() {
     assert_eq!(report["added"], "now 50", "{report}");
     assert_eq!(
         report["bigCall"],
-        "Web service counter: The request to add is 70121 bytes. The limit is 65536 bytes. Pass less data to the service."
+        "Web service counter: The request to add is 393217 bytes. The limit is 393216 bytes. Pass less data to the service."
     );
+    assert_eq!(report["atLimit"], "accepted");
     assert_eq!(report["hidden"], "undefined", "{report}");
     assert_eq!(
         report["notes"],

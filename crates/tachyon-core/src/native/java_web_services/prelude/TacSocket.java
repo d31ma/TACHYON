@@ -1,7 +1,7 @@
 final class TacSocket {
-    private static final int MOST_BYTES = 65536;
+    private static final int MOST_BYTES = 393216;
     private static final java.util.Set<String> CODES = java.util.Set.of("HTTP_MISSING", "HTTP_REQUEST", "CANCELLED");
-    private static final String TOO_LARGE = "A socket message is JSON of at most 64 KiB.";
+    private static final String TOO_LARGE = "A socket message is JSON of at most 393216 bytes. Send less data in one message.";
     private static final String NOT_SENT = "The socket message was not sent.";
 
     private TacSocket() {

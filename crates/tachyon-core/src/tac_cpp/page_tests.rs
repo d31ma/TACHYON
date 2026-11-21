@@ -847,7 +847,7 @@ fn a_socket_client_sends_through_the_page_and_reports_its_code() {
             ),
             (
                 "client/services/ChatService.hpp",
-                "class [[Service]] ChatService {\npublic:\n    [[Needs]] ChatClient& chat;\n    Task<void> say(std::string text) { co_await chat.send(ChatMessage{text}); }\n    Task<void> sayTooMuch() { co_await chat.send(ChatMessage{std::string(70000, 'x')}); }\n};\n",
+                "class [[Service]] ChatService {\npublic:\n    [[Needs]] ChatClient& chat;\n    Task<void> say(std::string text) { co_await chat.send(ChatMessage{text}); }\n    Task<void> sayTooMuch() { co_await chat.send(ChatMessage{std::string(393206, 'x')}); }\n};\n",
             ),
         ],
     );
@@ -891,7 +891,7 @@ fn a_socket_client_sends_through_the_page_and_reports_its_code() {
     );
     assert_eq!(
         notes[3],
-        "done 3 {\"error\":\"A socket message is JSON of at most 64 KiB.\",\"code\":\"HTTP_BODY\"}",
+        "done 3 {\"error\":\"A socket message is JSON of at most 393216 bytes. Send less data in one message.\",\"code\":\"HTTP_BODY\"}",
         "{answers:?}"
     );
 }

@@ -880,7 +880,7 @@ fn tac_too_large(subject: &str, size: usize, limit: usize) -> String {
 
 fn tac_handle(raw: &str) -> String {
     const START_UP_REQUEST_LIMIT: usize = 1_048_576;
-    const MEMBER_REQUEST_LIMIT: usize = 65_536;
+    const MEMBER_REQUEST_LIMIT: usize = 393_216;
     if raw.len() > START_UP_REQUEST_LIMIT {
         return tac_too_large("request", raw.len(), START_UP_REQUEST_LIMIT);
     }

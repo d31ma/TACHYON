@@ -26,7 +26,7 @@ public:
     static Task<void> send(std::string client, Message message) {
         std::string text = json::JsonSerializer::serialize(message);
         if (text.size() > MOST_MESSAGE_BYTES) {
-            throw HttpRequestException("HTTP_BODY", "A socket message is JSON of at most 64 KiB.");
+            throw HttpRequestException("HTTP_BODY", "A socket message is JSON of at most 393216 bytes. Send less data in one message.");
         }
         std::string owner = TacTaskOwner::current();
         if (owner.empty()) {
@@ -39,7 +39,7 @@ public:
     }
 
 private:
-    static constexpr std::size_t MOST_MESSAGE_BYTES = 65536;
+    static constexpr std::size_t MOST_MESSAGE_BYTES = 393216;
     static constexpr const char* NOT_SENT = "The socket message was not sent.";
 
     static void answered(const std::string& answer) {

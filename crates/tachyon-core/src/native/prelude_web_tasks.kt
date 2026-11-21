@@ -115,13 +115,13 @@ private object TacHttpTickets {
 fun tacHttpSettle(ticket: Int, answer: String) { TacHttpTickets.settle(ticket, answer) }
 
 private object TacSockets {
-    private const val MOST_BYTES = 65536
+    private const val MOST_BYTES = 393216
     private val CODES = setOf("HTTP_MISSING", "HTTP_REQUEST", "CANCELLED")
 
     suspend fun send(client: String, message: Any): Unit {
         val text = try { tacEncode(tacPlain(message)) } catch (_: RuntimeException) { null }
         if (text == null || text.encodeToByteArray().size > MOST_BYTES) {
-            throw TacSocketFailure("HTTP_BODY", "A socket message is JSON of at most 64 KiB.")
+            throw TacSocketFailure("HTTP_BODY", "A socket message is JSON of at most 393216 bytes. Send less data in one message.")
         }
         val request = "{\"client\":${tacQuote(client)},\"message\":$text}"
         val answer = TacHttpTickets.awaited({}) { ticket, owner -> tacHostSocket(ticket, owner, request) }

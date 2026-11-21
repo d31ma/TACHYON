@@ -1137,14 +1137,16 @@ mod tests {
              const after = one.increment()\n\
              const label = one.label\n\
              const added = one.add(new Event('click'), 9, 'now')\n\
-             let bigStart = '', bigCall = '', largeStart = ''\n\
+             let bigStart = '', bigCall = '', atLimit = '', largeStart = ''\n\
              try { new CounterService({ label: 'x'.repeat(1100000) }) } catch (error) { bigStart = error.message }\n\
              try { new CounterService({ label: 'x'.repeat(921600) }).__tachyonDispose() } catch (error) { largeStart = error.message }\n\
-             try { one.add(new Event('click'), 1, 'x'.repeat(70000)) } catch (error) { bigCall = error.message }\n\
+             const spare = new CounterService({})\n\
+             try { spare.add(new Event('click'), 1, 'x'.repeat(393095)); atLimit = 'accepted' } catch (error) { atLimit = error.message }\n\
+             try { one.add(new Event('click'), 1, 'x'.repeat(393096)) } catch (error) { bigCall = error.message }\n\
              one.__tachyonDispose()\n\
              let stale = false\n\
              try { one.count } catch { stale = true }\n\
-             console.log(JSON.stringify({ doubled, after, other: two.count, label, otherLabel: two.label, added, stale, events, keys: Object.keys(two), plan: plan.types[0], bigStart, bigCall, largeStart }))\n";
+             console.log(JSON.stringify({ doubled, after, other: two.count, label, otherLabel: two.label, added, stale, events, keys: Object.keys(two), plan: plan.types[0], bigStart, bigCall, atLimit, largeStart }))\n";
 
         const GO_COUNTER_MODELS: [(&str, &str); 2] = [
             (
@@ -1365,10 +1367,12 @@ mod tests {
              Object.defineProperty(one, '__tachyonPublisher', { value: { publishEvent: (event, value) => events.push([event, value]) } })\n\
              one.__tachyonStarted()\n\
              const added = one.add(new Event('click'), 5, 'clicks')\n\
-             let bigStart = '', bigCall = ''\n\
+             let bigStart = '', bigCall = '', atLimit = ''\n\
              try { new TallyService({ source: 'x'.repeat(1100000) }) } catch (error) { bigStart = error.message }\n\
-             try { one.add(new Event('click'), 1, 'x'.repeat(70000)) } catch (error) { bigCall = error.message }\n\
-             console.log(JSON.stringify({ size: one.size(), other: two.size(), added, count: one.count, otherCount: two.count, events, bigStart, bigCall }))\n\
+             const spare = new TallyService({})\n\
+             try { spare.add(new Event('click'), 1, 'x'.repeat(393097)); atLimit = 'accepted' } catch (error) { atLimit = error.message }\n\
+             try { one.add(new Event('click'), 1, 'x'.repeat(393098)) } catch (error) { bigCall = error.message }\n\
+             console.log(JSON.stringify({ size: one.size(), other: two.size(), added, count: one.count, otherCount: two.count, events, bigStart, bigCall, atLimit }))\n\
              process.exit(0)\n";
     }
 
@@ -1504,8 +1508,9 @@ mod tests {
         );
         assert_eq!(
             report["bigCall"],
-            "Web service counter: The request to add is 70121 bytes. The limit is 65536 bytes. Pass less data to the service."
+            "Web service counter: The request to add is 393217 bytes. The limit is 393216 bytes. Pass less data to the service."
         );
+        assert_eq!(report["atLimit"], "accepted");
     }
 
     async fn rust_counter(profile: crate::BuildProfile) -> (Vec<String>, usize) {
@@ -1732,8 +1737,9 @@ mod tests {
         );
         assert_eq!(
             report["bigCall"],
-            "Web service counter: The request to add is 70121 bytes. The limit is 65536 bytes. Pass less data to the service."
+            "Web service counter: The request to add is 393217 bytes. The limit is 393216 bytes. Pass less data to the service."
         );
+        assert_eq!(report["atLimit"], "accepted");
         assert!(root.path().join("go/services.wasm").is_file());
         let glue = std::fs::read_to_string(root.path().join("go/wasm_exec.js")).expect("glue");
         assert!(glue.contains("globalThis.Go = class"));
@@ -1978,8 +1984,9 @@ mod tests {
             );
             assert_eq!(
                 report["bigCall"],
-                "Web service tally: The request to add is 70119 bytes. The limit is 65536 bytes. Pass less data to the service."
+                "Web service tally: The request to add is 393217 bytes. The limit is 393216 bytes. Pass less data to the service."
             );
+            assert_eq!(report["atLimit"], "accepted");
         }
     }
 

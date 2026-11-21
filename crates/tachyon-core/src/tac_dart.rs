@@ -523,7 +523,7 @@ Future<void> Function(Object?) tachyonSocketSender(Map<String, Object> graph, St
 \x20 return (Object? message) async {\n\
 \x20   if (socket == null) throw TacSocketError('HTTP_MISSING');\n\
 \x20   final text = jsonEncode(json(message));\n\
-\x20   if (utf8.encode(text).length > 65536) throw TacSocketError('HTTP_BODY');\n\
+\x20   if (utf8.encode(text).length > 393216) throw TacSocketError('HTTP_BODY');\n\
 \x20   final answer = socket.callAsFunction(null, client.toJS, text.toJS) as JSPromise<JSString?>;\n\
 \x20   final code = (await answer.toDart)?.toDart;\n\
 \x20   if (code != null) throw TacSocketError(code);\n\

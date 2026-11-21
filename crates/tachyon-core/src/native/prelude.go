@@ -159,7 +159,7 @@ func Invoke(text string) (reply string) {
 
 func handle(text string) string {
 	const startUpRequestLimit = 1048576
-	const memberRequestLimit = 65536
+	const memberRequestLimit = 393216
 	if len(text) > startUpRequestLimit {
 		return tooLarge("request", len(text), startUpRequestLimit)
 	}
