@@ -193,3 +193,32 @@ test there could prove that the next call waits for the old process.
   sleep (state `D`), that the next call fails with the deadline error and not
   `EROOTLOCKED`, that no second `fylo` starts, and that after
   `fsfreeze -u` the waiting call answers and later calls work.
+
+## Amendment 4 (2026-11-21): `ty test` gives each store call its own deadline
+
+### Context
+
+`ty test` runs each server test unit, with all its cases, as one handler
+invocation. Since amendment 2, all store calls of one invocation share one
+deadline (`timeout`). So a unit whose cases together spent more time than
+`timeout` failed every later case with `TY2160` ("... deadline exceeded
+...") although no single store call was slow. Mesail's directory tests showed
+it: of about 30 `G1DevicesTest` cases, the early ones passed and 18 later ones
+failed with the Go client's "Yon managed resource operation failed.".
+
+### Decision
+
+A test unit is not one answer to a user. `ty test` now times each store call
+on its own, as streams and sockets already do: every store call gets the
+whole `timeout`. Handler answers over HTTP, `ty handler invoke` and worker
+runs keep one deadline per answer.
+
+### Consequences
+
+- Long test units with many store calls pass again, as they did before
+  amendment 2.
+- A single stalled store call in a test still fails after one `timeout`.
+- Evidence: the CLI test
+  `ty_test_store_budget::ty_test_gives_each_store_call_of_a_test_unit_its_own_budget`
+  runs one Go unit with five cases of one second of writes each under a
+  1-second `timeout`. It fails without this change and passes with it.

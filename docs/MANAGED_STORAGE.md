@@ -287,11 +287,11 @@ Redis:
   set 1 to 60 seconds with `timeout`). At most 16 admitted
   operations.
 - One store deadline per answer: all store calls of one handler run that
-  answers once (an HTTP route, `ty handler invoke`, a `ty test` call, a
-  worker run) share one deadline, which starts at its first store call. A
-  store call that starts after it fails at once with the deadline error.
-  Streams and sockets give each store call its own deadline, and the first
-  page of a scroll keeps its 30 seconds (ADR 0128, amendment 2).
+  answers once (an HTTP route, `ty handler invoke`, a worker run) share one
+  deadline, which starts at its first store call. A store call that starts
+  after it fails at once with the deadline error. Streams, sockets and
+  `ty test` units give each store call its own deadline, and the first page
+  of a scroll keeps its 30 seconds (ADR 0128, amendments 2 and 4).
 - SQL pools: at most 8 connections (1 for in-memory SQLite). TDS (Tabular Data
   Stream, the SQL Server protocol) is serialized.
 - FYLO: one subprocess, 1 MiB requests, 8 MiB responses. Each Store query

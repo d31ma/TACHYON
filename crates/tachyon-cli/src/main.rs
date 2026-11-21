@@ -1837,7 +1837,8 @@ async fn run_test_units(
     let supervisor = HandlerSupervisor::new(HandlerSupervisorOptions {
         application: ApplicationConfig::load(project)?,
         ..HandlerSupervisorOptions::from_environment()?
-    })?;
+    })?
+    .timing_each_store_call();
     let extensions = units
         .iter()
         .filter_map(|relative| relative.extension().and_then(|value| value.to_str()))

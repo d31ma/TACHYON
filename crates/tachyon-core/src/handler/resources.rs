@@ -98,6 +98,10 @@ impl ResourceAccess {
         self.store_deadline.use_per_call();
     }
 
+    pub(super) fn time_store_calls_one_by_one_when(&self, asked: bool) {
+        self.store_deadline.use_per_call_when(asked);
+    }
+
     pub(super) fn topics(&self) -> Option<Arc<TopicOutbox>> {
         self.topics.clone()
     }

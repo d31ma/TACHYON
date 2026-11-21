@@ -137,6 +137,7 @@ pub struct HandlerSupervisor {
     egress: Arc<std::sync::OnceLock<crate::handler::EgressSetup>>,
     node_proxy_gate: crate::handler::NodeProxyGate,
     warm: Arc<WarmPool>,
+    each_store_call_timed: bool,
 }
 
 impl HandlerSupervisor {
@@ -165,7 +166,14 @@ impl HandlerSupervisor {
             egress: Arc::new(std::sync::OnceLock::new()),
             node_proxy_gate: crate::handler::NodeProxyGate::default(),
             warm,
+            each_store_call_timed: false,
         })
+    }
+
+    #[must_use]
+    pub fn timing_each_store_call(mut self) -> Self {
+        self.each_store_call_timed = true;
+        self
     }
 
     pub(crate) async fn guard_outgoing_requests(
@@ -410,9 +418,9 @@ impl HandlerSupervisor {
             return Ok(None);
         }
         let door = self.egress.get().map(|setup| setup.door().as_ref());
-        ResourceAccess::bind(storage, gateways, topics, stop, deadline, door)
-            .await
-            .map(Some)
+        let access = ResourceAccess::bind(storage, gateways, topics, stop, deadline, door).await?;
+        access.time_store_calls_one_by_one_when(self.each_store_call_timed);
+        Ok(Some(access))
     }
 
     fn gateway_calls(

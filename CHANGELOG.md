@@ -458,6 +458,13 @@ machine contracts have their own, independent major versions.
   stays mounted and the page is shown, it tries again every 30 to 35
   seconds, so a long-lived page recovers after a server restart. A declared
   policy and sockets keep their own limits.
+- **`ty test` no longer fails later test cases with a spent store deadline**
+  (ADR 0128, amendment 4). A server test unit runs all its cases in one
+  handler invocation, and all their store calls shared one
+  `datasource.timeout` deadline, so once the cases together had used it up,
+  every later case failed with `TY2160`. `ty test` now gives each store call
+  its own deadline, as streams and sockets do. Handler answers over HTTP keep
+  one deadline per answer.
 - **A property that a custom element refuses no longer blanks the page**
   (ADR 0136 amendment, TAC-B1F). An element with a getter and no setter,
   such as `get values()`, threw a TypeError that stopped the whole render.
