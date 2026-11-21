@@ -19,7 +19,7 @@ final class DataSource {
     Object deleteById(String collection, String id) { return document("deleteById", "collection", collection, "id", id); }
     Object scroll(String collection, java.util.Map<String, ?> where, String cursor, int size) {
         var command = YonManagedResources.command("operation", "document", "command", "scroll", "collection", collection, "where", where, "cursor", cursor, "size", size);
-        return YonManagedResources.call(command, YonManagedResources.SCROLL_TIMEOUT_NANOSECONDS);
+        return YonManagedResources.call(command, YonManagedResources.waitNanoseconds());
     }
     Object createCollection(String name) { return document("createCollection", "collection", name); }
     Object dropCollection(String name) { return document("dropCollection", "collection", name); }
@@ -47,8 +47,7 @@ final class RedisTemplate {
 
 final class YonManagedResources {
     static final int LIMIT = 1024 * 1024;
-    private static final long RESOURCE_TIMEOUT_NANOSECONDS = 5_000_000_000L;
-    static final long SCROLL_TIMEOUT_NANOSECONDS = 30_000_000_000L;
+    private static final long ANSWER_MARGIN_NANOSECONDS = 1_000_000_000L;
     private static final long CONNECT_TIMEOUT_MILLISECONDS = 5000L;
     private static String endpoint = System.getenv("YON_RESOURCE_ENDPOINT");
     private static String token = System.getenv("YON_RESOURCE_TOKEN");
@@ -72,7 +71,10 @@ final class YonManagedResources {
         return tagged;
     }
     static Object call(Object command) {
-        return call(command, RESOURCE_TIMEOUT_NANOSECONDS);
+        return call(command, waitNanoseconds());
+    }
+    static long waitNanoseconds() {
+        return Math.max(0L, Yon.timeLeftNanos()) + ANSWER_MARGIN_NANOSECONDS;
     }
     static Object call(Object command, long timeoutNanoseconds) {
         String text;

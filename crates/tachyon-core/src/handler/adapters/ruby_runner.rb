@@ -9,8 +9,7 @@ class YonServiceLimits
   MAX_RELAY_STDERR_BYTES = 64 * 1024
   MAX_RESOURCE_BYTES = 1024 * 1024
   MAX_RESOURCE_HEAD_BYTES = 8192
-  RESOURCE_TIMEOUT_SECONDS = 5
-  SCROLL_TIMEOUT_SECONDS = 30
+  RESOURCE_ANSWER_MARGIN_SECONDS = 1
   GATEWAY_ANSWER_MARGIN_SECONDS = 1
   CHUNK_BYTES = 65_536
   RELAY_POLL_SECONDS = 0.002
@@ -194,7 +193,13 @@ class YonResourceExchange
 end
 
 class YonResources
-  def self.call(command, timeout_seconds = YonServiceLimits::RESOURCE_TIMEOUT_SECONDS)
+  def self.wait_seconds
+    deadline = Object.const_defined?(:YonGateway, false) ? YonGateway.deadline : nil
+    time_remaining = deadline.nil? ? 0.0 : [YonClock.time_left(deadline), 0.0].max
+    time_remaining + YonServiceLimits::RESOURCE_ANSWER_MARGIN_SECONDS
+  end
+
+  def self.call(command, timeout_seconds = wait_seconds)
     body = YonResourceExchange.encode(command)
     YonResourceExchange.post(body, timeout_seconds)
   rescue StandardError
@@ -267,7 +272,7 @@ class DataSource
 
   def scroll(collection, where = nil, cursor = nil, size = 20)
     fields = { "collection" => collection, "where" => where, "cursor" => cursor, "size" => size }
-    document_command("scroll", fields, YonServiceLimits::SCROLL_TIMEOUT_SECONDS)
+    document_command("scroll", fields)
   end
 
   def create_collection(name)
@@ -301,8 +306,8 @@ class DataSource
 
   private
 
-  def document_command(command, fields, timeout_seconds = YonServiceLimits::RESOURCE_TIMEOUT_SECONDS)
-    YonResources.call({ "operation" => "document", "command" => command }.merge(fields), timeout_seconds)
+  def document_command(command, fields)
+    YonResources.call({ "operation" => "document", "command" => command }.merge(fields))
   end
 
   def queue_command(command, fields)

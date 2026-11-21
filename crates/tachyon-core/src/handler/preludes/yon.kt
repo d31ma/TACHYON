@@ -8,7 +8,7 @@ class DataSource {
     fun patch(collection: String, id: String, fields: Map<String, Any?>): Any? = document("patch", mapOf("collection" to collection, "id" to id, "value" to fields))
     fun deleteById(collection: String, id: String): Any? = document("deleteById", mapOf("collection" to collection, "id" to id))
     fun scroll(collection: String, where: Map<String, Any?>? = null, cursor: String? = null, size: Int = 20): Any? =
-        YonManagedResources.call(mapOf("operation" to "document", "command" to "scroll", "collection" to collection, "where" to where, "cursor" to cursor, "size" to size), YonManagedResources.SCROLL_TIMEOUT_NANOSECONDS)
+        YonManagedResources.call(mapOf("operation" to "document", "command" to "scroll", "collection" to collection, "where" to where, "cursor" to cursor, "size" to size), YonManagedResources.waitNanoseconds())
     fun createCollection(name: String): Any? = document("createCollection", mapOf("collection" to name))
     fun dropCollection(name: String): Any? = document("dropCollection", mapOf("collection" to name))
     fun collectionExists(name: String): Any? = document("collectionExists", mapOf("collection" to name))
@@ -31,11 +31,11 @@ class RedisTemplate {
 
 private object YonManagedResources {
     const val LIMIT = 1024 * 1024
-    private const val RESOURCE_TIMEOUT_NANOSECONDS = 5_000_000_000L
-    const val SCROLL_TIMEOUT_NANOSECONDS = 30_000_000_000L
+    private const val ANSWER_MARGIN_NANOSECONDS = 1_000_000_000L
     private const val CONNECT_TIMEOUT_MILLISECONDS = 5000L
     private fun failed(): Nothing = throw IllegalStateException("Yon managed resource operation failed.")
-    fun call(command: Any?, timeoutNanoseconds: Long = RESOURCE_TIMEOUT_NANOSECONDS): Any? {
+    fun waitNanoseconds(): Long = maxOf(0L, Yon.timeLeftNanos()) + ANSWER_MARGIN_NANOSECONDS
+    fun call(command: Any?, timeoutNanoseconds: Long = waitNanoseconds()): Any? {
         val text = try { Json.stringify(command) } catch (_: Exception) { failed() }
         return exchange(text, timeoutNanoseconds)
     }

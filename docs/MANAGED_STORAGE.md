@@ -122,6 +122,11 @@ How the server runs FYLO:
   exit; `wait_ms` is how long that call waited for the exit; and `stop` is
   `closed` when the process exited by itself or `killed` when it had to be
   killed.
+- A handler's store client waits for the server's answer until the
+  invocation's own deadline plus 1 second; there is no fixed 5-second
+  client limit any more, in any language (ADR 0128, amendment 3). A store
+  call that ends without an answer to the handler (it gave up, or the
+  invocation ended) still writes its line, with `"result":"cancelled"`.
 - A FYLO request is sent only when at least 100 ms of the store deadline is
   left (for a start-up request, counting the start-up allowance). With less,
   the call fails at once with `TY2160` "Managed storage operation deadline
