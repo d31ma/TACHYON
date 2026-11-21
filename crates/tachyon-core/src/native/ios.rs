@@ -252,6 +252,7 @@ pub(super) fn info_plist(
             ),
             application.permissions.camera_plist_entries(),
             application.permissions.microphone_plist_entries(),
+            application.permissions.local_network_plist_entries(),
             String::from(application.media.plist_entries()),
         ]
         .concat(),
@@ -1022,6 +1023,28 @@ mod tests {
         let plist = info_plist(&located, &[], &IosDestination::SIMULATOR.plist_keys(""));
         assert!(plist.contains(
             "<key>NSLocationWhenInUseUsageDescription</key><string>Shows stores &amp; more</string>"
+        ));
+    }
+
+    #[test]
+    fn plist_carries_the_manifest_reason_for_the_local_network_with_peers() {
+        let plain = info_plist(
+            &application(),
+            &[],
+            &IosDestination::SIMULATOR.plist_keys(""),
+        );
+        assert!(!plain.contains("NSLocalNetworkUsageDescription"), "{plain}");
+        let mut peers = application();
+        peers.permissions = crate::native::browser_api_permissions::BrowserApiPermissions::declared(
+            &[String::from("peers")],
+            &std::collections::BTreeMap::from([(
+                String::from("peers"),
+                String::from("Connects to your other devices"),
+            )]),
+        );
+        let plist = info_plist(&peers, &[], &IosDestination::SIMULATOR.plist_keys(""));
+        assert!(plist.contains(
+            "<key>NSLocalNetworkUsageDescription</key><string>Connects to your other devices</string>"
         ));
     }
 
