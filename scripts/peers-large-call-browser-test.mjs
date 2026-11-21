@@ -112,7 +112,15 @@ class SignalController {
    */
   @OnMessage
   async onMessage(session, signal) {
-    for (const peer of await session.openSessions()) await peer.send(signal)
+    await this._sendToAll(await session.openSessions(), signal);
+  }
+
+  /**
+   * @param {SocketSession[]} sessions
+   * @param {Signal} signal
+   */
+  async _sendToAll(sessions, signal) {
+    for (const peer of sessions) await peer.send(signal);
   }
 }
 `
@@ -148,9 +156,26 @@ export default class RelayClient {
 export default class CallService {
   static _AUDIO = ${audioTracks};
   static _VIDEO = ${videoTracks};
+  static _TRACKS = ${audioTracks + videoTracks};
   static _POLL_MS = 300;
   static _USER = ${JSON.stringify(turnUser)};
   static _SECRET = ${JSON.stringify(turnSecret)};
+  static _CALLER = 'caller';
+  static _SOCKET = 'socket';
+  static _HTTP = 'http';
+  static _OFFER = 'offer';
+  static _CANDIDATE = 'candidate';
+  static _CONNECTED = 'connected';
+  static _MICROPHONE = 'mic';
+  static _CAMERA = 'cam';
+  static _STREAM = 'call';
+  static _SPACE = ' ';
+  static _BYTES = ' bytes';
+  static _STEPS = {
+    offer: (peers, connection, text) => peers.answer(connection, text),
+    answer: (peers, connection, text) => peers.accept(connection, text),
+    candidate: (peers, connection, text) => peers.addCandidate(connection, text),
+  };
   /** @type {TacPeers} */
   @Needs
   peers;
@@ -173,7 +198,6 @@ export default class CallService {
   _arrived = 0;
   _offerBytes = 0;
   _taken = 0;
-  _polling = false;
 
   /**
    * @param {string} role
@@ -184,54 +208,93 @@ export default class CallService {
     this._transport = transport;
     this._connection = this.peers.open(CallService._USER, CallService._SECRET);
     this._show('waiting');
-    if (transport === 'http') setInterval(() => void this._poll(), CallService._POLL_MS);
-    if (role === 'caller') this._capture();
+    this._startPolling();
+    this._startCapture();
   }
 
-  _capture() {
-    for (let index = 0; index < CallService._AUDIO; index += 1) this.media.captureMicrophone('mic' + index, '', false);
-    for (let index = 0; index < CallService._VIDEO; index += 1) this.media.captureCamera('cam' + index, '', 'low');
+  _startPolling() {
+    if (this._transport !== CallService._HTTP) return;
+    void this._poll();
+  }
+
+  async _poll() {
+    const taken = await this.relayClient.take({ after: this._taken, from: this._role });
+    this._taken = taken.next;
+    for (const signal of taken.items) this._step(signal);
+    setTimeout(() => void this._poll(), CallService._POLL_MS);
+  }
+
+  _startCapture() {
+    if (this._role !== CallService._CALLER) return;
+    this._captureMicrophones();
+    this._captureCameras();
+  }
+
+  _captureMicrophones() {
+    for (let index = 0; index < CallService._AUDIO; index += 1) this.media.captureMicrophone(CallService._MICROPHONE + index, '', false);
+  }
+
+  _captureCameras() {
+    for (let index = 0; index < CallService._VIDEO; index += 1) this.media.captureCamera(CallService._CAMERA + index, '', 'low');
   }
 
   /** @param {MediaTrackStarted} started */
   @OnEvent
   hearStarted(started) {
     this._started += 1;
-    if (this._started === CallService._AUDIO + CallService._VIDEO) this._sendAll();
+    this._sendWhenAllStarted();
   }
 
-  _sendAll() {
-    for (let index = 0; index < CallService._AUDIO; index += 1) this.media.send(this._connection, 'mic' + index, 'call', false);
-    for (let index = 0; index < CallService._VIDEO; index += 1) this.media.send(this._connection, 'cam' + index, 'call', false);
+  _sendWhenAllStarted() {
+    if (this._started !== CallService._TRACKS) return;
+    this._sendMicrophones();
+    this._sendCameras();
     this.peers.offer(this._connection);
+  }
+
+  _sendMicrophones() {
+    for (let index = 0; index < CallService._AUDIO; index += 1) this.media.send(this._connection, CallService._MICROPHONE + index, CallService._STREAM, false);
+  }
+
+  _sendCameras() {
+    for (let index = 0; index < CallService._VIDEO; index += 1) this.media.send(this._connection, CallService._CAMERA + index, CallService._STREAM, false);
   }
 
   /** @param {PeerDescription} described */
   @OnEvent
   hearDescription(described) {
-    if (described.kind === 'offer') this._offerBytes = new TextEncoder().encode(described.sdp).length;
     void this._relay(described.kind, described.sdp);
-    if (described.kind === 'offer') this._show('offered ' + this._offerBytes + ' bytes');
+    this._noteOffer(described);
+  }
+
+  /** @param {PeerDescription} described */
+  _noteOffer(described) {
+    if (described.kind !== CallService._OFFER) return;
+    this._offerBytes = new TextEncoder().encode(described.sdp).length;
+    this._show('offered ' + this._offerBytes + CallService._BYTES);
   }
 
   /** @param {PeerCandidate} candidate */
   @OnEvent
   hearCandidate(candidate) {
-    void this._relay('candidate', candidate.candidateJson);
+    void this._relay(CallService._CANDIDATE, candidate.candidateJson);
   }
 
   /** @param {Signal} signal */
   @OnEvent
   hearSignal(signal) {
-    if (this._transport === 'socket') this._apply(signal);
+    this._stepFromSocket(signal);
   }
 
   /** @param {Signal} signal */
-  _apply(signal) {
-    if (signal.from === this._role || this._connection === '') return;
-    if (signal.kind === 'offer') this.peers.answer(this._connection, signal.text);
-    if (signal.kind === 'answer') this.peers.accept(this._connection, signal.text);
-    if (signal.kind === 'candidate') this.peers.addCandidate(this._connection, signal.text);
+  _stepFromSocket(signal) {
+    if (this._transport !== CallService._SOCKET || signal.from === this._role) return;
+    this._step(signal);
+  }
+
+  /** @param {Signal} signal */
+  _step(signal) {
+    CallService._STEPS[signal.kind](this.peers, this._connection, signal.text);
   }
 
   /**
@@ -240,39 +303,38 @@ export default class CallService {
    */
   async _relay(kind, text) {
     const signal = { from: this._role, kind, text };
-    if (this._transport === 'socket') return this.signalClient.send(signal);
+    if (this._transport === CallService._SOCKET) return this.signalClient.send(signal);
     return this.relayClient.post(signal);
-  }
-
-  async _poll() {
-    if (this._polling) return;
-    this._polling = true;
-    try {
-      const taken = await this.relayClient.take({ after: this._taken, from: this._role });
-      this._taken = taken.next;
-      for (const signal of taken.items) this._apply(signal);
-    } finally {
-      this._polling = false;
-    }
   }
 
   /** @param {MediaTrackArrived} arrived */
   @OnEvent
   hearArrived(arrived) {
     this._arrived += 1;
-    if (this._arrived === CallService._AUDIO + CallService._VIDEO) this._show('arrived ' + this._arrived + ' tracks');
+    this._showArrived();
+  }
+
+  _showArrived() {
+    if (this._arrived !== CallService._TRACKS) return;
+    this._show('arrived ' + this._arrived + ' tracks');
   }
 
   /** @param {PeerState} state */
   @OnEvent
   hearState(state) {
-    if (this._role === 'caller' && state.state === 'connected') this._show('connected, offered ' + this._offerBytes + ' bytes');
+    this._showConnected(state);
+  }
+
+  /** @param {PeerState} state */
+  _showConnected(state) {
+    if (this._role !== CallService._CALLER || state.state !== CallService._CONNECTED) return;
+    this._show('connected, offered ' + this._offerBytes + CallService._BYTES);
   }
 
   /** @param {PeerFailed} failed */
   @OnEvent
   hearFailed(failed) {
-    this._show('failed ' + failed.call + ' ' + failed.reason + ' ' + failed.message);
+    this._show('failed ' + failed.call + CallService._SPACE + failed.reason + CallService._SPACE + failed.message);
   }
 
   /** @param {MediaFailed} failed */
@@ -283,7 +345,7 @@ export default class CallService {
 
   /** @param {string} text */
   _show(text) {
-    this.report = this._role + ' ' + this._transport + ': ' + text;
+    this.report = this._role + CallService._SPACE + this._transport + ': ' + text;
     void this.taskScheduler.render();
   }
 }
