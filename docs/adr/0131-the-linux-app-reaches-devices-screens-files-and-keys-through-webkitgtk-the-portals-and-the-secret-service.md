@@ -156,6 +156,11 @@ and the format again, writes only the file the person chose, and keeps one
 save dialog open at a time. A closed dialog answers `cancelled`, a file the
 host cannot make answers `denied`, and a full disk answers `full`. A new
 page closes every open recording file and closes an open dialog.
+WebKitGTK's `MediaRecorder` needs `gstreamer1.0-plugins-bad`
+(`uritranscodebin`), so the package of an app with a media grant recommends
+it too. A recording needs a capture source on the page: with none started,
+WebKitGTK 2.54 records nothing from WebAudio tracks, so the file stays
+empty.
 
 ## Consequences
 
