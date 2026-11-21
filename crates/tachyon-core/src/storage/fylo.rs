@@ -53,6 +53,7 @@ pub(super) struct FyloStore {
 
 impl FyloStore {
     const MAX_SCAN: usize = 10_000;
+    const PROTOCOLS_WITH_V1_OPERATIONS: [u64; 2] = [1, 2];
 
     pub(super) async fn connect(settings: &Value) -> Result<Self, Failure> {
         object_keys(settings, &["driver", "url", "timeout"])?;
@@ -74,7 +75,7 @@ impl FyloStore {
             .handshake(&json!({ "op": "handshake" }))
             .await
             .map_err(FyloError::into_failure)?;
-        if identity["protocolVersion"] != json!(1) {
+        if !Self::speaks_v1_operations(&identity) {
             return Err(failure(
                 "FYLO speaks an unsupported machine protocol version.",
             ));
@@ -88,6 +89,12 @@ impl FyloStore {
             closed: AtomicBool::new(false),
             scrolls: Mutex::new(ScrollSnapshots::new()),
         })
+    }
+
+    fn speaks_v1_operations(identity: &Value) -> bool {
+        identity["protocolVersion"]
+            .as_u64()
+            .is_some_and(|version| Self::PROTOCOLS_WITH_V1_OPERATIONS.contains(&version))
     }
 
     fn root_path(raw: &str) -> Option<&str> {
@@ -383,7 +390,9 @@ impl FyloStore {
             .map_err(FyloError::into_failure)?;
         let mode = text(command, "mode")?;
         match (mode, &answer) {
-            ("rows", Value::Object(_)) => Ok(Value::Array(rows_of(answer, "id")?)),
+            ("rows", Value::Object(_) | Value::Array(_)) => {
+                Ok(Value::Array(rows_of(answer, "id")?))
+            }
             ("rows", _) => Ok(json!([])),
             (_, Value::Number(affected)) => Ok(json!({ "affectedRows": affected })),
             (_, Value::String(id)) => Ok(json!({ "affectedRows": 1, "id": id })),
@@ -688,6 +697,9 @@ impl FyloError {
 }
 
 fn rows_of(answer: Value, id_field: &str) -> Result<Vec<Value>, Failure> {
+    if let Value::Array(listed) = answer {
+        return listed_rows(listed);
+    }
     let items = match answer {
         Value::Object(map) if map.contains_key("items") && map.contains_key("page") => {
             map["items"].clone()
@@ -714,6 +726,19 @@ fn rows_of(answer: Value, id_field: &str) -> Result<Vec<Value>, Failure> {
         rows.push(row);
     }
     Ok(rows)
+}
+
+fn listed_rows(listed: Vec<Value>) -> Result<Vec<Value>, Failure> {
+    let bytes = serde_json::to_vec(&listed).map_or(usize::MAX, |encoded| encoded.len());
+    if bytes > ManagedStorage::MAX_BYTES {
+        return Err(failure(
+            "FYLO result exceeds the byte limit; paginate the query.",
+        ));
+    }
+    if !listed.iter().all(Value::is_object) {
+        return Err(failure("FYLO returned an unexpected document shape."));
+    }
+    Ok(listed)
 }
 
 fn identifier(name: &str) -> Result<&str, Failure> {
@@ -745,5 +770,41 @@ fn compare(left: &Value, right: &Value) -> std::cmp::Ordering {
         (Value::Null, _) => Ordering::Less,
         (_, Value::Null) => Ordering::Greater,
         _ => Ordering::Equal,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::{FyloStore, rows_of};
+
+    #[test]
+    fn protocol_one_and_protocol_two_both_keep_the_v1_operations() {
+        assert!(FyloStore::speaks_v1_operations(
+            &json!({"protocolVersion": 1})
+        ));
+        assert!(FyloStore::speaks_v1_operations(
+            &json!({"protocolVersion": 2})
+        ));
+        assert!(!FyloStore::speaks_v1_operations(
+            &json!({"protocolVersion": 3})
+        ));
+        assert!(!FyloStore::speaks_v1_operations(&json!({})));
+    }
+
+    #[test]
+    fn rows_come_from_an_id_keyed_map_or_from_a_list_of_rows() {
+        let keyed = rows_of(json!({"4W2": {"n": 2}, "4W1": {"n": 1}}), "id").ok();
+        assert_eq!(
+            keyed,
+            Some(vec![
+                json!({"id": "4W1", "n": 1}),
+                json!({"id": "4W2", "n": 2})
+            ])
+        );
+        let listed = rows_of(json!([{"id": "4W1", "n": 1}]), "id").ok();
+        assert_eq!(listed, Some(vec![json!({"id": "4W1", "n": 1})]));
+        assert!(rows_of(json!([1]), "id").is_err());
     }
 }
