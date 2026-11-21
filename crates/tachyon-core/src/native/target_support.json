@@ -513,11 +513,11 @@
     "member": "tac.browserApis peers",
     "paths": ["tac.browserApis[peers]"],
     "web": {"reach": "honored", "how": "RTCPeerConnection data channels with the browser's own WebRTC (ADR 0140): Peers opens connections, makes and accepts offers and answers, adds ICE candidates, opens ordered or unordered channels and sends bytes with back-pressure; STUN and TURN servers come only from tac.peers.iceServers; real connections run in Chromium, Firefox and WebKit, and through a local TURN relay (scripts/peers-browser-test.mjs)"},
-    "macos": {"reach": "runOwed", "how": "the page uses the web view's own RTCPeerConnection; Peers.supported answers whether the WKWebView has it on the tachyon-app:// scheme, and open refuses with unsupported where it does not (ADR 0140)", "run": "a Peers connection between two data channels in the macOS app"},
-    "windows": {"reach": "runOwed", "how": "the page uses WebView2's own RTCPeerConnection on https://tachyon.local (ADR 0140)", "run": "a Peers connection between two data channels in a WebView2 app on Windows"},
+    "macos": {"reach": "honored", "how": "WKWebView's own RTCPeerConnection on tachyon-app://; WKWebView hides host candidates, so two connections in the built app connected through a local TURN relay with relayOnly and carried 65,536 bytes on an ordered channel (scripts/native/peers-macos-test.mjs, ADR 0140)"},
+    "windows": {"reach": "honored", "how": "WebView2's own RTCPeerConnection on https://tachyon.local; two connections in a built app on Windows 11 connected directly and carried 65,536 bytes on an ordered channel (scripts/windows/peers-native-test.mjs, ADR 0140)"},
     "linux": {"reach": "adapted", "note": "WebKitGTK as Linux distributions build it has no WebRTC, so Peers.supported answers false and open refuses with unsupported in the Linux app (ADR 0140). Use the web version for peer connections on Linux."},
     "ios": {"reach": "runOwed", "how": "the page uses the web view's own RTCPeerConnection; Peers.supported answers whether the WKWebView has it on the tachyon-app:// scheme, and open refuses with unsupported where it does not (ADR 0140)", "run": "a Peers connection between two data channels in the iOS app"},
-    "android": {"reach": "runOwed", "how": "the page uses the Android WebView's own RTCPeerConnection on https://appassets.tachyon.local; the app asks for the INTERNET permission (ADR 0140)", "run": "a Peers connection between two data channels in the app on the Android emulator"}
+    "android": {"reach": "honored", "how": "the Android WebView's own RTCPeerConnection on https://appassets.tachyon.local; an app that grants peers asks for the INTERNET permission, and two connections in the app on the emulator connected directly and carried 65,536 bytes on an ordered channel (scripts/android/peers-test.mjs, ADR 0140)"}
   },
   {
     "member": "tac.peers",

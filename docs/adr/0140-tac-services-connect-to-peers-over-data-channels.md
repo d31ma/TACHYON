@@ -214,3 +214,46 @@ hold for the other device.
   WebView2, the Android WebView), and a connection between two physical
   devices on different networks through a real TURN relay, recorded in
   `docs/SUPPORT_TIERS.md`.
+
+## Amendment (2026-11-21): the native apps (P1b)
+
+The native apps use the web view's own WebRTC, as decided above. They needed
+two changes in the shells and a check in each built app.
+
+- **Network access on Android.** An Android app that grants `peers` asks for
+  `android.permission.INTERNET`, even when `tac.outgoing.hosts` is empty: the
+  other device's address is never declared, so the permission cannot come
+  from the host list alone. This changes the Android manifest of such apps.
+- **A reason on iOS.** iOS asks the person before an app uses the local
+  network, and WebRTC does that when it looks for candidates. An iOS build
+  that grants `peers` needs `tac.application.permissions.peers`; it is
+  written as `NSLocalNetworkUsageDescription`, and without it the build stops
+  with TY1601, like the other reasons. macOS 15 and later can also ask
+  before an app reaches devices on the local network; the macOS check used
+  only a loopback relay, so it did not show that prompt. The macOS shell
+  writes no local network reason yet; a connection to a device on the local
+  network from the macOS app is still owed.
+- **WebKit hides host candidates.** WKWebView, like Safari, gives no host
+  candidate to the page, so two connections on one device reach each other
+  only through a relay. The macOS and iOS checks use a local coturn relay with
+  `relayOnly`; WebView2 and the Android WebView connect directly.
+
+Evidence: one probe app (`scripts/native/peers-native-probe.mjs`) opens two
+connections in the built app, carries the offer, answer and candidates between
+them, opens an ordered channel and sends 65,536 bytes in two messages; the
+result is read from the app's own window.
+
+- `bun run test:peers-android`: on the Android emulator, the app holds
+  `android.permission.INTERNET: granted=true`, and the WebView on
+  `https://appassets.tachyon.local` connected directly and received 65,536
+  bytes (2026-11-21).
+- `bun run test:peers-macos` (through `mac-heavy --gui`, because it reads the
+  Accessibility tree): the macOS app on `tachyon-app://bundle` connected
+  through coturn with `relayOnly` and received 65,536 bytes (2026-11-21).
+- `bun run test:peers-windows` (in the signed-in desktop of the Windows 11
+  ARM64 test VM): WebView2 on `https://tachyon.local` connected directly and
+  received 65,536 bytes (2026-11-21).
+- NATIVE_IOS_PENDING
+- `native::browser_api_permissions`, `native::android` and `native::ios`
+  unit tests: the iOS reason is required and written to Info.plist only with
+  the grant, and INTERNET is added for `peers` and not for a plain app.

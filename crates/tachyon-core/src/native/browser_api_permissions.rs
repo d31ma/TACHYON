@@ -11,11 +11,12 @@ pub(super) struct BrowserApiPermissions {
 }
 
 impl BrowserApiPermissions {
-    const ASKING_APIS: [&'static str; 5] = [
+    const ASKING_APIS: [&'static str; 6] = [
         "camera",
         "geolocation",
         "microphone",
         "notifications",
+        "peers",
         "screen",
     ];
     const HOST_CHECKED: [&'static str; 9] = [
@@ -30,7 +31,7 @@ impl BrowserApiPermissions {
         "share",
     ];
     const MOST_CHARACTERS: usize = 200;
-    const REQUIRED: [(&'static str, NativeTarget); 10] = [
+    const REQUIRED: [(&'static str, NativeTarget); 11] = [
         ("camera", NativeTarget::Ios),
         ("camera", NativeTarget::Macos),
         ("camera", NativeTarget::Android),
@@ -41,10 +42,12 @@ impl BrowserApiPermissions {
         ("microphone", NativeTarget::Macos),
         ("microphone", NativeTarget::Android),
         ("notifications", NativeTarget::Android),
+        ("peers", NativeTarget::Ios),
     ];
     pub(super) const IOS_LOCATION_KEYS: [&'static str; 1] = ["NSLocationWhenInUseUsageDescription"];
     const CAMERA_KEYS: [&'static str; 1] = ["NSCameraUsageDescription"];
     const MICROPHONE_KEYS: [&'static str; 1] = ["NSMicrophoneUsageDescription"];
+    const LOCAL_NETWORK_KEYS: [&'static str; 1] = ["NSLocalNetworkUsageDescription"];
     pub(super) const MACOS_LOCATION_KEYS: [&'static str; 2] = [
         "NSLocationUsageDescription",
         "NSLocationWhenInUseUsageDescription",
@@ -88,6 +91,10 @@ impl BrowserApiPermissions {
 
     pub(super) fn microphone_plist_entries(&self) -> String {
         self.usage_plist_entries("microphone", &Self::MICROPHONE_KEYS)
+    }
+
+    pub(super) fn local_network_plist_entries(&self) -> String {
+        self.usage_plist_entries("peers", &Self::LOCAL_NETWORK_KEYS)
     }
 
     fn usage_plist_entries(&self, api: &str, keys: &[&str]) -> String {
@@ -253,6 +260,39 @@ mod tests {
         notified
             .validate_for(NativeTarget::Ios)
             .expect("Apple asks with its own text");
+    }
+
+    #[test]
+    fn peers_needs_a_reason_on_ios_only_and_writes_the_local_network_key() {
+        let unexplained = permissions(&["peers"], &[]);
+        let error = message(
+            &unexplained
+                .validate_for(NativeTarget::Ios)
+                .expect_err("refused"),
+        );
+        assert!(error.contains("TY1601"), "{error}");
+        assert!(
+            error.contains("tac.application.permissions.peers"),
+            "{error}"
+        );
+        for target in [
+            NativeTarget::Macos,
+            NativeTarget::Android,
+            NativeTarget::Windows,
+            NativeTarget::Linux,
+        ] {
+            unexplained.validate_for(target).expect("no reason needed");
+        }
+        assert_eq!(unexplained.local_network_plist_entries(), "");
+        let explained = permissions(&["peers"], &[("peers", "Finds your <other> devices")]);
+        explained.validate().expect("a valid reason");
+        explained
+            .validate_for(NativeTarget::Ios)
+            .expect("explained");
+        assert_eq!(
+            explained.local_network_plist_entries(),
+            "\n<key>NSLocalNetworkUsageDescription</key><string>Finds your &lt;other&gt; devices</string>"
+        );
     }
 
     #[test]
