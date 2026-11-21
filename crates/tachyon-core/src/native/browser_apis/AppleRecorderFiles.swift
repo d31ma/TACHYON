@@ -1,4 +1,3 @@
-#if os(macOS)
 import UniformTypeIdentifiers
 
 @MainActor
@@ -112,4 +111,3 @@ final class AppleRecorderFiles {
         return "There is no disk space left for the recording (full)."
     }
 }
-#endif

@@ -176,6 +176,13 @@ sent.splice(0)
 FakeRecorder.last.emit([1])
 await settle()
 report.hostFull = [sent.splice(0).map((event) => event[1].reason), hostCalls.splice(0).map(([call]) => call), Recorder.current]
+hostAnswers = {}
+api.start(reply, 'silent', 'mic', '', 'Meeting', '')
+await settle()
+sent.splice(0)
+api.stop(reply, 'silent')
+await settle()
+report.hostEmpty = [sent.splice(0).map((event) => [event[0], event[1].reason ?? null]), hostCalls.splice(0).map(([call]) => call), Recorder.current]
 console.log(JSON.stringify(report))
 ";
 
@@ -401,5 +408,10 @@ fn assert_the_native_host_saves_the_file(report: &serde_json::Value) {
         report["hostFull"],
         serde_json::json!([["full"], ["open", "write", "close"], null]),
         "a host write failure keeps its reason, and the file is closed once"
+    );
+    assert_eq!(
+        report["hostEmpty"],
+        serde_json::json!([[["RecordingFailed", "failed"]], ["open", "close"], null]),
+        "a recording with no bytes is a failure, not a saved file"
     );
 }

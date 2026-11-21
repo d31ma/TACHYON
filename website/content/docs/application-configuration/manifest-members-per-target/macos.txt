@@ -193,7 +193,7 @@ tac.media
   not applicable: A desktop app keeps running when its window is in the background, so tac.media.background changes nothing; Media.callActive only answers MediaCallActive with background false (ADR 0129).
 
 tac.recorder
-  run owed: the page records with MediaRecorder in the web view on tachyon-app://bundle (one AudioContext mix, a 1280x720 canvas for the chosen video) and writes the file through the save picker or the private file system (ADR NNNN); still to run: a recording made in the built app and opened in a normal player; the native save dialog comes in slice M5b
+  honored: the page records with MediaRecorder in the web view on tachyon-app://bundle and the host saves the file (ADR NNNN slice M5b1): NSSavePanel as a sheet on the app window, starting in Movies, then each piece written at its place; a closed dialog answers cancelled; checked with the real save dialog in a generated host (native::native_recorder_host_tests)
 
 tac.yon
   honored: the macOS app's pages and its linked Swift and Rust HTTP clients reach tac.yon.origin from tachyon-app://bundle through URLSession, and Yon receives Origin: tachyon-app://bundle; run by scripts/native/yon-reach-test.mjs on macOS 26.6.2 with Swift services and with linked Rust services, whose page-held stream and socket also reached Yon (ADR 0103, LR1)
