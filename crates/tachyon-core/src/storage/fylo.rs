@@ -1,9 +1,11 @@
 mod busy_operation;
 mod collection_name;
 mod document_commands;
+mod fylo_input;
 mod fylo_pipes;
 mod fylo_process;
 mod interruption;
+mod live_input;
 mod operation_timeout;
 mod patch_queue;
 mod queue_commands;
@@ -15,6 +17,8 @@ mod scroll_request;
 mod scroll_snapshot;
 mod scroll_snapshots;
 mod sql_statement;
+mod startup_requests;
+mod stderr_tail;
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -27,25 +31,30 @@ use super::dialect::{
     is_simple_identifier, page_with_query_order, reject_count_page_or_order,
     sort_field_and_direction,
 };
-use super::{ManagedStorage, failure, object_keys, scalar, text};
+use super::{ManagedStorage, StoreCall, failure, object_keys, scalar, text};
 use crate::Failure;
 use crate::failure::diagnostic;
 use crate::sorted_json::SortedJson;
 use busy_operation::BusyOperation;
 pub(super) use collection_name::CollectionName;
 use document_commands::DocumentCommands;
+use futures_util::future::OptionFuture;
 use fylo_process::FyloProcess;
+use live_input::LiveInput;
 use operation_timeout::OperationTimeout;
 use patch_queue::{PatchAnswer, PatchQueue};
 use queue_commands::QueueCommands;
 use scroll_snapshots::ScrollSnapshots;
 pub(super) use sql_statement::SqlStatement;
+use startup_requests::StartupRequests;
 
 pub(super) struct FyloStore {
     root: PathBuf,
     operation_timeout: Duration,
     process: Mutex<Option<FyloProcess>>,
     busy: BusyOperation,
+    first_requests: StartupRequests,
+    live_input: LiveInput,
     patches: PatchQueue,
     closed: AtomicBool,
     scrolls: Mutex<ScrollSnapshots>,
@@ -84,6 +93,8 @@ impl FyloStore {
             operation_timeout,
             process: Mutex::new(Some(process)),
             busy: BusyOperation::new(),
+            first_requests: StartupRequests::new(),
+            live_input: LiveInput::new(),
             patches: PatchQueue::new(),
             closed: AtomicBool::new(false),
             scrolls: Mutex::new(ScrollSnapshots::new()),
@@ -132,9 +143,11 @@ impl FyloStore {
 
     pub(super) async fn close(&self) {
         self.closed.store(true, Ordering::Release);
-        if let Some(process) = self.process.lock().await.take() {
-            process.close().await;
-        }
+        let closed = std::time::Instant::now();
+        self.live_input.close();
+        let slot = tokio::time::timeout(FyloProcess::EXIT_GRACE, self.process.lock()).await;
+        let process = slot.ok().and_then(|mut slot| slot.take());
+        OptionFuture::from(process.map(|process| process.close(closed))).await;
     }
 
     pub(super) fn operation_timeout(&self) -> Duration {
@@ -398,7 +411,7 @@ impl FyloStore {
 
     async fn patch(&self, collection: &str, id: &str, fields: Map<String, Value>) -> PatchAnswer {
         let answer = self.patches.add(collection, id, fields);
-        let mut guard = self.process.lock().await;
+        let mut guard = StoreCall::waiting_behind(self.process.lock()).await;
         self.write_waiting_patches(&mut guard).await;
         drop(guard);
         PatchQueue::received(answer)
@@ -412,7 +425,7 @@ impl FyloStore {
     }
 
     async fn call_together(&self, requests: Vec<(&str, Value)>) -> Result<Vec<Value>, FyloError> {
-        let mut guard = self.process.lock().await;
+        let mut guard = StoreCall::waiting_behind(self.process.lock()).await;
         self.call_holding(&mut guard, requests).await
     }
 
@@ -441,9 +454,12 @@ impl FyloStore {
         let mut answers = Vec::with_capacity(requests.len());
         for (operation, mut fields) in requests {
             fields["op"] = json!(operation);
+            let target = StartupRequests::target_of(&fields);
+            let startup = self.first_requests.is_first(&target);
             self.busy.mark(operation);
-            let answer = process.request(operation, &fields).await;
+            let answer = process.request(operation, &fields, startup).await;
             self.busy.clear();
+            self.first_requests.record(target, &answer);
             answers.push(answer?);
         }
         Ok(answers)
@@ -453,16 +469,20 @@ impl FyloStore {
         &self,
         slot: &'slot mut Option<FyloProcess>,
     ) -> Result<&'slot mut FyloProcess, FyloError> {
-        Self::stop_interrupted(slot).await;
+        StoreCall::waiting(Self::stop_interrupted(slot)).await;
         self.busy.clear();
         self.spawn_when_empty(slot)?;
-        slot.as_mut()
-            .ok_or_else(|| FyloError::protocol("FYLO subprocess is unavailable."))
+        let process = slot
+            .as_mut()
+            .ok_or_else(|| FyloError::protocol("FYLO subprocess is unavailable."))?;
+        self.live_input.follow(process.input());
+        Ok(process)
     }
 
     fn spawn_when_empty(&self, slot: &mut Option<FyloProcess>) -> Result<(), FyloError> {
         if slot.is_none() {
             *slot = Some(FyloProcess::spawn(&self.root)?);
+            self.first_requests.restart();
         }
         Ok(())
     }

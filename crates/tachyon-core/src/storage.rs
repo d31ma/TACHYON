@@ -6,9 +6,15 @@ mod prelogin_stream;
 #[cfg(feature = "storage-redis")]
 mod redis_store;
 mod sqlite;
+mod startup_activity;
+mod startup_allowance;
+mod store_call;
+mod store_call_log;
+mod store_operation;
 #[cfg(not(feature = "storage-redis"))]
 mod unbuilt_redis_store;
 
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use serde_json::Value;
@@ -20,6 +26,11 @@ use drivers::SqlStore;
 use fylo::FyloStore;
 #[cfg(feature = "storage-redis")]
 use redis_store::RedisStore;
+use startup_activity::StartupActivity;
+use startup_allowance::StartupAllowance;
+pub(crate) use store_call::StoreCall;
+pub(crate) use store_call_log::StoreCallLog;
+pub(crate) use store_operation::StoreOperation;
 #[cfg(not(feature = "storage-redis"))]
 use unbuilt_redis_store::UnbuiltRedisStore as RedisStore;
 
@@ -29,6 +40,9 @@ pub(crate) struct ManagedStorage {
     redis: Option<RedisStore>,
     admission: Semaphore,
     deadline_factor: u32,
+    call_log: StoreCallLog,
+    startup_allowance: Duration,
+    startup_activity: Arc<StartupActivity>,
 }
 
 impl std::fmt::Debug for ManagedStorage {
@@ -73,7 +87,12 @@ impl ManagedStorage {
     ) -> Result<Self, Failure> {
         tokio::time::timeout(Self::STARTUP_TIMEOUT * deadline_factor, async {
             let yon = &configuration["yon"];
-            let (sql, fylo) = match yon.get("datasource") {
+            let call_log = StoreCallLog::from_configuration(yon)?;
+            let startup_allowance = StartupAllowance::from_configuration(yon)?;
+            let datasource = StartupAllowance::without_its_setting(
+                StoreCallLog::without_its_settings(yon.get("datasource").cloned()),
+            );
+            let (sql, fylo) = match &datasource {
                 Some(value) if value["driver"] == "fylo" => {
                     (None, Some(FyloStore::connect(value).await?))
                 }
@@ -90,6 +109,9 @@ impl ManagedStorage {
                 redis,
                 admission: Semaphore::new(16),
                 deadline_factor,
+                call_log,
+                startup_allowance: startup_allowance * deadline_factor,
+                startup_activity: Arc::new(StartupActivity::new()),
             })
         })
         .await
@@ -101,21 +123,55 @@ impl ManagedStorage {
         self.execute_within(command, None).await
     }
 
+    #[cfg(test)]
     pub(crate) async fn execute_within(
         &self,
         command: &Value,
         shared_deadline: Option<Instant>,
+    ) -> Result<Value, Failure> {
+        let allowance = self.startup_allowance();
+        let (result, _call) = self
+            .execute_measured(command, shared_deadline, allowance)
+            .await;
+        result
+    }
+
+    pub(crate) async fn execute_measured(
+        &self,
+        command: &Value,
+        shared_deadline: Option<Instant>,
+        startup_left: Duration,
+    ) -> (Result<Value, Failure>, Arc<StoreCall>) {
+        let deadline = Self::deadline_of(command, shared_deadline, self.time_limit(command));
+        let activity = Arc::clone(&self.startup_activity);
+        let call = StoreCall::new(deadline, startup_left, activity);
+        let result = self.execute_on(command, deadline, &call).await;
+        (result, call)
+    }
+
+    pub(crate) fn startup_allowance(&self) -> Duration {
+        self.startup_allowance
+    }
+
+    pub(crate) fn call_log(&self) -> &StoreCallLog {
+        &self.call_log
+    }
+
+    async fn execute_on(
+        &self,
+        command: &Value,
+        deadline: Instant,
+        call: &Arc<StoreCall>,
     ) -> Result<Value, Failure> {
         check_size(command)?;
         let _permit = self
             .admission
             .try_acquire()
             .map_err(|_| failure("Managed storage admission is closed or full."))?;
-        let deadline = Self::deadline_of(command, shared_deadline, self.time_limit(command));
         self.refuse_when_past(deadline)?;
-        tokio::time::timeout_at(deadline.into(), self.dispatch(command, deadline))
+        call.run(self.dispatch(command, deadline))
             .await
-            .map_err(|_| self.deadline_failure())?
+            .unwrap_or_else(|| Err(self.deadline_failure()))
     }
 
     pub(crate) fn operation_timeout(&self) -> Duration {

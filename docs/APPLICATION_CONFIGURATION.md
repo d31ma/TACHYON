@@ -31,8 +31,11 @@ configure. For connection settings and repository injection, see
 
 The `fylo` driver ([ADR 0032](adr/0032-fylo-datasource.md)) has special rules:
 
-- It takes only `driver`, `url` and `timeout`, the deadline of
-  each store call in milliseconds (1000 to 60000, default 5000).
+- It takes only `driver`, `url`, `timeout` (the deadline of each store call
+  in milliseconds, 1000 to 60000, default 5000), `startup` (extra time for
+  start-up requests per handler answer, 1000 to 120000, default 20000) and
+  the store-call log settings `slowcall` and `logcalls`, which every driver
+  takes.
 - Its root directory must already exist, and the path must be written in
   canonical form.
 - It runs a local `fylo` subprocess. It does not connect to a database server.
@@ -365,6 +368,9 @@ port, hosts, origins, proxies, environment and maxbody."
 | `datasource.driver` | `postgresql`, `mysql`, `mariadb`, `sqlserver`, `sqlite` or `fylo`. |
 | `datasource.url` | The database location, without credentials: `postgresql://db:5432/catalog`, `sqlite:///var/lib/catalog.db`, `sqlite::memory:`, or an absolute FYLO root. |
 | `datasource.timeout` | FYLO only: the store deadline in milliseconds, shared by the store calls of one handler answer, a whole number from 1000 to 60000. Default 5000. The first page of a scroll keeps 30 seconds. |
+| `datasource.slowcall` | The time in milliseconds after which a store call of a Yon handler writes a `handler.storage_slow` line to the standard error of `ty`, a whole number from 1 to 60000. Default 1000. Every driver, and Redis commands too (ADR 0128, amendment 3). |
+| `datasource.startup` | FYLO only: the extra time in milliseconds that start-up requests may take beyond `timeout`, per handler answer in all, a whole number from 1000 to 120000. Default 20000. After each start of a FYLO process, the first request for each collection or topic is a start-up request (ADR 0128, amendment 3). Keep `timeout` plus `startup` below the request limit of the platform, such as a Lambda function's timeout. |
+| `datasource.logcalls` | `true` writes a `handler.storage_call` line for every store call that is not slow. Default `false`. For debugging only. |
 | `datasource.username` | The database user. Usually it is `YON_DATASOURCE_USERNAME` in `.env`, next to `YON_DATASOURCE_PASSWORD`. Only `.env` may hold the password. SQLite and FYLO take neither. |
 | `datasource.tls.ca` | Absolute path of a CA (certificate authority) certificate to trust. |
 | `redis.url` | `redis://`, or `rediss://` for TLS. |

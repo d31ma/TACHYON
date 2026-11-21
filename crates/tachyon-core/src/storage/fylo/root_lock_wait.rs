@@ -2,6 +2,8 @@ use std::time::Duration;
 
 use tokio::time::Instant;
 
+use crate::storage::StoreCall;
+
 pub(super) struct RootLockWait {
     deadline: Instant,
     pause: Duration,
@@ -30,7 +32,7 @@ impl RootLockWait {
         if time_left.is_zero() {
             return false;
         }
-        tokio::time::sleep(pause.min(time_left)).await;
+        StoreCall::waiting(tokio::time::sleep(pause.min(time_left))).await;
         true
     }
 }

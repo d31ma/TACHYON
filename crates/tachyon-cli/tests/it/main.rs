@@ -3,6 +3,7 @@ mod application_config;
 mod composed_types_cli;
 mod executed_coverage;
 mod fylo_datasource;
+mod fylo_store_timing;
 mod handler_environment;
 mod handler_invoke_arguments;
 mod handler_logs;

@@ -25,6 +25,14 @@ machine contracts have their own, independent major versions.
   `.tachyon/tac-locks.js`, shipped only to pages that grant `locks`.
   `bun run test:tabs-browser` checks two tabs in Chromium, Firefox and
   WebKit.
+- **Slow store calls are logged** (ADR 0128, amendment 3). A storage command
+  of a Yon handler that takes 1 second or more writes one
+  `handler.storage_slow` JSON line to the standard error of `ty`, with the
+  request id, datasource, operation, collection, `wait_ms` (waiting for the
+  FYLO process, an old process to exit, a busy root or start-up),
+  `startup_ms`, `call_ms` and the result code. New datasource settings: `slowcall` (the
+  threshold in milliseconds, 1 to 60000, default 1000) and `logcalls`
+  (`true` logs every store call as `handler.storage_call`).
 - **A shell lists its page apps and builds them as one site** (ADR 0139,
   step 2 of micro-frontends, slice 3). `"tac": { "apps": { "/chat":
   "../chat" } }` in the shell's manifest lists the site's page apps.
@@ -416,6 +424,25 @@ machine contracts have their own, independent major versions.
   stays mounted and the page is shown, it tries again every 30 to 35
   seconds, so a long-lived page recovers after a server restart. A declared
   policy and sockets keep their own limits.
+- **A slow FYLO start-up no longer fails again and again** (ADR 0128,
+  amendment 3). After each start of a FYLO process, the time that the first
+  request for each collection or topic takes does not count against the
+  store deadline, up to the new datasource setting `startup` per handler
+  answer (milliseconds, 1000 to 120000, default 20000). So FYLO can finish a
+  repair instead of being stopped and starting it again (Mesail's
+  first-seed 503s). A FYLO
+  process stopped by a deadline now gets its input closed first, so it can
+  finish its write and exit; it is killed only when it has not exited after
+  1 second. `storage.fylo_process_stopped` gains `stop` (`closed` or
+  `killed`). When `ty` stops (SIGTERM, SIGINT, Ctrl-C), it closes FYLO the
+  same way after the request drain, even while a store call runs, and waits
+  about 1 second in all, so a container stop no longer cuts a FYLO write in
+  half. On Windows, a console close, logoff or shutdown event now starts the
+  same graceful stop as Ctrl-C.
+- **FYLO's error output is no longer lost** (ADR 0128, amendment 3). The last
+  20 lines (at most 4 KiB) of a FYLO process's standard error are written as
+  one `storage.fylo_stderr` line when the process ends badly, with the root
+  path replaced by `<root>`.
 - **A property that a custom element refuses no longer blanks the page**
   (ADR 0136 amendment, TAC-B1F). An element with a getter and no setter,
   such as `get values()`, threw a TypeError that stopped the whole render.
