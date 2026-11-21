@@ -51,6 +51,7 @@
     "test:media-calls-browser": "node scripts/media-calls-browser-test.mjs",
     "test:peers-browser": "node scripts/peers-browser-test.mjs",
     "test:peers-macos": "node scripts/native/peers-macos-test.mjs",
+    "test:sframe-call-macos": "node scripts/native/sframe-call-macos-test.mjs",
     "test:peers-ios": "node scripts/ios/peers-test.mjs",
     "test:peers-android": "node scripts/android/peers-test.mjs",
     "test:peers-windows": "node scripts/windows/peers-native-test.mjs",
