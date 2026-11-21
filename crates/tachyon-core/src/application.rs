@@ -36,6 +36,7 @@ pub struct ApplicationConfig {
     handler_json: Option<String>,
     topics_directory: Option<String>,
     max_request_bytes: Option<usize>,
+    scheduled_workers: Option<bool>,
     private_hosts: PrivateHosts,
 }
 
@@ -63,6 +64,7 @@ impl ApplicationConfig {
     const MOST_REQUEST_BYTES: usize = 12 * 1024 * 1024;
     const REQUEST_BYTES_MESSAGE: &str =
         "yon.server.maxbody must be a whole number of bytes from 1 to 12582912 (12 MiB).";
+    const WORKERS_MESSAGE: &str = "yon.server.workers must be true or false. false stops ty start from running @Schedule workers, for a host where an outside scheduler calls the routes (ADR 0144).";
     const ENVIRONMENT_MESSAGE: &str = "yon.server.environment must be a list of environment variable names or prefix patterns, such as \"HOME\" or \"HD_*\".";
     const TAC_CONFIG_MOVED: &str = "tac.config is no longer read; client/manifest.json is the Tac configuration (ADR 0052). Move application to tac.application (name and entryRoute become name and start_url), scripts, styles and cache to tac.scripts, tac.styles and tac.cache, metadata to tac.metadata.routes, and origin to tac.origin. postBundle is replaced by the built-in sitemap.xml and robots.txt; list dynamic route values in tac.sitemap. `ty migrate fix --write` moves plain values.";
 
@@ -163,6 +165,11 @@ impl ApplicationConfig {
     }
 
     #[must_use]
+    pub fn runs_scheduled_workers(&self) -> bool {
+        self.scheduled_workers.unwrap_or(true)
+    }
+
+    #[must_use]
     pub fn topics_directory(&self) -> Option<&str> {
         self.topics_directory.as_deref()
     }
@@ -229,6 +236,10 @@ impl ApplicationConfig {
             .pointer("/yon/server/maxbody")
             .map(Self::request_bytes)
             .transpose()?;
+        let scheduled_workers = document
+            .pointer("/yon/server/workers")
+            .map(Self::workers_switch)
+            .transpose()?;
         normalize_endpoint(&mut document, host.as_ref(), port);
         parser::validate_bounds(&document)?;
         let serialized = serde_json::to_string(&SortedJson::value(&document))
@@ -249,6 +260,7 @@ impl ApplicationConfig {
             handler_json,
             topics_directory,
             max_request_bytes,
+            scheduled_workers,
             private_hosts,
         })
     }
@@ -264,6 +276,12 @@ impl ApplicationConfig {
             .and_then(|bytes| usize::try_from(bytes).ok())
             .filter(|bytes| (1..=Self::MOST_REQUEST_BYTES).contains(bytes))
             .ok_or_else(|| invalid(Self::REQUEST_BYTES_MESSAGE))
+    }
+
+    fn workers_switch(value: &Value) -> Result<bool, Failure> {
+        value
+            .as_bool()
+            .ok_or_else(|| invalid(Self::WORKERS_MESSAGE))
     }
 
     fn hosts_from(value: Option<&Value>) -> Result<Vec<String>, Failure> {

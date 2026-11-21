@@ -854,3 +854,68 @@ fn an_outgoing_private_entry_in_a_profile_is_checked_too() {
     assert!(failure.contains("TY2010"), "{failure}");
     assert!(failure.contains("yon.outgoing.private"), "{failure}");
 }
+
+#[test]
+fn scheduled_workers_run_when_the_server_does_not_say() {
+    let root = temporary_directory();
+    write(root.path(), "server/application.json", r#"{"server":{}}"#);
+    assert!(loaded(load(root.path())).runs_scheduled_workers());
+}
+
+#[test]
+fn scheduled_workers_run_when_the_server_says_true() {
+    let root = temporary_directory();
+    write(
+        root.path(),
+        "server/application.json",
+        r#"{"server":{"workers":true}}"#,
+    );
+    assert!(loaded(load(root.path())).runs_scheduled_workers());
+}
+
+#[test]
+fn scheduled_workers_stop_when_the_server_says_false() {
+    let root = temporary_directory();
+    write(
+        root.path(),
+        "server/application.json",
+        r#"{"server":{"workers":false}}"#,
+    );
+    assert!(!loaded(load(root.path())).runs_scheduled_workers());
+}
+
+#[test]
+fn a_profile_turns_scheduled_workers_off_over_the_base_file() {
+    let root = temporary_directory();
+    write(
+        root.path(),
+        "server/application.json",
+        r#"{"server":{"workers":true}}"#,
+    );
+    write(
+        root.path(),
+        "server/application-lambda.json",
+        r#"{"server":{"workers":false}}"#,
+    );
+    let config = loaded(load_with(root.path(), &[("YON_PROFILE", "lambda")]));
+    assert!(!config.runs_scheduled_workers());
+}
+
+#[test]
+fn a_workers_value_that_is_not_true_or_false_stops_loading() {
+    let root = temporary_directory();
+    write(
+        root.path(),
+        "server/application.json",
+        r#"{"server":{"workers":"false"}}"#,
+    );
+    let failure = load(root.path())
+        .err()
+        .map(|failure| failure.to_string())
+        .unwrap_or_default();
+    assert!(failure.contains("TY2010"), "{failure}");
+    assert!(
+        failure.contains("yon.server.workers must be true or false"),
+        "{failure}"
+    );
+}

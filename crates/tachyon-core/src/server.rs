@@ -239,6 +239,20 @@ impl DevServer {
         self.serve_parts(parts, shutdown).await
     }
 
+    fn scheduled_workers(
+        project: &Project,
+        application: &crate::ApplicationConfig,
+    ) -> Vec<crate::project::ScheduledWorker> {
+        if application.runs_scheduled_workers() {
+            return project.workers().to_vec();
+        }
+        eprintln!(
+            "Scheduled workers are off (yon.server.workers is false): {} @Schedule worker(s) will not run.",
+            project.workers().len()
+        );
+        Vec::new()
+    }
+
     async fn bind_project_with_supervisor(
         project: &Project,
         options: &DevServerOptions,
@@ -279,7 +293,7 @@ impl DevServer {
             crate::handler::TopicFolder::prepare(&project.capability(), supervisor.application())?;
         let runtime = ServerRuntime::new(BackgroundPlan {
             supervisor: Arc::clone(&supervisor),
-            workers: project.workers().to_vec(),
+            workers: Self::scheduled_workers(project, supervisor.application()),
             watcher,
             topics: crate::handler::TopicDeliveries::with_folder(
                 topic_folder.clone(),
@@ -1275,6 +1289,39 @@ mod tests {
         .expect("post-baseline task is reaped");
         cancellation.cancel();
         reaper.await.expect("producer reaper settles");
+    }
+
+    fn worker_project(application: &str) -> (TempDir, Project, crate::ApplicationConfig) {
+        let root = tempfile::tempdir().expect("project");
+        fs::create_dir_all(root.path().join("server/workers")).expect("workers");
+        fs::write(
+            root.path().join("server/workers/reconcile.js"),
+            "@Schedule({\"fixedDelaySeconds\":60})\nexport class Handler {\n  static POST() {\n  }\n}\n",
+        )
+        .expect("worker");
+        fs::write(root.path().join("server/application.json"), application).expect("application");
+        let project = ProjectDiscovery::discover(root.path()).expect("project discovery");
+        let config = crate::ApplicationConfig::load(root.path()).expect("application config");
+        (root, project, config)
+    }
+
+    #[test]
+    fn the_server_keeps_its_schedule_workers_by_default() {
+        let (_root, project, config) = worker_project("{}");
+        assert_eq!(DevServer::scheduled_workers(&project, &config).len(), 1);
+    }
+
+    #[test]
+    fn the_server_keeps_its_schedule_workers_when_workers_is_true() {
+        let (_root, project, config) = worker_project(r#"{"server":{"workers":true}}"#);
+        assert_eq!(DevServer::scheduled_workers(&project, &config).len(), 1);
+    }
+
+    #[test]
+    fn the_server_drops_its_schedule_workers_when_workers_is_false() {
+        let (_root, project, config) = worker_project(r#"{"server":{"workers":false}}"#);
+        assert_eq!(project.workers().len(), 1);
+        assert!(DevServer::scheduled_workers(&project, &config).is_empty());
     }
 
     #[test]
