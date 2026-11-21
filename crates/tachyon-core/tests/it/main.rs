@@ -56,6 +56,7 @@ mod route_access;
 mod ruby_handlers;
 mod rust_check_rejections;
 mod rust_streams;
+mod schedule_workers_switch;
 mod server_drain;
 mod single_class_layout;
 mod sockets;
