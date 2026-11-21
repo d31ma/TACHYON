@@ -2120,10 +2120,29 @@ SHA-256), used an unordered channel, refused a 32,769-byte message, survived
 an ICE restart and closed. Playwright's WebKit refuses `?transport=` in TURN
 URLs; the page retries without it (ADR 0129).
 
-Owed: a connection in each native app (WKWebView on macOS and iOS, WebView2,
-the Android WebView), and a connection between two physical devices on
-different networks through a real TURN relay. The Linux app answers
+The native apps are checked in the next section. The Linux app answers
 `unsupported`: WebKitGTK as distributions build it has no WebRTC.
+
+### Peer connections in the native apps (2026-11-21, ADR 0140 amendment)
+
+One probe app (`scripts/native/peers-native-probe.mjs`) opened two Peers
+connections in each built app, carried the offer, answer and candidates
+between them, opened an ordered channel and sent 65,536 bytes; each check
+read the result from the app's own window.
+
+- Android (`bun run test:peers-android`, the tachyon-gate emulator): the app
+  holds `android.permission.INTERNET`, and the WebView connected directly.
+- macOS (`bun run test:peers-macos`, read through the Accessibility tree):
+  WKWebView on `tachyon-app://` connected through a local coturn 4.19.0 relay
+  with `relayOnly`, because WebKit hides host candidates.
+- Windows (`bun run test:peers-windows`, the Windows 11 ARM64 test VM's
+  desktop): WebView2 connected directly.
+- NATIVE_IOS_PENDING
+
+Owed: a connection between two physical devices on different networks
+through a real TURN relay, and a macOS connection to a device on the local
+network (macOS 15 and later may ask for local network access; the macOS shell
+writes no reason for it yet).
 
 ### Branded browsers (BR2, runner 2026-10-25)
 

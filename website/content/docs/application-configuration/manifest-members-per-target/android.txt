@@ -154,7 +154,7 @@ tac.browserApis camera
   honored: the WebView page runs the same camera view and decoder as the web; onPermissionRequest grants only video capture, only for the app's own pages, after the CAMERA runtime permission with the manifest reason as its rationale; the manifest adds android.permission.CAMERA and an optional android.hardware.camera.any feature (ADR 0130)
 
 tac.browserApis peers
-  run owed: the page uses the Android WebView's own RTCPeerConnection on https://appassets.tachyon.local; the app asks for the INTERNET permission (ADR 0140); still to run: a Peers connection between two data channels in the app on the Android emulator
+  honored: the Android WebView's own RTCPeerConnection on https://appassets.tachyon.local; an app that grants peers asks for the INTERNET permission, and two connections in the app on the emulator connected directly and carried 65,536 bytes on an ordered channel (scripts/android/peers-test.mjs, ADR 0140)
 
 tac.peers
   honored: the same checked server list in the page as on the web
