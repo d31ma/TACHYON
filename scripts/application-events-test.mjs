@@ -71,7 +71,7 @@ async function checkLifecycleAndPublication(bus, resources) {
 }
 
 function checkInvalidPayloads(bus) {
-  for (const invalid of [undefined, Infinity, NaN, new Date(), { bad: undefined }, { bad() {} }, 'x'.repeat(65537)]) {
+  for (const invalid of [undefined, Infinity, NaN, new Date(), { bad: undefined }, { bad() {} }, 'x'.repeat(393217)]) {
     assert.throws(() => bus.publish('invalid', invalid))
 }
 const cycle = {}; cycle.self = cycle
@@ -79,7 +79,9 @@ assert.throws(() => bus.publish('invalid', cycle))
 assert.throws(() => bus.publish('invalid', new Array(2)), /holes/)
 const extendedArray = [1]; extendedArray.extra = 2
 assert.throws(() => bus.publish('invalid', extendedArray), /indexed/)
-assert.throws(() => bus.publish('invalid', ['x'.repeat(32769), 'y'.repeat(32769)]), /64 KiB/)
+assert.throws(() => bus.publish('invalid', ['x'.repeat(196609), 'y'.repeat(196608)]), /393216 bytes/)
+assert.doesNotThrow(() => bus.publish('largest', 'x'.repeat(393214)))
+assert.throws(() => bus.publish('invalid', 'x'.repeat(393215)), /393216 bytes; send less data/)
 const accessor = { get secret() { throw new Error('must not execute') } }
 assert.throws(() => bus.publish('invalid', accessor), /data properties/)
 }

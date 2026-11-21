@@ -329,3 +329,27 @@ messages, as for a web service.
 The service that holds a `SocketRequest` client now hears `SocketOpened` and
 `SocketClosed` events, so it can authenticate again after a reconnect. See
 [ADR 0120](0120-a-socket-service-hears-open-and-close-and-a-tac-service-runs-every.md).
+
+## Amendment (2026-11-21): socket messages allow 384 KiB (P1c)
+
+A socket message may now be 393,216 bytes (384 KiB) of JSON text, up from
+64 KiB, in both directions:
+
+- **The server.** `SocketOutput::MAX_MESSAGE_BYTES` is the one constant for
+  the browser's messages (`SocketSession` reuses it) and for the handler's.
+  A browser message over the limit still closes the socket with 1009, now
+  with the reason `The message is larger than 393216 bytes.`; a handler
+  message over it fails the handler with the limit in the text. A WebSocket
+  frame stays at most 1 MiB.
+- **The page and every Tac service language.** A service's `send` refuses a
+  message over 393,216 bytes with `HTTP_BODY`; the languages that report a
+  text say `A socket message is JSON of at most 393216 bytes. Send less data
+  in one message.`
+- **Why.** An app's signalling server carries Peers descriptions over a
+  socket, and a large call's offer is about 107 KB (ADR 0140 amendment of
+  2026-11-21).
+- **Memory.** Each open socket holds at most one message of 384 KiB while it
+  is read and checked, plus the copy the handler receives.
+- **Evidence.** `socket_session` and `handler::process::socket` tests send a
+  message of exactly 393,216 bytes (accepted) and one of 393,217 (closed with
+  1009, or refused).

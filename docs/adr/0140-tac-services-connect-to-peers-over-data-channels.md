@@ -214,3 +214,38 @@ hold for the other device.
   WebView2, the Android WebView), and a connection between two physical
   devices on different networks through a real TURN relay, recorded in
   `docs/SUPPORT_TIERS.md`.
+
+## Amendment (2026-11-21): descriptions up to 256 KiB for large calls (P1c)
+
+A description is now at most 262,144 bytes (256 KiB); a candidate stays at
+most 65,536 bytes. Both are hard bounds and are not configurable.
+
+- **Why.** A call where one connection receives 50 audio and 9 video tracks
+  (one SFU offer with every m-line) makes an offer of about 107 KB in
+  Chromium, 90 KB in WebKit and 63 KB in Firefox (P5's measurement, M2's
+  `media-calls-browser` check). 256 KiB is about 2.4 times the largest
+  measured offer.
+- **Both sides.** `Peers.answer` and `Peers.accept` refuse a larger
+  description with `A description is at most 262144 bytes; offer fewer tracks
+  on one connection.` A description this page makes that is larger is not
+  sent: the service gets `PeerFailed { reason: "tooLarge" }` with the fixed
+  message `This connection made a description larger than 262144 bytes;
+  offer fewer tracks on one connection.`
+- **The path to the service.** The description reaches a service as an
+  event and goes back as a call, so the event limit (ADR 0028 amendment), the
+  per-call limit of every service language and the socket message limit
+  (ADR 0060 amendment) rise to 393,216 bytes the same day. The call limit is
+  `MEMBER_REQUEST_LIMIT` (or its language's name) in each prelude; the
+  1 MiB start-up limit is unchanged.
+- **Memory.** Per connection the page keeps at most one local and one remote
+  description (2 x 256 KiB). Per call into a service the worst case is one
+  393,216-byte request and its parsed copy; per socket message, one
+  393,216-byte message. With the existing caps (32 connections, 16 channels
+  each, 1 MiB waiting per channel), the descriptions add at most 16 MiB per
+  page.
+- **Evidence.** `compiler::page_peers_tests` accepts a 262,144-byte
+  description and a 65,536-byte candidate and refuses one byte more of each,
+  and turns a 262,145-byte local offer into `PeerFailed tooLarge`. Every
+  service language's per-call test accepts a request of exactly 393,216 bytes
+  and refuses 393,217. The end-to-end check of a 59-track call through
+  Peers, over a Tac socket and over Http, follows in this slice.

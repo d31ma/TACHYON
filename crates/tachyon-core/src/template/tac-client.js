@@ -1816,12 +1816,16 @@ class Runtime {
     announced: (view, name, value) => TacElements.announce(view, name, value),
   })
   static graphs = new WeakMap()
+  static refused(error) {
+    if (error instanceof RangeError) console.error(error.message)
+    signalFailure()
+  }
   static watching = TacWebApis.watch({
     publish: (name, value) => {
-      try { Runtime.events.publish(name, value, { retain: true }) } catch { signalFailure() }
+      try { Runtime.events.publish(name, value, { retain: true }) } catch (error) { Runtime.refused(error) }
     },
     send: (owner, name, value) => {
-      try { Runtime.events.send(owner, name, value) } catch { signalFailure() }
+      try { Runtime.events.send(owner, name, value) } catch (error) { Runtime.refused(error) }
     },
   })
   static focus = TacFocus.connect({

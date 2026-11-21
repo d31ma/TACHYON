@@ -210,3 +210,26 @@ signed-in desktop, SD1"). The page and a linked Rust service each heard
 heard them there too, so the support table's Windows signal is `honored`
 again (ADR 0102, JS1 amendment; `docs/SUPPORT_TIERS.md`, "Linked services
 in WebView2").
+
+## Amendment (2026-11-21): application events and streams allow 384 KiB (P1c)
+
+Every application event and stream payload may now be 393,216 bytes
+(384 KiB) of JSON, up from 64 KiB. The limit is one named constant,
+`TacApplicationEvents.mostBytes`, used for the character tally and for the
+encoded size alike.
+
+- **Why.** A Peers description is an event (`PeerDescription`, ADR 0140). A
+  call with 50 audio and 9 video tracks makes an offer of about 107 KB in
+  Chromium, 90 KB in WebKit and 63 KB in Firefox, so a large call could not
+  reach its service. Peers descriptions are limited to 262,144 bytes; the
+  event limit leaves room for the event's envelope and for later growth.
+- **Still a hard bound.** It is not configurable. Over the limit the event is
+  refused: the page writes `Application event exceeds 393216 bytes; send less
+  data in one event.` to the console once and does not deliver it, instead
+  of dropping it without a word as before.
+- **Memory.** One event is copied once for the bus and once more for each
+  listener, so the worst case is 384 KiB times one plus the number of
+  listeners of that event, for as long as the listeners run. The other bus
+  limits (names, listeners, queued work, recursion) are unchanged.
+- **Evidence.** `scripts/application-events-test.mjs` publishes a value of
+  exactly 393,216 encoded bytes (accepted) and one of 393,217 (refused).
