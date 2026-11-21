@@ -2137,7 +2137,9 @@ read the result from the app's own window.
   with `relayOnly`, because WebKit hides host candidates.
 - Windows (`bun run test:peers-windows`, the Windows 11 ARM64 test VM's
   desktop): WebView2 connected directly.
-- NATIVE_IOS_PENDING
+- iOS: owed. The build writes `NSLocalNetworkUsageDescription`, but the app
+  stopped at launch on the iOS 27.2 simulator, which requires the UIScene life
+  cycle the iOS shell has not adopted yet (TAC-IOS-SCENE).
 
 Owed: a connection between two physical devices on different networks
 through a real TURN relay, and a macOS connection to a device on the local

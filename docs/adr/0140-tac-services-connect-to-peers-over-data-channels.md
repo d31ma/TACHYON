@@ -253,7 +253,11 @@ result is read from the app's own window.
 - `bun run test:peers-windows` (in the signed-in desktop of the Windows 11
   ARM64 test VM): WebView2 on `https://tachyon.local` connected directly and
   received 65,536 bytes (2026-11-21).
-- NATIVE_IOS_PENDING
+- Owed: the iOS run. `bun run test:peers-ios` builds the app and checks that
+  Info.plist carries `NSLocalNetworkUsageDescription`, but on 2026-11-21 the
+  app stopped at launch on the iOS 27.2 simulator: UIKit stops an app that
+  has not adopted the UIScene life cycle, and the iOS app shell has not yet
+  (TAC-IOS-SCENE). The check runs again once the shell adopts it.
 - `native::browser_api_permissions`, `native::android` and `native::ios`
   unit tests: the iOS reason is required and written to Info.plist only with
   the grant, and INTERNET is added for `peers` and not for a plain app.
