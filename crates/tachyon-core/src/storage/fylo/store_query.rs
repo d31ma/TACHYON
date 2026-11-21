@@ -22,6 +22,9 @@ impl<'entity> StoreQuery<'entity> {
     const MAX_SORT_KEYS: usize = 5;
     const MAX_PAGE_INDEX: u64 = 1_000_000;
     const DEFAULT_PAGE_SIZE: u64 = 20;
+    const MAX_QUERY_BYTES: usize = 64 * 1024;
+    pub(super) const TOO_LARGE: &'static str =
+        "The query is larger than FYLO's 64 KiB query limit; use fewer or shorter values.";
 
     pub(super) fn new(id_field: &'entity str) -> Self {
         Self { id_field }
@@ -40,6 +43,12 @@ impl<'entity> StoreQuery<'entity> {
         let items = Self::sort_items(page)?;
         let order = Self::sort_keys(items)?;
         Ok(self.without_trailing_id(order))
+    }
+
+    pub(super) fn bounded(query: Value) -> Result<Value, Failure> {
+        let bytes = serde_json::to_vec(&query).map_or(usize::MAX, |encoded| encoded.len());
+        Self::refuse_large(bytes)?;
+        Ok(query)
     }
 
     pub(super) fn page(page: &Value) -> Result<Value, Failure> {
@@ -143,6 +152,13 @@ impl<'entity> StoreQuery<'entity> {
             order.pop();
         }
         order
+    }
+
+    fn refuse_large(bytes: usize) -> Result<(), Failure> {
+        if bytes > Self::MAX_QUERY_BYTES {
+            return Err(failure(Self::TOO_LARGE));
+        }
+        Ok(())
     }
 
     fn page_index(page: &Value) -> Result<u64, Failure> {
@@ -255,6 +271,15 @@ mod tests {
             order(json!(["sku:desc"])),
             json!([{"field": "sku", "direction": "desc"}])
         );
+    }
+
+    #[test]
+    fn a_query_over_sixty_four_kibibytes_is_refused_before_it_is_sent() {
+        let large = json!({"where": [{"field": "name", "operator": "eq", "value": "x".repeat(70_000)}]});
+        let refused = StoreQuery::bounded(large).err().map(|error| error.to_string());
+        assert!(refused.unwrap_or_default().contains("64 KiB"));
+        let small = json!({"where": []});
+        assert_eq!(StoreQuery::bounded(small.clone()).ok(), Some(small));
     }
 
     #[test]

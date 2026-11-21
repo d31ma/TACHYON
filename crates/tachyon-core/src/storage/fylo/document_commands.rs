@@ -3,6 +3,7 @@ use serde_json::{Map, Value, json};
 use super::collection_name::CollectionName;
 use super::repository_commands::RepositoryCommands;
 use super::scroll_request::ScrollRequest;
+use super::store_query::StoreQuery;
 use super::store_rows::StoreRows;
 use super::{FyloError, FyloStore, document_id};
 use crate::Failure;
@@ -92,7 +93,7 @@ impl<'store> DocumentCommands<'store> {
     async fn scroll(&self, command: &Value) -> Result<Value, Failure> {
         let collection = Self::collection(command)?;
         let scroll = ScrollRequest::parse(command)?;
-        let query = json!({ "where": scroll.conditions() });
+        let query = StoreQuery::bounded(json!({ "where": scroll.conditions() }))?;
         let request = json!({ "collection": collection, "query": query, "page": scroll.page() });
         let answer = self
             .call("storeScroll", request)

@@ -61,13 +61,24 @@ impl<'store> RepositoryCommands<'store> {
     async fn save(&self, command: &Value, collection: &str, id_field: &str) -> Result<Value, Failure> {
         let entity = Self::bounded_entity(command)?;
         let assigned = Self::assigned_id(entity, id_field)?;
-        self.refuse_unknown_id(collection, id_field, assigned).await?;
-        let request = json!({ "collection": collection, "idField": id_field, "entity": entity });
+        let request = json!({
+            "collection": collection,
+            "idField": id_field,
+            "entity": entity,
+            "requireExisting": assigned.is_some(),
+        });
         let answer = self
             .call("storeSave", request)
             .await
-            .map_err(FyloError::into_failure)?;
+            .map_err(Self::save_failure)?;
         StoreRows::entity(answer)
+    }
+
+    fn save_failure(error: FyloError) -> Failure {
+        if error.read_found_no_collection() {
+            return failure("FYLO assigns identifiers; save a new entity without one.");
+        }
+        error.into_failure()
     }
 
     fn assigned_id<'entity>(
@@ -79,41 +90,6 @@ impl<'store> RepositoryCommands<'store> {
             .filter(|id| !id.is_null())
             .map(document_id)
             .transpose()
-    }
-
-    async fn refuse_unknown_id(
-        &self,
-        collection: &str,
-        id_field: &str,
-        assigned: Option<&str>,
-    ) -> Result<(), Failure> {
-        let Some(id) = assigned else {
-            return Ok(());
-        };
-        let request = json!({ "collection": collection, "idField": id_field, "id": id });
-        let stored = self
-            .call("storeFindById", request)
-            .await
-            .map_err(FyloError::into_failure)?;
-        Self::refuse_absent(&stored)
-    }
-
-    fn refuse_absent(stored: &Value) -> Result<(), Failure> {
-        if stored.is_null() {
-            return Err(failure(
-                "FYLO assigns identifiers; save a new entity without one.",
-            ));
-        }
-        Ok(())
-    }
-
-    fn bounded_entity(command: &Value) -> Result<&Map<String, Value>, Failure> {
-        command
-            .get("value")
-            .ok_or_else(|| failure("Store save requires an entity."))?
-            .as_object()
-            .filter(|entity| (1..=Self::MAX_FIELDS).contains(&entity.len()))
-            .ok_or_else(|| failure("Store save requires a bounded entity object."))
     }
 
     async fn delete(&self, command: &Value, collection: &str) -> Result<Value, Failure> {
@@ -149,7 +125,7 @@ impl<'store> RepositoryCommands<'store> {
     ) -> Result<Value, Failure> {
         let order = StoreQuery::new(id_field).order(page)?;
         let window = StoreQuery::page(page)?;
-        let query = json!({ "where": conditions, "orderBy": order });
+        let query = StoreQuery::bounded(json!({ "where": conditions, "orderBy": order }))?;
         let request = json!({
             "collection": collection,
             "idField": id_field,
@@ -176,7 +152,7 @@ impl<'store> RepositoryCommands<'store> {
                 self.find(collection, id_field, conditions, &page).await
             }
             (false, false) => {
-                let request = Self::counting_request(collection, id_field, conditions);
+                let request = Self::counting_request(collection, id_field, conditions)?;
                 self.counted(kind, query, request).await
             }
         }
@@ -195,12 +171,13 @@ impl<'store> RepositoryCommands<'store> {
             .map_err(FyloError::into_failure)
     }
 
-    fn counting_request(collection: &str, id_field: &str, conditions: Vec<Value>) -> Value {
-        json!({
-            "collection": collection,
-            "idField": id_field,
-            "query": { "where": conditions },
-        })
+    fn counting_request(
+        collection: &str,
+        id_field: &str,
+        conditions: Vec<Value>,
+    ) -> Result<Value, Failure> {
+        let query = StoreQuery::bounded(json!({ "where": conditions }))?;
+        Ok(json!({ "collection": collection, "idField": id_field, "query": query }))
     }
 
     fn counting_operation(kind: &str) -> Result<&'static str, Failure> {

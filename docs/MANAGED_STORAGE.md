@@ -77,6 +77,15 @@ Configuration rules:
 - The URL is `fylo:///absolute/root`. On Windows, write the drive after the
   third slash with forward slashes, as in `fylo:///C:/data/catalog`.
 - The root directory must already exist.
+- `?namespace=<name>` after the path picks the FYLO namespace (FYLO ADR
+  0033), for example `fylo:///mnt/data/chat?namespace=slice-12`. A namespace
+  is like a PostgreSQL schema: collections with the same name in two
+  namespaces of one root are two collections. The name has 2 to 64 lowercase
+  letters, digits and hyphens, starts and ends with a letter or digit, and is
+  not a FYLO reserved word or a Windows device name (`con`, `nul`, `com1`,
+  ...). Without it, FYLO uses its default namespace `public`. The server
+  passes it as `fylo exec --loop --namespace <name>`. Any other query part
+  is refused (`TY2160`).
 - The path must be spelled canonically. FYLO refuses a path that goes through a
   symlink or that uses different letter case.
 - FYLO accepts no credentials and no TLS keys. Its one other setting is
@@ -201,7 +210,7 @@ repository written for a SQL datasource works without changes:
 | Repository operation | FYLO |
 | --- | --- |
 | `save` without an identifier | `storeSave`; returns the entity carrying its assigned TTID |
-| `save` with an identifier | `storeFindById`, then `storeSave` with the id; the entity replaces the stored one |
+| `save` with an identifier | `storeSave` with the id and `requireExisting`; the entity replaces the stored one |
 | `delete` | `storeDeleteById`; a missing document is `false`, not an error |
 | `find` and derived `find` queries | `storeFind` with `where`, `orderBy` and a page |
 | `count`, `exists`, `delete` queries | `storeCount`, `storeExists`, `storeDelete` |
@@ -228,8 +237,15 @@ Queries:
   page at any offset and an exact count work.
 - FYLO's Store result rules apply: the sort is stable, with the id as the
   last key (TTIDs sort in creation order); `null` and a missing field sort
-  first in ascending order; numbers compare by value. FYLO's limits are 8
-  predicates, 4 sort fields and 100 `in` values.
+  first in ascending order; numbers compare by value; `ne` leaves out `null`
+  and missing values, as SQL `<>` does. FYLO's limits are 8 predicates, 4
+  sort fields, 100 `in` values and 64 KiB of query JSON; the server checks
+  the size before it sends a query.
+- FYLO's type rules (`fylo://` only): no value equals a value of another type
+  (`"1"` is not `1`); `lt`, `lte`, `gt` and `gte` match only numbers or
+  strings of the same type, so a boolean never matches them; strings compare
+  by exact code points, with no case folding. Some SQL drivers convert types
+  or fold case (SQLite, MySQL).
 - A `delete` query deletes every match in one FYLO write, all or nothing.
 - Count, exists and delete queries cannot order or paginate.
 

@@ -27,10 +27,11 @@ impl FyloProcess {
     const SHUTDOWN: &'static str = "shutdown";
     const UNKNOWN_OPERATION: &'static str = "unknown";
 
-    pub(super) fn spawn(root: &Path) -> Result<Self, FyloError> {
+    pub(super) fn spawn(root: &Path, namespace: Option<&str>) -> Result<Self, FyloError> {
         let mut child = tokio::process::Command::new("fylo")
             .args(["exec", "--loop", "--root"])
             .arg(root)
+            .args(namespace.into_iter().flat_map(|name| ["--namespace", name]))
             .args(["--max-request-bytes", "1048576", "--max-response-bytes", "8388608"])
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -189,7 +190,7 @@ mod tests {
     }
 
     async fn started(root: &Path) -> FyloProcess {
-        let mut process = FyloProcess::spawn(root).ok().expect("fylo starts");
+        let mut process = FyloProcess::spawn(root, None).ok().expect("fylo starts");
         process
             .handshake(&json!({"op": "handshake"}))
             .await
@@ -219,7 +220,7 @@ mod tests {
     }
 
     async fn stored_documents(root: &Path) -> usize {
-        let mut process = FyloProcess::spawn(root).ok().expect("second fylo");
+        let mut process = FyloProcess::spawn(root, None).ok().expect("second fylo");
         let count = json!({"op": "storeCount", "collection": "hd-events", "query": {"where": []}});
         let answer: Value = process
             .request("storeCount", &count, false)

@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use serde_json::{Value, json};
 
-use super::{execute, fylo_is_available, fylo_store, is_rejected, sqlite};
+use super::{ManagedStorage, execute, fylo_is_available, fylo_store, fylo_url, is_rejected, sqlite};
 
 fn fylo_runs_here() -> bool {
     if fylo_is_available() {
@@ -209,6 +209,41 @@ async fn collection_exists_answers_for_filled_empty_dropped_and_missing_collecti
     assert_eq!(execute(&store, missing).await, json!(false), "missing");
     execute(&store, document("dropCollection", json!({}))).await;
     assert_eq!(execute(&store, exists).await, json!(false), "dropped");
+}
+
+async fn namespaced_store(root: &Path, namespace: &str) -> ManagedStorage {
+    let url = format!("{}?namespace={namespace}", fylo_url(root));
+    let configuration = json!({"yon":{"datasource":{"driver":"fylo","url":url}}});
+    ManagedStorage::connect_with_deadline_factor(&configuration, 6)
+        .await
+        .unwrap_or_else(|error| panic!("{error}"))
+}
+
+#[tokio::test]
+async fn two_namespaces_of_one_root_keep_their_collections_apart() {
+    if !fylo_runs_here() {
+        return;
+    }
+    let directory = tempfile::tempdir().expect("root");
+    let root = canonical_root(&directory);
+    let first = namespaced_store(&root, "tenant-a").await;
+    let second = namespaced_store(&root, "tenant-b").await;
+    execute(&first, document("createCollection", json!({}))).await;
+    execute(&first, document("insert", json!({"value":{"n":1}}))).await;
+    let exists = document("collectionExists", json!({}));
+    assert_eq!(execute(&first, exists.clone()).await, json!(true));
+    assert_eq!(execute(&second, exists).await, json!(false));
+    first.close().await;
+    second.close().await;
+}
+
+#[tokio::test]
+async fn a_bad_namespace_in_the_url_is_refused_before_fylo_starts() {
+    let configuration = json!({"yon":{"datasource":{"driver":"fylo","url":"fylo:///tmp?namespace=Bad_Name"}}});
+    let refused = ManagedStorage::connect(&configuration)
+        .await
+        .expect_err("a bad namespace is refused");
+    assert!(refused.to_string().contains("namespace"), "{refused}");
 }
 
 #[tokio::test]

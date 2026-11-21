@@ -25,6 +25,11 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- **FYLO namespaces in the datasource URL** (ADR 0032 amendment of
+  2026-11-21, TAC-FL1). `fylo:///mnt/data/chat?namespace=slice-12` runs the
+  datasource in that FYLO namespace (FYLO ADR 0033), so collections with the
+  same name in two namespaces of one root stay apart. Without it FYLO uses
+  `public`. A bad name or another query part fails with `TY2160`.
 - **FYLO counts, sorts and pages repository queries, with no
   10,000-document bound** (ADR 0032 amendment of 2026-11-21). `find`,
   `count`, `exists` and `delete` queries go to FYLO's `storeFind`,

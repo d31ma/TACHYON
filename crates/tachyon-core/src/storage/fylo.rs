@@ -4,11 +4,13 @@ mod collection_name;
 mod collection_pass;
 mod document_commands;
 mod fylo_input;
+mod fylo_location;
 mod fylo_pipes;
 mod fylo_process;
 mod fylo_transactions;
 mod interruption;
 mod live_input;
+mod namespace_name;
 mod open_fylo_transaction;
 mod operation_timeout;
 mod patch_queue;
@@ -42,6 +44,7 @@ pub(super) use collection_name::CollectionName;
 use collection_pass::CollectionPass;
 use document_commands::DocumentCommands;
 use futures_util::future::OptionFuture;
+use fylo_location::FyloLocation;
 use fylo_process::FyloProcess;
 use fylo_transactions::FyloTransactions;
 use live_input::LiveInput;
@@ -57,6 +60,7 @@ use store_target::StoreTarget;
 
 pub(super) struct FyloStore {
     root: PathBuf,
+    namespace: Option<String>,
     operation_timeout: Duration,
     process: Mutex<Option<FyloProcess>>,
     busy: BusyOperation,
@@ -75,9 +79,9 @@ impl FyloStore {
     pub(super) async fn connect(settings: &Value) -> Result<Self, Failure> {
         object_keys(settings, &["driver", "url", "timeout"])?;
         let operation_timeout = OperationTimeout::from_settings(settings)?;
-        let raw = text(settings, "url")?;
-        let path = Self::root_path(raw)
-            .ok_or_else(|| failure("FYLO datasource URL is fylo:///absolute/root."))?;
+        let location = FyloLocation::parsed(text(settings, "url")?)?;
+        let path = location.path();
+        let namespace = location.namespace().map(str::to_owned);
         if path.contains('\0') || path.contains("..") {
             return Err(failure("FYLO root path contains an unsafe segment."));
         }
@@ -87,7 +91,8 @@ impl FyloStore {
         if !root.is_dir() {
             return Err(failure("FYLO root must be a directory."));
         }
-        let mut process = FyloProcess::spawn(&root).map_err(FyloError::into_failure)?;
+        let mut process =
+            FyloProcess::spawn(&root, namespace.as_deref()).map_err(FyloError::into_failure)?;
         let identity = process
             .handshake(&json!({ "op": "handshake" }))
             .await
@@ -95,6 +100,7 @@ impl FyloStore {
         StoreProtocol::check(&identity)?;
         Ok(Self {
             root,
+            namespace,
             operation_timeout,
             process: Mutex::new(Some(process)),
             busy: BusyOperation::new(),
@@ -104,14 +110,6 @@ impl FyloStore {
             closed: AtomicBool::new(false),
             transactions: FyloTransactions::new(),
         })
-    }
-
-    fn root_path(raw: &str) -> Option<&str> {
-        let path = raw
-            .strip_prefix("fylo://")
-            .filter(|rest| rest.starts_with('/'))?;
-        let windows_drive = [cfg!(windows), path.get(2..3) == Some(":")] == [true, true];
-        path.get(usize::from(windows_drive)..)
     }
 
     fn without_verbatim_prefix(root: PathBuf) -> PathBuf {
@@ -428,7 +426,7 @@ impl FyloStore {
 
     fn spawn_when_empty(&self, slot: &mut Option<FyloProcess>) -> Result<(), FyloError> {
         if slot.is_none() {
-            *slot = Some(FyloProcess::spawn(&self.root)?);
+            *slot = Some(FyloProcess::spawn(&self.root, self.namespace.as_deref())?);
             self.first_requests.restart();
         }
         Ok(())
@@ -508,7 +506,8 @@ impl FyloError {
             "ETXNLAYOUT" => failure(
                 "This FYLO collection's layout cannot hold a transaction; write without @AllOrNothing.",
             ),
-            "EQUERYLIMIT" | "EPAGESIZE" | "EQUERY_INPUT_SIZE" => failure(
+            "EQUERY_INPUT_SIZE" => failure(store_query::StoreQuery::TOO_LARGE),
+            "EQUERYLIMIT" | "EPAGESIZE" => failure(
                 "The query passes FYLO's Store limits: 8 predicates, 4 sort fields, 100 In values and 64 KiB of query.",
             ),
             "ETXNUNKNOWN" | "ETXNEXPIRED" => failure(

@@ -501,10 +501,11 @@ collection. Two parts of this ADR change with it:
 - A long transaction delays other writes to its collection by up to 10
   seconds; with the default 5-second store deadline, such a write can fail
   with the deadline message instead. Keep transactions short.
-- The lease mode `call` (one `fylo` per request, a later change) cannot hold
-  a FYLO transaction across requests. When it lands, a transaction must keep
-  one process from its first write to its settle, or that mode refuses
-  `@AllOrNothing`.
+- The lease mode `call` (one `fylo` per request, TAC-L1) cannot hold a FYLO
+  transaction across requests, because a transaction handle is valid only in
+  the `fylo` process that gave it. That mode refuses `@AllOrNothing` with a
+  clear `TY` error: at build time where Tachyon can see the mode, and
+  otherwise at run time, when the transaction begins.
 - Evidence: `storage::tests::fylo_store_operations::a_write_outside_a_fylo_transaction_waits_until_it_settles`,
   `storage::fylo::collection_gates::tests` (a writer waits only for its own
   collection, an SQL write waits for every transaction, a held collection is

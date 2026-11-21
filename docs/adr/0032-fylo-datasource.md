@@ -5,6 +5,7 @@
 - Amended: 2026-10-04 (documents, collections, scroll and queue for HEIMDALL)
 - Amended: 2026-10-31 (raw SQL parameter contract)
 - Amended: 2026-11-12 by [ADR 0128](0128-a-busy-fylo-root-waits-and-store-failures-are-logged.md) (a busy root waits up to 2 seconds)
+- Amended: 2026-11-21 (FYLO namespaces in the URL; TAC-FL1)
 - Amended: 2026-11-21 (FYLO's Store operations, bound SQL parameters, and
   `@AllOrNothing` on one collection; TAC-FY2)
 - Extends: managed storage, see [MANAGED_STORAGE](../MANAGED_STORAGE.md)
@@ -159,6 +160,31 @@ When FYLO adds bound parameters to `executeSQL`, the server passes the values
 through as data and the literal rendering goes away. That needs a FYLO
 protocol change.
 
+## Amendment (2026-11-21): namespaces in the URL
+
+FYLO's layout work (FYLO ADR 0033, slice L1-2) adds namespaces: named groups
+of collections inside one root, like PostgreSQL schemas. One `fylo exec
+--loop` serves every namespace of a root, and each request may name one;
+`--namespace` sets the default, and without it FYLO uses `public`. Mesail
+runs its test slices as namespaces of one root.
+
+Decision:
+
+- The datasource URL takes one optional query part, `?namespace=<name>`, as
+  in `fylo:///mnt/data/chat?namespace=slice-12`. The server checks the name
+  (2 to 64 lowercase letters, digits and hyphens, a letter or digit at each
+  end, not a FYLO reserved word, not a Windows device name) and starts FYLO
+  with `--namespace <name>`. Any other query part, or a bad name, fails at
+  connect with `TY2160`, before FYLO starts.
+- One datasource uses one namespace. Two datasources on one root with two
+  namespaces never see each other's collections.
+- Tachyon's own tests stop reading FYLO's files on disk: they write many
+  documents through FYLO's machine operations instead, so they do not depend
+  on FYLO's layout.
+
+Evidence: `storage::fylo::{fylo_location, namespace_name}::tests` and
+`storage::tests::fylo_documents::two_namespaces_of_one_root_keep_their_collections_apart`.
+
 ## Amendment (2026-11-21): the Store operations
 
 ### Context
@@ -191,7 +217,7 @@ FYLO refused transactions.
    | Tachyon call | FYLO operation |
    | --- | --- |
    | repository `save` without an id, document `insert` | `storeSave` (FYLO assigns the TTID) |
-   | repository `save` with an id | `storeFindById`, then `storeSave` with the id: the entity replaces the stored one, as Spring Data's `save` does. FYLO would create a document for an unknown id; Tachyon keeps its rule that an unknown id fails, so it checks first. |
+   | repository `save` with an id | `storeSave` with the id and `requireExisting: true`: the entity replaces the stored one, as Spring Data's `save` does. An unknown id fails atomically (`ENATIVE_NOT_FOUND`, nothing written), so Tachyon keeps its rule that an unknown id fails. |
    | repository `delete`, document `deleteById` | `storeDeleteById` (answers 0 or 1) |
    | repository `find`, derived and `@Query` `find` | `storeFind` with `{where, orderBy}` and `{size, offset}` |
    | `count`, `exists`, `delete` queries | `storeCount`, `storeExists`, `storeDelete` (one write, all or nothing) |
@@ -207,9 +233,12 @@ FYLO refused transactions.
    sort and its row-by-row delete are gone, and so is the 10,000-document
    bound. FYLO's Store result rules (`api/store/v1`) apply: a stable sort
    with the id as the last key, `null` first in ascending order, numbers
-   compared by value, no equality across types, and `ne` counting a missing
-   field as `null`. An empty `In` list still answers at once without a call,
-   because FYLO takes 1 to 100 values.
+   compared by value, and no equality across types. `ne` leaves out `null`
+   and missing values, like SQL `<>` (FYLO ADR 0035, amendment 1). An empty
+   `In` list still answers at once without a call, because FYLO takes 1 to
+   100 values. Tachyon measures each query before it sends it: a query whose
+   JSON is larger than FYLO's 64 KiB fails with `TY2160` that names the
+   limit, and so does FYLO's `EQUERY_INPUT_SIZE`.
 4. **Scroll uses FYLO's cursor; the snapshot goes.** This replaces the
    snapshot decision of the 2026-10-04 amendment: FYLO's `storeScroll` pages
    no longer run the whole query again. A cursor is FYLO's opaque text (at
@@ -241,7 +270,8 @@ FYLO refused transactions.
    - Commit sends `transactionCommit`; rollback sends `transactionRollback`.
      A transaction with no write sends nothing to FYLO.
    - FYLO's own bounds apply: at most 1,000 writes and 8 MiB of documents
-     per transaction (`ETXNLIMIT`, rolled back). `timeoutMs` is the smaller of
+     per transaction. Past them FYLO rolls the transaction back, the call
+     fails with `TY2160`, and the commit fails too. `timeoutMs` is the smaller of
      the transaction's time left and the answer's store-time budget left
      (ADR 0128), so the transaction ends before Tachyon would stop `fylo`.
    - While a transaction holds a collection, other writes to it wait inside
@@ -258,6 +288,11 @@ FYLO refused transactions.
 - Pages past the first 10,000 matches work, and `count` is exact for any
   size. A `count` or `exists` reads FYLO's indexes instead of up to 10,000
   documents.
+- FYLO's type rules differ from some SQL drivers: no value equals a value of
+  another type (`"1"` is not `1`), `lt`, `lte`, `gt` and `gte` match only
+  numbers or strings of the same type (booleans never match), and strings
+  compare by exact code points, with no case folding (MySQL's default
+  collation folds case).
 - A repository `save` with an id now replaces the stored entity instead of
   merging the named fields; fields left out of the entity are removed. The
   document `patch` command keeps merging.
