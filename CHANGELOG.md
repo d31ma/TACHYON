@@ -15,8 +15,12 @@ machine contracts have their own, independent major versions.
   its plan to `/.tachyon/shell.json` (also with `ty bundle --shell-only`). A
   page app built alone, outside `/`, reads that file at start-up, adds the
   shell's stylesheets, and renders its pages in the shell's outlet; links
-  between it and the shell keep the shell's state.
-  `bun run test:page-apps-browser` now also checks the separate deploy.
+  between it and the shell keep the shell's state. The shell code is its own
+  module, `/.tachyon/tac-shell.js`, loaded only by documents that have a
+  shell, so a plain app does not download it.
+  `bun run test:page-apps-browser` now also checks the separate deploy, that
+  a plain app asks for no shell file, and that a blocked `tac-shell.js`
+  still shows the page.
 
 - **Links between page apps swap the outlet without a reload** (ADR QQQQ,
   step 2 of micro-frontends, slice 4b). In a document with a shell layout, a

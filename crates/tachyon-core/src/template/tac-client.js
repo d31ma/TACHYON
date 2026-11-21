@@ -9,42 +9,24 @@ class ClientView {
 }
 
 class ShellView {
-  static file = '/.tachyon/shell.json'
-  static text = document.getElementById('tachyon-shell')?.textContent ?? null
-  static plan = ShellView.parsed(ShellView.text)
-  static pageEnvironment = null
-  static serviceFolders = new Set(['/.tachyon/services/'])
-
-  static parsed(text) {
-    try { return text === null ? null : JSON.parse(text || '{}') } catch { return null }
-  }
+  static module = null
+  static serviceFolders = new Set()
 
   static async load() {
-    if (ShellView.plan || !ClientView.page || runtimeApp() === '/') return
-    const text = await ShellView.fetched()
-    const plan = ShellView.parsed(text)
-    if (!plan?.node) return
-    ShellView.text = text
-    ShellView.plan = plan
+    const text = await ShellView.text().catch(() => null)
+    if (text === null) return
+    const shell = await import('/.tachyon/tac-shell.js').catch(() => null)
+    const parts = { ClientView, Page, Services, ShellView, TacEntityStorage, render, renderNodes, disposeSharedInstance }
+    ShellView.module = await shell?.ShellApp.start(text, parts).catch(() => null) ?? null
   }
 
-  static async fetched() {
-    const response = await fetch(ShellView.file).catch(() => null)
-    return response?.ok ? response.text() : null
-  }
-
-  static join() {
-    if (!ShellView.plan) return
-    Services.catalog = { ...ShellView.plan.services, ...Services.catalog }
-    Services.saved = { ...ShellView.plan.saved, ...Services.saved }
-  }
-
-  static async styles() {
-    const present = new Set([...document.querySelectorAll('link[rel="stylesheet"]')].map((link) => link.href))
-    const added = (ShellView.plan?.styles || [])
-      .filter((href) => !present.has(new URL(href, location.href).href))
-      .map((href) => SoftNavigation.addStyle(href))
-    await Promise.all(added)
+  static async text() {
+    const inline = document.getElementById('tachyon-shell')
+    if (inline) return inline.textContent
+    if (!ClientView.page || runtimeApp() === '/') return null
+    const response = await fetch('/.tachyon/shell.json')
+    const json = response.headers.get('content-type')?.includes('json')
+    return response.ok && json ? response.text() : null
   }
 }
 
@@ -1593,7 +1575,7 @@ const renderNode = async (node, environment, path, context) => {
   if (Rendering.nodeCount > 100000) throw new RangeError('Tac client view exceeds 100,000 nodes.')
   if (node.k === 'text') return renderText(node.parts, environment)
   if (node.k === 'comment') return document.createComment(node.value || '')
-  if (node.k === 'outlet') return renderOutlet(context)
+  if (node.k === 'outlet') return ShellView.module.renderOutlet(context)
   if (node.k === 'slot') {
     const slot = context.slot
     const nodes = node.name ? slot?.named[node.name] : slot?.nodes
@@ -1744,14 +1726,9 @@ class TacElements {
   }
 }
 
-const renderPage = (environment) => {
-  if (!ShellView.plan) return renderNodes(ClientView.plan.nodes || [], environment, 'body')
-  ShellView.pageEnvironment = environment
-  return renderNodes([ShellView.plan.node], environment, 'shell')
-}
-
-const renderOutlet = (context) =>
-  renderNodes(ClientView.plan.nodes || [], ShellView.pageEnvironment, `outlet:${ClientView.plan.route}`, { slot: null, namespace: context.namespace })
+const renderPage = (environment) => ShellView.module
+  ? ShellView.module.renderPage(environment)
+  : renderNodes(ClientView.plan.nodes || [], environment, 'body')
 
 const renderDocument = async (environment) => {
   Rendering.nodeCount = 0
@@ -2053,161 +2030,8 @@ Object.defineProperty(globalThis, '__tachyonTac', {
 })
 globalThis.__tc_rerender = render
 addEventListener('tachyon:rerender', render)
-class SoftNavigation {
-  static runtimeScript = 'script[type="module"][src$="/.tachyon/tac-client.js"]'
-  static current = 0
-
-  static start() {
-    if (!ShellView.plan) return
-    document.addEventListener('click', SoftNavigation.click)
-    addEventListener('popstate', SoftNavigation.pop)
-  }
-
-  static click(event) {
-    const link = SoftNavigation.link(event)
-    if (!link) return
-    event.preventDefault()
-    void SoftNavigation.go(new URL(link.href), true)
-  }
-
-  static link(event) {
-    if (event.defaultPrevented || event.button !== 0) return null
-    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return null
-    const link = event.composedPath().find((node) => node instanceof HTMLAnchorElement && node.hasAttribute('href'))
-    if (!link || link.hasAttribute('download')) return null
-    if (link.target && link.target !== '_self') return null
-    const url = new URL(link.href)
-    if (url.origin !== location.origin) return null
-    const samePage = url.pathname === location.pathname && url.search === location.search
-    return samePage && url.hash ? null : link
-  }
-
-  static pop() {
-    void SoftNavigation.go(new URL(location.href), false)
-  }
-
-  static async go(url, push) {
-    const turn = SoftNavigation.current += 1
-    const scroll = { x: scrollX, y: scrollY }
-    const next = await SoftNavigation.page(url).catch(() => null)
-    if (turn !== SoftNavigation.current) return
-    if (!next) return SoftNavigation.load(url, push)
-    const target = new URL(next.url)
-    target.hash = url.hash
-    if (push) SoftNavigation.push(target, scroll)
-    await SoftNavigation.styles(next.document)
-    SoftNavigation.enter(next)
-    await SoftNavigation.show()
-    SoftNavigation.place(target, push)
-  }
-
-  static load(url, push) {
-    if (push) location.assign(url.href)
-    else location.reload()
-  }
-
-  static push(url, scroll) {
-    history.replaceState({ ...history.state, tachyonScroll: scroll }, '')
-    history.pushState({ tachyonScroll: { x: 0, y: 0 } }, '', url.href)
-  }
-
-  static async page(url) {
-    const response = await fetch(url.href, { headers: { accept: 'text/html' }, credentials: 'same-origin' })
-    if (!response.ok || new URL(response.url).origin !== location.origin) return null
-    const parsed = new DOMParser().parseFromString(await response.text(), 'text/html')
-    const view = parsed.getElementById('tachyon-view')
-    const sameShell = await SoftNavigation.shellText(parsed) === ShellView.text
-    if (!view || !sameShell || !SoftNavigation.knownScripts(parsed)) return null
-    return { plan: JSON.parse(view.textContent || '{}'), document: parsed, url: response.url }
-  }
-
-  static async shellText(parsed) {
-    const inline = parsed.getElementById('tachyon-shell')
-    if (inline) return inline.textContent
-    const script = parsed.querySelector(SoftNavigation.runtimeScript)
-    if (!script) return null
-    const app = new URL('../', new URL(script.getAttribute('src'), location.href)).pathname
-    return app === '/' ? null : ShellView.fetched()
-  }
-
-  static knownScripts(parsed) {
-    const loaded = new Set([...document.scripts].map((script) => script.src))
-    const needed = [...parsed.head.querySelectorAll('script[src]')].filter((script) => !script.matches(SoftNavigation.runtimeScript))
-    return needed.every((script) => loaded.has(new URL(script.getAttribute('src'), location.href).href))
-  }
-
-  static async styles(parsed) {
-    const present = new Set([...document.querySelectorAll('link[rel="stylesheet"]')].map((link) => link.href))
-    const added = [...parsed.querySelectorAll('link[rel="stylesheet"]')]
-      .filter((link) => !present.has(new URL(link.getAttribute('href'), location.href).href))
-      .map((link) => SoftNavigation.addStyle(link.getAttribute('href')))
-    await Promise.all(added)
-  }
-
-  static addStyle(href) {
-    const link = document.createElement('link')
-    link.rel = 'stylesheet'
-    link.href = href
-    const loaded = new Promise((resolve) => { link.onload = resolve; link.onerror = resolve })
-    document.head.append(link)
-    return loaded
-  }
-
-  static enter({ plan, document: parsed }) {
-    SoftNavigation.disposePageServices()
-    ClientView.page = plan
-    ClientView.plan = plan
-    Page.owner = Object.assign(Object.create(null), plan.state)
-    Services.catalog = { ...ShellView.plan.services, ...plan.services }
-    Services.saved = { ...ShellView.plan.saved, ...plan.saved }
-    SoftNavigation.enterApp(parsed)
-    document.title = parsed.title
-  }
-
-  static enterApp(parsed) {
-    const script = parsed.querySelector(SoftNavigation.runtimeScript)
-    if (!script) return
-    const runtime = new URL(script.getAttribute('src'), location.href)
-    ShellView.serviceFolders.add(new URL('./services/', runtime).pathname)
-    TacEntityStorage.app = new URL('../', runtime).pathname
-  }
-
-  static disposePageServices() {
-    const shell = ShellView.plan.services || {}
-    for (const name of [...Services.singletons.keys()]) {
-      if (Object.hasOwn(shell, name)) continue
-      const instance = Services.resolved.get(name)
-      if (instance) disposeSharedInstance(instance)
-      Services.resolved.delete(name)
-      Services.singletons.delete(name)
-    }
-  }
-
-  static show() {
-    if (!document.startViewTransition) return render()
-    return document.startViewTransition(() => render()).updateCallbackDone
-  }
-
-  static place(url, push) {
-    const target = push ? { x: 0, y: 0 } : history.state?.tachyonScroll ?? { x: 0, y: 0 }
-    scrollTo(target.x, target.y)
-    if (url.hash) document.getElementById(decodeURIComponent(url.hash.slice(1)))?.scrollIntoView()
-    SoftNavigation.focus()
-  }
-
-  static focus() {
-    const heading = document.querySelector('main h1') ?? document.querySelector('h1')
-    if (!heading) return
-    if (!heading.hasAttribute('tabindex')) heading.setAttribute('tabindex', '-1')
-    heading.focus({ preventScroll: true })
-  }
-}
-
 await ShellView.load()
-ShellView.join()
-SoftNavigation.start()
 await TacStorage.ready()
-await ShellView.styles()
 await render()
 
 const whenIdle = (task) => globalThis.requestIdleCallback ? requestIdleCallback(task) : setTimeout(task, 1)

@@ -23,6 +23,9 @@ impl ShellLayout {
     const VIEW_MARK: &'static str = "id=\"tachyon-view\"";
     const HEAD_END: &'static str = "</head>";
     const FILE_PATH: &'static str = ".tachyon/shell.json";
+    const SCRIPT_PATH: &'static str = ".tachyon/tac-shell.js";
+    const PRELOAD: &'static str =
+        r#"<link rel="modulepreload" href="/.tachyon/tac-shell.js" data-tachyon-runtime>"#;
     const COMPONENT_STYLES: &'static str = "/.tachyon/components.css";
     const HELP: &'static str = "tac.layout names the shell's layout component, such as \"app-shell\". Its template holds exactly one <outlet />, where each page renders (ADR NNNN).";
 
@@ -61,13 +64,24 @@ impl ShellLayout {
         Ok(self)
     }
 
-    pub(super) fn file(&self) -> Option<(PathBuf, Vec<u8>)> {
-        self.plan.as_ref().map(|_| {
+    pub(super) fn files(&self) -> Vec<(PathBuf, Vec<u8>)> {
+        self.plan
+            .as_ref()
+            .map(|_| self.written_files())
+            .unwrap_or_default()
+    }
+
+    fn written_files(&self) -> Vec<(PathBuf, Vec<u8>)> {
+        vec![
             (
                 PathBuf::from(Self::FILE_PATH),
                 self.text.clone().into_bytes(),
-            )
-        })
+            ),
+            (
+                PathBuf::from(Self::SCRIPT_PATH),
+                ClientViewRenderer::shipped_shell().as_bytes().to_vec(),
+            ),
+        ]
     }
 
     pub(super) fn tag(&self) -> &str {
@@ -147,7 +161,10 @@ impl ShellLayout {
         if text.is_empty() {
             return String::new();
         }
-        format!(r#"<script id="tachyon-shell" type="application/json">{text}</script>"#)
+        format!(
+            r#"{}<script id="tachyon-shell" type="application/json">{text}</script>"#,
+            Self::PRELOAD
+        )
     }
 
     fn check_shell(mount: &MountPath) -> Result<(), Failure> {
