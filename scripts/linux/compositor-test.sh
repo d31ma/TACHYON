@@ -77,7 +77,7 @@ run_in_wslg() {
     LIBGL_ALWAYS_SOFTWARE=1 WEBKIT_DMABUF_RENDERER_FORCE_SHM=1 GDK_DEBUG=no-portals bash -c '
     set -euo pipefail
     cargo test --locked -p tachyon-core --lib native::linux_ -- --ignored --test-threads=1 \
-      --skip linux_browser_api_tests --skip linux_file_picker_tests --skip linux_package_tests \
+      --skip linux_browser_api_tests --skip linux_file_picker_tests --skip linux_recorder_tests --skip linux_package_tests \
       --skip linux_title_bar_tests
     cargo test --locked -p tachyon-core --lib the_linux_ -- --ignored --test-threads=1
   '
@@ -119,7 +119,7 @@ run_in_desktop() {
     echo "_NET_WM_CM_S0 owner (0 when the desktop does not composite): $(compositor_owner)"
   elif [[ " $TAC_DESKTOP_SERVICES " != *' remote-desktop '* ]]; then
     echo '==> this Wayland desktop has no Mutter RemoteDesktop, so the browser API, file dialog and title bar tests, which press keys and the pointer through it, do not run'
-    skipped+=(--skip linux_browser_api_tests --skip linux_file_picker_tests --skip linux_title_bar_tests)
+    skipped+=(--skip linux_browser_api_tests --skip linux_file_picker_tests --skip linux_recorder_tests --skip linux_title_bar_tests)
     DESKTOP_GAPS=' (not run: the browser API, file dialog and title bar tests, because the desktop has no Mutter RemoteDesktop)'
   fi
   export LIBGL_ALWAYS_SOFTWARE=1 WEBKIT_DMABUF_RENDERER_FORCE_SHM=1 GDK_DEBUG=no-portals

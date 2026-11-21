@@ -97,7 +97,7 @@ return 'pick=' + (await send('call', 'pick', [])).value;";
         .replace("__PICKER_FOLDER__", folder)
         .replace(
             "__PAGE_SCRIPT__",
-            &super::host::c_string_escape(&Self::page_script()),
+            &super::host::c_string_escape(&Self::page_script()).replace('?', "\\?"),
         )
         .replace("__PAGE_EXPECTED__", Self::PAGE_EXPECTED)
         .replace(

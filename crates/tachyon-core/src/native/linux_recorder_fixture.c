@@ -7,6 +7,7 @@
 #define TACHYON_RECORDER_PASTE 0x0076
 #define TACHYON_RECORDER_SETTLE_TICKS 25
 #define TACHYON_RECORDER_SECONDS 3
+#define TACHYON_RECORDER_AUDIO_SINK "fakeaudiosink:MAX"
 
 static const char *TACHYON_RECORDER_SETUP = "__RECORDER_SETUP__";
 static const char *TACHYON_RECORDER_UNKNOWN_WRITE =
@@ -37,9 +38,9 @@ static int g_recorder_settle = 0;
 static gint64 g_recorder_recording_since = 0;
 
 static void tachyon_recorder_fixture_fail(const char *message) {
-  fprintf(stderr, "linux recorder fixture failed at step %d after %.1f s: %s (reply %s, dialogs %d)\n", g_recorder_step,
+  fprintf(stderr, "linux recorder fixture failed at step %d after %.1f s: %s (reply %s, dialogs %d, format %s)\n", g_recorder_step,
           (double)(g_get_monotonic_time() - g_recorder_started) / G_USEC_PER_SEC, message,
-          g_recorder_reply != NULL ? g_recorder_reply : "none", g_recorder_dialogs);
+          g_recorder_reply != NULL ? g_recorder_reply : "none", g_recorder_dialogs, g_recorder_format != NULL ? g_recorder_format : "none");
   exit(1);
 }
 
@@ -196,7 +197,7 @@ static gboolean tachyon_recorder_step_ready(void) {
   switch (g_recorder_step) {
     case 0: {
       const char *uri = g_view != NULL ? webkit_web_view_get_uri(g_view) : NULL;
-      return g_strcmp0(uri, "tachyon://app/") == 0 && !webkit_web_view_is_loading(g_view);
+      return g_strcmp0(uri, "tachyon://app/") == 0 && !webkit_web_view_is_loading(g_view) && tachyon_fixture_wayland_focused();
     }
     case 4: case 5: case 7: return tachyon_recorder_event_arrived();
     case 6: return g_get_monotonic_time() - g_recorder_recording_since >= TACHYON_RECORDER_SECONDS * G_USEC_PER_SEC;
@@ -220,7 +221,10 @@ static void tachyon_recorder_stopped_check(void) {
 
 static void tachyon_recorder_step(void) {
   switch (g_recorder_step) {
-    case 0: tachyon_recorder_run(TACHYON_RECORDER_SETUP); break;
+    case 0:
+      webkit_settings_set_enable_mock_capture_devices(webkit_web_view_get_settings(g_view), TRUE);
+      tachyon_recorder_run(TACHYON_RECORDER_SETUP);
+      break;
     case 1: tachyon_recorder_setup_done(); tachyon_recorder_run(TACHYON_RECORDER_UNKNOWN_WRITE); break;
     case 2:
       tachyon_recorder_require(tachyon_recorder_reply_has("(unknown)"), "a write to no recording must be unknown");
@@ -261,6 +265,7 @@ static gboolean tachyon_recorder_deadline(gpointer data) {
 }
 
 int main(int argc, char **argv) {
+  g_setenv("GST_PLUGIN_FEATURE_RANK", TACHYON_RECORDER_AUDIO_SINK, FALSE);
   g_recorder_started = g_get_monotonic_time();
   g_timeout_add(20, tachyon_recorder_tick, NULL);
   g_timeout_add_seconds(110, tachyon_recorder_deadline, NULL);
