@@ -104,7 +104,7 @@ mod tests {
     async fn a_held_pass_is_given_back_when_its_release_is_dropped() {
         let gates = CollectionGates::new();
         let pass = gates.transaction("orders").await;
-        let release = pass.hold_until_released_or(Instant::now() + Duration::from_secs(60));
+        let release = pass.hold_until_released_or(Instant::now() + Duration::from_mins(1));
         drop(release);
         let after = tokio::time::timeout(Timing::LIFETIME, gates.writer("orders")).await;
         assert!(after.is_ok());

@@ -14,7 +14,8 @@ pub(super) struct FyloTransactions {
 }
 
 impl FyloTransactions {
-    const UNKNOWN: &'static str = "Unknown, expired or already settled transaction; start a new one.";
+    const UNKNOWN: &'static str =
+        "Unknown, expired or already settled transaction; start a new one.";
 
     pub(super) fn new() -> Self {
         Self {
@@ -101,25 +102,34 @@ mod tests {
     #[test]
     fn a_new_transaction_has_no_collection_until_its_first_write() {
         let transactions = FyloTransactions::new();
-        let id = transactions.begin().unwrap_or_else(|error| panic!("{error}"));
+        let id = transactions
+            .begin()
+            .unwrap_or_else(|error| panic!("{error}"));
         assert_eq!(transactions.binding(&id).ok(), Some(None));
     }
 
     #[tokio::test]
     async fn a_bound_transaction_names_its_collection_and_fylo_handle() {
         let transactions = FyloTransactions::new();
-        let id = transactions.begin().unwrap_or_else(|error| panic!("{error}"));
+        let id = transactions
+            .begin()
+            .unwrap_or_else(|error| panic!("{error}"));
         let bound = transactions.bind(&id, "orders", String::from("t1"), CollectionPass::none());
         assert!(bound.is_ok());
         let binding = Some(Some((String::from("orders"), String::from("t1"))));
         assert_eq!(transactions.binding(&id).ok(), binding);
-        assert_eq!(transactions.settle(&id).ok(), Some(Some(String::from("t1"))));
+        assert_eq!(
+            transactions.settle(&id).ok(),
+            Some(Some(String::from("t1")))
+        );
     }
 
     #[test]
     fn a_settled_transaction_is_unknown() {
         let transactions = FyloTransactions::new();
-        let id = transactions.begin().unwrap_or_else(|error| panic!("{error}"));
+        let id = transactions
+            .begin()
+            .unwrap_or_else(|error| panic!("{error}"));
         assert_eq!(transactions.settle(&id).ok(), Some(None));
         assert!(transactions.settle(&id).is_err());
         assert!(transactions.binding(&id).is_err());

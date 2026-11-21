@@ -43,7 +43,9 @@ mod tests {
 
     #[test]
     fn unsafe_reserved_and_device_names_are_refused() {
-        for name in ["", "a", "-x", "x-", "Slice", "a_b", "a/b", "..", "sql", "queue", "con", "lpt9"] {
+        for name in [
+            "", "a", "-x", "x-", "Slice", "a_b", "a/b", "..", "sql", "queue", "con", "lpt9",
+        ] {
             assert!(NamespaceName::checked(name).is_err(), "{name}");
         }
     }

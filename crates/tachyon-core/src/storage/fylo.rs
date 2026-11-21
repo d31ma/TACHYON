@@ -168,7 +168,11 @@ impl FyloStore {
         }
     }
 
-    async fn joined_handle(&self, id: &str, target: &StoreTarget) -> Result<Option<String>, Failure> {
+    async fn joined_handle(
+        &self,
+        id: &str,
+        target: &StoreTarget,
+    ) -> Result<Option<String>, Failure> {
         match self.transactions.binding(id)? {
             Some((collection, handle)) => self.handle_for(id, target, &collection, handle).await,
             None => self.bind_when_writing(id, target).await,
@@ -206,14 +210,18 @@ impl FyloStore {
         let Some(collection) = target.collection().filter(|_| target.writes()) else {
             return Ok(None);
         };
-        self.bind(id, CollectionName::checked(collection)?).await.map(Some)
+        self.bind(id, CollectionName::checked(collection)?)
+            .await
+            .map(Some)
     }
 
     async fn bind(&self, id: &str, collection: &str) -> Result<String, Failure> {
         let expires = self.transactions.expires(id)?;
         let pass = self.transactions.gates().transaction(collection).await;
         let budget = StoreCall::time_left(false).unwrap_or(Duration::MAX);
-        let left = expires.saturating_duration_since(Instant::now()).min(budget);
+        let left = expires
+            .saturating_duration_since(Instant::now())
+            .min(budget);
         let milliseconds = u64::try_from(left.as_millis()).unwrap_or(u64::MAX);
         let request = json!({ "collection": collection, "timeoutMs": milliseconds });
         let answer = self
@@ -238,9 +246,7 @@ impl FyloStore {
             return Ok(());
         };
         let operation = Self::settle_operation(action);
-        let answer = self
-            .call(operation, json!({ "transaction": handle }))
-            .await;
+        let answer = self.call(operation, json!({ "transaction": handle })).await;
         Self::settled(answer, action)
     }
 
@@ -273,7 +279,10 @@ impl FyloStore {
         let parameters = Self::sql_parameters(command)?;
         let bound = SqlStatement::bound(sql, parameters.len())?;
         let answer = self
-            .call("executeSQL", json!({ "sql": bound, "parameters": parameters }))
+            .call(
+                "executeSQL",
+                json!({ "sql": bound, "parameters": parameters }),
+            )
             .await
             .map_err(FyloError::into_failure)?;
         Self::sql_answer(text(command, "mode")?, answer)
@@ -519,9 +528,9 @@ impl FyloError {
             "ETXNSCOPE" => failure(
                 "A FYLO transaction covers the writes of one collection; FYLO rolled it back.",
             ),
-            "ETXNBUSY" => failure(
-                "Another transaction holds this FYLO collection; try the write again.",
-            ),
+            "ETXNBUSY" => {
+                failure("Another transaction holds this FYLO collection; try the write again.")
+            }
             code => Failure::one(crate::failure::diagnostic(
                 2160,
                 format!("FYLO operation failed ({code})."),
@@ -547,4 +556,3 @@ fn document_id(value: &Value) -> Result<&str, Failure> {
         })
         .ok_or_else(|| failure("FYLO identifiers are the TTIDs it assigns."))
 }
-

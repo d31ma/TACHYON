@@ -35,12 +35,6 @@ impl SortedJson {
         entries
     }
 
-    pub(crate) fn owned_entries(map: Map<String, Value>) -> Vec<(String, Value)> {
-        let mut entries: Vec<(String, Value)> = map.into_iter().collect();
-        entries.sort_by(|left, right| left.0.cmp(&right.0));
-        entries
-    }
-
     pub(crate) fn keys(map: &Map<String, Value>) -> Vec<&String> {
         Self::entries(map).into_iter().map(|(key, _)| key).collect()
     }

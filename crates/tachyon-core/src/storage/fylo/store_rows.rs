@@ -18,7 +18,7 @@ impl StoreRows {
         Self::checked_entity(answer)
     }
 
-    pub(super) fn scroll_page(answer: Value) -> Result<Value, Failure> {
+    pub(super) fn scroll_page(answer: &Value) -> Result<Value, Failure> {
         let content = Self::found(answer["content"].clone())?;
         let next = Self::cursor(&answer["nextCursor"])?;
         Ok(serde_json::json!({ "content": content, "nextCursor": next }))
@@ -85,15 +85,15 @@ mod tests {
     #[test]
     fn a_scroll_page_keeps_its_content_and_next_cursor() {
         let page = json!({"content": [{"id": "4W1"}], "nextCursor": "c.1"});
-        assert_eq!(StoreRows::scroll_page(page.clone()).ok(), Some(page));
+        assert_eq!(StoreRows::scroll_page(&page).ok(), Some(page));
         let last = json!({"content": [], "nextCursor": null});
-        assert_eq!(StoreRows::scroll_page(last.clone()).ok(), Some(last));
+        assert_eq!(StoreRows::scroll_page(&last).ok(), Some(last));
     }
 
     #[test]
     fn a_scroll_page_with_a_strange_cursor_is_refused() {
         let page = json!({"content": [], "nextCursor": 7});
-        assert!(StoreRows::scroll_page(page).is_err());
+        assert!(StoreRows::scroll_page(&page).is_err());
     }
 
     #[test]

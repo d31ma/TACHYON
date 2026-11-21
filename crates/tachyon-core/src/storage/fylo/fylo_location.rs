@@ -10,7 +10,8 @@ pub(super) struct FyloLocation<'url> {
 impl<'url> FyloLocation<'url> {
     const SCHEME: &'static str = "fylo://";
     const NAMESPACE_KEY: &'static str = "namespace=";
-    const FORM: &'static str = "FYLO datasource URL is fylo:///absolute/root, optionally with ?namespace=<name>.";
+    const FORM: &'static str =
+        "FYLO datasource URL is fylo:///absolute/root, optionally with ?namespace=<name>.";
 
     pub(super) fn parsed(raw: &'url str) -> Result<Self, Failure> {
         let (address, query) = Self::split_query(raw);
@@ -61,15 +62,24 @@ mod tests {
     #[test]
     fn a_url_without_a_query_names_only_the_root() {
         let location = FyloLocation::parsed("fylo:///srv/catalog").ok();
-        assert_eq!(location.as_ref().map(FyloLocation::path), Some("/srv/catalog"));
+        assert_eq!(
+            location.as_ref().map(FyloLocation::path),
+            Some("/srv/catalog")
+        );
         assert_eq!(location.and_then(|location| location.namespace()), None);
     }
 
     #[test]
     fn a_namespace_query_names_the_namespace() {
         let location = FyloLocation::parsed("fylo:///srv/catalog?namespace=slice-12").ok();
-        assert_eq!(location.as_ref().map(FyloLocation::path), Some("/srv/catalog"));
-        assert_eq!(location.and_then(|location| location.namespace()), Some("slice-12"));
+        assert_eq!(
+            location.as_ref().map(FyloLocation::path),
+            Some("/srv/catalog")
+        );
+        assert_eq!(
+            location.and_then(|location| location.namespace()),
+            Some("slice-12")
+        );
     }
 
     #[test]

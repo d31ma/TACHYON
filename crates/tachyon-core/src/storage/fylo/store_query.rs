@@ -194,12 +194,11 @@ mod tests {
     use super::StoreQuery;
 
     fn conditions(query: &Value) -> Value {
-        let conditions = StoreQuery::conditions(query)
-            .unwrap_or_else(|error| panic!("{error}"));
+        let conditions = StoreQuery::conditions(query).unwrap_or_else(|error| panic!("{error}"));
         Value::Array(conditions)
     }
 
-    fn order(sort: Value) -> Value {
+    fn order(sort: &Value) -> Value {
         let order = StoreQuery::new("sku")
             .order(&json!({ "sort": sort }))
             .unwrap_or_else(|error| panic!("{error}"));
@@ -260,7 +259,7 @@ mod tests {
     #[test]
     fn sort_keys_become_fylo_order_and_the_trailing_id_tie_breaker_is_left_to_fylo() {
         assert_eq!(
-            order(json!(["qty:desc", "sku:asc"])),
+            order(&json!(["qty:desc", "sku:asc"])),
             json!([{"field": "qty", "direction": "desc"}])
         );
     }
@@ -268,15 +267,18 @@ mod tests {
     #[test]
     fn a_descending_id_sort_is_kept() {
         assert_eq!(
-            order(json!(["sku:desc"])),
+            order(&json!(["sku:desc"])),
             json!([{"field": "sku", "direction": "desc"}])
         );
     }
 
     #[test]
     fn a_query_over_sixty_four_kibibytes_is_refused_before_it_is_sent() {
-        let large = json!({"where": [{"field": "name", "operator": "eq", "value": "x".repeat(70_000)}]});
-        let refused = StoreQuery::bounded(large).err().map(|error| error.to_string());
+        let large =
+            json!({"where": [{"field": "name", "operator": "eq", "value": "x".repeat(70_000)}]});
+        let refused = StoreQuery::bounded(large)
+            .err()
+            .map(|error| error.to_string());
         assert!(refused.unwrap_or_default().contains("64 KiB"));
         let small = json!({"where": []});
         assert_eq!(StoreQuery::bounded(small.clone()).ok(), Some(small));

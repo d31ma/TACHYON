@@ -228,7 +228,10 @@ mod tests {
             .ok()
             .expect("count");
         process.close(Instant::now()).await;
-        answer.as_u64().and_then(|count| usize::try_from(count).ok()).expect("a count")
+        answer
+            .as_u64()
+            .and_then(|count| usize::try_from(count).ok())
+            .expect("a count")
     }
 
     #[tokio::test]

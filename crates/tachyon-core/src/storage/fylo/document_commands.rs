@@ -81,7 +81,11 @@ impl<'store> DocumentCommands<'store> {
                 let request = json!({ "collection": collection, "id": id, "fields": fields });
                 self.call("storePatch", request).await
             }
-            None => self.store.patch(collection, id, fields).await.map(Self::last_answer),
+            None => self
+                .store
+                .patch(collection, id, fields)
+                .await
+                .map(Self::last_answer),
         }
     }
 
@@ -99,7 +103,7 @@ impl<'store> DocumentCommands<'store> {
             .call("storeScroll", request)
             .await
             .map_err(FyloError::into_failure)?;
-        StoreRows::scroll_page(answer)
+        StoreRows::scroll_page(&answer)
     }
 
     async fn create_collection(&self, command: &Value) -> Result<Value, Failure> {

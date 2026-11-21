@@ -3,7 +3,9 @@ use std::sync::Arc;
 
 use serde_json::{Value, json};
 
-use super::{ManagedStorage, execute, fylo_is_available, fylo_store, fylo_url, is_rejected, sqlite};
+use super::{
+    ManagedStorage, execute, fylo_is_available, fylo_store, fylo_url, is_rejected, sqlite,
+};
 
 fn fylo_runs_here() -> bool {
     if fylo_is_available() {
@@ -91,7 +93,9 @@ impl ManyDocuments {
     }
 
     fn batch(first: u64, end: u64) -> Vec<Value> {
-        (first..end).map(|n| json!({ "save": { "n": n } })).collect()
+        (first..end)
+            .map(|n| json!({ "save": { "n": n } }))
+            .collect()
     }
 }
 
@@ -239,7 +243,8 @@ async fn two_namespaces_of_one_root_keep_their_collections_apart() {
 
 #[tokio::test]
 async fn a_bad_namespace_in_the_url_is_refused_before_fylo_starts() {
-    let configuration = json!({"yon":{"datasource":{"driver":"fylo","url":"fylo:///tmp?namespace=Bad_Name"}}});
+    let configuration =
+        json!({"yon":{"datasource":{"driver":"fylo","url":"fylo:///tmp?namespace=Bad_Name"}}});
     let refused = ManagedStorage::connect(&configuration)
         .await
         .expect_err("a bad namespace is refused");

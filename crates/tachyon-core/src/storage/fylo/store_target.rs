@@ -138,7 +138,8 @@ mod tests {
 
     #[test]
     fn collection_queue_and_sql_commands_do_not_join() {
-        let drop = json!({"operation": "document", "command": "dropCollection", "collection": "people"});
+        let drop =
+            json!({"operation": "document", "command": "dropCollection", "collection": "people"});
         assert!(StoreTarget::of(&drop).refuse_unless_it_joins().is_err());
         let queue = json!({"operation": "queue", "command": "publish", "topic": "outbox"});
         assert!(StoreTarget::of(&queue).refuse_unless_it_joins().is_err());
@@ -148,7 +149,8 @@ mod tests {
 
     #[test]
     fn only_an_sql_statement_outside_rows_mode_counts_as_an_sql_write() {
-        let update = json!({"operation": "sql", "mode": "execute", "sql": "UPDATE people SET a = 1"});
+        let update =
+            json!({"operation": "sql", "mode": "execute", "sql": "UPDATE people SET a = 1"});
         assert!(StoreTarget::of(&update).sql_writes());
         let select = json!({"operation": "sql", "mode": "rows", "sql": "SELECT * FROM people"});
         assert!(!StoreTarget::of(&select).sql_writes());

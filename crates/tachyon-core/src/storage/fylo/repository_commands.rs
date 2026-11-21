@@ -58,7 +58,12 @@ impl<'store> RepositoryCommands<'store> {
         }
     }
 
-    async fn save(&self, command: &Value, collection: &str, id_field: &str) -> Result<Value, Failure> {
+    async fn save(
+        &self,
+        command: &Value,
+        collection: &str,
+        id_field: &str,
+    ) -> Result<Value, Failure> {
         let entity = Self::bounded_entity(command)?;
         let assigned = Self::assigned_id(entity, id_field)?;
         let request = json!({
@@ -79,6 +84,15 @@ impl<'store> RepositoryCommands<'store> {
             return failure("FYLO assigns identifiers; save a new entity without one.");
         }
         error.into_failure()
+    }
+
+    fn bounded_entity(command: &Value) -> Result<&Map<String, Value>, Failure> {
+        command
+            .get("value")
+            .ok_or_else(|| failure("Store save requires an entity."))?
+            .as_object()
+            .filter(|entity| (1..=Self::MAX_FIELDS).contains(&entity.len()))
+            .ok_or_else(|| failure("Store save requires a bounded entity object."))
     }
 
     fn assigned_id<'entity>(
@@ -139,7 +153,12 @@ impl<'store> RepositoryCommands<'store> {
         Ok(Value::Array(StoreRows::found(answer)?))
     }
 
-    async fn query(&self, command: &Value, collection: &str, id_field: &str) -> Result<Value, Failure> {
+    async fn query(
+        &self,
+        command: &Value,
+        collection: &str,
+        id_field: &str,
+    ) -> Result<Value, Failure> {
         let query = &command["query"];
         object_keys(query, &Self::QUERY_KEYS)?;
         let kind = text(query, "kind")?;
@@ -152,18 +171,13 @@ impl<'store> RepositoryCommands<'store> {
                 self.find(collection, id_field, conditions, &page).await
             }
             (false, false) => {
-                let request = Self::counting_request(collection, id_field, conditions)?;
+                let request = Self::counting_request(collection, id_field, &conditions)?;
                 self.counted(kind, query, request).await
             }
         }
     }
 
-    async fn counted(
-        &self,
-        kind: &str,
-        query: &Value,
-        request: Value,
-    ) -> Result<Value, Failure> {
+    async fn counted(&self, kind: &str, query: &Value, request: Value) -> Result<Value, Failure> {
         reject_count_page_or_order(query)?;
         let operation = Self::counting_operation(kind)?;
         self.call(operation, request)
@@ -174,7 +188,7 @@ impl<'store> RepositoryCommands<'store> {
     fn counting_request(
         collection: &str,
         id_field: &str,
-        conditions: Vec<Value>,
+        conditions: &[Value],
     ) -> Result<Value, Failure> {
         let query = StoreQuery::bounded(json!({ "where": conditions }))?;
         Ok(json!({ "collection": collection, "idField": id_field, "query": query }))

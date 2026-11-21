@@ -34,7 +34,7 @@ class FyloPin {
   };
 
   static buildsFolder() {
-    return process.env.TAC_FYLO_BUILDS || join(homedir(), 'Developer', 'AnvilTargets', 'fylo-builds');
+    return process.env.TAC_FYLOBUILDS || join(homedir(), 'Developer', 'AnvilTargets', 'fylo-builds');
   }
 
   static description() {
