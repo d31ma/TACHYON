@@ -30,6 +30,7 @@ globalThis.__tachyonNativeHostCall = (capability, payload) =>
     : globalThis.__tachyonHostPost?.(capability, payload)
 globalThis.__tachyonWindowControls = Object.freeze(__WINDOW_CONTROLS__)
 globalThis.__tachyonBrowserApiBridge = Object.freeze(__BROWSER_API_BRIDGE__)
+globalThis.__tachyonNativeFrameKeys = __NATIVE_FRAME_KEYS__
 globalThis.__tachyonApplicationStateNow = 'foreground'
 globalThis.__tachyonApplicationState = (state) => {
   if (!['background', 'foreground'].includes(state) || state === globalThis.__tachyonApplicationStateNow) return
@@ -167,6 +168,10 @@ pub(super) fn native_shim(
         .replace(
             "__BROWSER_API_BRIDGE__",
             &super::browser_api_bridge::BrowserApiBridge::page_list(target),
+        )
+        .replace(
+            "__NATIVE_FRAME_KEYS__",
+            &super::browser_api_bridge::BrowserApiBridge::frame_keys(target),
         )
 }
 
@@ -443,6 +448,10 @@ mod tests {
             ),
             "{shim}"
         );
+        assert!(
+            shim.contains("globalThis.__tachyonBrowserApiBridge = Object.freeze(['share', 'notifications', 'crypto'])\nglobalThis.__tachyonNativeFrameKeys = false\n"),
+            "the Linux host bridges Crypto but hands no frame keys, so SFrame stays unsupported: {shim}"
+        );
         let nothing = native_shim(
             &crate::native::config::WindowConfiguration::default(),
             tachyon_contracts::NativeTarget::Ios,
@@ -453,6 +462,10 @@ mod tests {
         );
         assert!(
             nothing.contains("globalThis.__tachyonBrowserApiBridge = Object.freeze(['clipboard', 'share', 'notifications', 'geolocation', 'codeScanner', 'crypto', 'media'])"),
+            "{nothing}"
+        );
+        assert!(
+            nothing.contains("globalThis.__tachyonNativeFrameKeys = true\n"),
             "{nothing}"
         );
     }

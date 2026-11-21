@@ -28,6 +28,7 @@ impl BrowserApiBridge {
                 "hash",
                 "forget",
                 "forgetAll",
+                "frameKey",
             ],
         ),
         ("media", &["callActive", "speakers", "chooseSpeaker"]),
@@ -71,6 +72,12 @@ impl BrowserApiBridge {
         ),
         (NativeTarget::Linux, &["share", "notifications", "crypto"]),
     ];
+
+    const FRAME_KEYS: [NativeTarget; 2] = [NativeTarget::Macos, NativeTarget::Ios];
+
+    pub(super) fn frame_keys(target: NativeTarget) -> String {
+        Self::FRAME_KEYS.contains(&target).to_string()
+    }
 
     pub(super) fn bridged(target: NativeTarget) -> &'static [&'static str] {
         Self::BRIDGED
@@ -181,6 +188,23 @@ mod tests {
     }
 
     #[test]
+    fn only_the_apple_hosts_hand_native_frame_keys_to_the_media_worker() {
+        for (target, frame_keys) in [
+            (NativeTarget::Macos, "true"),
+            (NativeTarget::Ios, "true"),
+            (NativeTarget::Linux, "false"),
+            (NativeTarget::Android, "false"),
+            (NativeTarget::Windows, "false"),
+        ] {
+            assert_eq!(
+                BrowserApiBridge::frame_keys(target),
+                frame_keys,
+                "{target:?}"
+            );
+        }
+    }
+
+    #[test]
     fn the_page_list_is_a_javascript_array_of_names() {
         assert_eq!(
             BrowserApiBridge::page_list(NativeTarget::Windows),
@@ -200,7 +224,7 @@ mod tests {
                 "browserApi.notifications.show"
             ]
         );
-        assert_eq!(linux.len(), 18);
+        assert_eq!(linux.len(), 19);
         assert_eq!(linux[3], "browserApi.crypto.check");
     }
 
@@ -210,11 +234,11 @@ mod tests {
             BrowserApiBridge::page_list(NativeTarget::Macos),
             "['clipboard', 'share', 'notifications', 'geolocation', 'codeScanner', 'crypto']"
         );
-        assert_eq!(BrowserApiBridge::operations(NativeTarget::Macos).len(), 23);
+        assert_eq!(BrowserApiBridge::operations(NativeTarget::Macos).len(), 24);
         assert_eq!(
             BrowserApiBridge::page_list(NativeTarget::Ios),
             "['clipboard', 'share', 'notifications', 'geolocation', 'codeScanner', 'crypto', 'media']"
         );
-        assert_eq!(BrowserApiBridge::operations(NativeTarget::Ios).len(), 26);
+        assert_eq!(BrowserApiBridge::operations(NativeTarget::Ios).len(), 27);
     }
 }

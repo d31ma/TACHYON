@@ -6,6 +6,7 @@ struct AppleCryptoValues {
     static let leastSaltBytes = 16
     static let mostCodeBytes = 1024
     static let mostDerivedBytes = 1024
+    static let largestKeyId = 9_007_199_254_740_991.0
     static let base64Letters = CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_")
     static let nameLetters = base64Letters.union(CharacterSet(charactersIn: "."))
     let values: [Any]
@@ -77,6 +78,13 @@ struct AppleCryptoValues {
               number.doubleValue == Double(number.intValue),
               (1...Self.mostDerivedBytes).contains(number.intValue) else { throw AppleCryptoRefusal.invalid }
         return number.intValue
+    }
+
+    func keyId(_ index: Int) throws -> UInt64 {
+        guard let number = values[index] as? NSNumber, CFGetTypeID(number) != CFBooleanGetTypeID(),
+              number.doubleValue == number.doubleValue.rounded(),
+              (0...Self.largestKeyId).contains(number.doubleValue) else { throw AppleCryptoRefusal.invalid }
+        return number.uint64Value
     }
 
     private func text(_ index: Int) throws -> String {

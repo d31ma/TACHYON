@@ -343,7 +343,8 @@ report.workerEvents = sent.splice(0)
 delete globalThis.RTCRtpScriptTransform
 report.noTransform = attempt(() => media.encryptFrames(reply, 'peer-1', true))
 globalThis.RTCRtpScriptTransform = class { constructor(worker, options) { this.options = options } }
-globalThis.__tachyonBrowserApiBridge = ['clipboard', 'crypto']
+globalThis.__tachyonBrowserApiBridge = ['share', 'notifications', 'crypto']
+globalThis.__tachyonNativeFrameKeys = false
 posted.splice(0)
 report.nativeKeys = [attempt(() => media.useFrameKey(reply, 1, 'alice')), attempt(() => media.encryptFrames(reply, 'peer-1', true))]
 await settle()
@@ -351,6 +352,49 @@ report.nativeSent = sent.splice(0)
 report.nativePosted = posted.splice(0)
 report.nativeTransforms = [video.sender.transform, video.receiver.transform, audio.sender.transform, audio.receiver.transform]
 report.nativeOff = attempt(() => media.encryptFrames(reply, 'peer-1', false))
+globalThis.__tachyonNativeFrameKeys = true
+const frameKeyCalls = []
+const refusal = (reason) => Object.assign(new Error(reason), { reason })
+const nativeAnswers = { nobody: refusal('unknown'), old: refusal('unsupported'), wrongUse: refusal('invalid') }
+globalThis[Symbol.for('tachyon.tac.crypto.hooks')] = {
+  key: async () => { throw new Error('the page asked for a page key') },
+  frameKey: async (name, keyId, publicKey) => {
+    frameKeyCalls.push([name, keyId, publicKey])
+    if (nativeAnswers[name]) throw nativeAnswers[name]
+    return { enc: `enc-${keyId}`, key: `key-${keyId}`, salt: `salt-${keyId}` }
+  },
+}
+posted.splice(0)
+sent.splice(0)
+report.hostKeys = [attempt(() => media.useFrameKey(reply, 7, 'alice')), attempt(() => media.encryptFrames(reply, 'peer-1', true))]
+await settle()
+report.hostBind = posted.splice(0)
+emit({ kind: 'bound', keyId: 7, publicKey: 'worker-7' })
+await settle()
+report.hostWrapped = posted.splice(0)
+report.hostCalls = frameKeyCalls.splice(0)
+report.hostTransforms = [video.sender.transform?.options ?? null, video.receiver.transform?.options ?? null]
+emit({ kind: 'ready', keyId: 7, track: '' })
+report.hostReady = sent.splice(0)
+const handOver = async (keyId, name) => {
+  media.useFrameKey(reply, keyId, name)
+  await settle()
+  emit({ kind: 'bound', keyId, publicKey: `worker-${keyId}` })
+  await settle()
+  return { sent: sent.splice(0), posted: posted.splice(0).map((message) => message.kind) }
+}
+report.hostUnknown = await handOver(8, 'nobody')
+report.hostOldSystem = await handOver(9, 'old')
+report.hostWrongUse = await handOver(10, 'wrongUse')
+report.hostWorkerRefused = await handOver(11, 'alice')
+emit({ kind: 'refused', keyId: 11, track: '' })
+report.hostWorkerRefused.after = sent.splice(0)
+media.useFrameKey(reply, 12, 'alice')
+await settle()
+posted.splice(0)
+emit({ kind: 'refused', keyId: 12, track: '' })
+await settle()
+report.hostBindRefused = { sent: sent.splice(0), posted: posted.splice(0), calls: frameKeyCalls.filter((call) => call[1] === 12) }
 console.log(JSON.stringify(report))
 ";
 
@@ -457,6 +501,79 @@ fn the_page_runtime_hands_frame_keys_to_one_worker_and_encrypts_every_transceive
         "no frame transform is attached, so no frame passes as if it were encrypted"
     );
     assert_eq!(report["nativeOff"], "ok");
+}
+
+#[test]
+fn a_native_frame_key_host_hands_wrapped_keys_only_to_the_media_worker() {
+    if !NodeDriver::available() {
+        eprintln!("skipping: node is unavailable");
+        return;
+    }
+    let report = FramesPageDriver::run();
+    assert_eq!(
+        report["hostKeys"],
+        serde_json::json!(["ok", "ok"]),
+        "{report}"
+    );
+    assert_eq!(
+        report["hostBind"],
+        serde_json::json!([{ "kind": "bind", "keyId": 7 }]),
+        "the worker makes the key pair; the page never asks for a page key"
+    );
+    assert_eq!(
+        report["hostCalls"],
+        serde_json::json!([["alice", 7, "worker-7"]]),
+        "the native host gets the worker's public key"
+    );
+    assert_eq!(
+        report["hostWrapped"],
+        serde_json::json!([{ "kind": "wrapped", "keyId": 7, "wrapped": { "enc": "enc-7", "key": "key-7", "salt": "salt-7" } }])
+    );
+    assert_eq!(
+        report["hostTransforms"],
+        serde_json::json!([{ "side": "send", "kind": "video" }, { "side": "receive", "kind": "video", "track": "peer-1.0" }])
+    );
+    assert_eq!(
+        report["hostReady"],
+        serde_json::json!([["MediaFrameKeyReady", { "keyId": 7 }]])
+    );
+}
+
+#[test]
+fn a_native_frame_key_host_fails_closed_when_a_key_cannot_be_handed_over() {
+    if !NodeDriver::available() {
+        eprintln!("skipping: node is unavailable");
+        return;
+    }
+    let report = FramesPageDriver::run();
+    let unsupported = serde_json::json!(["MediaFailed", { "track": "", "call": "useFrameKey", "reason": "unsupported", "message": "Frame keys need the crypto browser API." }]);
+    let unknown = serde_json::json!(["MediaFailed", { "track": "", "call": "useFrameKey", "reason": "unknown", "message": "There is no Crypto key with that name." }]);
+    assert_eq!(
+        report["hostUnknown"],
+        serde_json::json!({ "sent": [unknown], "posted": ["bind"] }),
+        "{report}"
+    );
+    for case in ["hostOldSystem", "hostWrongUse"] {
+        assert_eq!(
+            report[case],
+            serde_json::json!({ "sent": [unsupported], "posted": ["bind"] }),
+            "{case}: no wrapped key reaches the worker"
+        );
+    }
+    assert_eq!(report["hostWorkerRefused"]["sent"], serde_json::json!([]));
+    assert_eq!(
+        report["hostWorkerRefused"]["posted"],
+        serde_json::json!(["bind", "wrapped"])
+    );
+    assert_eq!(
+        report["hostWorkerRefused"]["after"],
+        serde_json::json!([unsupported])
+    );
+    assert_eq!(
+        report["hostBindRefused"],
+        serde_json::json!({ "sent": [unsupported], "posted": [], "calls": [] }),
+        "a worker that cannot make its key pair gets no native call"
+    );
 }
 
 #[test]

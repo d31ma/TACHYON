@@ -45,6 +45,7 @@ class TacMedia {
   static vp8 = 'video/vp8'
   static frames = null
   static frameReply = null
+  static binding = new Map()
   static encrypted = new Map()
   static listened = new Set()
   static reported = new Map()
@@ -342,10 +343,33 @@ class TacMedia {
     TacMedia.ensurePageKeys()
     const id = TacMedia.checkedKeyId(keyId)
     TacMedia.frameReply = reply
-    TacMedia.ask(() => TacMedia.cryptoKey(key))
-      .then((cryptoKey) => TacMedia.worker().postMessage({ kind: 'use', keyId: id, key: cryptoKey }))
+    TacMedia.ask(() => TacMedia.handKey(id, key))
       .catch((error) => reply(TacMedia.failure('', 'useFrameKey', error)))
     return null
+  }
+
+  static handKey(id, name) {
+    if (TacMedia.keySource() === 'native') return TacMedia.handNativeKey(id, name)
+    return TacMedia.cryptoKey(name).then((cryptoKey) => TacMedia.worker().postMessage({ kind: 'use', keyId: id, key: cryptoKey }))
+  }
+
+  static async handNativeKey(id, name) {
+    const publicKey = await TacMedia.bound(id)
+    if (publicKey === null) return
+    const wrapped = await globalThis[TacMedia.cryptoHooksKey].frameKey(String(name), id, publicKey).catch((error) => TacMedia.frameKeyRefused(error))
+    TacMedia.worker().postMessage({ kind: 'wrapped', keyId: id, wrapped })
+  }
+
+  static bound(id) {
+    return new Promise((resolve) => {
+      TacMedia.binding.set(id, resolve)
+      TacMedia.worker().postMessage({ kind: 'bind', keyId: id })
+    })
+  }
+
+  static frameKeyRefused(error) {
+    if (error?.reason === 'unknown') throw new Error('There is no Crypto key with that name (unknown).')
+    throw new Error('The app could not hand the frame key to the media worker (unsupported).')
   }
 
   static postKey(reply, kind, keyId) {
@@ -381,7 +405,12 @@ class TacMedia {
   }
 
   static ensurePageKeys() {
-    if (globalThis.__tachyonBrowserApiBridge?.includes('crypto')) throw new Error('Frame encryption is not available in this app yet: its Crypto keys stay in native code (unsupported).')
+    if (TacMedia.keySource() === 'none') throw new Error('Frame encryption is not available in this app yet: its Crypto keys stay in native code (unsupported).')
+  }
+
+  static keySource() {
+    if (globalThis.__tachyonBrowserApiBridge?.includes('crypto') !== true) return 'page'
+    return globalThis.__tachyonNativeFrameKeys === true ? 'native' : 'none'
   }
 
   static ensureEncryption(on) {
@@ -441,7 +470,20 @@ class TacMedia {
     if (message.kind === 'ready') return TacMedia.frameReply?.(['MediaFrameKeyReady', { keyId: message.keyId }])
     if (message.kind === 'rejected') return TacMedia.frameRejected(message.track)
     if (message.kind === 'missing') return TacMedia.frameMissing(message.track, message.keyId)
+    if (message.kind === 'bound') return TacMedia.frameBound(message.keyId, message.publicKey)
+    if (message.kind === 'refused') return TacMedia.frameRefused(message.keyId)
     TacMedia.frameReply?.(['MediaFailed', { track: '', call: 'sendFrameKey', reason: 'failed', message: TacMedia.messages.exhausted }])
+  }
+
+  static frameBound(keyId, publicKey) {
+    const resolve = TacMedia.binding.get(keyId) ?? (() => null)
+    TacMedia.binding.delete(keyId)
+    resolve(publicKey)
+  }
+
+  static frameRefused(keyId) {
+    TacMedia.frameBound(keyId, null)
+    TacMedia.frameReply?.(TacMedia.failure('', 'useFrameKey', new Error('The media worker refused the frame key (unsupported).')))
   }
 
   static frameMissing(track, keyId) {

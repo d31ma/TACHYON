@@ -652,6 +652,11 @@ static gchar *tachyon_crypto_forget(const TachyonCryptoValues *values) {
   return tachyon_crypto_value("");
 }
 
+static gchar *tachyon_crypto_frame_key(const TachyonCryptoValues *values) {
+  (void)values;
+  return tachyon_crypto_reason("unsupported");
+}
+
 static gchar *tachyon_crypto_forget_all(const TachyonCryptoValues *values) {
   (void)values;
   g_hash_table_remove_all(tachyon_crypto_keys());
@@ -677,6 +682,7 @@ static const TachyonCryptoCall TACHYON_CRYPTO_CALLS[] = {
     {"browserApi.crypto.hash", 1, tachyon_crypto_hash},
     {"browserApi.crypto.forget", 1, tachyon_crypto_forget},
     {"browserApi.crypto.forgetAll", 0, tachyon_crypto_forget_all},
+    {"browserApi.crypto.frameKey", 3, tachyon_crypto_frame_key},
 };
 
 static const TachyonCryptoCall *tachyon_crypto_call(const gchar *capability) {

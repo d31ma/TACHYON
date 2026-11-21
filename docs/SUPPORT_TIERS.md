@@ -2037,6 +2037,23 @@ check
 inside a `mac-heavy --vm=ios` job with `TAC_IOS_DEVICE` booted); a signed
 iOS device by hand.
 
+### SFrame frame keys in the Apple apps (2026-11-21, ADR 0135 amendment P5K)
+
+Native SFrame keys need macOS 14 / iOS 17; older systems answer
+`unsupported`. SFrame is unsupported on the Linux native host until Linux
+calls ship (WebKitGTK 2.56); there `useFrameKey` and
+`encryptFrames(connection, true)` answer `unsupported` at once and the host
+answers `browserApi.crypto.frameKey` with `unsupported`. Android and
+Windows apps do not bridge `Crypto`, so their pages keep the page-key path.
+
+`native::linux_crypto_tests::linux_crypto_runs_natively_and_keeps_keys_in_the_secret_service`
+ran in the Linux gate image on Colima (WebKitGTK, gnome-keyring under
+`dbus-run-session`, `xvfb-run`) with a new phase that asks the host for a
+frame key: it answered `frame-key:unsupported`, and every earlier phase
+answered as before.
+
+__P5K_EVIDENCE__
+
 ### Passkeys in the browser (2026-11-12, ADR 0126)
 
 `scripts/passkeys-browser-test.mjs` ran on the macOS test machine in

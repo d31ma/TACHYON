@@ -112,6 +112,16 @@ machine contracts have their own, independent major versions.
   are checked in Chromium, Firefox and WebKit, directly and through coturn
   (`bun run test:peers-browser`). The Linux app answers `unsupported`
   (WebKitGTK has no WebRTC); the other native apps are not checked yet.
+- **The macOS and iOS apps encrypt call frames with SFrame** (ADR 0135
+  amendment P5K, ADR 0132). `Media.useFrameKey` and
+  `Media.encryptFrames(connection, true)` now work in the Apple apps: the
+  app derives the frame key and salt from the Keychain key and seals them
+  with HPKE (RFC 9180) to a one-use key pair that only the media worker
+  holds. The worker opens them as a non-extractable key; the page sees only
+  the sealed package. A key that cannot be handed over answers `unknown` or
+  `unsupported`, and the sender then sends no frames. Frame keys need
+  macOS 14 or iOS 17; older systems answer `unsupported`. SFrame stays
+  `unsupported` in the Linux app until Linux calls ship (WebKitGTK 2.56).
 - **The macOS and iOS apps answer Crypto with CryptoKit and the Keychain**
   (ADR 0132 amendment, slice P2b). The Apple hosts list `crypto` in the native bridge,
   so every `Crypto` call runs in Swift: CryptoKit for Ed25519, X25519,

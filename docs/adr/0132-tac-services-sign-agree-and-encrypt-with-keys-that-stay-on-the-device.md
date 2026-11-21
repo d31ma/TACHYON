@@ -122,7 +122,10 @@ at most 32,768 bytes per message.
     keys in a worker without key bytes reaching page script. The same hooks
     object has `prfName(name)` and `prf(name, { first, second })`, which the
     passkeys module uses to turn a passkey's PRF results into not-kept
-    `derive` keys (ADR 0126, amendment P3 of 2026-11-14).
+    `derive` keys (ADR 0126, amendment P3 of 2026-11-14), and
+    `frameKey(name, keyId, publicKey)`, which asks a native host for one
+    SFrame key sealed to the media worker (ADR 0135, amendment P5K of
+    2026-11-21).
 12. **A native app may answer the calls itself.** When the host lists
     `crypto` in `__tachyonBrowserApiBridge`, the page module still checks the
     arguments and makes the request id, then sends
@@ -135,8 +138,9 @@ at most 32,768 bytes per message.
     (ADR 0131 amendment), and the macOS and iOS apps with CryptoKit and the
     Keychain (amendment P2b below); both use the same path without changing
     the service API. Where the host answers, the frame-encryption hook
-    (`key(name)`) finds no `CryptoKey` in the page and answers `null`; the
-    host hands SFrame its frame keys in a later change (ADR 0131).
+    (`key(name)`) finds no `CryptoKey` in the page and answers `null`. The
+    macOS and iOS apps hand SFrame its frame keys with `frameKey` (ADR 0135,
+    amendment P5K); the Linux app answers `frameKey` with `unsupported`.
 13. The size budget of `tac-web.js` (`MOST_RUNTIME_BYTES`) rises from 17,600
     to 18,200 bytes. The `crypto` entry adds about 630 bytes: the list of fifteen
     calls and the `supported` check. The rest of the code is in the module,
@@ -336,7 +340,13 @@ Apple's CryptoKit has every operation the contract needs:
    release (the hub's decision for the user, 2026-11-14). In it, the one
    exception to "no key bytes in the page" stays narrow: only per-frame
    media keys, imported as non-extractable, and only into the media
-   worker.
+   worker. **Done for macOS and iOS (2026-11-21, ADR 0135 amendment P5K):**
+   the host seals each frame key and salt with HPKE to a key pair that only
+   the media worker holds, and the worker unwraps the key as a
+   non-extractable `CryptoKey`; the page sees only the sealed package. This
+   is the one exception, and it is narrower than first planned: no raw key
+   bytes reach page script at all. The Linux app keeps this item's
+   `unsupported` answer until Linux calls ship (WebKitGTK 2.56).
 8. **Android keeps app data out of backups and device transfers.** The
    Android app already had `android:allowBackup="false"`, but for apps that
    target Android 12 or later that does not stop a device-to-device
