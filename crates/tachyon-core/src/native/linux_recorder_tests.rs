@@ -14,18 +14,14 @@ canvas.height = 240
 const paint = canvas.getContext('2d')
 let frame = 0
 setInterval(() => { frame += 1; paint.fillStyle = frame % 2 === 0 ? '#c33' : '#33c'; paint.fillRect(0, 0, 320, 240) }, 33)
-const sound = new AudioContext()
-const tone = sound.createOscillator()
-const output = sound.createMediaStreamDestination()
-tone.connect(output)
-tone.start()
-const fakeTracks = { tone: output.stream.getAudioTracks()[0], picture: canvas.captureStream(30).getVideoTracks()[0] }
+const microphone = await navigator.mediaDevices.getUserMedia({ audio: true })
+const fakeTracks = { voice: microphone.getAudioTracks()[0], picture: canvas.captureStream(30).getVideoTracks()[0] }
 globalThis[Symbol.for('tachyon.tac.media.tracks')] = { track: (name) => fakeTracks[name] ?? null, ended: () => {} }
 const videoTypes = { mp4: ['video/mp4;codecs=avc1,mp4a.40.2', 'video/mp4'], webm: ['video/webm;codecs=vp8,opus', 'video/webm'] }
 window.format = ['mp4', 'webm'].find((name) => videoTypes[name].some((type) => MediaRecorder.isTypeSupported(type))) ?? 'none'
 const recorder = () => globalThis[Symbol.for('tachyon.tac.recorder')]
 const remember = (event) => window.events.push(event)
-window.record = (name) => recorder().start(remember, name, 'tone', 'picture', 'Fixture', window.format)
+window.record = (name) => recorder().start(remember, name, 'voice', 'picture', 'Fixture', window.format)
 window.stopRecording = (name) => recorder().stop(remember, name)
 window.takeEvent = (name) => {
   const event = window.events.find((item) => item[0] === name || item[0] === 'RecordingFailed')
@@ -67,7 +63,7 @@ return String(typeof window.record) + '|' + globalThis.__tachyonBrowserApiBridge
         .replace("__RECORDER_FOLDER__", folder)
         .replace(
             "__RECORDER_SETUP__",
-            &super::host::c_string_escape(&Self::setup_script()),
+            &super::host::c_string_escape(&Self::setup_script()).replace('?', "\\?"),
         )
     }
 
@@ -120,6 +116,7 @@ fn the_linux_recorder_keeps_the_page_limits_and_messages() {
         "gboolean saved = fsync(GPOINTER_TO_INT(file)) == 0;",
         "gtk_file_dialog_save(dialog, tachyon_file_picker_parent(), cancellable, tachyon_recorder_saved, opening);",
         "gtk_file_dialog_set_initial_name(dialog, file_name);",
+        "g_get_user_special_dir(G_USER_DIRECTORY_VIDEOS)",
         "gtk_file_filter_add_suffix(filter, format);",
     ] {
         assert!(LinuxRecorderFiles::SOURCE.contains(line), "{line}");

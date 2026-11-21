@@ -239,18 +239,6 @@ static void tachyon_picker_drive(void) {
   tachyon_picker_choose();
 }
 
-static gboolean tachyon_picker_wayland_focused(void) {
-  if (!tachyon_wayland_input_wanted() || gtk_window_is_active(g_native_window)) return TRUE;
-  if (!gtk_window_is_maximized(g_native_window)) {
-    gtk_window_maximize(g_native_window);
-    return FALSE;
-  }
-  GtkWidget *window = GTK_WIDGET(g_native_window);
-  tachyon_wayland_pointer_to(gtk_widget_get_width(window) / 2, gtk_widget_get_height(window) / 2);
-  tachyon_wayland_click();
-  return FALSE;
-}
-
 static gboolean tachyon_picker_tick(gpointer data) {
   (void)data;
   tachyon_picker_drive();
@@ -259,7 +247,7 @@ static gboolean tachyon_picker_tick(gpointer data) {
     case 0: {
       const char *uri = g_view != NULL ? webkit_web_view_get_uri(g_view) : NULL;
       if (g_strcmp0(uri, "tachyon://app/") != 0 || webkit_web_view_is_loading(g_view)) return G_SOURCE_CONTINUE;
-      if (!tachyon_picker_wayland_focused()) return G_SOURCE_CONTINUE;
+      if (!tachyon_fixture_wayland_focused()) return G_SOURCE_CONTINUE;
       tachyon_picker_check_handle_limits();
       tachyon_picker_check_lifetime();
       tachyon_picker_check_owners_and_reads();

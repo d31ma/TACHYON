@@ -235,6 +235,14 @@ static void tachyon_recorder_ask_person(GtkFileDialog *dialog, GCancellable *can
 
 static TachyonRecorderAsk g_recorder_ask = tachyon_recorder_ask_person;
 
+static void tachyon_recorder_start_in_videos(GtkFileDialog *dialog) {
+  const gchar *videos = g_get_user_special_dir(G_USER_DIRECTORY_VIDEOS);
+  if (videos == NULL || !g_file_test(videos, G_FILE_TEST_IS_DIR)) return;
+  GFile *folder = g_file_new_for_path(videos);
+  gtk_file_dialog_set_initial_folder(dialog, folder);
+  g_object_unref(folder);
+}
+
 static GtkFileDialog *tachyon_recorder_dialog(const gchar *file_name, const gchar *format) {
   GtkFileDialog *dialog = gtk_file_dialog_new();
   GtkFileFilter *filter = gtk_file_filter_new();
@@ -243,6 +251,7 @@ static GtkFileDialog *tachyon_recorder_dialog(const gchar *file_name, const gcha
   gtk_file_filter_add_suffix(filter, format);
   g_list_store_append(filters, filter);
   gtk_file_dialog_set_modal(dialog, TRUE);
+  tachyon_recorder_start_in_videos(dialog);
   gtk_file_dialog_set_initial_name(dialog, file_name);
   gtk_file_dialog_set_filters(dialog, G_LIST_MODEL(filters));
   gtk_file_dialog_set_default_filter(dialog, filter);

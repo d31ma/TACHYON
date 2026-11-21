@@ -129,7 +129,8 @@ chose the default and a listed speaker, and refused an unknown one with
 Amendment (L4, the recorder sink): decision 7 is built. The Linux page
 bridge lists `recorder`, and the host answers the three calls of ADR NNNN:
 `open` shows a `GtkFileDialog` save dialog (the FileChooser portal where one
-runs) with the suggested name and one filter for the format, and answers
+runs) in the person's Videos folder, with the suggested name and one filter
+for the format, and answers
 with the chosen file's name; `write` writes a piece of at most 48 KiB at its
 place in that file (`pwrite`); `close` writes the file to the disk (`fsync`)
 and closes it. The host answers only when the manifest grants `files` and
