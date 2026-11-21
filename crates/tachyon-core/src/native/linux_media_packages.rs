@@ -4,7 +4,7 @@ pub(super) struct LinuxMediaPackages;
 
 impl LinuxMediaPackages {
     const MEDIA_GRANTS: [&'static str; 3] = ["camera", "microphone", "screen"];
-    const RECOMMENDS: &'static str = "Recommends: xdg-desktop-portal, pipewire, gstreamer1.0-pipewire, gstreamer1.0-plugins-good\n";
+    const RECOMMENDS: &'static str = "Recommends: xdg-desktop-portal, pipewire, gstreamer1.0-pipewire, gstreamer1.0-plugins-good, gstreamer1.0-plugins-bad\n";
 
     pub(super) fn recommends(permissions: &BrowserApiPermissions) -> &'static str {
         ["", Self::RECOMMENDS][usize::from(Self::media_granted(permissions))]
@@ -33,7 +33,7 @@ mod tests {
     fn a_camera_grant_recommends_the_portal_pipewire_and_gstreamer() {
         assert_eq!(
             LinuxMediaPackages::recommends(&permissions(&["camera"])),
-            "Recommends: xdg-desktop-portal, pipewire, gstreamer1.0-pipewire, gstreamer1.0-plugins-good\n"
+            "Recommends: xdg-desktop-portal, pipewire, gstreamer1.0-pipewire, gstreamer1.0-plugins-good, gstreamer1.0-plugins-bad\n"
         );
     }
 

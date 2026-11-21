@@ -180,7 +180,7 @@ async fn a_deb_with_a_media_grant_recommends_the_portal_pipewire_and_gstreamer()
     assert_eq!(
         fields,
         "Depends: libc6, libgtk-4-1, libwebkitgtk-6.0-4 (>= 2.40)\n\
-         Recommends: xdg-desktop-portal, pipewire, gstreamer1.0-pipewire, gstreamer1.0-plugins-good\n"
+         Recommends: xdg-desktop-portal, pipewire, gstreamer1.0-pipewire, gstreamer1.0-plugins-good, gstreamer1.0-plugins-bad\n"
     );
 }
 

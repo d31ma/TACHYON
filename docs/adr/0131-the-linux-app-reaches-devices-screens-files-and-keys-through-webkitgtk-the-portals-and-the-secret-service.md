@@ -129,7 +129,9 @@ chose the default and a listed speaker, and refused an unknown one with
 Amendment (L7, packages and what waits for WebKitGTK 2.56): the `.deb` of an
 app that grants `camera`, `microphone` or `screen` gets the line
 `Recommends: xdg-desktop-portal, pipewire, gstreamer1.0-pipewire,
-gstreamer1.0-plugins-good` (decision 9); an app without a media grant
+gstreamer1.0-plugins-good, gstreamer1.0-plugins-bad` (decision 9; WebKitGTK's
+`MediaRecorder` needs `uritranscodebin` from plugins-bad); an app without a
+media grant
 recommends nothing. The portal's desktop backends (`xdg-desktop-portal-gnome`,
 `-kde`, `-wlr`) come with the desktop itself, so the package does not name
 one. The AppImage carries no package list; it uses what the system has, and

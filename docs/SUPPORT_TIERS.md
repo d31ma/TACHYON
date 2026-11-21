@@ -1940,8 +1940,11 @@ read the kept key back, and the locked keyring answered `locked`.
 ### The Linux app's packages and what waits (2026-11-21, ADR 0131 amendment L7)
 
 Packages: the `.deb` of an app that grants `camera`, `microphone` or `screen`
-recommends `xdg-desktop-portal`, `pipewire`, `gstreamer1.0-pipewire` and
-`gstreamer1.0-plugins-good`; an app without a media grant recommends nothing.
+recommends `xdg-desktop-portal`, `pipewire`, `gstreamer1.0-pipewire`,
+`gstreamer1.0-plugins-good` and `gstreamer1.0-plugins-bad` (WebKitGTK's
+`MediaRecorder` needs its `uritranscodebin`; Debian's WebKitGTK recommends
+it, Ubuntu's only suggests it); an app without a media grant recommends
+nothing.
 `Depends` stays as it was (GTK 4 and WebKitGTK, plus libsecret and OpenSSL 3
 with the `crypto` grant). `linux_media_packages` unit tests check each grant
 on the macOS test machine.
@@ -1951,13 +1954,13 @@ built a release `.deb` with a `camera` grant in the Linux gate image (Debian
 
 ```
 Depends: libc6, libgtk-4-1, libwebkitgtk-6.0-4 (>= 2.40)
-Recommends: xdg-desktop-portal, pipewire, gstreamer1.0-pipewire, gstreamer1.0-plugins-good
+Recommends: xdg-desktop-portal, pipewire, gstreamer1.0-pipewire, gstreamer1.0-plugins-good, gstreamer1.0-plugins-bad
 ```
 
-`apt-cache policy` found all four recommended packages in Debian 13
+`apt-cache policy` found all five recommended packages in Debian 13
 (`xdg-desktop-portal` 1.20.3, `pipewire` and `gstreamer1.0-pipewire` 1.4.2,
-`gstreamer1.0-plugins-good` 1.26.2) and in Ubuntu 24.04 (1.18.4, 1.0.5 and
-1.24.2). The AppImage carries no package list. Not run: an `apt install` of
+`gstreamer1.0-plugins-good` and `-bad` 1.26.2) and in Ubuntu 24.04 (1.18.4,
+1.0.5 and 1.24.2). The AppImage carries no package list. Not run: an `apt install` of
 the `.deb` on a desktop system, and Fedora, which uses the AppImage.
 
 Unsupported until WebKitGTK 2.56: Peers, the call parts of Media, and SFrame,
