@@ -49,8 +49,9 @@ the recording goes on; an ended video shows black. `Recorder` needs the
   Without one, `start` answers `unsupported`.
 - `MediaRecorder` gives a piece every second, and each piece is written to
   the file at its place, so memory does not grow with the length.
-- Where the file goes, in this order: the native host (slice M5b; until
-  then native shells use the web sinks below), the save picker
+- Where the file goes, in this order: the native host (see below; macOS
+  since slice M5b1, other native shells use the web sinks until M5b2 and
+  L4), the save picker
   (`showSaveFilePicker`, Chromium and WebView2), or a file in the page's
   private file system that the browser downloads at stop (Firefox, Safari).
   Without one of them, `start` answers `unsupported`.
@@ -65,12 +66,34 @@ the recording goes on; an ended video shows black. `Recorder` needs the
   `files` and a media grant. `tac-web.js` gains one module entry and
   `start` in its user-action list (54 bytes).
 
+### The native host sink (slice M5b1)
+
+A host that lists `recorder` in `__tachyonBrowserApiBridge` saves the file
+itself. The page sends three calls through the normal host call, and each
+call stays under the host call's 64 KiB limit:
+
+| Call | Values | Answer |
+| --- | --- | --- |
+| `browserApi.recorder.open` | `recording`, `fileName`, `format` (`mp4` or `webm`) | the system save dialog with `fileName`; `{ fileName }` with the name the person chose, or an error that ends in `(cancelled)`, `(invalid)` or `(denied)` |
+| `browserApi.recorder.write` | `recording`, `position`, `data` (base64, 1 to 49,152 bytes) | the bytes are written at `position`; `(full)` when the disk is full, `(unknown)` for a recording that is not open |
+| `browserApi.recorder.close` | `recording` | the file is flushed and closed |
+
+- The page splits each piece into chunks of 45 KiB, in order, so the file
+  is written while the call runs and the WebM duration can be written at
+  its place at stop.
+- The host answers only the app's own page, only with the `files` grant
+  and a media grant, and writes only the file the person chose in the
+  dialog. It checks the recording name, the file name and the format again.
+- macOS (M5b1): `NSSavePanel` as a sheet on the app window, then a
+  `FileHandle` on the chosen file. A page that reloads and opens the same
+  recording name again replaces its old handle.
+
 ## Consequences
 
-- Native save dialogs (macOS `NSSavePanel`, the iOS app folder and the
-  export picker, Android `ACTION_CREATE_DOCUMENT`, Windows) come in slice
-  M5b, and the Linux host sink in slice L4. Until then the recorder is a run
-  still owed on every native target in `target_support.json`: a web view
+- The macOS save dialog came in slice M5b1. The iOS app folder and the
+  export picker, Android `ACTION_CREATE_DOCUMENT` and Windows come in slice
+  M5b2, and the Linux host sink in slice L4. Until then the recorder is a run
+  still owed on those targets in `target_support.json`: a web view
   with a save picker or a writable private file system records with the web
   sinks, and one without them answers `unsupported`. On Linux, WebKitGTK
   can record captured tracks; call tracks wait for its WebRTC.
