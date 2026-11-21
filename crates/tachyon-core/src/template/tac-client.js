@@ -8,20 +8,43 @@ class ClientView {
   static plan = ClientView.page ?? { nodes: [], services: {}, state: {} }
 }
 
-const readShellPlan = () => {
-  const planElement = document.getElementById('tachyon-shell')
-  return planElement ? JSON.parse(planElement.textContent || '{}') : null
-}
-
 class ShellView {
-  static plan = readShellPlan()
+  static file = '/.tachyon/shell.json'
+  static text = document.getElementById('tachyon-shell')?.textContent ?? null
+  static plan = ShellView.parsed(ShellView.text)
   static pageEnvironment = null
   static serviceFolders = new Set(['/.tachyon/services/'])
+
+  static parsed(text) {
+    try { return text === null ? null : JSON.parse(text || '{}') } catch { return null }
+  }
+
+  static async load() {
+    if (ShellView.plan || !ClientView.page || runtimeApp() === '/') return
+    const text = await ShellView.fetched()
+    const plan = ShellView.parsed(text)
+    if (!plan?.node) return
+    ShellView.text = text
+    ShellView.plan = plan
+  }
+
+  static async fetched() {
+    const response = await fetch(ShellView.file).catch(() => null)
+    return response?.ok ? response.text() : null
+  }
 
   static join() {
     if (!ShellView.plan) return
     Services.catalog = { ...ShellView.plan.services, ...Services.catalog }
     Services.saved = { ...ShellView.plan.saved, ...Services.saved }
+  }
+
+  static async styles() {
+    const present = new Set([...document.querySelectorAll('link[rel="stylesheet"]')].map((link) => link.href))
+    const added = (ShellView.plan?.styles || [])
+      .filter((href) => !present.has(new URL(href, location.href).href))
+      .map((href) => SoftNavigation.addStyle(href))
+    await Promise.all(added)
   }
 }
 
@@ -2196,9 +2219,18 @@ class SoftNavigation {
     if (!response.ok || new URL(response.url).origin !== location.origin) return null
     const parsed = new DOMParser().parseFromString(await response.text(), 'text/html')
     const view = parsed.getElementById('tachyon-view')
-    const sameShell = parsed.getElementById('tachyon-shell')?.textContent === document.getElementById('tachyon-shell')?.textContent
+    const sameShell = await SoftNavigation.shellText(parsed) === ShellView.text
     if (!view || !sameShell || !SoftNavigation.knownScripts(parsed)) return null
     return { plan: JSON.parse(view.textContent || '{}'), document: parsed, url: response.url }
+  }
+
+  static async shellText(parsed) {
+    const inline = parsed.getElementById('tachyon-shell')
+    if (inline) return inline.textContent
+    const script = parsed.querySelector(SoftNavigation.runtimeScript)
+    if (!script) return null
+    const app = new URL('../', new URL(script.getAttribute('src'), location.href)).pathname
+    return app === '/' ? null : ShellView.fetched()
   }
 
   static knownScripts(parsed) {
@@ -2274,9 +2306,11 @@ class SoftNavigation {
   }
 }
 
+await ShellView.load()
 ShellView.join()
 SoftNavigation.start()
 await TacStorage.ready()
+await ShellView.styles()
 await render().catch(Rendering.alreadyReported)
 
 const whenIdle = (task) => globalThis.requestIdleCallback ? requestIdleCallback(task) : setTimeout(task, 1)
