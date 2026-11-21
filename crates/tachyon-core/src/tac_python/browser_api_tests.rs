@@ -418,6 +418,48 @@ impl BrowserApiPage {
          _report.update({name: _ask('link', {'op': 'get', 'name': name}) for name in ['ready', 'queued', 'connection', 'channel', 'message']})\n\
          _report['requests'] = [[item['api'], item['call'], item['args']] for item in _requests]\n";
 
+    const RECORDER: [(&'static str, &'static str); 1] = [(
+        "client/services/RecordService.py",
+        "from typing import Annotated\n\n\
+         @service\n\
+         class RecordService:\n\
+         \x20   recorder: Annotated[Recorder, needs]\n\
+         \x20   ready: bool = False\n\
+         \x20   saved: bool = False\n\
+         \x20   began: str = ''\n\
+         \x20   ended: str = ''\n\n\
+         \x20   def start(self) -> None:\n\
+         \x20       self.ready = self.recorder.supported()\n\
+         \x20       self.recorder.start('meeting', 'mic', 'cam', 'Meeting', '')\n\
+         \x20       self.recorder.add_audio('meeting', 'guest')\n\
+         \x20       self.recorder.remove_audio('meeting', 'mic')\n\
+         \x20       self.recorder.show_video('meeting', 'screen')\n\
+         \x20       self.recorder.pause('meeting')\n\
+         \x20       self.recorder.resume('meeting')\n\
+         \x20       self.recorder.stop('meeting')\n\n\
+         \x20   @on_event\n\
+         \x20   def started(self, started: RecordingStarted) -> None:\n\
+         \x20       self.began = f'{started.recording} {started.format} {started.fileName}'\n\n\
+         \x20   @on_event\n\
+         \x20   def stopped(self, stopped: RecordingStopped) -> None:\n\
+         \x20       self.ended = stopped.recording\n\
+         \x20       self.saved = stopped.bytes > 0\n",
+    )];
+
+    const RECORDER_DRIVER: &'static str = "_requests = []\n\
+         _answers = {'supported': True}\n\
+         def _web(text):\n\
+         \x20   request = json.loads(text)\n\
+         \x20   _requests.append(request)\n\
+         \x20   return json.dumps({'value': _answers.get(request['call'])})\n\
+         _TacPythonRuntime.connect(_emitted.append, None, web=_web)\n\
+         _report = {'init': _ask('record', {'op': 'init', 'props': {}})}\n\
+         _report['start'] = _ask('record', {'op': 'call', 'name': 'start', 'args': []})\n\
+         _report['started'] = _ask('record', {'op': 'event', 'name': 'started', 'value': {'recording': 'meeting', 'format': 'webm', 'fileName': 'Meeting.webm'}})\n\
+         _report['stopped'] = _ask('record', {'op': 'event', 'name': 'stopped', 'value': {'recording': 'meeting', 'bytes': 2048, 'seconds': 3}})\n\
+         _report.update({name: _ask('record', {'op': 'get', 'name': name}) for name in ['ready', 'saved', 'began', 'ended']})\n\
+         _report['requests'] = [[item['api'], item['call'], item['args']] for item in _requests]\n";
+
     const ATTACH: [(&'static str, &'static str); 1] = [(
         "client/services/AttachService.py",
         "from typing import Annotated\n\n\
@@ -900,6 +942,45 @@ fn a_python_web_service_connects_to_a_peer() {
             ["peers", "send", ["peer-1", "channel-1", "AQI"]],
             ["peers", "closeChannel", ["peer-1", "channel-1"]],
             ["peers", "close", ["peer-1"]],
+        ]),
+        "{report}"
+    );
+}
+
+#[test]
+fn a_python_web_service_records_tracks() {
+    if !PythonPage::has_python() {
+        return;
+    }
+    let report = PythonPage::run(
+        &BrowserApiPage::RECORDER,
+        &["record"],
+        BrowserApiPage::RECORDER_DRIVER,
+    );
+    assert_eq!(report["start"], json!({"value": null}), "{report}");
+    for (name, value) in [
+        ("ready", json!(true)),
+        ("saved", json!(true)),
+        ("began", json!("meeting webm Meeting.webm")),
+        ("ended", json!("meeting")),
+    ] {
+        assert_eq!(report[name], json!({ "value": value }), "{name}: {report}");
+    }
+    assert_eq!(
+        report["requests"],
+        json!([
+            ["recorder", "supported", []],
+            [
+                "recorder",
+                "start",
+                ["meeting", "mic", "cam", "Meeting", ""]
+            ],
+            ["recorder", "addAudio", ["meeting", "guest"]],
+            ["recorder", "removeAudio", ["meeting", "mic"]],
+            ["recorder", "showVideo", ["meeting", "screen"]],
+            ["recorder", "pause", ["meeting"]],
+            ["recorder", "resume", ["meeting"]],
+            ["recorder", "stop", ["meeting"]],
         ]),
         "{report}"
     );

@@ -78,6 +78,7 @@ impl YardNames {
         "Passkeys",
         "Peers",
         "Media",
+        "Recorder",
         "CodeScanner",
         "Crypto",
         "Blobs",

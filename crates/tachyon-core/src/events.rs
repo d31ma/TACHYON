@@ -269,6 +269,7 @@ impl EventResource {
         "passkeys",
         "peers",
         "media",
+        "recorder",
         "codeScanner",
         "crypto",
         "blobs",

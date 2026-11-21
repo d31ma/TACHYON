@@ -12,6 +12,7 @@ use super::page_head::PageHead;
 use super::page_media::PageMedia;
 use super::page_module::PageModule;
 use super::page_peers::PagePeers;
+use super::page_recorder::PageRecorder;
 use super::page_state::PageState;
 use super::portable_path::PortablePath;
 use super::precompression::CompressedFiles;
@@ -65,6 +66,7 @@ pub(super) struct SiteBuild<'a> {
     web_push_tag: &'static str,
     passkeys_tag: &'static str,
     media_tag: &'static str,
+    recorder_tag: &'static str,
     code_scanner_tag: String,
     code_scanner: bool,
     crypto_tag: &'static str,
@@ -129,6 +131,7 @@ impl<'a> SiteBuild<'a> {
             web_push_tag: "",
             passkeys_tag: "",
             media_tag: "",
+            recorder_tag: "",
             code_scanner_tag: String::new(),
             code_scanner: false,
             crypto_tag: "",
@@ -164,6 +167,7 @@ impl<'a> SiteBuild<'a> {
         self.web_push_tag = WebPush::tag(site, self.native);
         self.passkeys_tag = PageModule::PASSKEYS.tag(site);
         self.media_tag = PageMedia::tag(site);
+        self.recorder_tag = PageRecorder::tag(site);
         self.service_notes.extend(PageModule::PASSKEYS.note(site));
         self.blobs_tag = PageBlobs::tag(site);
         self.code_scanner_tag = PageCodeScanner::tag(site);
@@ -329,6 +333,7 @@ impl<'a> SiteBuild<'a> {
         self.add_page_files_file();
         self.add_passkeys_file();
         self.add_media_files();
+        self.add_recorder_file();
         self.add_code_scanner_files();
         self.add_crypto_file();
         self.add_peers_file();
@@ -761,6 +766,7 @@ impl<'a> SiteBuild<'a> {
         html = PageHead::inject_before_runtime(&html, self.web_push_tag);
         html = PageHead::inject_before_runtime(&html, self.passkeys_tag);
         html = PageHead::inject_before_runtime(&html, self.media_tag);
+        html = PageHead::inject_before_runtime(&html, self.recorder_tag);
         html = PageHead::inject_before_runtime(&html, &self.code_scanner_tag);
         html = PageHead::inject_before_runtime(&html, self.crypto_tag);
         html = PageHead::inject_before_runtime(&html, &self.peers_tag);
@@ -848,6 +854,12 @@ impl<'a> SiteBuild<'a> {
         if !self.component_styles.is_empty() {
             let styles = self.component_styles.as_bytes().to_vec();
             self.add_file(".tachyon/components.css", styles);
+        }
+    }
+
+    fn add_recorder_file(&mut self) {
+        if !self.recorder_tag.is_empty() {
+            self.add_file(PageRecorder::PATH, PageRecorder::script());
         }
     }
 

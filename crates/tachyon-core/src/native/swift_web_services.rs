@@ -61,6 +61,7 @@ impl SwiftWebServices {
         ("Passkeys", include_str!("web_apis/Passkeys.swift")),
         ("Peers", include_str!("web_apis/Peers.swift")),
         ("Media", include_str!("web_apis/Media.swift")),
+        ("Recorder", include_str!("web_apis/Recorder.swift")),
         ("CodeScanner", include_str!("web_apis/CodeScanner.swift")),
         ("Crypto", include_str!("web_apis/Crypto.swift")),
         ("Blobs", include_str!("web_apis/Blobs.swift")),

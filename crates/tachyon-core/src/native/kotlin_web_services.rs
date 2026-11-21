@@ -49,6 +49,7 @@ impl KotlinWebServices {
     const MEDIA: &'static str = include_str!("web_apis/Media.kt");
     const CRYPTO: &'static str = include_str!("web_apis/Crypto.kt");
     const PEERS: &'static str = include_str!("web_apis/Peers.kt");
+    const RECORDER: &'static str = include_str!("web_apis/Recorder.kt");
     const BLOBS: &'static str = include_str!("web_apis/Blobs.kt");
     const LOCKS: &'static str = include_str!("web_apis/Locks.kt");
 
@@ -153,6 +154,7 @@ impl KotlinWebServices {
             Self::MEDIA,
             Self::CRYPTO,
             Self::PEERS,
+            Self::RECORDER,
             Self::BLOBS,
             Self::LOCKS,
             FilePickerSources::kotlin_page()

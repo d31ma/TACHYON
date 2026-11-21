@@ -65,6 +65,7 @@ impl WebEventModels {
             Self::peer_rows(),
             Self::media_rows(),
             Self::media_call_rows(),
+            Self::recorder_rows(),
             Self::code_scanner_rows(),
             Self::crypto_rows(),
             Self::blob_rows(),
@@ -395,6 +396,40 @@ impl WebEventModels {
             Self::media("MediaSpeaking", &[text("track"), flag("speaking")]),
             Self::media("MediaLoudest", &[text("track")]),
             Self::media("MediaAudioBlocked", &[]),
+        ]
+    }
+
+    fn recorder_rows() -> Vec<(WebEventSender, String, Model)> {
+        let recording = || ("recording", Shape::Text);
+        let measured = || {
+            [
+                recording(),
+                ("bytes", Shape::Number),
+                ("seconds", Shape::Number),
+            ]
+        };
+        vec![
+            Self::media(
+                "RecordingStarted",
+                &[
+                    recording(),
+                    ("format", Shape::Text),
+                    ("fileName", Shape::Text),
+                ],
+            ),
+            Self::media("RecordingPaused", &[recording()]),
+            Self::media("RecordingResumed", &[recording()]),
+            Self::media("RecordingProgress", &measured()),
+            Self::media("RecordingStopped", &measured()),
+            Self::media(
+                "RecordingFailed",
+                &[
+                    recording(),
+                    ("call", Shape::Text),
+                    ("reason", Shape::Text),
+                    ("message", Shape::Text),
+                ],
+            ),
         ]
     }
 

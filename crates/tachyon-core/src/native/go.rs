@@ -86,6 +86,7 @@ impl GoServices {
             include_str!("web_apis/peer_message.go"),
         ),
         ("tac/media.go", include_str!("web_apis/media.go")),
+        ("tac/recorder.go", include_str!("web_apis/recorder.go")),
         ("tac/crypto.go", include_str!("web_apis/crypto.go")),
         ("tac/blobs.go", include_str!("web_apis/blobs.go")),
         (
@@ -115,7 +116,7 @@ impl GoServices {
     const WEB_ENTRY: &str = include_str!("prelude_web.go");
     const FAILURE_CODE: u16 = 1605;
     const WEB_EVENT_FILE: &str = "tac/web_event_models.go";
-    const ALIASED_TYPES: [&str; 99] = [
+    const ALIASED_TYPES: [&str; 106] = [
         "ApplicationEventPublisher",
         "Clock",
         "SecureRandom",
@@ -134,6 +135,7 @@ impl GoServices {
         "Passkeys",
         "Peers",
         "Media",
+        "Recorder",
         "CodeScanner",
         "Crypto",
         "Blobs",
@@ -186,6 +188,12 @@ impl GoServices {
         "MediaSpeaking",
         "MediaLoudest",
         "MediaAudioBlocked",
+        "RecordingStarted",
+        "RecordingPaused",
+        "RecordingResumed",
+        "RecordingProgress",
+        "RecordingStopped",
+        "RecordingFailed",
         "CodeScanned",
         "ScanFailed",
         "CryptoSupport",

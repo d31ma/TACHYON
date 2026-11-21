@@ -71,6 +71,7 @@ impl RustCompanion {
         include_str!("web_apis/passkeys.rs"),
         include_str!("web_apis/peers.rs"),
         include_str!("web_apis/media.rs"),
+        include_str!("web_apis/recorder.rs"),
         include_str!("web_apis/code_scanner.rs"),
         include_str!("web_apis/crypto.rs"),
         concat!(
