@@ -90,6 +90,7 @@
     "test:native-bridge-bounds": "node scripts/native-bridge-bounds-test.mjs",
     "test:python-tac-public-assets": "node --test scripts/python-tac-public-assets.test.mjs",
     "test:site-deploy": "node --test scripts/site-deploy.test.mjs",
+    "test:install-fylo": "node --test scripts/ci/install-fylo.test.mjs",
     "test:server-probe": "node scripts/release/server-probe-test.mjs"
   },
   "keywords": [

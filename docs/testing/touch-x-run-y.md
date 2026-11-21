@@ -22,6 +22,7 @@ Use a release ty built with `--features shipped` for tier 3 (`TAC_BIN=<path>`).
 | `crates/tachyon-core/src/behavior/runtime.js` | `test:behavior-runtime` |
 | `scripts/python-tac-public-assets.mjs` | `test:python-tac-public-assets` |
 | `scripts/site-deploy.mjs` | `test:site-deploy` |
+| `scripts/ci/install-fylo.mjs` | `test:install-fylo` |
 | `scripts/release/server-probe.mjs`, `scripts/supervised-command.mjs`, `scripts/cargo-artifacts.mjs` | `test:server-probe` |
 | `crates/tachyon-core/src/behavior/polyglot/{java,kotlin}_*`, `tests/fixtures/behavior/Jvm*` | `test:behavior-jvm` (needs javac, kotlinc) |
 | `crates/tachyon-core/src/behavior/polyglot/{cs,swift}*` | `test:behavior-native-runtime` (needs dotnet, swiftc) |
