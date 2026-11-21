@@ -26,7 +26,8 @@ private final class IosCryptoCheck {
     private static func ready() async throws -> WKWebView {
         let deadline = Date().addingTimeInterval(30)
         while Date() < deadline {
-            let root = (UIApplication.shared.delegate as? AppDelegate)?.window?.rootViewController as? RootViewController
+            let window = UIApplication.shared.connectedScenes.compactMap { ($0 as? UIWindowScene)?.windows.first }.first
+            let root = window?.rootViewController as? RootViewController
             if let view = root?.fixtureView, !view.isLoading, view.title == "Home" { return view }
             try await Task.sleep(nanoseconds: 10_000_000)
         }
