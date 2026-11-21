@@ -220,7 +220,7 @@ impl SocketProcess {
 mod tests {
     #![allow(clippy::expect_used)]
 
-    use super::{FramePrefix, HandlerCallLabel, SocketChannels, SocketProcess};
+    use super::{FramePrefix, HandlerCallLabel, SocketChannels, SocketOutput, SocketProcess};
     use crate::handler::HandlerCancellation;
     use command_group::AsyncCommandGroup as _;
     use std::process::Stdio;
@@ -230,6 +230,29 @@ mod tests {
     use tokio::sync::{mpsc, oneshot};
     use tokio::task::JoinHandle;
     use tokio::time::Instant;
+
+    fn handler_message(size: usize) -> serde_json::Value {
+        serde_json::json!({
+            "protocol_version": 1,
+            "request_id": "request-1",
+            "kind": "event",
+            "body": { "encoding": "utf8", "data": "x".repeat(size) }
+        })
+    }
+
+    #[test]
+    fn a_handler_message_may_be_384_kib_and_one_byte_more_is_refused() {
+        assert!(matches!(
+            SocketOutput::read(&handler_message(393_216), "request-1"),
+            Ok(SocketOutput::Send { .. })
+        ));
+        let refused = SocketOutput::read(&handler_message(393_217), "request-1")
+            .expect_err("one byte over the limit");
+        assert!(
+            format!("{refused:?}").contains("larger than 393216 bytes"),
+            "{refused:?}"
+        );
+    }
 
     struct ReaderDropSignal(Option<oneshot::Sender<()>>);
 

@@ -10,7 +10,7 @@ pub(crate) enum SocketOutput {
 }
 
 impl SocketOutput {
-    pub(crate) const MAX_MESSAGE_BYTES: usize = 64 * 1024;
+    pub(crate) const MAX_MESSAGE_BYTES: usize = 384 * 1024;
     const CLOSE_CODES: [u16; 2] = [1000, 1011];
 
     pub(super) fn read(frame: &Value, request_id: &str) -> Result<Self, Failure> {
@@ -81,9 +81,10 @@ impl SocketOutput {
 
     fn check_message_size(data: &str) -> Result<(), Failure> {
         if data.len() > Self::MAX_MESSAGE_BYTES {
-            return Err(Self::failure(
-                "A socket message from the handler is larger than 64 KiB.",
-            ));
+            return Err(Self::failure(&format!(
+                "A socket message from the handler is larger than {} bytes. Send less data in one message.",
+                Self::MAX_MESSAGE_BYTES
+            )));
         }
         Ok(())
     }
