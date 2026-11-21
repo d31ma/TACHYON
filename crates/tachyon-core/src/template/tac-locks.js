@@ -9,6 +9,7 @@ class TacLocks {
     Object.defineProperty(globalThis, TacLocks.key, {
       configurable: true,
       value: Object.freeze({
+        calls: Object.freeze(['request', 'release']),
         request: (reply, name) => TacLocks.request(reply, TacLocks.checked(name)),
         release: (reply, name) => TacLocks.release(TacLocks.checked(name)),
       }),

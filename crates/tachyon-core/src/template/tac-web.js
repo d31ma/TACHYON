@@ -114,7 +114,7 @@ class TacWebApis {
     media: TacWebApis.module('media'),
     codeScanner: TacWebApis.codeScanner,
     crypto: TacWebApis.crypto,
-    locks: TacWebApis.calls('locks', 'request release'),
+    locks: TacWebApis.module('locks'),
     nativeCapability: Object.freeze({ call: (...values) => TacNativeCapabilities.now(...values) }),
     files: TacWebApis.module('files'),
     blobs: TacWebApis.module('blobs'),
