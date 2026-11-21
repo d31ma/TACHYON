@@ -70,7 +70,7 @@ async function buildCli() {
 
 function fyloExec(fyloRoot, request) {
   const answer = JSON.parse(command('fylo', ['exec', '--request', JSON.stringify(request), '--root', fyloRoot], { timeout: 30_000 }))
-  if (answer.protocolVersion !== 1 || answer.ok !== true) throw new Error(`fylo ${request.op} failed: ${JSON.stringify(answer.error ?? answer)}`)
+  if (answer.protocolVersion !== 2 || answer.ok !== true) throw new Error(`fylo ${request.op} failed: ${JSON.stringify(answer.error ?? answer)}`)
   return answer.result
 }
 
@@ -122,8 +122,8 @@ async function fylo() {
   const fyloRoot = await realpath(await mkdtemp(join(ManagedStorageTest.scratch, 'fylo-')))
   fyloExec(fyloRoot, { op: 'createCollection', collection: 'products' })
   const identifiers = [
-    fyloExec(fyloRoot, { op: 'putData', collection: 'products', data: { name: 'anvil', qty: 2 } }),
-    fyloExec(fyloRoot, { op: 'putData', collection: 'products', data: { name: 'rope', qty: 7 } }),
+    fyloExec(fyloRoot, { op: 'storeSave', collection: 'products', entity: { name: 'anvil', qty: 2 } }).id,
+    fyloExec(fyloRoot, { op: 'storeSave', collection: 'products', entity: { name: 'rope', qty: 7 } }).id,
   ]
   const project = join(ManagedStorageTest.scratch, 'fylo-app')
   await writeFyloProject(project, fyloRoot)

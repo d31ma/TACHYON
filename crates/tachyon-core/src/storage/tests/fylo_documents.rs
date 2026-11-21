@@ -54,7 +54,7 @@ fn fylo_request(root: &Path, request: &Value) -> Value {
 }
 
 fn fylo_error_code(root: &Path, collection: &str) -> String {
-    let request = json!({"op": "findDocs", "collection": collection, "query": {"$limit": 1}});
+    let request = json!({"op": "storeCount", "collection": collection, "query": {"where": []}});
     let output = std::process::Command::new("fylo")
         .args(["exec", "--request", &request.to_string(), "--root"])
         .arg(root)
@@ -68,45 +68,31 @@ fn fylo_error_code(root: &Path, collection: &str) -> String {
         .to_owned()
 }
 
-fn base36(mut number: u128) -> String {
-    let digits = b"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-    let mut text = Vec::new();
-    while number > 0 {
-        let digit = usize::try_from(number % 36).expect("digit");
-        text.push(digits[digit]);
-        number /= 36;
-    }
-    text.reverse();
-    String::from_utf8(text).expect("ascii")
-}
+struct ManyDocuments;
 
-fn write_many_documents(root: &Path, count: u128) {
-    fylo_request(
-        root,
-        &json!({"op":"createCollection","collection":"hd-events"}),
-    );
-    let first = fylo_request(
-        root,
-        &json!({"op":"putData","collection":"hd-events","data":{"n":0}}),
-    );
-    let start = u128::from_str_radix(first.as_str().expect("TTID"), 36).expect("base 36");
-    for index in 1..count {
-        let id = base36(start + index * 7);
-        let shard = root
-            .join(".collections/hd-events/docs")
-            .join(&id[id.len() - 1..]);
-        std::fs::create_dir_all(&shard).expect("shard");
-        std::fs::write(
-            shard.join(format!("{id}.json")),
-            format!("{{\"n\":{index}}}"),
-        )
-        .expect("document");
+impl ManyDocuments {
+    const PER_BATCH: u64 = 1_000;
+
+    fn write(root: &Path, count: u64) {
+        fylo_request(
+            root,
+            &json!({"op":"createCollection","collection":"hd-events"}),
+        );
+        let mut written = 0;
+        while written < count {
+            let end = count.min(written + Self::PER_BATCH);
+            let batch = Self::batch(written, end);
+            fylo_request(
+                root,
+                &json!({"op":"storeTransaction","collection":"hd-events","writes":batch}),
+            );
+            written = end;
+        }
     }
-    let rebuilt = fylo_request(
-        root,
-        &json!({"op":"rebuildCollection","collection":"hd-events"}),
-    );
-    assert_eq!(rebuilt["indexedDocs"], json!(count));
+
+    fn batch(first: u64, end: u64) -> Vec<Value> {
+        (first..end).map(|n| json!({ "save": { "n": n } })).collect()
+    }
 }
 
 #[test]
@@ -203,7 +189,7 @@ async fn collection_exists_answers_for_filled_empty_dropped_and_missing_collecti
     }
     let directory = tempfile::tempdir().expect("root");
     let root = canonical_root(&directory);
-    write_many_documents(&root, 700);
+    ManyDocuments::write(&root, 700);
     assert_eq!(fylo_error_code(&root, "hd-missing"), "ENATIVE_NOT_FOUND");
     let store = fylo_store(&root).await;
     let exists = document("collectionExists", json!({}));
@@ -280,7 +266,7 @@ async fn fylo_scroll_pages_past_ten_thousand_documents_with_a_cursor() {
     }
     let directory = tempfile::tempdir().expect("root");
     let root = canonical_root(&directory);
-    write_many_documents(&root, 10_050);
+    ManyDocuments::write(&root, 10_050);
     let store = fylo_store(&root).await;
     let mut cursor = Value::Null;
     let mut seen = Vec::new();
@@ -314,6 +300,12 @@ async fn fylo_scroll_pages_past_ten_thousand_documents_with_a_cursor() {
     assert_eq!(filtered["nextCursor"], Value::Null);
     let forged = document("scroll", json!({"size":5,"cursor":"fqc1.1.1"}));
     assert!(is_rejected(&store, &forged).await);
+    let last_page = json!({"operation":"find","table":"hd-events","entity":"EventEntity","idField":"id","page":{"page":100,"size":100,"offset":10_000}});
+    let rows = execute(&store, last_page).await;
+    assert_eq!(rows.as_array().map(Vec::len), Some(50), "no 10,000 bound");
+    assert_eq!(rows[49]["n"], json!(10_049));
+    let count = json!({"operation":"query","table":"hd-events","entity":"EventEntity","idField":"id","query":{"kind":"count","where":[]}});
+    assert_eq!(execute(&store, count).await, json!(10_050));
     store.close().await;
 }
 

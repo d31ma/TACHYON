@@ -130,7 +130,7 @@ async fn a_later_request_to_the_same_collection_keeps_the_normal_deadline() {
     let took = started.elapsed();
     assert!(resumed.join().expect("resume thread"), "resume fylo");
     assert!(
-        failure.contains("deadline exceeded during FYLO putData"),
+        failure.contains("deadline exceeded during FYLO storeSave"),
         "{failure}"
     );
     assert!(took < Duration::from_millis(1_400), "{took:?}");

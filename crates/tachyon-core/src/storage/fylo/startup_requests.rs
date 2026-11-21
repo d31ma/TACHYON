@@ -92,7 +92,7 @@ mod tests {
 
     #[test]
     fn the_target_is_the_collection_or_the_queue_topic() {
-        let document = json!({"op": "putData", "collection": "people"});
+        let document = json!({"op": "storeSave", "collection": "people"});
         let queue = json!({"op": "queuePublish", "topic": "outbox"});
         let sql = json!({"op": "executeSQL", "sql": "SELECT 1"});
         assert_eq!(StartupRequests::target_of(&document), "people");

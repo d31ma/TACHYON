@@ -88,10 +88,9 @@ impl CombinedPatch {
         let change = json!({
             "collection": self.collection,
             "id": self.id,
-            "newDoc": Value::Object(self.fields.clone()),
+            "fields": Value::Object(self.fields.clone()),
         });
-        let reading = json!({ "collection": self.collection, "id": self.id });
-        vec![("patchDoc", change), ("getDoc", reading)]
+        vec![("storePatch", change)]
     }
 
     pub(super) fn answer(self, answer: &PatchAnswer) {
@@ -143,8 +142,9 @@ mod tests {
             .iter()
             .map(CombinedPatch::requests)
             .collect::<Vec<_>>();
-        assert_eq!(requests[0][0].1["newDoc"], json!({"x": 1, "y": 2}));
-        assert_eq!(requests[0][1].0, "getDoc");
+        assert_eq!(requests[0][0].0, "storePatch");
+        assert_eq!(requests[0][0].1["fields"], json!({"x": 1, "y": 2}));
+        assert_eq!(requests[0].len(), 1);
         assert_eq!(requests[1][0].1["id"], json!("B"));
         assert!(queue.take_combined().is_empty());
         for patch in combined {

@@ -200,30 +200,38 @@ repository written for a SQL datasource works without changes:
 
 | Repository operation | FYLO |
 | --- | --- |
-| `save` without an identifier | `putData`; returns the entity carrying its assigned TTID |
-| `save` with an identifier | `patchDoc`, then the stored document |
-| `delete` | `delDoc`; a missing document is `false`, not an error |
-| `find` and derived queries | `findDocs` with `$ops` predicates |
-| `count`, `exists` | `findDocs`, counting matches |
+| `save` without an identifier | `storeSave`; returns the entity carrying its assigned TTID |
+| `save` with an identifier | `storeFindById`, then `storeSave` with the id; the entity replaces the stored one |
+| `delete` | `storeDeleteById`; a missing document is `false`, not an error |
+| `find` and derived `find` queries | `storeFind` with `where`, `orderBy` and a page |
+| `count`, `exists`, `delete` queries | `storeCount`, `storeExists`, `storeDelete` |
 
 Identifiers:
 
 - FYLO assigns identifiers. Applications do not.
 - A `save` that names an identifier that FYLO does not know fails with
   "FYLO assigns identifiers; save a new entity without one."
-- The id field of an entity holds the TTID.
+- The id field of an entity holds the TTID. Each request names it
+  (`idField`), so FYLO answers the id under the entity's own field name.
+- A `save` with an identifier replaces the stored entity: fields that the
+  entity leaves out are removed, as with Spring Data's `save`. Use the
+  document `patch` command to change some fields only.
 
 Queries:
 
-- `$ops` is an OR of AND-objects.
-- `eq`, `ne`, `lt`, `lte`, `gt`, `gte`, `isNull` and `isNotNull` become
-  `$eq`/`$ne`/`$lt`/`$lte`/`$gt`/`$gte` predicates.
-- `in` creates one predicate for each value.
-- FYLO has no `ORDER BY`. The server applies ordering and paging itself, over
-  the bounded set of matches. That set holds at most 10,000 documents.
-- If the offset and size of a page reach past that bound, the server refuses
-  the page. It does not silently cut the results short.
-- Count and exists queries cannot order or paginate.
+- The server needs a FYLO that speaks machine protocol 2 with the
+  capabilities `store` and `sql` (FYLO releases after 26.45.07). It checks
+  this at connect and refuses any other FYLO with `TY2160`.
+- Predicates (`eq`, `ne`, `lt`, `lte`, `gt`, `gte`, `in`, `isNull`,
+  `isNotNull`, joined by AND) and the order pass to FYLO in Tachyon's own
+  shape. FYLO counts, sorts and pages. There is no 10,000-document bound: a
+  page at any offset and an exact count work.
+- FYLO's Store result rules apply: the sort is stable, with the id as the
+  last key (TTIDs sort in creation order); `null` and a missing field sort
+  first in ascending order; numbers compare by value. FYLO's limits are 8
+  predicates, 4 sort fields and 100 `in` values.
+- A `delete` query deletes every match in one FYLO write, all or nothing.
+- Count, exists and delete queries cannot order or paginate.
 
 Collection names:
 
@@ -241,14 +249,14 @@ below; Python, Ruby and Rust write them in snake case, C# and Go in Pascal case:
 
 | DataSource method | FYLO | Answer |
 | --- | --- | --- |
-| `findById(collection, id)` | `getLatest` | The newest version, or null. |
-| `insert(collection, document)` | `putData` | The document with its TTID; a document that has an id is refused. Go answers the id. |
-| `patch(collection, id, fields)` | `patchDoc` + `getDoc` in one step | The patched document, or null. |
-| `deleteById(collection, id)` | `delDoc` | `true`, or `false` when it was gone. |
-| `scroll(collection, where, cursor, size)` | one `findDocs`, then pages | `{content, nextCursor}`. |
+| `findById(collection, id)` | `storeFindById` | The newest version, or null. |
+| `insert(collection, document)` | `storeSave` | The document with its TTID; a document that has an id is refused. Go answers the id. |
+| `patch(collection, id, fields)` | `storePatch` | The patched document, or null. |
+| `deleteById(collection, id)` | `storeDeleteById` | `true`, or `false` when it was gone. |
+| `scroll(collection, where, cursor, size)` | `storeScroll` | `{content, nextCursor}`. |
 | `createCollection(name)` | `createCollection` | `true`; it already existing is fine. |
 | `dropCollection(name)` | `dropCollection` | `true`, or `false` when there was none. |
-| `collectionExists(name)` | `findDocs` with `$limit` 1 | `true` or `false`; reads at most one document. |
+| `collectionExists(name)` | `collectionExists` | `true` or `false`; a read of FYLO's catalog. |
 | `publish(topic, payload, key)` | `queuePublish` | The message id; the same key and payload answer the first id. |
 | `claim(topic, group, maxMessages, leaseMs)` | `queueClaim` | Up to 100 deliveries `{id, receipt, attempt, payload}`. |
 | `ack(topic, group, delivery)` | `queueAck` | `true`. |
@@ -259,8 +267,8 @@ Patch:
 - `patch` sets only the named top-level fields, like `Update.set` in Spring
   Data MongoDB. Other fields stay. A null value stores null. A nested object
   replaces the old one. The id cannot change.
-- The server holds the FYLO subprocess for the change and the read of the
-  result. Patches that run at the same time are applied one after another, so
+- `storePatch` changes the document and answers it in one FYLO request.
+  Patches to one document that wait at the same time become one write, so
   none loses another's fields.
 
 Scroll:
@@ -268,18 +276,13 @@ Scroll:
 - One page has 1 to 100 documents (20 by default) in id order, which is the
   order FYLO created them in. `where` is null or an object of field values
   that must all be equal.
-- There is no offset and no 10,000 limit. The first page reads every match
-  once and keeps the documents in the server for 15 minutes under a random
-  cursor (at most 8 open scrolls). Later pages read from that snapshot, so
-  inserts and changes do not move documents between pages, and reading the
-  same cursor again reads the same page.
-- FYLO 26.33 runs its whole query again for every continuation page of its
-  own pagination, and `getDoc` reloads the collection index. That is why the
-  server keeps the snapshot itself.
+- There is no offset and no 10,000 limit. The cursor is FYLO's own opaque
+  text (at most 1,024 characters). Each page reads FYLO's newest state; it is
+  not a snapshot. Writes between pages may show or not, but no document
+  shows twice, and none that existed for the whole scroll is skipped.
 - The first page may take up to 30 seconds (the scroll deadline, also in the
-  language clients). The matches of one scroll must fit in FYLO's 8 MiB
-  response frame. An expired cursor, a cursor from another query and a server
-  restart are refused; start again from the first page.
+  language clients). A cursor from another query, or one that FYLO no longer
+  accepts, is refused; start again from the first page.
 
 Queue:
 
@@ -297,12 +300,36 @@ Queue:
 
 Raw SQL:
 
-- Raw `dataSource.query(sql, parameters)` uses the SQL subset of FYLO.
-- The server replaces each `$1`, `$2` parameter with an escaped literal before
-  it calls `executeSQL`.
+- Raw `dataSource.query(sql, parameters)` uses FYLO's SQL subset
+  `api/sql/v1`.
+- The server turns each `$1`, `$2` outside quotes into FYLO's `?1`, `?2` and
+  sends the values to `executeSQL` as bound parameters. No value becomes
+  statement text. A `$n` inside quotes and a bare `?` are refused.
 - The server runs one statement at a time.
-- The result is keyed by id. The server returns it as rows that carry the `id`
-  field.
+- The server returns the result as rows that carry the `id` field.
+
+Transactions (`@AllOrNothing`):
+
+- The FYLO datasource answers `{"operation":"transaction","action":"begin"|"commit"|"rollback"}`
+  like the SQL drivers: at most 4 open transactions, each for at most 10
+  seconds from its begin (ADR 0032, amendment of 2026-11-21).
+- FYLO bounds a transaction to 1,000 writes and 8 MiB of documents; past
+  that it rolls back and the call fails with `TY2160`.
+- A FYLO transaction covers the writes of one collection. It starts in FYLO
+  at the first write, so reads before that see committed data. Later
+  commands on that collection see the transaction's own writes.
+- A read of another collection runs outside the transaction. A write to
+  another collection fails with `TY2160`, and the server rolls the
+  transaction back.
+- Queue, raw SQL, `createCollection` and `dropCollection` commands cannot
+  join a transaction (`TY2160`).
+- While a transaction holds a collection, other writes to it wait in the
+  server until it commits, rolls back or ends. A raw SQL statement that is
+  not a read waits until no FYLO transaction is open. These waits count
+  against the store deadline.
+- When the FYLO process stops (a deadline or a crash), its open
+  transactions end and nothing in them is written; their commit fails with
+  `TY2160`.
 - The FYLO subset has no aggregate functions. Do aggregation in the
   application or with a derived count.
 
@@ -368,9 +395,9 @@ Redis:
   scroll keeps its 30 seconds (ADR 0128, amendments 2 and 3).
 - SQL pools: at most 8 connections (1 for in-memory SQLite). TDS (Tabular Data
   Stream, the SQL Server protocol) is serialized.
-- FYLO: one subprocess, 1 MiB requests, 8 MiB responses. Each Store query
-  scans, orders or pages at most 10,000 matching documents; `scroll` has no
-  count limit, a 30-second first page and an 8 MiB snapshot. A cancelled or
+- FYLO: one subprocess, 1 MiB requests, 8 MiB responses. FYLO counts, sorts
+  and pages Store queries itself, with no 10,000-document bound; `scroll`
+  has no count limit and a 30-second first page. A cancelled or
   timed-out FYLO call stops the subprocess, so a late answer can never be
   read as the answer to the next call. The next call first waits until the
   stopped process has exited, and only then starts a new one (ADR 0128

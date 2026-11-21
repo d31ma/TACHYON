@@ -23,71 +23,35 @@ impl FyloSqlProbe {
         "' OR name LIKE '%",
         "rope\u{0} OR 1=1",
     ];
-
-    fn lexed(sql: &str) -> (Vec<String>, String) {
-        let mut strings = Vec::new();
-        let mut structure = String::new();
-        let mut characters = sql.chars().peekable();
-        while let Some(character) = characters.next() {
-            if !matches!(character, '\'' | '"') {
-                structure.push(character);
-                continue;
-            }
-            let mut text = String::new();
-            loop {
-                let next = characters.next().expect("terminated string");
-                if next != character {
-                    text.push(next);
-                    continue;
-                }
-                if characters.next_if_eq(&character).is_none() {
-                    break;
-                }
-                text.push(character);
-            }
-            structure.push('?');
-            strings.push(text);
-        }
-        (strings, structure)
-    }
 }
 
-fn rendered(sql: &str, parameters: &[Value]) -> String {
-    SqlStatement::rendered(sql, parameters).unwrap_or_else(|error| panic!("{error}"))
+fn bound(sql: &str, count: usize) -> String {
+    SqlStatement::bound(sql, count).unwrap_or_else(|error| panic!("{error}"))
 }
 
-fn refusal(sql: &str, parameters: &[Value]) -> String {
-    SqlStatement::rendered(sql, parameters)
+fn refusal(sql: &str, count: usize) -> String {
+    SqlStatement::bound(sql, count)
         .err()
         .unwrap_or_else(|| panic!("FYLO SQL accepted {sql}"))
         .to_string()
 }
 
 #[test]
-fn an_injection_payload_stays_one_string_value_and_leaves_the_statement_unchanged() {
-    for payload in FyloSqlProbe::PAYLOADS {
-        let sql = rendered("SELECT * FROM products WHERE name = $1", &[json!(payload)]);
-        let (strings, structure) = FyloSqlProbe::lexed(&sql);
-        assert_eq!(strings, [payload], "{sql}");
-        assert_eq!(
-            structure, "SELECT * FROM products WHERE name =  ? ",
-            "{sql}"
-        );
-    }
+fn a_placeholder_becomes_a_numbered_parameter_and_no_value_enters_the_statement() {
+    assert_eq!(
+        bound("SELECT * FROM products WHERE name = $1", 1),
+        "SELECT * FROM products WHERE name = ?1"
+    );
 }
 
 #[test]
-fn placeholders_in_one_statement_never_reach_each_other() {
-    let parameters = [json!("$2' OR '"), json!("' OR name = '$1")];
-    let sql = rendered(
-        "SELECT * FROM products WHERE name = $1 AND label = $2",
-        &parameters,
-    );
-    let (strings, structure) = FyloSqlProbe::lexed(&sql);
-    assert_eq!(strings, ["$2' OR '", "' OR name = '$1"]);
+fn every_placeholder_keeps_its_own_number() {
     assert_eq!(
-        structure,
-        "SELECT * FROM products WHERE name =  ?  AND label =  ? "
+        bound(
+            "SELECT * FROM products WHERE name = $1 AND label = $2 OR name = $1",
+            2
+        ),
+        "SELECT * FROM products WHERE name = ?1 AND label = ?2 OR name = ?1"
     );
 }
 
@@ -99,54 +63,40 @@ fn a_placeholder_inside_quotes_is_refused() {
         "SELECT * FROM products WHERE name = 'prefix $1 suffix'",
         "SELECT * FROM products WHERE name = 'it''s $1'",
     ] {
-        assert!(
-            refusal(sql, &[json!("x' OR '1'='1")]).contains("outside quotes"),
-            "{sql}"
-        );
+        assert!(refusal(sql, 1).contains("outside quotes"), "{sql}");
     }
 }
 
 #[test]
 fn quoted_text_in_the_statement_is_kept_as_written() {
-    let sql = rendered(
-        "SELECT * FROM products WHERE label = 'US$ it''s \"x\"' AND name = $1",
-        &[json!("rope")],
-    );
-    let (strings, structure) = FyloSqlProbe::lexed(&sql);
-    assert_eq!(strings, ["US$ it's \"x\"", "rope"]);
     assert_eq!(
-        structure,
-        "SELECT * FROM products WHERE label = ? AND name =  ? "
+        bound(
+            "SELECT * FROM products WHERE label = 'US$ it''s \"x\" ?' AND name = $1",
+            1
+        ),
+        "SELECT * FROM products WHERE label = 'US$ it''s \"x\" ?' AND name = ?1"
     );
 }
 
 #[test]
-fn malformed_statements_and_parameters_are_refused() {
-    let rope = [json!("rope")];
-    assert!(refusal("SELECT * FROM products WHERE name = 'rope", &rope).contains("unterminated"));
-    assert!(refusal("SELECT * FROM products WHERE name = $", &rope).contains("$1, $2"));
-    assert!(refusal("SELECT * FROM products WHERE name = $0", &rope).contains("out of range"));
-    assert!(refusal("SELECT * FROM products WHERE name = $2", &rope).contains("out of range"));
-    for number in [json!(-5), json!(-0.5), json!(1e300)] {
-        let sql = "SELECT * FROM products WHERE qty > $1";
-        assert!(
-            refusal(sql, std::slice::from_ref(&number)).contains("non-negative"),
-            "{number}"
-        );
-    }
-    assert!(refusal("SELECT * FROM products WHERE qty > $1", &[json!(["x"])]).contains("scalar"));
+fn an_unterminated_quote_is_refused() {
+    assert!(refusal("SELECT * FROM products WHERE name = 'rope", 1).contains("unterminated"));
 }
 
 #[test]
-fn scalar_parameters_render_as_single_literals() {
-    let sql = rendered(
-        "SELECT * FROM products WHERE qty>$1 AND price<=$2 AND live=$3 AND gone=$4",
-        &[json!(7), json!(2.5), json!(true), Value::Null],
-    );
-    assert_eq!(
-        sql,
-        "SELECT * FROM products WHERE qty> 7  AND price<= 2.5  AND live= true  AND gone= NULL "
-    );
+fn a_dollar_sign_without_a_number_is_refused() {
+    assert!(refusal("SELECT * FROM products WHERE name = $", 1).contains("$1, $2"));
+}
+
+#[test]
+fn a_placeholder_number_outside_the_parameters_is_refused() {
+    assert!(refusal("SELECT * FROM products WHERE name = $0", 1).contains("out of range"));
+    assert!(refusal("SELECT * FROM products WHERE name = $2", 1).contains("out of range"));
+}
+
+#[test]
+fn a_bare_question_mark_is_refused_because_tachyon_numbers_its_parameters() {
+    assert!(refusal("SELECT * FROM products WHERE name = ?", 1).contains("$1, $2"));
 }
 
 #[tokio::test]
@@ -180,7 +130,11 @@ async fn fylo_answers_injection_payloads_with_only_the_exact_match() {
     assert_eq!(rows.as_array().map(Vec::len), Some(1));
     assert_eq!(rows[0]["name"], json!("rope"));
     let negative = json!({"operation":"sql","mode":"rows","sql":"SELECT * FROM products WHERE qty > $1","parameters":[-5]});
-    assert!(store.execute(&negative).await.is_err());
+    let rows = execute(&store, negative).await;
+    assert_eq!(rows.as_array().map(Vec::len), Some(2));
+    let exponent = json!({"operation":"sql","mode":"rows","sql":"SELECT * FROM products WHERE qty < $1","parameters":[1e300]});
+    let rows = execute(&store, exponent).await;
+    assert_eq!(rows.as_array().map(Vec::len), Some(2));
     let all = execute(&store, fylo_command("find", json!({}))).await;
     assert_eq!(all.as_array().map(Vec::len), Some(2));
     store.close().await;

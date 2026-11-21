@@ -182,7 +182,7 @@ async fn a_fylo_stalled_past_the_deadline_is_stopped_before_the_next_call_starts
         assert_eq!(diagnostic.code.to_string(), "TY2160");
         assert_eq!(
             diagnostic.message,
-            "Managed storage operation deadline exceeded during FYLO putData; the store-time budget is spent and writes may have committed. Tachyon stops that FYLO process, and the next call waits until it has exited."
+            "Managed storage operation deadline exceeded during FYLO storeSave; the store-time budget is spent and writes may have committed. Tachyon stops that FYLO process, and the next call waits until it has exited."
         );
     }
     let started = Instant::now();

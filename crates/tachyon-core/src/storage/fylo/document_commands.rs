@@ -1,14 +1,16 @@
-use crate::sorted_json::SortedJson;
 use serde_json::{Map, Value, json};
 
 use super::collection_name::CollectionName;
+use super::repository_commands::RepositoryCommands;
 use super::scroll_request::ScrollRequest;
-use super::{FyloError, FyloStore, document_id, rows_of};
+use super::store_rows::StoreRows;
+use super::{FyloError, FyloStore, document_id};
 use crate::Failure;
 use crate::storage::{failure, object_keys, text};
 
 pub(super) struct DocumentCommands<'store> {
     store: &'store FyloStore,
+    joined: Option<&'store str>,
 }
 
 impl<'store> DocumentCommands<'store> {
@@ -16,10 +18,9 @@ impl<'store> DocumentCommands<'store> {
     const MAX_FIELDS: usize = 64;
     const DOCUMENT_KEYS: [&'static str; 5] = ["operation", "command", "collection", "id", "value"];
     const COLLECTION_KEYS: [&'static str; 3] = ["operation", "command", "collection"];
-    const EXISTS_PROBE_LIMIT: u64 = 1;
 
-    pub(super) fn new(store: &'store FyloStore) -> Self {
-        Self { store }
+    pub(super) fn new(store: &'store FyloStore, joined: Option<&'store str>) -> Self {
+        Self { store, joined }
     }
 
     pub(super) async fn execute(&self, command: &Value) -> Result<Value, Failure> {
@@ -42,28 +43,21 @@ impl<'store> DocumentCommands<'store> {
     }
 
     async fn find_by_id(&self, command: &Value) -> Result<Value, Failure> {
-        let answer = self
-            .store
-            .call("getLatest", Self::document_request(command)?)
-            .await;
-        answer.map_or_else(
-            |error| Self::answer_when_absent(error.missing(), error, Value::Null),
-            Self::first_document,
-        )
+        let request = Self::document_request(command)?;
+        let answer = self.call("storeFindById", request).await;
+        answer.or_else(|error| Self::answer_when_absent(error.missing(), error, Value::Null))
     }
 
     async fn insert(&self, command: &Value) -> Result<Value, Failure> {
         object_keys(command, &Self::DOCUMENT_KEYS)?;
         let collection = Self::collection(command)?;
-        let mut document = Self::new_document(command)?;
-        let request = json!({ "collection": collection, "data": Value::Object(document.clone()) });
-        let id = self
-            .store
-            .call("putData", request)
+        let document = Self::new_document(command)?;
+        let request = json!({ "collection": collection, "entity": Value::Object(document) });
+        let answer = self
+            .call("storeSave", request)
             .await
             .map_err(FyloError::into_failure)?;
-        document.insert(Self::ID_FIELD.to_owned(), id);
-        Ok(Value::Object(document))
+        StoreRows::entity(answer)
     }
 
     async fn patch(&self, command: &Value) -> Result<Value, Failure> {
@@ -71,72 +65,40 @@ impl<'store> DocumentCommands<'store> {
         let collection = Self::collection(command)?;
         let id = Self::id(command)?;
         let fields = Self::changes(command, id)?;
-        let answers = self.store.patch(collection, id, fields).await;
-        answers.map_or_else(
-            |error| Self::answer_when_absent(error.missing(), error, Value::Null),
-            Self::last_document,
-        )
+        let answer = self.patched(collection, id, fields).await;
+        answer.or_else(|error| Self::answer_when_absent(error.missing(), error, Value::Null))
+    }
+
+    async fn patched(
+        &self,
+        collection: &str,
+        id: &str,
+        fields: Map<String, Value>,
+    ) -> Result<Value, FyloError> {
+        match self.joined {
+            Some(_) => {
+                let request = json!({ "collection": collection, "id": id, "fields": fields });
+                self.call("storePatch", request).await
+            }
+            None => self.store.patch(collection, id, fields).await.map(Self::last_answer),
+        }
     }
 
     async fn delete_by_id(&self, command: &Value) -> Result<Value, Failure> {
         let request = Self::document_request(command)?;
-        self.remove("delDoc", request, FyloError::missing).await
-    }
-
-    async fn remove(
-        &self,
-        operation: &str,
-        request: Value,
-        absent: fn(&FyloError) -> bool,
-    ) -> Result<Value, Failure> {
-        let answer = self.store.call(operation, request).await;
-        answer.map_or_else(
-            |error| Self::answer_when_absent(absent(&error), error, json!(false)),
-            |_| Ok(json!(true)),
-        )
+        RepositoryCommands::deleted(self.call("storeDeleteById", request).await)
     }
 
     async fn scroll(&self, command: &Value) -> Result<Value, Failure> {
         let collection = Self::collection(command)?;
         let scroll = ScrollRequest::parse(command)?;
-        let scope =
-            SortedJson::text(&json!({ "collection": collection, "where": scroll.filter() }));
-        let cursor = self.cursor_for(collection, &scroll, scope.clone()).await?;
-        let page = self
-            .store
-            .scrolls
-            .lock()
-            .await
-            .page(&cursor, &scope, scroll.size())?;
-        Ok(json!({ "content": page.documents, "nextCursor": page.next_cursor }))
-    }
-
-    async fn cursor_for(
-        &self,
-        collection: &str,
-        scroll: &ScrollRequest,
-        scope: String,
-    ) -> Result<String, Failure> {
-        match scroll.cursor() {
-            Some(cursor) => Ok(cursor.to_owned()),
-            None => self.open_snapshot(collection, scroll, scope).await,
-        }
-    }
-
-    async fn open_snapshot(
-        &self,
-        collection: &str,
-        scroll: &ScrollRequest,
-        scope: String,
-    ) -> Result<String, Failure> {
-        let request = json!({ "collection": collection, "query": scroll.filter() });
+        let query = json!({ "where": scroll.conditions() });
+        let request = json!({ "collection": collection, "query": query, "page": scroll.page() });
         let answer = self
-            .store
-            .call("findDocs", request)
+            .call("storeScroll", request)
             .await
-            .map_err(Self::snapshot_failure)?;
-        let documents = Self::sorted_documents(&answer);
-        self.store.scrolls.lock().await.open(scope, documents)
+            .map_err(FyloError::into_failure)?;
+        StoreRows::scroll_page(answer)
     }
 
     async fn create_collection(&self, command: &Value) -> Result<Value, Failure> {
@@ -149,21 +111,22 @@ impl<'store> DocumentCommands<'store> {
 
     async fn drop_collection(&self, command: &Value) -> Result<Value, Failure> {
         let request = Self::collection_request(command)?;
-        self.remove("dropCollection", request, FyloError::collection_missing)
-            .await
+        let answer = self.store.call("dropCollection", request).await;
+        answer.map_or_else(
+            |error| Self::answer_when_absent(error.collection_missing(), error, json!(false)),
+            |_| Ok(json!(true)),
+        )
     }
 
     async fn collection_exists(&self, command: &Value) -> Result<Value, Failure> {
-        let mut request = Self::collection_request(command)?;
-        request["query"] = json!({ "$limit": Self::EXISTS_PROBE_LIMIT });
-        let answer = self.store.call("findDocs", request).await;
-        Self::exists_answer(answer)
+        let request = Self::collection_request(command)?;
+        Self::exists_answer(self.store.call("collectionExists", request).await)
     }
 
     fn exists_answer(answer: Result<Value, FyloError>) -> Result<Value, Failure> {
         answer.map_or_else(
             |error| Self::answer_when_absent(error.read_found_no_collection(), error, json!(false)),
-            |_found| Ok(json!(true)),
+            |exists| Ok(json!(exists == json!(true))),
         )
     }
 
@@ -221,47 +184,16 @@ impl<'store> DocumentCommands<'store> {
         })
     }
 
-    fn sorted_documents(answer: &Value) -> Vec<Value> {
-        let items = answer.as_object().cloned().unwrap_or_default();
-        let mut documents = Vec::with_capacity(items.len());
-        for (id, fields) in items {
-            documents.push(Self::document_with_id(id, &fields));
-        }
-        documents.sort_by(|left, right| Self::id_of(left).cmp(Self::id_of(right)));
-        documents
-    }
-
-    fn document_with_id(id: String, fields: &Value) -> Value {
-        let mut document = fields.as_object().cloned().unwrap_or_default();
-        document.insert(Self::ID_FIELD.to_owned(), Value::String(id));
-        Value::Object(document)
-    }
-
-    fn id_of(document: &Value) -> &str {
-        document[Self::ID_FIELD].as_str().unwrap_or_default()
-    }
-
-    fn first_document(answer: Value) -> Result<Value, Failure> {
-        let documents = rows_of(answer, Self::ID_FIELD)?;
-        Ok(documents.into_iter().next().unwrap_or(Value::Null))
-    }
-
-    fn last_document(answers: Vec<Value>) -> Result<Value, Failure> {
-        let last = answers.into_iter().last().unwrap_or(Value::Null);
-        Self::first_document(last)
+    fn last_answer(answers: Vec<Value>) -> Value {
+        answers.into_iter().last().unwrap_or(Value::Null)
     }
 
     fn answer_when_absent(absent: bool, error: FyloError, answer: Value) -> Result<Value, Failure> {
         absent.then_some(answer).ok_or_else(|| error.into_failure())
     }
 
-    fn snapshot_failure(error: FyloError) -> Failure {
-        if error.code == "EFRAME_RESPONSE_TOO_LARGE" {
-            return failure(
-                "The documents of one scroll must fit in 8 MiB; narrow the scroll with a filter.",
-            );
-        }
-        error.into_failure()
+    async fn call(&self, operation: &str, fields: Value) -> Result<Value, FyloError> {
+        self.store.call_joined(self.joined, operation, fields).await
     }
 }
 
@@ -279,15 +211,15 @@ mod tests {
     }
 
     #[test]
-    fn a_found_collection_exists_even_when_it_is_empty() {
-        let empty = DocumentCommands::exists_answer(Ok(json!({})));
-        assert_eq!(empty.ok(), Some(json!(true)));
-        let filled = DocumentCommands::exists_answer(Ok(json!({"4WRRLEK8KPM": {"n": 1}})));
-        assert_eq!(filled.ok(), Some(json!(true)));
+    fn fylo_answers_whether_the_collection_exists() {
+        let found = DocumentCommands::exists_answer(Ok(json!(true)));
+        assert_eq!(found.ok(), Some(json!(true)));
+        let missing = DocumentCommands::exists_answer(Ok(json!(false)));
+        assert_eq!(missing.ok(), Some(json!(false)));
     }
 
     #[test]
-    fn only_enative_not_found_means_the_collection_does_not_exist() {
+    fn enative_not_found_also_means_the_collection_does_not_exist() {
         let missing = DocumentCommands::exists_answer(failed("ENATIVE_NOT_FOUND"));
         assert_eq!(missing.ok(), Some(json!(false)));
     }
@@ -306,5 +238,12 @@ mod tests {
                 "{code}"
             );
         }
+    }
+
+    #[test]
+    fn a_patch_answers_the_last_written_document() {
+        let last = DocumentCommands::last_answer(vec![json!({"id": "4W1", "n": 2})]);
+        assert_eq!(last, json!({"id": "4W1", "n": 2}));
+        assert_eq!(DocumentCommands::last_answer(Vec::new()), json!(null));
     }
 }

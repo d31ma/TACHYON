@@ -181,25 +181,6 @@ async fn open_transactions_are_bounded_by_count_and_by_the_connections_there_are
 }
 
 #[tokio::test]
-async fn the_fylo_datasource_refuses_a_transaction_instead_of_pretending() {
-    let store = ManagedStorage::connect(
-        &json!({"yon":{"datasource":{"driver":"fylo","url":"/tmp/tachyon-fylo-absent"}}}),
-    )
-    .await;
-    let Ok(store) = store else {
-        return;
-    };
-    let failure = store
-        .execute(&json!({"operation":"transaction","action":"begin"}))
-        .await
-        .expect_err("FYLO has no transactions");
-    assert!(
-        format!("{failure}").contains("no transactions"),
-        "{failure}"
-    );
-}
-
-#[tokio::test]
 async fn startup_is_optional_and_does_not_create_sqlite_files() {
     let empty = ManagedStorage::connect(&json!({}))
         .await
@@ -549,5 +530,6 @@ mod fylo_documents;
 mod fylo_frozen_disk;
 mod fylo_root_lock;
 mod fylo_sql;
+mod fylo_store_operations;
 #[cfg(unix)]
 mod fylo_startup;

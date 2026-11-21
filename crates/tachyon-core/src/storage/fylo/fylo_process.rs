@@ -174,7 +174,6 @@ mod tests {
 
     use serde_json::{Value, json};
 
-    use super::super::rows_of;
     use super::{FyloProcess, Interruption};
 
     fn fylo_runs_here() -> bool {
@@ -206,8 +205,8 @@ mod tests {
     }
 
     async fn drop_a_write_before_its_answer(process: &mut FyloProcess) {
-        let write = json!({"op": "putData", "collection": "hd-events", "data": {"n": 1}});
-        let request = process.request("putData", &write, false);
+        let write = json!({"op": "storeSave", "collection": "hd-events", "entity": {"n": 1}});
+        let request = process.request("storeSave", &write, false);
         tokio::select! {
             biased;
             _answered = request => panic!("fylo answered before the first poll ended"),
@@ -221,15 +220,14 @@ mod tests {
 
     async fn stored_documents(root: &Path) -> usize {
         let mut process = FyloProcess::spawn(root).ok().expect("second fylo");
-        let find = json!({"op": "findDocs", "collection": "hd-events", "query": {}});
+        let count = json!({"op": "storeCount", "collection": "hd-events", "query": {"where": []}});
         let answer: Value = process
-            .request("findDocs", &find, false)
+            .request("storeCount", &count, false)
             .await
             .ok()
-            .expect("find");
-        let rows = rows_of(answer, "id").expect("rows");
+            .expect("count");
         process.close(Instant::now()).await;
-        rows.len()
+        answer.as_u64().and_then(|count| usize::try_from(count).ok()).expect("a count")
     }
 
     #[tokio::test]

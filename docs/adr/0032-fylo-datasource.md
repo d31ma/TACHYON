@@ -5,6 +5,8 @@
 - Amended: 2026-10-04 (documents, collections, scroll and queue for HEIMDALL)
 - Amended: 2026-10-31 (raw SQL parameter contract)
 - Amended: 2026-11-12 by [ADR 0128](0128-a-busy-fylo-root-waits-and-store-failures-are-logged.md) (a busy root waits up to 2 seconds)
+- Amended: 2026-11-21 (FYLO's Store operations, bound SQL parameters, and
+  `@AllOrNothing` on one collection; TAC-FY2)
 - Extends: managed storage, see [MANAGED_STORAGE](../MANAGED_STORAGE.md)
 
 ## Context
@@ -156,3 +158,121 @@ round trip took 23 seconds.
 When FYLO adds bound parameters to `executeSQL`, the server passes the values
 through as data and the literal rendering goes away. That needs a FYLO
 protocol change.
+
+## Amendment (2026-11-21): the Store operations
+
+### Context
+
+FYLO's next release (FYLO ADR 0035, frozen contracts `api/machine/v2`,
+`api/store/v1` and `api/sql/v1` on FYLO develop 88c31fa) gives FYLO an SDK in
+the shape of Tachyon's `Store`: machine operations that take Tachyon's query
+shape (`where`, `orderBy`, a page) and do the counting, sorting and paging
+inside FYLO. The same release removes the old document operations
+(`getDoc`, `getLatest`, `putData`, `patchDoc`, `delDoc`, `findDocs`,
+`inspectCollection`) and adds bound parameters to `executeSQL` and
+transactions inside one collection. The user decided that this is one FYLO
+release, and that Tachyon's current release uses it.
+
+Until now Tachyon read up to 10,000 matching documents with `findDocs`, then
+filtered `In` predicates, sorted, skipped, counted and deleted row by row
+itself. A page past the first 10,000 matches failed. Raw SQL rendered its
+values as literals into the statement text (amendment of 2026-10-31), and
+FYLO refused transactions.
+
+### Decision
+
+1. **Tachyon switches outright and checks the handshake.** The handshake
+   must answer `protocolVersion` 2 and the capabilities `store` 1 and `sql` 1
+   (or later versions of them). Any other FYLO is refused at connect with
+   `TY2160`, which names what is needed. There is no path for an older FYLO:
+   each Tachyon release pins one FYLO version (`scripts/ci/install-fylo.mjs`).
+2. **Repository and document calls map one to one onto Store operations:**
+
+   | Tachyon call | FYLO operation |
+   | --- | --- |
+   | repository `save` without an id, document `insert` | `storeSave` (FYLO assigns the TTID) |
+   | repository `save` with an id | `storeFindById`, then `storeSave` with the id: the entity replaces the stored one, as Spring Data's `save` does. FYLO would create a document for an unknown id; Tachyon keeps its rule that an unknown id fails, so it checks first. |
+   | repository `delete`, document `deleteById` | `storeDeleteById` (answers 0 or 1) |
+   | repository `find`, derived and `@Query` `find` | `storeFind` with `{where, orderBy}` and `{size, offset}` |
+   | `count`, `exists`, `delete` queries | `storeCount`, `storeExists`, `storeDelete` (one write, all or nothing) |
+   | document `findById` | `storeFindById` |
+   | document `patch` | `storePatch` (queued patches to one document still become one write) |
+   | document `scroll` | `storeScroll` with `{size, cursor}`; FYLO's cursor is the `nextCursor` |
+   | document `collectionExists` | `collectionExists` (a catalog read) |
+
+   Tachyon still checks every name, operator, bound and value before a call,
+   as before. Every Store request names the entity's id field (`idField`),
+   so FYLO reads and answers the id under the entity's own name.
+3. **FYLO counts, sorts and pages.** Tachyon's scan, its `In` expansion, its
+   sort and its row-by-row delete are gone, and so is the 10,000-document
+   bound. FYLO's Store result rules (`api/store/v1`) apply: a stable sort
+   with the id as the last key, `null` first in ascending order, numbers
+   compared by value, no equality across types, and `ne` counting a missing
+   field as `null`. An empty `In` list still answers at once without a call,
+   because FYLO takes 1 to 100 values.
+4. **Scroll uses FYLO's cursor; the snapshot goes.** This replaces the
+   snapshot decision of the 2026-10-04 amendment: FYLO's `storeScroll` pages
+   no longer run the whole query again. A cursor is FYLO's opaque text (at
+   most 1,024 characters); a cursor from another query is refused
+   (`ECURSOR`). Writes between pages may be seen or not, but no document
+   appears twice, and none that existed for the whole scroll is skipped. The 30-second deadline of a first
+   page stays.
+5. **SQL values are bound, never rendered.** This replaces the literal
+   rendering of the 2026-10-31 amendment. `$n` outside quotes becomes FYLO's
+   `?n`, and the values go to `executeSQL` as `parameters`. The quoting rules
+   stay: a `$n` inside quotes, an unterminated string, a `;`, a NUL, a `$`
+   without digits and an index outside the parameters are refused. A bare `?`
+   is refused too, because Tachyon numbers its parameters. Negative numbers
+   and exponents are now allowed, because they are values, not text. The
+   statement must stay inside FYLO's `api/sql/v1` subset.
+6. **`@AllOrNothing` works on one FYLO collection.** The managed datasource
+   answers `{"operation":"transaction","action":"begin"|"commit"|"rollback"}`
+   for FYLO too, with the same bounds as the SQL drivers (4 open, 10 seconds
+   from begin).
+   - The FYLO transaction starts at the first write (`transactionBegin`),
+     because Tachyon learns the collection only then. Reads before it run on
+     committed state. Every later command on that collection carries the
+     transaction, so its reads see its own writes.
+   - A read of another collection runs outside the transaction. A write to
+     another collection fails with `TY2160`, and Tachyon rolls the
+     transaction back.
+   - Queue, SQL, `createCollection` and `dropCollection` commands cannot
+     join a FYLO transaction (`TY2160`).
+   - Commit sends `transactionCommit`; rollback sends `transactionRollback`.
+     A transaction with no write sends nothing to FYLO.
+   - FYLO's own bounds apply: at most 1,000 writes and 8 MiB of documents
+     per transaction (`ETXNLIMIT`, rolled back). `timeoutMs` is the smaller of
+     the transaction's time left and the answer's store-time budget left
+     (ADR 0128), so the transaction ends before Tachyon would stop `fylo`.
+   - While a transaction holds a collection, other writes to it wait inside
+     Tachyon, not inside FYLO, and SQL writes wait for every open FYLO
+     transaction (see ADR 0128, amendment 4).
+7. **Errors.** FYLO's new codes become `TY2160` messages that say what to do:
+   `ECURSOR`, `EQUERY_INVALID`, `EQUERY_INPUT_SIZE`, `EQUERYLIMIT`,
+   `EPAGESIZE`, `EUNSUPPORTEDOP`, `ETXNUNKNOWN`, `ETXNEXPIRED`, `ETXNLIMIT`,
+   `ETXNSCOPE`, `ETXNBUSY` and `ETXNLAYOUT`. A missing document is still
+   `null` or `false`; a missing collection is still `ENATIVE_NOT_FOUND`.
+
+### Consequences
+
+- Pages past the first 10,000 matches work, and `count` is exact for any
+  size. A `count` or `exists` reads FYLO's indexes instead of up to 10,000
+  documents.
+- A repository `save` with an id now replaces the stored entity instead of
+  merging the named fields; fields left out of the entity are removed. The
+  document `patch` command keeps merging.
+- A scroll is no longer a snapshot. Code that needs a fixed set should read
+  it with `find` and an id predicate.
+- Tachyon cannot run against FYLO 26.45.07 or older. The pin moves to the
+  FYLO release that has the Store operations, in the same merge as this
+  change.
+- The wire shapes are FYLO's frozen `api/machine/v2` and `api/store/v1`; a
+  change there is an amendment to FYLO ADR 0035 and a Tachyon change in
+  `storage/fylo/`.
+- Evidence: `storage::tests::fylo_store_operations` (counts and deletes,
+  sorting and paging, an entity id field, commit, rollback, a second
+  collection, commands that cannot join, a write that waits for a
+  transaction), `storage::tests::fylo_documents::fylo_scroll_pages_past_ten_thousand_documents_with_a_cursor`
+  (also a repository page at offset 10,000), `storage::tests::fylo_sql`, and
+  the unit tests of `storage::fylo::{store_protocol, store_query, store_rows,
+  store_target, collection_gates, fylo_transactions}`.

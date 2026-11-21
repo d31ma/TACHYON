@@ -8,7 +8,39 @@ machine contracts have their own, independent major versions.
 
 ## [Unreleased]
 
+### Breaking
+
+- **The FYLO datasource needs FYLO's Store operations** (ADR 0032 amendment
+  of 2026-11-21, ADR 0128 amendment 4, TAC-FY2). The server checks FYLO's
+  handshake for machine protocol 2 with the capabilities `store` and `sql`,
+  and refuses FYLO 26.45.07 and older with `TY2160`, which names what it
+  needs. Install the FYLO that `scripts/ci/install-fylo.mjs` pins. Two
+  behaviors change with it:
+  - A repository `save` with an id replaces the stored entity, as Spring
+    Data's `save` does; before, it merged the named fields. Fields left out
+    are removed. The document `patch` command still merges.
+  - A document `scroll` reads FYLO's newest state page by page with FYLO's
+    cursor; it is no longer a snapshot taken at the first page, and the
+    server no longer keeps scroll snapshots.
+
 ### Added
+
+- **FYLO counts, sorts and pages repository queries, with no
+  10,000-document bound** (ADR 0032 amendment of 2026-11-21). `find`,
+  `count`, `exists` and `delete` queries go to FYLO's `storeFind`,
+  `storeCount`, `storeExists` and `storeDelete` in Tachyon's own query shape.
+  A page at offset 10,000 or more works, a count is exact, and a delete query
+  deletes all matches in one write. `collectionExists` reads FYLO's catalog.
+  Raw SQL on FYLO sends its values as bound parameters (`$1` becomes `?1`),
+  so negative numbers and exponents now work and no value becomes statement
+  text.
+- **`@AllOrNothing` on a FYLO datasource** (ADR 0032 amendment of
+  2026-11-21). A transaction covers the writes of one collection: it starts
+  in FYLO at the first write, its later commands see its own writes, a write
+  to a second collection fails with `TY2160` and rolls it back, and queue,
+  SQL, `createCollection` and `dropCollection` commands cannot join it.
+  Other writes to the collection wait in the server, not in FYLO, so they
+  never stop the FYLO process (ADR 0128 amendment 4).
 
 - **Tabs share Store and state changes, and take locks** (ADR 0141). After a
   Store write reaches IndexedDB, the other tabs of the origin read the written

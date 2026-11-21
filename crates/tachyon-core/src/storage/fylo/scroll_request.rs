@@ -6,7 +6,7 @@ use crate::Failure;
 use crate::storage::{ManagedStorage, failure, object_keys, scalar};
 
 pub(super) struct ScrollRequest {
-    conditions: Map<String, Value>,
+    conditions: Vec<Value>,
     cursor: Option<String>,
     size: usize,
 }
@@ -22,7 +22,7 @@ impl ScrollRequest {
     ];
     const DEFAULT_SIZE: usize = 20;
     const MAX_WHERE_FIELDS: usize = 8;
-    const MAX_CURSOR_LENGTH: usize = 256;
+    const MAX_CURSOR_LENGTH: usize = 1024;
 
     pub(super) fn parse(command: &Value) -> Result<Self, Failure> {
         object_keys(command, &Self::KEYS)?;
@@ -33,30 +33,37 @@ impl ScrollRequest {
         })
     }
 
-    pub(super) fn filter(&self) -> Value {
-        json!({ "$ops": [Value::Object(self.conditions.clone())] })
+    pub(super) fn conditions(&self) -> Vec<Value> {
+        self.conditions.clone()
     }
 
-    pub(super) fn cursor(&self) -> Option<&str> {
-        self.cursor.as_deref()
+    pub(super) fn page(&self) -> Value {
+        Self::page_of(self.size, self.cursor.as_deref())
     }
 
-    pub(super) fn size(&self) -> usize {
-        self.size
+    fn page_of(size: usize, cursor: Option<&str>) -> Value {
+        match cursor {
+            Some(cursor) => json!({ "size": size, "cursor": cursor }),
+            None => json!({ "size": size }),
+        }
     }
 
     fn present<'command>(command: &'command Value, key: &str) -> Option<&'command Value> {
         command.get(key).filter(|value| !value.is_null())
     }
 
-    fn parse_conditions(command: &Value) -> Result<Map<String, Value>, Failure> {
+    fn parse_conditions(command: &Value) -> Result<Vec<Value>, Failure> {
         let criteria = Self::present(command, "where").map_or(Ok(Map::new()), Self::criteria)?;
-        let mut conditions = Map::new();
+        let mut conditions = Vec::with_capacity(criteria.len());
         for (field, value) in SortedJson::entries(&criteria) {
             scalar(value)?;
-            conditions.insert(identifier(field)?.to_owned(), json!({ "$eq": value }));
+            conditions.push(Self::equal(identifier(field)?, value));
         }
         Ok(conditions)
+    }
+
+    fn equal(field: &str, value: &Value) -> Value {
+        json!({ "field": field, "operator": "eq", "value": value })
     }
 
     fn criteria(value: &Value) -> Result<Map<String, Value>, Failure> {

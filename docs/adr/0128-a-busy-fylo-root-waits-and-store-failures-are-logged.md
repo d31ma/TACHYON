@@ -9,6 +9,8 @@
 - Amended: 2026-11-21 (start-up requests do not use up the deadline; a
   stopped FYLO process gets its input closed before a kill; slow store calls
   are logged)
+- Amended: 2026-11-21 (FYLO's Store operations: `collectionExists`, the
+  operation names, and transactions next to the kill; TAC-FY2)
 - Amends: [ADR 0032](0032-fylo-datasource.md) (FYLO is a datasource)
 - Builds on: [ADR 0127](0127-yon-handlers-write-logs-on-every-answer.md)
   (the JSON lines on the standard error of `ty`)
@@ -443,3 +445,68 @@ waited for the FYLO process or worked.
 - For the lease mode `call` (one `fylo` per request, a later change), every
   request starts a new process; its first request must be marked with
   `StoreCall::startup` too.
+
+## Amendment 4 (2026-11-21): the Store operations and transactions
+
+### Context
+
+ADR 0032's amendment of 2026-11-21 moves the FYLO datasource to FYLO's Store
+operations and lets `@AllOrNothing` open a transaction inside one FYLO
+collection. Two parts of this ADR change with it:
+
+- Decision 17 sent `findDocs` with `{"$limit": 1}` because FYLO had no cheap
+  exists operation. FYLO now has `collectionExists`, a catalog read, and
+  `findDocs` is gone.
+- FYLO makes a write to a collection wait while a transaction holds that
+  collection, up to the transaction's time bound, and then answers
+  `ETXNBUSY`. Tachyon sends one request at a time to its `fylo` process
+  (decision 3). A write that waits inside FYLO would hold that process, so
+  the transaction's own commit could not be sent, and the write would pass
+  the store deadline: decision 4 would then stop the process, and the
+  transaction would be lost with it.
+
+### Decision
+
+18. **`collectionExists` sends FYLO's `collectionExists`.** It answers
+    `true` or `false` from FYLO's catalog. `ENATIVE_NOT_FOUND` still counts as
+    `false`; any other error fails the call. This replaces decision 17.
+    Decision 8 still holds.
+19. **Deadline messages name the Store operation**, for example "deadline
+    exceeded during FYLO storeSave". The log events keep their names.
+20. **No write waits inside FYLO.** Before a write takes the `fylo`
+    process, Tachyon checks for an open FYLO transaction on the write's
+    collection, and waits until that transaction commits, rolls back or
+    expires. An SQL statement that is not a read waits until no FYLO
+    transaction is open, because Tachyon does not parse which collection it
+    changes. Writes outside transactions never wait for each other, and reads
+    never wait. The wait counts against the store deadline, like any other
+    wait (decision 15); it never stops the `fylo` process, because nothing
+    was sent.
+21. **A stopped process ends its transactions.** A FYLO transaction belongs
+    to one `fylo` process. When a deadline stops that process (decision 4),
+    or the process exits, FYLO has written nothing of the open transactions.
+    The next command or the commit of such a transaction fails with `TY2160`
+    ("The FYLO transaction expired or its FYLO process stopped; nothing in it
+    was written."). A rollback of it succeeds, because there is nothing left
+    to undo.
+22. **FYLO's transaction clock matches Tachyon's.** `transactionBegin` gets
+    `timeoutMs` equal to the time left of the Tachyon transaction (at most 10
+    seconds from begin). When it ends, Tachyon also gives the collection
+    back to waiting writes, even if the handler never settles.
+
+### Consequences
+
+- `@AllOrNothing` on FYLO cannot lose a transaction to a write from another
+  answer of the same server.
+- A long transaction delays other writes to its collection by up to 10
+  seconds; with the default 5-second store deadline, such a write can fail
+  with the deadline message instead. Keep transactions short.
+- The lease mode `call` (one `fylo` per request, a later change) cannot hold
+  a FYLO transaction across requests. When it lands, a transaction must keep
+  one process from its first write to its settle, or that mode refuses
+  `@AllOrNothing`.
+- Evidence: `storage::tests::fylo_store_operations::a_write_outside_a_fylo_transaction_waits_until_it_settles`,
+  `storage::fylo::collection_gates::tests` (a writer waits only for its own
+  collection, an SQL write waits for every transaction, a held collection is
+  given back at its expiry), and
+  `storage::tests::fylo_documents::collection_exists_answers_for_filled_empty_dropped_and_missing_collections`.

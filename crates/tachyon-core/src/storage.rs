@@ -273,11 +273,22 @@ impl ManagedStorage {
             ));
         }
         let result = self
-            .sql_store()?
-            .execute_in(id, &Value::Object(inner), deadline)
+            .execute_joined(id, &Value::Object(inner), deadline)
             .await?;
         check_size(&result)?;
         Ok(result)
+    }
+
+    async fn execute_joined(
+        &self,
+        id: &str,
+        command: &Value,
+        deadline: Instant,
+    ) -> Result<Value, Failure> {
+        match &self.fylo {
+            Some(fylo) => fylo.execute_in(id, command).await,
+            None => self.sql_store()?.execute_in(id, command, deadline).await,
+        }
     }
 
     fn sql_store(&self) -> Result<&SqlStore, Failure> {
@@ -300,17 +311,11 @@ impl ManagedStorage {
                 "Transaction action must be begin, commit or rollback.",
             ));
         }
-        if self.fylo.is_some() {
-            return Err(failure(
-                "The FYLO datasource has no transactions; write each document command on its own.",
-            ));
-        }
-        let sql = self.sql_store()?;
         if action == "begin" {
             if command.get("transaction").is_some() {
                 return Err(failure("Beginning a transaction takes no identifier."));
             }
-            return sql.begin(deadline).await;
+            return self.begin(deadline).await;
         }
         let Some(id) = command
             .get("transaction")
@@ -321,7 +326,21 @@ impl ManagedStorage {
                 "Committing or rolling back requires its transaction.",
             ));
         };
-        sql.settle(id, action, deadline).await
+        self.settle(id, action, deadline).await
+    }
+
+    async fn begin(&self, deadline: Instant) -> Result<Value, Failure> {
+        match &self.fylo {
+            Some(fylo) => fylo.begin(),
+            None => self.sql_store()?.begin(deadline).await,
+        }
+    }
+
+    async fn settle(&self, id: &str, action: &str, deadline: Instant) -> Result<Value, Failure> {
+        match &self.fylo {
+            Some(fylo) => fylo.settle(id, action).await,
+            None => self.sql_store()?.settle(id, action, deadline).await,
+        }
     }
 
     pub(crate) async fn close(&self) {

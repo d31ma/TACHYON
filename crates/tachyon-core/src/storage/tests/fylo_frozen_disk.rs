@@ -145,7 +145,7 @@ async fn a_fylo_frozen_in_a_disk_write_is_waited_for_and_no_second_fylo_starts()
     assert!(
         failure.diagnostics()[0]
             .message
-            .contains("deadline exceeded during FYLO putData"),
+            .contains("deadline exceeded during FYLO storeSave"),
         "{failure}"
     );
     let stuck = fylo_process_ids(&root);

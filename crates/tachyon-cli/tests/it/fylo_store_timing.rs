@@ -350,17 +350,18 @@ impl Signals {
             .args([
                 "exec",
                 "--request",
-                r#"{"op":"findDocs","collection":"hd-events","query":{}}"#,
+                r#"{"op":"storeCount","collection":"hd-events","query":{"where":[]}}"#,
                 "--root",
             ])
             .arg(root)
             .output()
-            .expect("fylo findDocs");
+            .expect("fylo storeCount");
         let answer: serde_json::Value =
             serde_json::from_slice(&output.stdout).expect("fylo answer");
-        let result = &answer["result"];
-        let items = result.get("items").unwrap_or(result);
-        items.as_object().map_or(0, serde_json::Map::len)
+        answer["result"]
+            .as_u64()
+            .and_then(|count| usize::try_from(count).ok())
+            .unwrap_or_default()
     }
 
     fn create_collection(root: &std::path::Path) {
