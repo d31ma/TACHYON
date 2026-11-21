@@ -143,7 +143,7 @@ return 'title=' + controls.granted('title') + ',close=' + controls.granted('clos
             .replace("__WINDOW_EXPECTED__", Self::EXPECTED)
             .replace(
                 "__PAGE_SCRIPT__",
-                &super::host::c_string_escape(&Self::page_script()),
+                &super::host::c_string_escape(&Self::page_script()).replace('?', "\\?"),
             )
             .replace("__PAGE_EXPECTED__", Self::PAGE_EXPECTED)
     }
