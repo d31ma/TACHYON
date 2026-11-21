@@ -266,3 +266,44 @@ fn the_shell_only_build_writes_the_shell_file() {
         .expect("shell build");
     assert!(home.join(ShellFileFixture::FILE).exists());
 }
+
+struct ShellScriptFixture;
+
+impl ShellScriptFixture {
+    const FILE: &'static str = "dist/.tachyon/tac-shell.js";
+    const PRELOAD: &'static str =
+        r#"<link rel="modulepreload" href="/.tachyon/tac-shell.js" data-tachyon-runtime>"#;
+}
+
+#[test]
+fn a_shell_build_writes_the_shell_script() {
+    let root = LayoutFixture::create(LayoutFixture::MANIFEST, LayoutFixture::LAYOUT);
+    WebCompiler::build(root.path(), &LayoutFixture::options()).expect("build");
+    let script = fs::read_to_string(root.path().join(ShellScriptFixture::FILE)).expect("script");
+    assert!(script.contains("export class ShellApp"), "{script}");
+}
+
+#[test]
+fn a_shell_page_preloads_the_shell_script() {
+    let page = LayoutFixture::page(LayoutFixture::MANIFEST, LayoutFixture::LAYOUT);
+    assert!(page.contains(ShellScriptFixture::PRELOAD), "{page}");
+}
+
+#[test]
+fn a_site_without_a_layout_has_no_shell_script() {
+    let root = LayoutFixture::create(
+        r#"{"name":"Site"}"#,
+        LayoutFixture::LAYOUT.replace("<outlet />", "").as_str(),
+    );
+    WebCompiler::build(root.path(), &LayoutFixture::options()).expect("build");
+    let page = fs::read_to_string(root.path().join("dist/index.html")).expect("index page");
+    assert!(!root.path().join(ShellScriptFixture::FILE).exists());
+    assert!(!page.contains("tac-shell.js"), "{page}");
+}
+
+#[test]
+fn the_runtime_holds_no_soft_navigation_code() {
+    let runtime = crate::template::ClientViewRenderer::shipped_runtime();
+    assert!(!runtime.contains("SoftNavigation"));
+    assert!(runtime.contains("/.tachyon/tac-shell.js"));
+}

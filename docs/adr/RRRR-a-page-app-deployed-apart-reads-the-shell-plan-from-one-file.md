@@ -39,9 +39,24 @@ shell plan, and its pages render without the shell's frame.
   shell that was deployed again since the page loaded makes the navigation a
   normal load.
 
+- **Shell code only where a shell is:** the shell's runtime code (outlet
+  render, soft navigation, the shell file and styles) is its own module,
+  `/.tachyon/tac-shell.js`, which the build writes only when `tac.layout` is
+  set. `tac-client.js` keeps a small loader: it imports the module only when
+  the document has an inline shell plan, or when a page app outside `/` gets a
+  JSON answer for `/.tachyon/shell.json`. Shell documents preload the module
+  (`<link rel="modulepreload">`), so it loads once, in parallel with the
+  runtime. The import is a same-origin module script, so the CSP needs no new
+  source; the service worker keeps it like the other runtime files. When the
+  module cannot load, the page renders alone, without the shell frame, and
+  links load pages normally.
+
 `bun run test:page-apps-browser` now runs twice: once with the one bundle,
 and once with the shell built by `--shell-only` and the chat app built alone
-and copied under `/chat/`. Each pass checks Chromium, Firefox and WebKit.
+and copied under `/chat/`. Each pass checks Chromium, Firefox and WebKit,
+that the shell app loads `tac-shell.js` once, and that a blocked
+`tac-shell.js` still shows the page. A third pass checks that a plain app at
+`/` asks for neither `tac-shell.js` nor `shell.json`.
 
 ## Consequences
 
@@ -50,6 +65,8 @@ and copied under `/chat/`. Each pass checks Chromium, Firefox and WebKit.
   one bundle.
 - A page app outside the root app fetches one small file at start-up, also
   on a site without a shell, where the answer is a 404.
+- A plain app at `/` pays only the loader (well under 0.2 KB compressed) for
+  page apps; a shell app pays one more request for `tac-shell.js`.
 - The shell and the app must use the same TACHYON version (decision 5 of
   the page-app plan); the shell plan format is not a stable contract between
   versions.
