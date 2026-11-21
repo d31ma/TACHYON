@@ -1,17 +1,19 @@
-use std::sync::OnceLock;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Mutex, MutexGuard, PoisonError};
 use std::time::{Duration, Instant};
 
 pub(in crate::handler) struct StoreDeadline {
     per_call: AtomicBool,
-    shared: OnceLock<Instant>,
+    shared: Mutex<Option<Instant>>,
+    startup_used: Mutex<Duration>,
 }
 
 impl StoreDeadline {
     pub(in crate::handler) fn new() -> Self {
         Self {
             per_call: AtomicBool::new(false),
-            shared: OnceLock::new(),
+            shared: Mutex::new(None),
+            startup_used: Mutex::new(Duration::ZERO),
         }
     }
 
@@ -24,9 +26,30 @@ impl StoreDeadline {
     }
 
     pub(in crate::handler) fn for_call(&self, time_limit: Duration) -> Option<Instant> {
-        let shared = *self.shared.get_or_init(|| Instant::now() + time_limit);
+        let shared = *self
+            .slot()
+            .get_or_insert_with(|| Instant::now() + time_limit);
         let per_call = self.per_call.load(Ordering::Acquire);
         (!per_call).then_some(shared)
+    }
+
+    pub(in crate::handler) fn startup_left(&self, allowance: Duration) -> Duration {
+        let per_call = self.per_call.load(Ordering::Acquire);
+        let used = [*Self::locked(&self.startup_used), Duration::ZERO][usize::from(per_call)];
+        allowance.saturating_sub(used)
+    }
+
+    pub(in crate::handler) fn extend(&self, by: Duration) {
+        *Self::locked(&self.startup_used) += by;
+        self.slot().iter_mut().for_each(|deadline| *deadline += by);
+    }
+
+    fn slot(&self) -> MutexGuard<'_, Option<Instant>> {
+        Self::locked(&self.shared)
+    }
+
+    fn locked<Value>(value: &Mutex<Value>) -> MutexGuard<'_, Value> {
+        value.lock().unwrap_or_else(PoisonError::into_inner)
     }
 }
 
@@ -54,6 +77,35 @@ mod tests {
         let not_asked = StoreDeadline::new();
         not_asked.use_per_call_when(false);
         assert!(not_asked.for_call(Duration::from_secs(5)).is_some());
+    }
+
+    #[test]
+    fn startup_time_moves_the_shared_deadline() {
+        let deadline = StoreDeadline::new();
+        let first = deadline.for_call(Duration::from_secs(5));
+        deadline.extend(Duration::from_secs(3));
+        let later = deadline.for_call(Duration::from_secs(5));
+        assert_eq!(later, first.map(|first| first + Duration::from_secs(3)));
+    }
+
+    #[test]
+    fn the_startup_allowance_is_shared_by_one_answer() {
+        let deadline = StoreDeadline::new();
+        let allowance = Duration::from_secs(20);
+        assert_eq!(deadline.startup_left(allowance), allowance);
+        deadline.extend(Duration::from_secs(15));
+        assert_eq!(deadline.startup_left(allowance), Duration::from_secs(5));
+        deadline.extend(Duration::from_secs(5));
+        assert_eq!(deadline.startup_left(allowance), Duration::ZERO);
+    }
+
+    #[test]
+    fn a_stream_call_gets_the_whole_startup_allowance() {
+        let deadline = StoreDeadline::new();
+        deadline.use_per_call();
+        deadline.extend(Duration::from_secs(15));
+        let allowance = Duration::from_secs(20);
+        assert_eq!(deadline.startup_left(allowance), allowance);
     }
 
     #[test]

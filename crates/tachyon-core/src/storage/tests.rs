@@ -549,3 +549,5 @@ mod fylo_documents;
 mod fylo_frozen_disk;
 mod fylo_root_lock;
 mod fylo_sql;
+#[cfg(unix)]
+mod fylo_startup;

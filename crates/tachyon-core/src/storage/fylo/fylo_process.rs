@@ -1,21 +1,31 @@
 use std::path::Path;
-use std::process::Stdio;
+use std::process::{ExitStatus, Stdio};
+use std::sync::Arc;
+use std::time::{Duration, Instant};
 
+use futures_util::future::OptionFuture;
 use serde_json::Value;
 use tokio::process::Child;
 
 use super::FyloError;
+use super::fylo_input::FyloInput;
 use super::fylo_pipes::FyloPipes;
 use super::interruption::Interruption;
 use super::request_watch::RequestWatch;
+use super::stderr_tail::StderrTail;
 
 pub(super) struct FyloProcess {
     child: Child,
     pipes: FyloPipes,
     interruption: Option<Interruption>,
+    stderr: Option<StderrTail>,
 }
 
 impl FyloProcess {
+    pub(super) const EXIT_GRACE: Duration = Duration::from_secs(1);
+    const SHUTDOWN: &'static str = "shutdown";
+    const UNKNOWN_OPERATION: &'static str = "unknown";
+
     pub(super) fn spawn(root: &Path) -> Result<Self, FyloError> {
         let mut child = tokio::process::Command::new("fylo")
             .args(["exec", "--loop", "--root"])
@@ -23,7 +33,7 @@ impl FyloProcess {
             .args(["--max-request-bytes", "1048576", "--max-response-bytes", "8388608"])
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::null())
+            .stderr(Stdio::piped())
             .kill_on_drop(true)
             .spawn()
             .map_err(|_| {
@@ -39,10 +49,15 @@ impl FyloProcess {
             .stdout
             .take()
             .ok_or_else(|| FyloError::protocol("FYLO stdout is unavailable."))?;
+        let stderr = child
+            .stderr
+            .take()
+            .map(|stderr| StderrTail::follow(stderr, root));
         Ok(Self {
             child,
             pipes: FyloPipes::new(stdin, stdout),
             interruption: None,
+            stderr,
         })
     }
 
@@ -54,15 +69,23 @@ impl FyloProcess {
         &mut self,
         operation: &str,
         request: &Value,
+        startup: bool,
     ) -> Result<Value, FyloError> {
-        let watch = RequestWatch::start(&mut self.child, &mut self.interruption, operation);
-        let answer = self.pipes.request_waiting(request).await;
+        let watch = RequestWatch::start(self.pipes.input(), &mut self.interruption, operation);
+        let answer = self.pipes.request_waiting(request, startup).await;
         watch.finish(&answer);
         answer
     }
 
-    pub(super) async fn close(mut self) {
-        let _already_exited = self.child.kill().await;
+    pub(super) fn input(&self) -> Arc<FyloInput> {
+        self.pipes.input()
+    }
+
+    pub(super) async fn close(mut self, closed: Instant) {
+        self.interruption
+            .get_or_insert_with(|| Interruption::new(Self::SHUTDOWN))
+            .mark_stopping_at(closed);
+        self.wait_for_exit().await;
     }
 
     pub(super) fn must_stop(&self) -> bool {
@@ -70,10 +93,161 @@ impl FyloProcess {
     }
 
     pub(super) async fn wait_for_exit(&mut self) {
-        let _already_exited = self.child.start_kill();
-        let _exit_status_is_not_needed = self.child.wait().await;
+        self.pipes.input().close();
+        let status = self.exit_within(self.grace_left()).await;
+        let ended_well = status.is_some_and(|status| status.success());
+        self.kill_unless(status.is_some()).await;
         self.interruption
             .iter()
             .for_each(Interruption::report_stopped);
+        self.report_errors_unless(ended_well).await;
+    }
+
+    async fn report_errors_unless(&mut self, ended_well: bool) {
+        if ended_well {
+            return;
+        }
+        let operation = self
+            .interruption
+            .as_ref()
+            .map_or(Self::UNKNOWN_OPERATION, Interruption::operation);
+        OptionFuture::from(self.stderr.as_mut().map(|tail| tail.report(operation))).await;
+    }
+
+    fn grace_left(&self) -> Duration {
+        let since_stop = self
+            .interruption
+            .as_ref()
+            .map_or(Duration::ZERO, Interruption::time_since_stop);
+        Self::EXIT_GRACE.saturating_sub(since_stop)
+    }
+
+    async fn exit_within(&mut self, grace: Duration) -> Option<ExitStatus> {
+        let pipes = &mut self.pipes;
+        let child = &mut self.child;
+        let exit = async {
+            pipes.drain().await;
+            child.wait().await
+        };
+        let waited = tokio::time::timeout(grace, exit).await.ok();
+        waited.and_then(Result::ok)
+    }
+
+    async fn kill_unless(&mut self, exited: bool) {
+        if exited {
+            return;
+        }
+        self.interruption
+            .iter_mut()
+            .for_each(Interruption::mark_killed);
+        let _already_exited = self.child.start_kill();
+        let _exit_status_is_not_needed = self.child.wait().await;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::expect_used)]
+
+    use std::path::Path;
+    use std::time::{Duration, Instant};
+
+    use serde_json::{Value, json};
+
+    use super::super::rows_of;
+    use super::{FyloProcess, Interruption};
+
+    fn fylo_runs_here() -> bool {
+        let available = std::process::Command::new("fylo")
+            .arg("version")
+            .output()
+            .is_ok_and(|output| output.status.success());
+        assert!(
+            available || std::env::var("TAC_STORAGE_REQUIRE_TOOLCHAINS").is_err(),
+            "fylo binary is required on this runner"
+        );
+        available
+    }
+
+    async fn started(root: &Path) -> FyloProcess {
+        let mut process = FyloProcess::spawn(root).ok().expect("fylo starts");
+        process
+            .handshake(&json!({"op": "handshake"}))
+            .await
+            .ok()
+            .expect("handshake");
+        let create = json!({"op": "createCollection", "collection": "hd-events"});
+        process
+            .request("createCollection", &create, true)
+            .await
+            .ok()
+            .expect("collection");
+        process
+    }
+
+    async fn drop_a_write_before_its_answer(process: &mut FyloProcess) {
+        let write = json!({"op": "putData", "collection": "hd-events", "data": {"n": 1}});
+        let request = process.request("putData", &write, false);
+        tokio::select! {
+            biased;
+            _answered = request => panic!("fylo answered before the first poll ended"),
+            () = std::future::ready(()) => {}
+        }
+    }
+
+    fn stop_path(process: &FyloProcess) -> Option<&'static str> {
+        process.interruption.as_ref().map(Interruption::stop_path)
+    }
+
+    async fn stored_documents(root: &Path) -> usize {
+        let mut process = FyloProcess::spawn(root).ok().expect("second fylo");
+        let find = json!({"op": "findDocs", "collection": "hd-events", "query": {}});
+        let answer: Value = process
+            .request("findDocs", &find, false)
+            .await
+            .ok()
+            .expect("find");
+        let rows = rows_of(answer, "id").expect("rows");
+        process.close(Instant::now()).await;
+        rows.len()
+    }
+
+    #[tokio::test]
+    async fn closing_the_input_lets_fylo_finish_the_write_and_exit() {
+        if !fylo_runs_here() {
+            return;
+        }
+        let directory = tempfile::tempdir().expect("root");
+        let root = std::fs::canonicalize(directory.path()).expect("canonical root");
+        let mut process = started(&root).await;
+        drop_a_write_before_its_answer(&mut process).await;
+        assert!(process.must_stop());
+        let started = Instant::now();
+        process.wait_for_exit().await;
+        assert_eq!(stop_path(&process), Some("closed"));
+        assert!(started.elapsed() < Duration::from_secs(1));
+        assert_eq!(stored_documents(&root).await, 1);
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn a_fylo_that_does_not_exit_is_killed_after_one_second() {
+        if !fylo_runs_here() {
+            return;
+        }
+        let directory = tempfile::tempdir().expect("root");
+        let root = std::fs::canonicalize(directory.path()).expect("canonical root");
+        let mut process = started(&root).await;
+        let process_id = process.child.id().expect("running fylo").to_string();
+        let paused = std::process::Command::new("kill")
+            .args(["-STOP", &process_id])
+            .status()
+            .expect("kill -STOP");
+        assert!(paused.success());
+        drop_a_write_before_its_answer(&mut process).await;
+        let started = Instant::now();
+        process.wait_for_exit().await;
+        assert_eq!(stop_path(&process), Some("killed"));
+        assert!(started.elapsed() >= Duration::from_millis(900));
     }
 }

@@ -1,24 +1,26 @@
+use std::sync::Arc;
+
 use serde_json::Value;
-use tokio::process::Child;
 
 use super::FyloError;
+use super::fylo_input::FyloInput;
 use super::interruption::Interruption;
 
 pub(super) struct RequestWatch<'process> {
-    child: &'process mut Child,
+    input: Arc<FyloInput>,
     interruption: &'process mut Option<Interruption>,
     process_usable: bool,
 }
 
 impl<'process> RequestWatch<'process> {
     pub(super) fn start(
-        child: &'process mut Child,
+        input: Arc<FyloInput>,
         interruption: &'process mut Option<Interruption>,
         operation: &str,
     ) -> Self {
         *interruption = Some(Interruption::new(operation));
         Self {
-            child,
+            input,
             interruption,
             process_usable: false,
         }
@@ -39,8 +41,8 @@ impl<'process> RequestWatch<'process> {
     fn stop_process(&mut self) {
         self.interruption
             .iter_mut()
-            .for_each(Interruption::mark_killed);
-        let _already_exited = self.child.start_kill();
+            .for_each(Interruption::mark_stopping);
+        self.input.close();
     }
 }
 

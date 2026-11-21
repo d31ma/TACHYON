@@ -185,6 +185,20 @@ async fn a_fylo_stalled_past_the_deadline_is_stopped_before_the_next_call_starts
             "Managed storage operation deadline exceeded during FYLO putData; writes may have committed. Tachyon stops that FYLO process, and the next call waits until it has exited."
         );
     }
+    let after_the_grace = Instant::now() + Duration::from_secs(3);
+    let started = Instant::now();
+    let answer = store
+        .execute_within(&exists_command(), Some(after_the_grace))
+        .await;
+    assert_eq!(
+        answer.expect("the stopped fylo is killed after its grace"),
+        json!(true)
+    );
+    assert!(
+        started.elapsed() < Duration::from_secs(2),
+        "{:?}",
+        started.elapsed()
+    );
     for _ in 0..3 {
         let answer = store.execute(&exists_command()).await;
         assert_eq!(answer.expect("no EROOTLOCKED after the stall"), json!(true));

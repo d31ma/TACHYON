@@ -4,6 +4,7 @@ mod invocation_storage;
 mod piped_resources;
 mod resource_door;
 mod resource_request;
+mod store_call_line;
 mod store_deadline;
 
 use door_route::DoorRoute;

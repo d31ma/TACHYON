@@ -153,7 +153,7 @@ async fn a_fylo_frozen_in_a_disk_write_is_waited_for_and_no_second_fylo_starts()
     assert_eq!(
         process_state(&stuck[0]),
         "D",
-        "killed but still in the disk write"
+        "stopped but still in the disk write"
     );
 
     let failure = store

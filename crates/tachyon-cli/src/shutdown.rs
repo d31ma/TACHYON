@@ -55,6 +55,12 @@ enum SignalName {
     CtrlC,
     #[cfg(windows)]
     CtrlBreak,
+    #[cfg(windows)]
+    CtrlClose,
+    #[cfg(windows)]
+    CtrlLogoff,
+    #[cfg(windows)]
+    CtrlShutdown,
 }
 
 impl SignalName {
@@ -68,6 +74,12 @@ impl SignalName {
             Self::CtrlC => "CTRL_C",
             #[cfg(windows)]
             Self::CtrlBreak => "CTRL_BREAK",
+            #[cfg(windows)]
+            Self::CtrlClose => "CTRL_CLOSE",
+            #[cfg(windows)]
+            Self::CtrlLogoff => "CTRL_LOGOFF",
+            #[cfg(windows)]
+            Self::CtrlShutdown => "CTRL_SHUTDOWN",
         }
     }
 
@@ -81,6 +93,12 @@ impl SignalName {
             Self::CtrlC => 0,
             #[cfg(windows)]
             Self::CtrlBreak => 1,
+            #[cfg(windows)]
+            Self::CtrlClose => 2,
+            #[cfg(windows)]
+            Self::CtrlLogoff => 5,
+            #[cfg(windows)]
+            Self::CtrlShutdown => 6,
         }
     }
 
@@ -94,6 +112,8 @@ impl SignalName {
             Self::CtrlC => 130,
             #[cfg(windows)]
             Self::CtrlBreak => 131,
+            #[cfg(windows)]
+            Self::CtrlClose | Self::CtrlLogoff | Self::CtrlShutdown => 130,
         }
     }
 }
@@ -152,6 +172,12 @@ struct PlatformSignalSource {
     ctrl_c: Option<tokio::signal::windows::CtrlC>,
     #[cfg(windows)]
     ctrl_break: Option<tokio::signal::windows::CtrlBreak>,
+    #[cfg(windows)]
+    ctrl_close: Option<tokio::signal::windows::CtrlClose>,
+    #[cfg(windows)]
+    ctrl_logoff: Option<tokio::signal::windows::CtrlLogoff>,
+    #[cfg(windows)]
+    ctrl_shutdown: Option<tokio::signal::windows::CtrlShutdown>,
 }
 
 impl PlatformSignalSource {
@@ -172,31 +198,49 @@ impl PlatformSignalSource {
 
     #[cfg(windows)]
     fn register() -> Self {
-        use tokio::signal::windows::{ctrl_break, ctrl_c};
+        use tokio::signal::windows::{ctrl_break, ctrl_c, ctrl_close, ctrl_logoff, ctrl_shutdown};
 
         let (ctrl_c, ctrl_c_registration) = registration(SignalName::CtrlC, ctrl_c());
         let (ctrl_break, ctrl_break_registration) =
             registration(SignalName::CtrlBreak, ctrl_break());
+        let (ctrl_close, ctrl_close_registration) =
+            registration(SignalName::CtrlClose, ctrl_close());
+        let (ctrl_logoff, ctrl_logoff_registration) =
+            registration(SignalName::CtrlLogoff, ctrl_logoff());
+        let (ctrl_shutdown, ctrl_shutdown_registration) =
+            registration(SignalName::CtrlShutdown, ctrl_shutdown());
         Self {
-            registrations: vec![ctrl_c_registration, ctrl_break_registration],
+            registrations: vec![
+                ctrl_c_registration,
+                ctrl_break_registration,
+                ctrl_close_registration,
+                ctrl_logoff_registration,
+                ctrl_shutdown_registration,
+            ],
             ctrl_c,
             ctrl_break,
+            ctrl_close,
+            ctrl_logoff,
+            ctrl_shutdown,
         }
     }
 
     #[cfg(unix)]
     async fn receive_platform(&mut self) -> SignalName {
         tokio::select! {
-            () = receive_unix(&mut self.sigint) => SignalName::SigInt,
-            () = receive_unix(&mut self.sigterm) => SignalName::SigTerm,
+            () = receive_signal(&mut self.sigint, |signal| Box::pin(signal.recv())) => SignalName::SigInt,
+            () = receive_signal(&mut self.sigterm, |signal| Box::pin(signal.recv())) => SignalName::SigTerm,
         }
     }
 
     #[cfg(windows)]
     async fn receive_platform(&mut self) -> SignalName {
         tokio::select! {
-            () = receive_ctrl_c(&mut self.ctrl_c) => SignalName::CtrlC,
-            () = receive_ctrl_break(&mut self.ctrl_break) => SignalName::CtrlBreak,
+            () = receive_signal(&mut self.ctrl_c, |event| Box::pin(event.recv())) => SignalName::CtrlC,
+            () = receive_signal(&mut self.ctrl_break, |event| Box::pin(event.recv())) => SignalName::CtrlBreak,
+            () = receive_signal(&mut self.ctrl_close, |event| Box::pin(event.recv())) => SignalName::CtrlClose,
+            () = receive_signal(&mut self.ctrl_logoff, |event| Box::pin(event.recv())) => SignalName::CtrlLogoff,
+            () = receive_signal(&mut self.ctrl_shutdown, |event| Box::pin(event.recv())) => SignalName::CtrlShutdown,
         }
     }
 }
@@ -211,35 +255,18 @@ impl SignalSource for PlatformSignalSource {
     }
 }
 
-#[cfg(unix)]
-async fn receive_unix(receiver: &mut Option<tokio::signal::unix::Signal>) {
+#[allow(clippy::type_complexity)]
+async fn receive_signal<Event>(
+    receiver: &mut Option<Event>,
+    next: for<'event> fn(
+        &'event mut Event,
+    ) -> Pin<Box<dyn Future<Output = Option<()>> + Send + 'event>>,
+) {
     let Some(receiver) = receiver else {
         pending::<()>().await;
         return;
     };
-    if receiver.recv().await.is_none() {
-        pending::<()>().await;
-    }
-}
-
-#[cfg(windows)]
-async fn receive_ctrl_c(receiver: &mut Option<tokio::signal::windows::CtrlC>) {
-    let Some(receiver) = receiver else {
-        pending::<()>().await;
-        return;
-    };
-    if receiver.recv().await.is_none() {
-        pending::<()>().await;
-    }
-}
-
-#[cfg(windows)]
-async fn receive_ctrl_break(receiver: &mut Option<tokio::signal::windows::CtrlBreak>) {
-    let Some(receiver) = receiver else {
-        pending::<()>().await;
-        return;
-    };
-    if receiver.recv().await.is_none() {
+    if next(receiver).await.is_none() {
         pending::<()>().await;
     }
 }
@@ -443,6 +470,27 @@ mod tests {
     #[cfg(windows)]
     const fn secondary_signal() -> SignalName {
         SignalName::CtrlBreak
+    }
+
+    #[cfg(windows)]
+    #[tokio::test]
+    async fn windows_registers_console_close_logoff_and_shutdown_too() {
+        let source = super::PlatformSignalSource::register();
+        let names: Vec<&str> = source
+            .registrations()
+            .iter()
+            .map(|registration| registration.signal.as_str())
+            .collect();
+        assert_eq!(
+            names,
+            [
+                "CTRL_C",
+                "CTRL_BREAK",
+                "CTRL_CLOSE",
+                "CTRL_LOGOFF",
+                "CTRL_SHUTDOWN"
+            ]
+        );
     }
 
     #[tokio::test]

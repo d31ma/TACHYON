@@ -1,13 +1,17 @@
+use std::sync::Arc;
+
 use serde_json::{Value, json};
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::{ChildStdin, ChildStdout};
 
 use super::FyloError;
+use super::fylo_input::FyloInput;
 use super::root_lock_wait::RootLockWait;
 use crate::sorted_json::SortedJson;
+use crate::storage::StoreCall;
 
 pub(super) struct FyloPipes {
-    stdin: ChildStdin,
+    input: Arc<FyloInput>,
     stdout: BufReader<ChildStdout>,
 }
 
@@ -17,18 +21,38 @@ impl FyloPipes {
 
     pub(super) fn new(stdin: ChildStdin, stdout: ChildStdout) -> Self {
         Self {
-            stdin,
+            input: Arc::new(FyloInput::new(stdin)),
             stdout: BufReader::new(stdout),
         }
     }
 
-    pub(super) async fn request_waiting(&mut self, request: &Value) -> Result<Value, FyloError> {
+    pub(super) fn input(&self) -> Arc<FyloInput> {
+        Arc::clone(&self.input)
+    }
+
+    pub(super) async fn drain(&mut self) {
+        let mut ignored = tokio::io::sink();
+        let _output_is_not_needed = tokio::io::copy(&mut self.stdout, &mut ignored).await;
+    }
+
+    pub(super) async fn request_waiting(
+        &mut self,
+        request: &Value,
+        startup: bool,
+    ) -> Result<Value, FyloError> {
         let mut wait = RootLockWait::new();
-        let mut answer = self.request(request).await;
+        let mut answer = self.round_trip(request, startup).await;
         while Self::root_was_busy(&answer, &mut wait).await {
-            answer = self.request(request).await;
+            answer = self.round_trip(request, startup).await;
         }
         answer
+    }
+
+    async fn round_trip(&mut self, request: &Value, startup: bool) -> Result<Value, FyloError> {
+        if startup {
+            return StoreCall::startup(self.request(request)).await;
+        }
+        self.request(request).await
     }
 
     async fn root_was_busy(answer: &Result<Value, FyloError>, wait: &mut RootLockWait) -> bool {
@@ -42,10 +66,7 @@ impl FyloPipes {
             return Err(FyloError::protocol("FYLO request exceeds 1 MiB."));
         }
         line.push('\n');
-        self.stdin
-            .write_all(line.as_bytes())
-            .await
-            .map_err(|_| FyloError::protocol("FYLO subprocess is not accepting requests."))?;
+        self.input.write_line(line.as_bytes()).await?;
         let mut answer = String::new();
         let mut reader =
             tokio::io::AsyncReadExt::take(&mut self.stdout, Self::MAX_RESPONSE_BYTES as u64 + 1);

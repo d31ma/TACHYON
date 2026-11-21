@@ -78,7 +78,7 @@ def start_server(binary: pathlib.Path, project: pathlib.Path) -> subprocess.Pope
 
 def check_startup(stdout: queue.Queue[str], stderr: queue.Queue[str]) -> None:
     startup = next_event(stderr, "runtime.signal_handlers_ready")
-    if startup.get("installed") != ["CTRL_C", "CTRL_BREAK"]:
+    if startup.get("installed") != ["CTRL_C", "CTRL_BREAK", "CTRL_CLOSE", "CTRL_LOGOFF", "CTRL_SHUTDOWN"]:
         raise RuntimeError(f"unexpected startup event: {startup}")
     ready = next_line(stdout, "server readiness")
     if "Tachyon server ready" not in ready:

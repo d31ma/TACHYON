@@ -109,11 +109,62 @@ How the server runs FYLO:
 - When a store call passes its deadline, the server stops its FYLO process
   and fails the call with `TY2160` "Managed storage operation deadline
   exceeded during FYLO putData; ..." (naming the real operation, also for a
-  call that only waited behind the stuck one). The next
-  call waits until that process has exited before it starts a new one. When
-  it has exited, the server writes
-  `{"event":"storage.fylo_process_stopped","operation":"putData","exit_ms":N}`
-  to its standard error, with the time from the kill to the exit.
+  call that only waited behind the stuck one). It stops the process gently:
+  it closes the process's input at once, so `fylo exec --loop` can finish
+  the request in progress and exit by itself, and it sends a kill only when
+  the process has not exited 1 second after that (ADR 0128, amendment 4).
+  The next call waits until that process has exited before it starts a new
+  one. When it has exited, the server writes
+  `{"event":"storage.fylo_process_stopped","exit_ms":N,"operation":"putData","stop":"closed"}`
+  to its standard error: `exit_ms` is the time from closing the input to the
+  exit, and `stop` is `closed` when the process exited by itself or `killed`
+  when it had to be killed.
+- When `ty` stops (SIGTERM or SIGINT on Linux and macOS; Ctrl-C,
+  Ctrl-Break, closing the console window, logoff or shutdown on Windows),
+  it first lets running requests finish
+  (`TAC_SHUTDOWN_GRACE_SECONDS`, default 10). Then it closes the input of
+  its FYLO process at once, even while a store call still runs, waits about
+  1 second in all for the exit, kills it only if it is still running, and
+  writes `storage.fylo_process_stopped` with `"operation":"shutdown"` and
+  `stop`. A FYLO process that is stuck cannot hold up the stop for more than
+  about 1 second. A platform that kills `ty` a fixed time after SIGTERM
+  (`docker stop` waits 10 seconds by default) needs
+  `TAC_SHUTDOWN_GRACE_SECONDS` below that time, so this step runs first.
+  Known limits: Windows ends a process about 5 seconds after a console
+  close, logoff or shutdown event, whatever it is doing, so with a request
+  still running the FYLO step may not be reached; set
+  `TAC_SHUTDOWN_GRACE_SECONDS` to 1 or 2 where that matters. Windows
+  delivers logoff and shutdown events only to console processes that load
+  no window libraries, and a hard end (`TerminateProcess`, Task Manager's
+  End task, `taskkill /F`, SIGKILL) reaches no handler at all. In those
+  cases FYLO sees its input close when `ty` ends, so it still finishes the
+  request it is running and exits by itself.
+- FYLO's own error output is kept in memory: the last 20 lines or 4 KiB,
+  whichever is smaller, each line cut at 512 bytes, read on its own task so
+  FYLO never waits for it. Only when a FYLO process ends badly (it had to be
+  killed, or it exited with an error or by a crash, which includes a broken
+  pipe) the server writes it as one line next to
+  `storage.fylo_process_stopped`:
+  `{"event":"storage.fylo_stderr","lines":["..."],"operation":"putData"}`.
+  The root path in it is replaced with `<root>`. It never reaches a handler
+  answer or a `handler.storage_failed` line. A FYLO process that stops
+  cleanly writes nothing.
+- Start-up does not use up the deadline. FYLO may repair a root when it
+  starts, and a collection on its first write after a process was stopped
+  in the middle of a write. So after every start of a FYLO process (the
+  first one and each new one after a stop), the first request for each
+  collection or queue topic is a start-up request. The time a start-up
+  request takes does not count against the deadline of the call or of the
+  handler answer, up to `startup` milliseconds of extra time per handler
+  answer in all (default 20000, 1000 to 120000). A busy root
+  (`EROOTLOCKED`) answers at once, so the wait for a busy root still counts
+  (ADR 0128, amendment 4). A call of another handler answer that waits for
+  the FYLO process while a start-up request runs keeps its time too: its
+  deadline moves by the start-up time it waited behind, from its own
+  answer's allowance. Waiting behind any other slow call still counts. Keep `timeout` plus `startup` below the request
+  limit of the platform that runs `ty`, such as the timeout of a Lambda
+  function or of the proxy in front of it; otherwise the platform ends the
+  request first.
 - So two servers, or two serverless containers of one function, must not
   share one FYLO root for long: the second one waits up to 2 seconds per
   request and then fails. Give each root one owner.
@@ -329,6 +380,28 @@ Redis:
   SQL text, FYLO's own message (which names the root path) or the capability
   token. The handler's answer does not change: it still sees only
   "Yon managed resource operation failed."
+- When a storage command of a Yon handler takes 1 second or more, the
+  supervisor also writes one `handler.storage_slow` line (ADR 0128,
+  amendment 4):
+  `{"call_ms":40,"collection":null,"datasource":"fylo","event":"handler.storage_slow","operation":"document.insert","request_id":"...","result":"ok","startup_ms":7100,"wait_ms":7200}`.
+  - `wait_ms` is the time the call waited: for the FYLO process lock, for an
+    old FYLO process to exit, for a busy root (`EROOTLOCKED`), and for
+    start-up requests. `startup_ms` is the part of `wait_ms` spent in
+    start-up requests. `call_ms` is the rest of the call.
+  - `operation` is one fixed name, such as `save`, `query.find`,
+    `sql.rows`, `document.insert`, `queue.claim` or `redis.get`, or
+    `unknown`. `collection` is the table of a repository command, which
+    comes from the application's model, when it is a plain name (letters,
+    digits, `-`, `_`, `.`). It is `null` for document, queue and SQL
+    commands, whose collection or topic names handler code passes at run
+    time. `datasource` is the driver, or `redis`. `result` is `ok` or the
+    diagnostic code, such as `TY2160`.
+  - The line never holds stored data, SQL text, Redis keys or the token.
+  - `datasource.slowcall` sets the threshold in milliseconds (1 to 60000,
+    default 1000). `datasource.logcalls: true` also writes a
+    `handler.storage_call` line, with the same fields, for every other store
+    call; use it only while you debug. Both apply to every driver and to
+    Redis commands; the drivers themselves never see these two keys.
 - `YON_RESOURCE_ENDPOINT` and `YON_RESOURCE_TOKEN` are private outputs of the
   supervisor for one invocation. They are not application settings.
   - Do not write them in `.env`.
