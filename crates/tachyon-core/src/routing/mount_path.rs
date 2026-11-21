@@ -23,6 +23,7 @@ impl MountPath {
         ".tachyon/build-state.json",
     ];
     const DEPLOY_FOLDER: &'static str = "api-docs";
+    pub(crate) const APP_TABLE: &'static str = ".tachyon/app.json";
     const RUNTIME_ATTRIBUTES: [&'static str; 2] = ["src=\"/.tachyon/", "href=\"/.tachyon/"];
     const ATTRIBUTE_START: &'static str = "=\"";
     const SERVICES_FOLDER: &'static str = "/.tachyon/services/";
@@ -67,8 +68,13 @@ impl MountPath {
     pub(crate) fn bundled(&self, files: Vec<(PathBuf, Vec<u8>)>) -> Vec<(PathBuf, Vec<u8>)> {
         self.files(files)
             .into_iter()
-            .filter(|(path, _)| !Self::deploy_owned(path))
+            .filter(|(path, _)| !self.left_out_of_site(path))
             .collect()
+    }
+
+    pub(crate) fn app_file(&self, path: &Path) -> Option<PathBuf> {
+        let served = [self.kept(path), !Self::deploy_owned(path)] == [true, true];
+        served.then(|| self.placed(path.to_path_buf()))
     }
 
     pub(crate) fn contains_file(&self, path: &str) -> bool {
@@ -157,6 +163,11 @@ impl MountPath {
 
     fn stays(&self, path: &Path) -> bool {
         [Self::deploy_owned(path), path.starts_with(self.folder())].contains(&true)
+    }
+
+    fn left_out_of_site(&self, path: &Path) -> bool {
+        let app_table = self.folder().join(Self::APP_TABLE);
+        [Self::deploy_owned(path), path == app_table].contains(&true)
     }
 
     fn deploy_owned(path: &Path) -> bool {

@@ -70,6 +70,10 @@ impl MountedProject {
     fn read(root: &TempDir, relative: &str) -> String {
         fs::read_to_string(Self::output(root, relative)).expect(relative)
     }
+
+    fn table(root: &TempDir) -> serde_json::Value {
+        serde_json::from_str(&Self::read(root, "chat/.tachyon/app.json")).expect("asset table")
+    }
 }
 
 #[test]
@@ -106,6 +110,65 @@ fn a_shared_file_is_written_under_the_prefix() {
 fn a_mounted_app_writes_no_service_worker() {
     let root = MountedProject::built();
     assert!(!MountedProject::output(&root, "tachyon-sw.js").exists());
+}
+
+#[test]
+fn a_mounted_app_writes_its_asset_table_under_the_prefix() {
+    let root = MountedProject::built();
+    assert!(MountedProject::output(&root, "chat/.tachyon/app.json").is_file());
+}
+
+#[test]
+fn the_asset_table_names_the_tachyon_version() {
+    let root = MountedProject::built();
+    assert_eq!(
+        MountedProject::table(&root)["tachyon"],
+        serde_json::json!(env!("CARGO_PKG_VERSION"))
+    );
+}
+
+#[test]
+fn the_asset_table_lists_a_file_by_its_full_address() {
+    let root = MountedProject::built();
+    let table = MountedProject::table(&root);
+    assert!(
+        table["assets"]["/chat/.tachyon/tac-client.js"]["sha256"].is_string(),
+        "{table}"
+    );
+}
+
+#[test]
+fn the_asset_table_lists_the_index_page_by_its_folder() {
+    let root = MountedProject::built();
+    let table = MountedProject::table(&root);
+    assert!(table["assets"]["/chat/"].is_object(), "{table}");
+}
+
+#[test]
+fn the_asset_table_lists_no_deploy_file() {
+    let root = MountedProject::built();
+    let table = MountedProject::table(&root);
+    assert!(table["assets"]["/route-manifest.json"].is_null(), "{table}");
+}
+
+#[test]
+fn the_asset_table_lists_no_service_worker() {
+    let root = MountedProject::built();
+    let table = MountedProject::table(&root);
+    assert!(table["assets"]["/chat/tachyon-sw.js"].is_null(), "{table}");
+}
+
+#[test]
+fn the_asset_table_version_changes_with_the_app() {
+    let root = MountedProject::built();
+    let first = MountedProject::table(&root)["version"].clone();
+    MountedProject::write(
+        root.path(),
+        "client/components/page/item/tac.html",
+        "<main><h1>Changed item</h1></main>",
+    );
+    WebCompiler::build(root.path(), &MountedProject::options()).expect("rebuild");
+    assert_ne!(MountedProject::table(&root)["version"], first);
 }
 
 #[test]

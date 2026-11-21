@@ -98,3 +98,49 @@ native form of a site ships.
 - `ty bundle <shell> --shell-only` writes no app page and still writes
   `/.tachyon/apps.json`.
 - `ty start <shell>` serves an app's dynamic page.
+
+## Amendment (slice 5): one worker for separate deploys
+
+**Status:** Accepted.
+
+In the separate form the shell's worker now also keeps each page app's
+files, so a page app works offline and a new deploy of one app touches
+only that app.
+
+- **Asset table.** A page app built alone (`tac.mount`, outside `/`) writes
+  `<prefix>/.tachyon/app.json`: the TACHYON version it was built with, a
+  `version` hash of its files, and the asset table of its files under their
+  full addresses (such as `/chat/.tachyon/tac-client.js`). The table follows
+  the same size limits as the shell's table. A bundle leaves the app's
+  table out, because the shell's worker already lists every app file.
+- **The shell's worker** reads `/.tachyon/apps.json` and each listed app's
+  table at install, and again (network first) at each full page load inside
+  that app. It keeps the tables in the cache `tachyon-app-tables`, so it
+  can read them offline. A request under an app prefix uses that app's
+  table and the cache `tachyon-static-<prefix>@<version>`.
+- **Caches per app and version.** When an app's table names a new
+  version, the worker deletes only the older caches of that app. A new
+  shell worker deletes only the older shell caches
+  (`tachyon-static-<hash>`). An app that leaves `apps.json` loses its
+  caches. A new deploy of one app does not change the shell's worker, so it
+  reloads no open page.
+- **Servers.** `ty start` and `ty preview` treat a file listed in an app's
+  table as public, like a file in the shell's table.
+- **Version skew.** `/.tachyon/shell.json` names the TACHYON version of the
+  shell. A page app's document renders inside the shell only when its
+  `app.json` names the same version; otherwise it renders alone, and a link
+  to it from the shell loads the whole page. A bundle has no app table, so
+  this check passes there. After a TACHYON update, deploy every app again.
+
+### Acceptance (slice 5)
+
+- `ty bundle <app>` with `tac.mount` writes `<prefix>/.tachyon/app.json`
+  with the version, the hash and the full addresses; a bundle and the shell
+  write no app table.
+- `bun run test:service-worker-browser` checks a shell built with
+  `--shell-only` and a chat app deployed apart: the chat files are kept in
+  the chat cache, the chat page works offline, and a new chat deploy gets a
+  new chat cache, deletes the old one, keeps the shell cache and worker, and
+  reloads no page.
+- `bun run test:page-apps-browser` checks that a page app whose `app.json`
+  names another TACHYON version loads as a whole page and renders alone.

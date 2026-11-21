@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict'
 import { execFile } from 'node:child_process'
-import { cp, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -24,6 +24,7 @@ class PageAppsBrowserGate {
   static _repository = fileURLToPath(new URL('..', import.meta.url))
   static _fixture = 'crates/tachyon-core/tests/fixtures/tac-page-apps'
   static _shellScript = '/.tachyon/tac-shell.js'
+  static _otherTachyon = '0.0.0-other'
   static _plainFiles = {
     'client/manifest.json': '{"name":"Plain"}',
     'client/pages/tac.html': '<page-plain />',
@@ -89,6 +90,7 @@ class PageAppsBrowserGate {
         const origin = new URL((await request('/')).url).origin
         await PageAppsBrowserGate._checkChatDocument(request, deploy)
         for (const engine of engines) await PageAppsBrowserGate._runEngine(engine, origin, deploy)
+        if (deploy === 'separate') await PageAppsBrowserGate._runOtherTachyon(engines, origin, shell)
       })
     } finally {
       await rm(site, { recursive: true, force: true })
@@ -106,6 +108,38 @@ class PageAppsBrowserGate {
     await promisify(execFile)(binary, ['bundle', shell, '--shell-only'])
     await promisify(execFile)(binary, ['bundle', chat])
     await cp(path.join(chat, 'dist', 'web', 'chat'), path.join(shell, 'dist', 'web', 'chat'), { recursive: true })
+  }
+
+  /** @param {AppsEngine[]} engines @param {string} origin @param {string} shell @returns {Promise<void>} */
+  static async _runOtherTachyon(engines, origin, shell) {
+    await PageAppsBrowserGate._markOtherTachyon(shell)
+    for (const engine of engines) await PageAppsBrowserGate._checkOtherTachyon(engine, origin)
+  }
+
+  /** @param {string} shell @returns {Promise<void>} */
+  static async _markOtherTachyon(shell) {
+    const file = path.join(shell, 'dist', 'web', 'chat', '.tachyon', 'app.json')
+    const table = JSON.parse(await readFile(file, 'utf8'))
+    table.tachyon = PageAppsBrowserGate._otherTachyon
+    await writeFile(file, JSON.stringify(table))
+    await rm(`${file}.br`, { force: true })
+    await rm(`${file}.gz`, { force: true })
+  }
+
+  /** @param {AppsEngine} engine @param {string} origin @returns {Promise<void>} */
+  static async _checkOtherTachyon(engine, origin) {
+    const browser = await PageAppsBrowserGate._browserType(engine).launch({ timeout: PageAppsBrowserGate._launchTimeout })
+    try {
+      const page = await browser.newPage()
+      await PageAppsBrowserGate._checkShellLoad(page, origin)
+      await page.click('#to-chat')
+      const snapshot = await PageAppsBrowserGate._waitForHeading(page, 'Chat page')
+      assert.equal(snapshot.kept, false, 'a link to an app built with another TACHYON version loads the whole page')
+      assert.equal(snapshot.shell, '', 'an app built with another TACHYON version renders alone, without the shell')
+      console.log(JSON.stringify({ status: 'pass', engine, deploy: 'separate', check: 'other-tachyon-version' }))
+    } finally {
+      await browser.close()
+    }
   }
 
   /** @param {(path: string) => Promise<Response>} request @param {AppsDeploy} deploy @returns {Promise<void>} */

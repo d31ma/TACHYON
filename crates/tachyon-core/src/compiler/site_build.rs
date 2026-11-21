@@ -28,6 +28,7 @@ use super::web_push::WebPush;
 use super::yon_reads::YonReads;
 use super::{BuildOptions, BuildProfile, BuildResult, WebCompiler};
 use crate::failure::diagnostic;
+use crate::routing::MountPath;
 use crate::tac_web::{BuildJobs, BuiltServices};
 use crate::template::{
     ClientViewRenderer, ComponentRegistry, ServiceDefinition, ServiceRegistry, TemplateFrontend,
@@ -347,6 +348,8 @@ impl<'a> SiteBuild<'a> {
         let public_assets = ServiceWorker::assets_with_profile(&self.files, python_profile)?;
         self.service_notes
             .extend(ServiceWorker::offline_notes(&self.files, python_profile)?);
+        let app_table = self.app_table(&version, python_profile)?;
+        self.files.extend(app_table);
         let service_worker = WebCompiler::SERVICE_WORKER
             .replace("__VERSION__", &version)
             .replace("__CACHE_RULES__", cache_rules)
@@ -357,6 +360,19 @@ impl<'a> SiteBuild<'a> {
         let state = Self::pretty_json(&self.next_state, "incremental build state")?;
         self.add_file(".tachyon/build-state.json", state);
         Ok(())
+    }
+
+    fn app_table(
+        &self,
+        version: &str,
+        profile: Option<crate::tac_python::RuntimeProfile>,
+    ) -> Result<Option<(PathBuf, Vec<u8>)>, Failure> {
+        let mount = self.project.mount();
+        if mount.is_root() {
+            return Ok(None);
+        }
+        let table = ServiceWorker::app_table(&self.files, mount, version, profile)?;
+        Ok(Some((PathBuf::from(MountPath::APP_TABLE), table)))
     }
 
     pub(super) fn add_site_map_files(

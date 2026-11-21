@@ -137,6 +137,7 @@ impl ShellLayout {
             "node": element["node"],
             "services": element["services"],
             "saved": element.get("saved"),
+            "tachyon": env!("CARGO_PKG_VERSION"),
         });
         Self::check_outlets(name, &Self::serialized(&plan)?)?;
         Ok(Self {

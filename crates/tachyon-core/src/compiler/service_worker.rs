@@ -3,6 +3,7 @@ use super::content_digest::ContentDigest;
 use super::portable_path::PortablePath;
 use crate::Failure;
 use crate::failure::diagnostic;
+use crate::routing::MountPath;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
@@ -50,14 +51,64 @@ impl ServiceWorker {
         let mut assets = BTreeMap::new();
         Self::add_assets(files, &mut assets, profile)?;
         assets.values_mut().for_each(Value::sort_all_objects);
-        serde_json::to_string(&assets).map_err(|_| {
-            Failure::one(diagnostic(
-                1201,
-                "Cannot encode public asset fingerprints.",
-                None,
-                None,
-            ))
-        })
+        serde_json::to_string(&assets).map_err(|_| Self::encoding_failure())
+    }
+
+    pub(super) fn app_table(
+        files: &[(PathBuf, Vec<u8>)],
+        mount: &MountPath,
+        version: &str,
+        profile: Option<crate::tac_python::RuntimeProfile>,
+    ) -> Result<Vec<u8>, Failure> {
+        let placed = Self::placed_files(files, mount);
+        let mut assets = BTreeMap::new();
+        Self::add_placed_assets(&placed, &mut assets, profile)?;
+        assets.values_mut().for_each(Value::sort_all_objects);
+        let table = serde_json::json!({
+            "tachyon": env!("CARGO_PKG_VERSION"),
+            "version": version,
+            "assets": assets,
+        });
+        serde_json::to_vec(&table).map_err(|_| Self::encoding_failure())
+    }
+
+    fn placed_files<'f>(
+        files: &'f [(PathBuf, Vec<u8>)],
+        mount: &MountPath,
+    ) -> Vec<(String, &'f Path, &'f [u8])> {
+        files
+            .iter()
+            .filter_map(|(path, bytes)| Self::placed_file(mount, path, bytes))
+            .collect()
+    }
+
+    fn placed_file<'f>(
+        mount: &MountPath,
+        path: &'f Path,
+        bytes: &'f [u8],
+    ) -> Option<(String, &'f Path, &'f [u8])> {
+        let placed = mount.app_file(path)?;
+        Some((PortablePath::of(&placed), path, bytes))
+    }
+
+    fn add_placed_assets(
+        placed: &[(String, &Path, &[u8])],
+        assets: &mut BTreeMap<String, Value>,
+        profile: Option<crate::tac_python::RuntimeProfile>,
+    ) -> Result<(), Failure> {
+        for (served, source, bytes) in placed {
+            Self::add_served_asset(served, source, bytes, assets, profile)?;
+        }
+        Ok(())
+    }
+
+    fn encoding_failure() -> Failure {
+        Failure::one(diagnostic(
+            1201,
+            "Cannot encode public asset fingerprints.",
+            None,
+            None,
+        ))
     }
 
     pub(super) fn offline_notes(
@@ -141,9 +192,19 @@ impl ServiceWorker {
         profile: Option<crate::tac_python::RuntimeProfile>,
     ) -> Result<(), Failure> {
         let portable = PortablePath::of(path);
-        let ceiling = Self::ceiling(&portable, bytes, profile)?;
-        Self::add_bounded_asset(&portable, bytes, ceiling, assets);
-        Self::add_ceiling(&portable, bytes.len(), ceiling, assets);
+        Self::add_served_asset(&portable, path, bytes, assets, profile)
+    }
+
+    fn add_served_asset(
+        served: &str,
+        source: &Path,
+        bytes: &[u8],
+        assets: &mut BTreeMap<String, Value>,
+        profile: Option<crate::tac_python::RuntimeProfile>,
+    ) -> Result<(), Failure> {
+        let ceiling = Self::ceiling(&PortablePath::of(source), bytes, profile)?;
+        Self::add_bounded_asset(served, bytes, ceiling, assets);
+        Self::add_ceiling(served, bytes.len(), ceiling, assets);
         Ok(())
     }
 

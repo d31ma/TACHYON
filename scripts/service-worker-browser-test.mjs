@@ -4,7 +4,7 @@ import { CargoArtifacts } from './cargo-artifacts.mjs'
 import { chromium } from 'playwright';
 import { createServer } from 'node:https';
 import { spawnSync } from 'node:child_process';
-import { createReadStream, existsSync, mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync, rmSync } from 'node:fs';
+import { cpSync, createReadStream, existsSync, mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
@@ -124,8 +124,8 @@ function expect(actual, wanted, label) {
   else fail(`${label}: expected ${JSON.stringify(wanted)}, got ${JSON.stringify(actual)}`);
 }
 
-async function openContext(origin) {
-  const profile = path.join(WorkerGate.project, 'profile');
+async function openContext(origin, name = 'profile') {
+  const profile = path.join(WorkerGate.project, name);
   const context = await chromium.launchPersistentContext(profile, {
     ignoreHTTPSErrors: true,
     args: [
@@ -313,6 +313,127 @@ async function checkNoWorkerRegistration(context, origin, port) {
   } finally { await nativeContext.close(); }
 }
 
+class AppsDeploy {
+  static site = path.join(WorkerGate.project, 'apps-site');
+  static shell = path.join(AppsDeploy.site, 'home');
+  static chat = path.join(AppsDeploy.site, 'chat');
+  static served = path.join(AppsDeploy.shell, 'dist', 'web');
+  static table = path.join(AppsDeploy.served, 'chat', '.tachyon', 'app.json');
+}
+
+function writeAppsSite(chatTitle) {
+  const files = {
+    'home/client/manifest.json': JSON.stringify({ name: 'Home', tac: { apps: { '/chat': '../chat' } } }),
+    'home/client/pages/tac.html': '<home-page />\n',
+    'home/client/components/home/page/tac.html': '<main><h1 id="home-title">Home</h1><a id="to-chat" href="/chat/">Chat</a></main>\n',
+    'chat/client/manifest.json': JSON.stringify({ name: 'Chat', tac: { mount: '/chat' } }),
+    'chat/client/pages/tac.html': '<chat-page />\n',
+    'chat/client/components/chat/page/tac.html': `<main><h1 id="chat-title">${chatTitle}</h1></main>\n`,
+  };
+  for (const [relative, contents] of Object.entries(files)) {
+    const file = path.join(AppsDeploy.site, relative);
+    mkdirSync(path.dirname(file), { recursive: true });
+    writeFileSync(file, contents);
+  }
+}
+
+function bundle(args) {
+  const built = spawnSync(WorkerGate.binary, ['bundle', ...args], { encoding: 'utf8' });
+  if (built.status !== 0) {
+    console.error(built.stderr || built.stdout);
+    process.exit(1);
+  }
+}
+
+function deployChat(chatTitle) {
+  writeAppsSite(chatTitle);
+  bundle([AppsDeploy.chat]);
+  rmSync(path.join(AppsDeploy.served, 'chat'), { recursive: true, force: true });
+  cpSync(path.join(AppsDeploy.chat, 'dist', 'web', 'chat'), path.join(AppsDeploy.served, 'chat'), { recursive: true });
+  return JSON.parse(readFileSync(AppsDeploy.table, 'utf8')).version;
+}
+
+function createSiteServer(key, certificate, root) {
+  return createServer({ key: readFileSync(key), cert: readFileSync(certificate) }, (request, response) => {
+    let file = path.join(root, decodeURIComponent(request.url.split('?')[0]));
+    if (existsSync(file) && statSync(file).isDirectory()) file = path.join(file, 'index.html');
+    if (!existsSync(file)) { response.writeHead(404).end(); return; }
+    response.writeHead(200, { 'content-type': WorkerGate.mimeTypes[path.extname(file)] ?? 'application/octet-stream' });
+    createReadStream(file).pipe(response);
+  });
+}
+
+async function cacheNames(page) {
+  return page.evaluate(async () => (await caches.keys()).sort());
+}
+
+async function cachedPaths(page, name) {
+  return page.evaluate(async (name) => {
+    const cache = await caches.open(name);
+    return (await cache.keys()).map((request) => new URL(request.url).pathname).sort();
+  }, name);
+}
+
+async function waitForController(page) {
+  await page.evaluate(async () => {
+    await navigator.serviceWorker.ready;
+    if (navigator.serviceWorker.controller) return;
+    await new Promise((resolve) => {
+      navigator.serviceWorker.addEventListener('controllerchange', resolve, { once: true });
+      setTimeout(resolve, 5000);
+    });
+  });
+}
+
+async function checkPageApps(key, certificate) {
+  writeAppsSite('Chat one');
+  bundle([AppsDeploy.shell, '--shell-only']);
+  const first = deployChat('Chat one');
+  const server = createSiteServer(key, certificate, AppsDeploy.served);
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const origin = `https://${WorkerGate.host}:${server.address().port}`;
+  const context = await openContext(origin, 'apps-profile');
+  try {
+    const page = await context.newPage();
+    await page.goto(`${origin}/`, { waitUntil: 'networkidle' });
+    await waitForController(page);
+    await page.goto(`${origin}/chat/`, { waitUntil: 'networkidle' });
+    await page.reload({ waitUntil: 'networkidle' });
+    const firstCache = `tachyon-static-/chat@${first}`;
+    const names = await cacheNames(page);
+    expect(names.includes(firstCache), true, `the chat app has its own cache (${names.join(' ')})`);
+    const shellCache = names.find((name) => /^tachyon-static-[0-9a-f]+$/.test(name));
+    expect(Boolean(shellCache), true, 'the shell keeps its own cache');
+    const chatPaths = await cachedPaths(page, firstCache);
+    expect(chatPaths.includes('/chat/.tachyon/tac-client.js'), true, `the chat runtime is kept in the chat cache (${chatPaths.join(' ')})`);
+    await context.setOffline(true);
+    await page.reload({ waitUntil: 'load' });
+    await page.waitForFunction(() => document.getElementById('chat-title')?.textContent === 'Chat one', undefined, { timeout: 10_000 }).catch(() => {});
+    expect(await page.textContent('#chat-title'), 'Chat one', 'the separately deployed chat page works offline');
+    await context.setOffline(false);
+    const worker = await page.evaluate(() => navigator.serviceWorker.controller?.scriptURL ?? '');
+    const second = deployChat('Chat two');
+    let loads = 0;
+    const counted = () => { loads += 1; };
+    page.on('load', counted);
+    try {
+      await page.goto(`${origin}/chat/`, { waitUntil: 'networkidle' });
+      await page.waitForFunction(() => document.getElementById('chat-title')?.textContent === 'Chat two', undefined, { timeout: 10_000 }).catch(() => {});
+      await page.waitForTimeout(1500);
+      expect(await page.textContent('#chat-title'), 'Chat two', 'a new chat deploy shows at the next visit');
+      expect(loads, 1, 'a new chat deploy does not reload the page through the worker');
+    } finally { page.off('load', counted); }
+    const after = await cacheNames(page);
+    expect(after.includes(`tachyon-static-/chat@${second}`), true, `the new chat deploy gets a new cache (${after.join(' ')})`);
+    expect(after.includes(firstCache), false, 'the older chat cache is deleted');
+    expect(after.includes(shellCache), true, 'the shell cache stays when only chat changes');
+    expect(await page.evaluate(() => navigator.serviceWorker.controller?.scriptURL ?? ''), worker, 'the shell worker stays the same');
+  } finally {
+    await context.close();
+    await new Promise((resolve) => server.close(resolve));
+  }
+}
+
 async function main() {
   writeFixture();
   buildFixture();
@@ -334,6 +455,7 @@ async function main() {
     await checkOfflineDocument(page, context);
     await checkDeployReload(page, origin);
     await checkNoWorkerRegistration(context, origin, port);
+    await checkPageApps(key, certificate);
   } finally {
     await context.close();
     await new Promise((resolve) => server.close(resolve));

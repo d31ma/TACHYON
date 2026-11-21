@@ -38,6 +38,9 @@ mod preview_server;
 mod preview_server_options;
 mod protocol_request;
 mod public_assets;
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod public_assets_tests;
 mod route_guard;
 mod route_invocation;
 mod server_kind;

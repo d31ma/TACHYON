@@ -186,11 +186,19 @@ tachyon-component, tachyon-island { display: block; }\n";
     const SERVICE_WORKER: &str = r"const VERSION = '__VERSION__'
 const CACHE = 'tachyon-static-' + VERSION
 const PREFIX = 'tachyon-static-'
+const SHELL_CACHE = /^tachyon-static-[0-9a-f]+$/
+const APP_CACHE = /^tachyon-static-(\/[^@]+)@/
+const TABLES = 'tachyon-app-tables'
+const APP_LIST = '/.tachyon/apps.json'
+const APP_TABLE = '/.tachyon/app.json'
 const RULES = (__CACHE_RULES__).map((rule) => ({ ...rule, match: new RegExp(rule.pattern) }))
 const ASSETS = __PUBLIC_ASSETS__
+const SHELL = { cache: CACHE, assets: ASSETS }
 const MAX_ENTRIES = 256
 const MAX_BYTES = 32 * 1024 * 1024
 const MAX_AGE = 24 * 60 * 60 * 1000
+const tables = new Map()
+let listed = null
 let writes = Promise.resolve()
 let pendingWrites = 0
 const waitingWrites = []
@@ -206,6 +214,12 @@ const publicResponse = (response) => response && response.ok && !response.redire
   && response.type !== 'opaque' && response.type !== 'opaqueredirect'
   && !/(?:^|,)\s*(?:private|no-store)\b/i.test(response.headers.get('cache-control') || '')
   && variesOnlyByEncoding(response)
+const appCache = (prefix, version) => PREFIX + prefix + '@' + version
+const inApp = (path, prefix) => path === prefix || path.startsWith(prefix + '/')
+const validList = (list) => Array.isArray(list?.apps)
+  && list.apps.every((prefix) => typeof prefix === 'string' && /^(\/[a-z0-9-]+)+$/.test(prefix))
+const validTable = (table) => typeof table?.version === 'string' && /^[0-9a-f]+$/.test(table.version)
+  && table.assets !== null && typeof table.assets === 'object'
 
 async function bodyBytes(response, limit) {
   const reader = response.body?.getReader()
@@ -233,16 +247,85 @@ async function matchesAsset(bytes, asset) {
   const digest = await bounded(crypto.subtle.digest('SHA-256', bytes))
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('') === asset.sha256
 }
-async function evict(request) {
-  try { const cache = await bounded(caches.open(CACHE)); await bounded(cache.delete(request)) } catch {}
+async function evict(request, place) {
+  try { const cache = await bounded(caches.open(place.cache)); await bounded(cache.delete(request)) } catch {}
 }
 
-self.addEventListener('install', (event) => { event.waitUntil(self.skipWaiting()) })
+async function freshJson(url) {
+  const response = await fetch(url, { cache: 'no-store', credentials: 'omit' })
+  if (response.status === 404) { await forgetJson(url); return null }
+  if (!response.ok) throw new Error('app table unavailable')
+  const text = await response.text()
+  const value = JSON.parse(text)
+  try { const cache = await bounded(caches.open(TABLES)); await bounded(cache.put(url, new Response(text))) } catch {}
+  return value
+}
+async function storedJson(url) {
+  try {
+    const cache = await bounded(caches.open(TABLES))
+    const response = await bounded(cache.match(url))
+    return response ? JSON.parse(await response.text()) : null
+  } catch { return null }
+}
+async function forgetJson(url) {
+  try { const cache = await bounded(caches.open(TABLES)); await bounded(cache.delete(url)) } catch {}
+}
+async function readJson(url, fresh) {
+  if (fresh) { try { return await freshJson(url) } catch {} }
+  return storedJson(url)
+}
+
+async function appList(fresh) {
+  if (listed && !fresh) return listed
+  const list = await readJson(APP_LIST, fresh)
+  listed = validList(list) ? list.apps : []
+  return listed
+}
+async function appTable(prefix, fresh) {
+  if (tables.has(prefix) && !fresh) return tables.get(prefix)
+  const table = await readJson(prefix + APP_TABLE, fresh)
+  if (!validTable(table)) { tables.delete(prefix); return null }
+  tables.set(prefix, table)
+  if (fresh) await dropOlderAppCaches(prefix, table.version)
+  return table
+}
+async function dropOlderAppCaches(prefix, version) {
+  const current = appCache(prefix, version)
+  try {
+    for (const name of await caches.keys())
+      if (name.startsWith(PREFIX + prefix + '@') && name !== current) await caches.delete(name)
+  } catch {}
+}
+async function dropRemovedApps(list) {
+  try {
+    for (const name of await caches.keys()) {
+      const prefix = APP_CACHE.exec(name)?.[1]
+      if (prefix && !list.includes(prefix)) { await caches.delete(name); await forgetJson(prefix + APP_TABLE) }
+    }
+  } catch {}
+}
+async function refreshApps() {
+  const list = await appList(true)
+  await dropRemovedApps(list)
+  await Promise.all(list.map((prefix) => appTable(prefix, true)))
+}
+async function placeOf(url, navigate) {
+  if (Object.hasOwn(ASSETS, url.pathname)) return SHELL
+  try {
+    const prefix = (await appList(false)).find((app) => inApp(url.pathname, app))
+    const table = prefix ? await appTable(prefix, navigate) : null
+    return table ? { cache: appCache(prefix, table.version), assets: table.assets } : SHELL
+  } catch { return SHELL }
+}
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(Promise.all([self.skipWaiting(), refreshApps().catch(() => {})]))
+})
 
 self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
     for (const name of await caches.keys())
-      if (name.startsWith(PREFIX) && name !== CACHE) await caches.delete(name)
+      if (SHELL_CACHE.test(name) && name !== CACHE) await caches.delete(name)
     await self.clients.claim()
   })())
 })
@@ -259,25 +342,30 @@ self.addEventListener('fetch', (event) => {
   }
 
   if (request.method === 'HEAD') return
+  event.respondWith(answer(request, url))
+})
 
+async function answer(request, url) {
+  const place = await placeOf(url, request.mode === 'navigate')
   const rule = RULES.find((candidate) => candidate.match.test(url.pathname))
-  const asset = !url.search && Object.hasOwn(ASSETS, url.pathname) ? ASSETS[url.pathname] : null
+  const asset = !url.search && Object.hasOwn(place.assets, url.pathname) ? place.assets[url.pathname] : null
   if (request.cache === 'no-store' || request.headers.has('authorization')
       || request.headers.has('range') || rule?.policy === 'no-store'
       || (!asset && (!rule || request.credentials !== 'omit'))) {
-    event.respondWith((async () => { await evict(request); return fetch(request) })())
-    return
+    await evict(request, place)
+    return fetch(request)
   }
   const revalidate = !asset && request.cache === 'no-cache'
   const cacheFirst = !revalidate && (rule ? rule.policy === 'cache-first' : request.mode !== 'navigate')
-  event.respondWith(cacheFirst ? fromCache(request, asset) : fromNetwork(request, asset))
-})
+  return cacheFirst ? fromCache(request, asset, place) : fromNetwork(request, asset, place)
+}
 
 async function writeThrough(request, url) {
   const response = await fetch(request)
   if (!response.ok) return response
   try {
-    const cache = await bounded(caches.open(CACHE))
+    const place = await placeOf(url, false)
+    const cache = await bounded(caches.open(place.cache))
     for (const entry of await bounded(cache.keys())) {
       const path = new URL(entry.url).pathname
       if (path === url.pathname || url.pathname.startsWith(path + '/')) await bounded(cache.delete(entry))
@@ -286,9 +374,9 @@ async function writeThrough(request, url) {
   return response
 }
 
-async function cacheRead(request, asset) {
+async function cacheRead(request, asset, place) {
   try {
-    const cache = await bounded(caches.open(CACHE))
+    const cache = await bounded(caches.open(place.cache))
     const response = await bounded(cache.match(request))
     if (!response) return null
     const created = Number(response.headers.get('x-tachyon-cached-at'))
@@ -311,13 +399,13 @@ async function writeSlot(asset) {
   return true
 }
 
-async function cacheWrite(request, response, asset) {
-  if (!publicResponse(response)) { await evict(request); return }
+async function cacheWrite(request, response, asset, place) {
+  if (!publicResponse(response)) { await evict(request, place); return }
   const copy = response.clone()
   if (!await writeSlot(asset)) { void copy.body?.cancel().catch(() => {}); return }
   try {
     const bytes = await bodyBytes(copy, asset ? (asset.bodyLimit ?? 4 * 1024 * 1024) : 256 * 1024)
-    if (asset && !await matchesAsset(bytes, asset)) { await evict(request); return }
+    if (asset && !await matchesAsset(bytes, asset)) { await evict(request, place); return }
     const headers = new Headers(response.headers)
     headers.delete('content-encoding')
     headers.set('content-length', String(bytes.byteLength))
@@ -325,12 +413,12 @@ async function cacheWrite(request, response, asset) {
     headers.set('x-tachyon-cached-at', String(Date.now()))
     const stored = new Response(bytes, { status: response.status, statusText: response.statusText, headers })
     writes = writes.catch(() => {}).then(async () => {
-      const cache = await bounded(caches.open(CACHE))
+      const cache = await bounded(caches.open(place.cache))
       const entries = await bounded(cache.keys())
       let size = bytes.byteLength
       for (const entry of entries) {
         const existing = await bounded(cache.match(entry))
-        const known = ASSETS[new URL(entry.url).pathname]
+        const known = place.assets[new URL(entry.url).pathname]
         size += Number(existing?.headers.get('x-tachyon-cache-bytes')) || known?.bytes || MAX_BYTES
       }
       if (entries.length >= MAX_ENTRIES || size > MAX_BYTES)
@@ -338,25 +426,25 @@ async function cacheWrite(request, response, asset) {
       await bounded(cache.put(request, stored))
     })
     await writes
-  } catch { await evict(request) }
+  } catch { await evict(request, place) }
   finally { pendingWrites -= 1; waitingWrites.shift()?.() }
 }
 
-async function fromCache(request, asset) {
-  return (await cacheRead(request, asset)) || fromNetwork(request, asset)
+async function fromCache(request, asset, place) {
+  return (await cacheRead(request, asset, place)) || fromNetwork(request, asset, place)
 }
 
-async function fromNetwork(request, asset) {
+async function fromNetwork(request, asset, place) {
   let response
   try {
     response = await fetch(new Request(request, { cache: 'no-store', ...(asset ? { credentials: 'omit' } : {}) }))
   } catch (error) {
     if (request.signal.aborted) throw error
-    const cached = await cacheRead(request, asset)
+    const cached = await cacheRead(request, asset, place)
     if (cached) return cached
     throw error
   }
-  await bounded(cacheWrite(request, response, asset)).catch(() => {})
+  await bounded(cacheWrite(request, response, asset, place)).catch(() => {})
   return response
 }
 ";
