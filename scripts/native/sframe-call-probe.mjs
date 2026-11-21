@@ -4,6 +4,7 @@ export class SframeCallProbe {
   static PREFIX = 'Call: '
   static CHECKING = 'checking'
   static LABEL = 'Call'
+  static CANVAS = 'pattern'
   static KEY_ID = 7
   static KEY_NAME = 'call-key'
   static SAME_SECRET = SframeCallProbe.secret(1)
@@ -26,6 +27,7 @@ export class SframeCallProbe {
     const manifest = PeersNativeProbe.manifest({ id: settings.id, name: settings.name, iceServers: relay.iceServers, relayOnly: relay.relayOnly, permissions: { microphone: SframeCallProbe.MICROPHONE_REASON } })
     manifest.tac.browserApis = ['peers', 'crypto', 'microphone']
     manifest.tac.yon = { origin: settings.mailbox }
+    manifest.tac.names = { words: ['crypto'] }
     return manifest
   }
 
@@ -33,17 +35,17 @@ export class SframeCallProbe {
   static files(settings) {
     return {
       'client/manifest.json': JSON.stringify(SframeCallProbe.manifest(settings)),
-      'client/pages/tac.html': '<sframe-call hydrate="load" />\n',
-      'client/components/sframe/call/tac.html': `<main aria-label="${SframeCallProbe.LABEL}"><p>{sframeCall.report}</p></main>\n`,
-      'client/shared/sframe-call.js': SframeCallProbe.pageModule(),
-      'client/services/SframeCallService.js': SframeCallProbe.service(),
+      'client/pages/tac.html': '<frame-call hydrate="load" />\n',
+      'client/components/frame/call/tac.html': `<main aria-label="${SframeCallProbe.LABEL}"><p>{frameCall.report}</p><canvas id="${SframeCallProbe.CANVAS}" width="320" height="240"></canvas></main>\n`,
+      'client/shared/frame-call.js': SframeCallProbe.pageModule(),
+      'client/services/FrameCallService.js': SframeCallProbe.service(),
     }
   }
 
   static service() {
-    return `import { SframeCall } from '/shared/sframe-call.js';
+    return `import { FrameCall } from '/shared/frame-call.js';
 @Service()
-export default class SframeCallService {
+export default class FrameCallService {
   static _PREFIX = ${JSON.stringify(SframeCallProbe.PREFIX)};
   static _USERNAME = ${JSON.stringify(PeersNativeProbe.TURN_USER)};
   static _CREDENTIAL = ${JSON.stringify(PeersNativeProbe.TURN_SECRET)};
@@ -58,13 +60,13 @@ export default class SframeCallService {
   crypto;
   @Needs
   taskScheduler;
-  report = SframeCallService._PREFIX + ${JSON.stringify(SframeCallProbe.CHECKING)};
+  report = FrameCallService._PREFIX + ${JSON.stringify(SframeCallProbe.CHECKING)};
   _call = null;
 
   @OnStart()
   initialize() {
-    this._call = new SframeCall({ peers: this.peers, media: this.media, crypto: this.crypto }, (text) => this._show(text));
-    this._call.start(SframeCallService._USERNAME, SframeCallService._CREDENTIAL);
+    this._call = new FrameCall({ peers: this.peers, media: this.media, crypto: this.crypto }, (text) => this._show(text));
+    this._call.start(FrameCallService._USERNAME, FrameCallService._CREDENTIAL);
   }
 
   /** @param {CryptoKeyMade} made */
@@ -76,7 +78,7 @@ export default class SframeCallService {
   /** @param {CryptoFailed} failed */
   @OnEvent
   hearCryptoFailed(failed) {
-    this._call.failed('crypto ' + failed.call + ' ' + failed.reason);
+    this._call.failed('crypto', failed.call, failed.reason);
   }
 
   /** @param {MediaFrameKeyReady} ready */
@@ -100,7 +102,7 @@ export default class SframeCallService {
   /** @param {MediaFailed} failed */
   @OnEvent
   hearMediaFailed(failed) {
-    this._call.failed('media ' + failed.call + ' ' + failed.reason);
+    this._call.failed('media', failed.call, failed.reason);
   }
 
   /** @param {PeerDescription} described */
@@ -124,12 +126,12 @@ export default class SframeCallService {
   /** @param {PeerFailed} failed */
   @OnEvent
   hearPeerFailed(failed) {
-    this._call.failed('peers ' + failed.call + ' ' + failed.reason);
+    this._call.failed('peers', failed.call, failed.reason);
   }
 
   /** @param {string} text */
   _show(text) {
-    this.report = SframeCallService._PREFIX + text;
+    this.report = FrameCallService._PREFIX + text;
     void this.taskScheduler.render();
   }
 }
@@ -137,15 +139,16 @@ export default class SframeCallService {
   }
 
   static pageModule() {
-    return `export class SframeCall {
+    return `export class FrameCall {
   static KEY_ID = ${SframeCallProbe.KEY_ID};
   static KEY_NAME = ${JSON.stringify(SframeCallProbe.KEY_NAME)};
-  static SECRET = ${JSON.stringify(SframeCallProbe.SAME_SECRET)};
+  static SEED = ${JSON.stringify(SframeCallProbe.SAME_SECRET)};
   static ENOUGH = ${SframeCallProbe.ENOUGH_FRAMES};
   static WATCH = ${SframeCallProbe.WATCH_MS};
   static WAIT = ${SframeCallProbe.WAIT_MS};
   static POLL = ${SframeCallProbe.POLL_MS};
   static SECOND = 1000;
+  static CANVAS = ${JSON.stringify(SframeCallProbe.CANVAS)};
 
   constructor(services, show) {
     this.peers = services.peers;
@@ -164,27 +167,38 @@ export default class SframeCallService {
   start(username, credential) {
     this.username = username;
     this.credential = credential;
-    setTimeout(() => this.finish('timeout after ' + (this.states.join(' ') || 'no state change')), SframeCall.WAIT);
+    this.step('started');
+    setTimeout(() => this.finish('timeout after ' + (this.states.join(' ') || 'no state change')), FrameCall.WAIT);
     try {
-      this.crypto.importKey(SframeCall.KEY_NAME, SframeCall.SECRET, 'derive', false);
+      this.crypto.importKey(FrameCall.KEY_NAME, FrameCall.SEED, 'derive', false);
     } catch (error) {
       this.finish('error ' + String(error && error.message || error));
     }
   }
 
   keyMade(made) {
-    if (made.key !== SframeCall.KEY_NAME || this.connection) return;
+    if (made.key !== FrameCall.KEY_NAME || this.connection) return;
+    this.step('key made');
+    try {
+      this.open();
+    } catch (error) {
+      this.failed('setup', 'open', String(error && error.message || error));
+    }
+  }
+
+  open() {
     this.connection = this.peers.open(this.username, this.credential);
-    const stream = SframeCall.pattern();
-    SframeCall.raw(this.connection).addTrack(stream.getVideoTracks()[0], stream);
+    const stream = FrameCall.pattern();
+    FrameCall.raw(this.connection).addTrack(stream.getVideoTracks()[0], stream);
     this.media.encryptFrames(this.connection, true);
-    this.media.useFrameKey(SframeCall.KEY_ID, SframeCall.KEY_NAME);
+    this.media.useFrameKey(FrameCall.KEY_ID, FrameCall.KEY_NAME);
   }
 
   keyReady(ready) {
     this.note('MediaFrameKeyReady');
     if (this.offered) return;
     this.offered = true;
+    this.step('key ready');
     this.media.sendFrameKey(ready.keyId);
     this.peers.offer(this.connection);
     void this.listen();
@@ -192,6 +206,7 @@ export default class SframeCallService {
 
   described(description) {
     if (description.connection !== this.connection || description.kind !== 'offer') return;
+    this.step('offer sent');
     void this.post({ type: 'offer', sdp: description.sdp });
   }
 
@@ -209,15 +224,15 @@ export default class SframeCallService {
     this.events.add(name);
   }
 
-  failed(text) {
-    this.finish('failed ' + text);
+  failed(area, call, reason) {
+    this.finish(['failed', area, call, reason].join(' '));
   }
 
   async listen() {
     while (!this.done) {
       const answer = await fetch(this.origin + '/to-app');
       for (const message of await answer.json()) this.take(message);
-      await SframeCall.wait(SframeCall.POLL);
+      await FrameCall.wait(FrameCall.POLL);
     }
   }
 
@@ -233,11 +248,12 @@ export default class SframeCallService {
   async watch() {
     if (this.watching) return;
     this.watching = true;
-    const end = Date.now() + SframeCall.WATCH;
+    this.step('connected');
+    const end = Date.now() + FrameCall.WATCH;
     let frames = 0;
-    while (Date.now() < end && frames < SframeCall.ENOUGH) {
-      await SframeCall.wait(SframeCall.SECOND);
-      frames = await SframeCall.decoded(SframeCall.raw(this.connection));
+    while (Date.now() < end && frames < FrameCall.ENOUGH) {
+      await FrameCall.wait(FrameCall.SECOND);
+      frames = await FrameCall.decoded(FrameCall.raw(this.connection));
     }
     this.finish('done decoded=' + frames + ' events=' + Array.from(this.events).sort().join(','));
   }
@@ -246,6 +262,15 @@ export default class SframeCallService {
     if (this.done) return;
     this.done = true;
     this.show(text);
+    this.report({ type: 'result', text });
+  }
+
+  step(text) {
+    this.report({ type: 'step', text });
+  }
+
+  report(message) {
+    void fetch(this.origin + '/to-test', { method: 'POST', body: JSON.stringify(message) });
   }
 
   static raw(connection) {
@@ -253,10 +278,7 @@ export default class SframeCallService {
   }
 
   static pattern() {
-    const canvas = document.createElement('canvas');
-    canvas.width = 320;
-    canvas.height = 240;
-    document.body.appendChild(canvas);
+    const canvas = FrameCall.canvas();
     const paint = canvas.getContext('2d');
     let tick = 0;
     setInterval(() => {
@@ -267,6 +289,16 @@ export default class SframeCallService {
       paint.fillText(String(tick), 20 + tick % 200, 120);
     }, 33);
     return canvas.captureStream(30);
+  }
+
+  static canvas() {
+    const found = document.getElementById(FrameCall.CANVAS);
+    if (found) return found;
+    for (const element of document.querySelectorAll('*')) {
+      const inside = element.shadowRoot && element.shadowRoot.getElementById(FrameCall.CANVAS);
+      if (inside) return inside;
+    }
+    throw new Error('no test pattern canvas');
   }
 
   static async decoded(peer) {

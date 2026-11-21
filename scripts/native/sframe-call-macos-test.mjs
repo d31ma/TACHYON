@@ -16,7 +16,6 @@ class MacOsSframeCallTest {
   static binary = process.env.TAC_BIN ?? CargoArtifacts.path('debug/ty')
   static temporary = mkdtempSync(path.join(tmpdir(), 'tachyon-sframe-call-macos-'))
   static project = path.join(MacOsSframeCallTest.temporary, 'project')
-  static helper = path.join(MacOsSframeCallTest.temporary, 'accessibility')
   static processName = `TachyonCall${process.pid}`
   static bundleIdentifier = `dev.tachyon.sframe-call.g${process.pid}`
   static template = (name) => path.join(MacOsSframeCallTest.repository, 'crates/tachyon-core/src/template', name)
@@ -39,13 +38,15 @@ class MacOsSframeCallTest {
 
   /** @param {number} turnPort */
   static async mailbox(turnPort) {
-    const boxes = { '/to-app': [], '/to-browser': [] }
+    const boxes = { '/to-app': [], '/to-browser': [], '/to-test': [] }
     const scripts = {}
     for (const [route, name] of Object.entries(MacOsSframeCallTest.scripts)) scripts[route] = readFileSync(MacOsSframeCallTest.template(name), 'utf8')
     const page = SframeCallProbe.browserPage(turnPort)
     const server = createServer((request, response) => MacOsSframeCallTest.answer(request, response, { boxes, scripts, page }))
     await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
-    server.reset = () => { boxes['/to-app'].length = 0; boxes['/to-browser'].length = 0 }
+    server.reset = () => { for (const box of Object.values(boxes)) box.length = 0 }
+    server.appResult = () => boxes['/to-test'].find((message) => message.type === 'result')?.text ?? ''
+    server.appSteps = () => boxes['/to-test'].filter((message) => message.type === 'step').map((message) => message.text).join(', ')
     return server
   }
 
@@ -74,10 +75,6 @@ class MacOsSframeCallTest {
     }
   }
 
-  static compileHelper() {
-    MacOsSframeCallTest.run('/usr/bin/xcrun', ['swiftc', '-O', '-framework', 'AppKit', '-framework', 'ApplicationServices', path.join(MacOsSframeCallTest.repository, 'scripts/phase4-macos-accessibility.swift'), '-o', MacOsSframeCallTest.helper])
-  }
-
   static build() {
     MacOsSframeCallTest.run(MacOsSframeCallTest.binary, ['build', MacOsSframeCallTest.project, '--target', 'macos'])
     const app = path.join(MacOsSframeCallTest.project, 'dist/macos', `${MacOsSframeCallTest.processName}.app`)
@@ -85,21 +82,13 @@ class MacOsSframeCallTest {
     return path.join(app, 'Contents/MacOS', MacOsSframeCallTest.processName)
   }
 
-  static read() {
-    const result = spawnSync(MacOsSframeCallTest.helper, [MacOsSframeCallTest.processName], { encoding: 'utf8', timeout: 30000 })
-    if (result.status !== 0) return ''
-    const element = JSON.parse(result.stdout).elements.find(candidate => candidate.value?.startsWith(SframeCallProbe.PREFIX))
-    return element ? element.value.slice(SframeCallProbe.PREFIX.length) : ''
-  }
-
-  static async appResult() {
-    let text = ''
+  static async appResult(mailbox) {
     for (let round = 0; round < MacOsSframeCallTest.waitRounds; round++) {
-      text = MacOsSframeCallTest.read()
-      if (text && text !== SframeCallProbe.CHECKING) return text
+      const text = mailbox.appResult()
+      if (text) return text
       await MacOsSframeCallTest.pause(MacOsSframeCallTest.waitStep)
     }
-    return text || 'no result in the Accessibility tree'
+    return `the app posted no result (steps: ${mailbox.appSteps() || 'none'})`
   }
 
   /** @param {string} text */
@@ -123,7 +112,7 @@ class MacOsSframeCallTest {
     try {
       await page.goto(`http://127.0.0.1:${mailbox.address().port}/?key=${key}`)
       app = spawn(executable, [], { stdio: 'ignore' })
-      const native = MacOsSframeCallTest.parsed(await MacOsSframeCallTest.appResult())
+      const native = MacOsSframeCallTest.parsed(await MacOsSframeCallTest.appResult(mailbox))
       const web = await MacOsSframeCallTest.browserFrames(page, expectFrames)
       return { native, web }
     } finally {
@@ -149,7 +138,6 @@ class MacOsSframeCallTest {
     let browser
     try {
       MacOsSframeCallTest.stage(turnPort, `http://127.0.0.1:${mailbox.address().port}`)
-      MacOsSframeCallTest.compileHelper()
       const executable = MacOsSframeCallTest.build()
       browser = await chromium.launch()
       const same = await MacOsSframeCallTest.call({ browser, mailbox, executable, key: 'same', expectFrames: true })
