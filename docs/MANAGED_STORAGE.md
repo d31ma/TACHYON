@@ -221,6 +221,12 @@ With `"lease": "call"`:
   own backoff (pauses of up to 200 ms) until only the reserve is left. Then
   it answers `EROOTLOCKED` and changes nothing. The 2-second wait of the
   `"server"` lease is not used.
+- `@AllOrNothing` does not work with `"lease": "call"`. A FYLO transaction
+  lives only inside the one `fylo` process that started it, and each
+  request is a new process. So Tachyon refuses `@AllOrNothing` on such a
+  datasource with a clear `TY` error: when it builds the app if it can see
+  the lease, otherwise when the transaction begins (ADR 0128 amendment 4).
+  Keep the default `"lease": "server"` for handlers that need it.
 - Requests of one server still run one after another, so patch combining
   works as with `"server"`. A patch is one `patchDoc` process and then one
   `getDoc` process, so another container may change the document between

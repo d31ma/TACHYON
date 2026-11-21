@@ -92,6 +92,15 @@ marked "not qualified", and refused on a network file system.
      workspace forbids unsafe code, so Tachyon reads the mount table instead
      of calling `statfs`. FYLO itself accepted an NFS root on macOS when
      this was tested, so the check is Tachyon's.
+8. **No transaction across requests.** A FYLO transaction handle is valid
+   only inside the `fylo` process that gave it (FYLO `api/store/v1`;
+   another process answers `ETXNUNKNOWN`). With `"lease": "call"` every
+   request is its own process, so a transaction cannot last from one
+   request to the next. `@AllOrNothing` on a FYLO datasource with
+   `"lease": "call"` is therefore refused with a clear `TY` error: at build
+   time where Tachyon can see the datasource's lease, otherwise at run time
+   when the transaction begins (ADR 0128 amendment 4). Use the default
+   `"lease": "server"` for handlers that need `@AllOrNothing`.
 
 ## Consequences
 
