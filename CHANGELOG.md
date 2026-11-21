@@ -622,6 +622,10 @@ machine contracts have their own, independent major versions.
   guard's error, so the route answered that method's status instead of 422.
   Now the 422 follows, and a `CheckRejected` method can shape it. A method
   that names the guard's own error type still takes it.
+- **`dataSource.collectionExists(name)` no longer reads the whole collection**
+  (ADR 0128, amendment 3). On FYLO it sends `findDocs` with `$limit` 1
+  instead of `inspectCollection`, which read every document: on 700
+  documents, 3 files instead of 704. The answers are the same.
 - **The store deadline of a handler answer is now a store-time budget**
   (ADR 0128, amendment 3). Only the time while at least one store call of
   the answer runs counts against `timeout`; time outside store calls, such

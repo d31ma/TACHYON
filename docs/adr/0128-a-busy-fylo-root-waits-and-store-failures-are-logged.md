@@ -367,6 +367,25 @@ waited for the FYLO process or worked.
    the server drops because the handler gave up or the invocation ended
    still writes its `handler.storage_slow` or `handler.storage_call` line,
    with its real times and `"result":"cancelled"`.
+17. **`collectionExists` reads one document, not the whole collection.**
+   `inspectCollection` reads every document of the collection to count them:
+   on a collection of 700 documents it read 704 files and took 91 ms, and
+   the time grows with the collection, so Mesail's check on every read could
+   spend the store budget by itself. Now `collectionExists` sends `findDocs`
+   with `{"$limit": 1}`. An answer, empty or not, means the collection
+   exists; only the code `ENATIVE_NOT_FOUND` (FYLO's answer for a missing
+   collection) means it does not; any other error fails the call. On the
+   same 700 documents it read 3 files (1 document) and took 3 ms (FYLO
+   26.45.07, macOS, files counted by their access times; both calls listed
+   the same 47 folders). FYLO measured a cold disk: on 650 documents,
+   `findDocs` with `$limit` 1 touched 22 files (the shard folders, one
+   document, the catalog entry and `state.json`, no index), about 0.5 s at
+   10 ms per read, against about 700 reads (about 7 s) for
+   `inspectCollection`. When FYLO ships its own catalog-only exists
+   operation, Tachyon switches to it. The log name stays
+   `document.collectionExists`, and a deadline message now names `findDocs`.
+   Decision 8 still holds: an application should not check its collections
+   on every read.
 
 ### Consequences
 

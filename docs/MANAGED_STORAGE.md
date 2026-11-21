@@ -248,7 +248,7 @@ below; Python, Ruby and Rust write them in snake case, C# and Go in Pascal case:
 | `scroll(collection, where, cursor, size)` | one `findDocs`, then pages | `{content, nextCursor}`. |
 | `createCollection(name)` | `createCollection` | `true`; it already existing is fine. |
 | `dropCollection(name)` | `dropCollection` | `true`, or `false` when there was none. |
-| `collectionExists(name)` | `inspectCollection` | `true` or `false`. |
+| `collectionExists(name)` | `findDocs` with `$limit` 1 | `true` or `false`; reads at most one document. |
 | `publish(topic, payload, key)` | `queuePublish` | The message id; the same key and payload answer the first id. |
 | `claim(topic, group, maxMessages, leaseMs)` | `queueClaim` | Up to 100 deliveries `{id, receipt, attempt, payload}`. |
 | `ack(topic, group, delivery)` | `queueAck` | `true`. |

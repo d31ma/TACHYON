@@ -53,6 +53,21 @@ fn fylo_request(root: &Path, request: &Value) -> Value {
     answer["result"].clone()
 }
 
+fn fylo_error_code(root: &Path, collection: &str) -> String {
+    let request = json!({"op": "findDocs", "collection": collection, "query": {"$limit": 1}});
+    let output = std::process::Command::new("fylo")
+        .args(["exec", "--request", &request.to_string(), "--root"])
+        .arg(root)
+        .output()
+        .expect("fylo request");
+    let answer: Value = serde_json::from_slice(&output.stdout).expect("fylo answer");
+    assert_eq!(answer["ok"], json!(false), "{answer}");
+    answer["error"]["code"]
+        .as_str()
+        .unwrap_or_default()
+        .to_owned()
+}
+
 fn base36(mut number: u128) -> String {
     let digits = b"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     let mut text = Vec::new();
@@ -179,6 +194,35 @@ async fn fylo_documents_round_trip_in_a_hyphenated_collection() {
         json!({"operation":"document","command":"createCollection","collection":"../etc"});
     assert!(is_rejected(&store, &unsafe_name).await);
     store.close().await;
+}
+
+#[tokio::test]
+async fn collection_exists_answers_for_filled_empty_dropped_and_missing_collections() {
+    if !fylo_runs_here() {
+        return;
+    }
+    let directory = tempfile::tempdir().expect("root");
+    let root = canonical_root(&directory);
+    write_many_documents(&root, 700);
+    assert_eq!(fylo_error_code(&root, "hd-missing"), "ENATIVE_NOT_FOUND");
+    let store = fylo_store(&root).await;
+    let exists = document("collectionExists", json!({}));
+    assert_eq!(
+        execute(&store, exists.clone()).await,
+        json!(true),
+        "700 documents"
+    );
+    let empty =
+        json!({"operation": "document", "command": "createCollection", "collection": "hd-empty"});
+    execute(&store, empty).await;
+    let empty_exists =
+        json!({"operation": "document", "command": "collectionExists", "collection": "hd-empty"});
+    assert_eq!(execute(&store, empty_exists).await, json!(true), "empty");
+    let missing =
+        json!({"operation": "document", "command": "collectionExists", "collection": "hd-missing"});
+    assert_eq!(execute(&store, missing).await, json!(false), "missing");
+    execute(&store, document("dropCollection", json!({}))).await;
+    assert_eq!(execute(&store, exists).await, json!(false), "dropped");
 }
 
 #[tokio::test]

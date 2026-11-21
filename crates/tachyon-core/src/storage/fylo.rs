@@ -675,6 +675,8 @@ struct FyloError {
 }
 
 impl FyloError {
+    const NATIVE_NOT_FOUND: &'static str = "ENATIVE_NOT_FOUND";
+
     fn protocol(_: &'static str) -> Self {
         Self {
             code: String::from("EPROTOCOL"),
@@ -691,6 +693,10 @@ impl FyloError {
 
     fn missing(&self) -> bool {
         matches!(self.code.as_str(), "EINVALIDDOCID" | "ENATIVE_NOT_FOUND")
+    }
+
+    fn read_found_no_collection(&self) -> bool {
+        self.code == Self::NATIVE_NOT_FOUND
     }
 
     fn collection_missing(&self) -> bool {
