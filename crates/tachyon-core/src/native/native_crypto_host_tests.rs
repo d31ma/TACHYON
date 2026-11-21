@@ -148,6 +148,35 @@ return results.join(',');";
     }
 
     #[cfg(target_os = "macos")]
+    fn ios_triple() -> String {
+        let deployment = BrowserApiHostTests::application(&["crypto"])
+            .minimum_system
+            .floor(tachyon_contracts::NativeTarget::Ios);
+        super::ios_destination::IosDestination::SIMULATOR.triple(deployment)
+    }
+
+    #[cfg(target_os = "macos")]
+    async fn ios_typecheck(root: &Path) {
+        let source =
+            BrowserApiHostTests::write(root, "CryptoCheck.swift", &Self::ios_host(&["crypto"]));
+        let triple = Self::ios_triple();
+        Self::run(
+            "/usr/bin/xcrun",
+            &[
+                "--sdk",
+                super::ios_destination::IosDestination::SIMULATOR.sdk,
+                "swiftc",
+                "-parse-as-library",
+                "-typecheck",
+                "-target",
+                &triple,
+                source.to_str().expect("source"),
+            ],
+        )
+        .await;
+    }
+
+    #[cfg(target_os = "macos")]
     async fn ios_compile(root: &Path) -> PathBuf {
         let application = BrowserApiHostTests::application(&["crypto"]);
         let bundle = root.join(Self::IOS_APPLICATION);
@@ -162,13 +191,10 @@ return results.join(',');";
         let source =
             BrowserApiHostTests::write(root, "CryptoCheck.swift", &Self::ios_host(&["crypto"]));
         let executable = bundle.join(&application.executable_name);
-        let deployment = application
-            .minimum_system
-            .floor(tachyon_contracts::NativeTarget::Ios);
-        let triple = destination.triple(deployment);
+        let triple = Self::ios_triple();
         let mut arguments = vec![
             "--sdk",
-            destination.sdk,
+            super::ios_destination::IosDestination::SIMULATOR.sdk,
             "swiftc",
             "-parse-as-library",
             "-target",
@@ -272,6 +298,20 @@ async fn macos_crypto_runs_natively_through_the_generated_host() {
     let (phase, checks) = CryptoHostTests::MACOS_PHASES[0];
     let store = CryptoHostTests::store(&CryptoHostTests::answers(&output, phase));
     CryptoHostTests::expect(&output, phase, checks, &store);
+}
+
+#[cfg(target_os = "macos")]
+#[tokio::test]
+async fn the_ios_crypto_fixture_typechecks_against_the_simulator_sdk_without_a_simulator() {
+    let root = tempfile::tempdir().expect("fixture");
+    CryptoHostTests::ios_typecheck(root.path()).await;
+}
+
+#[test]
+fn the_ios_crypto_fixture_finds_the_web_view_through_the_window_scene() {
+    let ios = CryptoHostTests::ios_host(&["crypto"]);
+    assert!(ios.contains("UIApplication.shared.connectedScenes.compactMap { ($0 as? UIWindowScene)?.windows.first }.first"));
+    assert!(!ios.contains("as? AppDelegate)?.window"));
 }
 
 #[cfg(target_os = "macos")]
