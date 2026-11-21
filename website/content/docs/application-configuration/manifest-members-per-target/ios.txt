@@ -198,6 +198,9 @@ tac.outgoing
 tac.media
   run owed: tac.media.background adds UIBackgroundModes audio to Info.plist; Media.callActive sets the audio session to playAndRecord in voiceChat mode with Bluetooth, and the host lists and chooses the earpiece, the speaker and connected headsets (ADR 0129); still to run: a call on an iPhone with the screen locked
 
+tac.recorder
+  run owed: the page records with MediaRecorder in the web view on tachyon-app://bundle (one AudioContext mix, a 1280x720 canvas for the chosen video) and writes the file through the save picker or the private file system (ADR NNNN); still to run: a recording made in the built app and opened in a normal player; the native save dialog comes in slice M5b
+
 tac.yon
   honored: the iOS app's pages and its linked Swift and Rust HTTP clients reach tac.yon.origin from tachyon-app://bundle over http and https through URLSession, and Yon receives Origin: tachyon-app://bundle; run by scripts/native/yon-reach-test.mjs on the iOS 26.5 simulator with Swift services and with linked Rust services, whose page-held stream and socket also reached Yon (ADR 0103, LR1)
 

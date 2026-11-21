@@ -299,7 +299,7 @@ fn python_missing_opt_in_profile_is_reported_by_doctor_without_installing() {
 pub(super) struct PythonPage;
 
 impl PythonPage {
-    const OWNERS: [(&'static str, &'static str); 10] = [
+    const OWNERS: [(&'static str, &'static str); 11] = [
         ("shelf", "00000000-0000-4000-8000-000000000001"),
         ("checkout", "00000000-0000-4000-8000-000000000002"),
         ("audit", "00000000-0000-4000-8000-000000000003"),
@@ -310,6 +310,7 @@ impl PythonPage {
         ("stamp", "00000000-0000-4000-8000-000000000008"),
         ("attach", "00000000-0000-4000-8000-000000000009"),
         ("link", "00000000-0000-4000-8000-000000000010"),
+        ("record", "00000000-0000-4000-8000-000000000011"),
     ];
     const SHELF: [(&'static str, &'static str); 3] = [
         (

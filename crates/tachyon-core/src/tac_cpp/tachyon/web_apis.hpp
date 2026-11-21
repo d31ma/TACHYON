@@ -235,6 +235,34 @@ public:
     void resumeAudio() const { TacWebCall::answer("media", "resumeAudio"); }
 };
 
+class Recorder {
+public:
+    bool supported() const { return TacWebCall::flag("recorder", "supported"); }
+
+    void start(const std::string& recording, const std::string& audioTracks, const std::string& videoTrack, const std::string& fileName,
+               const std::string& format) const {
+        TacWebCall::answer("recorder", "start", TacWebCall::arguments(recording, audioTracks, videoTrack, fileName, format));
+    }
+
+    void addAudio(const std::string& recording, const std::string& track) const {
+        TacWebCall::answer("recorder", "addAudio", TacWebCall::arguments(recording, track));
+    }
+
+    void removeAudio(const std::string& recording, const std::string& track) const {
+        TacWebCall::answer("recorder", "removeAudio", TacWebCall::arguments(recording, track));
+    }
+
+    void showVideo(const std::string& recording, const std::string& track) const {
+        TacWebCall::answer("recorder", "showVideo", TacWebCall::arguments(recording, track));
+    }
+
+    void pause(const std::string& recording) const { TacWebCall::answer("recorder", "pause", TacWebCall::arguments(recording)); }
+
+    void resume(const std::string& recording) const { TacWebCall::answer("recorder", "resume", TacWebCall::arguments(recording)); }
+
+    void stop(const std::string& recording) const { TacWebCall::answer("recorder", "stop", TacWebCall::arguments(recording)); }
+};
+
 class CodeScanner {
 public:
     bool supported() const { return TacWebCall::flag("codeScanner", "supported"); }
@@ -429,6 +457,7 @@ using tachyon::web::Passkeys;
 using tachyon::web::Peers;
 using tachyon::web::Blobs;
 using tachyon::web::Media;
+using tachyon::web::Recorder;
 using tachyon::web::CodeScanner;
 using tachyon::web::Crypto;
 using tachyon::web::Locks;

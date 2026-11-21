@@ -584,6 +584,10 @@ jobs:
         run: bun run test:peers-large-call-browser
         env:
           TAC_BIN: ${{ github.workspace }}/target/release/ty
+      - name: Record mixed audio and a switched video to a file in three browsers
+        run: bun run test:recorder-browser
+        env:
+          TAC_BIN: ${{ github.workspace }}/target/release/ty
 
       - name: Run the real-browser web components contract
         run: bun run test:web-components-browser

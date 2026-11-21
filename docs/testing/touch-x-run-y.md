@@ -35,7 +35,8 @@ Use a release ty built with `--features shipped` for tier 3 (`TAC_BIN=<path>`).
 | `template/tac-focus.js` | `test:focus-browser` |
 | `template/tac-crypto.js`, `template/vendor/noble-ed25519.js` | `test:crypto-browser`, `test:passkeys-browser` |
 | `template/tac-passkeys.js` | `test:passkeys-browser` |
-| `template/tac-media.js` | `test:media-frames-browser`, `test:media-calls-browser` |
+| `template/tac-media.js` | `test:media-frames-browser`, `test:media-calls-browser`, `test:recorder-browser` |
+| `template/tac-recorder.js` | `test:recorder-browser` |
 | `template/tac-media-frames.js` | `test:media-frames-browser` |
 | `template/tac-peers.js`, `template/tac-media-view.js` | `test:media-calls-browser` |
 | `template/tac-code-scanner.js`, `template/vendor/jsQR.js` | `test:code-scanner-browser` |

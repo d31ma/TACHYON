@@ -193,6 +193,15 @@ machine contracts have their own, independent major versions.
   service that gets Peers, Media, Files, Blobs or Locks through `@Needs`
   receives every call (before this it got an empty object). That adds 20
   bytes (18,620 in all); the new budget leaves an 80-byte margin.
+- **Services record calls to a file on the device** (ADR NNNN, slice M5a).
+  `Recorder` mixes `Media` audio tracks and one video the app can switch,
+  pauses, resumes and stops, and writes a piece every second to the file
+  the person picked (`showSaveFilePicker`) or to a private file that the
+  browser downloads at stop. It picks MP4 or WebM by what the browser
+  accepts, writes the WebM duration so players can seek, and never uploads.
+  Needs `files` and a media grant. Six new events in every service
+  language. Native apps are not checked yet; their save dialogs follow in
+  slice M5b.
 - **Module APIs list their own calls** (ADR 0134 amendment). `tac-web.js`
   forwards `files`, `blobs`, `peers` and `media` calls to their modules,
   which each export a `calls` list; only listed names reach a module, and an

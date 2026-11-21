@@ -19,6 +19,7 @@ impl WebApiClients {
         "Passkeys",
         "Peers",
         "Media",
+        "Recorder",
         "CodeScanner",
         "Crypto",
         "Blobs",
