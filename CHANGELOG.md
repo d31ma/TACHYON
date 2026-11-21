@@ -96,14 +96,18 @@ machine contracts have their own, independent major versions.
   `.tachyon/tac-peers.js` only to pages that grant `peers`. Real connections
   are checked in Chromium, Firefox and WebKit, directly and through coturn
   (`bun run test:peers-browser`). The Linux app answers `unsupported`
-  (WebKitGTK has no WebRTC); the other native apps are not checked yet.
+  (WebKitGTK has no WebRTC).
 - **Peers in the native apps** (ADR 0140 amendment, slice P1b). An app that
   grants `peers` now needs network access in its native builds. **The
   Android manifest changes:** an Android app that grants `peers` asks for
   `android.permission.INTERNET`, even with no `tac.outgoing.hosts`. **An iOS
   build needs a reason:** `tac.application.permissions.peers` is written as
   `NSLocalNetworkUsageDescription`, and an iOS build that grants `peers`
-  without it stops with TY1601. NATIVE_RESULTS_PENDING
+  without it stops with TY1601. Two Peers
+  connections in a built app connected and carried 65,536 bytes on Android
+  and Windows (directly) and macOS (through a local TURN relay). The iOS run
+  is still owed: the iOS 27.2 simulator stops an app that has not adopted the
+  UIScene life cycle, and the iOS app shell has not yet (TAC-IOS-SCENE).
 - **The macOS and iOS apps answer Crypto with CryptoKit and the Keychain**
   (ADR 0132 amendment, slice P2b). The Apple hosts list `crypto` in the native bridge,
   so every `Crypto` call runs in Swift: CryptoKit for Ed25519, X25519,
