@@ -15,7 +15,7 @@ const grants = { content: 'peers' }
 const settings = { content: JSON.stringify({ iceServers: ['stun:stun.example.com:3478', 'turn:turn.example.com:3478?transport=udp', 'turns:turn.example.com:5349?transport=tcp'], relayOnly: true }) }
 globalThis.document = { visibilityState: 'visible', addEventListener: () => {}, querySelector: (selector) => ({ 'meta[name="tachyon-browser-apis"]': grants, 'meta[name="tachyon-peers"]': settings })[selector] ?? null }
 Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { onLine: true, language: 'en', userActivation: { isActive: false } } })
-const behaviour = { offer: null, remote: null, strict: false }
+const behaviour = { offer: null, remote: null, strict: false, offerSize: 0 }
 const peers = []
 class FakeChannel extends EventTarget {
   constructor(label, options) { super(); this.label = label; this.options = options ?? {}; this.ordered = this.options.ordered ?? true; this.readyState = 'connecting'; this.bufferedAmount = 0; this.sent = [] }
@@ -26,7 +26,7 @@ class FakeChannel extends EventTarget {
 }
 class FakePeer extends EventTarget {
   constructor(config) { super(); if (behaviour.strict && config.iceServers.some((server) => server.urls.includes('?'))) throw new DOMException('Invalid TURN URL query string', 'SyntaxError'); this.config = config; this.connectionState = 'new'; this.localDescription = null; this.remote = null; this.channels = []; this.candidates = []; peers.push(this) }
-  async createOffer(options) { if (behaviour.offer) throw new DOMException('rp https://secret.example.com 9f8e', behaviour.offer); return { type: 'offer', sdp: options?.iceRestart ? 'offer restart' : 'offer first' } }
+  async createOffer(options) { if (behaviour.offer) throw new DOMException('rp https://secret.example.com 9f8e', behaviour.offer); if (behaviour.offerSize) return { type: 'offer', sdp: 'v'.repeat(behaviour.offerSize) }; return { type: 'offer', sdp: options?.iceRestart ? 'offer restart' : 'offer first' } }
   async createAnswer() { return { type: 'answer', sdp: 'answer sdp' } }
   async setLocalDescription(description) { this.localDescription = description }
   async setRemoteDescription(description) { if (behaviour.remote) throw new DOMException('rp https://secret.example.com 9f8e', behaviour.remote); this.remote = description }
@@ -128,6 +128,21 @@ report.closed = take()
 report.afterClose = ask('app', 'offer', ['peer-1'])
 report.lookup = [hooks.connection('peer-2') === peers[1], hooks.connection('peer-1')]
 report.announced = announced.slice(0, 5)
+take()
+report.longestDescription = ask('app', 'accept', ['peer-2', 'a'.repeat(262144)])
+report.tooLongDescription = ask('app', 'accept', ['peer-2', 'a'.repeat(262145)])
+report.longestCandidate = ask('app', 'addCandidate', ['peer-2', JSON.stringify({ candidate: 'c'.repeat(65536 - 16) })])
+await settle()
+report.acceptedSizes = [peers[1].remote.sdp.length, peers[1].candidates.at(-1).candidate.length]
+behaviour.offerSize = 262144
+ask('app', 'offer', ['peer-2'])
+await settle()
+report.largestOffer = take().map((event) => [event[1], event[2].sdp.length])
+behaviour.offerSize = 262145
+ask('app', 'offer', ['peer-2'])
+await settle()
+behaviour.offerSize = 0
+report.tooLargeOffer = take()
 for (let index = 0; index < 31; index += 1) ask('app', 'open', ['', ''])
 report.tooMany = ask('app', 'open', ['', ''])
 for (let index = 0; index < 16; index += 1) ask('app', 'openChannel', ['peer-2', `c${index}`, true])
@@ -247,7 +262,7 @@ fn the_page_carries_descriptions_candidates_and_state_to_the_owner() {
     );
     assert_eq!(
         report["tooLongCandidate"],
-        PeersDriver::error("A description or candidate is at most 65536 bytes.")
+        PeersDriver::error("A candidate is at most 65536 bytes.")
     );
     assert_eq!(
         report["signalling"],
@@ -431,6 +446,37 @@ fn failures_close_and_limits_never_show_browser_text() {
     assert_eq!(
         report["tooManyChannels"],
         PeersDriver::error("A page may hold at most 16 peer channels on one connection.")
+    );
+}
+
+#[test]
+fn descriptions_up_to_256_kib_and_candidates_up_to_64_kib_pass_and_larger_ones_are_refused() {
+    if !NodeDriver::available() {
+        eprintln!("skipping: node is unavailable");
+        return;
+    }
+    let report = PeersDriver::run();
+    assert_eq!(report["longestDescription"], json!({"value": null}));
+    assert_eq!(
+        report["tooLongDescription"],
+        PeersDriver::error(
+            "A description is at most 262144 bytes; offer fewer tracks on one connection."
+        )
+    );
+    assert_eq!(report["longestCandidate"], json!({"value": null}));
+    assert_eq!(report["acceptedSizes"], json!([262144, 65520]));
+    assert_eq!(report["largestOffer"], json!([["PeerDescription", 262144]]));
+    assert_eq!(
+        report["tooLargeOffer"],
+        json!([PeersDriver::event(
+            "PeerFailed",
+            json!({
+                "connection": "peer-2",
+                "call": "offer",
+                "reason": "tooLarge",
+                "message": "This connection made a description larger than 262144 bytes; offer fewer tracks on one connection."
+            })
+        )])
     );
 }
 
