@@ -72,7 +72,10 @@ impl BrowserApiBridge {
             NativeTarget::Windows,
             &["clipboard", "share", "notifications"],
         ),
-        (NativeTarget::Linux, &["share", "notifications", "crypto"]),
+        (
+            NativeTarget::Linux,
+            &["share", "notifications", "crypto", "recorder"],
+        ),
     ];
 
     const FRAME_KEYS: [NativeTarget; 2] = [NativeTarget::Macos, NativeTarget::Ios];
@@ -178,6 +181,7 @@ mod tests {
                 [
                     super::super::linux::host_source(),
                     super::super::linux_crypto::LinuxCrypto::SOURCE,
+                    super::super::linux_recorder_files::LinuxRecorderFiles::SOURCE,
                 ]
                 .concat(),
             ),
@@ -220,7 +224,7 @@ mod tests {
         assert_eq!(BrowserApiBridge::operations(NativeTarget::Windows).len(), 5);
         assert_eq!(
             BrowserApiBridge::page_list(NativeTarget::Linux),
-            "['share', 'notifications', 'crypto']"
+            "['share', 'notifications', 'crypto', 'recorder']"
         );
         let linux = BrowserApiBridge::operations(NativeTarget::Linux);
         assert_eq!(
@@ -231,7 +235,7 @@ mod tests {
                 "browserApi.notifications.show"
             ]
         );
-        assert_eq!(linux.len(), 19);
+        assert_eq!(linux.len(), 22);
         assert_eq!(linux[3], "browserApi.crypto.check");
     }
 

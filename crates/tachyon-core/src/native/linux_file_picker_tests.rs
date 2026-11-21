@@ -91,6 +91,7 @@ return 'pick=' + (await send('call', 'pick', [])).value;";
         let folder = folder.to_str().expect("folder");
         concat!(
             include_str!("linux_wayland_input.c"),
+            include_str!("linux_fixture_keys.c"),
             include_str!("linux_file_picker_fixture.c")
         )
         .replace("__PICKER_FOLDER__", folder)

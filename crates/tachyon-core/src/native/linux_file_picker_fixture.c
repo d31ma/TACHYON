@@ -1,15 +1,10 @@
 #include <stdlib.h>
-#include <gdk/x11/gdkx.h>
 
-typedef int (*TachyonFakeKey)(Display *, unsigned int, int, unsigned long);
-typedef unsigned char (*TachyonKeysymToKeycode)(Display *, unsigned long);
-typedef int (*TachyonFlush)(Display *);
 
 #define TACHYON_PICKER_FOLDER "__PICKER_FOLDER__"
 #define TACHYON_PICKER_ESCAPE 0xff1b
 #define TACHYON_PICKER_RETURN 0xff0d
 #define TACHYON_PICKER_DELETE 0xffff
-#define TACHYON_PICKER_CONTROL 0xffe3
 #define TACHYON_PICKER_LOCATION 0x006c
 #define TACHYON_PICKER_SELECT_ALL 0x0061
 #define TACHYON_PICKER_PASTE 0x0076
@@ -30,9 +25,6 @@ static gboolean g_picker_finished = FALSE;
 static int g_picker_action = 0;
 static int g_picker_settle = 0;
 static gboolean g_picker_refused_second = FALSE;
-static TachyonFakeKey g_picker_key = NULL;
-static TachyonKeysymToKeycode g_picker_keycode = NULL;
-static TachyonFlush g_picker_flush = NULL;
 
 static void tachyon_picker_fail(const char *message) {
   fprintf(stderr, "linux file picker fixture failed at step %d after %.1f s: %s (reply %s, dialogs %d)\n", g_picker_step,
@@ -43,6 +35,10 @@ static void tachyon_picker_fail(const char *message) {
 
 static void tachyon_picker_require(gboolean valid, const char *message) {
   if (!valid) tachyon_picker_fail(message);
+}
+
+static void tachyon_fixture_keys_require(gboolean valid, const char *message) {
+  tachyon_picker_require(valid, message);
 }
 
 static gint64 tachyon_picker_clock(void) {
@@ -172,49 +168,6 @@ static void tachyon_picker_run(const char *script) {
   webkit_web_view_call_async_javascript_function(g_view, script, -1, NULL, NULL, NULL, NULL, tachyon_picker_replied, NULL);
 }
 
-static void tachyon_picker_load_x11(void) {
-  GModule *test = g_module_open("libXtst.so.6", G_MODULE_BIND_LAZY);
-  GModule *self = g_module_open(NULL, G_MODULE_BIND_LAZY);
-  tachyon_picker_require(test != NULL && self != NULL, "libXtst.so.6 is not installed");
-  tachyon_picker_require(g_module_symbol(test, "XTestFakeKeyEvent", (gpointer *)&g_picker_key) &&
-                         g_module_symbol(self, "XKeysymToKeycode", (gpointer *)&g_picker_keycode) &&
-                         g_module_symbol(self, "XFlush", (gpointer *)&g_picker_flush),
-                         "the X11 test functions are missing");
-}
-
-static unsigned int tachyon_picker_keycode(Display *display, unsigned long keysym) {
-  unsigned int keycode = g_picker_keycode(display, keysym);
-  tachyon_picker_require(keycode != 0, "the X11 keymap has no key the fixture needs");
-  return keycode;
-}
-
-static void tachyon_picker_wayland_press(unsigned long keysym, gboolean control) {
-  if (control) tachyon_wayland_key(TACHYON_PICKER_CONTROL, TRUE);
-  tachyon_wayland_key(keysym, TRUE);
-  tachyon_wayland_key(keysym, FALSE);
-  if (control) tachyon_wayland_key(TACHYON_PICKER_CONTROL, FALSE);
-}
-
-static void tachyon_picker_press(unsigned long keysym, gboolean control) {
-  if (tachyon_wayland_input_wanted()) {
-    tachyon_picker_wayland_press(keysym, control);
-    return;
-  }
-  if (g_picker_key == NULL) tachyon_picker_load_x11();
-  GdkDisplay *display = gdk_display_get_default();
-  tachyon_picker_require(GDK_IS_X11_DISPLAY(display), "the fixture needs an X11 display (GDK_BACKEND=x11)");
-  G_GNUC_BEGIN_IGNORE_DEPRECATIONS
-  Display *xdisplay = gdk_x11_display_get_xdisplay(display);
-  G_GNUC_END_IGNORE_DEPRECATIONS
-  unsigned int keycode = tachyon_picker_keycode(xdisplay, keysym);
-  unsigned int modifier = tachyon_picker_keycode(xdisplay, TACHYON_PICKER_CONTROL);
-  if (control) g_picker_key(xdisplay, modifier, True, 0);
-  g_picker_key(xdisplay, keycode, True, 0);
-  g_picker_key(xdisplay, keycode, False, 0);
-  if (control) g_picker_key(xdisplay, modifier, False, 0);
-  g_picker_flush(xdisplay);
-}
-
 static GtkWindow *tachyon_picker_shown_dialog(void) {
   GListModel *windows = gtk_window_get_toplevels();
   GtkWindow *found = NULL;
@@ -234,12 +187,12 @@ static void tachyon_picker_check_one_dialog(void) {
 
 static void tachyon_picker_choose(void) {
   switch (g_picker_action) {
-    case 0: tachyon_picker_press(TACHYON_PICKER_LOCATION, TRUE); break;
-    case 1: tachyon_picker_press(TACHYON_PICKER_SELECT_ALL, TRUE); break;
-    case 2: tachyon_picker_press(TACHYON_PICKER_PASTE, TRUE); break;
-    case 3: tachyon_picker_press(TACHYON_PICKER_DELETE, FALSE); break;
+    case 0: tachyon_fixture_press(TACHYON_PICKER_LOCATION, TRUE); break;
+    case 1: tachyon_fixture_press(TACHYON_PICKER_SELECT_ALL, TRUE); break;
+    case 2: tachyon_fixture_press(TACHYON_PICKER_PASTE, TRUE); break;
+    case 3: tachyon_fixture_press(TACHYON_PICKER_DELETE, FALSE); break;
     default:
-      tachyon_picker_press(TACHYON_PICKER_RETURN, FALSE);
+      tachyon_fixture_press(TACHYON_PICKER_RETURN, FALSE);
       g_picker_finished = TRUE;
   }
   g_picker_action += 1;
@@ -279,7 +232,7 @@ static void tachyon_picker_drive(void) {
     return;
   }
   if (g_picker_choice == NULL) {
-    tachyon_picker_press(TACHYON_PICKER_ESCAPE, FALSE);
+    tachyon_fixture_press(TACHYON_PICKER_ESCAPE, FALSE);
     g_picker_finished = TRUE;
     return;
   }

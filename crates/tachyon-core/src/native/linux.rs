@@ -233,6 +233,10 @@ pub(super) fn c_source_serving(
             super::linux_crypto::LinuxCrypto::source(&application.permissions),
         )
         .replace(
+            "__NATIVE_RECORDER__",
+            super::linux_recorder_files::LinuxRecorderFiles::SOURCE,
+        )
+        .replace(
             "__NATIVE_TITLE_BAR__",
             &super::linux_title_bar::LinuxTitleBar::source(&application.window),
         )
@@ -335,6 +339,8 @@ __NATIVE_SYSTEM_BACK__
 __NATIVE_BROWSER_APIS__
 
 __NATIVE_CRYPTO__
+
+__NATIVE_RECORDER__
 
 __NATIVE_TITLE_BAR__
 
@@ -647,6 +653,12 @@ static gboolean tachyon_on_host_call(WebKitUserContentManager *manager, JSCValue
     g_free(payload);
     return TRUE;
   }
+  if (g_str_has_prefix(capability, "browserApi.recorder.")) {
+    tachyon_recorder_start(capability, payload, value, reply);
+    g_free(capability);
+    g_free(payload);
+    return TRUE;
+  }
 
   gchar *answer = NULL;
   if (g_strcmp0(capability, "companion.invoke") == 0) {
@@ -697,6 +709,7 @@ static void tachyon_on_load(WebKitWebView *view, WebKitLoadEvent event, gpointer
   (void)data;
   if (event == WEBKIT_LOAD_STARTED) {
     tachyon_file_picker_dispose_all();
+    tachyon_recorder_dispose_all();
     tachyon_companion_dispose();
   }
   if (event == WEBKIT_LOAD_FINISHED) {

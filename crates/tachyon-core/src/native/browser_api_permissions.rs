@@ -19,10 +19,11 @@ impl BrowserApiPermissions {
         "peers",
         "screen",
     ];
-    const HOST_CHECKED: [&'static str; 9] = [
+    const HOST_CHECKED: [&'static str; 10] = [
         "camera",
         "clipboard",
         "crypto",
+        "files",
         "geolocation",
         "microphone",
         "notifications",
