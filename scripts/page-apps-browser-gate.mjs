@@ -10,13 +10,16 @@ import { chromium, firefox, webkit } from 'playwright'
 import { withServer } from './release/server-probe.mjs'
 
 /** @typedef {'chromium' | 'firefox' | 'webkit'} AppsEngine */
-/** @typedef {{engine: AppsEngine, phase: string, errors: string[]}} AppsDiagnostics */
+/** @typedef {'bundle' | 'separate'} AppsDeploy */
+/** @typedef {{engine: AppsEngine, deploy: AppsDeploy, phase: string, errors: string[]}} AppsDiagnostics */
 /** @typedef {{path: string, heading: string, shell: string, chat: string, kept: boolean, focused: string, title: string}} AppsSnapshot */
 
 class PageAppsBrowserGate {
   static _timeout = 15_000
   static _launchTimeout = 60_000
   static _engines = ['chromium', 'firefox', 'webkit']
+  /** @type {AppsDeploy[]} */
+  static _deploys = ['bundle', 'separate']
   static _plainHttpPrefetch = 'Prefetch request denied: URL must be secure (HTTPS)'
   static _repository = fileURLToPath(new URL('..', import.meta.url))
   static _fixture = 'crates/tachyon-core/tests/fixtures/tac-page-apps'
@@ -25,17 +28,43 @@ class PageAppsBrowserGate {
   static async run() {
     const binary = PageAppsBrowserGate._binary()
     const engines = PageAppsBrowserGate._selectedEngines()
+    for (const deploy of PageAppsBrowserGate._deploys) await PageAppsBrowserGate._runDeploy(binary, engines, deploy)
+  }
+
+  /** @param {string} binary @param {AppsEngine[]} engines @param {AppsDeploy} deploy @returns {Promise<void>} */
+  static async _runDeploy(binary, engines, deploy) {
     const site = await PageAppsBrowserGate._site()
     const shell = path.join(site, 'home')
     try {
-      await promisify(execFile)(binary, ['bundle', shell])
+      await PageAppsBrowserGate._build(binary, site, deploy)
       await withServer(binary, ['preview', shell, '--static', '--port', '0'], async (request) => {
         const origin = new URL((await request('/')).url).origin
-        for (const engine of engines) await PageAppsBrowserGate._runEngine(engine, origin)
+        await PageAppsBrowserGate._checkChatDocument(request, deploy)
+        for (const engine of engines) await PageAppsBrowserGate._runEngine(engine, origin, deploy)
       })
     } finally {
       await rm(site, { recursive: true, force: true })
     }
+  }
+
+  /** @param {string} binary @param {string} site @param {AppsDeploy} deploy @returns {Promise<void>} */
+  static async _build(binary, site, deploy) {
+    const shell = path.join(site, 'home')
+    if (deploy === 'bundle') {
+      await promisify(execFile)(binary, ['bundle', shell])
+      return
+    }
+    const chat = path.join(site, 'chat')
+    await promisify(execFile)(binary, ['bundle', shell, '--shell-only'])
+    await promisify(execFile)(binary, ['bundle', chat])
+    await cp(path.join(chat, 'dist', 'web', 'chat'), path.join(shell, 'dist', 'web', 'chat'), { recursive: true })
+  }
+
+  /** @param {(path: string) => Promise<Response>} request @param {AppsDeploy} deploy @returns {Promise<void>} */
+  static async _checkChatDocument(request, deploy) {
+    const html = await (await request('/chat/')).text()
+    const inline = html.includes('id="tachyon-shell"')
+    assert.equal(inline, deploy === 'bundle', `the ${deploy} chat page holds the shell plan only when it is bundled`)
   }
 
   /** @returns {string} */
@@ -68,10 +97,10 @@ class PageAppsBrowserGate {
     return chromium
   }
 
-  /** @param {AppsEngine} engine @param {string} origin @returns {Promise<void>} */
-  static async _runEngine(engine, origin) {
+  /** @param {AppsEngine} engine @param {string} origin @param {AppsDeploy} deploy @returns {Promise<void>} */
+  static async _runEngine(engine, origin, deploy) {
     /** @type {AppsDiagnostics} */
-    const diagnostics = { engine, phase: 'starting', errors: [] }
+    const diagnostics = { engine, deploy, phase: 'starting', errors: [] }
     const browser = await PageAppsBrowserGate._browserType(engine).launch({ timeout: PageAppsBrowserGate._launchTimeout })
     const page = await browser.newPage()
     page.on('pageerror', (error) => diagnostics.errors.push(error.message))
@@ -88,7 +117,7 @@ class PageAppsBrowserGate {
       diagnostics.phase = 'direct-chat-load'
       await PageAppsBrowserGate._checkDirectChat(page, origin)
       assert.deepEqual(diagnostics.errors, [])
-      console.log(JSON.stringify({ status: 'pass', engine, browserVersion: browser.version() }))
+      console.log(JSON.stringify({ status: 'pass', engine, deploy, browserVersion: browser.version() }))
     } catch (error) {
       console.error(JSON.stringify({ status: 'fail', ...diagnostics }))
       throw error

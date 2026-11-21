@@ -173,3 +173,96 @@ fn an_app_page_of_the_bundle_holds_the_shell_plan() {
         fs::read_to_string(root.path().join("home/dist/chat/index.html")).expect("chat page");
     assert!(page.contains(LayoutFixture::SHELL_PLAN), "{page}");
 }
+
+struct ShellFileFixture;
+
+impl ShellFileFixture {
+    const FILE: &'static str = "dist/.tachyon/shell.json";
+    const SCRIPT_START: &'static str = r#"<script id="tachyon-shell" type="application/json">"#;
+
+    fn inline_text(page: &str) -> String {
+        let start = page.find(Self::SCRIPT_START).expect("shell script") + Self::SCRIPT_START.len();
+        let length = page[start..].find("</script>").expect("script end");
+        page[start..start + length].to_string()
+    }
+
+    fn built(root: &Path) -> (String, String) {
+        WebCompiler::build(root, &LayoutFixture::options()).expect("build");
+        let page = fs::read_to_string(root.join("dist/index.html")).expect("index page");
+        let file = fs::read_to_string(root.join(Self::FILE)).expect("shell file");
+        (Self::inline_text(&page), file)
+    }
+
+    fn plan(file: &str) -> serde_json::Value {
+        serde_json::from_str(file).expect("shell plan")
+    }
+}
+
+#[test]
+fn the_shell_file_holds_the_same_plan_as_the_page() {
+    let root = LayoutFixture::create(LayoutFixture::MANIFEST, LayoutFixture::LAYOUT);
+    let (inline, file) = ShellFileFixture::built(root.path());
+    assert_eq!(inline, file);
+}
+
+#[test]
+fn the_shell_file_names_no_styles_without_component_styles() {
+    let root = LayoutFixture::create(LayoutFixture::MANIFEST, LayoutFixture::LAYOUT);
+    let (_, file) = ShellFileFixture::built(root.path());
+    assert_eq!(
+        ShellFileFixture::plan(&file)["styles"],
+        serde_json::json!([])
+    );
+}
+
+#[test]
+fn the_shell_file_names_the_component_styles() {
+    let root = LayoutFixture::create(LayoutFixture::MANIFEST, LayoutFixture::LAYOUT);
+    LayoutFixture::write(
+        root.path(),
+        "client/components/app/shell/tac.css",
+        "header { color: navy; }",
+    );
+    let (_, file) = ShellFileFixture::built(root.path());
+    assert_eq!(
+        ShellFileFixture::plan(&file)["styles"],
+        serde_json::json!(["/.tachyon/components.css"])
+    );
+}
+
+#[test]
+fn a_site_without_a_layout_writes_no_shell_file() {
+    let root = LayoutFixture::create(
+        r#"{"name":"Site"}"#,
+        LayoutFixture::LAYOUT.replace("<outlet />", "").as_str(),
+    );
+    WebCompiler::build(root.path(), &LayoutFixture::options()).expect("build");
+    assert!(!root.path().join(ShellFileFixture::FILE).exists());
+}
+
+#[test]
+fn the_shell_only_build_writes_the_shell_file() {
+    let root = tempfile::tempdir().expect("site");
+    let home = root.path().join("home");
+    LayoutFixture::shell(
+        &home,
+        r#"{"name":"Site","tac":{"layout":"app-shell","apps":{"/chat":"../chat"}}}"#,
+        LayoutFixture::LAYOUT,
+    );
+    LayoutFixture::write(
+        &root.path().join("chat"),
+        "client/manifest.json",
+        r#"{"name":"Chat","tac":{"mount":"/chat"}}"#,
+    );
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("runtime");
+    runtime
+        .block_on(WebCompiler::build_shell_async(
+            &home,
+            &LayoutFixture::options(),
+        ))
+        .expect("shell build");
+    assert!(home.join(ShellFileFixture::FILE).exists());
+}

@@ -10,7 +10,9 @@ use std::collections::BTreeSet;
 use std::path::PathBuf;
 
 pub(super) struct ShellLayout {
+    plan: Option<Value>,
     tag: String,
+    text: String,
     style_link: &'static str,
     services: BTreeSet<String>,
 }
@@ -20,11 +22,15 @@ impl ShellLayout {
     const OUTLET: &'static str = "{\"k\":\"outlet\"}";
     const VIEW_MARK: &'static str = "id=\"tachyon-view\"";
     const HEAD_END: &'static str = "</head>";
+    const FILE_PATH: &'static str = ".tachyon/shell.json";
+    const COMPONENT_STYLES: &'static str = "/.tachyon/components.css";
     const HELP: &'static str = "tac.layout names the shell's layout component, such as \"app-shell\". Its template holds exactly one <outlet />, where each page renders (ADR NNNN).";
 
     pub(super) fn none() -> Self {
         Self {
+            plan: None,
             tag: String::new(),
+            text: String::new(),
             style_link: "",
             services: BTreeSet::new(),
         }
@@ -42,9 +48,26 @@ impl ShellLayout {
         )
     }
 
-    pub(super) fn with_styles(mut self, has_styles: bool) -> Self {
+    pub(super) fn with_styles(mut self, has_styles: bool) -> Result<Self, Failure> {
         self.style_link = ["", WebCompiler::COMPONENT_STYLE_LINK][usize::from(has_styles)];
-        self
+        self.plan = self.plan.map(|plan| Self::styled(plan, has_styles));
+        self.text = self
+            .plan
+            .as_ref()
+            .map(Self::serialized)
+            .transpose()?
+            .unwrap_or_default();
+        self.tag = Self::script(&self.text);
+        Ok(self)
+    }
+
+    pub(super) fn file(&self) -> Option<(PathBuf, Vec<u8>)> {
+        self.plan.as_ref().map(|_| {
+            (
+                PathBuf::from(Self::FILE_PATH),
+                self.text.clone().into_bytes(),
+            )
+        })
     }
 
     pub(super) fn tag(&self) -> &str {
@@ -101,13 +124,30 @@ impl ShellLayout {
             "services": element["services"],
             "saved": element.get("saved"),
         });
-        let text = Self::serialized(&plan)?;
-        Self::check_outlets(name, &text)?;
+        Self::check_outlets(name, &Self::serialized(&plan)?)?;
         Ok(Self {
-            tag: format!(r#"<script id="tachyon-shell" type="application/json">{text}</script>"#),
+            plan: Some(plan),
+            tag: String::new(),
+            text: String::new(),
             style_link: "",
             services,
         })
+    }
+
+    fn styled(mut plan: Value, has_styles: bool) -> Value {
+        let styles: Vec<&str> = has_styles
+            .then_some(Self::COMPONENT_STYLES)
+            .into_iter()
+            .collect();
+        plan["styles"] = json!(styles);
+        plan
+    }
+
+    fn script(text: &str) -> String {
+        if text.is_empty() {
+            return String::new();
+        }
+        format!(r#"<script id="tachyon-shell" type="application/json">{text}</script>"#)
     }
 
     fn check_shell(mount: &MountPath) -> Result<(), Failure> {

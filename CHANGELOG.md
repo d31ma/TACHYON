@@ -10,6 +10,14 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- **A page app deployed apart from the shell renders inside it** (ADR RRRR,
+  step 2 of micro-frontends, slice 4c). A shell with `tac.layout` also writes
+  its plan to `/.tachyon/shell.json` (also with `ty bundle --shell-only`). A
+  page app built alone, outside `/`, reads that file at start-up, adds the
+  shell's stylesheets, and renders its pages in the shell's outlet; links
+  between it and the shell keep the shell's state.
+  `bun run test:page-apps-browser` now also checks the separate deploy.
+
 - **Links between page apps swap the outlet without a reload** (ADR QQQQ,
   step 2 of micro-frontends, slice 4b). In a document with a shell layout, a
   same-origin link fetches the target document and renders its page in the

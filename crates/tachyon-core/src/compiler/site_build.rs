@@ -199,7 +199,8 @@ impl<'a> SiteBuild<'a> {
             &self.components,
         )?;
         self.view_services.extend(layout.services().iter().cloned());
-        self.layout = layout.with_styles(!self.component_styles.is_empty());
+        self.layout = layout.with_styles(!self.component_styles.is_empty())?;
+        self.files.extend(self.layout.file());
         Ok(())
     }
 
