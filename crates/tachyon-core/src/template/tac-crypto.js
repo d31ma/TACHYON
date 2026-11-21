@@ -103,7 +103,7 @@ class TacCrypto {
 
   static install() {
     const calls = Object.keys(TacCrypto.checked).map((call) => [call, (reply, ...values) => TacCrypto.start(reply, call, TacCrypto.checked[call](...values))])
-    Object.defineProperty(globalThis, TacCrypto.key, { configurable: true, value: Object.freeze(Object.fromEntries(calls)) })
+    Object.defineProperty(globalThis, TacCrypto.key, { configurable: true, value: Object.freeze({ calls: Object.freeze(Object.keys(TacCrypto.checked)), ...Object.fromEntries(calls) }) })
     Object.defineProperty(globalThis, TacCrypto.hooksKey, { configurable: true, value: Object.freeze({ key: (name) => TacCrypto.hookKey(name), prfName: (name) => TacCrypto.prfName(name), prf: (name, results) => TacCrypto.prfKeys(name, results) }) })
     return true
   }

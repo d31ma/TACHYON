@@ -39,3 +39,21 @@ class Media:
 
     def call_active(self, on: bool, title: str) -> None:
         _TacPythonWebHost.call(self.API, 'callActive', (on, title))
+
+    def send(self, connection: str, track: str, stream: str, simulcast: bool) -> None:
+        _TacPythonWebHost.call(self.API, 'send', (connection, track, stream, simulcast))
+
+    def replace(self, connection: str, track: str, with_track: str) -> None:
+        _TacPythonWebHost.call(self.API, 'replace', (connection, track, with_track))
+
+    def unsend(self, connection: str, track: str) -> None:
+        _TacPythonWebHost.call(self.API, 'unsend', (connection, track))
+
+    def stats(self, request: str, connection: str) -> None:
+        _TacPythonWebHost.call(self.API, 'stats', (request, connection))
+
+    def speaking(self, on: bool) -> None:
+        _TacPythonWebHost.call(self.API, 'speaking', (on,))
+
+    def resume_audio(self) -> None:
+        _TacPythonWebHost.call(self.API, 'resumeAudio')

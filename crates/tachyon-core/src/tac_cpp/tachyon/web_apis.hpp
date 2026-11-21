@@ -213,6 +213,26 @@ public:
     }
 
     void callActive(bool on, const std::string& title) const { TacWebCall::answer("media", "callActive", TacWebCall::arguments(on, title)); }
+
+    void send(const std::string& connection, const std::string& track, const std::string& stream, bool simulcast) const {
+        TacWebCall::answer("media", "send", TacWebCall::arguments(connection, track, stream, simulcast));
+    }
+
+    void replace(const std::string& connection, const std::string& track, const std::string& withTrack) const {
+        TacWebCall::answer("media", "replace", TacWebCall::arguments(connection, track, withTrack));
+    }
+
+    void unsend(const std::string& connection, const std::string& track) const {
+        TacWebCall::answer("media", "unsend", TacWebCall::arguments(connection, track));
+    }
+
+    void stats(const std::string& request, const std::string& connection) const {
+        TacWebCall::answer("media", "stats", TacWebCall::arguments(request, connection));
+    }
+
+    void speaking(bool on) const { TacWebCall::answer("media", "speaking", TacWebCall::arguments(on)); }
+
+    void resumeAudio() const { TacWebCall::answer("media", "resumeAudio"); }
 };
 
 class CodeScanner {

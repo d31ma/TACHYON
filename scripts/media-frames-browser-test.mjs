@@ -13,6 +13,10 @@ class MediaFramesBrowserCheck {
 
   static settleMs = 6000
 
+  static framesWaitMs = 30000
+
+  static pollMs = 500
+
   static page = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Frames</title></head><body>
     <canvas id="source" width="320" height="240"></canvas>
     <video id="seen" autoplay muted playsinline></video>
@@ -23,7 +27,7 @@ class MediaFramesBrowserCheck {
         key: (name) => keys[name] ? crypto.subtle.importKey('raw', bytes(keys[name]), 'HKDF', false, ['deriveKey', 'deriveBits']) : Promise.resolve(null),
       })
       const peers = new Map()
-      globalThis[Symbol.for('tachyon.tac.peers.hooks')] = Object.freeze({ connection: (id) => peers.get(id) ?? null })
+      globalThis[Symbol.for('tachyon.tac.peers.hooks')] = Object.freeze({ connection: (id) => peers.get(id) ?? null, opened: () => {}, closed: () => {} })
       const canvas = document.getElementById('source')
       const paint = canvas.getContext('2d')
       let tick = 0
@@ -65,6 +69,7 @@ class MediaFramesBrowserCheck {
         return gathered(peer)
       }
       window.result = async () => ({ decoded: await decoded(peers.get('peer-b')), events: window.events })
+      window.decodedNow = () => decoded(peers.get('peer-b'))
       window.codec = () => (peers.get('peer-a').getSenders()[0].getParameters().codecs ?? [])[0]?.mimeType ?? ''
     </script>
     <script src="/tac-media.js"></script>
@@ -100,10 +105,16 @@ class MediaFramesBrowserCheck {
     const answer = await receiver.evaluate(([given, sdp]) => window.receive(given, sdp), [scenario, offer])
     await sender.evaluate((sdp) => window.accept(sdp), answer)
     await receiver.waitForTimeout(MediaFramesBrowserCheck.settleMs)
+    if (scenario.expectFrames) await MediaFramesBrowserCheck.waitForFrames(receiver)
     const seen = await receiver.evaluate(() => window.result())
     const sent = await sender.evaluate(() => ({ codec: window.codec(), events: window.events }))
     await Promise.all([sender.close(), receiver.close()])
     return { decoded: seen.decoded, codec: sent.codec, sentEvents: sent.events, events: seen.events }
+  }
+
+  static async waitForFrames(receiver) {
+    const deadline = Date.now() + MediaFramesBrowserCheck.framesWaitMs
+    while (Date.now() < deadline && (await receiver.evaluate(() => window.decodedNow())) === 0) await receiver.waitForTimeout(MediaFramesBrowserCheck.pollMs)
   }
 
   static async runEngine(engine, url) {
@@ -114,7 +125,7 @@ class MediaFramesBrowserCheck {
       const supported = await page.evaluate(() => typeof RTCRtpScriptTransform === 'function')
       assert.equal(supported, true, `${engine.name()} has RTCRtpScriptTransform`)
       const scenario = (options) => MediaFramesBrowserCheck.call(browser, url, options)
-      const sameKey = await scenario({ receiverEncrypts: true, receiverKey: 'alice' })
+      const sameKey = await scenario({ receiverEncrypts: true, receiverKey: 'alice', expectFrames: true })
       const wrongKey = await scenario({ receiverEncrypts: true, receiverKey: 'mallory' })
       const noKey = await scenario({ receiverEncrypts: true, receiverKey: '' })
       const plain = await scenario({ receiverEncrypts: false, receiverKey: '' })

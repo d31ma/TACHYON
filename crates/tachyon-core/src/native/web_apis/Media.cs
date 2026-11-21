@@ -27,4 +27,16 @@ public sealed class Media
     public void EncryptFrames(string connection, bool on) => TacWebHost.Call(Api, "encryptFrames", new JsonArray(connection, on));
 
     public void CallActive(bool on, string title) => TacWebHost.Call(Api, "callActive", new JsonArray(on, title));
+
+    public void Send(string connection, string track, string stream, bool simulcast) => TacWebHost.Call(Api, "send", new JsonArray(connection, track, stream, simulcast));
+
+    public void Replace(string connection, string track, string withTrack) => TacWebHost.Call(Api, "replace", new JsonArray(connection, track, withTrack));
+
+    public void Unsend(string connection, string track) => TacWebHost.Call(Api, "unsend", new JsonArray(connection, track));
+
+    public void Stats(string request, string connection) => TacWebHost.Call(Api, "stats", new JsonArray(request, connection));
+
+    public void Speaking(bool on) => TacWebHost.Call(Api, "speaking", new JsonArray(on));
+
+    public void ResumeAudio() => TacWebHost.Call(Api, "resumeAudio", new JsonArray());
 }

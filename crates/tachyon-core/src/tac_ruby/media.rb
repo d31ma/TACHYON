@@ -65,4 +65,34 @@ class Media
     TacWebHost.call(API, "callActive", [on, title])
     nil
   end
+
+  def send(connection, track, stream, simulcast)
+    TacWebHost.call(API, "send", [connection, track, stream, simulcast])
+    nil
+  end
+
+  def replace(connection, track, with_track)
+    TacWebHost.call(API, "replace", [connection, track, with_track])
+    nil
+  end
+
+  def unsend(connection, track)
+    TacWebHost.call(API, "unsend", [connection, track])
+    nil
+  end
+
+  def stats(request, connection)
+    TacWebHost.call(API, "stats", [request, connection])
+    nil
+  end
+
+  def speaking(on)
+    TacWebHost.call(API, "speaking", [on])
+    nil
+  end
+
+  def resume_audio
+    TacWebHost.call(API, "resumeAudio")
+    nil
+  end
 end

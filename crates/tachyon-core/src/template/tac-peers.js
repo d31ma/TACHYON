@@ -37,6 +37,7 @@ class TacPeers {
       configurable: true,
       value: Object.freeze({
         supported: () => TacPeers.supported(),
+        calls: Object.freeze(['open', 'offer', 'answer', 'accept', 'addCandidate', 'restart', 'openChannel', 'send', 'closeChannel', 'close']),
         open: (reply, username, credential) => TacPeers.open(reply, username, credential),
         offer: (reply, connection) => TacPeers.offer(connection),
         answer: (reply, connection, sdp) => TacPeers.answer(connection, sdp),

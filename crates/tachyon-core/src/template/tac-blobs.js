@@ -36,6 +36,7 @@ class TacBlobs {
     Object.defineProperty(globalThis, TacBlobs.key, {
       configurable: true,
       value: Object.freeze({
+        calls: Object.freeze(['saveHeld', 'download', 'list', 'read', 'remove', 'url', 'open', 'close', 'upload', 'cancel']),
         saveHeld: (reply, id, key) => TacBlobs.saveHeld(reply, id, key),
         download: (reply, url, key, headers) => TacBlobs.download(reply, url, key, headers),
         list: (reply, prefix) => TacBlobs.list(reply, prefix),

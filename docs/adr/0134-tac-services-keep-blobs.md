@@ -115,6 +115,33 @@ amendments).
     in the app's own data, which the operating system keeps until the app
     is removed. No host code changes.
 
+### Amendment: each module lists its own calls (2026-11-21, ADR 0129 slice M2)
+
+`tac-web.js` no longer keeps a list of method names for the modules that
+ship only with their grant (`files`, `blobs`, `peers`, `media`, and later
+`locks` and `session`). One helper, `TacWebApis.module(name)`, gives each a
+forwarder, and the method names move into the module:
+
+- Each module exports a frozen `calls` list of its call names. A call goes
+  to the module only when its name is in that list. Other members of the
+  module (`grant`, `held`, `supported`) are not calls.
+- The forwarder forwards only string names. `then`, Symbol keys and the
+  names of `Object.prototype` (`constructor`, `__proto__`, `toString`,
+  `valueOf`, `hasOwnProperty`, ...) are never forwarded, so `await` on the
+  forwarder resolves at once and it converts to text like a plain object.
+- An unknown name fails at once, through the usual answer, with
+  "`<module>` has no call '`<name>`'."; a prototype name fails as before
+  with "Tachyon has no browser call named '`<module>.<name>`'.".
+- The grant check and the user-action rule (`pick`, `captureScreen`) stay
+  in `tac-web.js`, before the module is asked.
+- TypeScript (`types/tachyon-behaviors.d.ts`) still lists every method, so
+  a mistyped name fails when the service is built.
+
+This takes the names out of the runtime that every page loads: with
+`media`'s six M2 calls and T11's `locks` entry, `tac-web.js` is about 18,507
+of its 18,600 bytes, where the lists would have needed 18,634. A new module
+adds one entry of about 40 bytes and no names.
+
 ## Consequences
 
 - An app can keep attachments offline, show them in a view, and send them
@@ -134,6 +161,9 @@ amendments).
 
 ## Evidence
 
+- `tac_web::web_api_tests::a_module_api_forwards_only_the_calls_its_module_lists`:
+  an unknown call, prototype names, `then`, Symbol keys, `await`, a listed
+  call, `supported`, the user-action rule and the grant check.
 - `compiler::page_blobs_tests`: the page module against an in-memory
   IndexedDB: keep, download, list, read, open, upload, the quota from the
   manifest and from the browser, the size limit, missing blobs, the seal

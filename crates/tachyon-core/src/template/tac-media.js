@@ -46,7 +46,35 @@ class TacMedia {
   static frames = null
   static frameReply = null
   static encrypted = new Map()
-  static listened = new Set()
+  static watched = new Set()
+  static peersHooked = false
+  static replies = new Map()
+  static lastReply = null
+  static mostRemote = 128
+  static layers = Object.freeze([
+    { rid: 'q', scaleResolutionDownBy: 4, maxBitrate: 150000 },
+    { rid: 'h', scaleResolutionDownBy: 2, maxBitrate: 500000 },
+    { rid: 'f', scaleResolutionDownBy: 1, maxBitrate: 1500000 },
+  ])
+  static notReceiving = ['sendonly', 'inactive', 'stopped']
+  static sending = new Map()
+  static remote = new Map()
+  static streams = new Map()
+  static blocked = new Set()
+  static previousStats = new Map()
+  static levelMs = 250
+  static speakingOn = 0.05
+  static speakingOff = 0.02
+  static speakingTicks = 2
+  static quietTicks = 4
+  static levels = new Map()
+  static analysers = new Map()
+  static audioContext = null
+  static levelTimer = 0
+  static speakReply = null
+  static loudest = ''
+  static loudestCandidate = ''
+  static loudestTicks = 0
   static reported = new Map()
   static rejected = new Map()
   static hostApi = 'media'
@@ -63,29 +91,39 @@ class TacMedia {
   static installed = TacMedia.install()
 
   static install() {
+    const calls = {
+      devices: (reply, request) => TacMedia.devices(reply, request),
+      chooseSpeaker: (reply, device) => TacMedia.chooseSpeaker(reply, device),
+      captureMicrophone: (reply, track, device, processing) => TacMedia.captureMicrophone(reply, track, device, processing),
+      captureCamera: (reply, track, device, quality) => TacMedia.captureCamera(reply, track, device, quality),
+      captureScreen: (reply, track, withAudio) => TacMedia.captureScreen(reply, track, withAudio),
+      stopTrack: (reply, track) => TacMedia.stopTrack(reply, track),
+      mute: (reply, track, muted) => TacMedia.mute(track, muted),
+      send: (reply, connection, track, stream, simulcast) => TacMedia.send(reply, connection, track, stream, simulcast),
+      replace: (reply, connection, track, withTrack) => TacMedia.replace(reply, connection, track, withTrack),
+      unsend: (reply, connection, track) => TacMedia.unsend(reply, connection, track),
+      stats: (reply, request, connection) => TacMedia.stats(reply, request, connection),
+      speaking: (reply, on) => TacMedia.speaking(reply, on),
+      resumeAudio: () => TacMedia.resumeAudio(),
+      useFrameKey: (reply, keyId, key) => TacMedia.useFrameKey(reply, keyId, key),
+      sendFrameKey: (reply, keyId) => TacMedia.postKey(reply, 'send', keyId),
+      forgetFrameKey: (reply, keyId) => TacMedia.postKey(reply, 'forget', keyId),
+      encryptFrames: (reply, connection, on) => TacMedia.encryptFrames(reply, connection, on),
+      callActive: (reply, on, title) => TacMedia.callActive(reply, on, title),
+    }
     Object.defineProperty(globalThis, TacMedia.key, {
       configurable: true,
       value: Object.freeze({
         supported: (feature) => TacMedia.supported(feature),
         grant: (call) => TacMedia.grant(call),
-        devices: (reply, request) => TacMedia.devices(reply, request),
-        chooseSpeaker: (reply, device) => TacMedia.chooseSpeaker(reply, device),
-        captureMicrophone: (reply, track, device, processing) => TacMedia.captureMicrophone(reply, track, device, processing),
-        captureCamera: (reply, track, device, quality) => TacMedia.captureCamera(reply, track, device, quality),
-        captureScreen: (reply, track, withAudio) => TacMedia.captureScreen(reply, track, withAudio),
-        stopTrack: (reply, track) => TacMedia.stopTrack(reply, track),
-        mute: (reply, track, muted) => TacMedia.mute(track, muted),
-        useFrameKey: (reply, keyId, key) => TacMedia.useFrameKey(reply, keyId, key),
-        sendFrameKey: (reply, keyId) => TacMedia.postKey(reply, 'send', keyId),
-        forgetFrameKey: (reply, keyId) => TacMedia.postKey(reply, 'forget', keyId),
-        encryptFrames: (reply, connection, on) => TacMedia.encryptFrames(reply, connection, on),
-        callActive: (reply, on, title) => TacMedia.callActive(reply, on, title),
+        calls: Object.freeze(Object.keys(calls)),
+        ...TacMedia.tracked(calls),
       }),
     })
     Object.defineProperty(globalThis, TacMedia.tracksKey, {
       configurable: true,
       value: Object.freeze({
-        track: (name) => TacMedia.tracks.get(String(name))?.track ?? null,
+        track: (name) => TacMedia.anyTrack(String(name)),
         changed: (hook) => TacMedia.changedHooks.push(hook),
         ended: (hook) => TacMedia.endedHooks.push(hook),
         speaker: () => TacMedia.speaker,
@@ -94,7 +132,31 @@ class TacMedia {
     })
     globalThis.navigator?.mediaDevices?.addEventListener?.('devicechange', () => TacMedia.devicesChanged())
     globalThis.addEventListener?.('pagehide', () => TacMedia.stopAll())
+    globalThis.addEventListener?.('load', () => TacMedia.watchPeers())
+    TacMedia.watchPeers()
     return true
+  }
+
+  static tracked(calls) {
+    return Object.fromEntries(Object.entries(calls).map(([name, call]) => [name, (reply, ...values) => TacMedia.calling(reply, () => call(reply, ...values))]))
+  }
+
+  static calling(reply, work) {
+    TacMedia.lastReply = reply
+    TacMedia.watchPeers()
+    return work()
+  }
+
+  static anyTrack(name) {
+    return TacMedia.tracks.get(name)?.track ?? TacMedia.remote.get(name)?.track ?? null
+  }
+
+  static watchPeers() {
+    const hooks = globalThis[TacMedia.peersHooksKey]
+    if (TacMedia.peersHooked || !hooks) return
+    TacMedia.peersHooked = true
+    hooks.opened((connection, peer) => TacMedia.watch(connection, peer))
+    hooks.closed((connection) => TacMedia.closed(connection))
   }
 
   static supported(feature) {
@@ -145,7 +207,7 @@ class TacMedia {
     if (TacMedia.bridged()) return TacMedia.chooseHostSpeaker(reply, id)
     TacMedia.ensureSpeakers()
     TacMedia.speaker = id
-    Promise.all(TacMedia.changedHooks.map((hook) => hook('speaker', null)))
+    Promise.all(TacMedia.changedHooks.map((hook) => hook('speaker', null)).concat(TacMedia.players().map((audio) => TacMedia.toSpeaker(audio, id))))
       .then(() => reply(['MediaSpeakerChosen', { device: id }]))
       .catch((error) => reply(TacMedia.failure('', 'chooseSpeaker', error)))
     return null
@@ -304,6 +366,7 @@ class TacMedia {
 
   static end(entry, reason) {
     TacMedia.tracks.delete(entry.name)
+    TacMedia.forgetLevel(entry.name)
     entry.track?.stop()
     TacMedia.announce(TacMedia.endedHooks, entry.name, null)
     entry.reply(['MediaTrackEnded', { track: entry.name, reason }])
@@ -396,10 +459,9 @@ class TacMedia {
     TacMedia.ensureEncryption(on)
     TacMedia.ensureFrames()
     const id = String(connection)
-    const peer = TacMedia.peer(id)
+    const peer = TacMedia.peerFor(reply, id)
     TacMedia.frameReply = reply
     TacMedia.worker()
-    TacMedia.listen(id, peer)
     TacMedia.markEncrypted(id, peer, on === true)
     for (const transceiver of peer.getTransceivers()) TacMedia.attachIfEncrypted(id, transceiver)
     return null
@@ -411,10 +473,317 @@ class TacMedia {
     return peer
   }
 
-  static listen(connection, peer) {
-    if (TacMedia.listened.has(connection)) return
-    TacMedia.listened.add(connection)
-    peer.addEventListener('track', (event) => TacMedia.attachIfEncrypted(connection, event.transceiver))
+  static peerFor(reply, connection) {
+    const peer = TacMedia.peer(connection)
+    TacMedia.replies.set(connection, reply)
+    TacMedia.watch(connection, peer)
+    return peer
+  }
+
+  static watch(connection, peer) {
+    if (TacMedia.watched.has(connection)) return
+    TacMedia.watched.add(connection)
+    peer.addEventListener('track', (event) => TacMedia.arrived(connection, event))
+    peer.addEventListener('signalingstatechange', () => TacMedia.checkRemote(connection, peer))
+  }
+
+  static tell(connection, event) {
+    const reply = TacMedia.replies.get(connection) ?? TacMedia.lastReply
+    reply?.(event)
+  }
+
+  static send(reply, connection, track, stream, simulcast) {
+    const id = String(connection)
+    const peer = TacMedia.peerFor(reply, id)
+    const entry = TacMedia.entry(track)
+    TacMedia.ensureNotSent(id, entry.name)
+    const transceiver = peer.addTransceiver(entry.track ?? TacMedia.mediaKind(entry), TacMedia.sendOptions(entry, stream, simulcast))
+    TacMedia.sending.set(`${id} ${entry.name}`, { connection: id, name: entry.name, transceiver })
+    TacMedia.attachIfEncrypted(id, transceiver)
+    reply(['MediaSending', { connection: id, track: entry.name }])
+    return null
+  }
+
+  static ensureNotSent(connection, name) {
+    if (TacMedia.sending.has(`${connection} ${name}`)) throw new Error(`The track ${name} is already sent on ${connection} (exists).`)
+  }
+
+  static mediaKind(entry) {
+    return entry.kind === 'audio' ? 'audio' : 'video'
+  }
+
+  static sendOptions(entry, stream, simulcast) {
+    const options = { direction: 'sendrecv', streams: [TacMedia.namedStream(stream)] }
+    if (entry.kind === 'screen' && entry.track?.kind === 'video') entry.track.contentHint = 'detail'
+    if (simulcast === true && entry.kind === 'video') options.sendEncodings = TacMedia.layers.map((layer) => ({ ...layer }))
+    return options
+  }
+
+  static namedStream(stream) {
+    const name = String(stream ?? '')
+    if (name !== '') TacMedia.checkedName(name)
+    if (!TacMedia.streams.has(name)) TacMedia.streams.set(name, new MediaStream())
+    return TacMedia.streams.get(name)
+  }
+
+  static replace(reply, connection, track, withTrack) {
+    const id = String(connection)
+    TacMedia.peerFor(reply, id)
+    const sent = TacMedia.sent(id, track)
+    const next = TacMedia.entry(withTrack)
+    TacMedia.ensureSameKind(sent, next)
+    TacMedia.ensureNotSent(id, next.name)
+    TacMedia.sending.delete(`${id} ${sent.name}`)
+    TacMedia.sending.set(`${id} ${next.name}`, { ...sent, name: next.name })
+    TacMedia.ask(() => sent.transceiver.sender.replaceTrack(next.track)).catch((error) => reply(TacMedia.failure(next.name, 'replace', error)))
+    return null
+  }
+
+  static ensureSameKind(sent, next) {
+    if (TacMedia.mediaKind(next) !== sent.transceiver.receiver.track.kind) throw new Error('A track can only replace a track of the same kind (invalid).')
+  }
+
+  static unsend(reply, connection, track) {
+    const id = String(connection)
+    const peer = TacMedia.peerFor(reply, id)
+    const sent = TacMedia.sent(id, track)
+    TacMedia.sending.delete(`${id} ${sent.name}`)
+    peer.removeTrack(sent.transceiver.sender)
+    return null
+  }
+
+  static sent(connection, track) {
+    const sent = TacMedia.sending.get(`${connection} ${track}`)
+    if (!sent) throw new Error(`The track ${track} is not sent on ${connection} (unknown).`)
+    return sent
+  }
+
+  static arrived(connection, event) {
+    const transceiver = event.transceiver
+    TacMedia.attachIfEncrypted(connection, transceiver)
+    const name = `${connection}.${transceiver.mid}`
+    if (TacMedia.remote.has(name)) return
+    if (TacMedia.remote.size >= TacMedia.mostRemote) return TacMedia.tell(connection, TacMedia.failure(name, 'receive', new Error('Too many remote tracks.')))
+    const track = transceiver.receiver.track
+    TacMedia.remote.set(name, { name, connection, track, transceiver, audio: TacMedia.player(track) })
+    track.addEventListener('mute', () => TacMedia.tell(connection, ['MediaTrackMuted', { track: name, muted: true }]))
+    track.addEventListener('unmute', () => TacMedia.tell(connection, ['MediaTrackMuted', { track: name, muted: false }]))
+    TacMedia.announce(TacMedia.changedHooks, name, track)
+    TacMedia.tell(connection, ['MediaTrackArrived', { connection, track: name, kind: track.kind, stream: event.streams?.[0]?.id ?? '' }])
+  }
+
+  static checkRemote(connection, peer) {
+    if (peer.signalingState !== 'stable') return
+    const gone = [...TacMedia.remote.values()].filter((entry) => entry.connection === connection && TacMedia.notReceiving.includes(entry.transceiver.currentDirection))
+    for (const entry of gone) TacMedia.endRemote(entry, 'remote')
+  }
+
+  static endRemote(entry, reason) {
+    TacMedia.remote.delete(entry.name)
+    TacMedia.stopPlayer(entry.audio)
+    TacMedia.forgetLevel(entry.name)
+    TacMedia.announce(TacMedia.endedHooks, entry.name, null)
+    TacMedia.tell(entry.connection, ['MediaTrackEnded', { track: entry.name, reason }])
+  }
+
+  static closed(connection) {
+    const remote = [...TacMedia.remote.values()].filter((entry) => entry.connection === connection)
+    for (const entry of remote) TacMedia.endRemote(entry, 'closed')
+    for (const [key, sent] of TacMedia.sending) {
+      if (sent.connection === connection) TacMedia.sending.delete(key)
+    }
+    TacMedia.watched.delete(connection)
+    TacMedia.encrypted.delete(connection)
+    TacMedia.replies.delete(connection)
+  }
+
+  static player(track) {
+    if (track.kind !== 'audio' || typeof globalThis.document?.createElement !== 'function') return null
+    const audio = document.createElement('audio')
+    audio.autoplay = true
+    audio.srcObject = new MediaStream([track])
+    if (TacMedia.speaker !== '') TacMedia.toSpeaker(audio, TacMedia.speaker)?.catch?.(() => null)
+    TacMedia.play(audio)
+    return audio
+  }
+
+  static players() {
+    return [...TacMedia.remote.values()].map((entry) => entry.audio).filter((audio) => audio !== null)
+  }
+
+  static toSpeaker(audio, id) {
+    if (typeof audio.setSinkId === 'function') return audio.setSinkId(id)
+    return null
+  }
+
+  static play(audio) {
+    TacMedia.ask(() => audio.play())
+      .then(() => TacMedia.blocked.delete(audio))
+      .catch((error) => TacMedia.audioBlocked(audio, error))
+  }
+
+  static audioBlocked(audio, error) {
+    if (error?.name !== 'NotAllowedError') return
+    const first = TacMedia.blocked.size === 0
+    TacMedia.blocked.add(audio)
+    if (first) TacMedia.lastReply?.(['MediaAudioBlocked', {}])
+  }
+
+  static resumeAudio() {
+    for (const audio of [...TacMedia.blocked]) TacMedia.play(audio)
+    return null
+  }
+
+  static stopPlayer(audio) {
+    if (!audio) return
+    audio.pause?.()
+    audio.srcObject = null
+    TacMedia.blocked.delete(audio)
+  }
+
+  static stats(reply, request, connection) {
+    const id = String(connection)
+    const peer = TacMedia.peerFor(reply, id)
+    TacMedia.ask(() => peer.getStats())
+      .then((report) => TacMedia.sendStats(reply, String(request), id, report))
+      .catch((error) => reply(TacMedia.failure('', 'stats', error)))
+    return null
+  }
+
+  static sendStats(reply, request, connection, report) {
+    const streams = [...report.values()].filter((item) => item.type === 'inbound-rtp' || item.type === 'outbound-rtp')
+    const rows = streams.map((item) => TacMedia.statRow(connection, item, report)).filter((row) => row.track !== '')
+    rows.forEach((row, index) => reply(['MediaStats', { request, connection, ...row, index, count: rows.length }]))
+    if (rows.length === 0) reply(['MediaStats', { request, connection, ...TacMedia.emptyStat(), index: 0, count: 0 }])
+  }
+
+  static emptyStat() {
+    return { track: '', layer: '', direction: '', kind: '', bitrate: 0, packetsLost: 0, lossPercent: 0, jitterMs: 0, roundTripMs: 0, framesPerSecond: 0, width: 0, height: 0 }
+  }
+
+  static statRow(connection, item, report) {
+    const inbound = item.type === 'inbound-rtp'
+    const far = inbound ? item : report.get(item.remoteId)
+    return {
+      track: inbound ? TacMedia.receivedName(connection, item) : TacMedia.sentName(connection, item, report),
+      layer: item.rid ?? '',
+      direction: inbound ? 'receive' : 'send',
+      kind: item.kind ?? item.mediaType ?? '',
+      bitrate: TacMedia.bitrate(item, inbound ? item.bytesReceived : item.bytesSent),
+      packetsLost: far?.packetsLost ?? 0,
+      lossPercent: inbound ? TacMedia.receivedLoss(item) : Math.round((far?.fractionLost ?? 0) * 1000) / 10,
+      jitterMs: TacMedia.milliseconds(far?.jitter),
+      roundTripMs: TacMedia.milliseconds(inbound ? TacMedia.pairRoundTrip(report) : far?.roundTripTime),
+      framesPerSecond: Math.round(item.framesPerSecond ?? 0),
+      width: item.frameWidth ?? 0,
+      height: item.frameHeight ?? 0,
+    }
+  }
+
+  static receivedName(connection, item) {
+    const entry = [...TacMedia.remote.values()].find((remote) => remote.connection === connection && (remote.transceiver.mid === item.mid || remote.track.id === item.trackIdentifier))
+    return entry?.name ?? ''
+  }
+
+  static sentName(connection, item, report) {
+    const source = report.get(item.mediaSourceId)?.trackIdentifier
+    const sent = [...TacMedia.sending.values()].find((entry) => entry.connection === connection && (entry.transceiver.mid === item.mid || entry.transceiver.sender.track?.id === source))
+    return sent?.name ?? ''
+  }
+
+  static bitrate(item, bytes) {
+    const before = TacMedia.previousStats.get(item.id)
+    TacMedia.previousStats.set(item.id, { bytes: bytes ?? 0, time: item.timestamp })
+    if (!before || item.timestamp <= before.time) return 0
+    return Math.round(((bytes ?? 0) - before.bytes) * 8000 / (item.timestamp - before.time))
+  }
+
+  static receivedLoss(item) {
+    const lost = item.packetsLost ?? 0
+    const total = lost + (item.packetsReceived ?? 0)
+    return total > 0 ? Math.round(lost * 1000 / total) / 10 : 0
+  }
+
+  static milliseconds(seconds) {
+    return Math.round((seconds ?? 0) * 1000)
+  }
+
+  static pairRoundTrip(report) {
+    return [...report.values()].find((item) => item.type === 'candidate-pair' && item.nominated && item.state === 'succeeded')?.currentRoundTripTime
+  }
+
+  static speaking(reply, on) {
+    TacMedia.speakReply = reply
+    clearInterval(TacMedia.levelTimer)
+    TacMedia.levelTimer = on === true ? setInterval(() => TacMedia.measure(), TacMedia.levelMs) : 0
+    if (on !== true) TacMedia.levels.clear()
+    return null
+  }
+
+  static measure() {
+    for (const [name, level] of TacMedia.currentLevels()) TacMedia.judge(name, level)
+    TacMedia.pickLoudest()
+  }
+
+  static currentLevels() {
+    const remote = [...TacMedia.remote.values()].filter((entry) => entry.track.kind === 'audio').map((entry) => [entry.name, TacMedia.remoteLevel(entry)])
+    const local = [...TacMedia.tracks.values()].filter((entry) => entry.kind === 'audio' && entry.track).map((entry) => [entry.name, TacMedia.localLevel(entry)])
+    return remote.concat(local)
+  }
+
+  static remoteLevel(entry) {
+    const sources = entry.transceiver.receiver.getSynchronizationSources?.() ?? []
+    return Math.max(0, ...sources.map((source) => source.audioLevel ?? 0))
+  }
+
+  static localLevel(entry) {
+    const analyser = TacMedia.analyser(entry)
+    if (!analyser) return 0
+    const samples = new Float32Array(analyser.fftSize)
+    analyser.getFloatTimeDomainData(samples)
+    return Math.sqrt(samples.reduce((sum, value) => sum + value * value, 0) / samples.length)
+  }
+
+  static analyser(entry) {
+    const known = TacMedia.analysers.get(entry.name)
+    if (known?.track === entry.track) return known.node
+    if (typeof globalThis.AudioContext !== 'function') return null
+    TacMedia.audioContext ??= new AudioContext()
+    const node = TacMedia.audioContext.createAnalyser()
+    TacMedia.audioContext.createMediaStreamSource(new MediaStream([entry.track])).connect(node)
+    TacMedia.analysers.set(entry.name, { track: entry.track, node })
+    return node
+  }
+
+  static judge(name, level) {
+    const state = TacMedia.levels.get(name) ?? { speaking: false, count: 0, level: 0 }
+    const crossing = state.speaking ? level < TacMedia.speakingOff : level >= TacMedia.speakingOn
+    state.level = level
+    state.count = crossing ? state.count + 1 : 0
+    TacMedia.levels.set(name, state)
+    if (state.count < (state.speaking ? TacMedia.quietTicks : TacMedia.speakingTicks)) return
+    state.speaking = !state.speaking
+    state.count = 0
+    TacMedia.speakReply?.(['MediaSpeaking', { track: name, speaking: state.speaking }])
+  }
+
+  static pickLoudest() {
+    const top = TacMedia.topSpeaker()
+    TacMedia.loudestTicks = top === TacMedia.loudestCandidate ? TacMedia.loudestTicks + 1 : 1
+    TacMedia.loudestCandidate = top
+    if (top === '' || top === TacMedia.loudest || TacMedia.loudestTicks < TacMedia.speakingTicks) return
+    TacMedia.loudest = top
+    TacMedia.speakReply?.(['MediaLoudest', { track: top }])
+  }
+
+  static topSpeaker() {
+    const speaking = [...TacMedia.levels].filter(([, state]) => state.speaking)
+    return speaking.sort((first, second) => second[1].level - first[1].level)[0]?.[0] ?? ''
+  }
+
+  static forgetLevel(name) {
+    TacMedia.levels.delete(name)
+    TacMedia.analysers.delete(name)
   }
 
   static markEncrypted(connection, peer, on) {
@@ -485,6 +854,13 @@ class TacMedia {
 
   static announce(hooks, name, track) {
     for (const hook of hooks) hook(name, track)
+    TacMedia.resend(name, track)
+  }
+
+  static resend(name, track) {
+    for (const sent of TacMedia.sending.values()) {
+      if (sent.name === name) TacMedia.ask(() => sent.transceiver.sender.replaceTrack(track)).catch(() => null)
+    }
   }
 
   static failure(track, call, error) {
@@ -513,6 +889,9 @@ class TacMedia {
 
   static stopAll() {
     for (const entry of TacMedia.tracks.values()) entry.track?.stop()
+    for (const audio of TacMedia.players()) TacMedia.stopPlayer(audio)
+    clearInterval(TacMedia.levelTimer)
     TacMedia.tracks.clear()
+    TacMedia.remote.clear()
   }
 }

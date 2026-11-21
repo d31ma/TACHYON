@@ -75,7 +75,7 @@ default under the same name, stops the old track, and sends
 ### `media-view`
 
 `<media-view track="{call.mainTrack}" fit="cover" mirror="{call.isSelf}" label="{call.name}">`
-is a built-in element. It shows the named video track in a `<video>` inside
+is a built-in element. It shows the named local or remote video track in a `<video>` inside
 a closed shadow root, and nothing when the name is empty or unknown. `fit`
 is `cover` or `contain`; `mirror="true"` flips one's own camera; `label`
 becomes its accessible name. It never plays sound.
@@ -152,6 +152,33 @@ that forwarder.
   `navigator.mediaDevices` itself once the person allowed it; WebAssembly
   services cannot.
 
+### Sending and receiving on a Peers connection (slice M2)
+
+`Media` sends its local tracks on the connections of `Peers` (ADR 0140),
+named by the id that `Peers.open` answers (`peer-1`, ...). Tachyon does no
+signalling: after a change, Peers sends `PeerNegotiationNeeded` and the app
+makes the next offer.
+
+| Call | Answer |
+| --- | --- |
+| `send(connection, track, stream, simulcast)` | `MediaSending { connection, track }`, then Peers' `PeerNegotiationNeeded`. Tracks with the same `stream` name go out in one stream. `simulcast: true` sends a camera in three layers (`q` 1/4 size up to 150 kbit/s, `h` 1/2 up to 500 kbit/s, `f` full up to 1.5 Mbit/s); a screen track is sent with the `detail` hint and no simulcast. |
+| `replace(connection, track, withTrack)` | at once, with no new offer; both tracks have the same kind |
+| `unsend(connection, track)` | `PeerNegotiationNeeded` again |
+| (the other side sends a track) | `MediaTrackArrived { connection, track, kind, stream }`. The track is named `<connection>.<mid>`; `stream` is the sender's stream id (with an SFU, the SFU's). Remote audio plays at once on the chosen speaker; a `media-view` shows remote video by its name. A page receives at most 128 remote tracks. |
+| (a remote track stops or starts getting media) | `MediaTrackMuted { track, muted }` |
+| (the other side stops sending it) | `MediaTrackEnded { track, reason: "remote" }`, once negotiation is stable again; closing the connection ends its tracks with `reason: "closed"` |
+| `stats(request, connection)` | one `MediaStats { request, connection, track, layer, direction, kind, bitrate, packetsLost, lossPercent, jitterMs, roundTripMs, framesPerSecond, width, height, index, count }` per sent or received track, one per simulcast layer; `bitrate` (bits per second) is the change since the last `stats` call, 0 on the first. One event with `count: 0` when nothing flows. |
+| `speaking(on)` | every 250 ms Tachyon reads the audio level of each remote track (the receiver's synchronization sources) and each local microphone. A track talks after 2 samples at 0.05 or more and stops after 4 samples under 0.02: `MediaSpeaking { track, speaking }`. `MediaLoudest { track }` when another talking track has been the loudest for 2 samples. Few events, never a stream of levels. |
+| (the browser blocks remote audio until a click) | `MediaAudioBlocked {}` once; `resumeAudio()` from a click plays it |
+
+Remote events go to the service that last named the connection in a `Media`
+call, otherwise to the last service that called `Media`. A service that
+only receives calls `stats` or `speaking` once to receive them. Local
+tracks that change (a camera turned off and on, a new default microphone)
+are sent again on every connection without a new offer; a camera that is
+off sends no frames. With `encryptFrames` on, every track that `send` adds
+or that arrives is encrypted (ADR 0135).
+
 ## Consequences
 
 - iOS is not probed yet; a capture on a phone, a Mac with a microphone, an
@@ -162,6 +189,16 @@ that forwarder.
 
 ## Evidence
 
+- `compiler::page_media_tests::the_page_runtime_sends_receives_measures_and_hears_tracks_on_a_peer_connection`:
+  send, simulcast layers, shared streams, replace, unsend, camera off and
+  on, remote tracks and their players, mute, blocked audio and
+  `resumeAudio`, the speaker for remote audio, stats rows and bitrate, a
+  remote track leaving after negotiation, talk detection with its delays,
+  and a closed connection, against fake WebRTC objects.
+- `scripts/media-calls-browser-test.mjs` (`bun run test:media-calls-browser`):
+  two pages on real `Peers` connections in Chromium, Firefox and WebKit, and
+  one connection with 50 audio and 9 video tracks (`SUPPORT_TIERS.md`,
+  "Calls between two pages and 59 tracks on one connection").
 - `compiler::page_media_tests`: the page runtime with fake devices (capture,
   names, failures, mute, camera off, following the default device, screen
   sharing, grants and the user-action rule) and module shipping.
