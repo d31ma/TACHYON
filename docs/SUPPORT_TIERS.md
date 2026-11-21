@@ -1999,7 +1999,26 @@ ran in the Linux gate image on Colima (WebKitGTK, gnome-keyring under
 frame key: it answered `frame-key:unsupported`, and every earlier phase
 answered as before.
 
-__P5K_EVIDENCE__
+`native_crypto_host_tests::macos_crypto_runs_natively_through_the_generated_host`
+built the generated macOS host with the `crypto` grant on macOS 27.2.1 and
+ran a frame-key check in its web view, with the worker's own HPKE code: a
+`derive` key imported into the native store; `browserApi.crypto.frameKey`
+answered `enc`, `key` and `salt`, none of which holds the base secret, the
+SFrame key or the salt; the worker code opened the package as a
+non-extractable key, and its frames equalled those of the page-key path
+for the same secret; a missing key answered `unknown`, an `encrypt` key, a
+bad worker key and a bad key id `invalid` (the page turns these into
+`unsupported`). The run had a locked screen, so it ran without the
+`--gui` screen gate; it needs no Accessibility.
+
+`test:phase4-macos` passed on the same tip with an unlocked screen.
+
+Owed: the iOS simulator check
+(`native_crypto_host_tests::ios_crypto_keeps_keys_in_the_simulator_keychain_across_a_relaunch`,
+which now includes the frame-key check, inside a `mac-heavy --vm=ios` job
+on Platform's go); an SFrame call between the built macOS app and a browser
+over a real `RTCPeerConnection`, each side decrypting the other's frames
+and refusing a wrong key (automated test planned, P5K2).
 
 ### Passkeys in the browser (2026-11-12, ADR 0126)
 
