@@ -55,6 +55,7 @@
     "test:peers-ios": "node scripts/ios/peers-test.mjs",
     "test:peers-android": "node scripts/android/peers-test.mjs",
     "test:peers-windows": "node scripts/windows/peers-native-test.mjs",
+    "test:peers-large-call-browser": "node scripts/peers-large-call-browser-test.mjs",
     "test:code-scanner-browser": "node scripts/code-scanner-browser-test.mjs",
     "test:blobs-browser": "node scripts/blobs-browser-test.mjs",
     "test:streams-browser": "node scripts/streams-browser-test.mjs",
