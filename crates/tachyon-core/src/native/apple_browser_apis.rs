@@ -17,9 +17,10 @@ impl AppleBrowserApis {
         include_str!("browser_apis/AppleCryptoKey.swift"),
         include_str!("browser_apis/AppleCryptoRefusal.swift"),
         include_str!("browser_apis/AppleKeyStore.swift"),
-        include_str!("browser_apis/AppleCallAudio.swift"),
-        include_str!("browser_apis/AppleRecorderFiles.swift")
+        include_str!("browser_apis/AppleCallAudio.swift")
     );
+    pub(super) const MACOS_SWIFT: &'static str =
+        include_str!("browser_apis/AppleRecorderFiles.swift");
 
     pub(super) fn swift_grants(permissions: &BrowserApiPermissions) -> String {
         serde_json::to_string(permissions.granted()).unwrap_or_else(|_| String::from("[]"))

@@ -114,8 +114,9 @@ machine contracts have their own, independent major versions.
   M5b1). `Recorder.start` in a macOS app opens the system save dialog as a
   sheet on the app window, and the host writes each piece to the chosen
   file while the call runs. The page sends pieces in chunks of at most
-  45 KiB through the host call. iOS, Android and Windows follow in slice
-  M5b2, Linux in slice L4.
+  45 KiB through the host call. A recording that got no bytes at all now
+  ends with `RecordingFailed` (`failed`) instead of `RecordingStopped`.
+  iOS, Android and Windows follow in slice M5b2, Linux in slice L4.
 - **Services record calls to a file on the device** (ADR NNNN, slice M5a).
   `Recorder` mixes `Media` audio tracks and one video the app can switch,
   pauses, resumes and stops, and writes a piece every second to the file
