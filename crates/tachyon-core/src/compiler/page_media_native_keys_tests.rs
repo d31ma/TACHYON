@@ -194,8 +194,14 @@ fn the_frame_worker_unwraps_a_native_frame_key_into_a_key_no_script_can_read() {
         report["pendingPrivate"],
         serde_json::json!({ "extractable": false, "type": "private" })
     );
-    assert_eq!(report["freshPerBind"], true, "a new key pair for every handover");
-    assert_eq!(report["publicKey"], serde_json::json!({ "length": 65, "first": 4 }));
+    assert_eq!(
+        report["freshPerBind"], true,
+        "a new key pair for every handover"
+    );
+    assert_eq!(
+        report["publicKey"],
+        serde_json::json!({ "length": 65, "first": 4 })
+    );
     assert_eq!(
         report["boundShapes"],
         serde_json::json!(["keyId:number,kind:string,publicKey:string"]),
@@ -231,8 +237,16 @@ fn the_frame_worker_refuses_a_frame_key_it_cannot_unwrap_and_sends_nothing() {
         return;
     }
     let report = NativeKeysDriver::run();
-    assert_eq!(report["beforeBind"], NativeKeysDriver::refused(3), "{report}");
-    assert_eq!(report["replacedBind"], NativeKeysDriver::refused(7), "{report}");
+    assert_eq!(
+        report["beforeBind"],
+        NativeKeysDriver::refused(3),
+        "{report}"
+    );
+    assert_eq!(
+        report["replacedBind"],
+        NativeKeysDriver::refused(7),
+        "{report}"
+    );
     assert_eq!(report["replayed"], NativeKeysDriver::refused(7), "{report}");
     assert_eq!(
         report["replayedIntoOtherKeyId"],
@@ -255,7 +269,10 @@ fn the_frame_worker_refuses_a_frame_key_it_cannot_unwrap_and_sends_nothing() {
             "{case}: {report}"
         );
     }
-    assert_eq!(report["pendingLeft"], 0, "every handover key pair is used once");
+    assert_eq!(
+        report["pendingLeft"], 0,
+        "every handover key pair is used once"
+    );
     assert_eq!(
         report["sendRefused"],
         serde_json::json!([{ "kind": "missing", "keyId": 11, "track": "" }])

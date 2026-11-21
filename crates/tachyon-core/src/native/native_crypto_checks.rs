@@ -103,6 +103,44 @@ return results.join(',');";
     pub(super) const FORGET: &'static str = r"results.push('forget-all:' + word(await call('forgetAll'), 'nothing'));
 results.push('after:' + word(await call('publicKey', 'device'), 'key'));
 return results.join(',');";
+    pub(super) const FRAME: &'static str = concat!(
+        include_str!("../template/tac-media-frames.js"),
+        r"
+const secret = new Uint8Array(32).fill(5);
+const frameBits = async (label, bits) => {
+  const base = await subtle.importKey('raw', secret, 'HKDF', false, ['deriveBits']);
+  const info = new Uint8Array([...new TextEncoder().encode(label), 0, 0, 0, 0, 0, 0, 0, 7, 0, 4]);
+  return b64(new Uint8Array(await subtle.deriveBits({ name: 'HKDF', hash: 'SHA-256', salt: new Uint8Array(0), info }, base, bits)));
+};
+await call('forget', 'frame-secret');
+await call('forget', 'frame-encrypt');
+results.push('frame-import:' + word(await call('importKey', 'frame-secret', b64(secret), 'derive', false), 'key'));
+const pair = await subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, false, ['deriveBits']);
+const workerKey = b64(new Uint8Array(await subtle.exportKey('raw', pair.publicKey)));
+const wrapped = await call('frameKey', 'frame-secret', 7, workerKey);
+results.push('frame-fields:' + ['enc', 'key', 'salt'].every((field) => typeof wrapped[field] === 'string'));
+const plainParts = [b64(secret), await frameBits('SFrame 1.0 Secret key ', 128), await frameBits('SFrame 1.0 Secret salt ', 96)];
+results.push('frame-opaque:' + !plainParts.some((part) => JSON.stringify(wrapped).includes(part)));
+const entry = await TacMediaFrames.unwrapped(pair, 7n, wrapped).catch(() => null);
+results.push('frame-unwrapped:' + (entry !== null));
+const page = await TacMediaFrames.derive(await subtle.importKey('raw', secret, 'HKDF', false, ['deriveKey', 'deriveBits']), 7n);
+const metadata = new Uint8Array([1, 2, 3]);
+const plain = new Uint8Array([9, 8, 7, 6]);
+results.push('frame-same:' + (b64(await TacMediaFrames.encrypt(entry, metadata, plain)) === b64(await TacMediaFrames.encrypt(page, metadata, plain))));
+results.push('frame-extractable:' + entry.key.extractable);
+results.push('frame-unknown:' + word(await call('frameKey', 'frame-nobody', 7, workerKey), 'enc'));
+await call('importKey', 'frame-encrypt', b64(secret), 'encrypt', false);
+results.push('frame-wrong-use:' + word(await call('frameKey', 'frame-encrypt', 7, workerKey), 'enc'));
+results.push('frame-bad-worker-key:' + word(await call('frameKey', 'frame-secret', 7, b64(new Uint8Array(65))), 'enc'));
+results.push('frame-bad-key-id:' + word(await call('frameKey', 'frame-secret', -1, workerKey), 'enc'));
+await call('forget', 'frame-secret');
+await call('forget', 'frame-encrypt');
+return results.join(',');"
+    );
+    pub(super) const LINUX_FRAME: &'static str = r"results.push('frame-key:' + word(await call('frameKey', 'device', 7, b64(new Uint8Array([4, ...new Uint8Array(64).fill(1)]))), 'enc'));
+return results.join(',');";
+    pub(super) const LINUX_FRAME_PASSED: &'static str = "frame-key:unsupported";
+    const FRAME_PASSED: &'static str = "frame-import:ok,frame-fields:true,frame-opaque:true,frame-unwrapped:true,frame-same:true,frame-extractable:false,frame-unknown:unknown,frame-wrong-use:invalid,frame-bad-worker-key:invalid,frame-bad-key-id:invalid";
     const FIRST_PASSED: &'static str = "hash,hkdf,rfc8032:true,rfc8032-empty:true,changed:false,webkit-verify:true,empty-round-trip:true,import:ok,host-opens:from webkit,webkit-opens:from host,wrong-aad:rejected,agree:ok,agreed-opens:agreed text,small-order:invalid,derive-base:ok,derive:ok,child-opens:child text,code:ok,code-opens:backup text,unknown:unknown,exists:exists,wrong-kind:invalid,forget-missing:missing";
     const AGAIN_PASSED: &'static str = "public-kept:true,backup-opens:kept text,memory-gone:unknown,exists:exists,forget-all:missing,after:unknown";
     const FORGET_PASSED: &'static str = "forget-all:missing,after:unknown";
@@ -115,6 +153,10 @@ return results.join(',');";
     pub(super) fn first_expected(store: &str) -> String {
         let keep = ["unsupported", "os"][usize::from(store == "os")];
         format!("store:{store},keep:{keep},{}", Self::FIRST_PASSED)
+    }
+
+    pub(super) fn frame_expected(_store: &str) -> String {
+        String::from(Self::FRAME_PASSED)
     }
 
     pub(super) fn forget_expected(_store: &str) -> String {

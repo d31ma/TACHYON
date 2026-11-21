@@ -13,6 +13,19 @@ class TacMediaFrames {
   static keyLabel = 'SFrame 1.0 Secret key '
   static saltLabel = 'SFrame 1.0 Secret salt '
   static videoClearBytes = Object.freeze({ key: 10, delta: 3 })
+  static wrapInfo = 'Tachyon SFrame frame key 1'
+  static wrapVersion = 'HPKE-v1'
+  static curve = Object.freeze({ name: 'ECDH', namedCurve: 'P-256' })
+  static hmac = Object.freeze({ name: 'HMAC', hash: 'SHA-256' })
+  static kemId = 16
+  static kdfId = 1
+  static aeadId = 2
+  static idBytes = 2
+  static hashBytes = 32
+  static baseMode = 0
+  static aeadKeyBytes = Object.freeze({ 1: 16, 2: 32 })
+  static sealedParts = Object.freeze({ key: 0, salt: 1 })
+  static pending = new Map()
   static receiving = new Map()
   static sending = null
   static installed = TacMediaFrames.install()
@@ -26,6 +39,8 @@ class TacMediaFrames {
 
   static receive(message) {
     const kid = BigInt(message.keyId)
+    if (message.kind === 'bind') return TacMediaFrames.bind(kid).catch(() => TacMediaFrames.report('refused', kid, ''))
+    if (message.kind === 'wrapped') return TacMediaFrames.unwrap(kid, message.wrapped)
     if (message.kind === 'use') return TacMediaFrames.use(kid, message.key)
     if (message.kind === 'send') return TacMediaFrames.send(kid)
     return TacMediaFrames.forget(kid)
@@ -34,6 +49,107 @@ class TacMediaFrames {
   static async use(kid, baseKey) {
     TacMediaFrames.receiving.set(kid, await TacMediaFrames.derive(baseKey, kid))
     TacMediaFrames.report('ready', kid, '')
+  }
+
+  static async bind(kid) {
+    const pair = await crypto.subtle.generateKey(TacMediaFrames.curve, false, ['deriveBits'])
+    TacMediaFrames.pending.set(kid, pair)
+    const publicKey = new Uint8Array(await crypto.subtle.exportKey('raw', pair.publicKey))
+    globalThis.postMessage?.({ kind: 'bound', keyId: Number(kid), publicKey: TacMediaFrames.base64(publicKey) })
+  }
+
+  static async unwrap(kid, wrapped) {
+    const pair = TacMediaFrames.pending.get(kid)
+    TacMediaFrames.pending.delete(kid)
+    const entry = await TacMediaFrames.unwrapped(pair, kid, wrapped).catch(() => null)
+    if (entry === null) return TacMediaFrames.report('refused', kid, '')
+    TacMediaFrames.receiving.set(kid, entry)
+    TacMediaFrames.report('ready', kid, '')
+  }
+
+  static async unwrapped(pair, kid, wrapped) {
+    const own = new Uint8Array(await crypto.subtle.exportKey('raw', pair.publicKey))
+    const kidBytes = TacMediaFrames.bigEndian(kid, TacMediaFrames.kidBytes)
+    const info = TacMediaFrames.join([TacMediaFrames.text(TacMediaFrames.wrapInfo), kidBytes])
+    const context = await TacMediaFrames.hpke(pair.privateKey, own, TacMediaFrames.fromBase64(wrapped.enc), info, TacMediaFrames.aeadId)
+    const key = await TacMediaFrames.unwrapKey(context, kidBytes, TacMediaFrames.fromBase64(wrapped.key))
+    const salt = await TacMediaFrames.openSalt(context, kidBytes, TacMediaFrames.fromBase64(wrapped.salt))
+    return { kid, key, salt, counter: 0n }
+  }
+
+  static unwrapKey(context, kidBytes, sealed) {
+    const aead = TacMediaFrames.opening(context, TacMediaFrames.sealedParts.key, TacMediaFrames.partData('key', kidBytes))
+    return crypto.subtle.unwrapKey('raw', sealed, context.key, aead, { name: 'AES-GCM', length: TacMediaFrames.keyBits }, false, ['encrypt', 'decrypt'])
+  }
+
+  static async openSalt(context, kidBytes, sealed) {
+    const aead = TacMediaFrames.opening(context, TacMediaFrames.sealedParts.salt, TacMediaFrames.partData('salt', kidBytes))
+    const salt = new Uint8Array(await crypto.subtle.decrypt(aead, context.key, sealed))
+    if (salt.length * 8 !== TacMediaFrames.saltBits) throw new Error('The frame salt has the wrong size.')
+    return salt
+  }
+
+  static partData(part, kidBytes) {
+    return TacMediaFrames.join([TacMediaFrames.text(part), kidBytes])
+  }
+
+  static async hpke(privateKey, own, enc, info, aead) {
+    const kem = TacMediaFrames.join([TacMediaFrames.text('KEM'), TacMediaFrames.suiteId(TacMediaFrames.kemId)])
+    const suite = TacMediaFrames.join([TacMediaFrames.text('HPKE'), ...[TacMediaFrames.kemId, TacMediaFrames.kdfId, aead].map(TacMediaFrames.suiteId)])
+    const peer = await crypto.subtle.importKey('raw', enc, TacMediaFrames.curve, false, [])
+    const dh = new Uint8Array(await crypto.subtle.deriveBits({ name: 'ECDH', public: peer }, privateKey, TacMediaFrames.hashBytes * 8))
+    const shared = await TacMediaFrames.labeledBits(new Uint8Array(0), kem, ['eae_prk', dh], ['shared_secret', TacMediaFrames.join([enc, own])], TacMediaFrames.hashBytes)
+    const schedule = TacMediaFrames.join([new Uint8Array([TacMediaFrames.baseMode]), await TacMediaFrames.extracted(suite, 'psk_id_hash', new Uint8Array(0)), await TacMediaFrames.extracted(suite, 'info_hash', info)])
+    const size = TacMediaFrames.aeadKeyBytes[aead]
+    const keyBase = await TacMediaFrames.labeledBase(suite, 'secret', new Uint8Array(0))
+    const key = await crypto.subtle.deriveKey(TacMediaFrames.hkdfWith(shared, TacMediaFrames.labeledInfo(suite, 'key', schedule, size)), keyBase, { name: 'AES-GCM', length: size * 8 }, false, ['unwrapKey', 'decrypt'])
+    const nonce = await TacMediaFrames.labeledBits(shared, suite, ['secret', new Uint8Array(0)], ['base_nonce', schedule], TacMediaFrames.nonceBytes)
+    return { key, nonce }
+  }
+
+  static async labeledBits(salt, suite, [extractLabel, input], [expandLabel, context], size) {
+    const base = await TacMediaFrames.labeledBase(suite, extractLabel, input)
+    const params = TacMediaFrames.hkdfWith(salt, TacMediaFrames.labeledInfo(suite, expandLabel, context, size))
+    return new Uint8Array(await crypto.subtle.deriveBits(params, base, size * 8))
+  }
+
+  static labeledBase(suite, label, input) {
+    return crypto.subtle.importKey('raw', TacMediaFrames.labels(suite, label, input), 'HKDF', false, ['deriveBits', 'deriveKey'])
+  }
+
+  static labeledInfo(suite, label, context, size) {
+    return TacMediaFrames.join([TacMediaFrames.bigEndian(size, TacMediaFrames.idBytes), TacMediaFrames.labels(suite, label, context)])
+  }
+
+  static async extracted(suite, label, value) {
+    const zeros = await crypto.subtle.importKey('raw', new Uint8Array(TacMediaFrames.hashBytes), TacMediaFrames.hmac, false, ['sign'])
+    return new Uint8Array(await crypto.subtle.sign('HMAC', zeros, TacMediaFrames.labels(suite, label, value)))
+  }
+
+  static labels(suite, label, value) {
+    return TacMediaFrames.join([TacMediaFrames.text(TacMediaFrames.wrapVersion), suite, TacMediaFrames.text(label), value])
+  }
+
+  static suiteId(id) {
+    return TacMediaFrames.bigEndian(id, TacMediaFrames.idBytes)
+  }
+
+  static opening(context, sequence, additionalData) {
+    const iv = TacMediaFrames.nonce(context.nonce, BigInt(sequence))
+    return { name: 'AES-GCM', iv, additionalData, tagLength: TacMediaFrames.tagBits }
+  }
+
+  static text(value) {
+    return new TextEncoder().encode(value)
+  }
+
+  static base64(bytes) {
+    return btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+  }
+
+  static fromBase64(value) {
+    const plain = atob(String(value).replace(/-/g, '+').replace(/_/g, '/'))
+    return Uint8Array.from(plain, (letter) => letter.charCodeAt(0))
   }
 
   static send(kid) {
@@ -131,13 +247,17 @@ class TacMediaFrames {
   }
 
   static hkdf(info) {
-    return { name: 'HKDF', hash: 'SHA-256', salt: new Uint8Array(0), info }
+    return TacMediaFrames.hkdfWith(new Uint8Array(0), info)
+  }
+
+  static hkdfWith(salt, info) {
+    return { name: 'HKDF', hash: 'SHA-256', salt, info }
   }
 
   static label(text, kid) {
     const kidBytes = TacMediaFrames.bigEndian(kid, TacMediaFrames.kidBytes)
     const suiteBytes = TacMediaFrames.bigEndian(TacMediaFrames.suite, TacMediaFrames.suiteBytes)
-    return TacMediaFrames.join([new TextEncoder().encode(text), kidBytes, suiteBytes])
+    return TacMediaFrames.join([TacMediaFrames.text(text), kidBytes, suiteBytes])
   }
 
   static nonce(salt, ctr) {

@@ -104,7 +104,7 @@ class TacCrypto {
   static install() {
     const calls = Object.keys(TacCrypto.checked).map((call) => [call, (reply, ...values) => TacCrypto.start(reply, call, TacCrypto.checked[call](...values))])
     Object.defineProperty(globalThis, TacCrypto.key, { configurable: true, value: Object.freeze(Object.fromEntries(calls)) })
-    Object.defineProperty(globalThis, TacCrypto.hooksKey, { configurable: true, value: Object.freeze({ key: (name) => TacCrypto.hookKey(name), prfName: (name) => TacCrypto.prfName(name), prf: (name, results) => TacCrypto.prfKeys(name, results) }) })
+    Object.defineProperty(globalThis, TacCrypto.hooksKey, { configurable: true, value: Object.freeze({ key: (name) => TacCrypto.hookKey(name), prfName: (name) => TacCrypto.prfName(name), prf: (name, results) => TacCrypto.prfKeys(name, results), frameKey: (name, keyId, publicKey) => TacCrypto.hookFrameKey(name, keyId, publicKey) }) })
     return true
   }
 
@@ -462,6 +462,11 @@ class TacCrypto {
     await TacCrypto.queue
     const entry = await TacCrypto.lookup(String(name)).catch(() => null)
     return TacCrypto.uses.includes(entry?.algorithm) ? entry.key : null
+  }
+
+  static async hookFrameKey(name, keyId, publicKey) {
+    await TacCrypto.queue
+    return TacCrypto.hosted('frameKey', [String(name), Number(keyId), String(publicKey)])
   }
 
   static opened() {

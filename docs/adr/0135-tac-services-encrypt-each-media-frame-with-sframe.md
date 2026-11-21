@@ -97,3 +97,101 @@ counter value).
   WebKit. The same key decodes video; the wrong key decodes nothing and
   reports rejected frames; no key reports the missing key; a receiver
   without the transform cannot decode the sent frames.
+
+## Amendment (2026-11-21): the Apple apps hand SFrame its frame keys (P5K)
+
+### Context
+
+Since ADR 0132's P2b amendment, the macOS and iOS apps keep `Crypto` keys in
+the Keychain and use them with CryptoKit; no key bytes enter the web view.
+The page hook `key(name)` therefore has no `CryptoKey` to give the media
+worker, so on these hosts `useFrameKey` and `encryptFrames(connection, true)`
+answered `unsupported`. Calls between an Apple app and a browser could not
+use SFrame.
+
+### Decision
+
+1. **The native host derives the frame key.** For a key id, the host takes
+   the `Crypto` key named in `useFrameKey(keyId, key)` (use `derive`) from
+   the Keychain and derives the SFrame key (16 bytes) and salt (12 bytes)
+   with HKDF-SHA-256 and RFC 9605's labels, exactly as the worker does with
+   a page key. The base key never leaves the Keychain.
+2. **Only the media worker can open it.** For each handover the worker
+   makes a new P-256 key pair inside the worker (private key
+   non-extractable, never posted) and sends the page only its public key.
+   The host seals the key and the salt to that public key with HPKE
+   (RFC 9180, base mode, DHKEM(P-256, HKDF-SHA256), HKDF-SHA256,
+   AES-256-GCM; CryptoKit's `.P256_SHA256_AES_GCM_256`). HPKE `info` is
+   `"Tachyon SFrame frame key 1"` with the key id (8 bytes), and each sealed
+   part carries `"key"` or `"salt"` with the key id as associated data. The
+   page passes on only `{ enc, key, salt }`. The worker uses its key pair
+   once and then drops it, also when opening fails; it takes the SFrame key
+   with `unwrapKey` as a non-extractable AES-GCM key, so the key bytes never
+   exist as a JavaScript value anywhere.
+3. **The flow.** `Media.useFrameKey(keyId, key)` on a host that sets
+   `__tachyonNativeFrameKeys` (macOS and iOS): the page asks the worker to
+   bind (`{ kind: 'bind', keyId }`), the worker answers
+   `{ kind: 'bound', keyId, publicKey }`, the page calls the Crypto hook
+   `frameKey(name, keyId, publicKey)` (native call `browserApi.crypto.frameKey`)
+   and posts `{ kind: 'wrapped', keyId, wrapped }`. The worker answers
+   `ready` as before, or `refused`.
+4. **Fail closed.** No key for that name answers `MediaFailed` `unknown`.
+   Every other failure answers `unsupported`: a key of the wrong use, a bad
+   worker key or key id, a refused unwrap, a worker that cannot make its key
+   pair, and macOS before 14 or iOS before 17 (CryptoKit has no HPKE there).
+   The worker then holds no key for that id, so the sender drops its frames:
+   media is never sent without encryption.
+5. **Other native hosts.** Linux, Android and Windows do not set the flag.
+   Where they bridge `Crypto` (Linux), SFrame keeps P2b's answer:
+   `unsupported` at once. **SFrame is unsupported on the Linux native host
+   until Linux calls ship (WebKitGTK 2.56).** The Linux host answers
+   `browserApi.crypto.frameKey` with `unsupported`. Browsers keep the
+   page-key path unchanged.
+
+### Security
+
+- What this protects: raw frame keys and salts never sit in page
+  JavaScript or the web view's page memory; the base secret never leaves
+  the Keychain; a sealed key cannot be opened twice, by another key id, or
+  by another call, because the worker's key pair is used once.
+- What this does not protect against: script that already runs in the page.
+  The page carries the messages between the worker and the host, so such
+  script can give the host its own public key and open the frame keys. The
+  native host has no way to check that a public key comes from the worker:
+  a worker in WKWebView cannot reach the native message handlers, and the
+  URL scheme handler cannot tell a worker's request from the page's. Such
+  script also already holds the plain camera and microphone tracks; frame
+  keys protect media from the SFU, not from the page.
+- The ADR 0132 exception to "no key bytes in the page" stays narrow: only
+  per-frame media keys, sealed to the media worker, opened there as
+  non-extractable keys.
+
+### Consequences
+
+- The worker file grows from 7,930 to 14,359 bytes (2,211 to 3,521 bytes
+  gzipped); it ships only with the media files and loads only when a page
+  encrypts frames. `tac-media.js` grows by about 1.7 KB, `tac-crypto.js` by
+  about 0.3 KB; `tac-web.js` and the event bus do not change. About 50 lines
+  of Swift ship in every Apple app that grants `crypto`.
+- Apps built for macOS 13 or iOS 15 and 16 answer `unsupported` for frame
+  keys on those systems.
+
+### Evidence
+
+- `compiler::page_media_native_keys_tests`: the worker opens RFC 9180
+  Appendix A.3 (and the test's own HPKE sender matches it); a native-sealed
+  key makes the same frames as the page-key path; the key is
+  non-extractable; a new key pair per handover, only the public key posted;
+  a replayed package, another key id, changed bytes, a wrong worker key or
+  a bad `enc` are refused, and the sender then sends nothing.
+- `compiler::page_media_tests`: on a native frame-key host the page binds,
+  passes the worker's key to the hook and posts only the wrapped package;
+  `unknown`, `unsupported` (older system), a wrong use, a refused unwrap and
+  a refused bind fail closed; a host that bridges Crypto without the flag
+  (Linux) answers `unsupported` at once.
+- `native::host`, `native::browser_api_bridge`, `native::apple_browser_apis`:
+  only macOS and iOS set the flag; every host answers `frameKey`; the Swift
+  refuses before macOS 14 and iOS 17.
+- `native_crypto_host_tests` (macOS live check; iOS inside a
+  `mac-heavy --vm=ios` job): see SUPPORT_TIERS, "SFrame frame keys in the
+  Apple apps".

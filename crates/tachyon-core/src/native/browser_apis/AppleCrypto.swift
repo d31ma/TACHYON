@@ -6,12 +6,20 @@ final class AppleCrypto {
     static let rounds: UInt32 = 600000
     static let algorithms = ["x25519", "ed25519"]
     static let uses = ["encrypt", "derive"]
+    static let frameKeyLabel = "SFrame 1.0 Secret key "
+    static let frameSaltLabel = "SFrame 1.0 Secret salt "
+    static let frameWrapInfo = "Tachyon SFrame frame key 1"
+    static let frameSuite = Data([0, 4])
+    static let frameKeyBytes = 16
+    static let frameSaltBytes = 12
+    static let workerKeyBytes = 65
     static let counts: [String: Int] = [
         "browserApi.crypto.check": 0, "browserApi.crypto.makeKeyPair": 3, "browserApi.crypto.publicKey": 1,
         "browserApi.crypto.sign": 2, "browserApi.crypto.verify": 3, "browserApi.crypto.agree": 7,
         "browserApi.crypto.deriveKey": 6, "browserApi.crypto.importKey": 4, "browserApi.crypto.fromCode": 5,
         "browserApi.crypto.encrypt": 3, "browserApi.crypto.decrypt": 3, "browserApi.crypto.hkdf": 4,
         "browserApi.crypto.hash": 1, "browserApi.crypto.forget": 1, "browserApi.crypto.forgetAll": 0,
+        "browserApi.crypto.frameKey": 3,
     ]
     private let store = AppleKeyStore()
     private let queue = DispatchQueue(label: "dev.tachyon.crypto")
@@ -52,6 +60,7 @@ final class AppleCrypto {
         case "browserApi.crypto.encrypt": return try encrypt(values)
         case "browserApi.crypto.decrypt": return try decrypt(values)
         case "browserApi.crypto.hkdf": return try hkdf(values)
+        case "browserApi.crypto.frameKey": return try frameKey(values)
         case "browserApi.crypto.hash": return try hash(values)
         case "browserApi.crypto.forget": return try forget(values)
         default: return try forgetAll()
@@ -169,6 +178,14 @@ final class AppleCrypto {
         return ["bytes": AppleCryptoValues.encoded(Self.expanded(input, salt, info, length))]
     }
 
+    private func frameKey(_ values: AppleCryptoValues) throws -> [String: Any] {
+        let name = try values.name(0)
+        let keyId = try values.keyId(1)
+        let workerKey = try values.sized(2, Self.workerKeyBytes)
+        let key = try store.found(name).of("derive")
+        return try Self.sealedFrameKey(key.bytes, keyId, workerKey)
+    }
+
     private func hash(_ values: AppleCryptoValues) throws -> [String: Any] {
         let digest = SHA256.hash(data: try values.bytes(0))
         return ["digest": AppleCryptoValues.encoded(Data(digest))]
@@ -204,6 +221,36 @@ final class AppleCrypto {
               let shared = try? mine.sharedSecretFromKeyAgreement(with: theirs),
               shared.withUnsafeBytes({ bytes in bytes.contains { $0 != 0 } }) else { throw AppleCryptoRefusal.invalid }
         return shared
+    }
+
+    private static func sealedFrameKey(_ base: Data, _ keyId: UInt64, _ workerKey: Data) throws -> [String: Any] {
+        guard #available(macOS 14, iOS 17, *) else { throw AppleCryptoRefusal.unsupported }
+        return try wrappedFrameKey(base, withUnsafeBytes(of: keyId.bigEndian) { Data($0) }, workerKey)
+    }
+
+    @available(macOS 14, iOS 17, *)
+    private static func wrappedFrameKey(_ base: Data, _ kid: Data, _ workerKey: Data) throws -> [String: Any] {
+        var sender = try HPKE.Sender(recipientKey: try frameRecipient(workerKey), ciphersuite: .P256_SHA256_AES_GCM_256, info: Data(frameWrapInfo.utf8) + kid)
+        let key = try sender.seal(frameSecret(base, frameKeyLabel, kid, frameKeyBytes), authenticating: Data("key".utf8) + kid)
+        let salt = try sender.seal(frameSecret(base, frameSaltLabel, kid, frameSaltBytes), authenticating: Data("salt".utf8) + kid)
+        return [
+            "enc": AppleCryptoValues.encoded(sender.encapsulatedKey),
+            "key": AppleCryptoValues.encoded(key),
+            "salt": AppleCryptoValues.encoded(salt),
+        ]
+    }
+
+    @available(macOS 14, iOS 17, *)
+    private static func frameRecipient(_ data: Data) throws -> P256.KeyAgreement.PublicKey {
+        do {
+            return try P256.KeyAgreement.PublicKey(x963Representation: data)
+        } catch {
+            throw AppleCryptoRefusal.invalid
+        }
+    }
+
+    private static func frameSecret(_ base: Data, _ label: String, _ kid: Data, _ size: Int) -> Data {
+        expanded(base, Data(), Data(label.utf8) + kid + frameSuite, size)
     }
 
     private static func expanded(_ input: Data, _ salt: Data, _ info: Data, _ length: Int) -> Data {

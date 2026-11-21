@@ -26,6 +26,10 @@ return results.join(',');";
                 NativeCryptoChecks::first_expected,
             ),
             (
+                NativeCryptoChecks::FRAME,
+                NativeCryptoChecks::frame_expected,
+            ),
+            (
                 NativeCryptoChecks::FORGET,
                 NativeCryptoChecks::forget_expected,
             ),
@@ -34,10 +38,16 @@ return results.join(',');";
     const IOS_PHASES: [(&str, &[(&str, Expected)]); 3] = [
         (
             "first",
-            &[(
-                NativeCryptoChecks::FIRST,
-                NativeCryptoChecks::first_expected,
-            )],
+            &[
+                (
+                    NativeCryptoChecks::FIRST,
+                    NativeCryptoChecks::first_expected,
+                ),
+                (
+                    NativeCryptoChecks::FRAME,
+                    NativeCryptoChecks::frame_expected,
+                ),
+            ],
         ),
         (
             "again",

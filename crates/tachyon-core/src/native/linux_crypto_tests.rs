@@ -147,6 +147,12 @@ fn the_crypto_fixture_fills_every_placeholder() {
     assert!(fixture.contains("browserApi.crypto."));
     assert!(!LinuxCryptoTests::fixture(NativeCryptoChecks::FIRST, "x").contains("__CRYPTO_"));
     assert!(!LinuxCryptoTests::fixture(NativeCryptoChecks::AGAIN, "x").contains("__CRYPTO_"));
+    let frame = LinuxCryptoTests::fixture(
+        NativeCryptoChecks::LINUX_FRAME,
+        NativeCryptoChecks::LINUX_FRAME_PASSED,
+    );
+    assert!(!frame.contains("__CRYPTO_"));
+    assert!(frame.contains("frame-key:unsupported"));
 }
 
 #[cfg(target_os = "linux")]
@@ -160,6 +166,11 @@ async fn linux_crypto_runs_natively_and_keeps_keys_in_the_secret_service() {
             "first",
             NativeCryptoChecks::FIRST,
             NativeCryptoChecks::first_expected(LinuxCryptoTests::STORE),
+        ),
+        (
+            "frame",
+            NativeCryptoChecks::LINUX_FRAME,
+            String::from(NativeCryptoChecks::LINUX_FRAME_PASSED),
         ),
         (
             "again",

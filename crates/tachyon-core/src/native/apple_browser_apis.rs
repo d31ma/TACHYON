@@ -81,6 +81,18 @@ mod tests {
     }
 
     #[test]
+    fn the_apple_hosts_seal_frame_keys_with_hpke_and_refuse_on_older_systems() {
+        let swift = AppleBrowserApis::SWIFT;
+        assert!(swift.contains("case \"browserApi.crypto.frameKey\": return try frameKey(values)"));
+        assert!(swift.contains("\"browserApi.crypto.frameKey\": 3"));
+        assert!(swift.contains(
+            "guard #available(macOS 14, iOS 17, *) else { throw AppleCryptoRefusal.unsupported }"
+        ));
+        assert!(swift.contains("ciphersuite: .P256_SHA256_AES_GCM_256"));
+        assert!(swift.contains("let key = try store.found(name).of(\"derive\")"));
+    }
+
+    #[test]
     fn the_swift_grants_are_a_string_array() {
         let permissions = BrowserApiPermissions::declared(
             &[String::from("clipboard"), String::from("share")],
