@@ -418,7 +418,10 @@ impl SocketSession {
     }
 
     fn too_large() -> String {
-        format!("The message is larger than {} bytes.", Self::MAX_MESSAGE_BYTES)
+        format!(
+            "The message is larger than {} bytes.",
+            Self::MAX_MESSAGE_BYTES
+        )
     }
 
     fn check_message_size(text: &str) -> Result<(), CloseFrame> {
@@ -509,7 +512,10 @@ mod tests {
         let closed = SocketSession::check_message_size(&"x".repeat(393_217))
             .expect_err("one byte over the limit");
         assert_eq!(closed.code, 1009);
-        assert_eq!(closed.reason.as_str(), "The message is larger than 393216 bytes.");
+        assert_eq!(
+            closed.reason.as_str(),
+            "The message is larger than 393216 bytes."
+        );
     }
 
     #[test]
