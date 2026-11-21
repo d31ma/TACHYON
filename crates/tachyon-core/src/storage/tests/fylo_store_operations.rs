@@ -305,3 +305,27 @@ async fn a_raw_sql_comparison_with_a_null_parameter_matches_no_row() {
     assert_eq!(execute(&store, unequal).await, json!([]));
     store.close().await;
 }
+
+#[tokio::test]
+async fn mesail_devicebox_sql_shapes_reach_fylo_with_bound_parameters() {
+    if !StoreProbe::runs_here() {
+        return;
+    }
+    let directory = tempfile::tempdir().expect("root");
+    let store = fylo_store(&StoreProbe::products_root(&directory)).await;
+    let slips = vec![
+        json!({"name":"first","waiting":{"d1":true},"storedUs":5}),
+        json!({"name":"skipped","waiting":{"d1":false},"storedUs":9}),
+        json!({"name":"later","waiting":{"d1":true},"storedUs":12}),
+    ];
+    StoreProbe::save_each(&store, slips).await;
+    let waiting = json!({"operation":"sql","mode":"rows","sql":"SELECT name, storedUs FROM products WHERE waiting.d1 = true AND storedUs > $1 LIMIT $2","parameters":[4, 1]});
+    let rows = execute(&store, waiting).await;
+    assert_eq!(rows.as_array().map(Vec::len), Some(1), "{rows}");
+    assert_eq!(rows[0]["name"], json!("first"));
+    let one = json!({"operation":"sql","mode":"rows","sql":"SELECT * FROM products WHERE name = $1 LIMIT 1","parameters":["later"]});
+    let rows = execute(&store, one).await;
+    assert_eq!(rows.as_array().map(Vec::len), Some(1), "{rows}");
+    assert_eq!(rows[0]["storedUs"], json!(12));
+    store.close().await;
+}
