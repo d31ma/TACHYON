@@ -1874,6 +1874,19 @@ probed: Ubuntu 24.04's WebKitGTK 2.52.6 (where the flags are missing,
 `Media.supported` answers false for speakers). Owed, by hand: a call's
 audio moved to a second speaker or a headset on a Linux PC.
 
+### Recording a call to a file in the macOS app (2026-11-21, ADR NNNN slice M5b1)
+
+`native::native_recorder_host_tests::macos_records_a_call_to_the_file_picked_in_the_save_dialog`
+ran on macOS 27.2 with `mac-heavy --gui`: a generated macOS host opened the
+real save dialog as a sheet, answered `cancelled` when it was closed, and
+saved about 3 seconds of a tone and a canvas video as MP4 (309,368 bytes)
+in the folder the dialog showed, with the size that `RecordingStopped`
+reported. The test file was removed afterwards.
+
+Owed: a recording with a real microphone and camera in a built app, an
+hour-long recording opened in QuickTime, and the iOS, Android and Windows
+dialogs (slice M5b2); Linux comes in slice L4.
+
 ### Recording a call to a file (2026-11-21, ADR NNNN slice M5a)
 
 `scripts/recorder-browser-test.mjs` (`bun run test:recorder-browser`) ran on

@@ -33,6 +33,7 @@ final class AppleRecorderFiles {
         panel.nameFieldStringValue = name
         panel.allowedContentTypes = [UTType(filenameExtension: format)].compactMap { $0 }
         panel.canCreateDirectories = true
+        panel.directoryURL = FileManager.default.urls(for: .moviesDirectory, in: .userDomainMask).first
         choosing = true
         panel.beginSheetModal(for: window) { [weak self] response in
             self?.choosing = false
