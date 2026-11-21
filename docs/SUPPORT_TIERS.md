@@ -1959,6 +1959,48 @@ shows, and the earpiece, speaker and a Bluetooth headset can be chosen.
 This is not a release blocker. A call bug that Mesail's own test of a
 `develop` build finds on a phone still blocks a release.
 
+### Recording in the Linux app (2026-11-21, ADR 0131 amendment L4)
+
+`native::linux_recorder_tests` ran in the Linux gate image (Debian 13,
+WebKitGTK 2.54.0, GStreamer 1.26.2) on Colima, under Xvfb with the
+in-process GTK file dialog. A generated Linux host with the grants `files`
+and `microphone` loaded the recorder module and recorded WebKit's mock
+microphone (from `getUserMedia`) and a painted canvas:
+
+- the page bridge listed `recorder`; a write to no recording answered
+  `unknown`, and a bad recording name answered `invalid`;
+- the first save dialog was closed with Escape: `RecordingFailed` with the
+  reason `cancelled`, and no file;
+- while the second dialog was open, a second `open` was refused (`invalid`);
+  the fixture typed a path into the dialog, and the recording started in
+  that file;
+- after 3 seconds, `stop` wrote the whole file: 75,806 bytes of MP4 that
+  start with an `ftyp` box, the same count as `RecordingStopped`; no file
+  was left open in the host.
+
+The file picker's live test (`native::linux_file_picker_tests`), whose key
+presses now come from the same fixture file, passed in the same image.
+
+What the runs found:
+
+- WebKitGTK's `MediaRecorder` needs `uritranscodebin` from
+  `gstreamer1.0-plugins-bad`. Without it, `start` fails with `failed`.
+  Debian 13's WebKitGTK recommends that package; Ubuntu 24.04's only
+  suggests it. The gate image now installs it, and the `.deb` of an app with
+  a media grant recommends it (ADR 0131 amendment L7).
+- With no capture source started on the page, `MediaRecorder` gave 0 bytes
+  for every stream with a WebAudio track, so also for the recorder's audio
+  mix; a canvas track alone recorded (WebM 138 KB in 2.5 seconds). Once the
+  page opened a microphone, the mix recorded. On Linux a recording of what
+  the page captures works; a recording with no capture source saves an
+  empty file. Calls, which would add remote tracks, wait for WebKitGTK 2.56.
+
+Owed by hand on a Linux PC: a recording through the desktop's own save
+dialog (the FileChooser portal on GNOME and KDE Plasma) with a real camera
+and microphone, opened in a normal player; the Videos folder as the start
+folder; and a recording on Ubuntu 24.04 with and without
+`gstreamer1.0-plugins-bad`.
+
 ### Crypto in the Linux app (2026-11-14, ADR 0131 and ADR 0132)
 
 `linux_crypto_tests::linux_crypto_runs_natively_and_keeps_keys_in_the_secret_service`
