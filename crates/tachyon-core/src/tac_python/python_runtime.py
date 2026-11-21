@@ -8,9 +8,9 @@ import uuid as _tac_uuid
 class _TacPythonRuntime:
     MAX_OWNERS = 256
     MAX_REQUEST = 1048576
-    MAX_MEMBER_REQUEST = 65536
+    MAX_MEMBER_REQUEST = 393216
     MAX_RETURNED_EVENTS = 32
-    MAX_SOCKET_MESSAGE = 65536
+    MAX_SOCKET_MESSAGE = 393216
     SOCKET_BODY = '{"error":{"code":"HTTP_BODY"}}'
     SOCKET_REQUEST = '{"error":{"code":"HTTP_REQUEST"}}'
     current = _tac_contextvars.ContextVar('tachyon_python_owner', default=None)
@@ -84,6 +84,8 @@ class _TacPythonRuntime:
         try:
             request = self._request(text)
             return self._response(self._as_owner(request))
+        except OverflowError as error:
+            return _tac_json.dumps({'error': str(error)})
         except Exception:
             return _tac_json.dumps({'error': 'Python Tac operation failed.'})
 
@@ -115,8 +117,9 @@ class _TacPythonRuntime:
             raise ValueError('Python Tac service was not registered.')
 
     def _member_size(self, request, text):
-        if request.get('op') != 'init' and len(text.encode('utf-8')) > self.MAX_MEMBER_REQUEST:
-            raise ValueError('Python Tac member request exceeds bounds.')
+        size = len(text.encode('utf-8'))
+        if request.get('op') != 'init' and size > self.MAX_MEMBER_REQUEST:
+            raise OverflowError(f"The request to {request.get('name') or request.get('op')} is {size} bytes. The limit is {self.MAX_MEMBER_REQUEST} bytes. Pass less data to the service.")
 
     def _as_owner(self, request):
         token = self.current.set(request['owner'])

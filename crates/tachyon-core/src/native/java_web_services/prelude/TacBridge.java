@@ -1,6 +1,6 @@
 final class TacBridge {
     private static final int START_UP_REQUEST_LIMIT = 1048576;
-    private static final int MEMBER_REQUEST_LIMIT = 65536;
+    private static final int MEMBER_REQUEST_LIMIT = 393216;
     private static final int MOST_ACTIVATIONS = 256;
     private static final int DEEPEST = 64;
     private static final int OWNER_LENGTH = 36;

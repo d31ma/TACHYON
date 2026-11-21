@@ -377,13 +377,15 @@ mod tests {
              const after = one.increment()\n\
              const label = one.label\n\
              const added = one.add(new Event('click'), 9, 'now')\n\
-             let bigStart = '', bigCall = ''\n\
+             let bigStart = '', bigCall = '', atLimit = ''\n\
              try { new CounterService({ label: 'x'.repeat(1100000) }) } catch (error) { bigStart = error.message }\n\
-             try { one.add(new Event('click'), 1, 'x'.repeat(70000)) } catch (error) { bigCall = error.message }\n\
+             const spare = new CounterService({})\n\
+             try { spare.add(new Event('click'), 1, 'x'.repeat(393095)); atLimit = 'accepted' } catch (error) { atLimit = error.message }\n\
+             try { one.add(new Event('click'), 1, 'x'.repeat(393096)) } catch (error) { bigCall = error.message }\n\
              one.__tachyonDispose()\n\
              let stale = false\n\
              try { one.count } catch { stale = true }\n\
-             console.log(JSON.stringify({ doubled, after, other: two.count, label, otherLabel: two.label, added, stale, events, keys: Object.keys(two), plan: plan.types[0], bigStart, bigCall }))\n\
+             console.log(JSON.stringify({ doubled, after, other: two.count, label, otherLabel: two.label, added, stale, events, keys: Object.keys(two), plan: plan.types[0], bigStart, bigCall, atLimit }))\n\
              process.exit(0)\n";
 
         const SIGNAL: &str = "#[Service]\nclass SignalService\n  attr_accessor :large, :echoed\n\n  def initialize\n    @large = []\n    @echoed = 0\n    @events = ApplicationEventPublisher.new\n  end\n\n  def notify(size)\n    @events.publish_event(SignalSent.new(size: size))\n  end\n\n  # @param sent [SignalSent]\n  # @return [SignalEcho]\n  #[OnEvent({\"condition\":\"value.size > 5\"})]\n  def record(sent)\n    @large << sent.size\n    SignalEcho.new(value: sent.size * 10)\n  end\n\n  # @param reply [SignalEcho]\n  #[OnEvent]\n  #[Order(1)]\n  def echo(reply)\n    @echoed = reply.value\n  end\nend\n";
@@ -579,8 +581,9 @@ mod tests {
         );
         assert_eq!(
             report["bigCall"],
-            "Web service counter: The request to add is 70121 bytes. The limit is 65536 bytes. Pass less data to the service."
+            "Web service counter: The request to add is 393217 bytes. The limit is 393216 bytes. Pass less data to the service."
         );
+        assert_eq!(report["atLimit"], "accepted");
         assert!(root.path().join("ruby/tachyon-ruby.wasm").is_file());
     }
 

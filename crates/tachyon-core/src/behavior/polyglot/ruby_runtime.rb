@@ -873,7 +873,7 @@ class BehaviorBrowserHttp
 end
 
 class BehaviorBrowserSocket
-  MAX_MESSAGE_BYTES = 65_536
+  MAX_MESSAGE_BYTES = 393_216
   CODES = ["HTTP_MISSING", "HTTP_REQUEST", "HTTP_CAPACITY", "CANCELLED"].freeze
 
   def self.send_message(client, message)

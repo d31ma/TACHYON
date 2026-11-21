@@ -5,7 +5,7 @@ func tacHostSocketStart(
 
 func tacSocketSend<Message: Encodable>(_ client: String, _ message: Message) async throws {
     let text = tacEncode(tacModelValue(message))
-    guard text.utf8.count <= 65536 else { throw TacSocketError("HTTP_BODY") }
+    guard text.utf8.count <= 393216 else { throw TacSocketError("HTTP_BODY") }
     let owner = TacTasks.running?.owner ?? ""
     let request = "{\"client\":" + tacEncode(client) + ",\"message\":" + text + "}"
     let answer = await TacHttpTickets.started(request) { ticket, pointer, length in

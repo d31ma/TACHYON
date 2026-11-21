@@ -1237,7 +1237,7 @@ function BehaviorBrowserHttp.message_of(failure, fallback)
 end
 
 BehaviorBrowserSocket = {
-  MAX_MESSAGE_BYTES = 65536,
+  MAX_MESSAGE_BYTES = 393216,
   CODES = { HTTP_MISSING = true, HTTP_REQUEST = true, HTTP_CAPACITY = true, CANCELLED = true },
 }
 
