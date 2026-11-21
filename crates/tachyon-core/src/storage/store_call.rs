@@ -376,7 +376,7 @@ mod tests {
         assert_eq!(first_answer, Some(()));
         assert_eq!(second_answer, Some(()));
         assert!(second.extended() >= Duration::from_millis(450));
-        assert!(second.extended() < Duration::from_millis(1_000));
+        assert!(second.extended() < Duration::from_secs(1));
     }
 
     #[tokio::test]
