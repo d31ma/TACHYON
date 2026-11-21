@@ -1028,10 +1028,30 @@ fn only_a_build_that_grants_a_media_api_ships_the_media_modules() {
             "{worker}"
         );
     }
+    let recorder = |page: &str, worker: &str| {
+        [
+            page.contains("/.tachyon/tac-recorder.js"),
+            worker.contains("tac-recorder.js"),
+        ]
+    };
+    manifest(r#""microphone""#);
+    let (page, worker, _) = built();
+    assert_eq!(
+        recorder(&page, &worker),
+        [false, false],
+        "a media grant without files ships no recorder"
+    );
+    manifest(r#""files", "camera""#);
+    let (page, worker, _) = built();
+    assert_eq!(
+        recorder(&page, &worker),
+        [true, true],
+        "files and a media grant ship the recorder"
+    );
     manifest(r#""share""#);
     let (page, _, shipped) = built();
     assert!(
-        !page.contains("tac-media"),
+        !page.contains("tac-media") && !page.contains("tac-recorder"),
         "no grant, no media modules: {page}"
     );
     assert_eq!(shipped, [false, false, false]);

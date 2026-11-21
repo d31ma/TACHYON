@@ -470,6 +470,40 @@ function Peers:close(connection)
   TacWebHost.call("peers", "close", { connection })
 end
 
+Recorder = {}
+
+function Recorder:supported()
+  return TacWebHost.call("recorder", "supported") == true
+end
+
+function Recorder:start(recording, audio_tracks, video_track, file_name, format)
+  TacWebHost.call("recorder", "start", { recording, audio_tracks, video_track, file_name, format })
+end
+
+function Recorder:add_audio(recording, track)
+  TacWebHost.call("recorder", "addAudio", { recording, track })
+end
+
+function Recorder:remove_audio(recording, track)
+  TacWebHost.call("recorder", "removeAudio", { recording, track })
+end
+
+function Recorder:show_video(recording, track)
+  TacWebHost.call("recorder", "showVideo", { recording, track })
+end
+
+function Recorder:pause(recording)
+  TacWebHost.call("recorder", "pause", { recording })
+end
+
+function Recorder:resume(recording)
+  TacWebHost.call("recorder", "resume", { recording })
+end
+
+function Recorder:stop(recording)
+  TacWebHost.call("recorder", "stop", { recording })
+end
+
 Geolocation = {}
 
 function Geolocation:current_position()

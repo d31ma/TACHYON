@@ -57,7 +57,7 @@ impl KotlinUnitFiles {
         ),
         ("Focus", include_str!("../native/web_apis/Focus.kt")),
     ];
-    const LATER_APIS: [(&'static str, &'static str); 7] = [
+    const LATER_APIS: [(&'static str, &'static str); 8] = [
         (
             "StorageSpace",
             include_str!("../native/web_apis/StorageSpace.kt"),
@@ -65,6 +65,7 @@ impl KotlinUnitFiles {
         ("Passkeys", include_str!("../native/web_apis/Passkeys.kt")),
         ("Peers", include_str!("../native/web_apis/Peers.kt")),
         ("Media", include_str!("../native/web_apis/Media.kt")),
+        ("Recorder", include_str!("../native/web_apis/Recorder.kt")),
         (
             "CodeScanner",
             include_str!("../native/web_apis/CodeScanner.kt"),

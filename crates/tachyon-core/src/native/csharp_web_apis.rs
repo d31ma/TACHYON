@@ -27,6 +27,7 @@ impl CsharpWebApis {
         include_str!("web_apis/Passkeys.cs"),
         include_str!("web_apis/Peers.cs"),
         include_str!("web_apis/Media.cs"),
+        include_str!("web_apis/Recorder.cs"),
         include_str!("web_apis/CodeScanner.cs"),
         include_str!("web_apis/Crypto.cs"),
         include_str!("web_apis/Blobs.cs")

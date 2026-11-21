@@ -1874,6 +1874,29 @@ probed: Ubuntu 24.04's WebKitGTK 2.52.6 (where the flags are missing,
 `Media.supported` answers false for speakers). Owed, by hand: a call's
 audio moved to a second speaker or a headset on a Linux PC.
 
+### Recording a call to a file (2026-11-21, ADR NNNN slice M5a)
+
+`scripts/recorder-browser-test.mjs` (`bun run test:recorder-browser`) ran on
+the macOS test machine in Playwright's Chromium, Firefox and WebKit, with
+each engine's fake camera and microphone. Three microphones were mixed,
+the video switched from one camera to another halfway, and the recording
+was paused and resumed, for about 5 seconds:
+
+- Chromium: MP4 (H.264, AAC) through the save picker (replaced by a test
+  file handle, because Playwright cannot press the system dialog); the file
+  starts with its `ftyp` box and `RecordingStopped` counts every byte.
+- Firefox: WebM in the private file system, downloaded at stop under the
+  chosen name; the `Duration` element holds the real length.
+- WebKit: MP4 in the private file system, downloaded at stop. Playwright's
+  ephemeral WebKit sessions refuse the private file system
+  (`UnknownError`), so the test uses a persistent profile, as a normal
+  Safari window has.
+
+Owed: the native save dialogs (slice M5b: macOS, iOS, Android, Windows);
+until then a native shell uses the web sinks where its engine has them.
+Owed by hand: a long recording (an hour) opened in a normal player on each
+platform, and recording in a private window.
+
 ### Calls between two pages and 59 tracks on one connection (2026-11-21, ADR 0129 slice M2)
 
 `scripts/media-calls-browser-test.mjs` (`bun run test:media-calls-browser`)

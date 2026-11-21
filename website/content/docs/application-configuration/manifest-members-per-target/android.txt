@@ -189,6 +189,9 @@ tac.outgoing
 tac.media
   run owed: tac.media.background adds a foreground service of type microphone (and camera when granted) with FOREGROUND_SERVICE permissions, and tac.media.callNotice becomes its ongoing notification (required, TY1601); Media.callActive sets MODE_IN_COMMUNICATION and starts or stops the service, and the host lists and chooses communication devices (ADR 0129); still to run: a call on an Android phone with the screen off
 
+tac.recorder
+  run owed: the page records with MediaRecorder in the web view on https://appassets.tachyon.local (one AudioContext mix, a 1280x720 canvas for the chosen video) and writes the file through the save picker or the private file system (ADR NNNN); still to run: a recording made in the built app and opened in a normal player; the native save dialog comes in slice M5b
+
 tac.yon
   honored: the page and its linked Kotlin and Rust HTTP clients reach tac.yon.origin from https://appassets.tachyon.local, the app asks for the INTERNET permission, and a local http origin may use cleartext to that one host only; run by scripts/android/yon-origin-test.mjs and rust-services-test.mjs on the Android 15 emulator, also on its Google Play production image (ADR 0103)
 

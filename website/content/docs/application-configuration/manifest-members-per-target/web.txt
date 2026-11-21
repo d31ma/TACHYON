@@ -189,6 +189,9 @@ tac.outgoing
 tac.media
   not applicable: A web page cannot keep call audio running after the person leaves it. Media.callActive only answers MediaCallActive with background false (ADR 0129).
 
+tac.recorder
+  honored: MediaRecorder in a secure page (ADR NNNN): Recorder mixes Media audio tracks, shows one switchable video, writes a piece every second through showSaveFilePicker or a private file that is downloaded at stop, and puts the real duration into WebM; checked in Chromium, Firefox and WebKit (scripts/recorder-browser-test.mjs)
+
 tac.yon
   honored: pages send Yon calls to tac.yon.origin over CORS without cookies, and connect-src allows it (ADR 0103)
 

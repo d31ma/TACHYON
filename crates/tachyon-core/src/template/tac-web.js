@@ -92,7 +92,7 @@ class TacWebApis {
     subscription: () => TacWebApis.pushMissing(),
     unsubscribe: () => TacWebApis.pushMissing(),
   })
-  static gestures = ['pick', 'captureScreen']
+  static gestures = ['pick', 'captureScreen', 'start']
   static apis = Object.freeze({
     clock: TacWebApis.clock,
     secureRandom: TacWebApis.secureRandom,
@@ -112,6 +112,7 @@ class TacWebApis {
     passkeys: TacWebApis.passkeys,
     peers: TacWebApis.module('peers'),
     media: TacWebApis.module('media'),
+    recorder: TacWebApis.module('recorder'),
     codeScanner: TacWebApis.codeScanner,
     crypto: TacWebApis.crypto,
     nativeCapability: Object.freeze({ call: (...values) => TacNativeCapabilities.now(...values) }),

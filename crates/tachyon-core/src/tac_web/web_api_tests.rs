@@ -3275,6 +3275,9 @@ mod passkeys_tests;
 #[path = "peers_tests.rs"]
 mod peers_tests;
 
+#[path = "recorder_tests.rs"]
+mod recorder_tests;
+
 #[path = "blobs_tests.rs"]
 mod blobs_tests;
 #[path = "code_scanner_tests.rs"]

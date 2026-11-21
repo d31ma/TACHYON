@@ -578,6 +578,9 @@ jobs:
       - name: Send, receive and measure audio and video between two pages and 59 tracks on one connection
         run: bun run test:media-calls-browser
 
+      - name: Record mixed audio and a switched video to a file in three browsers
+        run: bun run test:recorder-browser
+
       - name: Run the real-browser web components contract
         run: bun run test:web-components-browser
         env:

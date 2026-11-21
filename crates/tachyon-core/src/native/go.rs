@@ -31,7 +31,7 @@ impl GoServices {
     const MODULE: &str = "tachyonservices";
     const PAGE_PACKAGE: &str = "page";
     const DELEGATE_FOLDER: &str = "client/delegates";
-    const RUNTIME_FILES: [(&str, &str); 30] = [
+    const RUNTIME_FILES: [(&str, &str); 31] = [
         ("tac/prelude.go", include_str!("prelude.go")),
         ("tac/prelude_json.go", include_str!("prelude_json.go")),
         ("tac/prelude_tasks.go", include_str!("prelude_tasks.go")),
@@ -86,6 +86,7 @@ impl GoServices {
             include_str!("web_apis/peer_message.go"),
         ),
         ("tac/media.go", include_str!("web_apis/media.go")),
+        ("tac/recorder.go", include_str!("web_apis/recorder.go")),
         ("tac/crypto.go", include_str!("web_apis/crypto.go")),
         ("tac/blobs.go", include_str!("web_apis/blobs.go")),
         (
@@ -114,7 +115,7 @@ impl GoServices {
     const WEB_ENTRY: &str = include_str!("prelude_web.go");
     const FAILURE_CODE: u16 = 1605;
     const WEB_EVENT_FILE: &str = "tac/web_event_models.go";
-    const ALIASED_TYPES: [&str; 96] = [
+    const ALIASED_TYPES: [&str; 103] = [
         "ApplicationEventPublisher",
         "Clock",
         "SecureRandom",
@@ -133,6 +134,7 @@ impl GoServices {
         "Passkeys",
         "Peers",
         "Media",
+        "Recorder",
         "CodeScanner",
         "Crypto",
         "Blobs",
@@ -184,6 +186,12 @@ impl GoServices {
         "MediaSpeaking",
         "MediaLoudest",
         "MediaAudioBlocked",
+        "RecordingStarted",
+        "RecordingPaused",
+        "RecordingResumed",
+        "RecordingProgress",
+        "RecordingStopped",
+        "RecordingFailed",
         "CodeScanned",
         "ScanFailed",
         "CryptoSupport",

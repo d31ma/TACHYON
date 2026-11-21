@@ -42,6 +42,7 @@ impl RubyWebServices {
         include_str!("tac_ruby/passkeys.rb"),
         include_str!("tac_ruby/peers.rb"),
         include_str!("tac_ruby/media.rb"),
+        include_str!("tac_ruby/recorder.rb"),
         include_str!("tac_ruby/code_scanner.rb"),
         include_str!("tac_ruby/crypto.rb"),
         include_str!("tac_ruby/blobs.rb"),
