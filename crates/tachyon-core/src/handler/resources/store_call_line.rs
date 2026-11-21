@@ -45,8 +45,16 @@ impl<'call> StoreCallLine<'call> {
         log: &StoreCallLog,
         result: &Result<Value, Failure>,
     ) -> Option<Value> {
+        self.event_with_code(log, &Self::result_code(result))
+    }
+
+    pub(in crate::handler) fn event_with_code(
+        &self,
+        log: &StoreCallLog,
+        code: &str,
+    ) -> Option<Value> {
         let name = self.event_name(log)?;
-        let mut event = self.fields(name, log, result);
+        let mut event = self.fields(name, log, code);
         event["collection"] = json!(StoreOperation::collection(self.command));
         Some(event)
     }
@@ -58,7 +66,7 @@ impl<'call> StoreCallLine<'call> {
         log.logs_every_call().then_some(Self::CALL_EVENT)
     }
 
-    fn fields(&self, name: &str, log: &StoreCallLog, result: &Result<Value, Failure>) -> Value {
+    fn fields(&self, name: &str, log: &StoreCallLog, code: &str) -> Value {
         json!({
             "event": name,
             "request_id": self.request_id,
@@ -67,7 +75,7 @@ impl<'call> StoreCallLine<'call> {
             "wait_ms": self.waited.as_millis(),
             "startup_ms": self.started_up.as_millis(),
             "call_ms": self.took.saturating_sub(self.waited).as_millis(),
-            "result": Self::result_code(result),
+            "result": code,
         })
     }
 

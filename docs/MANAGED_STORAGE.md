@@ -115,19 +115,31 @@ How the server runs FYLO:
   the process has not exited 1 second after that (ADR 0128, amendment 3).
   The next call waits until that process has exited before it starts a new
   one. When it has exited, the server writes
-  `{"event":"storage.fylo_process_stopped","exit_ms":N,"operation":"putData","stop":"closed"}`
-  to its standard error: `exit_ms` is the time from closing the input to the
-  exit, and `stop` is `closed` when the process exited by itself or `killed`
-  when it had to be killed.
+  `{"event":"storage.fylo_process_stopped","exit_ms":N,"operation":"putData","stop":"closed","wait_ms":M}`
+  to its standard error: `exit_ms` is the time from closing the input until
+  Tachyon saw the exit, which happens only when the next store call (or the
+  stop of `ty`) needs the process, so it can be much longer than FYLO took to
+  exit; `wait_ms` is how long that call waited for the exit; and `stop` is
+  `closed` when the process exited by itself or `killed` when it had to be
+  killed.
+- A FYLO request is sent only when at least 100 ms of the store deadline is
+  left (for a start-up request, counting the start-up allowance). With less,
+  the call fails at once with `TY2160` "Managed storage operation deadline
+  exceeded before the FYLO request was sent; nothing was written." and the
+  FYLO process keeps running, because it never got the request.
 - When `ty` stops (SIGTERM or SIGINT on Linux and macOS; Ctrl-C,
   Ctrl-Break, closing the console window, logoff or shutdown on Windows),
   it first lets running requests finish
   (`TAC_SHUTDOWN_GRACE_SECONDS`, default 10). Then it closes the input of
   its FYLO process at once, even while a store call still runs, waits about
-  1 second in all for the exit, kills it only if it is still running, and
-  writes `storage.fylo_process_stopped` with `"operation":"shutdown"` and
-  `stop`. A FYLO process that is stuck cannot hold up the stop for more than
-  about 1 second. A platform that kills `ty` a fixed time after SIGTERM
+  2 seconds in all for the exit (after a store-call deadline it waits
+  1 second), kills it only if it is still running, and writes
+  `storage.fylo_process_stopped` with `"operation":"shutdown"` and `stop`.
+  A FYLO process that is stuck cannot hold up the stop for more than about
+  2 seconds, inside the 3 seconds that `ty` gives its resources to close.
+  On Linux a `killed` line also names FYLO's process state at the kill
+  (`"state":"D"` means it was stuck in a disk wait, where even a kill waits
+  for the disk); elsewhere `state` is null. A platform that kills `ty` a fixed time after SIGTERM
   (`docker stop` waits 10 seconds by default) needs
   `TAC_SHUTDOWN_GRACE_SECONDS` below that time, so this step runs first.
   Known limits: Windows ends a process about 5 seconds after a console
@@ -337,12 +349,18 @@ Redis:
 - Startup: 10 seconds. Storage operations: 5 seconds (a FYLO datasource can
   set 1 to 60 seconds with `timeout`). At most 16 admitted
   operations.
-- One store deadline per answer: all store calls of one handler run that
+- One store-time budget per answer: all store calls of one handler run that
   answers once (an HTTP route, `ty handler invoke`, a `ty test` call, a
-  worker run) share one deadline, which starts at its first store call. A
-  store call that starts after it fails at once with the deadline error.
-  Streams and sockets give each store call its own deadline, and the first
-  page of a scroll keeps its 30 seconds (ADR 0128, amendment 2).
+  worker run) share one budget of `timeout` (default 5 seconds). Only the
+  time while at least one of its store calls runs counts, waits included;
+  calls that run at the same time count once. Time outside store calls,
+  such as outbound HTTP or the handler's own work, does not count. A call
+  that stalls uses up the budget, and every later store call of that answer
+  fails at once with the deadline error ("... the store-time budget is
+  spent ..."), so one stall fails the answer after about one `timeout`.
+  Start-up time is given back up to `startup` (see FYLO above). Streams and
+  sockets give each store call its own deadline, and the first page of a
+  scroll keeps its 30 seconds (ADR 0128, amendments 2 and 3).
 - SQL pools: at most 8 connections (1 for in-memory SQLite). TDS (Tabular Data
   Stream, the SQL Server protocol) is serialized.
 - FYLO: one subprocess, 1 MiB requests, 8 MiB responses. Each Store query
@@ -350,8 +368,11 @@ Redis:
   count limit, a 30-second first page and an 8 MiB snapshot. A cancelled or
   timed-out FYLO call stops the subprocess, so a late answer can never be
   read as the answer to the next call. The next call first waits until the
-  stopped process has exited, within its own deadline, and only then starts
-  a new one (ADR 0128 amendment). A process stuck in a slow disk write still
+  stopped process has exited, and only then starts a new one (ADR 0128
+  amendment). That wait (the grace, a kill, and a disk read the kill must
+  wait for) counts as start-up time: it shows in `wait_ms` and `startup_ms`,
+  and it may use the start-up allowance (`startup`), so a call still fails
+  with `TY2160` at that cap instead of waiting forever. A process stuck in a slow disk write still
   holds the root until it exits; starting a second one earlier made every
   call fail with `EROOTLOCKED`.
 - Results: at most 100 rows, 64 columns per row and 1 MiB of serialized JSON.

@@ -8,6 +8,7 @@ use tachyon_diagnostics::Diagnostic;
 
 use super::store_call_line::StoreCallLine;
 use super::store_deadline::StoreDeadline;
+use super::unfinished_store_call::UnfinishedStoreCall;
 use crate::storage::StoreCall;
 
 #[derive(Clone)]
@@ -33,12 +34,15 @@ impl InvocationStorage {
     }
 
     pub(super) async fn execute(&self, command: &Value) -> Result<Value, Failure> {
-        let shared = self.deadline.for_call(self.storage.operation_timeout());
+        let shared = self.deadline.begin_call(self.storage.operation_timeout());
         let startup_left = self.deadline.startup_left(self.storage.startup_allowance());
         let started = Instant::now();
-        let measured = self.storage.execute_measured(command, shared, startup_left);
-        let (result, call) = Box::pin(measured).await;
-        self.deadline.extend(call.extended());
+        let (call, deadline) = self.storage.prepare_call(command, shared, startup_left);
+        let unfinished = UnfinishedStoreCall::new(&self.request_id, command, &call, &self.storage);
+        let prepared = self.storage.execute_prepared(command, deadline, &call);
+        let result = Box::pin(prepared).await;
+        unfinished.finish();
+        self.deadline.end_call(call.extended());
         self.report_failure(&result);
         self.report_time(command, &call, started.elapsed(), &result);
         result
@@ -194,13 +198,18 @@ mod tests {
     }
 
     #[cfg(unix)]
-    fn pause_fylo_of(root: &std::path::Path) -> std::thread::JoinHandle<()> {
+    fn fylo_of(root: &std::path::Path) -> String {
         let pattern = format!("fylo exec --loop --root {}", root.display());
         let found = std::process::Command::new("pgrep")
             .args(["-f", &pattern])
             .output()
             .expect("pgrep");
-        let process_id = String::from_utf8_lossy(&found.stdout).trim().to_owned();
+        String::from_utf8_lossy(&found.stdout).trim().to_owned()
+    }
+
+    #[cfg(unix)]
+    fn pause_fylo_of(root: &std::path::Path) -> std::thread::JoinHandle<()> {
+        let process_id = fylo_of(root);
         let kill = |signal: &str| {
             std::process::Command::new("kill")
                 .args([signal, process_id.as_str()])
@@ -297,6 +306,29 @@ mod tests {
             found.expect("the waiting answer keeps its time"),
             json!(true)
         );
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn time_outside_store_calls_does_not_use_up_the_store_budget() {
+        if !fylo_runs_here() {
+            return;
+        }
+        let directory = tempfile::tempdir().expect("root");
+        let root = std::fs::canonicalize(directory.path()).expect("canonical root");
+        let shared = Arc::new(fylo_storage(&root).await);
+        let storage = InvocationStorage::new(Arc::clone(&shared), String::from("request-13"));
+        let create = json!({"operation": "document", "command": "createCollection", "collection": "hd-events"});
+        storage.execute(&create).await.expect("collection");
+        let fylo = fylo_of(&root);
+        tokio::time::sleep(std::time::Duration::from_millis(1_200)).await;
+        let exists = json!({"operation": "document", "command": "collectionExists", "collection": "hd-events"});
+        let answer = storage.execute(&exists).await;
+        assert_eq!(
+            answer.expect("outbound work between calls costs no store time"),
+            json!(true)
+        );
+        assert_eq!(fylo_of(&root), fylo, "the same fylo keeps running");
     }
 
     #[tokio::test]

@@ -220,7 +220,7 @@ async fn closing_the_store_waits_for_a_stuck_fylo_only_a_short_time() {
     assert!(PausedFylo::signal(&fylo, "-STOP"), "pause fylo");
     let (_inserted, closing) = insert_then_close(&store).await;
     PausedFylo::signal(&fylo, "-KILL");
-    assert!(closing < Duration::from_millis(1_500), "{closing:?}");
+    assert!(closing < Duration::from_millis(2_500), "{closing:?}");
 }
 
 #[tokio::test]
@@ -249,5 +249,41 @@ async fn a_first_write_to_a_second_collection_after_a_start_gets_the_allowance()
     assert!(resumed.join().expect("resume thread"), "resume fylo");
     written.expect("the first write to the second collection gets the start-up allowance");
     assert!(took >= Duration::from_millis(1_400), "{took:?}");
+    store.close().await;
+}
+
+#[tokio::test]
+async fn a_call_with_almost_no_time_left_is_not_sent_and_fylo_stays() {
+    if !fylo_runs_here() {
+        return;
+    }
+    let directory = tempfile::tempdir().expect("root");
+    let root = canonical_root(&directory);
+    let store = store_with_one_second(&root).await;
+    let exists = document("collectionExists", &json!({}));
+    store
+        .execute(&document("createCollection", &json!({})))
+        .await
+        .expect("collection");
+    let fylo = PausedFylo::process_id(&root);
+    let almost_spent = Instant::now() + Duration::from_millis(50);
+    let failure = store
+        .execute_within(&exists, Some(almost_spent))
+        .await
+        .expect_err("less than 100 ms is left")
+        .to_string();
+    assert!(
+        failure.contains("before the FYLO request was sent; the store-time budget is spent and nothing was written"),
+        "{failure}"
+    );
+    assert_eq!(
+        store.execute(&exists).await.expect("the next call"),
+        json!(true)
+    );
+    assert_eq!(
+        PausedFylo::process_id(&root),
+        fylo,
+        "the same fylo keeps running"
+    );
     store.close().await;
 }

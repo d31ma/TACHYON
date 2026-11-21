@@ -1,3 +1,4 @@
+mod busy_clock;
 mod dialect;
 mod drivers;
 mod fylo;
@@ -22,6 +23,7 @@ use tokio::sync::Semaphore;
 
 use crate::Failure;
 use crate::failure::diagnostic;
+pub(crate) use busy_clock::BusyClock;
 use drivers::SqlStore;
 use fylo::FyloStore;
 #[cfg(feature = "storage-redis")]
@@ -136,17 +138,27 @@ impl ManagedStorage {
         result
     }
 
+    #[cfg(test)]
     pub(crate) async fn execute_measured(
         &self,
         command: &Value,
         shared_deadline: Option<Instant>,
         startup_left: Duration,
     ) -> (Result<Value, Failure>, Arc<StoreCall>) {
+        let (call, deadline) = self.prepare_call(command, shared_deadline, startup_left);
+        let result = self.execute_prepared(command, deadline, &call).await;
+        (result, call)
+    }
+
+    pub(crate) fn prepare_call(
+        &self,
+        command: &Value,
+        shared_deadline: Option<Instant>,
+        startup_left: Duration,
+    ) -> (Arc<StoreCall>, Instant) {
         let deadline = Self::deadline_of(command, shared_deadline, self.time_limit(command));
         let activity = Arc::clone(&self.startup_activity);
-        let call = StoreCall::new(deadline, startup_left, activity);
-        let result = self.execute_on(command, deadline, &call).await;
-        (result, call)
+        (StoreCall::new(deadline, startup_left, activity), deadline)
     }
 
     pub(crate) fn startup_allowance(&self) -> Duration {
@@ -157,7 +169,7 @@ impl ManagedStorage {
         &self.call_log
     }
 
-    async fn execute_on(
+    pub(crate) async fn execute_prepared(
         &self,
         command: &Value,
         deadline: Instant,
@@ -205,7 +217,7 @@ impl ManagedStorage {
     fn deadline_failure(&self) -> Failure {
         let fylo_failure = self.fylo.as_ref().and_then(FyloStore::deadline_failure);
         fylo_failure.unwrap_or_else(|| {
-            failure("Managed storage operation deadline exceeded; writes may have committed.")
+            failure("Managed storage operation deadline exceeded; the store-time budget is spent and writes may have committed.")
         })
     }
 
