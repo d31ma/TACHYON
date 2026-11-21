@@ -50,6 +50,7 @@
     "test:media-frames-browser": "node scripts/media-frames-browser-test.mjs",
     "test:media-calls-browser": "node scripts/media-calls-browser-test.mjs",
     "test:peers-browser": "node scripts/peers-browser-test.mjs",
+    "test:peers-large-call-browser": "node scripts/peers-large-call-browser-test.mjs",
     "test:code-scanner-browser": "node scripts/code-scanner-browser-test.mjs",
     "test:blobs-browser": "node scripts/blobs-browser-test.mjs",
     "test:streams-browser": "node scripts/streams-browser-test.mjs",
