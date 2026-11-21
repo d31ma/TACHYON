@@ -30,7 +30,7 @@ const fakeTracks = { tone: output.stream.getAudioTracks()[0], picture: canvas.ca
 globalThis[Symbol.for('tachyon.tac.media.tracks')] = { track: (name) => fakeTracks[name] ?? null, ended: () => {} }
 const recorder = () => globalThis[Symbol.for('tachyon.tac.recorder')]
 const remember = (event) => window.events.push(event)
-window.record = (name) => recorder().start(remember, name, 'tone', 'picture', 'Fixture', 'mp4')
+window.record = (name, file = 'Fixture') => recorder().start(remember, name, 'tone', 'picture', file, 'mp4')
 window.stopRecording = (name) => recorder().stop(remember, name)
 ";
 
@@ -71,9 +71,9 @@ async fn macos_records_a_call_to_the_file_picked_in_the_save_dialog() {
     let root = tempfile::tempdir().expect("fixture");
     let executable = BrowserApiHostTests::compile(root.path(), &RecorderHostTests::host()).await;
     RecorderHostTests::add_pages(root.path());
-    let output = super::host::run_tool(executable.to_str().expect("binary"), &[])
-        .await
-        .expect("actual generated host recorder");
+    let output = super::host::run_tool(executable.to_str().expect("binary"), &[]).await;
+    let progress = std::fs::read_to_string(root.path().join("progress.txt")).unwrap_or_default();
+    let output = output.unwrap_or_else(|failure| panic!("{failure:?}\nprogress:\n{progress}"));
     println!("{output}");
     assert!(output.contains("closed dialog: cancelled"), "{output}");
     assert!(

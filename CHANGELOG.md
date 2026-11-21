@@ -110,6 +110,12 @@ machine contracts have their own, independent major versions.
   Where a native host answers Crypto, `Media.useFrameKey` and
   `Media.encryptFrames(connection, true)` answer `unsupported` until the
   hosts hand SFrame its frame keys.
+- **macOS apps save recordings through the save dialog** (ADR NNNN, slice
+  M5b1). `Recorder.start` in a macOS app opens the system save dialog as a
+  sheet on the app window, and the host writes each piece to the chosen
+  file while the call runs. The page sends pieces in chunks of at most
+  45 KiB through the host call. iOS, Android and Windows follow in slice
+  M5b2, Linux in slice L4.
 - **Services record calls to a file on the device** (ADR NNNN, slice M5a).
   `Recorder` mixes `Media` audio tracks and one video the app can switch,
   pauses, resumes and stops, and writes a piece every second to the file
