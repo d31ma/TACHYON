@@ -53,45 +53,30 @@ fn fylo_request(root: &Path, request: &Value) -> Value {
     answer["result"].clone()
 }
 
-fn base36(mut number: u128) -> String {
-    let digits = b"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-    let mut text = Vec::new();
-    while number > 0 {
-        let digit = usize::try_from(number % 36).expect("digit");
-        text.push(digits[digit]);
-        number /= 36;
-    }
-    text.reverse();
-    String::from_utf8(text).expect("ascii")
-}
+struct ManyDocuments;
 
-fn write_many_documents(root: &Path, count: u128) {
-    fylo_request(
-        root,
-        &json!({"op":"createCollection","collection":"hd-events"}),
-    );
-    let first = fylo_request(
-        root,
-        &json!({"op":"putData","collection":"hd-events","data":{"n":0}}),
-    );
-    let start = u128::from_str_radix(first.as_str().expect("TTID"), 36).expect("base 36");
-    for index in 1..count {
-        let id = base36(start + index * 7);
-        let shard = root
-            .join(".collections/hd-events/docs")
-            .join(&id[id.len() - 1..]);
-        std::fs::create_dir_all(&shard).expect("shard");
-        std::fs::write(
-            shard.join(format!("{id}.json")),
-            format!("{{\"n\":{index}}}"),
-        )
-        .expect("document");
+impl ManyDocuments {
+    const PER_BATCH: u64 = 1_000;
+
+    fn write(root: &Path, count: u64) {
+        fylo_request(
+            root,
+            &json!({"op":"createCollection","collection":"hd-events"}),
+        );
+        let mut written = 0;
+        while written < count {
+            let end = count.min(written + Self::PER_BATCH);
+            fylo_request(
+                root,
+                &json!({"op":"batchPutData","collection":"hd-events","batch":Self::batch(written, end)}),
+            );
+            written = end;
+        }
     }
-    let rebuilt = fylo_request(
-        root,
-        &json!({"op":"rebuildCollection","collection":"hd-events"}),
-    );
-    assert_eq!(rebuilt["indexedDocs"], json!(count));
+
+    fn batch(first: u64, end: u64) -> Vec<Value> {
+        (first..end).map(|n| json!({ "n": n })).collect()
+    }
 }
 
 #[test]
@@ -236,7 +221,7 @@ async fn fylo_scroll_pages_past_ten_thousand_documents_with_a_cursor() {
     }
     let directory = tempfile::tempdir().expect("root");
     let root = canonical_root(&directory);
-    write_many_documents(&root, 10_050);
+    ManyDocuments::write(&root, 10_050);
     let store = fylo_store(&root).await;
     let mut cursor = Value::Null;
     let mut seen = Vec::new();

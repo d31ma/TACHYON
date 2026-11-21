@@ -6,7 +6,7 @@ import { execFileSync } from 'node:child_process';
 
 class FyloPin {
   /** @type {'release' | 'build'} */
-  static kind = 'release';
+  static kind = 'build';
 
   static release = {
     version: 'v26.45.07',
@@ -23,13 +23,13 @@ class FyloPin {
   };
 
   static build = {
-    commit: '',
+    commit: '88c31fa7ef567ebd777a106fbf7e6260151bd6c8',
     protocol: 1,
     /** @type {Record<string, [string, string, string]>} */
     targets: {
-      'darwin-arm64': ['macos-arm64', 'fylo', ''],
-      'linux-arm64': ['linux-arm64', 'fylo', ''],
-      'win32-arm64': ['windows-arm64', 'fylo.exe', ''],
+      'darwin-arm64': ['macos-arm64', 'fylo', 'e4cbbedb7cc52a3ba39e74df843bbb346dab5f740b726e176ac0034efcafd53b'],
+      'linux-arm64': ['linux-arm64', 'fylo', '699ea1363145359b692eb8cabbbfaacaed7fb57cd5b1c9d53fb1ab17df91843a'],
+      'win32-arm64': ['windows-arm64', 'fylo.exe', '4489f8b893cd31a62128ef99c462a49c290649ed5f179bf0be818b702ee358b7'],
     },
   };
 
@@ -91,9 +91,9 @@ async function probeExecutable(executable, directory, protocol) {
   await mkdir(probeRoot, { recursive: true });
   try {
     const answer = JSON.parse(execFileSync(executable, [
-      'exec', '--request', '{"op":"createCollection","collection":"probe"}', '--root', probeRoot,
+      'exec', '--request', '{"op":"handshake"}', '--root', probeRoot,
     ], { encoding: 'utf8', timeout: 30_000, maxBuffer: 256 * 1024 }));
-    if (answer.protocolVersion !== protocol || answer.op !== 'createCollection' || answer.ok !== true) {
+    if (answer.protocolVersion !== protocol || answer.op !== 'handshake' || answer.ok !== true) {
       throw new Error(`Pinned FYLO failed its machine-protocol ${protocol} capability probe`);
     }
   } finally {
