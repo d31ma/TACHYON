@@ -165,7 +165,7 @@ class TacPeers {
 
   static answer(connection, sdp) {
     const entry = TacPeers.entry(connection)
-    const offer = { type: 'offer', sdp: TacPeers.descriptionText(sdp) }
+    const offer = { type: 'offer', sdp: TacPeers.incomingDescription(sdp) }
     TacPeers.describe(entry, 'answer', () => entry.peer.setRemoteDescription(offer).then(() => entry.peer.createAnswer()))
     return null
   }
@@ -186,14 +186,14 @@ class TacPeers {
 
   static accept(connection, sdp) {
     const entry = TacPeers.entry(connection)
-    const answer = { type: 'answer', sdp: TacPeers.descriptionText(sdp) }
+    const answer = { type: 'answer', sdp: TacPeers.incomingDescription(sdp) }
     TacPeers.later(entry, 'accept', entry.peer.setRemoteDescription(answer).then(() => null))
     return null
   }
 
   static addCandidate(connection, candidate) {
     const entry = TacPeers.entry(connection)
-    const text = TacPeers.candidateText(candidate)
+    const text = TacPeers.incomingCandidate(candidate)
     TacPeers.later(entry, 'addCandidate', Promise.resolve().then(() => entry.peer.addIceCandidate(TacPeers.candidate(text))).then(() => null))
     return null
   }
@@ -205,11 +205,11 @@ class TacPeers {
     return parsed
   }
 
-  static descriptionText(value) {
+  static incomingDescription(value) {
     return TacPeers.limited(value, TacPeers.mostDescriptionBytes, `A description is at most ${TacPeers.mostDescriptionBytes} bytes; offer fewer tracks on one connection.`)
   }
 
-  static candidateText(value) {
+  static incomingCandidate(value) {
     return TacPeers.limited(value, TacPeers.mostCandidateBytes, `A candidate is at most ${TacPeers.mostCandidateBytes} bytes.`)
   }
 
