@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict'
 import { execFile } from 'node:child_process'
-import { cp, mkdtemp, rm } from 'node:fs/promises'
+import { cp, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -11,7 +11,7 @@ import { withServer } from './release/server-probe.mjs'
 
 /** @typedef {'chromium' | 'firefox' | 'webkit'} AppsEngine */
 /** @typedef {'bundle' | 'separate'} AppsDeploy */
-/** @typedef {{engine: AppsEngine, deploy: AppsDeploy, phase: string, errors: string[]}} AppsDiagnostics */
+/** @typedef {{engine: AppsEngine, deploy: AppsDeploy, phase: string, errors: string[], shellScripts: number}} AppsDiagnostics */
 /** @typedef {{path: string, heading: string, shell: string, chat: string, kept: boolean, focused: string, title: string}} AppsSnapshot */
 
 class PageAppsBrowserGate {
@@ -23,12 +23,60 @@ class PageAppsBrowserGate {
   static _plainHttpPrefetch = 'Prefetch request denied: URL must be secure (HTTPS)'
   static _repository = fileURLToPath(new URL('..', import.meta.url))
   static _fixture = 'crates/tachyon-core/tests/fixtures/tac-page-apps'
+  static _shellScript = '/.tachyon/tac-shell.js'
+  static _plainFiles = {
+    'client/manifest.json': '{"name":"Plain"}',
+    'client/pages/tac.html': '<page-plain />',
+    'client/components/page/plain/tac.html': '<h1>Plain page</h1>',
+  }
 
   /** @returns {Promise<void>} */
   static async run() {
     const binary = PageAppsBrowserGate._binary()
     const engines = PageAppsBrowserGate._selectedEngines()
     for (const deploy of PageAppsBrowserGate._deploys) await PageAppsBrowserGate._runDeploy(binary, engines, deploy)
+    await PageAppsBrowserGate._runPlainApp(binary, engines)
+  }
+
+  /** @param {string} binary @param {AppsEngine[]} engines @returns {Promise<void>} */
+  static async _runPlainApp(binary, engines) {
+    const site = await mkdtemp(path.join(tmpdir(), 'tac-plain-app-'))
+    try {
+      await PageAppsBrowserGate._writePlainApp(site)
+      await promisify(execFile)(binary, ['bundle', site])
+      await withServer(binary, ['preview', site, '--static', '--port', '0'], async (request) => {
+        const origin = new URL((await request('/')).url).origin
+        for (const engine of engines) await PageAppsBrowserGate._checkPlainApp(engine, origin)
+      })
+    } finally {
+      await rm(site, { recursive: true, force: true })
+    }
+  }
+
+  /** @param {string} site @returns {Promise<void>} */
+  static async _writePlainApp(site) {
+    for (const [file, contents] of Object.entries(PageAppsBrowserGate._plainFiles)) {
+      await mkdir(path.dirname(path.join(site, file)), { recursive: true })
+      await writeFile(path.join(site, file), contents)
+    }
+  }
+
+  /** @param {AppsEngine} engine @param {string} origin @returns {Promise<void>} */
+  static async _checkPlainApp(engine, origin) {
+    const browser = await PageAppsBrowserGate._browserType(engine).launch({ timeout: PageAppsBrowserGate._launchTimeout })
+    try {
+      const page = await browser.newPage()
+      /** @type {string[]} */
+      const requested = []
+      page.on('request', (request) => requested.push(new URL(request.url()).pathname))
+      await page.goto(`${origin}/`, { waitUntil: 'load', timeout: PageAppsBrowserGate._timeout })
+      await page.waitForFunction(() => document.querySelector('h1')?.textContent === 'Plain page', null, { timeout: PageAppsBrowserGate._timeout })
+      const shellFiles = requested.filter((pathname) => pathname.endsWith('/tac-shell.js') || pathname.endsWith('/shell.json'))
+      assert.deepEqual(shellFiles, [], 'a plain app at / asks for no shell file')
+      console.log(JSON.stringify({ status: 'pass', engine, deploy: 'plain', browserVersion: browser.version() }))
+    } finally {
+      await browser.close()
+    }
   }
 
   /** @param {string} binary @param {AppsEngine[]} engines @param {AppsDeploy} deploy @returns {Promise<void>} */
@@ -100,9 +148,10 @@ class PageAppsBrowserGate {
   /** @param {AppsEngine} engine @param {string} origin @param {AppsDeploy} deploy @returns {Promise<void>} */
   static async _runEngine(engine, origin, deploy) {
     /** @type {AppsDiagnostics} */
-    const diagnostics = { engine, deploy, phase: 'starting', errors: [] }
+    const diagnostics = { engine, deploy, phase: 'starting', errors: [], shellScripts: 0 }
     const browser = await PageAppsBrowserGate._browserType(engine).launch({ timeout: PageAppsBrowserGate._launchTimeout })
     const page = await browser.newPage()
+    page.on('request', (request) => PageAppsBrowserGate._countShellScript(request, diagnostics))
     page.on('pageerror', (error) => diagnostics.errors.push(error.message))
     page.on('console', (message) => PageAppsBrowserGate._recordConsole(message, diagnostics))
     try {
@@ -114,8 +163,11 @@ class PageAppsBrowserGate {
       await PageAppsBrowserGate._checkBack(page)
       diagnostics.phase = 'forward-to-chat'
       await PageAppsBrowserGate._checkForward(page)
+      assert.equal(diagnostics.shellScripts, 1, 'the shell app loads tac-shell.js once')
       diagnostics.phase = 'direct-chat-load'
       await PageAppsBrowserGate._checkDirectChat(page, origin)
+      diagnostics.phase = 'shell-script-failure'
+      await PageAppsBrowserGate._checkShellScriptFailure(browser, origin)
       assert.deepEqual(diagnostics.errors, [])
       console.log(JSON.stringify({ status: 'pass', engine, deploy, browserVersion: browser.version() }))
     } catch (error) {
@@ -123,6 +175,26 @@ class PageAppsBrowserGate {
       throw error
     } finally {
       await browser.close()
+    }
+  }
+
+  /** @param {import('playwright').Request} request @param {AppsDiagnostics} diagnostics @returns {void} */
+  static _countShellScript(request, diagnostics) {
+    if (new URL(request.url()).pathname !== PageAppsBrowserGate._shellScript) return
+    diagnostics.shellScripts += 1
+  }
+
+  /** @param {import('playwright').Browser} browser @param {string} origin @returns {Promise<void>} */
+  static async _checkShellScriptFailure(browser, origin) {
+    const page = await browser.newPage()
+    try {
+      await page.route(`**${PageAppsBrowserGate._shellScript}`, (route) => route.abort())
+      await page.goto(`${origin}/`, { waitUntil: 'load', timeout: PageAppsBrowserGate._timeout })
+      await page.waitForFunction(() => document.querySelector('h1')?.textContent === 'Home page', null, { timeout: PageAppsBrowserGate._timeout })
+      const shell = await page.evaluate(() => document.getElementById('shell-count')?.textContent ?? '')
+      assert.equal(shell, '', 'without tac-shell.js the page renders alone, not blank')
+    } finally {
+      await page.close()
     }
   }
 
