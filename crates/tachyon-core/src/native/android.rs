@@ -690,6 +690,7 @@ impl AndroidHostGenerator {
         [Self::MENU_REFUSALS, Self::MENU_CALLS][usize::from(calls)]
     }
 
+    const PEERS_GRANT: &str = "peers";
     const INTERNET_PERMISSION: &str =
         "\n  <uses-permission android:name=\"android.permission.INTERNET\"/>";
 
@@ -701,7 +702,12 @@ impl AndroidHostGenerator {
     }
 
     fn internet_permission(application: &NativeApplication) -> &'static str {
-        [Self::INTERNET_PERMISSION, ""][usize::from(application.outgoing.is_empty())]
+        let reaches_network = [
+            !application.outgoing.is_empty(),
+            application.permissions.is_granted(Self::PEERS_GRANT),
+        ]
+        .contains(&true);
+        ["", Self::INTERNET_PERMISSION][usize::from(reaches_network)]
     }
 
     const ANDROID_BRIDGE_SHIM: &str = r"
@@ -1471,6 +1477,26 @@ mod tests {
             "if (isOutgoingHost(request.getUrl()) || isYonOrigin(request.getUrl())) return null;\n            WebResourceResponse capability = capabilityResponse(request);\n            return capability != null ? capability : assetResponse(request.getUrl());"
         ));
         assert!(catalog_java_source(false).contains("OUTGOING_HOSTS = {};"));
+    }
+
+    #[test]
+    fn android_asks_for_network_access_when_the_app_grants_peers() {
+        let plain = application();
+        assert!(!android_manifest(&plain, false).contains("android.permission.INTERNET"));
+        let mut peers = application();
+        peers.permissions = crate::native::browser_api_permissions::BrowserApiPermissions::declared(
+            &[String::from("peers")],
+            &std::collections::BTreeMap::new(),
+        );
+        assert!(android_manifest(&peers, false).contains(
+            "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\">\n  <uses-permission android:name=\"android.permission.INTERNET\"/>"
+        ));
+        let mut share = application();
+        share.permissions = crate::native::browser_api_permissions::BrowserApiPermissions::declared(
+            &[String::from("share")],
+            &std::collections::BTreeMap::new(),
+        );
+        assert!(!android_manifest(&share, false).contains("android.permission.INTERNET"));
     }
 
     #[test]
