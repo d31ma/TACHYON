@@ -293,7 +293,7 @@ private final class TacActivation {
 }
 private enum TacNativeState {
     static let startUpRequestLimit = 1048576
-    static let memberRequestLimit = 65536
+    static let memberRequestLimit = 393216
     nonisolated(unsafe) static var activations: [String: TacActivation] = [:]
     nonisolated(unsafe) static var executing: TacActivation?
     nonisolated(unsafe) static var handling = false

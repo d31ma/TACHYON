@@ -225,7 +225,7 @@ public:
 private:
     static constexpr std::size_t MAX_OWNERS = 256;
     static constexpr std::size_t MAX_QUEUED_EVENTS = 128;
-    static constexpr std::size_t MAX_MEMBER_REQUEST_BYTES = 65536;
+    static constexpr std::size_t MAX_MEMBER_REQUEST_BYTES = 393216;
     static constexpr std::size_t MAX_EVENT_BYTES = 65536;
     static constexpr std::size_t MAX_RETURNED_EVENTS = 32;
     static constexpr std::size_t OWNER_LENGTH = 36;
@@ -320,7 +320,8 @@ private:
         }
         std::string operation = request["op"].getValue<std::string>();
         if (operation != "init" && text.size() > MAX_MEMBER_REQUEST_BYTES) {
-            return failure("The request is " + std::to_string(text.size()) + " bytes. The limit is 65536 bytes. Pass less data to the service.");
+            std::string subject = present(request["name"]) ? request["name"].getValue<std::string>() : operation;
+            return failure("The request to " + subject + " is " + std::to_string(text.size()) + " bytes. The limit is " + std::to_string(MAX_MEMBER_REQUEST_BYTES) + " bytes. Pass less data to the service.");
         }
         if (operation == "host-dispose") {
             disposeAll();

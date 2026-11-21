@@ -37,12 +37,12 @@ impl BehaviorBrowserSocket {
 
     #[cfg(target_arch = "wasm32")]
     async fn host<T: TacModel>(client: &str, message: T) -> BehaviorResult<String> {
-        const MESSAGE_BYTES: usize = 65_536;
+        const MESSAGE_BYTES: usize = 393_216;
         let text = tac_write(&message.write());
         if text.len() > MESSAGE_BYTES {
             return Err(behavior_error(
                 "HTTP_BODY",
-                "A socket message is JSON of at most 64 KiB.",
+                "A socket message is JSON of at most 393216 bytes. Send less data in one message.",
             ));
         }
         let owner = tac_executing()

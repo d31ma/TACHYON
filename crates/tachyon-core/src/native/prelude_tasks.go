@@ -93,8 +93,8 @@ func (failure *SocketError) BehaviorCode() string {
 
 func SendSocket(client string, message any) error {
 	text, err := json.Marshal(message)
-	if err != nil || len(text) > 65536 {
-		return &SocketError{Code: "HTTP_BODY", Message: "A socket message is JSON of at most 64 KiB."}
+	if err != nil || len(text) > 393216 {
+		return &SocketError{Code: "HTTP_BODY", Message: "A socket message is JSON of at most 393216 bytes. Send less data in one message."}
 	}
 	request, _ := json.Marshal(map[string]any{"client": client, "message": json.RawMessage(text)})
 	answer := map[string]any{}

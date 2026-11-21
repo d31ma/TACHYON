@@ -87,7 +87,7 @@ private class TacActivation(val route: String, val service: String, val owner: S
 }
 private object TacNativeState {
     const val START_UP_REQUEST_LIMIT = 1048576
-    const val MEMBER_REQUEST_LIMIT = 65536
+    const val MEMBER_REQUEST_LIMIT = 393216
     val activations = linkedMapOf<String, TacActivation>()
     var executing: TacActivation? = null
     var handling = false

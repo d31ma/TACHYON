@@ -613,7 +613,7 @@ public partial class Tac
         foreach (var node in nodes) DisposeNode(node);
     }
     private const int StartUpRequestLimit = 1048576;
-    private const int MemberRequestLimit = 65536;
+    private const int MemberRequestLimit = 393216;
     private static string TooLarge(string subject, int size, int limit) =>
         "{\"error\":" + Encode($"The {subject} is {size} bytes. The limit is {limit} bytes. Pass less data to the service.") + "}";
     private static string DescribeStreams(List<string> streams) =>
