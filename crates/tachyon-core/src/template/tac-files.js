@@ -19,6 +19,7 @@ class TacFiles {
     Object.defineProperty(globalThis, TacFiles.key, {
       configurable: true,
       value: Object.freeze({
+        calls: Object.freeze(['pick', 'read', 'release', 'upload', 'cancel']),
         pick: (reply, accept, multiple) => TacFiles.pick(reply, accept, multiple),
         read: (reply, id, offset, count) => TacFiles.read(reply, id, offset, count),
         release: (reply, id) => TacFiles.release(id),

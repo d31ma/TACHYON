@@ -56,11 +56,11 @@ globalThis.HTMLMediaElement = class { setSinkId() {} }
 const sent = []
 TacWebApis.events = { send: (owner, name, value) => sent.push([owner, name, value]), publish: () => {} }
 const settle = async () => { for (let round = 0; round < 10; round += 1) await new Promise((resolve) => setTimeout(resolve, 0)) }
-const call = (owner, name, ...values) => { try { TacWebApis.calling(owner, () => TacWebApis.media[name](...values)); return 'ok' } catch (error) { return error.message } }
+const call = (owner, name, ...values) => { try { TacWebApis.calling(owner, () => TacWebApis.apis.media[name](...values)); return 'ok' } catch (error) { return error.message } }
 const take = () => sent.splice(0)
 const tracksApi = globalThis[Symbol.for('tachyon.tac.media.tracks')]
 const report = {}
-report.supported = ['capture', 'screen', 'speakers', 'frames', 'background', 'nothing'].map((feature) => TacWebApis.media.supported(feature))
+report.supported = ['capture', 'screen', 'speakers', 'frames', 'background', 'nothing'].map((feature) => TacWebApis.apis.media.supported(feature))
 report.sync = [call('a', 'captureMicrophone', 'bad name', '', true), call('a', 'captureScreen', 'screen', false)]
 report.calls = [call('a', 'captureMicrophone', 'mic', '', true), call('a', 'captureCamera', 'cam', 'cam-1', 'low')]
 await settle()
@@ -277,6 +277,368 @@ fn on_a_phone_the_host_lists_and_chooses_speakers_and_runs_call_audio() {
     assert_eq!(report["webAsked"], 0);
 }
 
+struct CallsPageDriver;
+
+impl CallsPageDriver {
+    const DRIVER: &'static str = r"import { readFile } from 'node:fs/promises'
+let made = 0
+class FakeTrack extends EventTarget { constructor(kind) { super(); made += 1; this.kind = kind; this.id = `t${made}`; this.label = kind; this.enabled = true } getSettings() { return { deviceId: `d-${this.kind}`, width: 640, height: 360 } } stop() { this.stopped = true } }
+class FakeStream { constructor(tracks = []) { made += 1; this.tracks = tracks; this.id = `s${made}` } }
+globalThis.MediaStream = FakeStream
+globalThis.HTMLMediaElement = class { setSinkId() {} }
+const players = []
+let blockNext = false
+const player = () => ({ autoplay: false, srcObject: null, sink: '', plays: 0, paused: false,
+  play() { this.plays += 1; if (blockNext) { blockNext = false; return Promise.reject(Object.assign(new Error('no'), { name: 'NotAllowedError' })) } return Promise.resolve() },
+  pause() { this.paused = true }, setSinkId(id) { this.sink = id; return Promise.resolve() } })
+globalThis.document = { querySelector: () => ({ content: 'microphone camera' }), addEventListener: () => {}, createElement: (tag) => { const element = player(); players.push(element); return element } }
+globalThis.addEventListener = () => {}
+const media = new EventTarget()
+media.getUserMedia = async (constraints) => ({ getTracks: () => [new FakeTrack(constraints.audio ? 'audio' : 'video')] })
+media.enumerateDevices = async () => []
+Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: media })
+const peer = new EventTarget()
+peer.mids = 0
+peer.signalingState = 'stable'
+peer.removed = []
+peer.addTransceiver = (trackOrKind, options) => {
+  const kind = typeof trackOrKind === 'string' ? trackOrKind : trackOrKind.kind
+  const transceiver = { mid: String(peer.mids), options, currentDirection: 'sendrecv',
+    sender: { track: typeof trackOrKind === 'string' ? null : trackOrKind, replaceTrack(track) { this.track = track; return Promise.resolve() } },
+    receiver: { track: new FakeTrack(kind) } }
+  peer.mids += 1
+  return transceiver
+}
+peer.removeTrack = (sender) => peer.removed.push(sender)
+const hooks = { opened: [], closed: [] }
+globalThis[Symbol.for('tachyon.tac.peers.hooks')] = { connection: (id) => id === 'peer-1' ? peer : null, opened: (hook) => hooks.opened.push(hook), closed: (hook) => hooks.closed.push(hook) }
+const Media = (0, eval)((await readFile('./tac-media.js', 'utf8')) + '\nTacMedia')
+const api = globalThis[Symbol.for('tachyon.tac.media')]
+const tracks = globalThis[Symbol.for('tachyon.tac.media.tracks')]
+const sent = []
+const other = []
+const reply = (event) => sent.push(event)
+const otherReply = (event) => other.push(event)
+const settle = async () => { for (let round = 0; round < 10; round += 1) await new Promise((resolve) => setTimeout(resolve, 0)) }
+const attempt = (work) => { try { work(); return 'ok' } catch (error) { return error.message } }
+const report = {}
+report.hooked = [hooks.opened.length, hooks.closed.length]
+api.captureMicrophone(reply, 'mic', '', true)
+api.captureCamera(reply, 'cam', '', 'medium')
+api.captureCamera(reply, 'cam2', '', 'low')
+await settle()
+sent.splice(0)
+api.send(reply, 'peer-1', 'mic', 'me', false)
+api.send(reply, 'peer-1', 'cam', 'me', true)
+const [micSent, camSent] = [Media.sending.get('peer-1 mic').transceiver, Media.sending.get('peer-1 cam').transceiver]
+report.sending = sent.splice(0)
+report.options = [micSent.options.direction, micSent.options.sendEncodings ?? null, camSent.options.sendEncodings, micSent.options.streams[0] === camSent.options.streams[0]]
+report.refused = [attempt(() => api.send(reply, 'peer-1', 'mic', 'me', false)), attempt(() => api.send(reply, 'peer-9', 'mic', '', false)), attempt(() => api.send(reply, 'peer-1', 'nothing', '', false)), attempt(() => api.send(reply, 'peer-1', 'cam2', 'bad name!', false))]
+api.mute(reply, 'cam', true)
+await settle()
+report.cameraOff = camSent.sender.track
+api.mute(reply, 'cam', false)
+await settle()
+report.cameraBack = [camSent.sender.track?.kind ?? null, sent.splice(0).map((event) => event[0])]
+const cam2 = tracks.track('cam2')
+api.replace(reply, 'peer-1', 'cam', 'cam2')
+await settle()
+report.replaced = [camSent.sender.track === cam2, Media.sending.has('peer-1 cam2'), Media.sending.has('peer-1 cam')]
+report.replaceRefused = attempt(() => api.replace(reply, 'peer-1', 'cam2', 'mic'))
+api.unsend(reply, 'peer-1', 'mic')
+report.unsent = [peer.removed.length, peer.removed[0] === micSent.sender, attempt(() => api.unsend(reply, 'peer-1', 'mic'))]
+const arrive = (kind, mid, stream) => {
+  const transceiver = { mid, currentDirection: 'recvonly', sender: {}, receiver: { track: new FakeTrack(kind), levels: [], getSynchronizationSources() { return this.levels.map((audioLevel) => ({ audioLevel })) } } }
+  const event = new Event('track')
+  event.transceiver = transceiver
+  event.streams = stream === '' ? [] : [{ id: stream }]
+  peer.dispatchEvent(event)
+  return transceiver
+}
+api.stats(otherReply, 'warmup', 'peer-1')
+await settle()
+other.splice(0)
+const audioIn = arrive('audio', '5', 'alice')
+const videoIn = arrive('video', '6', '')
+await settle()
+report.arrived = sent.splice(0)
+report.arrivedToCaller = other.splice(0)
+report.remoteTracks = [tracks.track('peer-1.5') === audioIn.receiver.track, tracks.track('peer-1.6') === videoIn.receiver.track]
+report.players = players.map((element) => [element.autoplay, element.plays, element.srcObject?.tracks[0] === audioIn.receiver.track])
+audioIn.receiver.track.dispatchEvent(new Event('mute'))
+audioIn.receiver.track.dispatchEvent(new Event('unmute'))
+report.muted = other.splice(0)
+blockNext = true
+const blockedIn = arrive('audio', '7', 'bob')
+await settle()
+report.blocked = other.splice(0)
+sent.splice(0)
+const blockedPlayer = players[players.length - 1]
+api.resumeAudio(reply)
+await settle()
+report.resumed = [blockedPlayer.plays, sent.splice(0)]
+api.chooseSpeaker(reply, 'spk-2')
+await settle()
+report.speaker = [players.map((element) => element.sink), sent.splice(0)]
+const outbound = { id: 'out-h', type: 'outbound-rtp', kind: 'video', mid: camSent.mid, rid: 'h', bytesSent: 10000, timestamp: 1000, remoteId: 'far-h', framesPerSecond: 29.6, frameWidth: 640, frameHeight: 360 }
+const inbound = { id: 'in-5', type: 'inbound-rtp', kind: 'audio', mid: '5', bytesReceived: 4000, packetsLost: 2, packetsReceived: 98, jitter: 0.012, timestamp: 1000 }
+const far = { id: 'far-h', type: 'remote-inbound-rtp', packetsLost: 3, fractionLost: 0.02, jitter: 0.005, roundTripTime: 0.041 }
+const pair = { id: 'pair', type: 'candidate-pair', nominated: true, state: 'succeeded', currentRoundTripTime: 0.03 }
+const stray = { id: 'out-x', type: 'outbound-rtp', kind: 'video', mid: '99', bytesSent: 1, timestamp: 1000 }
+peer.getStats = async () => new Map([outbound, inbound, far, pair, stray].map((item) => [item.id, { ...item }]))
+api.stats(reply, 'r1', 'peer-1')
+await settle()
+outbound.bytesSent = 72500
+outbound.timestamp = 2000
+inbound.bytesReceived = 8000
+inbound.timestamp = 2000
+api.stats(reply, 'r2', 'peer-1')
+await settle()
+report.stats = sent.splice(0)
+peer.getStats = async () => new Map()
+api.stats(reply, 'r3', 'peer-1')
+await settle()
+report.noStats = sent.splice(0)
+audioIn.currentDirection = 'inactive'
+peer.signalingState = 'have-local-offer'
+peer.dispatchEvent(new Event('signalingstatechange'))
+report.notYet = sent.length
+peer.signalingState = 'stable'
+peer.dispatchEvent(new Event('signalingstatechange'))
+report.gone = [sent.splice(0), tracks.track('peer-1.5'), players[0].srcObject, players[0].paused]
+const carolIn = arrive('audio', '8', 'carol')
+await settle()
+sent.splice(0)
+api.speaking(reply, true)
+const script = [[0.3, 0], [0.3, 0], [0.3, 0.5], [0.3, 0.5], [0, 0.5], [0, 0.5], [0, 0.5], [0, 0.5], [0, 0.5]]
+report.speakingTicks = []
+for (const [bob, carol] of script) {
+  blockedIn.receiver.levels = [bob]
+  carolIn.receiver.levels = [carol]
+  Media.measure()
+  report.speakingTicks.push(sent.splice(0))
+}
+api.speaking(reply, false)
+hooks.closed[0]('peer-1')
+report.closed = [sent.splice(0), Media.sending.size, tracks.track('peer-1.8')]
+console.log(JSON.stringify(report))
+";
+
+    fn run() -> serde_json::Value {
+        let root = tempfile::tempdir().expect("root");
+        let [(_, media), _, _] = PageMedia::files();
+        std::fs::write(root.path().join("tac-media.js"), media).expect("media");
+        std::fs::write(root.path().join("drive.mjs"), Self::DRIVER).expect("driver");
+        let mut command = NodeDriver::command();
+        command.arg("drive.mjs").current_dir(root.path());
+        let output = NodeDriver::output(&mut command).expect("node drive.mjs");
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(
+            output.status.success(),
+            "{stdout}{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        serde_json::from_str(stdout.lines().last().unwrap_or_default()).expect("report")
+    }
+}
+
+#[test]
+fn the_page_runtime_sends_receives_measures_and_hears_tracks_on_a_peer_connection() {
+    if !NodeDriver::available() {
+        eprintln!("skipping: node is unavailable");
+        return;
+    }
+    let report = CallsPageDriver::run();
+    assert_eq!(
+        report["hooked"],
+        serde_json::json!([1, 1]),
+        "Media watches every connection Peers opens and closes"
+    );
+    assert_eq!(
+        report["sending"],
+        serde_json::json!([["MediaSending", {"connection": "peer-1", "track": "mic"}], ["MediaSending", {"connection": "peer-1", "track": "cam"}]])
+    );
+    assert_eq!(
+        report["options"],
+        serde_json::json!(["sendrecv", null, [
+            {"rid": "q", "scaleResolutionDownBy": 4, "maxBitrate": 150_000},
+            {"rid": "h", "scaleResolutionDownBy": 2, "maxBitrate": 500_000},
+            {"rid": "f", "scaleResolutionDownBy": 1, "maxBitrate": 1_500_000}
+        ], true]),
+        "simulcast sends three layers, and tracks with the same stream name share one stream"
+    );
+    assert_eq!(
+        report["refused"],
+        serde_json::json!([
+            "The track mic is already sent on peer-1 (exists).",
+            "There is no peer connection named peer-9 (unknown).",
+            "There is no track named nothing (unknown).",
+            "A track name is 1 to 64 letters, digits, \".\", \"_\" or \"-\" (invalid)."
+        ])
+    );
+    assert_eq!(
+        report["cameraOff"],
+        serde_json::Value::Null,
+        "camera off sends no frames"
+    );
+    assert_eq!(
+        report["cameraBack"],
+        serde_json::json!(["video", ["MediaTrackStarted"]]),
+        "camera on sends the new camera track on the same sender"
+    );
+    assert_eq!(report["replaced"], serde_json::json!([true, true, false]));
+    assert_eq!(
+        report["replaceRefused"],
+        "A track can only replace a track of the same kind (invalid)."
+    );
+    assert_eq!(
+        report["unsent"],
+        serde_json::json!([1, true, "The track mic is not sent on peer-1 (unknown)."])
+    );
+    assert_eq!(
+        report["arrived"],
+        serde_json::json!([]),
+        "remote events go to the last service that named the connection"
+    );
+    assert_eq!(
+        report["arrivedToCaller"],
+        serde_json::json!([
+            ["MediaTrackArrived", {"connection": "peer-1", "track": "peer-1.5", "kind": "audio", "stream": "alice"}],
+            ["MediaTrackArrived", {"connection": "peer-1", "track": "peer-1.6", "kind": "video", "stream": ""}]
+        ])
+    );
+    assert_eq!(
+        report["remoteTracks"],
+        serde_json::json!([true, true]),
+        "media-view finds remote tracks by name"
+    );
+    assert_eq!(
+        report["players"],
+        serde_json::json!([[true, 1, true]]),
+        "only remote audio gets a hidden player"
+    );
+    assert_eq!(
+        report["muted"],
+        serde_json::json!([
+            ["MediaTrackMuted", {"track": "peer-1.5", "muted": true}],
+            ["MediaTrackMuted", {"track": "peer-1.5", "muted": false}]
+        ])
+    );
+    assert_eq!(
+        report["blocked"],
+        serde_json::json!([
+            ["MediaTrackArrived", {"connection": "peer-1", "track": "peer-1.7", "kind": "audio", "stream": "bob"}],
+            ["MediaAudioBlocked", {}]
+        ])
+    );
+    assert_eq!(
+        report["resumed"],
+        serde_json::json!([2, []]),
+        "resumeAudio plays the blocked audio again"
+    );
+    assert_eq!(
+        report["speaker"],
+        serde_json::json!([["spk-2", "spk-2"], [["MediaSpeakerChosen", {"device": "spk-2"}]]]),
+        "the chosen speaker moves every remote audio player"
+    );
+    assert_calls_are_measured_heard_and_closed(&report);
+}
+
+fn assert_calls_are_measured_heard_and_closed(report: &serde_json::Value) {
+    let stat = |request: &str,
+                track: &str,
+                direction: &str,
+                kind: &str,
+                numbers: [u64; 9],
+                layer: &str,
+                index: u8| {
+        serde_json::json!(["MediaStats", {
+            "request": request, "connection": "peer-1", "track": track, "layer": layer, "direction": direction, "kind": kind,
+            "bitrate": numbers[0], "packetsLost": numbers[1], "lossPercent": numbers[2], "jitterMs": numbers[3],
+            "roundTripMs": numbers[4], "framesPerSecond": numbers[5], "width": numbers[6], "height": numbers[7],
+            "index": index, "count": numbers[8]
+        }])
+    };
+    assert_eq!(
+        report["stats"],
+        serde_json::json!([
+            stat(
+                "r1",
+                "cam2",
+                "send",
+                "video",
+                [0, 3, 2, 5, 41, 30, 640, 360, 2],
+                "h",
+                0
+            ),
+            stat(
+                "r1",
+                "peer-1.5",
+                "receive",
+                "audio",
+                [0, 2, 2, 12, 30, 0, 0, 0, 2],
+                "",
+                1
+            ),
+            stat(
+                "r2",
+                "cam2",
+                "send",
+                "video",
+                [500_000, 3, 2, 5, 41, 30, 640, 360, 2],
+                "h",
+                0
+            ),
+            stat(
+                "r2",
+                "peer-1.5",
+                "receive",
+                "audio",
+                [32_000, 2, 2, 12, 30, 0, 0, 0, 2],
+                "",
+                1
+            )
+        ]),
+        "one row per known track and layer; bitrate from the change since the last call"
+    );
+    assert_eq!(
+        report["noStats"],
+        serde_json::json!([stat("r3", "", "", "", [0; 9], "", 0)])
+    );
+    assert_eq!(
+        report["notYet"], 0,
+        "a track leaves only when negotiation is stable again"
+    );
+    assert_eq!(
+        report["gone"],
+        serde_json::json!([[["MediaTrackEnded", {"track": "peer-1.5", "reason": "remote"}]], null, null, true])
+    );
+    assert_eq!(
+        report["speakingTicks"],
+        serde_json::json!([
+            [],
+            [["MediaSpeaking", {"track": "peer-1.7", "speaking": true}]],
+            [["MediaLoudest", {"track": "peer-1.7"}]],
+            [["MediaSpeaking", {"track": "peer-1.8", "speaking": true}]],
+            [["MediaLoudest", {"track": "peer-1.8"}]],
+            [],
+            [],
+            [["MediaSpeaking", {"track": "peer-1.7", "speaking": false}]],
+            []
+        ]),
+        "talking starts after 2 loud samples and stops after 4 quiet ones; the loudest holds for 2 samples"
+    );
+    assert_eq!(
+        report["closed"],
+        serde_json::json!([[
+            ["MediaTrackEnded", {"track": "peer-1.6", "reason": "closed"}],
+            ["MediaTrackEnded", {"track": "peer-1.7", "reason": "closed"}],
+            ["MediaTrackEnded", {"track": "peer-1.8", "reason": "closed"}]
+        ], 0, null]),
+        "closing the connection ends its remote tracks and forgets its senders"
+    );
+}
+
 struct FramesPageDriver;
 
 impl FramesPageDriver {
@@ -290,11 +652,11 @@ globalThis.Worker = FakeWorker
 class FakeTransform { constructor(worker, options) { this.worker = worker; this.options = options } }
 globalThis.RTCRtpScriptTransform = FakeTransform
 globalThis.RTCRtpReceiver = { getCapabilities: () => ({ codecs: [{ mimeType: 'video/H264' }, { mimeType: 'video/VP8' }, { mimeType: 'video/rtx' }] }) }
-const transceiver = (kind, mid) => ({ mid, preferred: null, sender: { transform: 'none' }, receiver: { transform: 'none', track: { kind } }, setCodecPreferences(codecs) { this.preferred = codecs.map((codec) => codec.mimeType) } })
+const transceiver = (kind, mid) => ({ mid, preferred: null, sender: { transform: 'none' }, receiver: { transform: 'none', track: Object.assign(new EventTarget(), { kind }) }, setCodecPreferences(codecs) { this.preferred = codecs.map((codec) => codec.mimeType) } })
 const peer = new EventTarget()
 peer.list = [transceiver('video', '0'), transceiver('audio', '1')]
 peer.getTransceivers = () => peer.list
-globalThis[Symbol.for('tachyon.tac.peers.hooks')] = { connection: (id) => id === 'peer-1' ? peer : null }
+globalThis[Symbol.for('tachyon.tac.peers.hooks')] = { connection: (id) => id === 'peer-1' ? peer : null, opened: () => {}, closed: () => {} }
 ;(0, eval)(await readFile('./tac-media.js', 'utf8'))
 const media = globalThis[Symbol.for('tachyon.tac.media')]
 const sent = []

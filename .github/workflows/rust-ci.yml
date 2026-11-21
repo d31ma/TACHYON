@@ -575,6 +575,9 @@ jobs:
       - name: Encrypt media frames with SFrame between two pages
         run: bun run test:media-frames-browser
 
+      - name: Send, receive and measure audio and video between two pages and 59 tracks on one connection
+        run: bun run test:media-calls-browser
+
       - name: Run the real-browser web components contract
         run: bun run test:web-components-browser
         env:

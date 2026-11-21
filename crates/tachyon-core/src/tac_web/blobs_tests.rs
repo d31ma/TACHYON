@@ -15,6 +15,7 @@ grants.content = 'blobs'
 const asked = []
 const later = (reply, event) => setTimeout(() => reply(event), 0)
 globalThis[Symbol.for('tachyon.tac.blobs')] = {
+  calls: ['saveHeld', 'read', 'url', 'upload'],
   saveHeld: (reply, id, key) => { asked.push(['saveHeld', id, key]); later(reply, ['BlobSaved', { key, bytes: 5, media: 'text/plain', sha256: `sha-${id}` }]); return null },
   read: (reply, key, offset, count) => { asked.push(['read', key, offset, count]); later(reply, ['BlobChunkRead', { key, offset, size: 5, data: 'aGVsbG8=' }]); return null },
   url: (reply, key) => `blob:${key}`,

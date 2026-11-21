@@ -1874,6 +1874,41 @@ probed: Ubuntu 24.04's WebKitGTK 2.52.6 (where the flags are missing,
 `Media.supported` answers false for speakers). Owed, by hand: a call's
 audio moved to a second speaker or a headset on a Linux PC.
 
+### Calls between two pages and 59 tracks on one connection (2026-11-21, ADR 0129 slice M2)
+
+`scripts/media-calls-browser-test.mjs` (`bun run test:media-calls-browser`)
+ran on the macOS test machine in Playwright's Chromium, Firefox and WebKit,
+with each engine's fake camera and microphone (Chromium plays a 440 Hz tone
+file) and real `Peers` connections between two pages:
+
+- `Media.send` of a microphone and a camera answers `MediaSending`; the
+  other page gets one audio and one video track named `<connection>.<mid>`
+  in one stream, a `media-view` shows the video, and `stats` shows received
+  audio and video. The other page then sends its microphone, which arrives
+  after it makes a new offer.
+- Chromium sends the camera in the three simulcast layers `q`, `h` and `f`.
+  Firefox and WebKit are not asked for simulcast.
+- `replace` keeps the video playing without a new offer; `unsend` ends the
+  track on the other side with `reason: "remote"`.
+- Talk detection: the receiver reports the sender talking (Chromium,
+  Firefox).
+- One page receives 50 audio tracks (3 with sound at three levels) and 9
+  video tracks on one connection: 59 `MediaTrackArrived`, 9 `media-view`
+  elements, all 9 videos received, only the 3 tracks with sound talk, and
+  `MediaLoudest` names the loudest (Chromium, Firefox).
+
+Engine limits found: WebKit's mock microphone sends no audio, so in WebKit
+the two-page test checks received audio and talking only through the
+59-track test; WebKit reports audio level 1 for any loud track, so there
+`MediaLoudest` tells talking from silent tracks but cannot rank them.
+Chromium's offer for 59 tracks is about 107 KB (Firefox 63 KB, WebKit
+90 KB), more than the 65,536 bytes `Peers` accepts for one description, so
+the 59-track test passes the description through P1's connection hook; a
+call that large needs `Peers` to accept bigger descriptions.
+
+Owed by hand: a call between two phones on different networks, and a
+call of three or more people through Mesail's SFU.
+
 ### Call audio on phones (2026-11-14, ADR 0129 slice M4)
 
 Status: run owed on iOS and Android (`tac.media` is `runOwed` in

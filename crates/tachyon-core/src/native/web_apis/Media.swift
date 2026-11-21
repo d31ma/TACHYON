@@ -52,4 +52,28 @@ final class Media {
     func callActive(on: Bool, title: String) throws {
         _ = try TacWebHost.call(Self.api, "callActive", [on, title])
     }
+
+    func send(connection: String, track: String, stream: String, simulcast: Bool) throws {
+        _ = try TacWebHost.call(Self.api, "send", [connection, track, stream, simulcast])
+    }
+
+    func replace(connection: String, track: String, withTrack: String) throws {
+        _ = try TacWebHost.call(Self.api, "replace", [connection, track, withTrack])
+    }
+
+    func unsend(connection: String, track: String) throws {
+        _ = try TacWebHost.call(Self.api, "unsend", [connection, track])
+    }
+
+    func stats(request: String, connection: String) throws {
+        _ = try TacWebHost.call(Self.api, "stats", [request, connection])
+    }
+
+    func speaking(on: Bool) throws {
+        _ = try TacWebHost.call(Self.api, "speaking", [on])
+    }
+
+    func resumeAudio() throws {
+        _ = try TacWebHost.call(Self.api, "resumeAudio")
+    }
 }

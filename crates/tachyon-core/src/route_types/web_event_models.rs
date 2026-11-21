@@ -5,6 +5,18 @@ pub(crate) struct WebEventModels;
 impl WebEventModels {
     pub(crate) const APPLICATION_STATE: &'static str = "ApplicationStateChanged";
     const MEDIA_GRANTS: [&'static str; 3] = ["camera", "microphone", "screen"];
+    const STATS_NUMBERS: [&'static str; 10] = [
+        "bitrate",
+        "packetsLost",
+        "lossPercent",
+        "jitterMs",
+        "roundTripMs",
+        "framesPerSecond",
+        "width",
+        "height",
+        "index",
+        "count",
+    ];
 
     pub(crate) fn models() -> Vec<(String, Model)> {
         Self::rows().into_iter().map(Self::without_sender).collect()
@@ -52,6 +64,7 @@ impl WebEventModels {
             Self::passkey_rows(),
             Self::peer_rows(),
             Self::media_rows(),
+            Self::media_call_rows(),
             Self::code_scanner_rows(),
             Self::crypto_rows(),
             Self::blob_rows(),
@@ -339,6 +352,35 @@ impl WebEventModels {
                     ("message", Shape::Text),
                 ],
             ),
+        ]
+    }
+
+    fn media_call_rows() -> Vec<(WebEventSender, String, Model)> {
+        let text = |name| (name, Shape::Text);
+        let flag = |name| (name, Shape::Boolean);
+        let stats: Vec<(&str, Shape)> = [
+            "request",
+            "connection",
+            "track",
+            "layer",
+            "direction",
+            "kind",
+        ]
+        .map(text)
+        .into_iter()
+        .chain(Self::STATS_NUMBERS.map(|name| (name, Shape::Number)))
+        .collect();
+        vec![
+            Self::media("MediaSending", &[text("connection"), text("track")]),
+            Self::media(
+                "MediaTrackArrived",
+                &["connection", "track", "kind", "stream"].map(text),
+            ),
+            Self::media("MediaTrackMuted", &[text("track"), flag("muted")]),
+            Self::media("MediaStats", &stats),
+            Self::media("MediaSpeaking", &[text("track"), flag("speaking")]),
+            Self::media("MediaLoudest", &[text("track")]),
+            Self::media("MediaAudioBlocked", &[]),
         ]
     }
 

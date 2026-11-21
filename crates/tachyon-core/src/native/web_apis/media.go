@@ -55,3 +55,27 @@ func (Media) EncryptFrames(connection string, on bool) error {
 func (Media) CallActive(on bool, title string) error {
 	return Web.Call("media", "callActive", []any{on, title}, nil)
 }
+
+func (Media) Send(connection string, track string, stream string, simulcast bool) error {
+	return Web.Call("media", "send", []any{connection, track, stream, simulcast}, nil)
+}
+
+func (Media) Replace(connection string, track string, withTrack string) error {
+	return Web.Call("media", "replace", []any{connection, track, withTrack}, nil)
+}
+
+func (Media) Unsend(connection string, track string) error {
+	return Web.Call("media", "unsend", []any{connection, track}, nil)
+}
+
+func (Media) Stats(request string, connection string) error {
+	return Web.Call("media", "stats", []any{request, connection}, nil)
+}
+
+func (Media) Speaking(on bool) error {
+	return Web.Call("media", "speaking", []any{on}, nil)
+}
+
+func (Media) ResumeAudio() error {
+	return Web.Call("media", "resumeAudio", nil, nil)
+}
