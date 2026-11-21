@@ -71,7 +71,10 @@ impl BrowserApiBridge {
             NativeTarget::Windows,
             &["clipboard", "share", "notifications"],
         ),
-        (NativeTarget::Linux, &["share", "notifications", "crypto"]),
+        (
+            NativeTarget::Linux,
+            &["share", "notifications", "crypto", "recorder"],
+        ),
     ];
 
     pub(super) fn bridged(target: NativeTarget) -> &'static [&'static str] {
@@ -166,6 +169,7 @@ mod tests {
                 [
                     super::super::linux::host_source(),
                     super::super::linux_crypto::LinuxCrypto::SOURCE,
+                    super::super::linux_recorder_files::LinuxRecorderFiles::SOURCE,
                 ]
                 .concat(),
             ),
@@ -191,7 +195,7 @@ mod tests {
         assert_eq!(BrowserApiBridge::operations(NativeTarget::Windows).len(), 5);
         assert_eq!(
             BrowserApiBridge::page_list(NativeTarget::Linux),
-            "['share', 'notifications', 'crypto']"
+            "['share', 'notifications', 'crypto', 'recorder']"
         );
         let linux = BrowserApiBridge::operations(NativeTarget::Linux);
         assert_eq!(
@@ -202,7 +206,7 @@ mod tests {
                 "browserApi.notifications.show"
             ]
         );
-        assert_eq!(linux.len(), 18);
+        assert_eq!(linux.len(), 21);
         assert_eq!(linux[3], "browserApi.crypto.check");
     }
 

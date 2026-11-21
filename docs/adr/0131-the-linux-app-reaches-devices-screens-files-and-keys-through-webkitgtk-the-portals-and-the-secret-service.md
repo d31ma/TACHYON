@@ -126,6 +126,19 @@ and calls use the system's default speaker. A probe on WebKitGTK 2.54.0 (Debian
 chose the default and a listed speaker, and refused an unknown one with
 `NotFoundError`.
 
+Amendment (L4, the recorder sink): decision 7 is built. The Linux page
+bridge lists `recorder`, and the host answers the three calls of ADR NNNN:
+`open` shows a `GtkFileDialog` save dialog (the FileChooser portal where one
+runs) with the suggested name and one filter for the format, and answers
+with the chosen file's name; `write` writes a piece of at most 48 KiB at its
+place in that file (`pwrite`); `close` writes the file to the disk (`fsync`)
+and closes it. The host answers only when the manifest grants `files` and
+`microphone`, `camera` or `screen`, checks the recording name, the file name
+and the format again, writes only the file the person chose, and keeps one
+save dialog open at a time. A closed dialog answers `cancelled`, a file the
+host cannot make answers `denied`, and a full disk answers `full`. A new
+page closes every open recording file and closes an open dialog.
+
 ## Consequences
 
 - On a Linux PC, an app can scan a QR code and capture the camera and the
