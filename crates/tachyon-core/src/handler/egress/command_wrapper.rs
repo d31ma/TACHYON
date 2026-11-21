@@ -9,7 +9,7 @@ pub(super) struct CommandWrapper {
 }
 
 impl CommandWrapper {
-    #[cfg_attr(not(unix), expect(dead_code))]
+    #[cfg_attr(not(any(target_os = "macos", target_os = "linux")), expect(dead_code))]
     pub(super) const fn new(program: PathBuf, prefix: Vec<OsString>) -> Self {
         Self { program, prefix }
     }
