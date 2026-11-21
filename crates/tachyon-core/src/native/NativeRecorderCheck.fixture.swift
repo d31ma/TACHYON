@@ -8,49 +8,96 @@ extension AppDelegate {
 @MainActor
 private final class RecorderCheck {
     private let delegate: AppDelegate
-    private let folder = FileManager.default.temporaryDirectory.appendingPathComponent("tachyon-recorder-check-" + UUID().uuidString)
+    private let fileName = "Tachyon recorder check " + UUID().uuidString
+
+    private let progress = Bundle.main.bundleURL.deletingLastPathComponent().appendingPathComponent("progress.txt")
 
     init(_ delegate: AppDelegate) { self.delegate = delegate }
 
+    private func note(_ text: String) {
+        let line = Data((text + "\n").utf8)
+        FileHandle.standardOutput.write(line)
+        guard let handle = try? FileHandle(forWritingTo: progress) else { try? line.write(to: progress); return }
+        _ = try? handle.seekToEnd()
+        try? handle.write(contentsOf: line)
+        try? handle.close()
+    }
+
     func run() async throws {
+        note("waiting for the page")
         let view = try await ready()
-        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: folder) }
+        note("page ready")
         let bridged = try await page(view, "return globalThis.__tachyonBrowserApiBridge.join(',')")
         try require(bridged.hasSuffix(",recorder"), "Page bridge list: " + bridged)
         let unknown = try await call(view, "browserApi.recorder.write", "{\"recording\":\"nobody\",\"position\":0,\"data\":\"AA==\"}")
         try require(unknown.contains("(unknown)"), "A write to no recording was answered: " + unknown)
         let invalid = try await call(view, "browserApi.recorder.open", "{\"recording\":\"bad name\",\"fileName\":\"a\",\"format\":\"mp4\"}")
         try require(invalid.contains("(invalid)"), "A bad recording name was answered: " + invalid)
+        note("refusals passed")
         try await cancelled(view)
         try await saved(view)
-        FileHandle.standardOutput.write(Data("recorder host check passed\n".utf8))
+        note("recorder host check passed")
     }
 
     private func cancelled(_ view: WKWebView) async throws {
         _ = try await page(view, "window.record('closed'); return 'started'")
-        try await panel().cancel(nil)
+        note("asked for the save dialog")
+        let dialog = try await panel()
+        note("save dialog found: " + String(describing: type(of: dialog)))
+        dialog.cancel(nil)
+        note("pressed cancel")
         let event = try await event(view, "RecordingFailed")
         try require(event.contains("\"reason\":\"cancelled\""), "A closed save dialog answered: " + event)
-        FileHandle.standardOutput.write(Data("closed dialog: cancelled\n".utf8))
+        note("closed dialog: cancelled")
     }
 
     private func saved(_ view: WKWebView) async throws {
-        _ = try await page(view, "window.record('meeting'); return 'started'")
+        _ = try await page(view, "window.record('meeting', '\(fileName)'); return 'started'")
         let dialog = try await panel()
-        dialog.directoryURL = folder
-        dialog.nameFieldStringValue = "Fixture.mp4"
-        dialog.ok(nil)
+        let saved = dialog.directoryURL?.appendingPathComponent(fileName + ".mp4")
+        note("second save dialog found in " + (dialog.directoryURL?.path ?? "no folder"))
+        NSApp.activate(ignoringOtherApps: true)
+        let pressed = await Task.detached { RecorderCheck.pressSave(getpid()) }.value
+        note("pressed save: " + pressed)
         let started = try await event(view, "RecordingStarted")
-        try require(started.contains("\"fileName\":\"Fixture.mp4\""), "Started: " + started)
+        guard let saved else { throw failure("The save dialog has no folder") }
+        defer { try? FileManager.default.removeItem(at: saved) }
+        try require(started.contains("\"fileName\":\"\(fileName).mp4\""), "Started: " + started)
         try await Task.sleep(nanoseconds: 3_000_000_000)
         _ = try await page(view, "window.stopRecording('meeting'); return 'stopping'")
         let stopped = try await event(view, "RecordingStopped")
-        let bytes = try Data(contentsOf: folder.appendingPathComponent("Fixture.mp4"))
+        let bytes = try Data(contentsOf: saved)
         try require(stopped.contains("\"bytes\":\(bytes.count)"), "Stopped: " + stopped + " but the file has \(bytes.count) bytes")
         try require(bytes.count > 1000, "The file has only \(bytes.count) bytes")
         try require(bytes.subdata(in: 4..<8) == Data("ftyp".utf8), "The file does not start with an ftyp box")
-        FileHandle.standardOutput.write(Data("saved \(bytes.count) bytes of MP4 through the save dialog\n".utf8))
+        note("saved \(bytes.count) bytes of MP4 through the save dialog")
+    }
+
+    nonisolated private static func pressSave(_ process: pid_t) -> String {
+        guard let button = saveButton(AXUIElementCreateApplication(process), depth: 0) else {
+            return "no Save button (Accessibility allowed: \(AXIsProcessTrusted()))"
+        }
+        return String(AXUIElementPerformAction(button, kAXPressAction as CFString).rawValue)
+    }
+
+    nonisolated private static func saveButton(_ element: AXUIElement, depth: Int) -> AXUIElement? {
+        guard depth < 16 else { return nil }
+        if text(element, kAXRoleAttribute) == kAXButtonRole,
+           text(element, kAXIdentifierAttribute) == "OKButton" || text(element, kAXTitleAttribute) == "Save" {
+            return element
+        }
+        var children: CFTypeRef?
+        AXUIElementCopyAttributeValue(element, kAXChildrenAttribute as CFString, &children)
+        for child in (children as? [AXUIElement]) ?? [] {
+            if let found = saveButton(child, depth: depth + 1) { return found }
+        }
+        return nil
+    }
+
+    nonisolated private static func text(_ element: AXUIElement, _ name: String) -> String? {
+        var value: CFTypeRef?
+        AXUIElementCopyAttributeValue(element, name as CFString, &value)
+        return value as? String
     }
 
     private func panel() async throws -> NSSavePanel {

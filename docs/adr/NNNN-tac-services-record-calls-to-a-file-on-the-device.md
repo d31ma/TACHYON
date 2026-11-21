@@ -84,9 +84,12 @@ call stays under the host call's 64 KiB limit:
 - The host answers only the app's own page, only with the `files` grant
   and a media grant, and writes only the file the person chose in the
   dialog. It checks the recording name, the file name and the format again.
-- macOS (M5b1): `NSSavePanel` as a sheet on the app window, then a
-  `FileHandle` on the chosen file. A page that reloads and opens the same
-  recording name again replaces its old handle.
+- macOS (M5b1): `NSSavePanel` as a sheet on the app window, starting in
+  the Movies folder, then a `FileHandle` on the chosen file. A page that
+  reloads and opens the same recording name again replaces its old handle.
+- Linux (L4, a later slice): a `GtkFileDialog` save dialog (the FileChooser
+  portal where one runs), then a write at each place and `fsync` at close
+  (ADR 0131 amendment L4).
 
 ## Consequences
 
@@ -122,3 +125,16 @@ call stays under the host call's 64 KiB limit:
   Playwright's private sessions refuse the private file system).
 - `tac_web::recorder_tests` and `tac_python::browser_api_tests`: a service in
   every language starts, switches, pauses and stops a recording.
+- `compiler::page_recorder_tests` (M5b1): with a host that lists `recorder`,
+  the page opens the host's dialog, keeps the name the person chose, sends
+  each piece in chunks of at most 45 KiB at their places, and maps the
+  host's `(cancelled)` and `(full)` errors; after a failed write the file
+  is closed once.
+- `native::native_recorder_host_tests::macos_records_a_call_to_the_file_picked_in_the_save_dialog`
+  (M5b1, `mac-heavy --gui`): a generated macOS host with `files` and
+  `microphone` refuses a write to no recording and a bad name, answers
+  `cancelled` when the real save dialog is closed, and saves about 3
+  seconds of a tone and a canvas as MP4 (309,368 bytes, `ftyp` first, the
+  same size as `RecordingStopped`) through the dialog. The check presses
+  Save through the Accessibility interface, because the dialog runs in its
+  own process and does not take a programmatic `ok`.
