@@ -1300,6 +1300,8 @@ mod tests {
         )
         .expect("worker");
         fs::write(root.path().join("server/application.json"), application).expect("application");
+        fs::create_dir_all(root.path().join("client/pages")).expect("pages");
+        fs::write(root.path().join("client/pages/tac.html"), "<main></main>").expect("page");
         let project = ProjectDiscovery::discover(root.path()).expect("project discovery");
         let config = crate::ApplicationConfig::load(root.path()).expect("application config");
         (root, project, config)
