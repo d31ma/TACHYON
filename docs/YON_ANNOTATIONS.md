@@ -367,8 +367,9 @@ Controller endpoints are instance methods marked `GetRoute`, `PostRoute`,
 `getOrders`, `GetOrders` or `get_orders`. In Python they take self, in Rust
 &self, and in Go a receiver. A method path follows the class path.
 
-`FromPath`, `FromQuery`, `FromBody`, `FromHeader` and `FromCookie` bind
-arguments. One unmarked argument may receive the request in the language's own
+`FromPath`, `FromQuery`, `FromBody`, `FromHeader`, `FromCookie` and
+`FromIdentity` bind arguments. `FromIdentity` receives the identity of the
+signed-in caller (see Who may call a route). One unmarked argument may receive the request in the language's own
 type (ADR 0062): a Fetch `Request` in JavaScript and TypeScript,
 `urllib.request.Request` in Python, a `Net::HTTP` request in Ruby,
 `com.sun.net.httpserver.HttpExchange` in Java and Kotlin, `HttpRequestMessage`
@@ -543,10 +544,50 @@ their role names, `{"user": "ada", "roles": ["Admin"]}`, or no value. The
 server calls it before every `@SignedIn` or `@Allow` route, whatever the
 language of the route, and answers 401 without an identity, 403 without one
 of the roles and 500 when `identify` fails. The route method does not run in
-these cases. A guarded route without an identity provider, or two identity
+these cases. An `@ErrorHandler` method for `NotSignedIn`, `RoleMissing` or
+`IdentityCheckFailed` can shape the body of these answers (see "Answers
+that Tachyon makes itself" below). A guarded route without an identity provider, or two identity
 providers, stops the build with `TY1323`. In C++ the method is
 `std::optional<Identity> identify(const tachyon::http::HttpRequestMessage& request)`
 and returns `std::nullopt` when nobody is signed in.
+
+### A route receives the caller's identity
+
+A `@SignedIn` or `@Allow` route method can take the object that `identify`
+returned for this request as an argument (ADR 0143). Mark the parameter with
+`FromIdentity`, in the spelling of the language: `@FromIdentity` in
+JavaScript, TypeScript, Java, Groovy, Kotlin and Dart,
+`Annotated[Identity, from_identity]` in Python, `// @FromIdentity` on the
+line before the parameter in Go and `-- @FromIdentity` in Lua,
+`#[FromIdentity]` in Ruby, PHP and Rust, `[FromIdentity]` in C#,
+`[<FromIdentity>]` in F# and `[[FromIdentity]]` in C++.
+
+```ts
+@GetRoute
+getMe(@FromIdentity caller: Identity): string {
+  return caller.user;
+}
+```
+
+The parameter type is a model in `server/models/` whose fields are the
+fields `identify` returns: at least `user` and `roles`, and any other
+fields your provider adds. The server checks the identity against the model
+like a body. The identity provider is still called once per request.
+
+- One `FromIdentity` parameter per method, and only on a route or stream
+  method. An identity provider, a worker, a socket method or a gateway with
+  it stops the build with `TY2015`.
+- A route whose rule is `@Public` cannot take it: a public route does not
+  ask who is calling. The rule on the method wins over the rule on the
+  class. The build stops with `TY1322`.
+- An identity that does not fit the model is a server defect, not a bad
+  request: the server answers the fixed 500
+  `Handler execution failed. Reference: <id>.` (the built-in case
+  `UnexpectedError`), the method does not run, and stderr gets one line
+  `{"event":"route.identity_mismatch","request_id":...,"route":...}`
+  without any identity value.
+- The identity is not part of `/api.json`, the `OPTIONS` schema, any log
+  line or the request that asks an error handler for a body.
 
 A `@Topic` model in `server/` says who may read its stream
 (`/.tachyon/topics/<name>`) with the same three markers, written next to
@@ -633,8 +674,9 @@ How Tachyon chooses a method:
 
 Safety:
 
-- An error that no method handles keeps the fixed 500 answer. The error of a
-  `@Check` parameter is the exception: it answers `422` with the broken rules
+- An error that no method handles keeps the fixed 500 answer, unless a
+  method names `UnexpectedError` (see below). The error of a `@Check`
+  parameter is the exception: it answers `422` with the broken rules
   ([ADR 0101](adr/0101-check-rejections-answer-422-problem-details.md)).
 - An error thrown inside a handler method also gets the fixed 500 answer.
   Tachyon does not call a handler again for it.
@@ -643,6 +685,47 @@ Safety:
 - The order is: controller, then the error handler, then middleware `after`.
 - Error handlers cover controller methods and the services they call. They
   do not cover middleware, workers, provider construction or Tac code.
+
+### Answers that Tachyon makes itself
+
+Tachyon answers some requests before or around your code. Name one of
+these seven built-in error types on a `@HandlesError` method to shape the
+body of that answer. Tachyon keeps the status, so the method takes no
+`@ResponseStatus` (ADR 0142).
+
+| Type | Status | When | Fields |
+| --- | --- | --- | --- |
+| `NotSignedIn` | 401 | a `@SignedIn` or `@Allow` route without an identity | `reference` |
+| `RoleMissing` | 403 | signed in, but none of the route's roles | `reference` |
+| `IdentityCheckFailed` | 500 | the `@IdentityProvider` failed | `reference` |
+| `RequestRejected` | 400 | a path, query, header, cookie or body value is missing or has the wrong type, or the body is not JSON | `reference`, `part`, `field`, `message` |
+| `BodyTooLarge` | 413 | the body is larger than `yon.server.maxbody` | `reference`, `limitBytes` |
+| `CheckRejected` | 422 | a `@Check` argument breaks `@Checked` rules | `reference`, `violations` (each a `BrokenRule` with `field` and `rule`), `truncated` |
+| `UnexpectedError` | 500 | the route could not answer: an error no other method takes, an error inside an error handler, or a crash | `reference` |
+
+`reference` is the request id, the same value as the `x-tachyon-request-id`
+header. Field names follow the language's style (`limit_bytes` in Python,
+Ruby, Rust and Lua; `LimitBytes` in Go and C#). The types need no file in
+`server/errors/`, and an app error type may not use one of these names or
+`BrokenRule`.
+
+```go
+// @HandlesError
+func (handler *OrdersErrorHandler) SignInNeeded(failure *NotSignedIn) Problem {
+	return Problem{Code: "not_signed_in", Message: "[MS0001]: Sign in again."}
+}
+```
+
+- Without a method for a type, the answer stays exactly as before.
+- Only a method that names the exact type receives it. A method for the
+  root error type (`Error`, `Exception`, `error`, `std::exception`) never
+  does, and it no longer takes the `@Check` error either: the 422 follows.
+- The handler never sees credentials, the identity provider's error, the
+  request body or the error that led to `UnexpectedError`. It sees the
+  method, path, query and the other headers.
+- If the method fails, or its answer does not fit its declared type, the
+  plain answer is sent and the server logs `error_handler.failed`.
+- Socket and topic refusals, 502, 503 and 504 keep their plain answers.
 
 Refused forms, with a hint to the right one: `ControllerAdvice`,
 `RestControllerAdvice`, `ExceptionHandler`, `ExceptionFilter` and

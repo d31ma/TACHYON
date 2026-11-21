@@ -159,6 +159,9 @@ tac.browserApis peers
 tac.peers
   honored: the same checked server list in the page as on the web
 
+tac.browserApis locks
+  adapted: tachyon-app:// is not a secure context, so WKWebView has no navigator.locks. The iOS app has one window (ADR 0141), so the page grants every lock at once: LockGranted comes at once and release frees the name. A second window of the same app would not share its locks.
+
 tac.browserApis persistentStorage
   adapted: tachyon-app:// is not a secure context, so WKWebView has no navigator.storage. The host answers browserApi.storageSpace: persisted is true (iOS deletes the app's data on uninstall, or offloads an app the user does not open), quota is volumeAvailableCapacityForImportantUsage, and usage is the bytes Tachyon's own stores report, 0 until the blob store reports its size (ADR 0123). A run in a built app is still owed.
 

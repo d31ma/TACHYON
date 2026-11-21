@@ -1,3 +1,4 @@
+use super::root_error_type::RootErrorType;
 use super::{ErrorCalls, Plan, RouteCalls};
 use std::fmt::Write as _;
 
@@ -22,12 +23,21 @@ pub(super) fn functions(plan: &Plan, typed: bool) -> String {
             (true, false) => ", YonHttp.request(request)",
             (true, true) => ", (globalThis as any).YonHttp.request(request)",
         };
+        let skip_check = RootErrorType::condition(
+            &RootErrorType::JAVASCRIPT,
+            kind,
+            " && !__yon_is_check_rejection__(error)",
+        );
         let _ = writeln!(
             source,
-            "  if (!({kind} === Error || {kind}.prototype instanceof Error)) throw new TypeError('HandlesError requires an Error type');\n  if (error instanceof {kind}) {{\n    let distance = 0;\n    let current = Object.getPrototypeOf(error);\n    while (current !== {kind}.prototype && current !== null) {{ distance += 1; current = Object.getPrototypeOf(current); }}\n    matches.push({{ distance, status: {}, call: () => handler{index}.{}(error{request}) }});\n  }}",
+            "  if (!({kind} === Error || {kind}.prototype instanceof Error)) throw new TypeError('HandlesError requires an Error type');\n  if (error instanceof {kind}{skip_check}) {{\n    let distance = 0;\n    let current = Object.getPrototypeOf(error);\n    while (current !== {kind}.prototype && current !== null) {{ distance += 1; current = Object.getPrototypeOf(current); }}\n    matches.push({{ distance, status: {}, call: () => handler{index}.{}(error{request}) }});\n  }}",
             method.status, method.method
         );
     }
     source.push_str("  matches.sort((left, right) => left.distance - right.distance);\n  if (matches.length === 0) throw error;\n  const selected = matches[0];\n  const result = await selected.call();\n  if (result instanceof Response) return result.status === 200 ? new Response(result.body, { status: selected.status, headers: result.headers }) : result;\n  return new Response(JSON.stringify(result), { status: selected.status, headers: { 'content-type': 'application/json' } });\n}\n");
+    let _ = write!(
+        source,
+        "\nfunction __yon_is_check_rejection__(error{any}) {{\n  return error?.code === 'validation' && Array.isArray(error.violations);\n}}\n"
+    );
     source
 }

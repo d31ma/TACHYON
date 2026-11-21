@@ -331,9 +331,15 @@ fn apple_hosts_register_the_schemes_and_open_links_at_their_route() {
     assert!(!mac.contains("__NATIVE_DEEP_LINKS__"));
     let ios = super::ios::swift_source(&application, "tacNativeInvoke(payload)", &index);
     assert!(ios.contains("static let hosts: Set<String> = [\"example.com\"]"));
-    assert!(ios.contains("func application(_ application: UIApplication, open url: URL"));
+    assert!(
+        ios.contains(
+            "func scene(_ scene: UIScene, openURLContexts contexts: Set<UIOpenURLContext>)"
+        )
+    );
+    assert!(ios.contains("func scene(_ scene: UIScene, continue activity: NSUserActivity)"));
     assert!(ios.contains("activity.activityType == NSUserActivityTypeBrowsingWeb"));
-    assert!(ios.contains("if let link = options?[.url] as? URL"));
+    assert!(ios.contains("if let url = options.urlContexts.first?.url"));
+    assert!(ios.contains("return options.userActivities.lazy.compactMap(webTarget).first"));
     assert!(!ios.contains("__NATIVE_DEEP_LINKS__"));
 }
 

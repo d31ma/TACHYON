@@ -128,4 +128,5 @@ pub(crate) enum ParameterSource {
     Body,
     Header,
     Cookie,
+    Identity,
 }

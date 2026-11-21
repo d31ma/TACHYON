@@ -12,6 +12,7 @@ class AndroidBrowserApisGate {
   static sdk = process.env.ANDROID_HOME ?? process.env.ANDROID_SDK_ROOT;
   static adb = path.join(AndroidBrowserApisGate.sdk ?? '', 'platform-tools', process.platform === 'win32' ? 'adb.exe' : 'adb');
   static packageName = 'dev.tachyon.browser_apis';
+  static focusKeys = ['mCurrentFocus=', 'mFocusedWindow=', 'mFocusedApp='];
   static denyButtons = [
     'com.android.permissioncontroller:id/permission_deny_button',
     'com.android.permissioncontroller:id/permission_deny_and_dont_ask_again_button',
@@ -190,6 +191,23 @@ export default class ProbeService {
     return AndroidBrowserApisGate.adbShell('dumpsys', 'activity', 'activities').split('\n').find(line => line.includes('topResumedActivity=')) ?? '';
   }
 
+  static focusLine(lines) {
+    for (const key of AndroidBrowserApisGate.focusKeys) {
+      const line = lines.find(text => text.includes(key));
+      if (line) return line.trim();
+    }
+    return 'no focus line in dumpsys window';
+  }
+
+  static focusedWindow() {
+    return AndroidBrowserApisGate.focusLine(AndroidBrowserApisGate.adbShell('dumpsys', 'window').split('\n'));
+  }
+
+  static async waitForAppFocus() {
+    const { waitFor, focusedWindow, packageName } = AndroidBrowserApisGate;
+    await waitFor(() => focusedWindow().includes(packageName), () => `The app's window has input focus before the clipboard check (Android gives the clipboard only to the focused app), but after 15 s the focus is: ${focusedWindow()}`);
+  }
+
   static async waitFor(condition, message) {
     for (let attempt = 0; attempt < 60; attempt++) {
       if (await condition()) return;
@@ -237,7 +255,8 @@ export default class ProbeService {
   }
 
   static async checkClipboard(page) {
-    const { output, waitFor } = AndroidBrowserApisGate;
+    const { output, waitFor, waitForAppFocus } = AndroidBrowserApisGate;
+    await waitForAppFocus();
     await page.getByRole('button', { name: 'Copy' }).click();
     await page.getByRole('button', { name: 'Paste' }).click();
     await waitFor(async () => await output(page, 'Pasted') === 'Copied by Tachyon', async () => `readText answers the text writeText put on the Android clipboard: ${await output(page, 'Pasted')} ${await output(page, 'Problem')}`);

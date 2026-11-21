@@ -1,3 +1,4 @@
+use super::root_error_type::RootErrorType;
 use super::{ErrorCalls, Plan, RouteCalls};
 use std::fmt::Write as _;
 
@@ -8,9 +9,14 @@ pub(super) fn functions(plan: &Plan) -> String {
     );
     for (position, method) in plan.errors.iter().enumerate() {
         let kind = &method.error_type;
+        let skip_check = RootErrorType::condition(
+            &RootErrorType::KOTLIN,
+            kind,
+            " && !Yon.isCheckRejection(error)",
+        );
         let _ = writeln!(
             source,
-            "        if (error is {kind}) {{ val distance = distance(error.javaClass, {kind}::class.java); if (distance < nearest) {{ selected = {position}; nearest = distance }} }}"
+            "        if (error is {kind}{skip_check}) {{ val distance = distance(error.javaClass, {kind}::class.java); if (distance < nearest) {{ selected = {position}; nearest = distance }} }}"
         );
     }
     source.push_str("        return when (selected) {\n");

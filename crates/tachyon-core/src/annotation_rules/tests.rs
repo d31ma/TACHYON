@@ -589,6 +589,39 @@ fn arguments_statics_pairs_and_clashes_are_checked() {
 }
 
 #[test]
+fn from_identity_is_one_route_parameter_of_a_request_route() {
+    let accepted = "@RequestRoute(\"/me\")\nexport class MeController {\n  @GetRoute()\n  getMe(@FromIdentity caller: Identity) { return caller.user; }\n}\n";
+    assert_eq!(Sample::message("ts", Realm::Yon, accepted), None);
+    let cases = [
+        (
+            "ts",
+            "@RequestRoute(\"/me\")\nexport class MeController {\n  @GetRoute()\n  getMe(@FromIdentity first: Identity, @FromIdentity second: Identity) { return first.user; }\n}\n",
+            "on two parameters of one method",
+        ),
+        (
+            "ts",
+            "@IdentityProvider\nexport class AppIdentityProvider {\n  identify(@FromIdentity caller: Identity) { return caller; }\n}\n",
+            "@FromIdentity belongs in a class marked @RequestRoute",
+        ),
+        (
+            "ts",
+            "@SocketRoute(\"/chat\")\nexport class ChatController {\n  @OnOpen()\n  onOpen(@FromIdentity caller: Identity) {}\n}\n",
+            "@FromIdentity belongs in a class marked @RequestRoute",
+        ),
+        (
+            "java",
+            "@RequestRoute(\"/me\")\npublic class MeController {\n    @GetRoute\n    public String getMe(@FromIdentity @FromHeader Identity caller) { return caller.user; }\n}\n",
+            "cannot be on the same parameter",
+        ),
+    ];
+    for (language, source, expected) in cases {
+        let message = Sample::message(language, Realm::Yon, source)
+            .unwrap_or_else(|| panic!("accepted:\n{source}"));
+        assert!(message.contains(expected), "{message}");
+    }
+}
+
+#[test]
 fn routes_check_their_verbs_status_and_parameter_sources() {
     let cases = [
         (

@@ -1,10 +1,13 @@
 use super::RouteCalls;
+use crate::yon::built_in_errors::BuiltInErrors;
 use crate::yon::plan::{ParameterSource, Plan, Route};
 use std::fmt::Write as _;
 
 pub(super) struct JavaRoutes;
 
 impl JavaRoutes {
+    const BUILT_IN_CASE: &'static str = "        if (route.equals(\"{route}\")) return __YonErrors.handle(__YonBuiltInErrors.create(values.isEmpty() ? null : values.get(0)), request{arguments});\n";
+
     pub(super) fn functions(plan: &Plan) -> String {
         let mut output = String::from("\nfinal class __YonRoutes {\n");
         let errors = !plan.errors.is_empty();
@@ -13,8 +16,9 @@ impl JavaRoutes {
             let guard = if errors { "        try {\n" } else { "" };
             let _ = write!(
                 output,
-                "    static Object __yon_route_{verb}__({} controller, __YonFrame request{parameters}) throws Exception {{\n        java.util.List<Object> values = request.arguments();\n        String route = request.route();\n{guard}",
-                plan.controller
+                "    static Object __yon_route_{verb}__({} controller, __YonFrame request{parameters}) throws Exception {{\n        java.util.List<Object> values = request.arguments();\n        String route = request.route();\n{}{guard}",
+                plan.controller,
+                BuiltInErrors::route_case(plan, "java", Self::BUILT_IN_CASE)
             );
             for route in RouteCalls::routes_for(plan, verb) {
                 let call = format!(

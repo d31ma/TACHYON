@@ -112,3 +112,25 @@ fn rust_snake_case_error_names_keep_the_declared_native_type() {
     assert!(validate(Path::new("server/errors/order_not_found.rs"), source).is_ok());
     assert!(validate(Path::new("server/errors/other_error.rs"), source).is_err());
 }
+
+#[test]
+fn error_sources_cannot_take_a_built_in_error_name() {
+    for name in [
+        "NotSignedIn",
+        "CheckRejected",
+        "UnexpectedError",
+        "BrokenRule",
+    ] {
+        let path = format!("server/errors/{name}.ts");
+        let source = format!("class {name} extends Error {{}}");
+        let failure = validate(Path::new(&path), &source)
+            .err()
+            .unwrap_or_else(|| panic!("{path} was accepted"));
+        assert!(
+            failure
+                .to_string()
+                .contains("This is the name of a Tachyon built-in error type"),
+            "{path}: {failure}"
+        );
+    }
+}

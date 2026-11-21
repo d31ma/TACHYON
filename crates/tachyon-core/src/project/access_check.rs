@@ -2,7 +2,7 @@ use crate::failure::{diagnostic, source_span};
 use crate::handler::HandlerSource;
 use crate::routing::RoutePath;
 use crate::topic_table::TopicTable;
-use crate::yon::plan::Route;
+use crate::yon::plan::{ParameterSource, Route};
 use crate::yon::route_access::RouteAccess;
 use cap_std::fs::Dir;
 use std::collections::BTreeMap;
@@ -25,6 +25,7 @@ impl AccessCheck {
     const MISSING_HELP: &'static str = "Tachyon refuses every route by default (ADR 0068). Write @Public when anyone may call the route, @SignedIn when any signed-in user may call it, or @Allow(Role) when only some roles may call it. Put it on the controller class or on the route method; the method wins.";
     const IDENTITY_HELP: &'static str = "Add exactly one class marked @IdentityProvider in server/controllers/<Name>IdentityProvider.<ext>. Its method identify(request) returns the signed-in user and their role names, or no value when nobody is signed in.";
     const TOPIC_HELP: &'static str = "Each language declares its own topic model, and every declaration of one topic writes the same @Public, @SignedIn or @Allow(Role) rule (ADR 0061).";
+    const PUBLIC_IDENTITY_HELP: &'static str = "A @Public route does not ask the identity provider who is calling, so it has no identity to give. Write @SignedIn or @Allow(Role) on this route method, or remove the @FromIdentity parameter.";
     const ROLE_HELP: &'static str = "A role is a type: add an empty class named after the role in server/roles/<Role>.<ext>, for example server/roles/Admin.ts with `export default class Admin {}`.";
 
     pub(super) fn add_identity(&mut self, source: HandlerSource, path: String) {
@@ -110,6 +111,7 @@ impl AccessCheck {
 
     fn check_route(&mut self, route: &Route, path: &str, project: &Dir) {
         self.refuse_missing_access(route, path);
+        self.refuse_public_identity(route, path);
         self.remember_guarded(route, path);
         self.refuse_unknown_roles(&route.access, path, project);
     }
@@ -135,6 +137,32 @@ impl AccessCheck {
             Self::template(route)
         );
         self.push(Self::MISSING_CODE, message, Self::MISSING_HELP, path);
+    }
+
+    fn refuse_public_identity(&mut self, route: &Route, path: &str) {
+        let public = route.access == RouteAccess::Public;
+        if !public || !Self::takes_identity(route) {
+            return;
+        }
+        let message = format!(
+            "The route {} {} in '{path}' is @Public, but its method {} takes a @FromIdentity parameter.",
+            route.verb,
+            Self::template(route),
+            route.method
+        );
+        self.push(
+            Self::MISSING_CODE,
+            message,
+            Self::PUBLIC_IDENTITY_HELP,
+            path,
+        );
+    }
+
+    fn takes_identity(route: &Route) -> bool {
+        route
+            .parameters
+            .iter()
+            .any(|parameter| parameter.source == ParameterSource::Identity)
     }
 
     fn remember_guarded(&mut self, route: &Route, path: &str) {

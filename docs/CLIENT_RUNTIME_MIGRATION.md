@@ -478,9 +478,11 @@ else document.addEventListener('tachyon:rendered', (event) => { if (event.detail
 
 Tac keeps nodes and attributes that such a script adds to an element Tac
 rendered. It updates, adds and removes only its own nodes, and sets only the
-attributes it writes. It still replaces an element when other code removed or
-moved a child that Tac rendered, and it owns the whole `<body>` until its first
-render (ADR 0137).
+attributes it writes. When a bound attribute that a custom element observes
+changes, Tac keeps the element and sets only that attribute, so a focused
+control inside it keeps its focus, typed text and chosen option. It still
+replaces an element when other code removed or moved a child that Tac
+rendered, and it owns the whole `<body>` until its first render (ADR 0137).
 
 ## Acceptance against the installed or published binary
 

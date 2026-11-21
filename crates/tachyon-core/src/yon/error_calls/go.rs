@@ -90,7 +90,10 @@ fn match_joined_errors(source: &mut String, plan: &Plan) {
 fn match_any_error(source: &mut String, plan: &Plan) {
     for (position, method) in plan.errors.iter().enumerate() {
         if !is_concrete(method) {
-            let _ = writeln!(source, "\tif selected < 0 {{ selected = {position} }}");
+            let _ = writeln!(
+                source,
+                "\tif selected < 0 && !yonIsCheckRejection(failure) {{ selected = {position} }}"
+            );
         }
     }
 }

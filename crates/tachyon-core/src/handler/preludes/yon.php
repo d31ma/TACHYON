@@ -1390,6 +1390,11 @@ final class YonMain
         return $response->envelope();
     }
 
+    public static function isCheckRejection(Throwable $failure): bool
+    {
+        return self::violations($failure) !== null;
+    }
+
     private static function violations(Throwable $failure): ?array
     {
         $cause = $failure;

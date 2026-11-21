@@ -1,3 +1,4 @@
+use super::root_error_type::RootErrorType;
 use super::{ErrorCalls, Plan, RouteCalls};
 use std::fmt::Write as _;
 
@@ -8,9 +9,11 @@ pub(super) fn functions(plan: &Plan) -> String {
     );
     for (position, method) in plan.errors.iter().enumerate() {
         let kind = &method.error_type;
+        let skip_check =
+            RootErrorType::condition(&RootErrorType::CSHARP, kind, " && !IsCheckRejection(error)");
         let _ = writeln!(
             source,
-            "        if (error is {kind}) {{ int distance = Distance(error.GetType(), typeof({kind})); if (distance < nearest) {{ selected = {position}; nearest = distance; }} }}"
+            "        if (error is {kind}{skip_check}) {{ int distance = Distance(error.GetType(), typeof({kind})); if (distance < nearest) {{ selected = {position}; nearest = distance; }} }}"
         );
     }
     source.push_str("        switch (selected) {\n");
@@ -32,6 +35,6 @@ pub(super) fn functions(plan: &Plan) -> String {
             method.method, method.error_type, method.status
         );
     }
-    source.push_str("            default: throw error;\n        }\n    }\n    static int Distance(System.Type actual, System.Type wanted) { int distance = 0; while (actual != null && actual != wanted) { actual = actual.BaseType; distance++; } return distance; }\n    static object Answer(object result, int status) {\n        if (result is System.Net.Http.HttpResponseMessage message) {\n            var response = YonHttp.Answer(message);\n            return (int)message.StatusCode == 200 ? response.Status(status) : response;\n        }\n        return __YonAnswer.Json(System.Text.Json.JsonSerializer.Serialize(YonModels.Answer(result))).Status(status);\n    }\n}\n");
+    source.push_str("            default: throw error;\n        }\n    }\n    static bool IsCheckRejection(System.Exception error) { for (var cause = error; cause != null; cause = cause.InnerException) { if (cause.Data[\"violations\"] is string) return true; } return false; }\n    static int Distance(System.Type actual, System.Type wanted) { int distance = 0; while (actual != null && actual != wanted) { actual = actual.BaseType; distance++; } return distance; }\n    static object Answer(object result, int status) {\n        if (result is System.Net.Http.HttpResponseMessage message) {\n            var response = YonHttp.Answer(message);\n            return (int)message.StatusCode == 200 ? response.Status(status) : response;\n        }\n        return __YonAnswer.Json(System.Text.Json.JsonSerializer.Serialize(YonModels.Answer(result))).Status(status);\n    }\n}\n");
     source
 }

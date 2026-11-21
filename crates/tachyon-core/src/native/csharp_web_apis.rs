@@ -29,7 +29,8 @@ impl CsharpWebApis {
         include_str!("web_apis/Media.cs"),
         include_str!("web_apis/CodeScanner.cs"),
         include_str!("web_apis/Crypto.cs"),
-        include_str!("web_apis/Blobs.cs")
+        include_str!("web_apis/Blobs.cs"),
+        include_str!("web_apis/Locks.cs")
     );
     const BROWSER_FAKES: &'static str = include_str!("web_apis/BrowserFakes.cs");
 

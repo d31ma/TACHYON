@@ -3,13 +3,15 @@ use super::controller_dispatch::{
 };
 use super::socket_dispatch::{SocketHub, SocketSession};
 use super::{
-    AssetCachePolicy, CheckAnswer, CrossOrigin, DispatchRoute, ForwardedHeaders,
-    HandlerEventBridge, HostGuard, HotUpdateHub, InvocationLog, Middleware, MiddlewareOutcome,
-    ProducerTasks, ProtocolRequest, RouteGuard, ServerResponse, StaticFiles, TopicHub, TopicStream,
+    AssetCachePolicy, BuiltInAnswer, BuiltInCase, BuiltInRequest, CheckAnswer, CrossOrigin,
+    DispatchRoute, ForwardedHeaders, HandlerEventBridge, HostGuard, HotUpdateHub, InvocationLog,
+    Middleware, MiddlewareOutcome, ProducerTasks, ProtocolRequest, RouteAdmission, RouteGuard,
+    ServerResponse, StaticFiles, TopicHub, TopicStream,
 };
 use crate::Failure;
 use crate::handler::{HandlerCancellation, HandlerSource, HandlerSupervisor};
 use crate::routing::{RouteMatch, RouteMethod, match_route};
+use crate::yon::built_in_error::BuiltInError;
 use axum::Router;
 use axum::body::{Body, Bytes};
 use axum::extract::State;
@@ -17,6 +19,7 @@ use axum::http::header::{ACCEPT, CONTENT_LENGTH, VARY};
 use axum::http::request::Parts;
 use axum::http::response::Parts as ResponseParts;
 use axum::http::{HeaderMap, HeaderValue, Method, Request, Response, StatusCode, Uri};
+use serde_json::Value;
 use std::sync::Arc;
 use tachyon_contracts::{
     HandlerBody, HandlerBodyEncoding, HandlerRequest, HandlerResponse, HttpMethod,
@@ -474,17 +477,22 @@ impl Dispatch {
         matched: RouteMatch,
         request: Request<Body>,
     ) -> Response<Body> {
-        let refusal = RouteGuard::refusal(
+        let admission = RouteGuard::admission(
             self,
             &entry.mapping.access,
             request.uri(),
             request.headers(),
         )
         .await;
-        match refusal {
-            Some(response) => response,
-            None => self.serve_allowed_route(entry, matched, request).await,
-        }
+        let built_in = BuiltInRequest::of(&request);
+        let response = match admission {
+            RouteAdmission::Refused(response) => response,
+            RouteAdmission::Admitted(identity) => {
+                self.serve_allowed_route(entry, matched, request, identity.as_ref())
+                    .await
+            }
+        };
+        BuiltInAnswer::shape(self, entry, &built_in, response).await
     }
 
     async fn serve_allowed_route(
@@ -492,6 +500,7 @@ impl Dispatch {
         entry: &DispatchRoute,
         matched: RouteMatch,
         request: Request<Body>,
+        identity: Option<&Value>,
     ) -> Response<Body> {
         let limit = self.supervisor.application().max_request_bytes();
         let (parts, body) = request.into_parts();
@@ -499,7 +508,8 @@ impl Dispatch {
             .await
             .ok()
             .filter(|body| body.len() <= limit);
-        self.serve_route_body(entry, matched, &parts, body).await
+        self.serve_route_body(entry, matched, &parts, body, identity)
+            .await
     }
 
     async fn serve_route_body(
@@ -508,16 +518,22 @@ impl Dispatch {
         matched: RouteMatch,
         parts: &Parts,
         body: Option<Bytes>,
+        identity: Option<&Value>,
     ) -> Response<Body> {
         match body {
-            None => {
-                ServerResponse::text(StatusCode::PAYLOAD_TOO_LARGE, "Request body is too large.")
-            }
+            None => self.body_too_large(),
             Some(body) => {
-                self.serve_route_with_body(entry, matched, parts, &body)
+                self.serve_route_with_body(entry, matched, parts, &body, identity)
                     .await
             }
         }
+    }
+
+    fn body_too_large(&self) -> Response<Body> {
+        let limit = self.supervisor.application().max_request_bytes();
+        let response =
+            ServerResponse::text(StatusCode::PAYLOAD_TOO_LARGE, "Request body is too large.");
+        BuiltInCase::body_too_large(limit).tag(response)
     }
 
     async fn serve_route_with_body(
@@ -526,12 +542,14 @@ impl Dispatch {
         matched: RouteMatch,
         parts: &Parts,
         body: &Bytes,
+        identity: Option<&Value>,
     ) -> Response<Body> {
         let route_request = RouteRequest {
             parameters: &matched.parameters,
             query: parts.uri.query(),
             headers: &parts.headers,
             body,
+            identity,
         };
         let arguments = RouteArguments::build(
             entry.mapping.as_ref(),
@@ -551,7 +569,7 @@ impl Dispatch {
         body: &Bytes,
     ) -> Response<Body> {
         match arguments {
-            Err(rejection) => rejection.response(),
+            Err(rejection) => rejection.response(&matched.route),
             Ok(arguments) => {
                 self.serve_with_arguments(arguments, entry, matched, parts, body)
                     .await
@@ -581,12 +599,18 @@ impl Dispatch {
         parts: &Parts,
     ) -> Response<Body> {
         match protocol_request {
-            None => ServerResponse::text(StatusCode::BAD_REQUEST, "Request body must be UTF-8."),
+            None => Self::body_not_utf8(),
             Some(protocol_request) => {
                 self.run_route(protocol_request, arguments, entry, parts)
                     .await
             }
         }
+    }
+
+    fn body_not_utf8() -> Response<Body> {
+        let message = "Request body must be UTF-8.";
+        let response = ServerResponse::text(StatusCode::BAD_REQUEST, message);
+        BuiltInCase::request_rejected("body", "", message).tag(response)
     }
 
     async fn run_route(
@@ -650,7 +674,10 @@ impl Dispatch {
                     &entry.handler,
                     &failure,
                 );
-                ServerResponse::failure_answer("Handler execution", request_id, &failure)
+                let answer =
+                    ServerResponse::failure_answer("Handler execution", request_id, &failure);
+                let server_error = answer.status() == StatusCode::INTERNAL_SERVER_ERROR;
+                Self::unexpected_when(server_error, answer)
             }
         }
     }
@@ -661,8 +688,21 @@ impl Dispatch {
         request_id: &str,
     ) -> Response<Body> {
         let mapping = entry.mapping.as_ref();
+        let unhandled = Self::is_unhandled(&response);
         let problem = RouteResult::problem(mapping, entry.handler.models(), &response);
-        Self::answer_or_mismatch(problem, response, mapping, request_id)
+        let unexpected = [unhandled, problem.is_some()].contains(&true);
+        let answer = Self::answer_or_mismatch(problem, response, mapping, request_id);
+        Self::unexpected_when(unexpected, answer)
+    }
+
+    fn is_unhandled(response: &HandlerResponse) -> bool {
+        let server_error = response.status == StatusCode::INTERNAL_SERVER_ERROR.as_u16();
+        [response.error.is_some(), server_error] == [true, true]
+    }
+
+    fn unexpected_when(unexpected: bool, response: Response<Body>) -> Response<Body> {
+        let case = unexpected.then(|| BuiltInCase::plain(BuiltInError::UNEXPECTED_ERROR));
+        BuiltInCase::tag_option(case, response)
     }
 
     fn answer_or_mismatch(

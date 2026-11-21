@@ -701,6 +701,44 @@ class StoredFields {
   }
 }
 
+class StoredTabs {
+  static owners = new Map()
+  static updates = new WeakMap()
+  static watching = StoredTabs.watch()
+
+  static watch() {
+    if (typeof addEventListener === 'function') addEventListener('storage', (event) => StoredTabs.changed(event))
+    return true
+  }
+
+  static add(owner, key, update) {
+    const updates = StoredTabs.updates.get(owner) ?? new Map()
+    updates.set(key, update)
+    StoredTabs.updates.set(owner, updates)
+    const owners = StoredTabs.owners.get(key) ?? new Set()
+    owners.add(new WeakRef(owner))
+    StoredTabs.owners.set(key, owners)
+  }
+
+  static changed(event) {
+    const owners = StoredTabs.owners.get(event.key)
+    if (!owners || event.storageArea !== webStorage(true) || event.newValue === null) return
+    const value = StoredTabs.parsed(event.newValue)
+    for (const reference of owners) StoredTabs.update(owners, reference, event.key, value)
+    if (typeof dispatchEvent === 'function') dispatchEvent(new Event('tachyon:rerender'))
+  }
+
+  static parsed(raw) {
+    try { return JSON.parse(raw) } catch { return undefined }
+  }
+
+  static update(owners, reference, key, value) {
+    const owner = reference.deref()
+    if (owner) StoredTabs.updates.get(owner)?.get(key)?.(value)
+    else owners.delete(reference)
+  }
+}
+
 const readStoredField = (store, key, fallback) => {
   try {
     const raw = store.getItem(key)
@@ -770,6 +808,7 @@ const bindPersistentFields = (owner, scope) => {
       if (restored !== undefined) set.call(owner, restored)
       const accessor = new StoredAccessor(owner, get, store, key)
       accessors.push(accessor)
+      if (local) StoredTabs.add(owner, key, (value) => { accessor.saved = JSON.stringify(value); set.call(owner, value) })
       Object.defineProperty(owner, name, {
         configurable: true,
         enumerable: true,
@@ -779,6 +818,7 @@ const bindPersistentFields = (owner, scope) => {
       continue
     }
     let current = readStoredField(store, key, owner[name])
+    if (local) StoredTabs.add(owner, key, (value) => { current = value })
     Object.defineProperty(owner, name, {
       configurable: true,
       enumerable: true,
@@ -1323,7 +1363,6 @@ const preflightFocus = (chain, fragment, container) => {
   const distributions = new Map()
   for (let depth = 0; depth < chain.length; depth += 1) {
     const pair = chain[depth]
-    if (changesObservedAttribute(pair)) return null
     const parent = depth ? chain[depth - 1].old : container
     if (pair.old.parentNode === parent) continue
     const source = depth ? chain[depth - 1].fresh : fragment
@@ -1334,13 +1373,25 @@ const preflightFocus = (chain, fragment, container) => {
   return distributions
 }
 
-const commitAndRefocus = (authored, active, replacement) => {
-  const selection = [active.selectionStart, active.selectionEnd, active.selectionDirection]
-  authored.commit()
-  replacement.focus({ preventScroll: true })
+const selectionOf = (active) => [active?.selectionStart, active?.selectionEnd, active?.selectionDirection]
+
+const focusIsFree = () => document.activeElement === null || document.activeElement === document.body
+
+const refocus = (target, selection) => {
+  if (!focusIsFree()) return
+  target.focus({ preventScroll: true })
   if (selection[0] !== null && selection[0] !== undefined) {
-    try { replacement.setSelectionRange(...selection) } catch {}
+    try { target.setSelectionRange(...selection) } catch {}
   }
+}
+
+const commitAndRefocus = (authored, selection, replacement) => {
+  authored.commit()
+  refocus(replacement, selection)
+}
+
+const refocusIfLost = (active, selection) => {
+  if (active.isConnected) refocus(active, selection)
 }
 
 const syncAuthoredAttributes = (element, previous, next) => {
@@ -1348,7 +1399,7 @@ const syncAuthoredAttributes = (element, previous, next) => {
     if (!next.attributes.has(name)) Elements.removeAttribute(element, name)
   }
   for (const [name, value] of next.attributes) {
-    if (previous.attributes.get(name) !== value) Elements.setAttribute(element, name, value)
+    if (previous.attributes.get(name) !== value && element.getAttribute(name) !== value) Elements.setAttribute(element, name, value)
   }
 }
 
@@ -1403,7 +1454,7 @@ class FocusedRootUpdate {
       if (!parent.matches('input, textarea, [contenteditable]')) parent.replaceChildren(...source.childNodes)
       return
     }
-    if (pair.old.parentNode !== parent) {
+    if (this.distributions.has(pair)) {
       this.commitSlots(pair, depth)
       return
     }
@@ -1457,16 +1508,18 @@ const focusedElement = () => {
 
 const commitRoot = (container, fragment, editingAtStart) => {
   const active = container.getRootNode().activeElement
+  const selection = selectionOf(active)
   const chain = focusChain(active, fragment, container)
   const authored = new AuthoredRootUpdate(container, fragment, active, editingAtStart).prepare()
   if (!chain.length || authored.retains(active)) { authored.commit(); return }
   const distributions = preflightFocus(chain, fragment, container)
-  if (!distributions || authored.refuses(chain)) { commitAndRefocus(authored, active, chain.at(-1).fresh); return }
+  if (!distributions || authored.refuses(chain)) { commitAndRefocus(authored, selection, chain.at(-1).fresh); return }
   const update = new FocusedRootUpdate(chain, distributions, active, editingAtStart)
   const desired = [...fragment.childNodes]
   update.commit(container, fragment, 0)
   update.finalize()
   update.recordRoot(container, desired)
+  refocusIfLost(active, selection)
 }
 
 const retainComponentRoots = () => {
@@ -1811,7 +1864,7 @@ const signalFailure = () => {
 class Runtime {
   static events = new TacApplicationEvents({
     changed: () => { void render().catch(signalFailure) },
-    failed: signalFailure,
+    failed: (error, path, event, data) => { TacStreamReport.failed(error, path, event, data); signalFailure() },
     calling: (owner, work) => TacWebApis.calling(owner, work),
     announced: (view, name, value) => TacElements.announce(view, name, value),
   })
@@ -1856,6 +1909,7 @@ const ownerResources = (element, signal, owner) => ({
   codeScanner: TacWebApis.codeScanner,
   crypto: TacWebApis.crypto,
   blobs: TacWebApis.apis.blobs,
+  locks: TacWebApis.apis.locks,
   filePicker: TacNativeCapabilities.filePicker(signal),
 })
 const attachRuntime = (owner, scope, element) => {

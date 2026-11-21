@@ -3283,3 +3283,33 @@ mod code_scanner_tests;
 mod crypto_tests;
 #[path = "media_tests.rs"]
 mod media_tests;
+
+#[path = "locks_tests.rs"]
+mod locks_tests;
+
+#[path = "locks_go_tests.rs"]
+mod locks_go_tests;
+
+#[path = "locks_swift_tests.rs"]
+mod locks_swift_tests;
+
+#[path = "locks_kotlin_tests.rs"]
+mod locks_kotlin_tests;
+
+#[path = "locks_java_tests.rs"]
+mod locks_java_tests;
+
+#[path = "locks_csharp_tests.rs"]
+mod locks_csharp_tests;
+
+#[path = "locks_dart_tests.rs"]
+mod locks_dart_tests;
+
+#[path = "locks_ruby_tests.rs"]
+mod locks_ruby_tests;
+
+#[path = "locks_lua_tests.rs"]
+mod locks_lua_tests;
+
+#[path = "locks_cpp_tests.rs"]
+mod locks_cpp_tests;

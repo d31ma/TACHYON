@@ -57,6 +57,12 @@ pub(super) fn validate_error_source(path: &Path, source: &str) -> Result<(), Fai
             "Move this native error type to server/errors/<Type>.<ext>; Tac error handling is unchanged.",
         ));
     }
+    let stem = path
+        .file_stem()
+        .and_then(|name| name.to_str())
+        .unwrap_or("");
+    crate::yon::built_in_error::BuiltInError::check_app_name(stem)
+        .map_err(|message| input.failure(0, message, "Rename the file and its type."))?;
     let tokens = Tokens::read(&input)?;
     tokens.check_complete(&input)?;
     if tokens.has_framework_marker() {

@@ -400,19 +400,21 @@ class AuthoredNodeBrowserGate {
       }, AuthoredNodeBrowserGate._settle)
       assert.deepEqual(wrapped, { replaced: true, focused: true, selection: [1, 3, 'backward'] })
       const observed = await page.locator('#observed-input').evaluate(async (input, settle) => {
+        const host = input.parentNode
         input.focus()
         input.setSelectionRange(2, 2)
         document.getElementById('change-observed').click()
         await new Promise((resolve) => setTimeout(resolve, settle))
         const fresh = document.getElementById('observed-input')
         return {
+          sameHost: fresh.parentNode === host,
           replaced: input !== fresh && !input.isConnected,
           focused: fresh === document.activeElement,
           caret: fresh.selectionStart,
           callbacks: globalThis.observedCallbacks,
         }
       }, AuthoredNodeBrowserGate._settle)
-      assert.deepEqual(observed, { replaced: true, focused: true, caret: 2, callbacks: 0 })
+      assert.deepEqual(observed, { sameHost: true, replaced: true, focused: true, caret: 2, callbacks: 1 })
     } finally {
       await page.close()
     }

@@ -11,12 +11,13 @@ impl ParameterList {
     const RECEIVERS: [&'static str; 3] = ["self", "cls", "this"];
     const GROUPED: [&'static str; 2] = ["{", "["];
     const DART: &'static str = "dart";
-    const REQUEST_MARKERS: [&'static str; 5] = [
+    const REQUEST_MARKERS: [&'static str; 6] = [
         "frompath",
         "fromquery",
         "frombody",
         "fromheader",
         "fromcookie",
+        "fromidentity",
     ];
 
     pub(super) fn read(class: &ClassFile, inside: Range<usize>) -> Vec<Parameter> {

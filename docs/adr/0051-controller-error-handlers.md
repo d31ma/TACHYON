@@ -2,6 +2,9 @@
 
 - Status: Accepted
 - Date: 2026-09-26
+- Amended by: [ADR 0142](0142-an-error-handler-shapes-the-answers-tachyon-makes-itself.md): seven built-in
+  error types shape the answers Tachyon makes itself, and a root-type method
+  no longer takes the `@Check` error
 - Amended by: [ADR 0122](0122-ty-test-and-ty-start-agree-on-yon-handler-code.md):
   every Yon server handler, workers and identity providers included,
   composes the error types of `server/errors`; error handlers still wrap

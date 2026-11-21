@@ -7,17 +7,23 @@ import { chromium, firefox, webkit } from 'playwright'
 class StreamsBrowserCheck {
   static template = new URL('../crates/tachyon-core/src/template/application-events.js', import.meta.url)
 
+  static report = new URL('../crates/tachyon-core/src/template/tac-stream-report.js', import.meta.url)
+
+  static query = new URL('../crates/tachyon-core/src/template/tac-stream-query.js', import.meta.url)
+
   static engines = [chromium, firefox, webkit]
 
   static models = { JobState: { open: false, fields: { running: '!integer' } } }
 
   static page = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Streams</title></head><body>
     <script src="/application-events.js"></script>
+    <script src="/tac-stream-report.js"></script>
+    <script src="/tac-stream-query.js"></script>
     <script>
       window.received = []
       window.heard = []
       window.failures = 0
-      const bus = new TacApplicationEvents({ changed: () => {}, failed: () => window.failures++ })
+      const bus = new TacApplicationEvents({ changed: () => {}, failed: (error, path, event, data) => { window.failures++; TacStreamReport.failed(error, path, event, data) } })
       const resources = { view: { id: 'owner' }, lifecycle: null, applicationEventPublisher: null }
       const models = ${JSON.stringify(StreamsBrowserCheck.models)}
       const client = { streamState: (state) => window.received.push(state.running) }
@@ -30,6 +36,12 @@ class StreamsBrowserCheck {
       bus.attach(windowedClient, { streams: [{ method: 'streamStats', path: '/.tachyon/event/state/.tachyon/query/StatsWindow/stats/{window}', event: 'JobState', models }] }, resources)
       bus.initialize(windowedClient)
       window.choose = (value) => bus.publish('StatsWindow', { window: value, limit: 5 })
+      window.large = []
+      window.openLarge = () => {
+        const largeClient = { streamLarge: (state) => window.large.push(state.running) }
+        bus.attach(largeClient, { streams: [{ method: 'streamLarge', path: '/.tachyon/event/stats/live/stats', event: 'JobState', models }] }, resources)
+        bus.initialize(largeClient)
+      }
     </script>
   </body></html>`
 
@@ -42,16 +54,39 @@ class StreamsBrowserCheck {
     'event: state\ndata: {"running": 3}\n\n',
   ]
 
+  static largeData = `{"running": 5, "note": "${'x'.repeat(81500)}"}`
+
+  static largeFrames = [
+    `event: stats\ndata: ${StreamsBrowserCheck.largeData}\n\n`,
+    `event: stats\ndata: ${StreamsBrowserCheck.largeData}\n\n`,
+    'event: stats\ndata: {"running": 7}\n\n',
+  ]
+
   static opened = []
 
   static windows = []
 
   static closed = []
 
-  static answer(request, response, script) {
+  static answer(request, response, scripts) {
     if (request.url === '/application-events.js') {
       response.writeHead(200, { 'content-type': 'text/javascript' })
-      response.end(`${script}\nwindow.TacApplicationEvents = TacApplicationEvents\n`)
+      response.end(`${scripts.bus}\nwindow.TacApplicationEvents = TacApplicationEvents\n`)
+      return
+    }
+    if (request.url === '/tac-stream-report.js') {
+      response.writeHead(200, { 'content-type': 'text/javascript' })
+      response.end(`${scripts.report}\nwindow.TacStreamReport = TacStreamReport\n`)
+      return
+    }
+    if (request.url === '/tac-stream-query.js') {
+      response.writeHead(200, { 'content-type': 'text/javascript' })
+      response.end(`${scripts.query}\nwindow.TacStreamQuery = TacStreamQuery\n`)
+      return
+    }
+    if (request.url === '/live/stats') {
+      response.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-store' })
+      for (const frame of StreamsBrowserCheck.largeFrames) response.write(frame)
       return
     }
     if (request.url.startsWith('/stats/')) {
@@ -73,8 +108,8 @@ class StreamsBrowserCheck {
   }
 
   static async run() {
-    const script = await readFile(StreamsBrowserCheck.template, 'utf8')
-    const server = createServer((request, response) => StreamsBrowserCheck.answer(request, response, script))
+    const scripts = { bus: await readFile(StreamsBrowserCheck.template, 'utf8'), report: await readFile(StreamsBrowserCheck.report, 'utf8'), query: await readFile(StreamsBrowserCheck.query, 'utf8') }
+    const server = createServer((request, response) => StreamsBrowserCheck.answer(request, response, scripts))
     await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
     const url = `http://localhost:${server.address().port}/`
     try {
@@ -89,10 +124,29 @@ class StreamsBrowserCheck {
     for (let wait = 0; wait < 100 && !done(); wait += 1) await new Promise((resolve) => setTimeout(resolve, 50))
   }
 
+  static async checkLargeMessage(page, errors, name) {
+    const failuresBefore = await page.evaluate(() => window.failures)
+    await page.evaluate(() => window.openLarge())
+    await page.waitForFunction(() => window.large.length >= 1, null, { timeout: 10000 })
+    const size = Buffer.byteLength(StreamsBrowserCheck.largeData)
+    const reports = errors.filter((text) => text.includes('/live/stats'))
+    assert.equal(reports.length, 1, `${name}: two messages over 64 KiB on one stream give exactly one console error`)
+    assert.match(reports[0], /stream \/live\/stats\./, `${name}: the report names the stream path`)
+    assert.match(reports[0], /'stats' event/, `${name}: the report names the event`)
+    assert.ok(reports[0].includes(`${size} bytes`), `${name}: the report gives the message size`)
+    assert.ok(reports[0].includes('limit is 65536 bytes'), `${name}: the report gives the limit`)
+    const large = await page.evaluate(() => window.large)
+    assert.equal(large.includes(5), false, `${name}: a message over 64 KiB is not delivered, so the page keeps its old data`)
+    assert.deepEqual(large, [7], `${name}: a later message that fits still arrives`)
+    assert.equal(await page.evaluate(() => window.failures), failuresBefore + 2, `${name}: each dropped message still counts as a failure`)
+  }
+
   static async runEngine(engine, url) {
     const browser = await engine.launch()
     try {
       const page = await browser.newPage()
+      const errors = []
+      page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()) })
       StreamsBrowserCheck.opened.length = 0
       StreamsBrowserCheck.windows.length = 0
       StreamsBrowserCheck.closed.length = 0
@@ -112,6 +166,7 @@ class StreamsBrowserCheck {
       assert.deepEqual(StreamsBrowserCheck.windows, ['/stats/1h?limit=5', '/stats/24%20h?limit=5'], `${name}: each new value opens the stream with its parameters`)
       assert.deepEqual(StreamsBrowserCheck.closed, ['/stats/1h?limit=5'], `${name}: the old stream is closed when the parameters change`)
       assert.deepEqual(await page.evaluate(() => window.windowed), [1, 24], `${name}: each stream delivers its own messages once`)
+      await StreamsBrowserCheck.checkLargeMessage(page, errors, name)
     } finally {
       await browser.close()
     }
@@ -119,4 +174,4 @@ class StreamsBrowserCheck {
 }
 
 await StreamsBrowserCheck.run()
-console.log('Streams browser check passed in Chromium, Firefox and WebKit: named events, heartbeats and a parameter change.')
+console.log('Streams browser check passed in Chromium, Firefox and WebKit: named events, heartbeats, a parameter change and one report for messages over 64 KiB.')

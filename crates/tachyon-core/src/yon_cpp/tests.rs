@@ -146,6 +146,31 @@ fn route_methods_follow_the_shared_route_rules() {
 }
 
 #[test]
+fn a_cpp_route_reads_one_identity_parameter() {
+    let source = Sample::CONTROLLER.replace(
+        "void postOrder([[FromBody]] const Order& order,",
+        "void postOrder([[FromIdentity]] const Identity& caller, [[FromBody]] const Order& order,",
+    );
+    let controller = Sample::read(&source).expect("controller");
+    let caller = &controller.routes[1].parameters[0];
+    assert_eq!(caller.source, ParameterSource::Identity);
+    assert_eq!(caller.type_text, "Identity");
+    assert_eq!(caller.code_name, "caller");
+    let twice = Sample::refusal(
+        "[[FromBody]] const Order& order,",
+        "[[FromIdentity]] const Identity& first, [[FromIdentity]] const Identity& second,",
+    );
+    assert!(twice.contains("[[FromIdentity]]"), "{twice}");
+    let provider = "#pragma once\n\nclass [[IdentityProvider]] AppIdentityProvider {\npublic:\n    std::optional<Identity> identify([[FromIdentity]] const Identity& caller) {\n        return std::nullopt;\n    }\n};\n";
+    let path = Path::new("server/controllers/AppIdentityProvider.hpp");
+    let failure = CppYonController::read(path, provider)
+        .err()
+        .expect("the identity provider is refused")
+        .to_string();
+    assert!(failure.contains("[[FromIdentity]]"), "{failure}");
+}
+
+#[test]
 fn a_browser_only_marker_is_refused_in_yon_code() {
     let failure = Sample::refusal("[[Public]]\n", "[[Public]] [[LocalState]]\n");
     assert!(failure.contains("TY1308"), "{failure}");

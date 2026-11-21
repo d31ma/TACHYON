@@ -23,6 +23,8 @@ pub(super) struct DirectResponse {
     topics: Vec<Value>,
     #[serde(default)]
     violations: Vec<HandlerViolation>,
+    #[serde(default)]
+    unhandled: bool,
 }
 
 #[derive(serde::Deserialize)]
@@ -47,6 +49,8 @@ impl DirectBody {
 impl DirectResponse {
     const PUBLICATION_STOPPED: &'static str = "Topic publication stopped before it finished.";
     const NO_TOPICS: &'static str = "This handler has no topic models.";
+    const UNHANDLED_CODE: &'static str = "TY2201";
+    const UNHANDLED_MESSAGE: &'static str = "Handler execution failed.";
 
     pub(super) async fn parse(
         bytes: &[u8],
@@ -148,6 +152,7 @@ impl DirectResponse {
         if !self.violations.is_empty() {
             return Self::rejection(self.violations, request_id);
         }
+        let error = Self::unhandled_error(self.unhandled);
         HandlerResponse {
             protocol_version: 1,
             kind: HandlerResponseKind::Response,
@@ -155,8 +160,12 @@ impl DirectResponse {
             status: self.status,
             headers: self.headers,
             body: self.body.map(DirectBody::into_body),
-            error: None,
+            error,
         }
+    }
+
+    fn unhandled_error(unhandled: bool) -> Option<HandlerProtocolError> {
+        unhandled.then(|| HandlerProtocolError::new(Self::UNHANDLED_CODE, Self::UNHANDLED_MESSAGE))
     }
 
     fn rejection(violations: Vec<HandlerViolation>, request_id: &str) -> HandlerResponse {
@@ -184,6 +193,23 @@ mod tests {
         assert!(error.is_check_rejection());
         assert_eq!(error.violations.len(), 1);
         assert_eq!(error.violations[0].field, "name");
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn an_unhandled_direct_answer_keeps_its_body_and_carries_the_mark() -> Result<(), String>
+    {
+        let written =
+            br#"{"status":500,"unhandled":true,"body":"{\"error\":\"Handler failed.\"}"}"#;
+        let response = DirectResponse::parse(written, "req", None)
+            .await
+            .map_err(|failure| format!("{failure:?}"))?;
+        assert_eq!(response.status, 500);
+        assert_eq!(
+            response.body.ok_or("no body")?.data,
+            r#"{"error":"Handler failed."}"#
+        );
+        assert_eq!(response.error.ok_or("no mark")?.code, "TY2201");
         Ok(())
     }
 

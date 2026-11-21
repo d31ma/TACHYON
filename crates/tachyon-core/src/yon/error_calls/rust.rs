@@ -66,7 +66,7 @@ impl RustErrors {
         if stripped.contains(Self::BEHAVIOR_FAILURE) {
             source.push_str(Self::UNHANDLED_BEHAVIOR_ERROR);
         }
-        source.push_str("    __yon_error_failure__()\n}\nfn __yon_error_failure__() -> __YonAnswer {\n    __YonAnswer::json(\"{\\\"error\\\":\\\"Yon controller execution failed.\\\"}\").status(500)\n}\n");
+        source.push_str("    __yon_error_failure__()\n}\nfn __yon_error_failure__() -> __YonAnswer {\n    __YonAnswer::json(\"{\\\"error\\\":\\\"Yon controller execution failed.\\\"}\").status(500).unhandled()\n}\n");
         source
     }
 }

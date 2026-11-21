@@ -37,6 +37,7 @@ type ChatService struct {
 	messageStore *MessageStore
 	behaviors    *BehaviorContext
 	Heard        string
+	Changed      string
 }
 
 // @OnStart
@@ -77,6 +78,11 @@ func (chat *ChatService) HearLoaded(loaded StorePartitionLoaded) {
 	chat.Heard = loaded.Table + "/" + loaded.Partition + "/" + strconv.Itoa(int(loaded.Rows))
 }
 
+// @OnEvent
+func (chat *ChatService) HearChanged(changed StoreChanged) {
+	chat.Changed = changed.Table + "/" + changed.Partition
+}
+
 func (chat *ChatService) messages() *BehaviorRepository {
 	repository, _ := BehaviorsRepository[MessageEntity](chat.behaviors)
 	return repository
@@ -115,6 +121,12 @@ func (chat *ChatService) ids(rows BehaviorValue) string {
         }
         service
     }
+
+    async fn published(root: &Path) {
+        let service = Self::written(root);
+        StorePartitionProject::runtime_files(root);
+        build_and_publish(root, "chat", "ChatService", WebLanguage::Go, service).await;
+    }
 }
 
 #[tokio::test]
@@ -124,9 +136,19 @@ async fn a_go_service_loads_one_partition_and_reads_it_from_memory() {
         return;
     }
     let root = tempfile::tempdir().expect("project");
-    let service = GoStorePartitionProject::written(root.path());
-    StorePartitionProject::runtime_files(root.path());
-    build_and_publish(root.path(), "chat", "ChatService", WebLanguage::Go, service).await;
+    GoStorePartitionProject::published(root.path()).await;
     let report = run_driver(root.path(), StorePartitionProject::DRIVER);
     StorePartitionProject::assert_report(&report);
+}
+
+#[tokio::test]
+async fn a_go_service_hears_a_store_change_from_another_tab() {
+    if !RequiredToolchain::answers("go", "version") || !node_available() {
+        eprintln!("skipping: go or node is unavailable");
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    GoStorePartitionProject::published(root.path()).await;
+    let report = run_driver(root.path(), StorePartitionProject::TAB_DRIVER);
+    StorePartitionProject::assert_tab_report(&report);
 }

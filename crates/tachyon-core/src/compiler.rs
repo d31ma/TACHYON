@@ -52,6 +52,8 @@ mod page_files_tests;
 mod page_head;
 #[cfg(test)]
 mod page_head_tests;
+#[cfg(test)]
+mod page_locks_tests;
 mod page_media;
 #[cfg(test)]
 mod page_media_frames_tests;

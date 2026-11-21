@@ -33,6 +33,7 @@ class ChatService {
     @Needs
     MessageStore messageStore;
     String heard = "";
+    String changed = "";
 
     @OnStart
     void start() {
@@ -83,6 +84,11 @@ class ChatService {
         heard = loaded.table() + "/" + loaded.partition() + "/" + (long) loaded.rows();
     }
 
+    @OnEvent
+    void hearChanged(StoreChanged change) {
+        changed = change.table() + "/" + change.partition();
+    }
+
     private Behaviors.Repository messages() {
         return behaviors.repository("MessageEntity");
     }
@@ -110,6 +116,13 @@ class ChatService {
         }
         publish(root, "chat", "ChatService").await;
     }
+
+    async fn report(driver: &str) -> serde_json::Value {
+        let root = tempfile::tempdir().expect("project");
+        Self::built(root.path()).await;
+        StorePartitionProject::runtime_files(root.path());
+        run_driver(root.path(), driver)
+    }
 }
 
 #[tokio::test]
@@ -118,9 +131,16 @@ async fn a_java_service_loads_one_partition_and_reads_it_from_memory() {
         eprintln!("skipping: TeaVM (TAC_TEAVM_HOME), javac or node is unavailable");
         return;
     }
-    let root = tempfile::tempdir().expect("project");
-    JavaStorePartitionProject::built(root.path()).await;
-    StorePartitionProject::runtime_files(root.path());
-    let report = run_driver(root.path(), StorePartitionProject::DRIVER);
+    let report = JavaStorePartitionProject::report(StorePartitionProject::DRIVER).await;
     StorePartitionProject::assert_report(&report);
+}
+
+#[tokio::test]
+async fn a_java_service_hears_a_store_change_from_another_tab() {
+    if !java_web_ready() {
+        eprintln!("skipping: TeaVM (TAC_TEAVM_HOME), javac or node is unavailable");
+        return;
+    }
+    let report = JavaStorePartitionProject::report(StorePartitionProject::TAB_DRIVER).await;
+    StorePartitionProject::assert_tab_report(&report);
 }

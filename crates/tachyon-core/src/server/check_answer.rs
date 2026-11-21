@@ -1,4 +1,4 @@
-use super::ServerResponse;
+use super::{BuiltInCase, ServerResponse};
 use crate::check_rejection::CheckProblem;
 use axum::body::Body;
 use axum::http::header::CONTENT_TYPE;
@@ -27,7 +27,7 @@ impl CheckAnswer {
             .body(Body::from(problem.json()))
             .unwrap_or_else(|_| Response::new(Body::empty()));
         ServerResponse::insert_request_id(&mut response, request_id);
-        response
+        BuiltInCase::check_rejected(violations).tag(response)
     }
 
     fn violations(response: &HandlerResponse) -> &[HandlerViolation] {

@@ -31,6 +31,8 @@ ChatService = {
   messages = nil,
   ---@type string
   heard = "",
+  ---@type string
+  changed = "",
 }
 
 ---@return nil
@@ -94,6 +96,13 @@ end
 function ChatService:hear_loaded(loaded)
   self.heard = loaded.table .. "/" .. loaded.partition .. "/" .. math.floor(loaded.rows)
 end
+
+---@param changed StoreChanged
+---@return nil
+-- @OnEvent
+function ChatService:hear_changed(changed)
+  self.changed = changed.table .. "/" .. changed.partition
+end
 "#,
         ),
     ];
@@ -117,6 +126,12 @@ end
         }
         service
     }
+
+    async fn published(root: &Path) {
+        let service = Self::written(root);
+        StorePartitionProject::runtime_files(root);
+        build_and_publish(root, "chat", "ChatService", WebLanguage::Lua, service).await;
+    }
 }
 
 #[tokio::test]
@@ -126,16 +141,19 @@ async fn a_lua_service_loads_one_partition_and_reads_it_from_memory() {
         return;
     }
     let root = tempfile::tempdir().expect("project");
-    let service = LuaStorePartition::written(root.path());
-    StorePartitionProject::runtime_files(root.path());
-    build_and_publish(
-        root.path(),
-        "chat",
-        "ChatService",
-        WebLanguage::Lua,
-        service,
-    )
-    .await;
+    LuaStorePartition::published(root.path()).await;
     let report = run_driver(root.path(), StorePartitionProject::DRIVER);
     StorePartitionProject::assert_report(&report);
+}
+
+#[tokio::test]
+async fn a_lua_service_hears_a_store_change_from_another_tab() {
+    if let Some(reason) = LuaStorePartition::skip_reason() {
+        eprintln!("skipping: {reason}");
+        return;
+    }
+    let root = tempfile::tempdir().expect("project");
+    LuaStorePartition::published(root.path()).await;
+    let report = run_driver(root.path(), StorePartitionProject::TAB_DRIVER);
+    StorePartitionProject::assert_tab_report(&report);
 }

@@ -1,10 +1,13 @@
 use super::RouteCalls;
+use crate::yon::built_in_errors::BuiltInErrors;
 use crate::yon::plan::{ParameterSource, Plan, Route};
 use std::fmt::Write as _;
 
 pub(super) struct JavaScriptRoutes;
 
 impl JavaScriptRoutes {
+    const BUILT_IN_CASE: &'static str = "  if (request.route === '{route}') return __yon_handle_error__(__yon_built_in_error__(values[0]), request{arguments});\n";
+
     pub(super) fn functions(plan: &Plan, typed: bool) -> String {
         let mut output = String::new();
         let errors = !plan.errors.is_empty();
@@ -27,7 +30,8 @@ impl JavaScriptRoutes {
             let list_type = if typed { ": any[]" } else { "" };
             let _ = write!(
                 output,
-                "{asynchronous}function __yon_route_{verb}__({signature} {{\n  const values{list_type} = request.arguments ?? [];\n{guarded}  switch (request.route) {{\n"
+                "{asynchronous}function __yon_route_{verb}__({signature} {{\n  const values{list_type} = request.arguments ?? [];\n{}{guarded}  switch (request.route) {{\n",
+                BuiltInErrors::route_case(plan, "js", Self::BUILT_IN_CASE)
             );
             for route in RouteCalls::routes_for(plan, verb) {
                 let _ = writeln!(

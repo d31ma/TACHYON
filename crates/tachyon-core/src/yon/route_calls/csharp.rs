@@ -1,19 +1,23 @@
 use super::RouteCalls;
+use crate::yon::built_in_errors::BuiltInErrors;
 use crate::yon::plan::{ParameterSource, Plan, Route};
 use std::fmt::Write as _;
 
 pub(super) struct CSharpRoutes;
 
 impl CSharpRoutes {
+    const BUILT_IN_CASE: &'static str = "        if (route == \"{route}\") return __YonErrors.Handle(__YonBuiltInErrors.Create(values), request{arguments});\n";
+
     pub(super) fn functions(plan: &Plan) -> String {
         let mut output = String::from("\nstatic class __YonRoutes\n{\n");
         let errors = !plan.errors.is_empty();
         let parameters = super::super::error_calls::ErrorCalls::parameters(plan, "cs");
+        let built_in = BuiltInErrors::route_case(plan, "cs", Self::BUILT_IN_CASE);
         for verb in RouteCalls::verbs(plan) {
             let guard = if errors { "        try {\n" } else { "" };
             let _ = write!(
                 output,
-                "    internal static object __yon_route_{verb}__({} controller, __YonFrame request{parameters})\n    {{\n        var values = request.Arguments();\n        var route = request.Route();\n{guard}",
+                "    internal static object __yon_route_{verb}__({} controller, __YonFrame request{parameters})\n    {{\n        var values = request.Arguments();\n        var route = request.Route();\n{built_in}{guard}",
                 plan.controller
             );
             for route in RouteCalls::routes_for(plan, verb) {

@@ -366,3 +366,14 @@ The start-up copy (`TacEntityMirror`) skips the register. It still copies
 every unpartitioned table of the origin, also other apps' tables: with
 several apps in one document every visited app needs its tables anyway, and
 a build has no list of tables across the fourteen languages yet.
+
+## Amendment (2026-11-14): tabs share Store and state changes (ADR 0141)
+
+[ADR 0141](0141-tabs-share-store-and-state-changes-and-take-locks.md) replaces
+"a change in one tab reaches another tab only after that tab reloads". After
+a Store write reaches IndexedDB, the other tabs of the origin read the written
+rows again (eager tables and loaded partitions) and their services hear
+`StoreChanged { table, partition }`. A `@LocalState` value written in one tab
+reaches the other tabs through the window `storage` event, and their views
+render again. `@SessionState` stays per tab. The Cache API memory stays per
+tab, as before.

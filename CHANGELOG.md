@@ -10,6 +10,21 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- **Tabs share Store and state changes, and take locks** (ADR 0141). After a
+  Store write reaches IndexedDB, the other tabs of the origin read the written
+  rows again (eager tables and loaded partitions) and their services hear the
+  new built-in event `StoreChanged { table, partition }`. A `@LocalState`
+  value set in one tab reaches the other tabs and their views render again;
+  `@SessionState` stays per tab. Every Tac service language gets a `Locks`
+  client with the new grant `locks` in `tac.browserApis`: `request(name)`
+  answers with `LockGranted { name }` when this tab holds the lock, and
+  `release(name)` frees it; a closed tab frees its locks. A lock name is text
+  of 1 to 256 characters; a bad name is an error at the call, as for `Blobs`
+  and `Peers`. Without Web Locks (the macOS and iOS app scheme, a plain http
+  page) every lock is granted at once. The lock code is
+  `.tachyon/tac-locks.js`, shipped only to pages that grant `locks`.
+  `bun run test:tabs-browser` checks two tabs in Chromium, Firefox and
+  WebKit.
 - **A shell lists its page apps and builds them as one site** (ADR 0139,
   step 2 of micro-frontends, slice 3). `"tac": { "apps": { "/chat":
   "../chat" } }` in the shell's manifest lists the site's page apps.
@@ -215,6 +230,30 @@ machine contracts have their own, independent major versions.
   and 64 MiB by default) and is checked before each write. The code ships in
   `.tachyon/tac-blobs.js` only to pages that grant `blobs`. Page
   Content-Security-Policies now allow `blob:` images and media.
+- **A route receives the caller's identity** (ADR 0143). A new route
+  parameter marker, `FromIdentity` (`@FromIdentity`, `from_identity` in
+  Python, `#[FromIdentity]`, `[FromIdentity]`, `[<FromIdentity>]`,
+  `[[FromIdentity]]`), gives a `@SignedIn` or `@Allow` route method the
+  object that the `@IdentityProvider` returned for the request, as a model
+  from `server/models/`, in every Yon language. The identity provider is
+  still called once per request. The build refuses a second
+  `FromIdentity` parameter, `FromIdentity` on a `@Public` route (TY1322) and
+  on anything that is not a route or stream method. An identity that does
+  not fit its model answers the fixed 500 (`UnexpectedError`) and logs
+  `route.identity_mismatch` without the identity's values. The identity is
+  never part of `/api.json`, `OPTIONS`, a log line or an error-handler
+  request.
+
+- **An error handler shapes the answers Tachyon makes itself** (ADR 0142).
+  Every Yon language gets seven built-in error types: `NotSignedIn` (401),
+  `RoleMissing` (403), `IdentityCheckFailed` (500), `RequestRejected` (400),
+  `BodyTooLarge` (413), `CheckRejected` (422, with the broken rules) and
+  `UnexpectedError` (500). An `@HandlesError` method that names one shapes
+  the body of that answer; Tachyon keeps the status. Without such a method
+  every answer is unchanged. The handler never sees credentials, the
+  identity provider's error or the request body. If the method fails, the
+  plain answer is sent and `error_handler.failed` is logged.
+
 - **Yon handlers write logs on every answer** (ADR 0127). Every Yon language
   gets `YonLog` with the levels `debug`, `info`, `warn` and `error`, a
   message and optional fields. `ty start`, `ty serve`, `ty handler invoke` and
@@ -362,6 +401,32 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- **A form control keeps its focus and value when a bound observed attribute
+  changes** (ADR 0137 amendment, TAC-RND2). When a bound attribute that a
+  custom element lists in `observedAttributes` changed, such as
+  `<w-input :hint="form.hint">`, Tac replaced the whole element. The focus
+  went to `<body>`, and the typed text and the chosen option were lost on
+  every update, so a live-validated form lost the user's typing. Tac now
+  keeps the element and sets only the changed attribute in place
+  (`setAttribute`, or `removeAttribute` for `null`, `false` or
+  `undefined`), and the element's `attributeChangedCallback` runs once per
+  change. If that callback removes children that Tac rendered, Tac renders
+  them again inside the same element and moves the focus back when it fell
+  to `<body>`.
+- **A stream message over 64 KiB is reported once in the console** (TAC-EV1,
+  ADR 0058 amendment). The bus still drops a server-sent message larger than
+  64 KiB, but it no longer does so silently: the first one on each stream and
+  event name logs one `console.error` that names the stream path, the event
+  name, the message size and the 64 KiB (65,536-byte) limit. Later messages
+  that fit still arrive. To make room in the bus, `filled()`, which fills a
+  query stream's address, moved to `TacStreamQuery.address()` in
+  `template/tac-stream-query.js` (the first step of TAC-BUS1).
+- **Streams keep trying after a long server outage** (TAC-S5, ADR 0058
+  amendment). A stream without a declared reconnect policy no longer stops
+  after its five fast tries (1, 2, 4, 8 and 16 seconds). While its owner
+  stays mounted and the page is shown, it tries again every 30 to 35
+  seconds, so a long-lived page recovers after a server restart. A declared
+  policy and sockets keep their own limits.
 - **A property that a custom element refuses no longer blanks the page**
   (ADR 0136 amendment, TAC-B1F). An element with a getter and no setter,
   such as `get values()`, threw a TypeError that stopped the whole render.
@@ -511,6 +576,23 @@ machine contracts have their own, independent major versions.
   fields" shows each language.
 
 ### Changed
+
+- **Behavior change: Tac keeps a custom element when only its attributes
+  change** (ADR 0137 amendment, TAC-RND2). Before, a changed bound attribute
+  that the element observes made Tac replace the element, and its
+  `attributeChangedCallback` did not run on the element in the page. Now Tac
+  sets the attribute on the same element, so the callback runs there, once
+  per change. When that callback detaches children that Tac rendered, Tac
+  renders them again inside the same element, after the element's own
+  nodes, and gives the focus back only if it fell to `<body>`. Tac still
+  replaces an element whose tag changed or whose Tac children other code
+  moved into another node.
+- **A root-type error method no longer takes the `@Check` error** (ADR 0142).
+  A `@HandlesError` method for `Error`, `Exception`, Go `error`,
+  `std::exception` and the other root types used to catch the `@Check`
+  guard's error, so the route answered that method's status instead of 422.
+  Now the 422 follows, and a `CheckRejected` method can shape it. A method
+  that names the guard's own error type still takes it.
 
 - Go services may use the plain error check `if err != nil { return ..., err }`
   (or a `%w` wrap with `fmt.Errorf`) in a public method without `TY1314`, as

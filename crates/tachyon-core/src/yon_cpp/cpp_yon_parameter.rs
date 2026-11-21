@@ -8,15 +8,18 @@ use crate::yon::plan::{ParameterSource, RouteParameter};
 pub(crate) struct CppYonParameter;
 
 impl CppYonParameter {
-    const SOURCES: [(&'static str, ParameterSource); 5] = [
+    const SOURCES: [(&'static str, ParameterSource); 6] = [
         ("FromPath", ParameterSource::Path),
         ("FromQuery", ParameterSource::Query),
         ("FromBody", ParameterSource::Body),
         ("FromHeader", ParameterSource::Header),
         ("FromCookie", ParameterSource::Cookie),
+        ("FromIdentity", ParameterSource::Identity),
     ];
+    const IDENTITY_PROVIDER: &'static str = "IdentityProvider";
+    const IDENTITY: &'static str = "A C++ route method takes at most one [[FromIdentity]] parameter, which receives the identity of the signed-in caller, and an [[IdentityProvider]] method takes none: it is the code that finds that identity";
     const MAX_NAME_BYTES: usize = 256;
-    const UNMARKED: &'static str = "Mark each parameter of a C++ route method with [[FromPath]], [[FromQuery]], [[FromBody]], [[FromHeader]] or [[FromCookie]] and give it a name. Only one parameter may be left unmarked, `const tachyon::http::HttpRequestMessage& request`, and it receives the whole request";
+    const UNMARKED: &'static str = "Mark each parameter of a C++ route method with [[FromPath]], [[FromQuery]], [[FromBody]], [[FromHeader]], [[FromCookie]] or [[FromIdentity]] and give it a name. Only one parameter may be left unmarked, `const tachyon::http::HttpRequestMessage& request`, and it receives the whole request";
     const REQUEST: &'static str = "HttpRequestMessage";
     const DEFAULT: &'static str = "A C++ route parameter cannot have a default value, because the server checks every argument before the method runs and does not see the default. Write std::optional<T> and choose the value in the method, for example page.value_or(1)";
     const BODY: &'static str = "A request has one body, so one parameter at most uses [[FromBody]], and a GET request has no body: use [[PostRoute]] for a method that reads a body";
@@ -32,6 +35,7 @@ impl CppYonParameter {
             .map(|parameter| Self::one(route, parameter))
             .collect::<Result<Vec<_>, _>>()?;
         Self::check_body(route, &parameters)?;
+        Self::check_identities(route, &parameters)?;
         Self::check_requests(route, &parameters)?;
         Self::check_paths(route, pattern, &parameters)?;
         Ok(parameters)
@@ -125,6 +129,20 @@ impl CppYonParameter {
         (bodies <= allowed)
             .then_some(())
             .ok_or_else(|| route.failure(Self::BODY))
+    }
+
+    fn check_identities(
+        route: &CppYonRoute<'_>,
+        parameters: &[RouteParameter],
+    ) -> Result<(), Failure> {
+        let identities = parameters
+            .iter()
+            .filter(|parameter| parameter.source == ParameterSource::Identity)
+            .count();
+        let allowed = usize::from(route.marker_name() != Self::IDENTITY_PROVIDER);
+        (identities <= allowed)
+            .then_some(())
+            .ok_or_else(|| route.failure(Self::IDENTITY))
     }
 
     fn check_paths(

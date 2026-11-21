@@ -1,6 +1,7 @@
 use super::CppYonErrorTypes;
 use crate::Failure;
 use crate::tac_cpp::{CppClass, CppFailure, CppFile, CppLowering, CppMarkerCheck};
+use crate::yon::built_in_error::BuiltInError;
 use std::path::{Path, PathBuf};
 
 pub(crate) struct CppYonErrorType {
@@ -29,8 +30,10 @@ impl CppYonErrorType {
             .iter()
             .all(|marker| CppMarkerCheck::is_standard(&marker.name));
         let bases = Self::bases(source, class);
+        let free = !BuiltInError::is_reserved(&class.name);
         let problem = [
             (placed, Self::PLACE),
+            (free, BuiltInError::APP_NAME_REFUSED),
             (plain, Self::PLAIN),
             (!bases.is_empty(), CppYonErrorTypes::DERIVED),
         ]

@@ -374,13 +374,17 @@ impl RouteMarker {
     ];
     pub(super) const PHP_REQUEST_ADVICE: &'static str = "PHP reads the request from $_SERVER, $_GET, $_POST, $_COOKIE and php://input, and answers with http_response_code(), header() and echo, so a PHP method takes no request parameter. Remove the parameter and read the superglobals instead";
     const STREAM_ADVICE: &'static str = "@StreamRoute replaces @GetRoute and @Stream: it means the method answers GET requests with a stream of server-sent events. Write @StreamRoute alone and start the method name with 'stream', for example streamTicks. `ty migrate fix --write` converts it";
-    const SOURCES: [(&'static str, ParameterSource, &'static str); 5] = [
+    const SOURCES: [(&'static str, ParameterSource, &'static str); 6] = [
         ("frompath", ParameterSource::Path, "FromPath"),
         ("fromquery", ParameterSource::Query, "FromQuery"),
         ("frombody", ParameterSource::Body, "FromBody"),
         ("fromheader", ParameterSource::Header, "FromHeader"),
         ("fromcookie", ParameterSource::Cookie, "FromCookie"),
+        ("fromidentity", ParameterSource::Identity, "FromIdentity"),
     ];
+    const ONE_IDENTITY: &'static str =
+        "A request has one caller, so only one parameter may use @FromIdentity";
+    const IDENTITY_ROUTES_ONLY: &'static str = "@FromIdentity fills a parameter of a route method marked @GetRoute, @PostRoute, @PutRoute, @PatchRoute, @DeleteRoute or @StreamRoute with the identity of the signed-in caller. Remove it here: an identity provider, a worker or a socket method does not receive the caller's identity";
 
     pub(super) fn is_method_marker(name: &str) -> bool {
         [name == Self::STATUS, Self::verb(name).is_some()].contains(&true)
@@ -388,6 +392,12 @@ impl RouteMarker {
 
     pub(super) fn is_name(name: &str) -> bool {
         [name == Self::CLASS, Self::is_method_marker(name)].contains(&true)
+    }
+
+    fn is_route_verb(written: &str) -> bool {
+        Self::VERBS
+            .iter()
+            .any(|(_, _, verb_written)| *verb_written == written)
     }
 
     fn verb(name: &str) -> Option<(&'static str, &'static str)> {
@@ -838,10 +848,11 @@ impl MethodMarkers {
             .try_for_each(|parameter| Self::check_parameter(input, start, parameter, pattern))?;
         let requests = Self::count_from(parameters, ParameterSource::Request);
         let bodies = Self::count_from(parameters, ParameterSource::Body);
+        self.check_identities(input, start, parameters)?;
         RouteMarker::require(requests <= 1, || {
             input.failure(
                 start,
-                "Mark each route parameter with @FromPath, @FromQuery, @FromBody, @FromHeader or @FromCookie. Only one parameter may be left unmarked, and it receives the whole request",
+                "Mark each route parameter with @FromPath, @FromQuery, @FromBody, @FromHeader, @FromCookie or @FromIdentity. Only one parameter may be left unmarked, and it receives the whole request",
             )
         })?;
         RouteMarker::require(bodies <= 1, || {
@@ -856,6 +867,22 @@ impl MethodMarkers {
                 start,
                 "@GetRoute means this method answers GET requests, and a GET request has no body. Remove @FromBody or use @PostRoute",
             )
+        })
+    }
+
+    fn check_identities(
+        &self,
+        input: &Input<'_>,
+        start: usize,
+        parameters: &[RouteParameter],
+    ) -> Result<(), Failure> {
+        let identities = Self::count_from(parameters, ParameterSource::Identity);
+        RouteMarker::require(identities <= 1, || {
+            input.failure(start, RouteMarker::ONE_IDENTITY)
+        })?;
+        let route = RouteMarker::is_route_verb(self.written);
+        RouteMarker::require([identities == 0, route].contains(&true), || {
+            input.failure(start, RouteMarker::IDENTITY_ROUTES_ONLY)
         })
     }
 
@@ -1269,5 +1296,123 @@ mod tests {
         for name in ["getter", "target", "ge", "post"] {
             assert!(!MethodMarkers::starts_with_verb(name, "get"), "{name}");
         }
+    }
+
+    struct IdentitySample;
+
+    impl IdentitySample {
+        const CONTROLLERS: [(&'static str, &'static str, &'static str); 12] = [
+            (
+                "js",
+                "@RequestRoute(\"/me\")\nclass MeController {\n  @GetRoute\n  getMe(@FromIdentity caller) { return caller.user }\n}\n",
+                "",
+            ),
+            (
+                "ts",
+                "@RequestRoute(\"/me\")\nclass MeController {\n  @GetRoute\n  getMe(@FromIdentity caller: Identity): string { return caller.user }\n}\n",
+                "Identity",
+            ),
+            (
+                "py",
+                "from typing import Annotated\n\n@request_route(\"/me\")\nclass MeController:\n    @get_route\n    def get_me(self, caller: Annotated[Identity, from_identity]) -> str:\n        return caller.user\n",
+                "Identity",
+            ),
+            (
+                "php",
+                "<?php\n#[RequestRoute(\"/me\")]\nclass MeController {\n    #[GetRoute]\n    public function getMe(#[FromIdentity] Identity $caller): string { return $caller->user; }\n}\n",
+                "Identity",
+            ),
+            (
+                "java",
+                "@RequestRoute(\"/me\")\nclass MeController {\n    @GetRoute\n    public String getMe(@FromIdentity Identity caller) { return caller.user; }\n}\n",
+                "Identity",
+            ),
+            (
+                "groovy",
+                "@RequestRoute(\"/me\")\nclass MeController {\n    @GetRoute\n    String getMe(@FromIdentity Identity caller) { return caller.user }\n}\n",
+                "Identity",
+            ),
+            (
+                "kt",
+                "@RequestRoute(\"/me\")\nclass MeController {\n    @GetRoute\n    fun getMe(@FromIdentity caller: Identity): String { return caller.user }\n}\n",
+                "Identity",
+            ),
+            (
+                "cs",
+                "[RequestRoute(\"/me\")]\nclass MeController {\n    [GetRoute]\n    public string GetMe([FromIdentity] Identity caller) { return caller.User; }\n}\n",
+                "Identity",
+            ),
+            (
+                "rs",
+                "#[RequestRoute(\"/me\")]\nstruct MeController {}\nimpl MeController {\n    fn new() -> Self { Self {} }\n    #[GetRoute]\n    fn get_me(&self, #[FromIdentity] caller: Identity) -> String { caller.user }\n}\n",
+                "Identity",
+            ),
+            (
+                "dart",
+                "@RequestRoute(\"/me\")\nclass MeController {\n  @GetRoute\n  String getMe(@FromIdentity Identity caller) {\n    return caller.user;\n  }\n}\n",
+                "Identity",
+            ),
+            (
+                "go",
+                "// @RequestRoute(\"/me\")\ntype MeController struct {\n}\n\n// @GetRoute\nfunc (controller *MeController) GetMe(\n// @FromIdentity\n caller Identity) string {\n\treturn caller.User\n}\n",
+                "Identity",
+            ),
+            (
+                "rb",
+                "#[RequestRoute(\"/me\")]\nclass MeController\n  # @param caller [Identity]\n  # @return [String]\n  #[GetRoute]\n  def get_me(\n    #[FromIdentity]\n    caller\n  )\n    caller.user\n  end\nend\n",
+                "Identity",
+            ),
+        ];
+
+        fn refusal(extension: &str, file: &str, source: &str) -> String {
+            let path = format!("server/controllers/{file}.{extension}");
+            match super::super::parse(Path::new(&path), source) {
+                Ok(_) => panic!("{extension}: the parser accepted\n{source}"),
+                Err(failure) => failure.diagnostics()[0].message.clone(),
+            }
+        }
+    }
+
+    #[test]
+    fn every_yon_language_reads_the_identity_marker() {
+        for (extension, source, type_text) in IdentitySample::CONTROLLERS {
+            let path = format!("server/controllers/MeController.{extension}");
+            let parsed = super::super::parse(Path::new(&path), source)
+                .unwrap_or_else(|failure| panic!("{extension}: {failure}"))
+                .expect("controller");
+            let route = &parsed.plan.routes[0];
+            assert_eq!(route.parameters.len(), 1, "{extension}");
+            let parameter = &route.parameters[0];
+            assert_eq!(parameter.source, ParameterSource::Identity, "{extension}");
+            assert_eq!(parameter.name, "caller", "{extension}");
+            assert_eq!(parameter.type_text, type_text, "{extension}");
+            for marker in ["FromIdentity", "from_identity"] {
+                assert!(
+                    !parsed.source.contains(marker),
+                    "{extension}: {}",
+                    parsed.source
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn a_method_takes_at_most_one_identity() {
+        let source = "@RequestRoute(\"/me\")\nclass MeController {\n  @GetRoute\n  getMe(@FromIdentity first: Identity, @FromIdentity second: Identity): string { return first.user }\n}\n";
+        let message = IdentitySample::refusal("ts", "MeController", source);
+        assert!(
+            message.contains("only one parameter may use @FromIdentity"),
+            "{message}"
+        );
+    }
+
+    #[test]
+    fn an_identity_provider_does_not_receive_an_identity() {
+        let source = "@IdentityProvider\nexport class AppIdentityProvider {\n  identify(@FromIdentity caller: Identity): Identity { return caller }\n}\n";
+        let message = IdentitySample::refusal("ts", "AppIdentityProvider", source);
+        assert!(
+            message.contains("does not receive the caller's identity"),
+            "{message}"
+        );
     }
 }

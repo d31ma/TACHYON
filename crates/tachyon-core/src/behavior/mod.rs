@@ -1063,6 +1063,7 @@ pub(crate) fn framework_marker_names() -> impl Iterator<Item = &'static str> {
         "FromBody",
         "FromHeader",
         "FromCookie",
+        "FromIdentity",
         "HTTPClient",
         "GetRequest",
         "PostRequest",

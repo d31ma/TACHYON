@@ -86,6 +86,32 @@ held.done()
 held = await hold('/.tachyon/origin/realtime/feed', false)
 report.stream = sources.at(-1).url
 held.done()
+
+held = await hold('/ticks', false)
+report.slow = { delays: [] }
+for (let attempt = 0; attempt < 7; attempt += 1) { sources.at(-1).onerror(); report.slow.delays.push(fire()) }
+report.slow.sources = sources.length
+sources.at(-1).onerror()
+document.visibilityState = 'hidden'
+const hiddenCount = sources.length
+fire()
+report.slow.hiddenOpened = sources.length - hiddenCount
+report.slow.waitingWhileHidden = due().length
+document.visibilityState = 'visible'
+for (const listener of heard.visibilitychange) listener()
+report.slow.shownOpened = sources.length - hiddenCount
+sources.at(-1).onopen()
+sources.at(-1).onerror()
+report.slow.afterOpen = fire()
+held.done()
+report.slow.waitingAfterDone = due().length
+
+held = await hold('/.tachyon/reconnect/3/100/400/0/ticks', false)
+report.declared = { delays: [] }
+for (let attempt = 0; attempt < 3; attempt += 1) { sources.at(-1).onerror(); report.declared.delays.push(fire()) }
+sources.at(-1).onerror()
+report.declared.waiting = due().length
+held.done()
 console.log(JSON.stringify(report))
 process.exit(0)
 ";
@@ -199,6 +225,46 @@ fn the_default_policy_stops_after_five_tries_and_a_shown_page_reconnects_at_once
     assert_eq!(report["limited"]["waiting"], 0);
     assert_eq!(report["limited"]["lastReconnecting"], false);
     assert_eq!(report["limited"]["revived"], 1);
+}
+
+#[test]
+fn a_stream_without_a_policy_keeps_trying_slowly_while_its_page_is_shown() {
+    if !NodeDriver::available() {
+        eprintln!("skipping: node is unavailable");
+        return;
+    }
+    let report = ReconnectDriver::bus();
+    let delays: Vec<u64> = report["slow"]["delays"]
+        .as_array()
+        .expect("delays")
+        .iter()
+        .map(|delay| delay.as_u64().expect("delay"))
+        .collect();
+    assert_eq!(delays[..5], [1000, 2000, 4000, 8000, 16000]);
+    assert!(
+        delays[5..]
+            .iter()
+            .all(|delay| (30_000..=35_000).contains(delay)),
+        "after five fast tries a stream tries every 30 to 35 seconds: {delays:?}"
+    );
+    assert_eq!(report["slow"]["hiddenOpened"], 0);
+    assert_eq!(report["slow"]["waitingWhileHidden"], 0);
+    assert_eq!(report["slow"]["shownOpened"], 1);
+    assert_eq!(report["slow"]["afterOpen"], 1000);
+    assert_eq!(report["slow"]["waitingAfterDone"], 0);
+}
+
+#[test]
+fn a_stream_with_a_declared_policy_still_stops_after_its_tries() {
+    if !NodeDriver::available() {
+        eprintln!("skipping: node is unavailable");
+        return;
+    }
+    let report = ReconnectDriver::bus();
+    assert_eq!(
+        report["declared"],
+        json!({ "delays": [100, 200, 400], "waiting": 0 })
+    );
 }
 
 #[test]

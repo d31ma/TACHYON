@@ -98,6 +98,7 @@ impl<'a> RouteInvocation<'a> {
             query: uri.query(),
             headers: &headers,
             body: body.as_bytes(),
+            identity: None,
         };
         let arguments = RouteArguments::build(route, &route_request, self.source.models());
         let request_id = request.request_id.clone();

@@ -236,9 +236,11 @@ pub(super) fn info_plist(
 <key>CFBundleVersion</key><string>{build}</string>{platform}
 <key>MinimumOSVersion</key><string>{deployment}</string>
 <key>UIDeviceFamily</key><array><integer>1</integer><integer>2</integer></array>
+{scene_manifest}
 {launch_screen}{window}
 </dict></plist>
 "#,
+        scene_manifest = IosHostGenerator::SCENE_MANIFEST,
         name = xml_escape(&application.name),
         executable = application.executable_name,
         identifier = application.application_id,
@@ -422,6 +424,13 @@ impl IosHostGenerator {
             )
     }
 
+    const SCENE_MANIFEST: &str = "<key>UIApplicationSceneManifest</key><dict>\
+        <key>UIApplicationSupportsMultipleScenes</key><false/>\
+        <key>UISceneConfigurations</key><dict>\
+        <key>UIWindowSceneSessionRoleApplication</key><array><dict>\
+        <key>UISceneConfigurationName</key><string>Default Configuration</string>\
+        <key>UISceneDelegateClassName</key><string>TachyonSceneDelegate</string>\
+        </dict></array></dict></dict>";
     const APPLICATION_START: &str = "guard tacRustNativeApplicationStart() else { Telemetry.shared.record(\"application.start.failed\"); exit(EXIT_FAILURE) }";
     const APPLICATION_STOP: &str = "tacRustNativeApplicationShutdown()";
     const SWIFT_HOST: &str = r##"import Foundation
@@ -807,8 +816,6 @@ private final class RootViewController: UIViewController, WKNavigationDelegate, 
 
 @UIApplicationMain
 private final class AppDelegate: UIResponder, UIApplicationDelegate {
-    var window: UIWindow?
-
     func application(
         _ application: UIApplication,
         didFinishLaunchingWithOptions options: [UIApplication.LaunchOptionsKey: Any]? = nil
@@ -817,35 +824,23 @@ private final class AppDelegate: UIResponder, UIApplicationDelegate {
         IosFilePicker.shared.granted = __NATIVE_FILE_PICKER_GRANTED__
         __NATIVE_CAPABILITY_REGISTER__
         __NATIVE_APPLICATION_START__
-        let window = UIWindow(frame: UIScreen.main.bounds)
-        let root = RootViewController()
-        if let link = options?[.url] as? URL, let target = TacDeepLink.target(link.absoluteString) {
-            root.open(target)
-        }
-        window.rootViewController = root
-        window.makeKeyAndVisible()
-        self.window = window
         AppleApplicationState.shared.watch([
             UIApplication.didEnterBackgroundNotification: "background",
             UIApplication.willEnterForegroundNotification: "foreground",
+            UIScene.didEnterBackgroundNotification: "background",
+            UIScene.willEnterForegroundNotification: "foreground",
         ])
         return true
     }
 
-    func application(_ application: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
-        guard let target = TacDeepLink.target(url.absoluteString) else { return false }
-        (window?.rootViewController as? RootViewController)?.open(target)
-        return true
-    }
-
     func application(
-        _ application: UIApplication, continue activity: NSUserActivity,
-        restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void
-    ) -> Bool {
-        guard activity.activityType == NSUserActivityTypeBrowsingWeb, let url = activity.webpageURL,
-              let target = TacDeepLink.target(url.absoluteString) else { return false }
-        (window?.rootViewController as? RootViewController)?.open(target)
-        return true
+        _ application: UIApplication,
+        configurationForConnecting session: UISceneSession,
+        options: UIScene.ConnectionOptions
+    ) -> UISceneConfiguration {
+        let configuration = UISceneConfiguration(name: "Default Configuration", sessionRole: session.role)
+        configuration.delegateClass = TachyonSceneDelegate.self
+        return configuration
     }
 
     override func buildMenu(with builder: UIMenuBuilder) {
@@ -857,6 +852,48 @@ private final class AppDelegate: UIResponder, UIApplicationDelegate {
         tachyonDisposeCompanions()
         __NATIVE_APPLICATION_STOP__
         Telemetry.shared.record("controller.destroyed")
+    }
+}
+
+@objc(TachyonSceneDelegate)
+final class TachyonSceneDelegate: UIResponder, UIWindowSceneDelegate {
+    var window: UIWindow?
+    private var root: RootViewController?
+
+    func scene(
+        _ scene: UIScene, willConnectTo session: UISceneSession,
+        options connectionOptions: UIScene.ConnectionOptions
+    ) {
+        guard let windowScene = scene as? UIWindowScene else { return }
+        let window = UIWindow(windowScene: windowScene)
+        let root = RootViewController()
+        if let target = TachyonSceneDelegate.launchTarget(connectionOptions) {
+            root.open(target)
+        }
+        window.rootViewController = root
+        window.makeKeyAndVisible()
+        self.window = window
+        self.root = root
+    }
+
+    func scene(_ scene: UIScene, openURLContexts contexts: Set<UIOpenURLContext>) {
+        guard let url = contexts.first?.url, let target = TacDeepLink.target(url.absoluteString) else { return }
+        root?.open(target)
+    }
+
+    func scene(_ scene: UIScene, continue activity: NSUserActivity) {
+        guard let target = TachyonSceneDelegate.webTarget(activity) else { return }
+        root?.open(target)
+    }
+
+    private static func launchTarget(_ options: UIScene.ConnectionOptions) -> String? {
+        if let url = options.urlContexts.first?.url { return TacDeepLink.target(url.absoluteString) }
+        return options.userActivities.lazy.compactMap(webTarget).first
+    }
+
+    private static func webTarget(_ activity: NSUserActivity) -> String? {
+        guard activity.activityType == NSUserActivityTypeBrowsingWeb, let url = activity.webpageURL else { return nil }
+        return TacDeepLink.target(url.absoluteString)
     }
 }
 
@@ -962,6 +999,40 @@ mod tests {
             &IosDestination::SIMULATOR.plist_keys(""),
         );
         assert!(!plain.contains("CFBundleIcons"));
+    }
+
+    #[test]
+    fn plist_adopts_the_scene_life_cycle_with_one_window_scene() {
+        for keys in [
+            IosDestination::SIMULATOR.plist_keys(""),
+            IosDestination::DEVICE.plist_keys(""),
+        ] {
+            let plist = info_plist(&application(), &[], &keys);
+            assert!(plist.contains("<key>UIApplicationSceneManifest</key><dict>"));
+            assert!(plist.contains("<key>UIApplicationSupportsMultipleScenes</key><false/>"));
+            assert!(plist.contains(
+                "<key>UIWindowSceneSessionRoleApplication</key><array><dict><key>UISceneConfigurationName</key><string>Default Configuration</string><key>UISceneDelegateClassName</key><string>TachyonSceneDelegate</string></dict></array>"
+            ));
+        }
+    }
+
+    #[test]
+    fn the_scene_delegate_owns_the_window_and_the_application_delegate_names_it() {
+        let source = swift_source(&application(), "tacNativeInvoke(payload)", &index());
+        assert!(source.contains("@objc(TachyonSceneDelegate)\nfinal class TachyonSceneDelegate: UIResponder, UIWindowSceneDelegate {"));
+        assert!(source.contains("let window = UIWindow(windowScene: windowScene)"));
+        assert!(source.contains("configuration.delegateClass = TachyonSceneDelegate.self"));
+        assert!(source.contains(
+            "UISceneConfiguration(name: \"Default Configuration\", sessionRole: session.role)"
+        ));
+        assert!(source.contains("UIScene.didEnterBackgroundNotification: \"background\""));
+        assert!(!source.contains("UIScreen.main.bounds"));
+        let delegate = source
+            .split("private final class AppDelegate")
+            .nth(1)
+            .and_then(|rest| rest.split("final class TachyonSceneDelegate").next())
+            .unwrap_or_default();
+        assert!(!delegate.contains("UIWindow"), "{delegate}");
     }
 
     #[test]

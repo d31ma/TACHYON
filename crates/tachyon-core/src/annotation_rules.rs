@@ -356,6 +356,7 @@ impl AnnotationRules {
         "FromBody",
         "FromHeader",
         "FromCookie",
+        "FromIdentity",
     ];
     const REQUEST_PARTS: &'static [&'static str] = &[
         "PathVariable",
@@ -368,6 +369,7 @@ impl AnnotationRules {
     const HELPER_ADVICE: &'static str = "Tac Delegate supports JavaScript, TypeScript, Dart, compiled Rust, C++, Swift, the synchronous Python ownership adapter, Go Delegates owned by the service that needs or creates them, Ruby Delegates that their service creates on first use, Kotlin, Java, C# and F# Needs fields (each needing class makes its own Delegate), Lua Delegates that their service builds with itself, and caller-owned C#/F# composition with new. Ruby, Kotlin, Java, C#, F# and Lua Delegates have no OnStart, OnStop or OnEvent. A Swift Delegate is built by the field that needs it, so it has an init() without arguments. C# and F# Delegates have no NeedsAll or Lifetime. F# Delegates require an ordinary primary constructor, and their Needs properties name other Delegates or the page service that the Delegate takes on.";
     const RUBY_NEEDS_ADVICE: &'static str = "A Ruby NeedsAll class lists each field as `attr_reader :order_store` and writes no `initialize`; a Ruby class that needs default values writes a plain `initialize` and no NeedsAll";
 
+    #[allow(clippy::large_stack_arrays)]
     pub(crate) const ALL: &'static [Rule] = &[
         Rule::new(
             "Test",
@@ -823,6 +825,12 @@ impl AnnotationRules {
         .one_per_method(),
         Rule::route_parameter("FromHeader", "fills this argument from a request header"),
         Rule::route_parameter("FromCookie", "fills this argument from a cookie"),
+        Rule::route_parameter(
+            "FromIdentity",
+            "fills this argument with the identity of the signed-in caller, as the identity provider returned it",
+        )
+        .class_needs(&["RequestRoute"])
+        .one_per_method(),
         Rule::new(
             "HTTPClient",
             Self::TYPE,

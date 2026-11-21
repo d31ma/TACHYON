@@ -115,6 +115,7 @@ class TacWebApis {
     media: TacWebApis.media,
     codeScanner: TacWebApis.codeScanner,
     crypto: TacWebApis.crypto,
+    locks: TacWebApis.calls('locks', 'request release'),
     nativeCapability: Object.freeze({ call: (...values) => TacNativeCapabilities.now(...values) }),
     files: TacWebApis.calls('files', 'pick read release upload cancel'),
     blobs: TacWebApis.calls('blobs', 'saveHeld download list read remove url open close upload cancel'),

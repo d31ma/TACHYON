@@ -1,4 +1,5 @@
 use super::RouteAnswer;
+use crate::server::{BuiltInCase, IdentityMismatch};
 use crate::sorted_json::SortedJson;
 use axum::body::Body;
 use axum::http::header::CONTENT_TYPE;
@@ -12,6 +13,9 @@ pub(in crate::server) struct Rejection {
 }
 
 impl Rejection {
+    const IDENTITY_PART: &'static str = "identity";
+    const IDENTITY_MISMATCH: &'static str = "This route needs the identity of the signed-in caller, and that identity is missing or does not fit its model.";
+
     pub(super) fn new(part: &'static str, field: &str, message: &str) -> Self {
         Self {
             part,
@@ -20,8 +24,24 @@ impl Rejection {
         }
     }
 
-    pub(in crate::server) fn response(&self) -> Response<Body> {
-        RouteAnswer::json(StatusCode::BAD_REQUEST, &self.body(), None)
+    pub(super) fn identity_mismatch() -> Self {
+        Self::new(Self::IDENTITY_PART, "", Self::IDENTITY_MISMATCH)
+    }
+
+    pub(in crate::server) fn response(&self, route: &str) -> Response<Body> {
+        self.response_for(route)
+    }
+
+    fn response_for(&self, route: &str) -> Response<Body> {
+        if self.part == Self::IDENTITY_PART {
+            return IdentityMismatch::response(route);
+        }
+        self.bad_request()
+    }
+
+    fn bad_request(&self) -> Response<Body> {
+        let response = RouteAnswer::json(StatusCode::BAD_REQUEST, &self.body(), None);
+        BuiltInCase::request_rejected(self.part, &self.field, &self.message).tag(response)
     }
 
     pub(in crate::server) fn handler_response(&self, request_id: &str) -> HandlerResponse {

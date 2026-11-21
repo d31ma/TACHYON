@@ -3,6 +3,11 @@ interface Order {
   total: number;
 }
 
+interface Identity {
+  user: string;
+  roles: string[];
+}
+
 @RequestRoute('/orders')
 class OrdersController {
   @GetRoute
@@ -27,8 +32,8 @@ class OrdersController {
   }
 
   @PatchRoute('/{id}')
-  patchOrder(@FromPath id: string): Order {
-    return { id, total: 3 };
+  patchOrder(@FromPath id: string, @FromIdentity caller: Identity): Order {
+    return { id: `${id}-${caller.user}`, total: 3 };
   }
 
   @DeleteRoute('/{id}')

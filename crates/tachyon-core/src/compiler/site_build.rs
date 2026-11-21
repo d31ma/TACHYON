@@ -71,6 +71,7 @@ pub(super) struct SiteBuild<'a> {
     peers_tag: String,
     blobs_tag: String,
     app_budgets: Vec<(&'a Path, crate::routing::MountPath)>,
+    locks_tag: &'static str,
     phase_started: Instant,
     timings: Vec<(String, Duration)>,
     service_timings: Vec<(String, Duration)>,
@@ -134,6 +135,7 @@ impl<'a> SiteBuild<'a> {
             peers_tag: String::new(),
             blobs_tag: String::new(),
             app_budgets: Vec::new(),
+            locks_tag: "",
             phase_started,
             timings: Vec::new(),
             service_timings: Vec::new(),
@@ -169,6 +171,8 @@ impl<'a> SiteBuild<'a> {
         self.crypto_tag = PageModule::CRYPTO.tag(site);
         self.peers_tag = PagePeers::tag(site);
         self.service_notes.extend(PageModule::CRYPTO.note(site));
+        self.locks_tag = PageModule::LOCKS.tag(site);
+        self.service_notes.extend(PageModule::LOCKS.note(site));
         let dependency_digest = self.route_dependency_digest();
         let routes = Self::renderable_routes(self.project, programs);
         self.add_routes(routes, previous, site, &dependency_digest)
@@ -329,6 +333,7 @@ impl<'a> SiteBuild<'a> {
         self.add_crypto_file();
         self.add_peers_file();
         self.add_blobs_file();
+        self.add_locks_file();
         let version = ServiceWorker::version(&self.files, self.build_config_digest.as_deref());
         let python_profile =
             crate::tac_python::RuntimeProfile::for_files(self.snapshot_root, &self.files)?;
@@ -760,6 +765,7 @@ impl<'a> SiteBuild<'a> {
         html = PageHead::inject_before_runtime(&html, self.crypto_tag);
         html = PageHead::inject_before_runtime(&html, &self.peers_tag);
         html = PageHead::inject_before_runtime(&html, &self.blobs_tag);
+        html = PageHead::inject_before_runtime(&html, self.locks_tag);
         html = PageHead::inject_before(&html, "</body>", self.service_worker_link());
         self.project.mount().document(&html)
     }
@@ -829,6 +835,12 @@ impl<'a> SiteBuild<'a> {
         if self.code_scanner {
             self.add_file(PageCodeScanner::PATH, PageCodeScanner::script());
             self.add_file(PageCodeScanner::DECODER_PATH, PageCodeScanner::decoder());
+        }
+    }
+
+    fn add_locks_file(&mut self) {
+        if !self.locks_tag.is_empty() {
+            self.add_file(PageModule::LOCKS.path, PageModule::LOCKS.script());
         }
     }
 

@@ -122,6 +122,10 @@ impl<'a> CppYonRoute<'a> {
         self.member
     }
 
+    pub(crate) fn marker_name(&self) -> &str {
+        &self.marker.name
+    }
+
     fn check_static(&self) -> Result<(), Failure> {
         let message = format!(
             "{} is static, but a C++ route method is an instance method: Tachyon makes one controller object for each request. Remove static",

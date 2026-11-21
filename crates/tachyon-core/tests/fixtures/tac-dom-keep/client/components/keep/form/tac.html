@@ -1,0 +1,15 @@
+<section class="form">
+  <button id="hint-bump" on:click="hint.bump()">Next hint</button>
+  <output id="hint-turn">{hint.turn}</output>
+  <field-box id="field" :hint="hint.text">
+    <input id="field-input" aria-label="Name" />
+    <select id="field-select" aria-label="Fruit">
+      <option>Apple</option>
+      <option>Banana</option>
+      <option>Cherry</option>
+    </select>
+  </field-box>
+  <field-repaint id="repaint" :hint="hint.text"></field-repaint>
+  <field-rebuild id="rebuild" :hint="hint.text"><input id="rebuild-input" aria-label="Rebuilt" /></field-rebuild>
+  <input id="elsewhere" aria-label="Elsewhere" />
+</section>

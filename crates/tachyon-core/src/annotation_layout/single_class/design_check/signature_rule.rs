@@ -50,7 +50,7 @@ impl SignatureRule {
             Self::MOST_PARAMETERS
         );
         let help = format!(
-            "Group the values that belong together into a model (a class in {}/models) and take that model as one parameter. Parameters that Tachyon fills from the request (`FromPath`, `FromQuery`, `FromBody`, `FromHeader` and `FromCookie`) do not count.",
+            "Group the values that belong together into a model (a class in {}/models) and take that model as one parameter. Parameters that Tachyon fills from the request (`FromPath`, `FromQuery`, `FromBody`, `FromHeader`, `FromCookie` and `FromIdentity`) do not count.",
             class.realm
         );
         (count > Self::MOST_PARAMETERS)

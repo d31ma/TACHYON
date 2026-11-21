@@ -10,6 +10,7 @@ mod javascript;
 mod kotlin;
 mod php;
 mod python;
+mod root_error_type;
 mod ruby;
 pub(crate) mod rust;
 

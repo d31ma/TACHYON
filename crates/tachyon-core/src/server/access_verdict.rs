@@ -1,4 +1,5 @@
-use super::{IdentityAnswer, ServerResponse};
+use super::{BuiltInCase, IdentityAnswer, ServerResponse};
+use crate::yon::built_in_error::BuiltInError;
 use crate::yon::route_access::RouteAccess;
 use axum::body::Body;
 use axum::http::{Response, StatusCode};
@@ -25,12 +26,29 @@ impl AccessVerdict {
 
     pub(in crate::server) fn response(self) -> Option<Response<Body>> {
         let (status, message) = self.status_and_message()?;
-        Some(ServerResponse::text(status, message))
+        let response = ServerResponse::text(status, message);
+        Some(Self::tagged(self.built_in_error(), response))
+    }
+
+    fn tagged(error: Option<BuiltInError>, response: Response<Body>) -> Response<Body> {
+        match error {
+            Some(error) => BuiltInCase::plain(error).tag(response),
+            None => response,
+        }
+    }
+
+    const fn built_in_error(self) -> Option<BuiltInError> {
+        match self {
+            Self::NotSignedIn => Some(BuiltInError::NOT_SIGNED_IN),
+            Self::WrongRole => Some(BuiltInError::ROLE_MISSING),
+            Self::Failed => Some(BuiltInError::IDENTITY_CHECK_FAILED),
+            Self::Allowed | Self::NoRule => None,
+        }
     }
 
     fn held_roles(answer: &IdentityAnswer) -> &[String] {
         match answer {
-            IdentityAnswer::Roles(roles) => roles,
+            IdentityAnswer::SignedIn { roles, .. } => roles,
             _ => &[],
         }
     }
@@ -40,7 +58,7 @@ impl AccessVerdict {
             (RouteAccess::Public, _) => Self::Allowed,
             (RouteAccess::Missing, _) => Self::NoRule,
             (_, IdentityAnswer::Failed) => Self::Failed,
-            (_, IdentityAnswer::Roles(_)) => Self::for_roles(access.roles(), held, access),
+            (_, IdentityAnswer::SignedIn { .. }) => Self::for_roles(access.roles(), held, access),
             _ => Self::NotSignedIn,
         }
     }

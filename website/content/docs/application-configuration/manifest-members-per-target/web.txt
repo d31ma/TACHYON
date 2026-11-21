@@ -159,6 +159,9 @@ tac.browserApis peers
 tac.peers
   honored: the build checks each STUN and TURN URL and its host against tac.outgoing.hosts, and the page passes only these servers to RTCPeerConnection; relayOnly sends all traffic through the TURN relay (ADR 0140)
 
+tac.browserApis locks
+  honored: navigator.locks.request in a secure page: the tab holds the lock until it calls release or closes, under the name tachyon:<name> (ADR 0141); a page without Web Locks (plain http) gets every lock at once; checked with two tabs in Chromium, Firefox and WebKit (scripts/tabs-browser-test.mjs)
+
 tac.browserApis persistentStorage
   honored: navigator.storage.persist(), persisted() and estimate() in a secure page (ADR 0123); an insecure page answers quota 0 and persisted false; Firefox asks the user, Chromium decides by itself, Safari 15.2 and later
 
