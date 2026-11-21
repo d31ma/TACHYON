@@ -33,6 +33,17 @@ machine contracts have their own, independent major versions.
   `bun run test:tabs-browser` checks two tabs in Chromium, Firefox and
   WebKit.
 - **A page app deployed apart from the shell renders inside it** (ADR 0147,
+- **One worker for page apps deployed apart** (ADR 0139 amendment, step 2
+  of micro-frontends, slice 5). A page app built alone with `tac.mount`
+  writes `<prefix>/.tachyon/app.json`, its asset table. The shell's service
+  worker reads each app's table and keeps that app's files in a cache of its
+  own, so the app works offline, and a new deploy of one app replaces only
+  that app's cache and reloads no open page. `ty start` and `ty preview`
+  treat the files in an app's table as public. A page app built with
+  another TACHYON version than the shell renders alone, and a link to it
+  loads the whole page.
+  `bun run test:service-worker-browser` and `bun run test:page-apps-browser`
+  check the separate deploy.
   step 2 of micro-frontends, slice 4c). A shell with `tac.layout` also writes
   its plan to `/.tachyon/shell.json` (also with `ty bundle --shell-only`). A
   page app built alone, outside `/`, reads that file at start-up, adds the

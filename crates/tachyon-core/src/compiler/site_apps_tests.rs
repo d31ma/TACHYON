@@ -146,6 +146,18 @@ fn the_bundle_lists_the_page_apps() {
 }
 
 #[test]
+fn an_app_asset_table_is_not_copied_into_the_bundle() {
+    let root = SiteFixture::bundle();
+    assert!(!SiteFixture::output(&root, "chat/.tachyon/app.json").exists());
+}
+
+#[test]
+fn the_shell_writes_no_asset_table_of_its_own() {
+    let root = SiteFixture::shell_only();
+    assert!(!SiteFixture::output(&root, ".tachyon/app.json").exists());
+}
+
+#[test]
 fn an_app_route_manifest_is_not_copied_into_the_bundle() {
     let root = SiteFixture::bundle();
     assert!(!SiteFixture::output(&root, "chat/route-manifest.json").exists());

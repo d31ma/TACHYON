@@ -216,6 +216,16 @@ fn the_shell_file_names_no_styles_without_component_styles() {
 }
 
 #[test]
+fn the_shell_file_names_the_tachyon_version() {
+    let root = LayoutFixture::create(LayoutFixture::MANIFEST, LayoutFixture::LAYOUT);
+    let (_, file) = ShellFileFixture::built(root.path());
+    assert_eq!(
+        ShellFileFixture::plan(&file)["tachyon"],
+        serde_json::json!(env!("CARGO_PKG_VERSION"))
+    );
+}
+
+#[test]
 fn the_shell_file_names_the_component_styles() {
     let root = LayoutFixture::create(LayoutFixture::MANIFEST, LayoutFixture::LAYOUT);
     LayoutFixture::write(

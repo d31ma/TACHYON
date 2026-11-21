@@ -220,3 +220,30 @@ fn the_root_mount_keeps_runtime_files_in_place() {
         vec![PathBuf::from(".tachyon/tac-client.js")]
     );
 }
+
+#[test]
+fn an_app_file_is_served_under_the_prefix() {
+    assert_eq!(
+        chat().app_file(std::path::Path::new(".tachyon/tac-client.js")),
+        Some(PathBuf::from("chat/.tachyon/tac-client.js"))
+    );
+}
+
+#[test]
+fn a_deploy_file_is_not_an_app_file() {
+    assert_eq!(
+        chat().app_file(std::path::Path::new("route-manifest.json")),
+        None
+    );
+}
+
+#[test]
+fn an_origin_file_is_not_an_app_file() {
+    assert_eq!(chat().app_file(std::path::Path::new("tachyon-sw.js")), None);
+}
+
+#[test]
+fn the_bundle_leaves_out_the_app_asset_table() {
+    let bundled = chat().bundled(vec![file(".tachyon/app.json")]);
+    assert!(bundled.is_empty(), "{bundled:?}");
+}
