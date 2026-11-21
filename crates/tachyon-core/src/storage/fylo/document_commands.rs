@@ -16,6 +16,7 @@ impl<'store> DocumentCommands<'store> {
     const MAX_FIELDS: usize = 64;
     const DOCUMENT_KEYS: [&'static str; 5] = ["operation", "command", "collection", "id", "value"];
     const COLLECTION_KEYS: [&'static str; 3] = ["operation", "command", "collection"];
+    const EXISTS_PROBE_LIMIT: u64 = 1;
 
     pub(super) fn new(store: &'store FyloStore) -> Self {
         Self { store }
@@ -153,13 +154,16 @@ impl<'store> DocumentCommands<'store> {
     }
 
     async fn collection_exists(&self, command: &Value) -> Result<Value, Failure> {
-        let answer = self
-            .store
-            .call("inspectCollection", Self::collection_request(command)?)
-            .await;
+        let mut request = Self::collection_request(command)?;
+        request["query"] = json!({ "$limit": Self::EXISTS_PROBE_LIMIT });
+        let answer = self.store.call("findDocs", request).await;
+        Self::exists_answer(answer)
+    }
+
+    fn exists_answer(answer: Result<Value, FyloError>) -> Result<Value, Failure> {
         answer.map_or_else(
-            |error| Self::answer_when_absent(error.collection_missing(), error, json!(false)),
-            |inspected| Ok(json!(inspected["exists"] == json!(true))),
+            |error| Self::answer_when_absent(error.read_found_no_collection(), error, json!(false)),
+            |_found| Ok(json!(true)),
         )
     }
 
@@ -258,5 +262,49 @@ impl<'store> DocumentCommands<'store> {
             );
         }
         error.into_failure()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::DocumentCommands;
+    use crate::storage::fylo::FyloError;
+
+    fn failed(code: &str) -> Result<serde_json::Value, FyloError> {
+        Err(FyloError {
+            code: code.to_owned(),
+        })
+    }
+
+    #[test]
+    fn a_found_collection_exists_even_when_it_is_empty() {
+        let empty = DocumentCommands::exists_answer(Ok(json!({})));
+        assert_eq!(empty.ok(), Some(json!(true)));
+        let filled = DocumentCommands::exists_answer(Ok(json!({"4WRRLEK8KPM": {"n": 1}})));
+        assert_eq!(filled.ok(), Some(json!(true)));
+    }
+
+    #[test]
+    fn only_enative_not_found_means_the_collection_does_not_exist() {
+        let missing = DocumentCommands::exists_answer(failed("ENATIVE_NOT_FOUND"));
+        assert_eq!(missing.ok(), Some(json!(false)));
+    }
+
+    #[test]
+    fn every_other_error_fails_the_call() {
+        for code in [
+            "ENOTFOUND",
+            "ECOLLECTION_NOT_FOUND",
+            "ENATIVE_UNSAFE_PATH",
+            "EROOTLOCKED",
+            "EPROTOCOL",
+        ] {
+            assert!(
+                DocumentCommands::exists_answer(failed(code)).is_err(),
+                "{code}"
+            );
+        }
     }
 }

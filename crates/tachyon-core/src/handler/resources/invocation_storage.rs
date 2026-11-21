@@ -181,7 +181,7 @@ mod tests {
                 .expect_err("held root")
                 .to_string();
             assert!(
-                failure.contains("deadline exceeded during FYLO inspectCollection"),
+                failure.contains("deadline exceeded during FYLO findDocs"),
                 "{failure}"
             );
         }

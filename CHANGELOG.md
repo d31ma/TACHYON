@@ -59,7 +59,7 @@ machine contracts have their own, independent major versions.
   folder to the app's build, as if they were its own. A folder with pages or
   server code, a folder inside the project, or a file that the app already
   has stops the build (`TY1601`).
-- **Slow store calls are logged** (ADR 0128, amendment 3). A storage command
+- **Slow store calls are logged** (ADR 0128, amendment 4). A storage command
   of a Yon handler that takes 1 second or more writes one
   `handler.storage_slow` JSON line to the standard error of `ty`, with the
   request id, datasource, operation, collection, `wait_ms` (waiting for the
@@ -705,8 +705,12 @@ machine contracts have their own, independent major versions.
   guard's error, so the route answered that method's status instead of 422.
   Now the 422 follows, and a `CheckRejected` method can shape it. A method
   that names the guard's own error type still takes it.
+- **`dataSource.collectionExists(name)` no longer reads the whole collection**
+  (ADR 0128, amendment 4). On FYLO it sends `findDocs` with `$limit` 1
+  instead of `inspectCollection`, which read every document: on 700
+  documents, 3 files instead of 704. The answers are the same.
 - **The store deadline of a handler answer is now a store-time budget**
-  (ADR 0128, amendment 3). Only the time while at least one store call of
+  (ADR 0128, amendment 4). Only the time while at least one store call of
   the answer runs counts against `timeout`; time outside store calls, such
   as outbound HTTP, no longer uses it up. A stalled call still fails the
   whole answer after about one `timeout`. Deadlines only get longer in
