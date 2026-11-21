@@ -10,6 +10,13 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- **`server.workers` turns off scheduled workers** (ADR 0144, TAC-WK1).
+  `"server": {"workers": false}` in an application profile stops `ty start`
+  from running the workers under `server/workers` (`@Schedule` and
+  `.tachyonrc.workers`), for a host such as AWS Lambda whose own scheduler
+  calls the routes, so the work no longer runs twice. `true` unless set; any
+  other value stops the server with `TY2010`. The server prints one line on
+  standard error when the workers are off.
 - **Tabs share Store and state changes, and take locks** (ADR 0141). After a
   Store write reaches IndexedDB, the other tabs of the origin read the written
   rows again (eager tables and loaded partitions) and their services hear the
