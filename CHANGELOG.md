@@ -146,6 +146,22 @@ machine contracts have their own, independent major versions.
   Where a native host answers Crypto, `Media.useFrameKey` and
   `Media.encryptFrames(connection, true)` answer `unsupported` until the
   hosts hand SFrame its frame keys.
+- **Module APIs list their own calls** (ADR 0134 amendment). `tac-web.js`
+  forwards `files`, `blobs`, `peers` and `media` calls to their modules,
+  which each export a `calls` list; only listed names reach a module, and an
+  unknown name answers "<module> has no call '<name>'." at once. Prototype
+  names, `then` and Symbol keys are never forwarded. The runtime every page
+  loads drops about 120 bytes of method names.
+- **Calls send and receive audio and video on Peers connections** (ADR 0129,
+  slice M2). `Media.send(connection, track, stream, simulcast)` sends a local
+  track on a `Peers` connection (simulcast sends a camera in three layers),
+  `replace` swaps it without a new offer and `unsend` stops it. Remote tracks
+  arrive as `MediaTrackArrived` named `<connection>.<mid>`: audio plays at
+  once on the chosen speaker and `media-view` shows video. `stats` answers
+  one `MediaStats` per track and layer, and `speaking(true)` sends
+  `MediaSpeaking` and `MediaLoudest` from audio levels, without a stream of
+  levels. `resumeAudio` restarts remote audio that the browser blocked
+  (`MediaAudioBlocked`). Seven new events in every service language.
 - **Calls keep their audio on phones** (ADR 0129, slice M4). The manifest
   object `tac.media` has `background` and `callNotice`: iOS apps get the
   `audio` background mode, Android apps a foreground call service with its

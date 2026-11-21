@@ -3313,3 +3313,95 @@ mod locks_lua_tests;
 
 #[path = "locks_cpp_tests.rs"]
 mod locks_cpp_tests;
+
+#[test]
+fn a_module_api_forwards_only_the_calls_its_module_lists() {
+    const MODULE_DRIVER: &str = r#"const reached = []
+const grants = { content: 'microphone' }
+globalThis.document = { visibilityState: 'visible', addEventListener: () => {}, querySelector: (selector) => selector === 'meta[name="tachyon-browser-apis"]' ? grants : null }
+const activation = { isActive: false }
+Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { onLine: true, language: 'en', userActivation: activation } })
+globalThis[Symbol.for('tachyon.tac.media')] = Object.freeze({
+  supported: (feature) => feature === 'capture',
+  grant: () => 'microphone',
+  calls: Object.freeze(['devices', 'captureScreen']),
+  devices: (reply, request) => { reached.push(['devices', request]); return null },
+  captureScreen: (reply, track) => { reached.push(['captureScreen', track]); return null },
+  strat: () => { reached.push(['strat']); return null },
+})
+;(0, eval)(await readFile('./tac-web.js', 'utf8'))
+const web = globalThis[Symbol.for('tachyon.tac.web')]
+const ask = (api, call, args) => JSON.parse(web.host(JSON.stringify({ api, call, args })))
+const attempt = (work) => { try { work(); return 'ok' } catch (error) { return error.message } }
+const report = {}
+report.unknown = ask('media', 'strat').error
+report.unknownDirect = attempt(() => web.media.strat())
+report.prototype = ['constructor', '__proto__', 'toString', 'valueOf', 'hasOwnProperty', 'then'].map((call) => ask('media', call).error)
+report.direct = [typeof web.media.then, typeof web.media[Symbol.iterator], typeof web.media[Symbol.toPrimitive], String(web.media), web.media.constructor === Object]
+report.awaited = await Promise.race([Promise.resolve(web.media).then((value) => value === web.media), new Promise((resolve) => setTimeout(() => resolve('hung'), 1000))])
+report.real = ask('media', 'devices', ['r1'])
+report.supported = [ask('media', 'supported', ['capture']).value, ask('media', 'supported', ['nothing']).value]
+report.noGesture = ask('media', 'captureScreen', ['screen']).error
+activation.isActive = true
+report.gesture = ask('media', 'captureScreen', ['screen'])
+grants.content = ''
+report.notGranted = ask('media', 'devices', ['r2']).error
+report.reached = reached
+console.log(JSON.stringify(report))
+"#;
+    if !WebApis::node_available() {
+        eprintln!("skipping: node is unavailable");
+        return;
+    }
+    let root = tempfile::tempdir().expect("root");
+    let report = WebApis::run(root.path(), MODULE_DRIVER);
+    assert_eq!(report["unknown"], "media has no call 'strat'.", "{report}");
+    assert_eq!(report["unknownDirect"], "media has no call 'strat'.");
+    let not_a_call = |call: &str| format!("Tachyon has no browser call named 'media.{call}'.");
+    assert_eq!(
+        report["prototype"],
+        serde_json::json!(
+            [
+                "constructor",
+                "__proto__",
+                "toString",
+                "valueOf",
+                "hasOwnProperty",
+                "then"
+            ]
+            .map(not_a_call)
+        ),
+        "prototype names and then never reach the module"
+    );
+    assert_eq!(
+        report["direct"],
+        serde_json::json!([
+            "undefined",
+            "undefined",
+            "undefined",
+            "[object Object]",
+            true
+        ]),
+        "the forwarder is not a promise and has no Symbol members"
+    );
+    assert_eq!(
+        report["awaited"], true,
+        "await on the forwarder resolves at once"
+    );
+    assert_eq!(report["real"], serde_json::json!({"value": null}));
+    assert_eq!(report["supported"], serde_json::json!([true, false]));
+    assert_eq!(
+        report["noGesture"],
+        "The microphone browser API needs a user action. Call it from a click or key handler."
+    );
+    assert_eq!(report["gesture"], serde_json::json!({"value": null}));
+    assert_eq!(
+        report["notGranted"],
+        "The microphone browser API is not granted. Add \"microphone\" to tac.browserApis in client/manifest.json."
+    );
+    assert_eq!(
+        report["reached"],
+        serde_json::json!([["devices", "r1"], ["captureScreen", "screen"]]),
+        "only listed calls reach the module"
+    );
+}

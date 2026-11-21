@@ -48,4 +48,28 @@ class Media {
     fun callActive(on: Boolean, title: String) {
         TacWebHost.call("media", "callActive", listOf(on, title))
     }
+
+    fun send(connection: String, track: String, stream: String, simulcast: Boolean) {
+        TacWebHost.call("media", "send", listOf(connection, track, stream, simulcast))
+    }
+
+    fun replace(connection: String, track: String, withTrack: String) {
+        TacWebHost.call("media", "replace", listOf(connection, track, withTrack))
+    }
+
+    fun unsend(connection: String, track: String) {
+        TacWebHost.call("media", "unsend", listOf(connection, track))
+    }
+
+    fun stats(request: String, connection: String) {
+        TacWebHost.call("media", "stats", listOf(request, connection))
+    }
+
+    fun speaking(on: Boolean) {
+        TacWebHost.call("media", "speaking", listOf(on))
+    }
+
+    fun resumeAudio() {
+        TacWebHost.call("media", "resumeAudio")
+    }
 }

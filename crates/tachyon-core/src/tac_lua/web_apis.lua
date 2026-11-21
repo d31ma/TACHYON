@@ -274,6 +274,30 @@ function Media:call_active(on, title)
   TacWebHost.call("media", "callActive", { on, title })
 end
 
+function Media:send(connection, track, stream, simulcast)
+  TacWebHost.call("media", "send", { connection, track, stream, simulcast })
+end
+
+function Media:replace(connection, track, with_track)
+  TacWebHost.call("media", "replace", { connection, track, with_track })
+end
+
+function Media:unsend(connection, track)
+  TacWebHost.call("media", "unsend", { connection, track })
+end
+
+function Media:stats(request, connection)
+  TacWebHost.call("media", "stats", { request, connection })
+end
+
+function Media:speaking(on)
+  TacWebHost.call("media", "speaking", { on })
+end
+
+function Media:resume_audio()
+  TacWebHost.call("media", "resumeAudio")
+end
+
 CodeScanner = {}
 
 function CodeScanner:supported()

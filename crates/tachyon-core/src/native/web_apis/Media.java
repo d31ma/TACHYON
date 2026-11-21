@@ -52,4 +52,28 @@ final class Media {
     void callActive(boolean on, String title) {
         TacWebHost.call(API, "callActive", on, title);
     }
+
+    void send(String connection, String track, String stream, boolean simulcast) {
+        TacWebHost.call(API, "send", connection, track, stream, simulcast);
+    }
+
+    void replace(String connection, String track, String withTrack) {
+        TacWebHost.call(API, "replace", connection, track, withTrack);
+    }
+
+    void unsend(String connection, String track) {
+        TacWebHost.call(API, "unsend", connection, track);
+    }
+
+    void stats(String request, String connection) {
+        TacWebHost.call(API, "stats", request, connection);
+    }
+
+    void speaking(boolean on) {
+        TacWebHost.call(API, "speaking", on);
+    }
+
+    void resumeAudio() {
+        TacWebHost.call(API, "resumeAudio");
+    }
 }
