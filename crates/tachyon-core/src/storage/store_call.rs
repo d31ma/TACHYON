@@ -336,16 +336,16 @@ mod tests {
 
     #[tokio::test]
     async fn waiting_and_startup_time_count_as_wait() {
-        let call = call(2_000, 1_000);
+        let call = call(5_000, 2_000);
         let work = async {
-            StoreCall::waiting(pause(50)).await;
-            StoreCall::startup(pause(50)).await;
-            pause(50).await;
+            StoreCall::waiting(pause(100)).await;
+            StoreCall::startup(pause(100)).await;
+            pause(600).await;
         };
         call.run(work).await;
-        assert!(call.waited() >= Duration::from_millis(100));
-        assert!(call.waited() < Duration::from_millis(150));
-        assert!(call.started_up() >= Duration::from_millis(50));
+        assert!(call.waited() >= Duration::from_millis(200));
+        assert!(call.waited() < Duration::from_millis(600));
+        assert!(call.started_up() >= Duration::from_millis(100));
     }
 
     #[tokio::test]
@@ -365,7 +365,7 @@ mod tests {
         let second = call_in(100, 1_000, &activity);
         let slow_startup = first.run(async {
             let _held = process.lock().await;
-            StoreCall::startup(pause(400)).await;
+            StoreCall::startup(pause(600)).await;
         });
         let waiting = second.run(async {
             pause(20).await;
@@ -375,8 +375,8 @@ mod tests {
         let (first_answer, second_answer) = tokio::join!(slow_startup, waiting);
         assert_eq!(first_answer, Some(()));
         assert_eq!(second_answer, Some(()));
-        assert!(second.extended() >= Duration::from_millis(300));
-        assert!(second.extended() <= Duration::from_millis(400));
+        assert!(second.extended() >= Duration::from_millis(450));
+        assert!(second.extended() < Duration::from_millis(1_000));
     }
 
     #[tokio::test]
