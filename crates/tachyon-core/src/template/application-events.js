@@ -1,4 +1,5 @@
 class TacApplicationEvents {
+  static mostBytes = 393216
   constructor({ changed, failed, calling = (owner, work) => work(), announced = () => {} }) {
     this.changed = changed
     this.failed = failed
@@ -79,7 +80,7 @@ class TacApplicationEvents {
     return JSON.parse(encoded)
   }
 
-  fitsSize(size) { if (size > 65536) throw new RangeError('Application event exceeds 64 KiB.') }
+  fitsSize(size) { if (size > TacApplicationEvents.mostBytes) throw new RangeError(`Application event exceeds ${TacApplicationEvents.mostBytes} bytes; send less data in one event.`) }
 
   fitsStructure(exceeded) { if (exceeded) throw new RangeError('Application event structure exceeds its limit.') }
 

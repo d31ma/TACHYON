@@ -732,6 +732,21 @@ machine contracts have their own, independent major versions.
   practice, so this is not a breaking change. The `TY2160` deadline messages
   now say "the store-time budget is spent".
 
+- **Service calls and Tac socket messages may now be up to 384 KiB (was 64
+  KiB)** (ADR 0060 and ADR 0140 amendments, slice P1c). Every Tac service
+  language takes a call or event of at most 393,216 bytes and sends a socket
+  message of at most 393,216 bytes; Yon accepts a socket message of the same
+  size and still closes with 1009 above it. The 1 MiB start-up limit is
+  unchanged. C++ and Python now refuse an oversized call with the same text
+  as the other languages, naming the member and the limit.
+- **Application events and streams may now be up to 384 KiB (was 64 KiB)**
+  (ADR 0028 amendment). Over the limit the page writes the refusal to the
+  console once instead of dropping the event without a word.
+- **Peers descriptions may now be up to 256 KiB (was 64 KiB)** (ADR 0140
+  amendment), for calls with many tracks on one connection; candidates stay
+  at 64 KiB. A larger description is refused on both sides with a message that
+  names the limit.
+
 - Go services may use the plain error check `if err != nil { return ..., err }`
   (or a `%w` wrap with `fmt.Errorf`) in a public method without `TY1314`, as
   Rust's `?` is allowed (ADR 0063, ADR 0119).

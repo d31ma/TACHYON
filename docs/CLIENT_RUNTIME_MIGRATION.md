@@ -268,7 +268,7 @@ Publishing:
 Listening:
 
 - Each listener receives one isolated, finite JSON value. The value is limited
-  to 64 KiB.
+  to 393,216 bytes (384 KiB).
 - Listeners run in `@Order` order.
 - An optional compiled `condition` filters the events a listener receives.
 - Retention and replay are false by default.

@@ -395,7 +395,7 @@ impl SocketSession {
     ) -> Result<Message, CloseFrame> {
         match received {
             Some(Ok(message)) => Ok(message),
-            Some(Err(_)) => Err(Self::close(1009, "The message is larger than 64 KiB.")),
+            Some(Err(_)) => Err(Self::close(1009, &Self::too_large())),
             None => Err(Self::close(1000, "")),
         }
     }
@@ -417,9 +417,13 @@ impl SocketSession {
         Ok(text)
     }
 
+    fn too_large() -> String {
+        format!("The message is larger than {} bytes.", Self::MAX_MESSAGE_BYTES)
+    }
+
     fn check_message_size(text: &str) -> Result<(), CloseFrame> {
         if text.len() > Self::MAX_MESSAGE_BYTES {
-            return Err(Self::close(1009, "The message is larger than 64 KiB."));
+            return Err(Self::close(1009, &Self::too_large()));
         }
         Ok(())
     }
@@ -497,6 +501,15 @@ mod tests {
         }
         let origins = AppOrigins::parse(listed).expect("origins");
         SocketSession::allows_origin(&headers, &origins)
+    }
+
+    #[test]
+    fn a_browser_message_may_be_384_kib_and_one_byte_more_closes_with_1009() {
+        assert!(SocketSession::check_message_size(&"x".repeat(393_216)).is_ok());
+        let closed = SocketSession::check_message_size(&"x".repeat(393_217))
+            .expect_err("one byte over the limit");
+        assert_eq!(closed.code, 1009);
+        assert_eq!(closed.reason.as_str(), "The message is larger than 393216 bytes.");
     }
 
     #[test]

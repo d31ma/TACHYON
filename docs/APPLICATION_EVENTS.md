@@ -320,7 +320,9 @@ arguments.
 - Methods, resources and listeners add no role suffix of their own. The class
   that holds them still follows its realm's shared role folder (ADR 0031).
 
-Payloads must be finite JSON data, at most 64 KiB. Each listener receives its
+Payloads must be finite JSON data, at most 393,216 bytes (384 KiB; 64 KiB before
+2026-11-21, ADR 0028 amendment). Over the limit the page writes the refusal
+to the console once and does not deliver the event. Each listener receives its
 own independent copy. A failed listener does not undo a successful application
 operation. Do not use events as transaction-commit notifications.
 
