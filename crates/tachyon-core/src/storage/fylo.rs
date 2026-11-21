@@ -279,13 +279,17 @@ impl FyloStore {
         let parameters = Self::sql_parameters(command)?;
         let bound = SqlStatement::bound(sql, parameters.len())?;
         let answer = self
-            .call(
-                "executeSQL",
-                json!({ "sql": bound, "parameters": parameters }),
-            )
+            .call("executeSQL", Self::sql_request(&bound, parameters))
             .await
             .map_err(FyloError::into_failure)?;
         Self::sql_answer(text(command, "mode")?, answer)
+    }
+
+    fn sql_request(sql: &str, parameters: &[Value]) -> Value {
+        if parameters.is_empty() {
+            return json!({ "sql": sql });
+        }
+        json!({ "sql": sql, "parameters": parameters })
     }
 
     fn sql_parameters(command: &Value) -> Result<&Vec<Value>, Failure> {
@@ -555,4 +559,27 @@ fn document_id(value: &Value) -> Result<&str, Failure> {
             !id.is_empty() && id.len() <= 64 && id.bytes().all(|byte| byte.is_ascii_alphanumeric())
         })
         .ok_or_else(|| failure("FYLO identifiers are the TTIDs it assigns."))
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::FyloStore;
+
+    #[test]
+    fn a_statement_without_parameters_sends_no_parameters_field() {
+        let request = FyloStore::sql_request("SELECT * FROM products", &[]);
+        assert_eq!(request, json!({"sql": "SELECT * FROM products"}));
+    }
+
+    #[test]
+    fn a_statement_with_parameters_sends_them_as_a_list() {
+        let request =
+            FyloStore::sql_request("SELECT * FROM products WHERE name = ?1", &[json!("rope")]);
+        assert_eq!(
+            request,
+            json!({"sql": "SELECT * FROM products WHERE name = ?1", "parameters": ["rope"]})
+        );
+    }
 }
