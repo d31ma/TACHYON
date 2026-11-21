@@ -11,6 +11,9 @@ class TransportTest {
   static token = 'a'.repeat(64);
   static failure = 'Yon managed resource operation failed.';
   static payload = JSON.stringify({ method: 'GET' });
+  static shortDeadlinePayload = JSON.stringify({ method: 'GET', deadline_ms: 3_000 });
+  static longDeadlinePayload = JSON.stringify({ method: 'GET', deadline_ms: 20_000 });
+  static slowAnswerMilliseconds = 5_500;
   static privateValue = 'test-only-private-value';
   static gatewayPayload = JSON.stringify({ method: 'POST', deadline_ms: 10_000 });
   static expiredGatewayPayload = JSON.stringify({ method: 'POST', deadline_ms: 0 });
@@ -190,11 +193,21 @@ async function checkRedirectNotFollowed(invoke, validBody) {
   return 2;
 }
 
-async function checkStalledBody(invoke) {
+async function checkStalledBody(invokeWith) {
   await peer(socket => socket.write('HTTP/1.1 200 OK\r\nContent-Length: 10\r\n\r\n'), async endpoint => {
     const started = Date.now();
-    assert.deepEqual(await invoke(endpoint), { error: TransportTest.failure });
-    assert.ok(Date.now() - started < 8500, 'A stalled body must respect the five-second transport deadline');
+    assert.deepEqual(await invokeWith(endpoint, TransportTest.shortDeadlinePayload), { error: TransportTest.failure });
+    assert.ok(Date.now() - started < 6500, 'A stalled body must stop at the invocation deadline plus the answer margin');
+  });
+  return 2;
+}
+
+async function checkSlowAnswer(invokeWith, body) {
+  const late = socket => setTimeout(() => socket.end(TransportTest.answer(body)), TransportTest.slowAnswerMilliseconds);
+  await peer(late, async endpoint => {
+    const started = Date.now();
+    assert.deepEqual(await invokeWith(endpoint, TransportTest.longDeadlinePayload), JSON.parse(body));
+    assert.ok(Date.now() - started >= TransportTest.slowAnswerMilliseconds, 'The answer came late');
   });
   return 2;
 }
@@ -280,7 +293,7 @@ async function checkLongHead(invoke) {
 async function checkExtension(root, extension) {
   const [program, args] = await prepare(root, extension);
   const invokeWith = async (endpoint, input) => {
-    const envelope = JSON.parse(await run(program, args, { cwd: root, endpoint, input, timeout: 15_000 }));
+    const envelope = JSON.parse(await run(program, args, { cwd: root, endpoint, input, timeout: 25_000 }));
     return JSON.parse(envelope.body);
   };
   const invoke = endpoint => invokeWith(endpoint, TransportTest.payload);
@@ -289,7 +302,8 @@ async function checkExtension(root, extension) {
   assertions += await checkValidResponse(invoke, validBody);
   assertions += await checkRejectedEndpoints(invoke);
   assertions += await checkRedirectNotFollowed(invoke, validBody);
-  assertions += await checkStalledBody(invoke);
+  assertions += await checkStalledBody(invokeWith);
+  assertions += await checkSlowAnswer(invokeWith, validBody);
   assertions += await checkRejectedResponses(invoke);
   if (TransportTest.gatewayExtensions.includes(extension)) assertions += await checkGateway(invokeWith);
   if (extension === 'go') assertions += await checkRedisRequest(invokeWith) + await checkRequestHead(invoke) + await checkLongHead(invoke);

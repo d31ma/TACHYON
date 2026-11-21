@@ -25,7 +25,7 @@ sealed class DataSource
     public JsonElement Patch(string collection, string id, object fields) => YonManagedResources.Call(new { operation = "document", command = "patch", collection, id, value = fields });
     public JsonElement DeleteById(string collection, string id) => YonManagedResources.Call(new { operation = "document", command = "deleteById", collection, id });
     public JsonElement Scroll(string collection, object? filter, string? cursor, int size) =>
-        YonManagedResources.Call(new { operation = "document", command = "scroll", collection, @where = filter, cursor, size }, YonManagedResources.ScrollTimeoutMilliseconds);
+        YonManagedResources.Call(new { operation = "document", command = "scroll", collection, @where = filter, cursor, size }, YonManagedResources.WaitMilliseconds());
     public JsonElement CreateCollection(string name) => YonManagedResources.Call(new { operation = "document", command = "createCollection", collection = name });
     public JsonElement DropCollection(string name) => YonManagedResources.Call(new { operation = "document", command = "dropCollection", collection = name });
     public JsonElement CollectionExists(string name) => YonManagedResources.Call(new { operation = "document", command = "collectionExists", collection = name });
@@ -62,10 +62,10 @@ sealed class RedisTemplate
 static class YonManagedResources
 {
     internal const int Limit = 1024 * 1024;
-    private const long ResourceTimeoutMilliseconds = 5000;
-    internal const long ScrollTimeoutMilliseconds = 30000;
+    private const long AnswerMarginMilliseconds = 1000;
     private static InvalidOperationException Failed() => new("Yon managed resource operation failed.");
-    internal static JsonElement Call(object command) => Call(command, ResourceTimeoutMilliseconds);
+    internal static long WaitMilliseconds() => (long)Math.Max(0, Yon.TimeLeftMilliseconds()) + AnswerMarginMilliseconds;
+    internal static JsonElement Call(object command) => Call(command, WaitMilliseconds());
     internal static JsonElement Call(object command, long timeoutMilliseconds)
     {
         try

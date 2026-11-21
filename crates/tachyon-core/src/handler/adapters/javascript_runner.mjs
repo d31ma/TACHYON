@@ -8,8 +8,7 @@ class ProtocolLimits {
   static maxRelayStderrBytes = 64 * 1024
   static maxResourceBytes = 1024 * 1024
   static maxResourceHeadBytes = 16 * 1024
-  static resourceTimeoutMs = 5000
-  static scrollTimeoutMs = 30_000
+  static resourceAnswerMarginMs = 1000
   static gatewayAnswerMarginMs = 1000
 }
 
@@ -116,7 +115,11 @@ async function postResource(body, timeoutMs) {
   return JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(answer))
 }
 
-async function managedResource(command, timeoutMs = ProtocolLimits.resourceTimeoutMs) {
+function resourceWaitMs() {
+  return Math.max(0, timeLeft()) + ProtocolLimits.resourceAnswerMarginMs
+}
+
+async function managedResource(command, timeoutMs = resourceWaitMs()) {
   try {
     return await postResource(JSON.stringify(command), timeoutMs)
   } catch {
@@ -179,7 +182,7 @@ globalThis.DataSource = class DataSource {
   patch(collection, id, fields) { return documentCommand('patch', { collection, id, value: fields }) }
   deleteById(collection, id) { return documentCommand('deleteById', { collection, id }) }
   scroll(collection, where = null, cursor = null, size = 20) {
-    return managedResource({ operation: 'document', command: 'scroll', collection, where, cursor, size }, ProtocolLimits.scrollTimeoutMs)
+    return managedResource({ operation: 'document', command: 'scroll', collection, where, cursor, size })
   }
   createCollection(name) { return documentCommand('createCollection', { collection: name }) }
   dropCollection(name) { return documentCommand('dropCollection', { collection: name }) }

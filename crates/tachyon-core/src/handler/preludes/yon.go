@@ -344,26 +344,26 @@ func (DataSource) Publish(topic string, payload any, key string) (string, error)
 		command["key"] = key
 	}
 	var id string
-	_, err := yonResourceInto(command, &id, yonResourceTimeout)
+	_, err := yonResourceInto(command, &id, yonResourceWait())
 	return id, err
 }
 
 func (DataSource) Claim(topic string, group string, maxMessages int, leaseMs int) ([]QueueDelivery, error) {
 	command := map[string]any{"operation": "queue", "command": "claim", "topic": topic, "group": group, "maxMessages": maxMessages, "leaseMs": leaseMs}
 	deliveries := []QueueDelivery{}
-	_, err := yonResourceInto(command, &deliveries, yonResourceTimeout)
+	_, err := yonResourceInto(command, &deliveries, yonResourceWait())
 	return deliveries, err
 }
 
 func (DataSource) Ack(topic string, group string, delivery QueueDelivery) error {
 	command := map[string]any{"operation": "queue", "command": "ack", "topic": topic, "group": group, "id": delivery.ID, "receipt": delivery.Receipt}
-	_, err := yonResourceInto(command, nil, yonResourceTimeout)
+	_, err := yonResourceInto(command, nil, yonResourceWait())
 	return err
 }
 
 func (DataSource) Nack(topic string, group string, delivery QueueDelivery, delayMs int) error {
 	command := map[string]any{"operation": "queue", "command": "nack", "topic": topic, "group": group, "id": delivery.ID, "receipt": delivery.Receipt, "delayMs": delayMs}
-	_, err := yonResourceInto(command, nil, yonResourceTimeout)
+	_, err := yonResourceInto(command, nil, yonResourceWait())
 	return err
 }
 
@@ -409,11 +409,7 @@ func yonDocumentFlag(command map[string]any) (bool, error) {
 
 func yonDocumentInto(command map[string]any, target any) (bool, error) {
 	command["operation"] = "document"
-	timeout := yonResourceTimeout
-	if command["command"] == "scroll" {
-		timeout = yonScrollTimeout
-	}
-	return yonResourceInto(command, target, timeout)
+	return yonResourceInto(command, target, yonResourceWait())
 }
 
 func yonResourceInto(command map[string]any, target any, timeout time.Duration) (bool, error) {
@@ -465,15 +461,22 @@ func yonRedis(command string, key string, fields map[string]any) (any, error) {
 
 const yonResourceBodyLimit = 1024 * 1024
 const yonResourceHeadLimit = 8192
-const yonResourceTimeout = 5 * time.Second
-const yonScrollTimeout = 30 * time.Second
+const yonResourceAnswerMargin = time.Second
+
+func yonResourceWait() time.Duration {
+	timeLeft := yoninvocation.TimeLeft()
+	if timeLeft < 0 {
+		timeLeft = 0
+	}
+	return timeLeft + yonResourceAnswerMargin
+}
 
 func yonResourceCall(command map[string]any) (any, error) {
 	body, err := json.Marshal(command)
 	if err != nil {
 		return nil, YonResourceError{}
 	}
-	answer, err := yonResourceExchange(body, yonResourceTimeout)
+	answer, err := yonResourceExchange(body, yonResourceWait())
 	if err != nil || !json.Valid(answer) {
 		return nil, YonResourceError{}
 	}

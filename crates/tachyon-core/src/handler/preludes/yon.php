@@ -21,7 +21,7 @@ final class DataSource
     public function scroll(string $collection, ?array $where = null, ?string $cursor = null, int $size = 20): mixed
     {
         $command = ['operation' => 'document', 'command' => 'scroll', 'collection' => $collection, 'where' => $where, 'cursor' => $cursor, 'size' => $size];
-        return YonManagedResources::call($command, YonManagedResources::SCROLL_TIMEOUT_NANOSECONDS);
+        return YonManagedResources::call($command, YonManagedResources::waitNanoseconds());
     }
     public function createCollection(string $name): mixed { return self::document('createCollection', ['collection' => $name]); }
     public function dropCollection(string $name): mixed { return self::document('dropCollection', ['collection' => $name]); }
@@ -65,10 +65,16 @@ final class RedisTemplate
 final class YonManagedResources
 {
     private const LIMIT = 1024 * 1024;
-    public const SCROLL_TIMEOUT_NANOSECONDS = 30_000_000_000;
-    private static function failed(): never { throw new RuntimeException('Yon managed resource operation failed.'); }
-    public static function call(mixed $command, int $timeoutNanoseconds = 5_000_000_000): mixed
+    private const ANSWER_MARGIN_NANOSECONDS = 1_000_000_000;
+
+    public static function waitNanoseconds(): int
     {
+        return max(0, YonRelayContext::timeLeftNanoseconds()) + self::ANSWER_MARGIN_NANOSECONDS;
+    }
+    private static function failed(): never { throw new RuntimeException('Yon managed resource operation failed.'); }
+    public static function call(mixed $command, ?int $timeoutNanoseconds = null): mixed
+    {
+        $timeoutNanoseconds ??= self::waitNanoseconds();
         try {
             $body = json_encode($command, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         } catch (Throwable $ignored) {

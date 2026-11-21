@@ -782,7 +782,7 @@ impl DataSource {
             ("cursor", cursor), ("size", Json::from(size)),
         ]);
         let body = command.stringify().map_err(|_| YonResourceError)?;
-        yon_resource_exchange(&body, std::time::Duration::from_secs(30))
+        yon_resource_exchange(&body, yon_resource_wait())
     }
     pub fn create_collection(&self, name: &str) -> Result<Json, YonResourceError> {
         self.document("createCollection", vec![("collection", name.into())])
@@ -839,6 +839,7 @@ impl RedisTemplate {
 struct YonResourceLimits;
 
 impl YonResourceLimits {
+    const ANSWER_MARGIN: std::time::Duration = std::time::Duration::from_secs(1);
     const MAX_BYTES: usize = 1024 * 1024;
     const MAX_HEAD_BYTES: usize = 8192;
 }
@@ -882,7 +883,12 @@ impl YonResourceAccess {
 
 fn yon_resource(command: Json) -> Result<Json, YonResourceError> {
     let body = command.stringify().map_err(|_| YonResourceError)?;
-    yon_resource_exchange(&body, std::time::Duration::from_secs(5))
+    yon_resource_exchange(&body, yon_resource_wait())
+}
+
+fn yon_resource_wait() -> std::time::Duration {
+    let time_left = YonRelayInvocation::current().map_or(std::time::Duration::ZERO, |invocation| invocation.time_left());
+    time_left + YonResourceLimits::ANSWER_MARGIN
 }
 
 fn yon_resource_exchange(body: &str, timeout: std::time::Duration) -> Result<Json, YonResourceError> {

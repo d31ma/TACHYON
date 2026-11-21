@@ -378,6 +378,23 @@ waited for the FYLO process or worked.
    adds to the budget. The `TY2160` deadline messages say "the store-time
    budget is spent". Deadlines only get longer in practice, so this is not a
    breaking change.
+16. **The handler's store client waits for the server.** Every language
+   runtime's store client (Rust, Go, Java and Groovy, Kotlin, C# and F#,
+   Dart, PHP, Python, Ruby, JavaScript and TypeScript) gave up on a store
+   call after a fixed 5 seconds (a scroll after 30 seconds), whatever the
+   server allowed. Mesail's Go handler gave up on a FYLO start-up after
+   5 seconds, while the server still had 20 seconds of start-up allowance;
+   the call in flight was then dropped. Now each client waits for the
+   invocation's own time left plus an answer margin of 1 second (a named
+   constant, the same margin its gateway calls use). The server enforces
+   the store-time budget and the start-up allowance and always answers
+   before the invocation's deadline, so the client limit is only a safety
+   net. It is never unbounded: every invocation has a deadline (its
+   `deadline_ms`, or 30 seconds), and before a deadline is known the wait is
+   the margin alone. Lua and C++ have no store client. A store call that
+   the server drops because the handler gave up or the invocation ended
+   still writes its `handler.storage_slow` or `handler.storage_call` line,
+   with its real times and `"result":"cancelled"`.
 
 ### Consequences
 

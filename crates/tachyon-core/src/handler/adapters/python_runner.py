@@ -40,8 +40,7 @@ class CheckRejection:
 
 
 class RunnerSettings:
-    RESOURCE_TIMEOUT_SECONDS = 5
-    SCROLL_TIMEOUT_SECONDS = 30
+    RESOURCE_ANSWER_MARGIN_SECONDS = 1
     GATEWAY_ANSWER_MARGIN_SECONDS = 1
     RELAY_READ_BYTES = 8192
     DEFAULT_RELAY_DEADLINE_MS = 30_000
@@ -104,10 +103,17 @@ def post_resource(body, timeout_seconds):
             connection.close()
 
 
-def managed_resource(command, timeout_seconds=RunnerSettings.RESOURCE_TIMEOUT_SECONDS):
+def resource_wait_seconds():
+    gateway = getattr(builtins, "YonGateway", None)
+    deadline = getattr(gateway, "deadline", None)
+    time_remaining = 0.0 if deadline is None else max(0.0, time_left(deadline))
+    return time_remaining + RunnerSettings.RESOURCE_ANSWER_MARGIN_SECONDS
+
+
+def managed_resource(command):
     try:
         body = encode_resource_command(command)
-        return post_resource(body, timeout_seconds)
+        return post_resource(body, resource_wait_seconds())
     except Exception:
         raise RuntimeError("Yon managed resource operation failed.") from None
 
@@ -196,7 +202,7 @@ class DataSource:
 
     def scroll(self, collection, where=None, cursor=None, size=20):
         fields = {"collection": collection, "where": where, "cursor": cursor, "size": size}
-        return document_command("scroll", fields, RunnerSettings.SCROLL_TIMEOUT_SECONDS)
+        return document_command("scroll", fields)
 
     def create_collection(self, name):
         return document_command("createCollection", {"collection": name})
@@ -221,8 +227,8 @@ class DataSource:
         return queue_command("nack", fields)
 
 
-def document_command(command, fields, timeout_seconds=RunnerSettings.RESOURCE_TIMEOUT_SECONDS):
-    return managed_resource({"operation": "document", "command": command, **fields}, timeout_seconds)
+def document_command(command, fields):
+    return managed_resource({"operation": "document", "command": command, **fields})
 
 
 def queue_command(command, fields):

@@ -507,6 +507,15 @@ machine contracts have their own, independent major versions.
   every later case failed with `TY2160`. `ty test` now gives each store call
   its own deadline, as streams and sockets do. Handler answers over HTTP keep
   one deadline per answer.
+- **A store call is no longer cut off by the handler after 5 seconds**
+  (ADR 0128, amendment 4). The store client of every handler language
+  (Rust, Go, Java, Groovy, Kotlin, C#, F#, Dart, PHP, Python, Ruby,
+  JavaScript, TypeScript) waited a fixed 5 seconds (30 for a scroll) for
+  the store's answer, whatever the server allowed, so a slow FYLO start-up
+  failed in the handler although the server would have answered. Each client
+  now waits for the invocation's time left plus 1 second. A store call that
+  ends without an answer to the handler now logs `"result":"cancelled"` with
+  its real times.
 - **A slow FYLO start-up no longer fails again and again** (ADR 0128,
   amendment 4). After each start of a FYLO process, the time that the first
   request for each collection or topic takes does not count against the

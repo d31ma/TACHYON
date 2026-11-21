@@ -22,7 +22,7 @@ final class DataSource {
           [Map<String, Object?>? where, String? cursor, int size = 20]) =>
       YonManagedResources.call(
           {'operation': 'document', 'command': 'scroll', 'collection': collection, 'where': where, 'cursor': cursor, 'size': size},
-          YonManagedResources.scrollTimeout);
+          YonManagedResources.wait());
   yon_async.Future<Object?> createCollection(String name) => _document('createCollection', {'collection': name});
   yon_async.Future<Object?> dropCollection(String name) => _document('dropCollection', {'collection': name});
   yon_async.Future<Object?> collectionExists(String name) => _document('collectionExists', {'collection': name});
@@ -51,13 +51,18 @@ final class RedisTemplate {
 
 final class YonManagedResources {
   static const int _limit = 1024 * 1024;
-  static const Duration scrollTimeout = Duration(seconds: 30);
+  static const Duration _answerMargin = Duration(seconds: 1);
+
+  static Duration wait() {
+    final timeLeft = _YonRelayState.timeLeftMilliseconds();
+    return Duration(milliseconds: timeLeft < 0 ? 0 : timeLeft) + _answerMargin;
+  }
   static StateError _failed() => StateError('Yon managed resource operation failed.');
   static String _directConnection(Uri endpoint) => 'DIRECT';
 
   static yon_async.Future<Object?> call(Map<String, Object?> command,
-      [Duration timeout = const Duration(seconds: 5)]) async {
-    final answer = await exchange(yon_convert.jsonEncode(command), timeout);
+      [Duration? timeout]) async {
+    final answer = await exchange(yon_convert.jsonEncode(command), timeout ?? wait());
     try {
       return yon_convert.jsonDecode(answer);
     } catch (_) {

@@ -66,6 +66,7 @@ fn runtime_available(extension: &str) -> bool {
         "rb" => "ruby",
         "rs" => "rustc",
         "go" => "go",
+        "dart" => "dart",
         _ => "node",
     };
     let paths = std::env::var_os("PATH").unwrap_or_default();
@@ -361,6 +362,374 @@ class Handler
   end
 end
 "#).await;
+}
+
+#[cfg(unix)]
+struct SlowStore;
+
+#[cfg(unix)]
+impl SlowStore {
+    const PAUSE: std::time::Duration = std::time::Duration::from_secs(6);
+    const SHORTEST_ANSWER: std::time::Duration = std::time::Duration::from_millis(5_500);
+
+    async fn controller(extension: &str, source: &str) {
+        if !runtime_available(extension) || !runtime_available_program("fylo") {
+            return;
+        }
+        let root = tempfile::tempdir().expect("project");
+        let relative = format!("server/controllers/ProductController.{extension}");
+        let entry = yon_layout::write_fixture(root.path(), &relative, source);
+        Self::answers(extension, root.path(), &entry).await;
+    }
+
+    async fn worker(extension: &str, source: &str) {
+        if !runtime_available(extension) || !runtime_available_program("fylo") {
+            return;
+        }
+        let root = tempfile::tempdir().expect("project");
+        let entry = format!("server/workers/products.{extension}");
+        std::fs::create_dir_all(root.path().join("server/workers")).expect("workers");
+        std::fs::write(root.path().join(&entry), source).expect("handler");
+        Self::answers(extension, root.path(), &entry).await;
+    }
+
+    async fn answers(extension: &str, root: &std::path::Path, entry: &str) {
+        let fylo_root = Self::fylo_root(root);
+        let source = HandlerSource::discover(root, entry).expect("handler");
+        let supervisor = Self::supervisor(root, extension);
+        Self::assert_answer(extension, &supervisor, &source, "slow_store_warm").await;
+        let resumed = Self::pause_fylo(&fylo_root);
+        let started = std::time::Instant::now();
+        Self::assert_answer(extension, &supervisor, &source, "slow_store_paused").await;
+        let took = started.elapsed();
+        resumed.join().expect("resume thread");
+        assert!(
+            took >= Self::SHORTEST_ANSWER,
+            "{extension}: the store answered after {took:?}"
+        );
+    }
+
+    fn fylo_root(project: &std::path::Path) -> std::path::PathBuf {
+        let fylo_root = project.join("fylo-root");
+        std::fs::create_dir_all(&fylo_root).expect("FYLO root");
+        let fylo_root = std::fs::canonicalize(fylo_root).expect("canonical FYLO root");
+        let url = format!("fylo://{}", fylo_root.display());
+        let datasource =
+            serde_json::json!({"datasource": {"driver": "fylo", "url": url, "timeout": 10_000}});
+        std::fs::create_dir_all(project.join("server")).expect("server");
+        std::fs::write(
+            project.join("server/application.json"),
+            datasource.to_string(),
+        )
+        .expect("configuration");
+        fylo_root
+    }
+
+    fn supervisor(root: &std::path::Path, extension: &str) -> HandlerSupervisor {
+        let mut options = HandlerSupervisorOptions {
+            application: ApplicationConfig::load(root).expect("configuration"),
+            ..HandlerSupervisorOptions::default()
+        };
+        if extension == "ts" {
+            options.runtimes.javascript = "bun".into();
+        }
+        HandlerSupervisor::new(options).expect("supervisor")
+    }
+
+    async fn assert_answer(
+        extension: &str,
+        supervisor: &HandlerSupervisor,
+        source: &HandlerSource,
+        id: &str,
+    ) {
+        let request =
+            HandlerRequest::route(format!("{id}_{extension}"), "/products", HttpMethod::Get);
+        let response = supervisor
+            .invoke(source, &request, &HandlerCancellation::default())
+            .await
+            .expect("store invocation");
+        assert_eq!(response.status, 200, "{extension}: {:?}", response.error);
+    }
+
+    fn pause_fylo(fylo_root: &std::path::Path) -> std::thread::JoinHandle<()> {
+        let pattern = format!("fylo exec --loop --root {}", fylo_root.display());
+        let found = std::process::Command::new("pgrep")
+            .args(["-f", &pattern])
+            .output()
+            .expect("pgrep");
+        let process_id = String::from_utf8_lossy(&found.stdout).trim().to_owned();
+        let stop = std::process::Command::new("kill")
+            .args(["-STOP", &process_id])
+            .status();
+        assert!(
+            stop.is_ok_and(|status| status.success()),
+            "pause fylo {process_id}"
+        );
+        std::thread::spawn(move || {
+            std::thread::sleep(Self::PAUSE);
+            let resumed = std::process::Command::new("kill")
+                .args(["-CONT", &process_id])
+                .status();
+            assert!(resumed.is_ok_and(|status| status.success()), "resume fylo");
+        })
+    }
+}
+
+#[cfg(unix)]
+fn runtime_available_program(program: &str) -> bool {
+    let paths = std::env::var_os("PATH").unwrap_or_default();
+    let available =
+        std::env::split_paths(&paths).any(|directory| directory.join(program).is_file());
+    if !available {
+        assert_ne!(
+            std::env::var("TAC_STORAGE_REQUIRE_TOOLCHAINS").as_deref(),
+            Ok("1"),
+            "Required program {program} is unavailable"
+        );
+    }
+    available
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn a_javascript_store_call_slower_than_five_seconds_answers() {
+    SlowStore::controller(
+        "js",
+        r#"
+@Service()
+@NeedsAll()
+class ProductService {
+  dataSource;
+  exists() { return this.dataSource.collectionExists("hd-events"); }
+}
+@RequestRoute("/products")
+@Public
+@NeedsAll()
+class ProductController {
+  productService;
+  @GetRoute
+  getProducts() { return this.productService.exists(); }
+}
+"#,
+    )
+    .await;
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn a_typescript_store_call_slower_than_five_seconds_answers() {
+    SlowStore::controller(
+        "ts",
+        r#"
+@Service()
+@NeedsAll()
+class ProductService {
+  dataSource: DataSource;
+  exists() { return this.dataSource.collectionExists("hd-events"); }
+}
+@RequestRoute("/products")
+@Public
+@NeedsAll()
+class ProductController {
+  productService: ProductService;
+  @GetRoute
+  getProducts() { return this.productService.exists(); }
+}
+"#,
+    )
+    .await;
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn a_python_store_call_slower_than_five_seconds_answers() {
+    SlowStore::controller(
+        "py",
+        r#"
+@service()
+@needs_all()
+class ProductService:
+    data_source: DataSource
+    def exists(self):
+        return self.data_source.collection_exists("hd-events")
+@request_route("/products")
+@public
+@needs_all()
+class ProductController:
+    products: ProductService
+    @get_route
+    def get_products(self):
+        return self.products.exists()
+"#,
+    )
+    .await;
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn a_rust_store_call_slower_than_five_seconds_answers() {
+    SlowStore::controller("rs", r#"
+#[Service()]
+#[NeedsAll()]
+struct ProductService { data_source: std::sync::Arc<DataSource> }
+impl ProductService {
+    fn exists(&self) -> Result<Json, YonResourceError> { self.data_source.collection_exists("hd-events") }
+}
+#[RequestRoute("/products")]
+#[Public]
+#[NeedsAll()]
+struct ProductController { products: std::sync::Arc<ProductService> }
+impl ProductController {
+    #[GetRoute]
+    fn get_products(&self) -> Result<Json, YonResourceError> { self.products.exists() }
+}
+"#).await;
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn a_java_store_call_slower_than_five_seconds_answers() {
+    SlowStore::controller(
+        "java",
+        r#"
+@Service()
+@NeedsAll()
+class ProductService {
+    DataSource dataSource;
+    Object exists() { return dataSource.collectionExists("hd-events"); }
+}
+@RequestRoute("/products")
+@Public
+@NeedsAll()
+class ProductController {
+    ProductService products;
+    @GetRoute
+    Object getProducts() { return products.exists(); }
+}
+"#,
+    )
+    .await;
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn a_kotlin_store_call_slower_than_five_seconds_answers() {
+    SlowStore::controller(
+        "kt",
+        r#"
+@Service()
+@NeedsAll()
+class ProductService {
+    val dataSource: DataSource
+    fun exists(): Any? = dataSource.collectionExists("hd-events")
+}
+@RequestRoute("/products")
+@Public
+@NeedsAll()
+class ProductController {
+    val products: ProductService
+    @GetRoute
+    fun getProducts(): Any? = products.exists()
+}
+"#,
+    )
+    .await;
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn a_csharp_store_call_slower_than_five_seconds_answers() {
+    SlowStore::controller(
+        "cs",
+        r#"
+[Service()]
+[NeedsAll()]
+class ProductService {
+    DataSource _dataSource;
+    public object exists() { return _dataSource.CollectionExists("hd-events"); }
+}
+[RequestRoute("/products")]
+[Public]
+[NeedsAll()]
+class ProductController {
+    ProductService _products;
+    [GetRoute]
+    public object GetProducts() { return _products.exists(); }
+}
+"#,
+    )
+    .await;
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn a_php_store_call_slower_than_five_seconds_answers() {
+    SlowStore::controller(
+        "php",
+        r#"<?php
+#[Service()]
+#[NeedsAll()]
+class ProductService {
+    private DataSource $dataSource;
+    public function exists(): mixed { return $this->dataSource->collectionExists("hd-events"); }
+}
+#[RequestRoute("/products")]
+#[Public]
+#[NeedsAll()]
+class ProductController {
+    private ProductService $products;
+    #[GetRoute]
+    public function getProducts(): mixed { return $this->products->exists(); }
+}
+"#,
+    )
+    .await;
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn a_go_store_call_slower_than_five_seconds_answers() {
+    SlowStore::worker(
+        "go",
+        r#"
+type Handler struct{}
+
+func (Handler) GET() (any, error) {
+	return DataSource{}.CollectionExists("hd-events")
+}
+"#,
+    )
+    .await;
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn a_ruby_store_call_slower_than_five_seconds_answers() {
+    SlowStore::worker(
+        "rb",
+        r#"
+class Handler
+  def self.GET(request)
+    DataSource.new.collection_exists("hd-events")
+  end
+end
+"#,
+    )
+    .await;
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn a_dart_store_call_slower_than_five_seconds_answers() {
+    SlowStore::worker(
+        "dart",
+        r"
+class Handler {
+  Future<Object?> GET() async => await DataSource().collectionExists('hd-events');
+}
+",
+    )
+    .await;
 }
 
 struct ProxyProbe;
