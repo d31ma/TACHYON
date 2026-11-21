@@ -891,3 +891,111 @@ fn resource_clients_connect_directly_when_a_proxy_is_configured() {
         "resource requests reached the proxy: {forwarded:?}"
     );
 }
+
+struct FyloTransactionProbe;
+
+impl FyloTransactionProbe {
+    const GO_WORKER: &'static str = r#"import "errors"
+
+type Handler struct{}
+
+func begin(dataSource DataSource) (string, error) {
+	opened, err := dataSource.Command(map[string]any{"operation": "transaction", "action": "begin"})
+	if err != nil {
+		return "", err
+	}
+	return opened.(map[string]any)["transaction"].(string), nil
+}
+
+func insert(dataSource DataSource, transaction string, name string) (string, error) {
+	command := map[string]any{"operation": "document", "command": "insert", "collection": "slips", "value": map[string]any{"name": name}, "transaction": transaction}
+	saved, err := dataSource.Command(command)
+	if err != nil {
+		return "", err
+	}
+	return saved.(map[string]any)["id"].(string), nil
+}
+
+func find(dataSource DataSource, id string, transaction string) (any, error) {
+	command := map[string]any{"operation": "document", "command": "findById", "collection": "slips", "id": id}
+	if transaction != "" {
+		command["transaction"] = transaction
+	}
+	return dataSource.Command(command)
+}
+
+func settle(dataSource DataSource, transaction string, action string) error {
+	_, err := dataSource.Command(map[string]any{"operation": "transaction", "action": action, "transaction": transaction})
+	return err
+}
+
+func (Handler) GET() (any, error) {
+	dataSource := DataSource{}
+	_, createErr := dataSource.Command(map[string]any{"operation": "document", "command": "createCollection", "collection": "slips"})
+	kept, beginErr := begin(dataSource)
+	keptId, insertErr := insert(dataSource, kept, "kept")
+	inside, insideErr := find(dataSource, keptId, kept)
+	outside, outsideErr := find(dataSource, keptId, "")
+	commitErr := settle(dataSource, kept, "commit")
+	committed, committedErr := find(dataSource, keptId, "")
+	dropped, secondBeginErr := begin(dataSource)
+	droppedId, secondInsertErr := insert(dataSource, dropped, "dropped")
+	rollbackErr := settle(dataSource, dropped, "rollback")
+	afterRollback, afterRollbackErr := find(dataSource, droppedId, "")
+	err := errors.Join(createErr, beginErr, insertErr, insideErr, outsideErr, commitErr, committedErr, secondBeginErr, secondInsertErr, rollbackErr, afterRollbackErr)
+	return map[string]any{"inside": inside != nil, "outside": outside != nil, "committed": committed != nil, "rolledBack": afterRollback == nil}, err
+}
+"#;
+
+    fn project() -> tempfile::TempDir {
+        let root = tempfile::tempdir().expect("project");
+        let fylo_root = root.path().join("fylo-root");
+        std::fs::create_dir_all(&fylo_root).expect("FYLO root");
+        let fylo_root = std::fs::canonicalize(fylo_root).expect("canonical FYLO root");
+        let url = format!(
+            "fylo:///{}",
+            fylo_root
+                .display()
+                .to_string()
+                .replace('\\', "/")
+                .trim_start_matches('/')
+        );
+        let datasource =
+            serde_json::json!({"datasource": {"driver": "fylo", "url": url, "timeout": 10_000}});
+        std::fs::create_dir_all(root.path().join("server/workers")).expect("workers");
+        std::fs::write(
+            root.path().join("server/application.json"),
+            datasource.to_string(),
+        )
+        .expect("configuration");
+        std::fs::write(root.path().join("server/workers/slips.go"), Self::GO_WORKER)
+            .expect("handler");
+        root
+    }
+}
+
+#[tokio::test]
+async fn a_go_handler_groups_fylo_writes_in_one_transaction() {
+    if !runtime_available("go") || !runtime_available_program("fylo") {
+        return;
+    }
+    let root = FyloTransactionProbe::project();
+    let source = HandlerSource::discover(root.path(), "server/workers/slips.go").expect("handler");
+    let options = HandlerSupervisorOptions {
+        application: ApplicationConfig::load(root.path()).expect("configuration"),
+        ..HandlerSupervisorOptions::default()
+    };
+    let supervisor = HandlerSupervisor::new(options).expect("supervisor");
+    let request = HandlerRequest::route("fylo_transaction_go", "/slips", HttpMethod::Get);
+    let response = supervisor
+        .invoke(&source, &request, &HandlerCancellation::default())
+        .await
+        .expect("transaction invocation");
+    assert_eq!(response.status, 200, "{:?}", response.error);
+    let answer: serde_json::Value =
+        serde_json::from_str(&response.body.expect("body").data).expect("JSON");
+    assert_eq!(
+        answer,
+        serde_json::json!({"inside": true, "outside": false, "committed": true, "rolledBack": true})
+    );
+}
