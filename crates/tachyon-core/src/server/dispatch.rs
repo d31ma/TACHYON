@@ -179,7 +179,7 @@ impl Dispatch {
     ) -> Response<Body> {
         match outcome {
             MiddlewareOutcome::Respond(response) => response,
-            MiddlewareOutcome::Continue => self.serve_path(path, request).await,
+            MiddlewareOutcome::Continue => Box::pin(self.serve_path(path, request)).await,
         }
     }
 
