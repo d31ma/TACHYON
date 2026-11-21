@@ -515,7 +515,7 @@
     "web": {"reach": "honored", "how": "RTCPeerConnection data channels with the browser's own WebRTC (ADR 0140): Peers opens connections, makes and accepts offers and answers, adds ICE candidates, opens ordered or unordered channels and sends bytes with back-pressure; STUN and TURN servers come only from tac.peers.iceServers; real connections run in Chromium, Firefox and WebKit, and through a local TURN relay (scripts/peers-browser-test.mjs)"},
     "macos": {"reach": "runOwed", "how": "the page uses the web view's own RTCPeerConnection; Peers.supported answers whether the WKWebView has it on the tachyon-app:// scheme, and open refuses with unsupported where it does not (ADR 0140)", "run": "a Peers connection between two data channels in the macOS app"},
     "windows": {"reach": "runOwed", "how": "the page uses WebView2's own RTCPeerConnection on https://tachyon.local (ADR 0140)", "run": "a Peers connection between two data channels in a WebView2 app on Windows"},
-    "linux": {"reach": "adapted", "note": "WebKitGTK as Linux distributions build it has no WebRTC, so Peers.supported answers false and open refuses with unsupported in the Linux app (ADR 0140). Use the web version for peer connections on Linux."},
+    "linux": {"reach": "adapted", "note": "Unsupported until WebKitGTK 2.56: WebKitGTK as Linux distributions build it (2.52 and 2.54) has no WebRTC, so Peers.supported answers false and open refuses with unsupported in the Linux app (ADR 0140, ADR 0131). WebKitGTK plans to turn WebRTC on in 2.56; the Linux app then needs its own release to use it. Use the web version for peer connections on Linux."},
     "ios": {"reach": "runOwed", "how": "the page uses the web view's own RTCPeerConnection; Peers.supported answers whether the WKWebView has it on the tachyon-app:// scheme, and open refuses with unsupported where it does not (ADR 0140)", "run": "a Peers connection between two data channels in the iOS app"},
     "android": {"reach": "runOwed", "how": "the page uses the Android WebView's own RTCPeerConnection on https://appassets.tachyon.local; the app asks for the INTERNET permission (ADR 0140)", "run": "a Peers connection between two data channels in the app on the Android emulator"}
   },
@@ -525,7 +525,7 @@
     "web": {"reach": "honored", "how": "the build checks each STUN and TURN URL and its host against tac.outgoing.hosts, and the page passes only these servers to RTCPeerConnection; relayOnly sends all traffic through the TURN relay (ADR 0140)"},
     "macos": {"reach": "honored", "how": "the same checked server list in the page as on the web"},
     "windows": {"reach": "honored", "how": "the same checked server list in the page as on the web"},
-    "linux": {"reach": "adapted", "note": "The build checks tac.peers as on the web, but the Linux app has no WebRTC, so no connection uses it (ADR 0140)."},
+    "linux": {"reach": "adapted", "note": "The build checks tac.peers as on the web, but the Linux app has no WebRTC until WebKitGTK 2.56, so no connection uses it (ADR 0140, ADR 0131)."},
     "ios": {"reach": "honored", "how": "the same checked server list in the page as on the web"},
     "android": {"reach": "honored", "how": "the same checked server list in the page as on the web"}
   },

@@ -126,6 +126,21 @@ and calls use the system's default speaker. A probe on WebKitGTK 2.54.0 (Debian
 chose the default and a listed speaker, and refused an unknown one with
 `NotFoundError`.
 
+Amendment (L7, packages and what waits for WebKitGTK 2.56): the `.deb` of an
+app that grants `camera`, `microphone` or `screen` gets the line
+`Recommends: xdg-desktop-portal, pipewire, gstreamer1.0-pipewire,
+gstreamer1.0-plugins-good` (decision 9); an app without a media grant
+recommends nothing. The portal's desktop backends (`xdg-desktop-portal-gnome`,
+`-kde`, `-wlr`) come with the desktop itself, so the package does not name
+one. The AppImage carries no package list; it uses what the system has, and
+`supported()` answers from that. Because the shell carries no WebRTC engine
+(decision 1), Peers and the call parts of Media are unsupported in the Linux
+app until WebKitGTK 2.56: `supported()` answers false and `open` refuses with
+`unsupported`. SFrame protects calls, so it is unsupported with them, and
+decision 6's host-derived frame key is not built yet; it lands with Peers and
+calls on Linux. The checks that need a real Linux PC, its portals and its
+keyring are listed as owed in `SUPPORT_TIERS.md`.
+
 ## Consequences
 
 - On a Linux PC, an app can scan a QR code and capture the camera and the

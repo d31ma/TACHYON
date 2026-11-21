@@ -155,6 +155,37 @@ async fn the_deb_installs_the_app_its_command_desktop_file_metainfo_and_icon() {
 
 #[cfg(target_os = "linux")]
 #[tokio::test]
+#[ignore = "Requires GTK 4, WebKitGTK 6.0 development files, dpkg-deb and mksquashfs; run explicitly on the Linux lane"]
+async fn a_deb_with_a_media_grant_recommends_the_portal_pipewire_and_gstreamer() {
+    let fixture = LinuxPackageTests::new();
+    LinuxPackageTests::write(
+        &fixture.project().join("client/manifest.json"),
+        LinuxPackageTests::MANIFEST
+            .replace(r#""tac":{"#, r#""tac":{"browserApis":["camera"],"#)
+            .as_bytes(),
+    );
+    let linux = fixture.release("dist").await;
+    let fields = LinuxPackageTests::run(
+        "dpkg-deb",
+        &[
+            "--field",
+            &LinuxPackageTests::deb(),
+            "Depends",
+            "Recommends",
+        ],
+        &linux,
+    )
+    .await;
+    println!("{fields}");
+    assert_eq!(
+        fields,
+        "Depends: libc6, libgtk-4-1, libwebkitgtk-6.0-4 (>= 2.40)\n\
+         Recommends: xdg-desktop-portal, pipewire, gstreamer1.0-pipewire, gstreamer1.0-plugins-good\n"
+    );
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
 #[ignore = "Requires GTK 4, WebKitGTK 6.0 development files, mksquashfs and the AppImage runtime; run explicitly on the Linux lane"]
 async fn the_app_image_holds_an_app_dir_that_starts_the_app() {
     let fixture = LinuxPackageTests::new();

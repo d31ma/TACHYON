@@ -109,6 +109,7 @@ mod linux_file_picker;
 mod linux_file_picker_tests;
 #[cfg(test)]
 mod linux_host_tests;
+mod linux_media_packages;
 #[cfg(test)]
 mod linux_media_permission_tests;
 mod linux_package_files;

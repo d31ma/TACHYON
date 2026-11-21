@@ -1932,6 +1932,56 @@ Owed, by hand: a Linux PC with GNOME (GNOME Keyring unlocked at sign-in) and
 one with KDE Plasma (KDE Wallet), each with a kept key across a restart, and
 the desktop's own unlock dialog for a locked keyring.
 
+Rerun on `develop` c5eb8e8ed (2026-11-21, after the shared native Crypto
+checks of P2b): the same test passed in the same gate image on Colima in 84
+seconds. The first launch's line began `store:os,keep:os`, the second launch
+read the kept key back, and the locked keyring answered `locked`.
+
+### The Linux app's packages and what waits (2026-11-21, ADR 0131 amendment L7)
+
+Packages: the `.deb` of an app that grants `camera`, `microphone` or `screen`
+recommends `xdg-desktop-portal`, `pipewire`, `gstreamer1.0-pipewire` and
+`gstreamer1.0-plugins-good`; an app without a media grant recommends nothing.
+`Depends` stays as it was (GTK 4 and WebKitGTK, plus libsecret and OpenSSL 3
+with the `crypto` grant). `linux_media_packages` unit tests check each grant
+on the macOS test machine.
+`linux_package_tests::a_deb_with_a_media_grant_recommends_the_portal_pipewire_and_gstreamer`
+built a release `.deb` with a `camera` grant in the Linux gate image (Debian
+13) on Colima (aarch64), and `dpkg-deb --field` read:
+
+```
+Depends: libc6, libgtk-4-1, libwebkitgtk-6.0-4 (>= 2.40)
+Recommends: xdg-desktop-portal, pipewire, gstreamer1.0-pipewire, gstreamer1.0-plugins-good
+```
+
+`apt-cache policy` found all four recommended packages in Debian 13
+(`xdg-desktop-portal` 1.20.3, `pipewire` and `gstreamer1.0-pipewire` 1.4.2,
+`gstreamer1.0-plugins-good` 1.26.2) and in Ubuntu 24.04 (1.18.4, 1.0.5 and
+1.24.2). The AppImage carries no package list. Not run: an `apt install` of
+the `.deb` on a desktop system, and Fedora, which uses the AppImage.
+
+Unsupported until WebKitGTK 2.56: Peers, the call parts of Media, and SFrame,
+which protects calls. WebKitGTK 2.52 and 2.54, as distributions build them,
+have no WebRTC, so in the Linux app `supported()` answers false for them and
+`open` refuses with `unsupported`. Use the web version for peer connections
+and calls on Linux. Decision 6's frame key from the host lands with Linux
+calls.
+
+Owed by hand for the Linux app (no physical Linux PC is named yet, ADR 0131
+decision 8; the lane runs in containers on an ARM64 Mac):
+- a real QR read and a real microphone, through the Camera portal and
+  PipeWire;
+- screen sharing through the ScreenCast portal on GNOME and on KDE Plasma,
+  with the desktop's own picker;
+- a call's audio moved to a second speaker or a headset;
+- kept keys across a restart with GNOME Keyring and with KDE Wallet, and the
+  desktop's own unlock dialog for a locked keyring;
+- an `apt install` of a `.deb` with a media grant, and the AppImage, on the
+  supported systems: Ubuntu 24.04 and 26.04, Debian 13 and the two current
+  Fedora releases, on GNOME and KDE Plasma, on x86_64;
+- when a distribution ships WebKitGTK 2.56 with WebRTC: Peers, calls and
+  SFrame in the Linux app.
+
 ### Crypto in the browser (2026-11-14, ADR 0132)
 
 `scripts/crypto-browser-test.mjs` ran on the macOS test machine in

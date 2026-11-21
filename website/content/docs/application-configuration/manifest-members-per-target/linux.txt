@@ -154,10 +154,10 @@ tac.browserApis camera
   honored: the WebKitGTK page runs the same camera view and decoder as the web; media capture is on only when a media grant exists, and the host's permission-request decision allows the camera only for the app's own pages when camera is granted, while the microphone and the screen need their own grants; WebKitGTK reaches the camera through the Camera portal and PipeWire, or opens it directly where neither runs, and supported answers false when no camera is listed (ADR 0130, ADR 0131)
 
 tac.browserApis peers
-  adapted: WebKitGTK as Linux distributions build it has no WebRTC, so Peers.supported answers false and open refuses with unsupported in the Linux app (ADR 0140). Use the web version for peer connections on Linux.
+  adapted: Unsupported until WebKitGTK 2.56: WebKitGTK as Linux distributions build it (2.52 and 2.54) has no WebRTC, so Peers.supported answers false and open refuses with unsupported in the Linux app (ADR 0140, ADR 0131). WebKitGTK plans to turn WebRTC on in 2.56; the Linux app then needs its own release to use it. Use the web version for peer connections on Linux.
 
 tac.peers
-  adapted: The build checks tac.peers as on the web, but the Linux app has no WebRTC, so no connection uses it (ADR 0140).
+  adapted: The build checks tac.peers as on the web, but the Linux app has no WebRTC until WebKitGTK 2.56, so no connection uses it (ADR 0140, ADR 0131).
 
 tac.browserApis locks
   run owed: WebKitGTK 2.36 and later has navigator.locks on the secure tachyon:// scheme; the app has one window (ADR 0141), so a lock always comes at once; where the web view has no Web Locks the page grants every lock at once; still to run: a Locks service in the built app
