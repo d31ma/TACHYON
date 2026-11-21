@@ -5,7 +5,8 @@
 #   - the desktop pieces of compositor-test.sh (headless mutter), desktop-links-test.sh (xdg-utils and the
 #     OpenURI portal), desktop-services-test.sh (GeoClue, dunst, and systemd's busctl, which dunstctl calls) and
 #     deb-install-test.sh (desktop-file-utils), and xclip, through which page-steps-probe.py pastes a path into
-#     the file dialog,
+#     the file dialog, and gstreamer1.0-plugins-bad, which WebKitGTK's MediaRecorder needs (uritranscodebin) and
+#     whose fakeaudiosink the recorder test plays to (Debian's WebKitGTK recommends it; Ubuntu's only suggests it),
 #     installed in `gate` already, because they are small;
 #   - the toolchains of page-services-native-test.mjs, whose Tally page has a WebAssembly service in Go, C#, F#,
 #     Swift, Kotlin, Java, Dart, Ruby, Lua, C++ and Python. They are the versions and checksums of rust-ci.yml's
@@ -35,6 +36,7 @@ RUN apt-get update \
       geoclue-2.0 \
       gnome-keyring \
       gir1.2-atspi-2.0 \
+      gstreamer1.0-plugins-bad \
       libgtk-4-dev \
       libjson-glib-dev \
       libsecret-1-dev \

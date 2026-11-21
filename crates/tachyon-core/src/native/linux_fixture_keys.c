@@ -54,3 +54,15 @@ static void tachyon_fixture_press(unsigned long keysym, gboolean control) {
   if (control) g_fixture_key(xdisplay, modifier, False, 0);
   g_fixture_flush(xdisplay);
 }
+
+static gboolean tachyon_fixture_wayland_focused(void) {
+  if (!tachyon_wayland_input_wanted() || gtk_window_is_active(g_native_window)) return TRUE;
+  if (!gtk_window_is_maximized(g_native_window)) {
+    gtk_window_maximize(g_native_window);
+    return FALSE;
+  }
+  GtkWidget *window = GTK_WIDGET(g_native_window);
+  tachyon_wayland_pointer_to(gtk_widget_get_width(window) / 2, gtk_widget_get_height(window) / 2);
+  tachyon_wayland_click();
+  return FALSE;
+}
