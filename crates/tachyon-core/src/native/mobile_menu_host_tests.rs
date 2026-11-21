@@ -170,7 +170,7 @@ fn ios_hosts_start_the_application_before_the_window_and_stop_it_on_termination(
         .find("guard tacRustNativeApplicationStart() else { Telemetry.shared.record(\"application.start.failed\"); exit(EXIT_FAILURE) }")
         .expect("the host starts the application services");
     let window = source
-        .find("let window = UIWindow(frame: UIScreen.main.bounds)")
+        .find("let window = UIWindow(windowScene: windowScene)")
         .expect("window");
     assert!(
         start < window,
