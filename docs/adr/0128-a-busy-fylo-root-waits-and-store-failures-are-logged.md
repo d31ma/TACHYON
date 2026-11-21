@@ -194,7 +194,7 @@ test there could prove that the next call waits for the old process.
   `EROOTLOCKED`, that no second `fylo` starts, and that after
   `fsfreeze -u` the waiting call answers and later calls work.
 
-## Amendment 4 (2026-11-21): `ty test` gives each store call its own deadline
+## Amendment 3 (2026-11-21): `ty test` gives each store call its own deadline
 
 ### Context
 

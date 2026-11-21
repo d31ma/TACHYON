@@ -291,7 +291,7 @@ Redis:
   deadline, which starts at its first store call. A store call that starts
   after it fails at once with the deadline error. Streams, sockets and
   `ty test` units give each store call its own deadline, and the first page
-  of a scroll keeps its 30 seconds (ADR 0128, amendments 2 and 4).
+  of a scroll keeps its 30 seconds (ADR 0128, amendments 2 and 3).
 - SQL pools: at most 8 connections (1 for in-memory SQLite). TDS (Tabular Data
   Stream, the SQL Server protocol) is serialized.
 - FYLO: one subprocess, 1 MiB requests, 8 MiB responses. Each Store query

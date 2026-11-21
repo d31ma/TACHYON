@@ -459,7 +459,7 @@ machine contracts have their own, independent major versions.
   seconds, so a long-lived page recovers after a server restart. A declared
   policy and sockets keep their own limits.
 - **`ty test` no longer fails later test cases with a spent store deadline**
-  (ADR 0128, amendment 4). A server test unit runs all its cases in one
+  (ADR 0128, amendment 3). A server test unit runs all its cases in one
   handler invocation, and all their store calls shared one
   `datasource.timeout` deadline, so once the cases together had used it up,
   every later case failed with `TY2160`. `ty test` now gives each store call
