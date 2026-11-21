@@ -464,8 +464,8 @@ fn descriptions_up_to_256_kib_and_candidates_up_to_64_kib_pass_and_larger_ones_a
         )
     );
     assert_eq!(report["longestCandidate"], json!({"value": null}));
-    assert_eq!(report["acceptedSizes"], json!([262144, 65520]));
-    assert_eq!(report["largestOffer"], json!([["PeerDescription", 262144]]));
+    assert_eq!(report["acceptedSizes"], json!([262_144, 65_520]));
+    assert_eq!(report["largestOffer"], json!([["PeerDescription", 262_144]]));
     assert_eq!(
         report["tooLargeOffer"],
         json!([PeersDriver::event(
