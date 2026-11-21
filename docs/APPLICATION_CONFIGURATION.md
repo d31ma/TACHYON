@@ -355,9 +355,9 @@ This file is Yon's configuration. The file itself is the `yon` namespace: its
 members are `yon.*` paths, with no root key. Tachyon reads `server`,
 `datasource`, `redis`, `topics`, `outgoing`, `cohesion`, `duplication`, `dependencies`, `names`, `signatures`, `constants`, `visibility`, `types`, `tests`, `simplify` and `implicitmembers`. Every other member belongs to the application. A
 profile file has the same shape. `server` is a closed set: it holds only
-`host`, `port`, `hosts`, `origins`, `proxies`, `environment` and `maxbody`,
-and any other member stops the server with "yon.server supports only host,
-port, hosts, origins, proxies, environment and maxbody."
+`host`, `port`, `hosts`, `origins`, `proxies`, `environment`, `maxbody` and
+`workers`, and any other member stops the server with "yon.server supports
+only host, port, hosts, origins, proxies, environment, maxbody and workers."
 
 | Path | Meaning |
 | --- | --- |
@@ -366,6 +366,7 @@ port, hosts, origins, proxies, environment and maxbody."
 | `server.origins` | The app origins that may call Yon from another origin, such as `["tachyon-app://bundle", "https://appassets.tachyon.local", "https://app.example.com"]`: each written exactly as `scheme://host[:port]`, with no path. `*`, `null`, a path, a trailing slash, user info and an uppercase host are refused with `TY2010`. A request whose `Origin` is listed gets CORS answers: a preflight gets `204` before any route, and every response gets `Access-Control-Allow-Origin` with that origin, never `Access-Control-Allow-Credentials`. When the list is set, every response carries `Vary: Origin`. A listed origin may also open a socket. Other origins get no CORS headers, and the `Host` check still runs first. `ty init` and `ty add target` write the fixed origins of native targets: macOS and iOS `tachyon-app://bundle`, Android `https://appassets.tachyon.local`, Windows `https://tachyon.local` and Linux `tachyon://app` (ADR 0103). |
 | `server.proxies` | The reverse proxies whose forwarding headers count, as IP addresses or CIDR ranges such as `["10.0.0.0/8", "192.0.2.10"]`; a host name is refused. Empty by default, so `ty` removes `Forwarded`, `X-Forwarded-*` and `X-Real-IP` from every other peer and writes the real client address. From a listed proxy it keeps them, appends its own hop and sets `X-Real-IP` to the nearest address that is not a listed proxy (ADR 0096). |
 | `server.environment` | The environment variables of `ty` that handler processes may see, beyond the baseline (`PATH`, `LANG`, `LC_ALL` and `TMPDIR` on Unix). Each entry is a name, such as `HOME`, or a prefix pattern that ends in `*`, such as `HD_*` or `AWS_*`. Empty by default. `*` alone is refused, and so is any entry that names or covers `ty`'s own variables (`TAC_*`, `TACHYON_*`, `YON_*`, `HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY`, `NO_PROXY`, `NODE_USE_ENV_PROXY`), with `TY2010`. Every Yon language, Gateway command and relay program gets the same list. See [Environment variables for handlers](#environment-variables-for-handlers). |
+| `server.workers` | `true` or `false`. `true` unless set. `false` stops `ty start` from running the scheduled workers under `server/workers` (`@Schedule` and `.tachyonrc.workers`), for a host such as AWS Lambda where an outside scheduler calls the routes instead. See [Scheduled workers](#scheduled-workers) (ADR 0144). |
 | `server.port` | Port, 0 to 65535. `8080` unless set. 0 picks a free port. `--port` overrides it. |
 | `datasource.driver` | `postgresql`, `mysql`, `mariadb`, `sqlserver`, `sqlite` or `fylo`. |
 | `datasource.url` | The database location, without credentials: `postgresql://db:5432/catalog`, `sqlite:///var/lib/catalog.db`, `sqlite::memory:`, or an absolute FYLO root. |
@@ -472,6 +473,36 @@ A larger body gets `413 Payload Too Large`. Tachyon reads up to 16 MiB of
 the body before it answers, so a client that is still sending sees the 413
 instead of a broken connection. The 12 MiB ceiling leaves room in the 16 MiB
 message that carries a request to its handler (ADR 0003).
+
+### Scheduled workers
+
+`ty start` runs every worker under `server/workers` on its schedule. On a
+host that has its own scheduler, such as AWS Lambda with EventBridge, the
+outside scheduler already calls the routes that do this work, so the workers
+inside the function would run the same work a second time. Turn them off in
+the profile of that host only:
+
+```json
+{
+  "server": {
+    "workers": false
+  }
+}
+```
+
+Save it as, for example, `server/application-lambda.json` and select it with
+`YON_PROFILE=lambda`. Then:
+
+- `ty start` starts no scheduled worker. It prints
+  `Scheduled workers are off (yon.server.workers is false): <n> @Schedule
+  worker(s) will not run.` on standard error.
+- The build still checks every worker file.
+- Topic deliveries and every route work as before.
+
+Without the setting, or with `true`, every worker runs as before. A value
+that is not `true` or `false`, such as the string `"false"`, stops
+`ty start` with `TY2010` (ADR 0144). Make sure the outside scheduler is set
+up before you turn the workers off: nothing else runs the scheduled work.
 
 ### How Tachyon validates JSON
 

@@ -160,3 +160,4 @@ design. Decide routine implementation choices in code review, not in an ADR.
 - [145. A Shell Layout Renders Every Page in Its Outlet](0145-a-shell-layout-renders-every-page-in-its-outlet.md)
 - [146. Links Between Page Apps Swap the Outlet Without a Reload](0146-links-between-page-apps-swap-the-outlet-without-a-reload.md)
 - [147. A Page App Deployed Apart Reads the Shell Plan From One File](0147-a-page-app-deployed-apart-reads-the-shell-plan-from-one-file.md)
+- [148. A Server Can Leave Schedule Workers to an Outside Scheduler](0148-a-server-can-leave-schedule-workers-to-an-outside-scheduler.md)
