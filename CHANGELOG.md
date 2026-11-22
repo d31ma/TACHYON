@@ -689,6 +689,16 @@ machine contracts have their own, independent major versions.
 
 ### Changed
 
+- **Behavior change: Android apps fill foldable and large screens and keep
+  their page across a rotation or a fold** (ADR 0052 and ADR 0097 amendments,
+  TAC-FOLD-ANDROID). The generated Android activity declares
+  `android:resizeableActivity="true"` and `android:configChanges` for
+  orientation, screen size and density, so a rotation, a fold or an unfold
+  resizes the page instead of reloading it. On a screen whose short side is at
+  least 600 dp, the declared `orientation` lock is released, so the app is not
+  letterboxed; phones and folded outer screens keep the lock. A recreated
+  activity reopens the page that was open. `bun run test:foldable-android`
+  checks it on the `tachyon-fold` emulator (Pixel 9 Pro Fold, API 35).
 - **Behavior change: Tac keeps a custom element when only its attributes
   change** (ADR 0137 amendment, TAC-RND2). Before, a changed bound attribute
   that the element observes made Tac replace the element, and its
