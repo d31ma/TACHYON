@@ -10,6 +10,7 @@ impl AndroidWindowSettings {
     const JAVA: &'static str = include_str!("android_window_settings.java");
     pub(super) const THEME: &'static str = "@style/TachyonTheme";
     const BASE_THEME: &'static str = "@android:style/Theme.Material.Light.NoActionBar";
+    const RESIZE_ATTRIBUTES: &'static str = "\n        android:resizeableActivity=\"true\"\n        android:configChanges=\"orientation|screenSize|smallestScreenSize|screenLayout|density\"";
 
     pub(super) fn java(window: &WindowConfiguration) -> String {
         let bar = window.theme_color.or(window.background_color);
@@ -44,11 +45,23 @@ impl AndroidWindowSettings {
                     "__WINDOW_LIGHT_BARS__",
                     &bar.is_some_and(NativeThemeColor::is_light).to_string(),
                 ),
+                (
+                    "__WINDOW_ORIENTATION__",
+                    window.orientation.android_activity_info_constant(),
+                ),
             ],
         )
     }
 
     pub(super) fn activity_attributes(window: &WindowConfiguration) -> String {
+        format!(
+            "{}{}",
+            Self::RESIZE_ATTRIBUTES,
+            Self::orientation_attribute(window)
+        )
+    }
+
+    fn orientation_attribute(window: &WindowConfiguration) -> String {
         window
             .orientation
             .android_screen_orientation()
@@ -135,7 +148,10 @@ mod tests {
         assert!(java.contains("WINDOW_HAS_THEME_COLOR = false;"));
         assert!(java.contains("WINDOW_THEME_COLOR = 0;"));
         assert!(!java.contains("__WINDOW_"));
-        assert_eq!(AndroidWindowSettings::activity_attributes(&window), "");
+        assert_eq!(
+            AndroidWindowSettings::activity_attributes(&window),
+            AndroidWindowSettings::RESIZE_ATTRIBUTES
+        );
         let themes = AndroidWindowSettings::themes(&window);
         assert!(themes.contains("<style name=\"TachyonTheme\" parent=\"@style/TachyonBase\"/>"));
         assert!(!themes.contains("<item"));
@@ -181,7 +197,47 @@ mod tests {
         assert!(java.contains("WINDOW_LIGHT_BARS = true;"));
         assert_eq!(
             AndroidWindowSettings::activity_attributes(&window),
-            "\n        android:screenOrientation=\"userLandscape\""
+            format!(
+                "{}\n        android:screenOrientation=\"userLandscape\"",
+                AndroidWindowSettings::RESIZE_ATTRIBUTES
+            )
         );
+    }
+
+    #[test]
+    fn every_activity_resizes_in_place_when_a_foldable_folds_or_unfolds() {
+        let attributes =
+            AndroidWindowSettings::activity_attributes(&WindowConfiguration::default());
+        assert!(attributes.contains("android:resizeableActivity=\"true\""));
+        assert!(attributes.contains(
+            "android:configChanges=\"orientation|screenSize|smallestScreenSize|screenLayout|density\""
+        ));
+        assert!(!attributes.contains("AspectRatio"));
+        assert!(!attributes.contains("uiMode"));
+    }
+
+    #[test]
+    fn a_locked_orientation_is_released_on_a_large_screen_so_it_is_never_letterboxed() {
+        let locked = WindowConfiguration {
+            orientation: NativeOrientation::Landscape,
+            ..WindowConfiguration::default()
+        };
+        let java = AndroidWindowSettings::java(&locked);
+        assert!(java.contains(
+            "WINDOW_ORIENTATION = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_USER_LANDSCAPE;"
+        ));
+        assert!(java.contains("LARGE_SCREEN_DP = 600;"));
+        assert!(java.contains("int wanted = smallestScreenDp() >= LARGE_SCREEN_DP"));
+        assert!(java.contains("? android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED"));
+        assert!(java.contains("    super.onConfigurationChanged(config);\n    fitOrientation();"));
+        assert!(java.contains("getWindowManager().getMaximumWindowMetrics().getBounds()"));
+        assert!(java.contains(
+            "private void installWindowSettings(FrameLayout root) {\n    fitOrientation();"
+        ));
+        let free = AndroidWindowSettings::java(&WindowConfiguration::default());
+        assert!(free.contains(
+            "WINDOW_ORIENTATION = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED;"
+        ));
+        assert!(!free.contains("__WINDOW_ORIENTATION__"));
     }
 }

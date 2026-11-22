@@ -202,26 +202,34 @@ class AndroidLifetimeGate {
     assert.match(telemetry(), /"event":"menu.action"/, 'the host records the performed actions');
   }
 
-  static async checkRotationKeepsTheInstance(instance, processId) {
+  static async checkRecreationKeepsTheInstance(instance, processId) {
     const { adbShell, waitFor, pause, attach, pid, press } = AndroidLifetimeGate;
     const before = AndroidLifetimeGate.journal().visits.length;
     press('KEYCODE_K');
     await waitFor(journal => journal.visits.length > before, 'Ctrl+K opens the status page again');
     const settled = AndroidLifetimeGate.journal().visits.length;
+    const night = /yes/.test(adbShell('cmd', 'uimode', 'night')) ? 'yes' : 'no';
+    const switched = night === 'yes' ? 'no' : 'yes';
     adbShell('settings', 'put', 'system', 'accelerometer_rotation', '0');
     adbShell('settings', 'put', 'system', 'user_rotation', '1');
     try {
-      const rotated = await waitFor(journal => journal.visits.length > settled, 'the recreated activity opens a page that reaches the service');
-      assert.equal(rotated.created.length, 1, 'a rotation keeps the application service');
-      assert.equal(rotated.visits.at(-1)[1], instance, 'the new activity talks to the same instance');
-      assert.equal(pid(), processId, 'the rotation stayed in the same process');
+      await pause(3000);
+      assert.equal(AndroidLifetimeGate.journal().visits.length, settled, 'a rotation resizes the page in place without reloading it');
       adbShell('settings', 'put', 'system', 'user_rotation', '0');
-      const restored = await waitFor(journal => journal.visits.length > rotated.visits.length, 'rotating back recreates the activity again');
-      assert.equal(restored.created.length, 1, 'rotating back keeps the application service');
+      await pause(1500);
+      adbShell('cmd', 'uimode', 'night', switched);
+      const recreated = await waitFor(journal => journal.visits.length > settled, 'the recreated activity opens a page that reaches the service');
+      assert.equal(recreated.created.length, 1, 'a restart of the activity keeps the application service');
+      assert.equal(recreated.visits.at(-1)[1], instance, 'the new activity talks to the same instance');
+      assert.equal(pid(), processId, 'the restart stayed in the same process');
+      adbShell('cmd', 'uimode', 'night', night);
+      const restored = await waitFor(journal => journal.visits.length > recreated.visits.length, 'switching night mode back recreates the activity again');
+      assert.equal(restored.created.length, 1, 'the second restart keeps the application service');
       await pause(500);
       await attach();
     } finally {
       adbShell('settings', 'put', 'system', 'user_rotation', '0');
+      adbShell('cmd', 'uimode', 'night', night);
     }
   }
 
@@ -256,9 +264,9 @@ class AndroidLifetimeGate {
       const processId = await gate.attach();
       const { instance, status } = await gate.checkTwoPagesShareOneInstance();
       await gate.checkActions(instance, status);
-      await gate.checkRotationKeepsTheInstance(instance, processId);
+      await gate.checkRecreationKeepsTheInstance(instance, processId);
       const { sameProcess } = await gate.checkBackStopsAndRelaunchStartsAgain(instance, processId);
-      console.log(`PASS: Android application lifetime: one LifetimeService started at launch, served two pages and a rotation, stopped once on Back after onDestroy disposed the open page's companion, and started again on the next launch${sameProcess ? ' in the same process' : ''}`);
+      console.log(`PASS: Android application lifetime: one LifetimeService started at launch, served two pages, a rotation and two activity restarts, stopped once on Back after onDestroy disposed the open page's companion, and started again on the next launch${sameProcess ? ' in the same process' : ''}`);
       console.log('PASS: Android menu actions: Ctrl+1 and Ctrl+2 called the application service, the page showed the forwarded section without a reload, and the overflow item was disabled on a page without a listener');
     } finally {
       await gate.detach().catch(() => {});

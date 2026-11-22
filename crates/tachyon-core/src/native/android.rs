@@ -793,6 +793,7 @@ public final class MainActivity extends Activity {
   private static final String BOOTSTRAP_SECURITY_POLICY = "__BOOTSTRAP_SECURITY_POLICY__";
   private static final String[] OUTGOING_HOSTS = __OUTGOING_HOSTS__;
   private static final String YON_ORIGIN = "__YON_ORIGIN__";
+  private static final String KEPT_PAGE = "tachyon.page";
 
   private WebView view;
   private volatile String route = "";
@@ -1157,13 +1158,28 @@ __NATIVE_RUST_SERVICES__
     root.addView(withMenuBar(view));
     setContentView(root);
     installWindowSettings(root);
-    String linked = intentTarget(getIntent());
+    String kept = state == null ? null : keptPage(state.getString(KEPT_PAGE));
+    String linked = kept == null ? intentTarget(getIntent()) : null;
     if (linked != null) {
       launchTarget = linked;
       record("link.opened");
     }
+    if (kept != null) launchTarget = kept;
     view.loadUrl(ASSET_ORIGIN + "__tachyon_bootstrap__.html?launch=" + System.nanoTime());
     record("bridge.ready");
+  }
+
+  @Override
+  protected void onSaveInstanceState(Bundle state) {
+    super.onSaveInstanceState(state);
+    String kept = keptPage(view == null ? null : view.getUrl());
+    if (kept != null) state.putString(KEPT_PAGE, kept);
+  }
+
+  private static String keptPage(String url) {
+    if (url == null || url.length() > 2048) return null;
+    Uri page = Uri.parse(url);
+    return isAssetUrl(page) && canonicalRoute(page.getPath()) != null ? url : null;
   }
 
   @Override
@@ -1630,6 +1646,35 @@ mod tests {
         );
         assert!(!standard.contains("TacMobileTitleBar"));
         assert!(!android_manifest(&application(), false).contains("screenOrientation"));
+    }
+
+    #[test]
+    fn a_foldable_resizes_the_page_in_place_and_a_restart_reopens_the_open_page() {
+        let manifest = android_manifest(&application(), false);
+        let activity = &manifest[manifest.find("<activity").expect("activity")..];
+        let tag = &activity[..activity.find('>').expect("activity tag")];
+        assert!(tag.contains("android:resizeableActivity=\"true\""));
+        assert!(tag.contains(
+            "android:configChanges=\"orientation|screenSize|smallestScreenSize|screenLayout|density\""
+        ));
+        assert!(!tag.contains("AspectRatio"));
+        let source = java_source(
+            &application(),
+            "dev.tachyon.native_catalog",
+            false,
+            &index(),
+        );
+        assert!(source.contains("protected void onSaveInstanceState(Bundle state)"));
+        assert!(source.contains("if (kept != null) state.putString(KEPT_PAGE, kept);"));
+        assert!(source.contains(
+            "String kept = state == null ? null : keptPage(state.getString(KEPT_PAGE));"
+        ));
+        assert!(
+            source.contains("String linked = kept == null ? intentTarget(getIntent()) : null;")
+        );
+        assert!(source.contains(
+            "return isAssetUrl(page) && canonicalRoute(page.getPath()) != null ? url : null;"
+        ));
     }
 
     #[test]
