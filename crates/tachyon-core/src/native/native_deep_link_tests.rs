@@ -350,7 +350,7 @@ fn android_claims_the_schemes_and_verified_hosts_and_opens_them_at_their_route()
         source.contains("private static final String[] LINK_SCHEMES = {\"myapp\", \"other\"};")
     );
     assert!(source.contains("protected void onNewIntent(Intent intent) {"));
-    assert!(source.contains("String linked = intentTarget(getIntent());"));
+    assert!(source.contains("String linked = kept == null ? intentTarget(getIntent()) : null;"));
     assert!(source.contains("String destination = org.json.JSONObject.quote(launchTarget);"));
     assert!(!source.contains("__NATIVE_DEEP_LINKS__"));
 }
