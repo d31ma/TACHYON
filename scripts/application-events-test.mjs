@@ -292,10 +292,10 @@ async function checkStreamRequests(TacApplicationEvents, resources) {
     state.emit('state', '{"sku":"N","level":7}')
     assert.deepEqual(TicksClient.received.at(-1), 7, 'a message of the named event type reaches the method')
     assert.deepEqual(TicksListener.heard.at(-1), 7, 'a message of the named event type is published')
-    const large = `{"sku":"N","level":8,"note":"${'x'.repeat(70000)}"}`
+    const large = `{"sku":"N","level":8,"note":"${'x'.repeat(400000)}"}`
     state.emit('state', large)
-    assert.deepEqual(lastFailure, ['Application event exceeds 64 KiB.', '/named', 'state', large], 'a message over 64 KiB gives its error, stream path, event name and text to the failure handler')
-    assert.deepEqual(TicksClient.received.at(-1), 7, 'a message over 64 KiB reaches no method')
+    assert.deepEqual(lastFailure, ['Application event exceeds 393216 bytes; send less data in one event.', '/named', 'state', large], 'a message over 384 KiB gives its error, stream path, event name and text to the failure handler')
+    assert.deepEqual(TicksClient.received.at(-1), 7, 'a message over 384 KiB reaches no method')
     const quiet = timers.length
     state.emit('heartbeat', '')
     assert.equal(timers.at(-1).delay, 60000, 'a heartbeat restarts the sixty-second silence timer')

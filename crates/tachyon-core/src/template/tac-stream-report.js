@@ -1,8 +1,8 @@
 class TacStreamReport {
   /** @type {number} */
-  static #limit = 65536
+  static #limit = 393216
   /** @type {string} */
-  static #tooLargeMessage = 'Application event exceeds 64 KiB.'
+  static #tooLargeMessage = 'Application event exceeds 393216 bytes; send less data in one event.'
   /** @type {Set<string>} */
   static #reported = new Set()
 
