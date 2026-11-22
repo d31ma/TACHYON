@@ -5,10 +5,35 @@
   private static final boolean WINDOW_HAS_BACKGROUND_COLOR = __WINDOW_HAS_BACKGROUND_COLOR__;
   private static final int WINDOW_BACKGROUND_COLOR = __WINDOW_BACKGROUND_COLOR__;
   private static final boolean WINDOW_LIGHT_BARS = __WINDOW_LIGHT_BARS__;
+  private static final int WINDOW_ORIENTATION = android.content.pm.ActivityInfo.__WINDOW_ORIENTATION__;
+  private static final int LARGE_SCREEN_DP = 600;
   private volatile String titleBarInsets = "{\"height\":0,\"leading\":0,\"trailing\":0}";
+
+  @Override
+  public void onConfigurationChanged(android.content.res.Configuration config) {
+    super.onConfigurationChanged(config);
+    fitOrientation();
+  }
+
+  private void fitOrientation() {
+    int wanted = smallestScreenDp() >= LARGE_SCREEN_DP
+        ? android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        : WINDOW_ORIENTATION;
+    if (getRequestedOrientation() != wanted) setRequestedOrientation(wanted);
+  }
+
+  @SuppressWarnings("deprecation")
+  private int smallestScreenDp() {
+    if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.R) {
+      return getResources().getConfiguration().smallestScreenWidthDp;
+    }
+    android.graphics.Rect bounds = getWindowManager().getMaximumWindowMetrics().getBounds();
+    return Math.round(Math.min(bounds.width(), bounds.height()) / getResources().getDisplayMetrics().density);
+  }
 
   @SuppressWarnings("deprecation")
   private void installWindowSettings(FrameLayout root) {
+    fitOrientation();
     android.view.Window window = getWindow();
     if (WINDOW_HAS_BACKGROUND_COLOR) view.setBackgroundColor(WINDOW_BACKGROUND_COLOR);
     if (WINDOW_HAS_THEME_COLOR) {
