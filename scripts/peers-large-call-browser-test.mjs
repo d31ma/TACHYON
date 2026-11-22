@@ -89,7 +89,7 @@ class PeersLargeCallCheck {
     return {
       'client/manifest.json': `${JSON.stringify(PeersLargeCallCheck.manifest(turnPort, relayPort))}\n`,
       'client/pages/tac.html': '<call-room hydrate="load" />\n',
-      'client/components/call/room/tac.html': '<main aria-label="Call"><button on:click="call.start(\'caller\', \'socket\')">Call over socket</button><button on:click="call.start(\'answerer\', \'socket\')">Answer over socket</button><button on:click="call.start(\'caller\', \'http\')">Call over Http</button><button on:click="call.start(\'answerer\', \'http\')">Answer over Http</button><p>{call.report}</p></main>\n',
+      'client/components/call/room/tac.html': '<main aria-label="Call"><button on:click="call.answer(\'socket\')">Answer over socket</button><button on:click="call.answer(\'http\')">Answer over Http</button><p>{call.report}</p></main>\n',
       'client/models/Signal.ts': 'export type Signal = { from: string; kind: string; text: string }\n',
       'client/models/TakeRequest.ts': 'export type TakeRequest = { after: number; from: string }\n',
       'client/models/Taken.ts': "import type { Signal } from './Signal.ts'\nexport type Taken = { items: Signal[]; next: number }\n",
@@ -150,30 +150,19 @@ export default class RelayClient {
   }
 
   static service() {
-    const { audioTracks, videoTracks, turnUser, turnSecret } = PeersLargeCallCheck
+    const { turnUser, turnSecret } = PeersLargeCallCheck
     return `/** @import { Signal } from '/models/Signal.ts' */
 @Service
 export default class CallService {
-  static _AUDIO = ${audioTracks};
-  static _VIDEO = ${videoTracks};
-  static _TRACKS = ${audioTracks + videoTracks};
   static _POLL_MS = 300;
   static _USER = ${JSON.stringify(turnUser)};
   static _SECRET = ${JSON.stringify(turnSecret)};
-  static _CALLER = 'caller';
+  static _ROLE = 'answerer';
   static _SOCKET = 'socket';
   static _HTTP = 'http';
-  static _OFFER = 'offer';
-  static _CANDIDATE = 'candidate';
-  static _CONNECTED = 'connected';
-  static _MICROPHONE = 'mic';
-  static _CAMERA = 'cam';
-  static _STREAM = 'call';
   static _SPACE = ' ';
-  static _BYTES = ' bytes';
   static _STEPS = {
     offer: (peers, connection, text) => peers.answer(connection, text),
-    answer: (peers, connection, text) => peers.accept(connection, text),
     candidate: (peers, connection, text) => peers.addCandidate(connection, text),
   };
   /** @type {TacPeers} */
@@ -191,26 +180,22 @@ export default class CallService {
   @Needs
   taskScheduler;
   report = 'idle';
-  _role = '';
   _transport = '';
   _connection = '';
-  _started = 0;
   _arrived = 0;
-  _offerBytes = 0;
+  _answerBytes = 0;
   _taken = 0;
 
   /**
    * @param {Event} _event
-   * @param {string} role
    * @param {string} transport
    */
-  start(_event, role, transport) {
-    this._role = role;
+  answer(_event, transport) {
     this._transport = transport;
+    this.media.resumeAudio();
     this._connection = this.peers.open(CallService._USER, CallService._SECRET);
-    this._show('waiting');
+    this._show();
     this._startPolling();
-    this._startCapture();
   }
 
   _startPolling() {
@@ -219,66 +204,10 @@ export default class CallService {
   }
 
   async _poll() {
-    const taken = await this.relayClient.take({ after: this._taken, from: this._role });
+    const taken = await this.relayClient.take({ after: this._taken, from: CallService._ROLE });
     this._taken = taken.next;
     for (const signal of taken.items) this._step(signal);
     setTimeout(() => void this._poll(), CallService._POLL_MS);
-  }
-
-  _startCapture() {
-    if (this._role !== CallService._CALLER) return;
-    this._captureMicrophones();
-    this._captureCameras();
-  }
-
-  _captureMicrophones() {
-    for (let index = 0; index < CallService._AUDIO; index += 1) this.media.captureMicrophone(CallService._MICROPHONE + index, '', false);
-  }
-
-  _captureCameras() {
-    for (let index = 0; index < CallService._VIDEO; index += 1) this.media.captureCamera(CallService._CAMERA + index, '', 'low');
-  }
-
-  /** @param {MediaTrackStarted} started */
-  @OnEvent
-  hearStarted(started) {
-    this._started += 1;
-    this._sendWhenAllStarted();
-  }
-
-  _sendWhenAllStarted() {
-    if (this._started !== CallService._TRACKS) return;
-    this._sendMicrophones();
-    this._sendCameras();
-    this.peers.offer(this._connection);
-  }
-
-  _sendMicrophones() {
-    for (let index = 0; index < CallService._AUDIO; index += 1) this.media.send(this._connection, CallService._MICROPHONE + index, CallService._STREAM, false);
-  }
-
-  _sendCameras() {
-    for (let index = 0; index < CallService._VIDEO; index += 1) this.media.send(this._connection, CallService._CAMERA + index, CallService._STREAM, false);
-  }
-
-  /** @param {PeerDescription} described */
-  @OnEvent
-  hearDescription(described) {
-    void this._relay(described.kind, described.sdp);
-    this._noteOffer(described);
-  }
-
-  /** @param {PeerDescription} described */
-  _noteOffer(described) {
-    if (described.kind !== CallService._OFFER) return;
-    this._offerBytes = new TextEncoder().encode(described.sdp).length;
-    this._show('offered ' + this._offerBytes + CallService._BYTES);
-  }
-
-  /** @param {PeerCandidate} candidate */
-  @OnEvent
-  hearCandidate(candidate) {
-    void this._relay(CallService._CANDIDATE, candidate.candidateJson);
   }
 
   /** @param {Signal} signal */
@@ -289,7 +218,7 @@ export default class CallService {
 
   /** @param {Signal} signal */
   _stepFromSocket(signal) {
-    if (this._transport !== CallService._SOCKET || signal.from === this._role) return;
+    if (this._transport !== CallService._SOCKET || signal.from === CallService._ROLE) return;
     this._step(signal);
   }
 
@@ -298,12 +227,26 @@ export default class CallService {
     CallService._STEPS[signal.kind](this.peers, this._connection, signal.text);
   }
 
+  /** @param {PeerDescription} described */
+  @OnEvent
+  hearDescription(described) {
+    void this._relay(described.kind, described.sdp);
+    this._answerBytes = new TextEncoder().encode(described.sdp).length;
+    this._show();
+  }
+
+  /** @param {PeerCandidate} candidate */
+  @OnEvent
+  hearCandidate(candidate) {
+    void this._relay('candidate', candidate.candidateJson);
+  }
+
   /**
    * @param {string} kind
    * @param {string} text
    */
   async _relay(kind, text) {
-    const signal = { from: this._role, kind, text };
+    const signal = { from: CallService._ROLE, kind, text };
     if (this._transport === CallService._SOCKET) return this.signalClient.send(signal);
     return this.relayClient.post(signal);
   }
@@ -312,41 +255,28 @@ export default class CallService {
   @OnEvent
   hearArrived(arrived) {
     this._arrived += 1;
-    this._showArrived();
-  }
-
-  _showArrived() {
-    if (this._arrived !== CallService._TRACKS) return;
-    this._show('arrived ' + this._arrived + ' tracks');
-  }
-
-  /** @param {PeerState} state */
-  @OnEvent
-  hearState(state) {
-    this._showConnected(state);
-  }
-
-  /** @param {PeerState} state */
-  _showConnected(state) {
-    if (this._role !== CallService._CALLER || state.state !== CallService._CONNECTED) return;
-    this._show('connected, offered ' + this._offerBytes + CallService._BYTES);
+    this._show();
   }
 
   /** @param {PeerFailed} failed */
   @OnEvent
   hearFailed(failed) {
-    this._show('failed ' + failed.call + CallService._SPACE + failed.reason + CallService._SPACE + failed.message);
+    this._showProblem('failed ' + failed.call + CallService._SPACE + failed.reason + CallService._SPACE + failed.message);
   }
 
   /** @param {MediaFailed} failed */
   @OnEvent
   hearMediaFailed(failed) {
-    this._show('media failed ' + JSON.stringify(failed));
+    this._showProblem('media failed ' + JSON.stringify(failed));
+  }
+
+  _show() {
+    this._showProblem('arrived ' + this._arrived + ' tracks, answered ' + this._answerBytes + ' bytes');
   }
 
   /** @param {string} text */
-  _show(text) {
-    this.report = this._role + CallService._SPACE + this._transport + ': ' + text;
+  _showProblem(text) {
+    this.report = CallService._ROLE + CallService._SPACE + this._transport + ': ' + text;
     void this.taskScheduler.render();
   }
 }
@@ -381,45 +311,135 @@ export default class CallService {
     return text
   }
 
-  static async call(context, origin, relayPort, transport) {
-    await fetch(`http://127.0.0.1:${relayPort}/reset`, { method: 'POST', body: '{}' })
-    const [caller, answerer] = [await context.newPage(), await context.newPage()]
+  static async call(context, origin, ports, transport) {
+    await fetch(`http://127.0.0.1:${ports.relay}/reset`, { method: 'POST', body: '{}' })
+    const [server, answerer] = [await context.newPage(), await context.newPage()]
     const errors = []
-    for (const page of [caller, answerer]) page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()) })
-    await Promise.all([caller.goto(origin), answerer.goto(origin)])
+    const sockets = []
+    for (const page of [server, answerer]) page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()) })
+    answerer.on('websocket', (socket) => sockets.push(socket.url()))
+    await Promise.all([server.goto(origin), answerer.goto(origin)])
     const label = transport === 'socket' ? 'socket' : 'Http'
     await answerer.getByRole('button', { name: `Answer over ${label}` }).click()
-    await caller.getByRole('button', { name: `Call over ${label}` }).click()
-    const arrived = await PeersLargeCallCheck.waitFor(answerer, (text) => text.includes('arrived'))
-    const offered = await PeersLargeCallCheck.waitFor(caller, (text) => text.includes('connected'))
-    await Promise.all([caller.close(), answerer.close()])
-    return { arrived, offered, errors: errors.slice(0, 5) }
+    await PeersLargeCallCheck.waitFor(answerer, (text) => text.startsWith('answerer'))
+    await server.evaluate(PeersLargeCallCheck.mediaServerStandIn, PeersLargeCallCheck.standInSetup(transport, sockets, ports))
+    const total = PeersLargeCallCheck.audioTracks + PeersLargeCallCheck.videoTracks
+    const arrived = await PeersLargeCallCheck.waitFor(answerer, (text) => new RegExp(`arrived ${total} tracks, answered [1-9]`).test(text))
+    const standIn = await PeersLargeCallCheck.waitForStandIn(server)
+    await Promise.all([server.close(), answerer.close()])
+    return { arrived, standIn, errors: errors.slice(0, 5) }
   }
 
-  static offerBytes(text) {
-    return Number(/offered (\d+) bytes/.exec(text)?.[1] ?? 0)
+  static standInSetup(transport, sockets, ports) {
+    return {
+      transport,
+      socketUrl: sockets.find((url) => url.endsWith('/signal')) ?? '',
+      relayUrl: `http://127.0.0.1:${ports.relay}`,
+      turnUrl: `turn:127.0.0.1:${ports.turn}`,
+      username: PeersLargeCallCheck.turnUser,
+      credential: PeersLargeCallCheck.turnSecret,
+      audio: PeersLargeCallCheck.audioTracks,
+      video: PeersLargeCallCheck.videoTracks,
+    }
+  }
+
+  static async mediaServerStandIn(setup) {
+    const name = 'media-server'
+    const peer = new RTCPeerConnection({ iceServers: [{ urls: setup.turnUrl, username: setup.username, credential: setup.credential }], iceTransportPolicy: 'relay', bundlePolicy: 'max-bundle' })
+    const standIn = { state: 'new', offerBytes: 0, errors: [] }
+    window.mediaServerStandIn = standIn
+    peer.addEventListener('connectionstatechange', () => { standIn.state = peer.connectionState })
+    const audioContext = new AudioContext()
+    const tone = audioContext.createOscillator()
+    const toneOut = audioContext.createMediaStreamDestination()
+    tone.connect(toneOut)
+    tone.start()
+    const canvas = Object.assign(document.createElement('canvas'), { width: 160, height: 120 })
+    const paint = canvas.getContext('2d')
+    setInterval(() => { paint.fillStyle = `hsl(${Math.floor(Date.now() / 10) % 360} 60% 50%)`; paint.fillRect(0, 0, 160, 120) }, 50)
+    const [audioSource, videoSource] = [toneOut.stream.getAudioTracks()[0], canvas.captureStream(15).getVideoTracks()[0]]
+    for (let index = 0; index < setup.audio; index += 1) peer.addTrack(audioSource.clone(), new MediaStream())
+    for (let index = 0; index < setup.video; index += 1) peer.addTrack(videoSource.clone(), new MediaStream())
+    let socket = null
+    const send = (kind, text) => {
+      const signal = JSON.stringify({ from: name, kind, text })
+      if (socket) return socket.send(signal)
+      return fetch(`${setup.relayUrl}/post`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: signal })
+    }
+    const pending = []
+    const apply = async (signal) => {
+      if (signal.from === name) return
+      if (signal.kind === 'answer') {
+        await peer.setRemoteDescription({ type: 'answer', sdp: signal.text })
+        for (const candidate of pending.splice(0)) await peer.addIceCandidate(candidate)
+      }
+      if (signal.kind === 'candidate' && signal.text !== '') {
+        const candidate = JSON.parse(signal.text)
+        if (peer.remoteDescription) await peer.addIceCandidate(candidate)
+        else pending.push(candidate)
+      }
+    }
+    let queue = Promise.resolve()
+    const heard = (signal) => { queue = queue.then(() => apply(signal)).catch((error) => standIn.errors.push(String(error?.message ?? error))) }
+    if (setup.transport === 'socket') {
+      socket = new WebSocket(setup.socketUrl)
+      await new Promise((resolve, reject) => { socket.onopen = resolve; socket.onerror = () => reject(new Error(`the stand-in could not open ${setup.socketUrl}`)) })
+      socket.onmessage = (event) => heard(JSON.parse(event.data))
+    } else {
+      let after = 0
+      const poll = async () => {
+        const response = await fetch(`${setup.relayUrl}/take`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ after, from: name }) })
+        const taken = await response.json()
+        after = taken.next
+        for (const signal of taken.items) heard(signal)
+        setTimeout(poll, 300)
+      }
+      void poll()
+    }
+    peer.addEventListener('icecandidate', (event) => { if (event.candidate) void send('candidate', JSON.stringify(event.candidate.toJSON())) })
+    await peer.setLocalDescription(await peer.createOffer())
+    standIn.offerBytes = new TextEncoder().encode(peer.localDescription.sdp).length
+    await send('offer', peer.localDescription.sdp)
+  }
+
+  static async waitForStandIn(page) {
+    const deadline = Date.now() + PeersLargeCallCheck.waitMs
+    let standIn = {}
+    while (Date.now() < deadline) {
+      standIn = await page.evaluate(() => ({ ...window.mediaServerStandIn }))
+      if (['connected', 'failed'].includes(standIn.state)) return standIn
+      await page.waitForTimeout(500)
+    }
+    return standIn
+  }
+
+  static answerBytes(text) {
+    return Number(/answered (\d+) bytes/.exec(text)?.[1] ?? 0)
   }
 
   static check(name, transport, result) {
     const total = PeersLargeCallCheck.audioTracks + PeersLargeCallCheck.videoTracks
-    assert.equal(result.arrived, `answerer ${transport}: arrived ${total} tracks`, `${name} ${transport}: the answering page receives all ${total} tracks (${JSON.stringify(result)})`)
-    assert.match(result.offered, /^caller [a-z]+: connected, offered \d+ bytes$/, `${name} ${transport}: the calling page connects (${JSON.stringify(result)})`)
-    const bytes = PeersLargeCallCheck.offerBytes(result.offered)
-    assert.ok(bytes <= PeersLargeCallCheck.descriptionLimit, `${name}: the offer fits the description limit`)
-    if (name !== 'firefox') assert.ok(bytes > PeersLargeCallCheck.eventLimit, `${name}: a ${total}-track offer is larger than the old 64 KiB limit, so the raised limits carried it (${bytes} bytes)`)
+    const limit = PeersLargeCallCheck.descriptionLimit
+    assert.match(result.arrived, new RegExp(`^answerer ${transport}: arrived ${total} tracks, answered \\d+ bytes$`), `${name} ${transport}: the answering Tac page receives all ${total} tracks (${JSON.stringify(result)})`)
+    assert.equal(result.standIn.state, 'connected', `${name} ${transport}: the media server stand-in connects (${JSON.stringify(result.standIn)})`)
+    assert.deepEqual(result.standIn.errors, [], `${name} ${transport}: the stand-in applied every answer and candidate`)
+    const answer = PeersLargeCallCheck.answerBytes(result.arrived)
+    assert.ok(result.standIn.offerBytes <= limit, `${name}: the ${total}-track offer fits the incoming description limit (${result.standIn.offerBytes} bytes)`)
+    assert.ok(answer > 0 && answer <= limit, `${name}: the Tac page's ${total}-track answer passed the outgoing description limit (${answer} bytes)`)
+    if (name !== 'firefox') assert.ok(result.standIn.offerBytes > PeersLargeCallCheck.eventLimit, `${name}: a ${total}-track offer is larger than the old 64 KiB limit, so the raised limits carried it (${result.standIn.offerBytes} bytes)`)
   }
 
-  static async runEngine(setup, origin, relayPort) {
+  static async runEngine(setup, origin, ports) {
     const name = setup.engine.name()
     const browser = await setup.engine.launch(setup.options)
     try {
       const context = await browser.newContext()
       await context.grantPermissions(['microphone', 'camera']).catch(() => null)
       for (const transport of PeersLargeCallCheck.transports) {
-        const result = await PeersLargeCallCheck.call(context, origin, relayPort, transport)
+        const result = await PeersLargeCallCheck.call(context, origin, ports, transport)
         console.log(name, transport, JSON.stringify(result))
         PeersLargeCallCheck.check(name, transport, result)
-        console.log(`ok - ${name} ${transport}: ${PeersLargeCallCheck.audioTracks + PeersLargeCallCheck.videoTracks} tracks arrived after a ${PeersLargeCallCheck.offerBytes(result.offered)}-byte offer went through Peers.answer, accept and addCandidate over ${transport}`)
+        console.log(`ok - ${name} ${transport}: ${PeersLargeCallCheck.audioTracks + PeersLargeCallCheck.videoTracks} tracks arrived after a ${result.standIn.offerBytes}-byte offer and a ${PeersLargeCallCheck.answerBytes(result.arrived)}-byte answer went through Peers.answer and addCandidate over ${transport}`)
       }
     } finally {
       await browser.close()
@@ -439,7 +459,8 @@ export default class CallService {
         const response = await request('/')
         assert.equal(response.status, 200)
         const origin = new URL(response.url).origin
-        for (const setup of PeersLargeCallCheck.engines) await PeersLargeCallCheck.runEngine(setup, origin, relay.address().port)
+        const ports = { relay: relay.address().port, turn: turnPort }
+        for (const setup of PeersLargeCallCheck.engines) await PeersLargeCallCheck.runEngine(setup, origin, ports)
       }, { readinessTimeoutMilliseconds: 120000 })
     } finally {
       relay.close()
