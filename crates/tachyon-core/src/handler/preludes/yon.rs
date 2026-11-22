@@ -747,11 +747,10 @@ impl YonResourceError {
     }
 
     fn transport(error: &std::io::Error) -> Self {
-        let timed_out = matches!(error.kind(), std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock);
-        if timed_out {
-            return Self::with_code("budget_spent");
+        match error.kind() {
+            std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock => Self::with_code("budget_spent"),
+            _ => Self::with_code("unavailable"),
         }
-        Self::with_code("unavailable")
     }
 
     fn from_answer(text: &str) -> Self {

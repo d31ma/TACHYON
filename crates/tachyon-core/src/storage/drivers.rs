@@ -26,7 +26,7 @@ use tokio_util::compat::{Compat, TokioAsyncWriteCompatExt};
 use super::dialect::{Dialect, ResultKind, Statement};
 #[cfg(feature = "storage-sqlserver")]
 use super::prelogin_stream::PreloginStream;
-use super::{ManagedStorage, coded_failure, failure, object_keys, text};
+use super::{ManagedStorage, failure, object_keys, text};
 use crate::Failure;
 use crate::resource_error_code::ResourceErrorCode;
 
@@ -116,10 +116,10 @@ impl SqlStore {
         let mut open = self.transactions.lock().await;
         Self::remove_expired(&mut open);
         if open.len() >= ManagedStorage::MAX_TRANSACTIONS {
-            return Err(coded_failure(
+            return Err(failure(
                 "Open transaction limit reached; commit or roll back before starting another.",
-                ResourceErrorCode::TransactionRefused,
-            ));
+            )
+            .with_resource_code(ResourceErrorCode::TransactionRefused));
         }
         let mut connection = self.dedicated_connection().await?;
         run_on_dedicated(&mut connection, &self.dialect.control("begin"), deadline).await?;
@@ -188,10 +188,8 @@ impl SqlStore {
         let mut open = self.transactions.lock().await;
         Self::remove_expired(&mut open);
         open.remove(id).ok_or_else(|| {
-            coded_failure(
-                "Unknown, expired or already settled transaction; start a new one.",
-                ResourceErrorCode::TransactionRefused,
-            )
+            failure("Unknown, expired or already settled transaction; start a new one.")
+                .with_resource_code(ResourceErrorCode::TransactionRefused)
         })
     }
 
@@ -581,10 +579,8 @@ async fn execute_on(
     }
     if !statement.result.returns_rows() {
         let result = query.execute(&mut *connection).await.map_err(|error| {
-            super::sql_mutation_failure(
-                &error,
-                "Datasource mutation failed; no retry was performed.",
-            )
+            failure("Datasource mutation failed; no retry was performed.")
+                .with_resource_code(ResourceErrorCode::of_sql(&error))
         })?;
         return Ok(mutation_result(&statement.result, result.rows_affected()));
     }
@@ -744,10 +740,10 @@ pub(super) fn push_row(
         .map_err(|_| failure("Storage row serialization failed."))?
         .len();
     if rows.len() >= ManagedStorage::MAX_ROWS || *bytes > ManagedStorage::MAX_BYTES {
-        return Err(coded_failure(
-            "Storage result exceeds row or byte limit; paginate the query.",
-            ResourceErrorCode::TooLarge,
-        ));
+        return Err(
+            failure("Storage result exceeds row or byte limit; paginate the query.")
+                .with_resource_code(ResourceErrorCode::TooLarge),
+        );
     }
     rows.push(row);
     Ok(())

@@ -27,7 +27,7 @@ use super::dialect::{
     is_simple_identifier, page_with_query_order, reject_count_page_or_order,
     sort_field_and_direction,
 };
-use super::{ManagedStorage, coded_failure, failure, object_keys, scalar, text};
+use super::{ManagedStorage, failure, object_keys, scalar, text};
 use crate::Failure;
 use crate::failure::diagnostic;
 use crate::resource_error_code::ResourceErrorCode;
@@ -356,10 +356,10 @@ impl FyloStore {
             }
         }
         if rows.len() > Self::MAX_SCAN {
-            return Err(coded_failure(
-                "FYLO result exceeds the scan bound; narrow the query.",
-                ResourceErrorCode::TooLarge,
-            ));
+            return Err(
+                failure("FYLO result exceeds the scan bound; narrow the query.")
+                    .with_resource_code(ResourceErrorCode::TooLarge),
+            );
         }
         Ok(rows)
     }
@@ -715,10 +715,10 @@ fn rows_of(answer: Value, id_field: &str) -> Result<Vec<Value>, Failure> {
         let row = Value::Object(document);
         bytes += serde_json::to_vec(&row).map_or(0, |encoded| encoded.len());
         if bytes > ManagedStorage::MAX_BYTES {
-            return Err(coded_failure(
-                "FYLO result exceeds the byte limit; paginate the query.",
-                ResourceErrorCode::TooLarge,
-            ));
+            return Err(
+                failure("FYLO result exceeds the byte limit; paginate the query.")
+                    .with_resource_code(ResourceErrorCode::TooLarge),
+            );
         }
         rows.push(row);
     }

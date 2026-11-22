@@ -48,7 +48,7 @@ a handler (ADR 0128).
    newer `ty` with a new code never breaks an older handler.
 
 2. **Where each code comes from.** One table in the code,
-   `ResourceErrorCode::FYLO_CODES`, maps FYLO's error codes; the other rows
+   `ResourceErrorCode::CODES_FROM_FYLO`, maps FYLO's error codes; the other rows
    are tags at the places where Tachyon makes the failure. FYLO codes that are
    not listed are `failed`.
 

@@ -132,10 +132,8 @@ async fn run_statement(
             .execute(connection)
             .await
             .map_err(|error| {
-                super::sql_mutation_failure(
-                    &error,
-                    "SQLite mutation failed or was interrupted; no retry was performed.",
-                )
+                failure("SQLite mutation failed or was interrupted; no retry was performed.")
+                    .with_resource_code(ResourceErrorCode::of_sql(&error))
             })?
             .rows_affected();
         return Ok(mutation_result(&statement.result, affected));

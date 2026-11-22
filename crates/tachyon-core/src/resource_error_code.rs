@@ -11,40 +11,54 @@ pub(crate) enum ResourceErrorCode {
 }
 
 impl ResourceErrorCode {
-    const FYLO_CODES: [(&'static str, Self); 33] = [
-        ("EDEADLINE", Self::BudgetSpent),
-        ("EROOTLOCKED", Self::Busy),
-        ("EBUSY", Self::Busy),
-        ("ETXNBUSY", Self::Busy),
-        ("EDOCEXISTS", Self::Conflict),
-        ("EENGINE_CONCURRENT_WRITE", Self::Conflict),
-        ("ENATIVE_CONCURRENT_WRITE", Self::Conflict),
-        ("EINVALIDDOCID", Self::NotFound),
-        ("ENATIVE_NOT_FOUND", Self::NotFound),
-        ("ENOTFOUND", Self::NotFound),
-        ("ECOLLECTION_NOT_FOUND", Self::NotFound),
-        ("ENATIVE_UNSAFE_PATH", Self::NotFound),
-        ("ETXNLIMIT", Self::TooLarge),
-        ("EFRAME_REQUEST_TOO_LARGE", Self::TooLarge),
-        ("EFRAME_RESPONSE_TOO_LARGE", Self::TooLarge),
-        ("EQUERY_INPUT_SIZE", Self::TooLarge),
-        ("EQUERY_OUTPUT_SIZE", Self::TooLarge),
-        ("EQUERY_TERM_SIZE", Self::TooLarge),
-        ("EQUERYITEMTOOLARGE", Self::TooLarge),
-        ("EQUERYSNAPSHOTTOOLARGE", Self::TooLarge),
-        ("EINDEX_KEY_SIZE", Self::TooLarge),
-        ("EINDEX_SNAPSHOT_SIZE", Self::TooLarge),
-        ("ENATIVE_FILE_SIZE", Self::TooLarge),
-        ("EFORMAT_SIZE", Self::TooLarge),
-        ("EFORMAT_DEPTH", Self::TooLarge),
-        ("EFORMAT_NODES", Self::TooLarge),
-        ("ETXNSCOPE", Self::TransactionRefused),
-        ("ETXNLAYOUT", Self::TransactionRefused),
-        ("ETXNUNKNOWN", Self::TransactionRefused),
-        ("ETXNEXPIRED", Self::TransactionRefused),
-        ("EPROTOCOL", Self::Unavailable),
-        ("EROOTCLOSED", Self::Unavailable),
-        ("EROOTLEASELOST", Self::Unavailable),
+    const CODES_FROM_FYLO: [(Self, &'static [&'static str]); 7] = [
+        (Self::BudgetSpent, &["EDEADLINE"]),
+        (Self::Busy, &["EROOTLOCKED", "EBUSY", "ETXNBUSY"]),
+        (
+            Self::Conflict,
+            &[
+                "EDOCEXISTS",
+                "EENGINE_CONCURRENT_WRITE",
+                "ENATIVE_CONCURRENT_WRITE",
+            ],
+        ),
+        (
+            Self::NotFound,
+            &[
+                "EINVALIDDOCID",
+                "ENATIVE_NOT_FOUND",
+                "ENOTFOUND",
+                "ECOLLECTION_NOT_FOUND",
+                "ENATIVE_UNSAFE_PATH",
+            ],
+        ),
+        (
+            Self::TooLarge,
+            &[
+                "ETXNLIMIT",
+                "EFRAME_REQUEST_TOO_LARGE",
+                "EFRAME_RESPONSE_TOO_LARGE",
+                "EQUERY_INPUT_SIZE",
+                "EQUERY_OUTPUT_SIZE",
+                "EQUERY_TERM_SIZE",
+                "EQUERYITEMTOOLARGE",
+                "EQUERYSNAPSHOTTOOLARGE",
+                "EINDEX_KEY_SIZE",
+                "EINDEX_SNAPSHOT_SIZE",
+                "ENATIVE_FILE_SIZE",
+                "EFORMAT_SIZE",
+                "EFORMAT_DEPTH",
+                "EFORMAT_NODES",
+            ],
+        ),
+        (
+            Self::TransactionRefused,
+            &["ETXNSCOPE", "ETXNLAYOUT", "ETXNUNKNOWN", "ETXNEXPIRED"],
+        ),
+        (
+            Self::Unavailable,
+            &["EPROTOCOL", "EROOTCLOSED", "EROOTLEASELOST"],
+        ),
     ];
 
     #[must_use]
@@ -54,7 +68,12 @@ impl ResourceErrorCode {
 
     #[must_use]
     pub(crate) fn of_fylo(fylo_code: &str) -> Self {
-        Self::fylo_entry(fylo_code).map_or(Self::Failed, |(_, code)| code)
+        Self::fylo_group(fylo_code).unwrap_or(Self::Failed)
+    }
+
+    #[must_use]
+    pub(crate) fn of_sql(error: &sqlx::Error) -> Self {
+        Self::unique_violation(error).unwrap_or(Self::Failed)
     }
 
     const fn name(code: Self) -> &'static str {
@@ -70,10 +89,15 @@ impl ResourceErrorCode {
         }
     }
 
-    fn fylo_entry(fylo_code: &str) -> Option<(&'static str, Self)> {
-        Self::FYLO_CODES
+    fn fylo_group(fylo_code: &str) -> Option<Self> {
+        Self::CODES_FROM_FYLO
             .into_iter()
-            .find(|(name, _)| *name == fylo_code)
+            .find_map(|(code, names)| names.contains(&fylo_code).then_some(code))
+    }
+
+    fn unique_violation(error: &sqlx::Error) -> Option<Self> {
+        let database = error.as_database_error()?;
+        database.is_unique_violation().then_some(Self::Conflict)
     }
 }
 
