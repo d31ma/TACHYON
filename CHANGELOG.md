@@ -146,6 +146,11 @@ machine contracts have their own, independent major versions.
   Where a native host answers Crypto, `Media.useFrameKey` and
   `Media.encryptFrames(connection, true)` answer `unsupported` until the
   hosts hand SFrame its frame keys.
+- **The `tac-web.js` byte budget is 18,700 bytes** (was 18,600). The
+  module forwarder now lists each module's calls as its own keys, so a
+  service that gets Peers, Media, Files, Blobs or Locks through `@Needs`
+  receives every call (before this it got an empty object). That adds 20
+  bytes (18,620 in all); the new budget leaves an 80-byte margin.
 - **Module APIs list their own calls** (ADR 0134 amendment). `tac-web.js`
   forwards `files`, `blobs`, `peers` and `media` calls to their modules,
   which each export a `calls` list; only listed names reach a module, and an

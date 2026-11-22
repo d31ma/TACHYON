@@ -204,7 +204,8 @@ class TacWebApis {
     const forward = (call) => (...values) => TacWebApis.moduleCall(api, call, values)
     return new Proxy({}, {
       get: (target, call) => named(call) ? forward(call) : target[call],
-      getOwnPropertyDescriptor: (target, call) => named(call) ? { value: forward(call), configurable: true } : undefined,
+      getOwnPropertyDescriptor: (target, call) => named(call) ? { value: forward(call), enumerable: true, configurable: true } : undefined,
+      ownKeys: () => ['supported', ...(globalThis[Symbol.for(`tachyon.tac.${api}`)]?.calls ?? [])],
     })
   }
 

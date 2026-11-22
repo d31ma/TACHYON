@@ -9,7 +9,7 @@ struct WebApis;
 
 impl WebApis {
     const RUNTIME: &str = include_str!("../template/tac-web.js");
-    const MOST_RUNTIME_BYTES: usize = 18_600;
+    const MOST_RUNTIME_BYTES: usize = 18_700;
     const DRIVER_DEADLINE: std::time::Duration = std::time::Duration::from_mins(2);
 
     const RUNTIME_DRIVER: &str = ";(0, eval)(await readFile('./tac-web.js', 'utf8'))\n\
@@ -3315,6 +3315,53 @@ mod locks_lua_tests;
 mod locks_cpp_tests;
 
 #[test]
+fn a_service_that_needs_a_module_api_calls_it_through_its_injected_copy() {
+    const NEEDS_DRIVER: &str = r#"const reached = []
+globalThis.document = { visibilityState: 'visible', addEventListener: () => {}, querySelector: (selector) => selector === 'meta[name="tachyon-browser-apis"]' ? { content: 'peers microphone' } : null }
+Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { onLine: true, language: 'en', userActivation: { isActive: true } } })
+const fake = (api, calls) => Object.freeze({ supported: () => true, calls: Object.freeze(calls), ...Object.fromEntries(calls.map((call) => [call, (reply, ...values) => { reached.push([api, call, ...values]); return null }])) })
+globalThis[Symbol.for('tachyon.tac.peers')] = fake('peers', ['open', 'close'])
+globalThis[Symbol.for('tachyon.tac.media')] = fake('media', ['devices', 'captureMicrophone'])
+const Web = (0, eval)((await readFile('./tac-web.js', 'utf8')) + '\nTacWebApis')
+const Events = (0, eval)((await readFile('./application-events.js', 'utf8')) + '\nTacApplicationEvents')
+const events = new Events({ changed: () => {}, failed: () => {} })
+const service = {}
+events.attach(service, { resources: [{ field: 'peers', name: 'peers' }, { field: 'media', name: 'media' }] }, { peers: Web.apis.peers, media: Web.apis.media })
+const report = {}
+report.keys = [Object.keys(service.peers), Object.keys(service.media)]
+report.calls = [typeof service.peers.open, typeof service.media.devices]
+try { service.peers.open('room'); service.media.devices('r1') } catch (error) { report.error = error.message }
+report.reached = reached
+console.log(JSON.stringify(report))
+"#;
+    if !WebApis::node_available() {
+        eprintln!("skipping: node is unavailable");
+        return;
+    }
+    let root = tempfile::tempdir().expect("root");
+    WebApis::write(
+        root.path(),
+        "application-events.js",
+        include_str!("../template/application-events.js").as_bytes(),
+    );
+    let report = WebApis::run(root.path(), NEEDS_DRIVER);
+    assert_eq!(
+        report["keys"],
+        serde_json::json!([
+            ["supported", "open", "close"],
+            ["supported", "devices", "captureMicrophone"]
+        ]),
+        "{report}"
+    );
+    assert_eq!(report["calls"], serde_json::json!(["function", "function"]));
+    assert_eq!(
+        report["reached"],
+        serde_json::json!([["peers", "open", "room"], ["media", "devices", "r1"]]),
+        "a service field from @Needs reaches the module's own call"
+    );
+}
+
+#[test]
 fn a_module_api_forwards_only_the_calls_its_module_lists() {
     const MODULE_DRIVER: &str = r#"const reached = []
 const grants = { content: 'microphone' }
@@ -3347,6 +3394,9 @@ report.gesture = ask('media', 'captureScreen', ['screen'])
 grants.content = ''
 report.notGranted = ask('media', 'devices', ['r2']).error
 report.reached = reached
+report.keys = Object.keys(web.media)
+const copy = Object.fromEntries(Object.keys(web.media).map((call) => [call, (...values) => web.media[call](...values)]))
+report.copied = [copy.supported('capture'), typeof copy.captureScreen]
 console.log(JSON.stringify(report))
 "#;
     if !WebApis::node_available() {
@@ -3356,6 +3406,12 @@ console.log(JSON.stringify(report))
     let root = tempfile::tempdir().expect("root");
     let report = WebApis::run(root.path(), MODULE_DRIVER);
     assert_eq!(report["unknown"], "media has no call 'strat'.", "{report}");
+    assert_eq!(
+        report["keys"],
+        serde_json::json!(["supported", "devices", "captureScreen"]),
+        "a service copies a module API by its keys, so the forwarder lists the module's calls"
+    );
+    assert_eq!(report["copied"], serde_json::json!([true, "function"]));
     assert_eq!(report["unknownDirect"], "media has no call 'strat'.");
     let not_a_call = |call: &str| format!("Tachyon has no browser call named 'media.{call}'.");
     assert_eq!(
