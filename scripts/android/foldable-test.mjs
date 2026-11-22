@@ -92,13 +92,23 @@ class AndroidFoldableGate {
     return AndroidFoldableGate.text(path.join(tools, newest, 'aapt2'), ['dump', 'xmltree', '--file', 'AndroidManifest.xml', apk]);
   }
 
+  static attribute(element, name) {
+    return element.match(new RegExp(`:${name}\\(0x[0-9a-f]+\\)=(?:\\(type 0x[0-9a-f]+\\))?(\\S+)`))?.[1];
+  }
+
+  static number(value) {
+    if (value === undefined) return 0;
+    return value.startsWith('0x') ? Number.parseInt(value, 16) : Number.parseInt(value, 10);
+  }
+
   static checkManifest(apk, name) {
+    const { attribute, number } = AndroidFoldableGate;
     const tree = AndroidFoldableGate.manifestTree(apk);
     const activity = tree.slice(tree.indexOf('E: activity'));
-    const resizeable = activity.match(/resizeableActivity\(0x[0-9a-f]+\)=\(type 0x12\)(0x[0-9a-f]+)/)?.[1];
-    const changes = Number.parseInt(activity.match(/configChanges\(0x[0-9a-f]+\)=\(type 0x11\)(0x[0-9a-f]+)/)?.[1] ?? '0', 16);
-    console.log(`${name} manifest: resizeableActivity=${resizeable ?? 'unset'} configChanges=0x${changes.toString(16)}`);
-    assert.equal(resizeable, '0xffffffff', `${name}: the activity declares android:resizeableActivity="true"`);
+    const resizeable = attribute(activity, 'resizeableActivity');
+    const changes = number(attribute(activity, 'configChanges'));
+    console.log(`${name} manifest: resizeableActivity=${resizeable ?? 'unset'} configChanges=0x${changes.toString(16)} (${activity.split('\n').filter(line => /resizeableActivity|configChanges/.test(line)).map(line => line.trim()).join('; ')})`);
+    assert.ok(['true', '0xffffffff', '-1'].includes(resizeable), `${name}: the activity declares android:resizeableActivity="true": ${resizeable}`);
     for (const [flag, bit] of Object.entries(AndroidFoldableGate.configChanges)) {
       assert.ok((changes & bit) === bit, `${name}: android:configChanges names ${flag} (0x${changes.toString(16)})`);
     }
@@ -305,6 +315,8 @@ class AndroidFoldableGate {
         const frame = appWindow();
         const shot = keep(label);
         console.log(`${label}: ${reached.state.replace(/\s+/g, ' ')} ${reached.size.replace(/\s+/g, ' ')} screen ${image.width}x${image.height} window ${JSON.stringify(frame)} letterbox ${JSON.stringify(AndroidFoldableGate.letterboxReport())} evidence ${shot}`);
+        const focus = AndroidFoldableGate.focusedWindow();
+        assert.ok(focus.includes(`${packageName}/`), `${label}: the app has the focus, no other window covers it: ${focus}`);
         checkFill(image, frame, label);
         const pid = spawnSync(adb, ['shell', 'pidof', packageName], { encoding: 'utf8' }).stdout.trim();
         assert.equal(pid, link.pid, `${label}: the app process keeps running across the fold change`);
@@ -376,12 +388,25 @@ class AndroidFoldableGate {
     return `API ${adbShell('getprop', 'ro.build.version.sdk')}, ${adbShell('getprop', 'ro.product.model')}, WebView ${webView}`;
   }
 
+  static restoreErrorDialogs() {
+    const kept = AndroidFoldableGate.errorDialogs;
+    if (kept === undefined) return;
+    const command = kept === 'null' ? ['delete', 'global', 'hide_error_dialogs'] : ['put', 'global', 'hide_error_dialogs', kept];
+    spawnSync(AndroidFoldableGate.adb, ['shell', 'settings', ...command], { stdio: 'ignore', timeout: 30000 });
+  }
+
+  static focusedWindow() {
+    return AndroidFoldableGate.adbShell('dumpsys', 'window').match(/mCurrentFocus=([^\n]*)/)?.[1]?.trim() ?? 'unknown';
+  }
+
   static async main() {
     assert.ok(AndroidFoldableGate.sdk, 'ANDROID_HOME or ANDROID_SDK_ROOT is required');
     AndroidFoldableGate.evidenceFolder = AndroidFoldableGate.evidence();
     console.log(`Screenshots: ${AndroidFoldableGate.evidenceFolder}`);
     try {
       AndroidFoldableGate.text(AndroidFoldableGate.adb, ['wait-for-device']);
+      AndroidFoldableGate.errorDialogs = AndroidFoldableGate.adbShell('settings', 'get', 'global', 'hide_error_dialogs');
+      AndroidFoldableGate.adbShell('settings', 'put', 'global', 'hide_error_dialogs', '1');
       AndroidFoldableGate.foldControl();
       const device = AndroidFoldableGate.environment();
       console.log(`Device: ${device}`);
@@ -401,6 +426,7 @@ class AndroidFoldableGate {
     } finally {
       spawnSync(AndroidFoldableGate.adb, ['uninstall', AndroidFoldableGate.packageName], { stdio: 'ignore', timeout: 60000 });
       AndroidFoldableGate.console('unfold');
+      AndroidFoldableGate.restoreErrorDialogs();
       rmSync(AndroidFoldableGate.root, { recursive: true, force: true });
     }
   }
