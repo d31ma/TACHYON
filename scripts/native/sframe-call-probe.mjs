@@ -5,7 +5,8 @@ export class SframeCallProbe {
   static CHECKING = 'checking'
   static LABEL = 'Call'
   static CANVAS = 'pattern'
-  static KEY_ID = 7
+  static APP_KEY_ID = 7
+  static BROWSER_KEY_ID = 8
   static KEY_NAME = 'call-key'
   static SAME_SECRET = SframeCallProbe.secret(1)
   static WRONG_SECRET = SframeCallProbe.secret(101)
@@ -140,7 +141,8 @@ export default class FrameCallService {
 
   static pageModule() {
     return `export class FrameCall {
-  static KEY_ID = ${SframeCallProbe.KEY_ID};
+  static SEND_KEY_ID = ${SframeCallProbe.APP_KEY_ID};
+  static RECEIVE_KEY_ID = ${SframeCallProbe.BROWSER_KEY_ID};
   static KEY_NAME = ${JSON.stringify(SframeCallProbe.KEY_NAME)};
   static SEED = ${JSON.stringify(SframeCallProbe.SAME_SECRET)};
   static ENOUGH = ${SframeCallProbe.ENOUGH_FRAMES};
@@ -158,6 +160,7 @@ export default class FrameCallService {
     this.origin = document.querySelector('meta[name="tachyon-yon-origin"]').content;
     this.connection = '';
     this.offered = false;
+    this.ready = new Set();
     this.watching = false;
     this.done = false;
     this.states = [];
@@ -191,15 +194,17 @@ export default class FrameCallService {
     const stream = FrameCall.pattern();
     FrameCall.raw(this.connection).addTrack(stream.getVideoTracks()[0], stream);
     this.media.encryptFrames(this.connection, true);
-    this.media.useFrameKey(FrameCall.KEY_ID, FrameCall.KEY_NAME);
+    this.media.useFrameKey(FrameCall.SEND_KEY_ID, FrameCall.KEY_NAME);
+    this.media.useFrameKey(FrameCall.RECEIVE_KEY_ID, FrameCall.KEY_NAME);
   }
 
   keyReady(ready) {
     this.note('MediaFrameKeyReady');
-    if (this.offered) return;
+    this.ready.add(ready.keyId);
+    if (this.offered || this.ready.size < 2) return;
     this.offered = true;
     this.step('key ready');
-    this.media.sendFrameKey(ready.keyId);
+    this.media.sendFrameKey(FrameCall.SEND_KEY_ID);
     this.peers.offer(this.connection);
     void this.listen();
   }
@@ -354,9 +359,10 @@ export default class FrameCallService {
         const stream = canvas.captureStream(30)
         peer.addTrack(stream.getVideoTracks()[0], stream)
         media().encryptFrames(reply, 'browser', true)
-        media().useFrameKey(reply, ${SframeCallProbe.KEY_ID}, ${JSON.stringify(SframeCallProbe.KEY_NAME)})
+        media().useFrameKey(reply, ${SframeCallProbe.BROWSER_KEY_ID}, ${JSON.stringify(SframeCallProbe.KEY_NAME)})
+        media().useFrameKey(reply, ${SframeCallProbe.APP_KEY_ID}, ${JSON.stringify(SframeCallProbe.KEY_NAME)})
         await wait(500)
-        media().sendFrameKey(reply, ${SframeCallProbe.KEY_ID})
+        media().sendFrameKey(reply, ${SframeCallProbe.BROWSER_KEY_ID})
         await peer.setLocalDescription(await peer.createAnswer())
         await post({ type: 'answer', sdp: peer.localDescription.sdp })
         answered = true
