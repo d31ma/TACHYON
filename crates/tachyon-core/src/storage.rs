@@ -16,6 +16,7 @@ use tokio::sync::Semaphore;
 
 use crate::Failure;
 use crate::failure::diagnostic;
+use crate::resource_error_code::ResourceErrorCode;
 use drivers::SqlStore;
 use fylo::FyloStore;
 #[cfg(feature = "storage-redis")]
@@ -107,10 +108,12 @@ impl ManagedStorage {
         shared_deadline: Option<Instant>,
     ) -> Result<Value, Failure> {
         check_size(command)?;
-        let _permit = self
-            .admission
-            .try_acquire()
-            .map_err(|_| failure("Managed storage admission is closed or full."))?;
+        let _permit = self.admission.try_acquire().map_err(|_| {
+            coded_failure(
+                "Managed storage admission is closed or full.",
+                ResourceErrorCode::Busy,
+            )
+        })?;
         let deadline = Self::deadline_of(command, shared_deadline, self.time_limit(command));
         self.refuse_when_past(deadline)?;
         tokio::time::timeout_at(deadline.into(), self.dispatch(command, deadline))
@@ -149,7 +152,10 @@ impl ManagedStorage {
     fn deadline_failure(&self) -> Failure {
         let fylo_failure = self.fylo.as_ref().and_then(FyloStore::deadline_failure);
         fylo_failure.unwrap_or_else(|| {
-            failure("Managed storage operation deadline exceeded; writes may have committed.")
+            coded_failure(
+                "Managed storage operation deadline exceeded; writes may have committed.",
+                ResourceErrorCode::BudgetSpent,
+            )
         })
     }
 
@@ -233,8 +239,9 @@ impl ManagedStorage {
             ));
         }
         if self.fylo.is_some() {
-            return Err(failure(
+            return Err(coded_failure(
                 "The FYLO datasource has no transactions; write each document command on its own.",
+                ResourceErrorCode::TransactionRefused,
             ));
         }
         let sql = self.sql_store()?;
@@ -274,10 +281,31 @@ fn failure(message: &'static str) -> Failure {
     Failure::one(diagnostic(2160, message, None, None))
 }
 
+fn coded_failure(message: &'static str, code: ResourceErrorCode) -> Failure {
+    failure(message).with_resource_code(code)
+}
+
+fn sql_mutation_failure(error: &sqlx::Error, message: &'static str) -> Failure {
+    coded_failure(message, unique_violation_code(error))
+}
+
+fn unique_violation_code(error: &sqlx::Error) -> ResourceErrorCode {
+    let unique = error
+        .as_database_error()
+        .is_some_and(sqlx::error::DatabaseError::is_unique_violation);
+    if unique {
+        return ResourceErrorCode::Conflict;
+    }
+    ResourceErrorCode::Failed
+}
+
 fn check_size(value: &Value) -> Result<(), Failure> {
     let encoded = serde_json::to_vec(value).map_err(|_| failure("Invalid storage JSON."))?;
     if encoded.len() > ManagedStorage::MAX_BYTES {
-        return Err(failure("Storage JSON exceeds its byte limit."));
+        return Err(coded_failure(
+            "Storage JSON exceeds its byte limit.",
+            ResourceErrorCode::TooLarge,
+        ));
     }
     Ok(())
 }

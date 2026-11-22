@@ -51,6 +51,7 @@ impl InvocationStorage {
         json!({
             "event": Self::FAILED_EVENT,
             "request_id": self.request_id,
+            "code": failure.resource_code().text(),
             "diagnostics": diagnostics,
         })
     }
@@ -91,13 +92,15 @@ mod tests {
             "FYLO operation failed (EROOTLOCKED).",
             None,
             None,
-        ));
+        ))
+        .with_resource_code(crate::resource_error_code::ResourceErrorCode::Busy);
         let event = storage.failure_event(&failure);
         assert_eq!(
             event,
             json!({
                 "event": "handler.storage_failed",
                 "request_id": "request-7",
+                "code": "busy",
                 "diagnostics": [{"code": "TY2160", "message": "FYLO operation failed (EROOTLOCKED)."}],
             })
         );

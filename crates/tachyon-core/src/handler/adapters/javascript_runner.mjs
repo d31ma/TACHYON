@@ -13,6 +13,36 @@ class ProtocolLimits {
   static gatewayAnswerMarginMs = 1000
 }
 
+class ResourceFailure {
+  static message = 'Yon managed resource operation failed.'
+  static codes = Object.freeze(['budget_spent', 'busy', 'conflict', 'not_found', 'too_large', 'transaction_refused', 'unavailable', 'failed'])
+
+  static coded(code) {
+    const error = new Error()
+    error.resourceCode = code
+    return error
+  }
+
+  static fromAnswer(body) {
+    try {
+      const code = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(body)).code
+      return ResourceFailure.coded(ResourceFailure.codes.includes(code) ? code : 'failed')
+    } catch {
+      return ResourceFailure.coded('failed')
+    }
+  }
+
+  static fromSocket(error) {
+    return ResourceFailure.coded(error?.code === 'ETIMEDOUT' ? 'budget_spent' : 'unavailable')
+  }
+
+  static forHandler(failure) {
+    const error = new Error(ResourceFailure.message)
+    error.code = failure?.resourceCode ?? 'failed'
+    return error
+  }
+}
+
 class RelaySettings {
   static defaultDeadlineMs = 30_000
   static failureMessage = 'Component invocation failed.'
@@ -71,10 +101,12 @@ function completeResourceBody(received) {
     return null
   }
   const lines = received.subarray(0, headEnd).toString('latin1').split('\r\n')
-  if (!/^HTTP\/1\.[01] 200( |$)/.test(lines[0])) throw new Error()
+  const status = /^HTTP\/1\.[01] ([0-9]{3})( |$)/.exec(lines[0])
+  if (!status) throw new Error()
   const length = resourceContentLength(lines.slice(1))
   const body = received.subarray(headEnd + 4)
   if (body.length < length) return null
+  if (status[1] !== '200') throw ResourceFailure.fromAnswer(body.subarray(0, length))
   return body.subarray(0, length)
 }
 
@@ -91,7 +123,7 @@ function exchangeWithEndpoint(port, request, timeoutMs) {
       if (error) reject(error)
       else resolve(body)
     }
-    const timer = setTimeout(() => settle(new Error()), timeoutMs)
+    const timer = setTimeout(() => settle(ResourceFailure.coded('budget_spent')), timeoutMs)
     socket.on('connect', () => socket.write(request))
     socket.on('data', (chunk) => {
       received = Buffer.concat([received, chunk])
@@ -103,7 +135,7 @@ function exchangeWithEndpoint(port, request, timeoutMs) {
       }
     })
     socket.on('end', () => settle(new Error()))
-    socket.on('error', (error) => settle(error))
+    socket.on('error', (error) => settle(ResourceFailure.fromSocket(error)))
   })
 }
 
@@ -111,7 +143,7 @@ async function postResource(body, timeoutMs) {
   const port = resourcePort()
   const token = resourceToken()
   const bytes = Buffer.from(body, 'utf8')
-  if (bytes.length > ProtocolLimits.maxResourceBytes) throw new Error()
+  if (bytes.length > ProtocolLimits.maxResourceBytes) throw ResourceFailure.coded('too_large')
   const answer = await exchangeWithEndpoint(port, resourceRequest(port, token, bytes), timeoutMs)
   return JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(answer))
 }
@@ -119,8 +151,8 @@ async function postResource(body, timeoutMs) {
 async function managedResource(command, timeoutMs = ProtocolLimits.resourceTimeoutMs) {
   try {
     return await postResource(JSON.stringify(command), timeoutMs)
-  } catch {
-    throw new Error('Yon managed resource operation failed.')
+  } catch (failure) {
+    throw ResourceFailure.forHandler(failure)
   }
 }
 

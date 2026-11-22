@@ -49,10 +49,35 @@ final class RedisTemplate {
       {'operation': 'redis', 'command': 'set', 'key': key, 'value': value, 'ttlSeconds': ttlSeconds});
 }
 
+final class YonResourceError extends StateError {
+  YonResourceError(this.code) : super('Yon managed resource operation failed.');
+
+  final String code;
+}
+
 final class YonManagedResources {
   static const int _limit = 1024 * 1024;
   static const Duration scrollTimeout = Duration(seconds: 30);
-  static StateError _failed() => StateError('Yon managed resource operation failed.');
+  static const Set<String> _codes = {
+    'budget_spent', 'busy', 'conflict', 'not_found', 'too_large', 'transaction_refused', 'unavailable', 'failed'
+  };
+  static YonResourceError _failed([String code = 'failed']) => YonResourceError(code);
+  static YonResourceError _refused(String body) {
+    try {
+      final answer = yon_convert.jsonDecode(body);
+      return _known(answer is Map ? answer['code'] : null);
+    } catch (_) {
+      return _failed();
+    }
+  }
+
+  static YonResourceError _known(Object? code) => code is String && _codes.contains(code) ? _failed(code) : _failed();
+  static YonResourceError _transportFailure(Object failure) => switch (failure) {
+        YonResourceError() => failure,
+        yon_async.TimeoutException() => _failed('budget_spent'),
+        yon_io.SocketException() => _failed('unavailable'),
+        _ => _failed(),
+      };
   static String _directConnection(Uri endpoint) => 'DIRECT';
 
   static yon_async.Future<Object?> call(Map<String, Object?> command,
@@ -77,7 +102,7 @@ final class YonManagedResources {
     final port = int.parse(endpoint.substring(17, endpoint.length - 1));
     if (port < 1 || port > 65535) throw _failed();
     final body = yon_convert.utf8.encode(command);
-    if (body.length > _limit) throw _failed();
+    if (body.length > _limit) throw _failed('too_large');
     final client = yon_io.HttpClient()
       ..connectionTimeout = timeout
       ..findProxy = _directConnection;
@@ -90,8 +115,7 @@ final class YonManagedResources {
           ..contentLength = body.length;
         request.add(body);
         final response = await request.close();
-        if (response.statusCode != 200 ||
-            response.headers.value('transfer-encoding') != null ||
+        if (response.headers.value('transfer-encoding') != null ||
             response.contentLength < 0 ||
             response.contentLength > _limit) {
           throw _failed();
@@ -101,11 +125,13 @@ final class YonManagedResources {
           bytes.addAll(chunk);
           if (bytes.length > _limit) throw _failed();
         }
-        return yon_convert.utf8.decode(bytes);
+        final text = yon_convert.utf8.decode(bytes);
+        if (response.statusCode != 200) throw _refused(text);
+        return text;
       }()
           .timeout(timeout);
-    } catch (_) {
-      throw _failed();
+    } catch (failure) {
+      throw _transportFailure(failure);
     } finally {
       client.close(force: true);
     }

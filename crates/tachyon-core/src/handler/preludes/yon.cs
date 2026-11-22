@@ -59,12 +59,38 @@ sealed class RedisTemplate
     public JsonElement set(string key, object value, long ttlSeconds) => Set(key, value, ttlSeconds);
 }
 
+sealed class YonResourceException : InvalidOperationException
+{
+    internal YonResourceException(string code) : base("Yon managed resource operation failed.") { Code = code; }
+    public string Code { get; }
+}
+
 static class YonManagedResources
 {
     internal const int Limit = 1024 * 1024;
     private const long ResourceTimeoutMilliseconds = 5000;
     internal const long ScrollTimeoutMilliseconds = 30000;
-    private static InvalidOperationException Failed() => new("Yon managed resource operation failed.");
+    private static readonly HashSet<string> Codes = new() { "budget_spent", "busy", "conflict", "not_found", "too_large", "transaction_refused", "unavailable", "failed" };
+    private static YonResourceException Failed() => Failed("failed");
+    private static YonResourceException Failed(string code) => new(code);
+    private static YonResourceException Refused(byte[] body)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(body);
+            return Known(document.RootElement.GetProperty("code").GetString());
+        }
+        catch (Exception) { return Failed(); }
+    }
+    private static YonResourceException Known(string? code) => code is string text && Codes.Contains(text) ? Failed(text) : Failed();
+    private static YonResourceException TransportFailure(Exception failure) => failure switch
+    {
+        YonResourceException known => known,
+        TimeoutException => Failed("budget_spent"),
+        IOException { InnerException: System.Net.Sockets.SocketException { SocketErrorCode: System.Net.Sockets.SocketError.TimedOut } } => Failed("budget_spent"),
+        IOException or System.Net.Sockets.SocketException => Failed("unavailable"),
+        _ => Failed(),
+    };
     internal static JsonElement Call(object command) => Call(command, ResourceTimeoutMilliseconds);
     internal static JsonElement Call(object command, long timeoutMilliseconds)
     {
@@ -74,7 +100,7 @@ static class YonManagedResources
             using var document = JsonDocument.Parse(response);
             return document.RootElement.Clone();
         }
-        catch (Exception) { throw Failed(); }
+        catch (Exception failure) when (failure is not YonResourceException) { throw Failed(); }
     }
     internal static byte[] Exchange(byte[] body, long timeoutMilliseconds)
     {
@@ -86,7 +112,7 @@ static class YonManagedResources
                 !System.Text.RegularExpressions.Regex.IsMatch(token, "\\A[0-9a-f]{64}\\z")) throw Failed();
             int port = int.Parse(endpoint.Substring(17, endpoint.Length - 18), System.Globalization.CultureInfo.InvariantCulture);
             if (port < 1 || port > 65535) throw Failed();
-            if (body.Length > Limit) throw Failed();
+            if (body.Length > Limit) throw Failed("too_large");
             int timeout = (int)Math.Clamp(timeoutMilliseconds, 1, int.MaxValue);
             var deadline = System.Diagnostics.Stopwatch.StartNew();
             using var socket = new System.Net.Sockets.TcpClient();
@@ -107,7 +133,8 @@ static class YonManagedResources
                 matched = next == delimiter[matched] ? matched + 1 : next == 13 ? 1 : 0;
             }
             var lines = Encoding.ASCII.GetString(head.ToArray()).Split("\r\n");
-            if (!System.Text.RegularExpressions.Regex.IsMatch(lines[0], "\\AHTTP/1\\.[01] 200(?: .*)?\\z")) throw Failed();
+            if (!System.Text.RegularExpressions.Regex.IsMatch(lines[0], "\\AHTTP/1\\.[01] [0-9]{3}(?: .*)?\\z")) throw Failed();
+            bool accepted = System.Text.RegularExpressions.Regex.IsMatch(lines[0], "\\AHTTP/1\\.[01] 200(?: .*)?\\z");
             int length = -1;
             for (int index = 1; index < lines.Length; index++)
             {
@@ -130,14 +157,15 @@ static class YonManagedResources
                 if (count <= 0) throw Failed();
                 read += count;
             }
+            if (!accepted) throw Refused(response);
             return response;
         }
-        catch (Exception) { throw Failed(); }
+        catch (Exception failure) { throw TransportFailure(failure); }
     }
     private static void Timeout(System.Net.Sockets.NetworkStream stream, System.Diagnostics.Stopwatch deadline, int timeout)
     {
         long remaining = timeout - deadline.ElapsedMilliseconds;
-        if (remaining <= 0) throw Failed();
+        if (remaining <= 0) throw Failed("budget_spent");
         stream.ReadTimeout = (int)remaining;
     }
 }

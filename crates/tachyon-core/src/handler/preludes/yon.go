@@ -267,10 +267,42 @@ func yonRelayPayload(request *http.Request) []byte {
 	return payload
 }
 
-type YonResourceError struct{}
+type YonResourceError struct {
+	Code string
+}
 
 func (YonResourceError) Error() string {
 	return "Yon managed resource operation failed."
+}
+
+func yonResourceFailed() YonResourceError {
+	return YonResourceError{Code: "failed"}
+}
+
+func yonResourceFailure(body []byte) YonResourceError {
+	var answer struct {
+		Code string `json:"code"`
+	}
+	if json.Unmarshal(body, &answer) != nil || !yonResourceKnownCode(answer.Code) {
+		return yonResourceFailed()
+	}
+	return YonResourceError{Code: answer.Code}
+}
+
+func yonResourceKnownCode(code string) bool {
+	switch code {
+	case "budget_spent", "busy", "conflict", "not_found", "too_large", "transaction_refused", "unavailable", "failed":
+		return true
+	}
+	return false
+}
+
+func yonResourceTransportFailure(failure error) YonResourceError {
+	var networkError net.Error
+	if errors.As(failure, &networkError) && networkError.Timeout() {
+		return YonResourceError{Code: "budget_spent"}
+	}
+	return YonResourceError{Code: "unavailable"}
 }
 
 type DataSource struct{}
@@ -390,13 +422,13 @@ func (delivery QueueDelivery) Decode(target any) error {
 func yonDocumentFields(value any) (map[string]any, error) {
 	encoded, err := json.Marshal(value)
 	if err != nil {
-		return nil, YonResourceError{}
+		return nil, yonResourceFailed()
 	}
 	decoder := json.NewDecoder(bytes.NewReader(encoded))
 	decoder.UseNumber()
 	var fields map[string]any
 	if decoder.Decode(&fields) != nil || fields == nil {
-		return nil, YonResourceError{}
+		return nil, yonResourceFailed()
 	}
 	return fields, nil
 }
@@ -419,17 +451,20 @@ func yonDocumentInto(command map[string]any, target any) (bool, error) {
 func yonResourceInto(command map[string]any, target any, timeout time.Duration) (bool, error) {
 	body, err := json.Marshal(command)
 	if err != nil {
-		return false, YonResourceError{}
+		return false, yonResourceFailed()
 	}
 	answer, err := yonResourceExchange(body, timeout)
-	if err != nil || !json.Valid(answer) {
-		return false, YonResourceError{}
+	if err != nil {
+		return false, err
+	}
+	if !json.Valid(answer) {
+		return false, yonResourceFailed()
 	}
 	if string(bytes.TrimSpace(answer)) == "null" {
 		return false, nil
 	}
 	if target != nil && json.Unmarshal(answer, target) != nil {
-		return false, YonResourceError{}
+		return false, yonResourceFailed()
 	}
 	return true, nil
 }
@@ -471,17 +506,20 @@ const yonScrollTimeout = 30 * time.Second
 func yonResourceCall(command map[string]any) (any, error) {
 	body, err := json.Marshal(command)
 	if err != nil {
-		return nil, YonResourceError{}
+		return nil, yonResourceFailed()
 	}
 	answer, err := yonResourceExchange(body, yonResourceTimeout)
-	if err != nil || !json.Valid(answer) {
-		return nil, YonResourceError{}
+	if err != nil {
+		return nil, err
+	}
+	if !json.Valid(answer) {
+		return nil, yonResourceFailed()
 	}
 	decoder := json.NewDecoder(bytes.NewReader(answer))
 	decoder.UseNumber()
 	var value any
 	if decoder.Decode(&value) != nil {
-		return nil, YonResourceError{}
+		return nil, yonResourceFailed()
 	}
 	return value, nil
 }
@@ -489,14 +527,17 @@ func yonResourceCall(command map[string]any) (any, error) {
 func yonResourceExchange(body []byte, timeout time.Duration) ([]byte, error) {
 	address, isLoopback := yonResourceAddress(yoninvocation.ResourceEndpoint())
 	token := yoninvocation.ResourceToken()
-	if !isLoopback || !yonResourceToken(token) || len(body) > yonResourceBodyLimit {
-		return nil, YonResourceError{}
+	if !isLoopback || !yonResourceToken(token) {
+		return nil, yonResourceFailed()
+	}
+	if len(body) > yonResourceBodyLimit {
+		return nil, YonResourceError{Code: "too_large"}
 	}
 	deadline := time.Now().Add(timeout)
 	dialer := net.Dialer{Deadline: deadline}
 	connection, err := dialer.Dial("tcp", address)
 	if err != nil {
-		return nil, YonResourceError{}
+		return nil, yonResourceTransportFailure(err)
 	}
 	defer connection.Close()
 	connection.SetDeadline(deadline)
@@ -507,12 +548,12 @@ func yonResourceExchange(body []byte, timeout time.Duration) ([]byte, error) {
 		"Content-Length: " + strconv.Itoa(len(body)) + "\r\n" +
 		"Connection: close\r\n\r\n"
 	if _, err := connection.Write(append([]byte(head), body...)); err != nil {
-		return nil, YonResourceError{}
+		return nil, yonResourceTransportFailure(err)
 	}
 	longestResponse := yonResourceHeadLimit + yonResourceBodyLimit + 1
 	response, err := io.ReadAll(io.LimitReader(connection, int64(longestResponse)))
 	if err != nil {
-		return nil, YonResourceError{}
+		return nil, yonResourceTransportFailure(err)
 	}
 	return yonResourceAnswer(response)
 }
@@ -555,17 +596,20 @@ func yonDigits(text string) bool {
 
 func yonResourceAnswer(response []byte) ([]byte, error) {
 	split := bytes.Index(response, []byte("\r\n\r\n"))
-	if split < 0 || split > yonResourceHeadLimit || !bytes.HasPrefix(response, []byte("HTTP/1.1 200 ")) {
-		return nil, YonResourceError{}
+	if split < 0 || split > yonResourceHeadLimit || !bytes.HasPrefix(response, []byte("HTTP/1.1 ")) {
+		return nil, yonResourceFailed()
 	}
 	head := response[:split]
 	body := response[split+4:]
 	if len(body) > yonResourceBodyLimit || !utf8.Valid(head) || !utf8.Valid(body) {
-		return nil, YonResourceError{}
+		return nil, yonResourceFailed()
 	}
 	length, isValid := yonContentLength(string(head))
 	if !isValid || length != len(body) {
-		return nil, YonResourceError{}
+		return nil, yonResourceFailed()
+	}
+	if !bytes.HasPrefix(response, []byte("HTTP/1.1 200 ")) {
+		return nil, yonResourceFailure(body)
 	}
 	return body, nil
 }

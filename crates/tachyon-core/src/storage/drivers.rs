@@ -26,8 +26,9 @@ use tokio_util::compat::{Compat, TokioAsyncWriteCompatExt};
 use super::dialect::{Dialect, ResultKind, Statement};
 #[cfg(feature = "storage-sqlserver")]
 use super::prelogin_stream::PreloginStream;
-use super::{ManagedStorage, failure, object_keys, text};
+use super::{ManagedStorage, coded_failure, failure, object_keys, text};
 use crate::Failure;
+use crate::resource_error_code::ResourceErrorCode;
 
 #[cfg(feature = "storage-sqlserver")]
 type TdsClient = tiberius::Client<PreloginStream<Compat<TcpStream>>>;
@@ -115,8 +116,9 @@ impl SqlStore {
         let mut open = self.transactions.lock().await;
         Self::remove_expired(&mut open);
         if open.len() >= ManagedStorage::MAX_TRANSACTIONS {
-            return Err(failure(
+            return Err(coded_failure(
                 "Open transaction limit reached; commit or roll back before starting another.",
+                ResourceErrorCode::TransactionRefused,
             ));
         }
         let mut connection = self.dedicated_connection().await?;
@@ -186,7 +188,10 @@ impl SqlStore {
         let mut open = self.transactions.lock().await;
         Self::remove_expired(&mut open);
         open.remove(id).ok_or_else(|| {
-            failure("Unknown, expired or already settled transaction; start a new one.")
+            coded_failure(
+                "Unknown, expired or already settled transaction; start a new one.",
+                ResourceErrorCode::TransactionRefused,
+            )
         })
     }
 
@@ -575,10 +580,12 @@ async fn execute_on(
         };
     }
     if !statement.result.returns_rows() {
-        let result = query
-            .execute(&mut *connection)
-            .await
-            .map_err(|_| failure("Datasource mutation failed; no retry was performed."))?;
+        let result = query.execute(&mut *connection).await.map_err(|error| {
+            super::sql_mutation_failure(
+                &error,
+                "Datasource mutation failed; no retry was performed.",
+            )
+        })?;
         return Ok(mutation_result(&statement.result, result.rows_affected()));
     }
     let mut stream = query.fetch(&mut *connection);
@@ -737,8 +744,9 @@ pub(super) fn push_row(
         .map_err(|_| failure("Storage row serialization failed."))?
         .len();
     if rows.len() >= ManagedStorage::MAX_ROWS || *bytes > ManagedStorage::MAX_BYTES {
-        return Err(failure(
+        return Err(coded_failure(
             "Storage result exceeds row or byte limit; paginate the query.",
+            ResourceErrorCode::TooLarge,
         ));
     }
     rows.push(row);

@@ -49,6 +49,7 @@ mod project;
 mod python_parameters;
 #[cfg(test)]
 mod required_toolchain;
+mod resource_error_code;
 mod route_types;
 mod routing;
 mod ruby_source;

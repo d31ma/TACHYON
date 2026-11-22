@@ -34,8 +34,12 @@ end
 
 class YonResourceError < StandardError
   MESSAGE = "Yon managed resource operation failed."
+  CODES = %w[budget_spent busy conflict not_found too_large transaction_refused unavailable failed].freeze
 
-  def initialize(_message = nil)
+  attr_reader :code
+
+  def initialize(_message = nil, code: "failed")
+    @code = CODES.include?(code) ? code : "failed"
     super(MESSAGE)
   end
 
@@ -68,7 +72,8 @@ class YonResourceSettings
 end
 
 class YonHttpAnswer
-  STATUS_LINE_START = "HTTP/1.1 200 "
+  STATUS_LINE_START = "HTTP/1.1 "
+  SUCCESS_LINE_START = "HTTP/1.1 200 "
   HEAD_END = "\r\n\r\n"
   DIGITS = /\A[0-9]+\z/
 
@@ -81,8 +86,15 @@ class YonHttpAnswer
     raise YonResourceError unless head.start_with?(STATUS_LINE_START)
     raise YonResourceError if body.bytesize > YonServiceLimits::MAX_RESOURCE_BYTES
     raise YonResourceError unless content_length(head) == body.bytesize
+    raise YonResourceError.new(code: refusal_code(body)) unless head.start_with?(SUCCESS_LINE_START)
 
     body
+  end
+
+  def self.refusal_code(body)
+    JSON.parse(body).fetch("code", "failed")
+  rescue StandardError
+    "failed"
   end
 
   def self.utf8(bytes)
@@ -122,7 +134,7 @@ class YonResourceExchange
 
   def self.encode(command)
     body = JSON.generate(command, strict: true)
-    raise YonResourceError if body.bytesize > YonServiceLimits::MAX_RESOURCE_BYTES
+    raise YonResourceError.new(code: "too_large") if body.bytesize > YonServiceLimits::MAX_RESOURCE_BYTES
 
     body
   end
@@ -130,7 +142,7 @@ class YonResourceExchange
   def self.post(body, timeout_seconds)
     port = YonResourceSettings.port
     token = YonResourceSettings.token
-    raise YonResourceError if body.bytesize > YonServiceLimits::MAX_RESOURCE_BYTES
+    raise YonResourceError.new(code: "too_large") if body.bytesize > YonServiceLimits::MAX_RESOURCE_BYTES
 
     deadline = YonClock.now + timeout_seconds
     socket = connect(port, timeout_seconds)
@@ -186,8 +198,8 @@ class YonResourceExchange
 
   def self.wait_until(deadline)
     seconds = YonClock.time_left(deadline)
-    raise YonResourceError if seconds <= 0
-    raise YonResourceError unless yield(seconds)
+    raise YonResourceError.new(code: "budget_spent") if seconds <= 0
+    raise YonResourceError.new(code: "budget_spent") unless yield(seconds)
   end
 
   freeze
@@ -197,6 +209,12 @@ class YonResources
   def self.call(command, timeout_seconds = YonServiceLimits::RESOURCE_TIMEOUT_SECONDS)
     body = YonResourceExchange.encode(command)
     YonResourceExchange.post(body, timeout_seconds)
+  rescue YonResourceError => error
+    raise YonResourceError.new(code: error.code), cause: nil
+  rescue IO::TimeoutError, Errno::ETIMEDOUT
+    raise YonResourceError.new(code: "budget_spent"), cause: nil
+  rescue SystemCallError, IOError
+    raise YonResourceError.new(code: "unavailable"), cause: nil
   rescue StandardError
     raise YonResourceError, cause: nil
   end

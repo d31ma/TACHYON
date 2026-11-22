@@ -32,6 +32,11 @@ declare global {
     ack(topic: string, group: string, delivery: QueueDelivery): Promise<boolean>;
     nack(topic: string, group: string, delivery: QueueDelivery, delayMs?: number): Promise<boolean>;
   }
+  type YonResourceErrorCode = 'budget_spent' | 'busy' | 'conflict' | 'not_found' | 'too_large' | 'transaction_refused' | 'unavailable' | 'failed';
+  /** The error a failed DataSource or RedisTemplate call rejects with; its message is always "Yon managed resource operation failed.". */
+  interface YonResourceError extends Error {
+    code: YonResourceErrorCode;
+  }
   interface FyloDocument {
     id: string;
     [field: string]: unknown;

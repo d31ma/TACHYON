@@ -13,6 +13,7 @@ use super::dialect::Statement;
 use super::drivers::{finite_number, mutation_result, push_row, rows_result};
 use super::{ManagedStorage, failure};
 use crate::Failure;
+use crate::resource_error_code::ResourceErrorCode;
 
 pub(super) struct SqliteStore {
     pool: sqlx::SqlitePool,
@@ -82,13 +83,22 @@ impl SqliteStore {
             .set_progress_handler(1000, move || {
                 !cancelled.load(Ordering::Relaxed) && Instant::now() < interrupt_deadline
             });
-        let result = run_statement(connection, statement).await;
+        let result = run_statement(connection, statement)
+            .await
+            .map_err(|failure| Self::deadline_code(failure, interrupt_deadline));
         connection
             .lock_handle()
             .await
             .map_err(|_| failure("SQLite worker settlement failed."))?
             .remove_progress_handler();
         result
+    }
+
+    fn deadline_code(failure: Failure, interrupt_deadline: Instant) -> Failure {
+        if Instant::now() < interrupt_deadline {
+            return failure;
+        }
+        failure.with_resource_code(ResourceErrorCode::BudgetSpent)
     }
 
     fn interrupt_deadline(deadline: Instant) -> Instant {
@@ -121,8 +131,11 @@ async fn run_statement(
         let affected = query
             .execute(connection)
             .await
-            .map_err(|_| {
-                failure("SQLite mutation failed or was interrupted; no retry was performed.")
+            .map_err(|error| {
+                super::sql_mutation_failure(
+                    &error,
+                    "SQLite mutation failed or was interrupted; no retry was performed.",
+                )
             })?
             .rows_affected();
         return Ok(mutation_result(&statement.result, affected));

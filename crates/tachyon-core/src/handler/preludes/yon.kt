@@ -29,12 +29,19 @@ class RedisTemplate {
     fun set(key: String, value: Any?, ttlSeconds: Long): Any? = YonManagedResources.call(mapOf("operation" to "redis", "command" to "set", "key" to key, "value" to value, "ttlSeconds" to ttlSeconds))
 }
 
+class YonResourceException(val code: String) : IllegalStateException("Yon managed resource operation failed.")
+
 private object YonManagedResources {
     const val LIMIT = 1024 * 1024
+    private val CODES = setOf("budget_spent", "busy", "conflict", "not_found", "too_large", "transaction_refused", "unavailable", "failed")
     private const val RESOURCE_TIMEOUT_NANOSECONDS = 5_000_000_000L
     const val SCROLL_TIMEOUT_NANOSECONDS = 30_000_000_000L
     private const val CONNECT_TIMEOUT_MILLISECONDS = 5000L
-    private fun failed(): Nothing = throw IllegalStateException("Yon managed resource operation failed.")
+    private fun failed(code: String = "failed"): Nothing = throw YonResourceException(code)
+    private fun refused(answer: Any?): Nothing {
+        val code = (answer as? Map<*, *>)?.get("code")
+        failed(if (code is String && code in CODES) code else "failed")
+    }
     fun call(command: Any?, timeoutNanoseconds: Long = RESOURCE_TIMEOUT_NANOSECONDS): Any? {
         val text = try { Json.stringify(command) } catch (_: Exception) { failed() }
         return exchange(text, timeoutNanoseconds)
@@ -47,7 +54,7 @@ private object YonManagedResources {
             val port = endpoint.substring(17, endpoint.length - 1).toInt()
             if (port !in 1..65535) failed()
             val body = text.toByteArray(Charsets.UTF_8)
-            if (body.size > LIMIT) failed()
+            if (body.size > LIMIT) failed("too_large")
             val deadline = System.nanoTime() + timeoutNanoseconds
             val connectTimeout = minOf(CONNECT_TIMEOUT_MILLISECONDS, timeoutNanoseconds / 1_000_000L).toInt()
             return java.net.Socket().use { socket ->
@@ -68,7 +75,8 @@ private object YonManagedResources {
                     matched = if (next == delimiter[matched]) matched + 1 else if (next == 13) 1 else 0
                 }
                 val lines = head.toString(Charsets.US_ASCII.name()).split("\r\n")
-                if (!Regex("HTTP/1\\.[01] 200(?: .*)?").matches(lines.first())) failed()
+                if (!Regex("HTTP/1\\.[01] [0-9]{3}(?: .*)?").matches(lines.first())) failed()
+                val accepted = Regex("HTTP/1\\.[01] 200(?: .*)?").matches(lines.first())
                 var length = -1
                 for (line in lines.drop(1).map { it.lowercase(java.util.Locale.ROOT) }) {
                     if (line.startsWith("transfer-encoding:")) failed()
@@ -87,13 +95,23 @@ private object YonManagedResources {
                     if (count <= 0) failed()
                     read += count
                 }
-                Json.parse(Charsets.UTF_8.newDecoder().decode(java.nio.ByteBuffer.wrap(response)).toString())
+                val answer = Json.parse(Charsets.UTF_8.newDecoder().decode(java.nio.ByteBuffer.wrap(response)).toString())
+                if (!accepted) refused(answer)
+                answer
             }
+        } catch (failure: YonResourceException) {
+            throw failure
+        } catch (_: java.net.SocketTimeoutException) {
+            failed("budget_spent")
+        } catch (_: java.nio.charset.CharacterCodingException) {
+            failed()
+        } catch (_: java.io.IOException) {
+            failed("unavailable")
         } catch (_: Exception) { failed() }
     }
     private fun timeout(socket: java.net.Socket, deadline: Long) {
         val remaining = (deadline - System.nanoTime()) / 1_000_000L
-        if (remaining <= 0) failed()
+        if (remaining <= 0) failed("budget_spent")
         socket.soTimeout = minOf(Int.MAX_VALUE.toLong(), remaining).toInt()
     }
 }

@@ -27,9 +27,10 @@ use super::dialect::{
     is_simple_identifier, page_with_query_order, reject_count_page_or_order,
     sort_field_and_direction,
 };
-use super::{ManagedStorage, failure, object_keys, scalar, text};
+use super::{ManagedStorage, coded_failure, failure, object_keys, scalar, text};
 use crate::Failure;
 use crate::failure::diagnostic;
+use crate::resource_error_code::ResourceErrorCode;
 use crate::sorted_json::SortedJson;
 use busy_operation::BusyOperation;
 pub(super) use collection_name::CollectionName;
@@ -151,6 +152,7 @@ impl FyloStore {
             "Managed storage operation deadline exceeded during FYLO {operation}; writes may have committed. Tachyon stops that FYLO process, and the next call waits until it has exited."
         );
         Failure::one(diagnostic(2160, message, None, None))
+            .with_resource_code(ResourceErrorCode::BudgetSpent)
     }
 
     async fn delete(&self, command: &Value, collection: &str) -> Result<Value, Failure> {
@@ -354,8 +356,9 @@ impl FyloStore {
             }
         }
         if rows.len() > Self::MAX_SCAN {
-            return Err(failure(
+            return Err(coded_failure(
                 "FYLO result exceeds the scan bound; narrow the query.",
+                ResourceErrorCode::TooLarge,
             ));
         }
         Ok(rows)
@@ -669,7 +672,12 @@ impl FyloError {
     }
 
     fn into_failure(self) -> Failure {
-        match self.code.as_str() {
+        let code = ResourceErrorCode::of_fylo(&self.code);
+        Self::message_failure(&self.code).with_resource_code(code)
+    }
+
+    fn message_failure(fylo_code: &str) -> Failure {
+        match fylo_code {
             "EINVALIDDOCID" | "ENATIVE_NOT_FOUND" => failure("FYLO document does not exist."),
             "ENOTFOUND" | "ECOLLECTION_NOT_FOUND" | "ENATIVE_UNSAFE_PATH" => {
                 failure("FYLO collection does not exist; create it before use.")
@@ -707,8 +715,9 @@ fn rows_of(answer: Value, id_field: &str) -> Result<Vec<Value>, Failure> {
         let row = Value::Object(document);
         bytes += serde_json::to_vec(&row).map_or(0, |encoded| encoded.len());
         if bytes > ManagedStorage::MAX_BYTES {
-            return Err(failure(
+            return Err(coded_failure(
                 "FYLO result exceeds the byte limit; paginate the query.",
+                ResourceErrorCode::TooLarge,
             ));
         }
         rows.push(row);
@@ -745,5 +754,60 @@ fn compare(left: &Value, right: &Value) -> std::cmp::Ordering {
         (Value::Null, _) => Ordering::Less,
         (_, Value::Null) => Ordering::Greater,
         _ => Ordering::Equal,
+    }
+}
+
+#[cfg(test)]
+mod resource_code_tests {
+    use super::FyloError;
+    use crate::resource_error_code::ResourceErrorCode;
+
+    fn converted(code: &str) -> (ResourceErrorCode, String) {
+        let failure = FyloError {
+            code: code.to_owned(),
+        }
+        .into_failure();
+        (
+            failure.resource_code(),
+            failure.diagnostics()[0].message.clone(),
+        )
+    }
+
+    #[test]
+    fn a_fylo_error_keeps_its_message_and_gains_its_code() {
+        assert_eq!(
+            converted("EROOTLOCKED"),
+            (
+                ResourceErrorCode::Busy,
+                String::from("FYLO operation failed (EROOTLOCKED).")
+            )
+        );
+        assert_eq!(
+            converted("ENOTFOUND"),
+            (
+                ResourceErrorCode::NotFound,
+                String::from("FYLO collection does not exist; create it before use.")
+            )
+        );
+        assert_eq!(
+            converted("EPROTOCOL"),
+            (
+                ResourceErrorCode::Unavailable,
+                String::from("FYLO subprocess failed; the datasource reconnects on the next call.")
+            )
+        );
+        assert_eq!(
+            converted("ETXNSCOPE"),
+            (
+                ResourceErrorCode::TransactionRefused,
+                String::from("FYLO operation failed (ETXNSCOPE).")
+            )
+        );
+    }
+
+    #[test]
+    fn a_deadline_that_stops_fylo_spent_the_budget() {
+        let failure = super::FyloStore::interrupted_failure("putData");
+        assert_eq!(failure.resource_code(), ResourceErrorCode::BudgetSpent);
     }
 }

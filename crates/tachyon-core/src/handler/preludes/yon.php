@@ -62,11 +62,25 @@ final class RedisTemplate
     }
 }
 
+final class YonResourceException extends RuntimeException
+{
+    public function __construct(private readonly string $resourceCode) { parent::__construct('Yon managed resource operation failed.'); }
+    public function resourceCode(): string { return $this->resourceCode; }
+}
+
 final class YonManagedResources
 {
     private const LIMIT = 1024 * 1024;
+    private const CODES = ['budget_spent', 'busy', 'conflict', 'not_found', 'too_large', 'transaction_refused', 'unavailable', 'failed'];
     public const SCROLL_TIMEOUT_NANOSECONDS = 30_000_000_000;
-    private static function failed(): never { throw new RuntimeException('Yon managed resource operation failed.'); }
+    private static function failed(string $code = 'failed'): never { throw new YonResourceException($code); }
+    private static function interrupted(mixed $socket, string $otherwise): never { self::failed(stream_get_meta_data($socket)['timed_out'] ? 'budget_spent' : $otherwise); }
+    private static function refused(string $body): never
+    {
+        $answer = json_decode($body, true, 64);
+        self::failed(self::known(is_array($answer) ? ($answer['code'] ?? null) : null));
+    }
+    private static function known(mixed $code): string { return in_array($code, self::CODES, true) ? $code : 'failed'; }
     public static function call(mixed $command, int $timeoutNanoseconds = 5_000_000_000): mixed
     {
         try {
@@ -85,27 +99,28 @@ final class YonManagedResources
             if (!is_string($endpoint) || preg_match('~\Ahttp://127\.0\.0\.1:([0-9]{1,5})/\z~', $endpoint, $matches) !== 1 || !is_string($token) || preg_match('/\A[0-9a-f]{64}\z/', $token) !== 1) self::failed();
             $port = (int) $matches[1];
             if ($port < 1 || $port > 65535) self::failed();
-            if (strlen($body) > self::LIMIT) self::failed();
+            if (strlen($body) > self::LIMIT) self::failed('too_large');
             $deadline = hrtime(true) + $timeoutNanoseconds;
             $socket = @stream_socket_client("tcp://127.0.0.1:$port", $errorCode, $errorText, 5, STREAM_CLIENT_CONNECT);
-            if (!is_resource($socket)) self::failed();
+            if (!is_resource($socket)) self::failed('unavailable');
             $request = "POST / HTTP/1.1\r\nHost: 127.0.0.1:$port\r\nAuthorization: Bearer $token\r\nContent-Type: application/json\r\nContent-Length: " . strlen($body) . "\r\nConnection: close\r\n\r\n" . $body;
             $written = 0;
             while ($written < strlen($request)) {
                 self::timeout($socket, $deadline);
                 $count = @fwrite($socket, substr($request, $written));
-                if ($count === false || $count === 0) self::failed();
+                if ($count === false || $count === 0) self::interrupted($socket, 'unavailable');
                 $written += $count;
             }
             $head = '';
             while (!str_ends_with($head, "\r\n\r\n")) {
                 self::timeout($socket, $deadline);
                 $next = @fread($socket, 1);
-                if ($next === false || $next === '' || strlen($head) >= 16384) self::failed();
+                if (strlen($head) >= 16384) self::failed();
+                if ($next === false || $next === '') self::interrupted($socket, 'failed');
                 $head .= $next;
             }
             $lines = explode("\r\n", $head);
-            if (preg_match('~\AHTTP/1\.[01] 200(?: .*)?\z~', $lines[0]) !== 1) self::failed();
+            if (preg_match('~\AHTTP/1\.[01] ([0-9]{3})(?: .*)?\z~', $lines[0], $status) !== 1) self::failed();
             $length = -1;
             foreach (array_slice($lines, 1) as $line) {
                 $line = strtolower($line);
@@ -121,10 +136,13 @@ final class YonManagedResources
             while (strlen($response) < $length) {
                 self::timeout($socket, $deadline);
                 $chunk = @fread($socket, $length - strlen($response));
-                if ($chunk === false || $chunk === '') self::failed();
+                if ($chunk === false || $chunk === '') self::interrupted($socket, 'failed');
                 $response .= $chunk;
             }
+            if ($status[1] !== '200') self::refused($response);
             return json_decode($response, true, 64, JSON_THROW_ON_ERROR);
+        } catch (YonResourceException $failure) {
+            throw $failure;
         } catch (Throwable $ignored) {
             self::failed();
         } finally {
@@ -134,7 +152,7 @@ final class YonManagedResources
     private static function timeout(mixed $socket, int $deadline): void
     {
         $remaining = $deadline - hrtime(true);
-        if ($remaining <= 0) self::failed();
+        if ($remaining <= 0) self::failed('budget_spent');
         if (!stream_set_timeout($socket, intdiv($remaining, 1_000_000_000), intdiv($remaining % 1_000_000_000, 1000))) self::failed();
     }
 }

@@ -45,8 +45,18 @@ final class RedisTemplate {
     }
 }
 
+final class YonResourceException extends IllegalStateException {
+    private final String code;
+    YonResourceException(String code) {
+        super("Yon managed resource operation failed.");
+        this.code = code;
+    }
+    public String code() { return code; }
+}
+
 final class YonManagedResources {
     static final int LIMIT = 1024 * 1024;
+    private static final java.util.Set<String> CODES = java.util.Set.of("budget_spent", "busy", "conflict", "not_found", "too_large", "transaction_refused", "unavailable", "failed");
     private static final long RESOURCE_TIMEOUT_NANOSECONDS = 5_000_000_000L;
     static final long SCROLL_TIMEOUT_NANOSECONDS = 30_000_000_000L;
     private static final long CONNECT_TIMEOUT_MILLISECONDS = 5000L;
@@ -59,7 +69,12 @@ final class YonManagedResources {
         if (fields.get("endpoint") instanceof String requestEndpoint) endpoint = requestEndpoint;
         if (fields.get("token") instanceof String requestToken) token = requestToken;
     }
-    private static IllegalStateException failed() { return new IllegalStateException("Yon managed resource operation failed."); }
+    private static YonResourceException failed() { return failed("failed"); }
+    private static YonResourceException failed(String code) { return new YonResourceException(code); }
+    private static YonResourceException refused(Object answer) {
+        if (answer instanceof java.util.Map<?, ?> fields && fields.get("code") instanceof String code && CODES.contains(code)) return failed(code);
+        return failed();
+    }
     static java.util.Map<String, Object> command(Object... fields) {
         var command = new java.util.LinkedHashMap<String, Object>();
         for (int index = 0; index < fields.length; index += 2) command.put((String) fields[index], fields[index + 1]);
@@ -89,7 +104,7 @@ final class YonManagedResources {
             int port = Integer.parseInt(endpoint.substring(17, endpoint.length() - 1));
             if (port < 1 || port > 65535) throw failed();
             byte[] body = text.getBytes(java.nio.charset.StandardCharsets.UTF_8);
-            if (body.length > LIMIT) throw failed();
+            if (body.length > LIMIT) throw failed("too_large");
             long deadline = System.nanoTime() + timeoutNanoseconds;
             int connectTimeout = (int) Math.min(CONNECT_TIMEOUT_MILLISECONDS, timeoutNanoseconds / 1_000_000L);
             try (var socket = new java.net.Socket()) {
@@ -110,7 +125,8 @@ final class YonManagedResources {
                     matched = next == delimiter[matched] ? matched + 1 : (next == 13 ? 1 : 0);
                 }
                 String[] lines = head.toString(java.nio.charset.StandardCharsets.US_ASCII).split("\r\n");
-                if (!lines[0].matches("HTTP/1\\.[01] 200(?: .*)?")) throw failed();
+                if (!lines[0].matches("HTTP/1\\.[01] [0-9]{3}(?: .*)?")) throw failed();
+                boolean accepted = lines[0].matches("HTTP/1\\.[01] 200(?: .*)?");
                 int length = -1;
                 for (int index = 1; index < lines.length; index++) {
                     String line = lines[index].toLowerCase(java.util.Locale.ROOT);
@@ -130,13 +146,23 @@ final class YonManagedResources {
                     if (count <= 0) throw failed();
                     read += count;
                 }
-                return Json.parse(java.nio.charset.StandardCharsets.UTF_8.newDecoder().decode(java.nio.ByteBuffer.wrap(response)).toString());
+                Object answer = Json.parse(java.nio.charset.StandardCharsets.UTF_8.newDecoder().decode(java.nio.ByteBuffer.wrap(response)).toString());
+                if (!accepted) throw refused(answer);
+                return answer;
             }
+        } catch (YonResourceException failure) {
+            throw failure;
+        } catch (java.net.SocketTimeoutException late) {
+            throw failed("budget_spent");
+        } catch (java.nio.charset.CharacterCodingException invalid) {
+            throw failed();
+        } catch (java.io.IOException unreachable) {
+            throw failed("unavailable");
         } catch (Exception ignored) { throw failed(); }
     }
     private static void timeout(java.net.Socket socket, long deadline) throws java.io.IOException {
         long remaining = (deadline - System.nanoTime()) / 1_000_000L;
-        if (remaining <= 0) throw failed();
+        if (remaining <= 0) throw failed("budget_spent");
         socket.setSoTimeout((int) Math.min(Integer.MAX_VALUE, remaining));
     }
 }

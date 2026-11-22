@@ -1,4 +1,5 @@
 use super::ResourceAccess;
+use super::access_failure::AccessFailure;
 use super::invocation_storage::InvocationStorage;
 use super::resource_request::ResourceRequest;
 use crate::handler::gateway::GatewayCalls;
@@ -27,7 +28,6 @@ pub(super) struct Access {
 
 impl Access {
     const HEAD_END: &'static [u8] = b"\r\n\r\n";
-    const FAILED_BODY: &'static [u8] = br#"{"error":"Yon managed resource operation failed."}"#;
 
     pub(super) fn spawn(self, listener: TcpListener) -> JoinHandle<()> {
         tokio::spawn(self.serve(listener))
@@ -92,11 +92,11 @@ impl Access {
 
     async fn write_response(
         stream: &mut TcpStream,
-        result: Result<Vec<u8>, StatusCode>,
+        result: Result<Vec<u8>, AccessFailure>,
     ) -> std::io::Result<()> {
         let (status, bytes) = match result {
             Ok(bytes) => (StatusCode::OK, bytes),
-            Err(status) => (status, Self::FAILED_BODY.to_vec()),
+            Err(failure) => (failure.status, failure.body()),
         };
         let headers = format!(
             "HTTP/1.1 {}\r\nContent-Type: application/json\r\nCache-Control: no-store\r\nConnection: close\r\nContent-Length: {}\r\n\r\n",
@@ -108,7 +108,7 @@ impl Access {
         stream.shutdown().await
     }
 
-    async fn operation(&self, stream: &mut TcpStream) -> Result<Vec<u8>, StatusCode> {
+    async fn operation(&self, stream: &mut TcpStream) -> Result<Vec<u8>, AccessFailure> {
         let command = self.bounded(self.read_command(stream)).await??;
         let kind = command
             .get("operation")
@@ -118,7 +118,7 @@ impl Access {
         self.run_operation(&kind, command).await
     }
 
-    async fn run_operation(&self, kind: &str, command: Value) -> Result<Vec<u8>, StatusCode> {
+    async fn run_operation(&self, kind: &str, command: Value) -> Result<Vec<u8>, AccessFailure> {
         match kind {
             "gateway" => self.answer_gateway(&command).await,
             "topic" => self.publish_topic(command).await,
@@ -126,15 +126,15 @@ impl Access {
         }
     }
 
-    async fn answer_gateway(&self, command: &Value) -> Result<Vec<u8>, StatusCode> {
+    async fn answer_gateway(&self, command: &Value) -> Result<Vec<u8>, AccessFailure> {
         let gateways = self.gateways.as_ref().ok_or(StatusCode::BAD_REQUEST)?;
         Ok(gateways.answer(command).await)
     }
 
-    async fn publish_topic(&self, command: Value) -> Result<Vec<u8>, StatusCode> {
+    async fn publish_topic(&self, command: Value) -> Result<Vec<u8>, AccessFailure> {
         let topics = Arc::clone(self.topics.as_ref().ok_or(StatusCode::BAD_REQUEST)?);
         let published = tokio::task::spawn_blocking(move || topics.publish(&command));
-        Self::published_answer(&self.bounded(published).await?)
+        Ok(Self::published_answer(&self.bounded(published).await?)?)
     }
 
     fn published_answer(
@@ -146,12 +146,14 @@ impl Access {
         }
     }
 
-    async fn execute_storage(&self, command: &Value) -> Result<Vec<u8>, StatusCode> {
+    async fn execute_storage(&self, command: &Value) -> Result<Vec<u8>, AccessFailure> {
         let storage = self.storage.as_ref().ok_or(StatusCode::BAD_REQUEST)?;
         let result = self
             .bounded(storage.execute(command))
             .await?
-            .map_err(|_| StatusCode::BAD_REQUEST)?;
+            .map_err(|failure| {
+                AccessFailure::new(StatusCode::BAD_REQUEST, failure.resource_code())
+            })?;
         let bytes = SortedJson::text(&result).into_bytes();
         Self::check_answer_size(&bytes)?;
         Ok(bytes)

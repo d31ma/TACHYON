@@ -156,3 +156,4 @@ design. Decide routine implementation choices in code review, not in an ADR.
 - [141. Tabs Share Store and State Changes, and Take Locks](0141-tabs-share-store-and-state-changes-and-take-locks.md)
 - [142. An Error Handler Shapes the Answers Tachyon Makes Itself](0142-an-error-handler-shapes-the-answers-tachyon-makes-itself.md)
 - [143. A Route Receives the Caller's Identity](0143-a-route-receives-the-callers-identity.md)
+- [NNNN. Yon Resource Errors Carry a Stable Code](NNNN-yon-resource-errors-carry-a-stable-code.md) (number given at merge)

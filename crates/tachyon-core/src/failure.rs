@@ -1,4 +1,5 @@
 use crate::compiler::PortablePath;
+use crate::resource_error_code::ResourceErrorCode;
 use std::fmt;
 use std::path::Path;
 use tachyon_diagnostics::{Diagnostic, DiagnosticCode, DiagnosticReport, Severity, SourceSpan};
@@ -6,6 +7,7 @@ use tachyon_diagnostics::{Diagnostic, DiagnosticCode, DiagnosticReport, Severity
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Failure {
     diagnostics: Vec<Diagnostic>,
+    resource_code: ResourceErrorCode,
 }
 
 impl Failure {
@@ -13,13 +15,17 @@ impl Failure {
     pub fn one(diagnostic: Diagnostic) -> Self {
         Self {
             diagnostics: vec![diagnostic],
+            resource_code: ResourceErrorCode::Failed,
         }
     }
 
     #[must_use]
     pub fn new(diagnostics: Vec<Diagnostic>) -> Self {
         debug_assert!(!diagnostics.is_empty());
-        Self { diagnostics }
+        Self {
+            diagnostics,
+            resource_code: ResourceErrorCode::Failed,
+        }
     }
 
     #[must_use]
@@ -30,6 +36,17 @@ impl Failure {
     #[must_use]
     pub fn report(&self) -> DiagnosticReport {
         DiagnosticReport::v1(self.diagnostics.clone())
+    }
+
+    #[must_use]
+    pub(crate) fn with_resource_code(mut self, code: ResourceErrorCode) -> Self {
+        self.resource_code = code;
+        self
+    }
+
+    #[must_use]
+    pub(crate) const fn resource_code(&self) -> ResourceErrorCode {
+        self.resource_code
     }
 }
 

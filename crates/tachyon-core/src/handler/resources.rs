@@ -1,4 +1,5 @@
 mod access;
+mod access_failure;
 mod door_route;
 mod invocation_storage;
 mod piped_resources;
@@ -298,6 +299,43 @@ mod tests {
         ResourceAccess::bind(Some(storage), None, None, stop, deadline, None)
             .await
             .expect("access")
+    }
+
+    fn command_request(access: &ResourceAccess, body: &str) -> String {
+        format!(
+            "POST / HTTP/1.1\r\nHost: {}\r\nAuthorization: Bearer {}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{body}",
+            listener_host(access),
+            access.token,
+            body.len()
+        )
+    }
+
+    #[tokio::test]
+    async fn a_failed_store_call_answers_its_code() {
+        let storage = sqlite_storage().await;
+        let access = bind_storage(&storage, Instant::now() + Duration::from_secs(5)).await;
+        let commit = r#"{"operation":"transaction","action":"commit","transaction":"missing"}"#;
+        let answer = send(&access, &command_request(&access, commit)).await;
+        assert!(answer.starts_with("HTTP/1.1 400 "), "{answer}");
+        assert!(
+            answer.ends_with(
+                r#"{"code":"transaction_refused","error":"Yon managed resource operation failed."}"#
+            ),
+            "{answer}"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_forbidden_call_answers_the_failed_code() {
+        let storage = sqlite_storage().await;
+        let access = bind_storage(&storage, Instant::now() + Duration::from_secs(5)).await;
+        let answer = call(&access, &"0".repeat(64), "").await;
+        assert!(answer.starts_with("HTTP/1.1 403 "), "{answer}");
+        assert!(
+            answer
+                .ends_with(r#"{"code":"failed","error":"Yon managed resource operation failed."}"#),
+            "{answer}"
+        );
     }
 
     async fn is_forbidden(access: &ResourceAccess, token: &str, origin: &str) -> bool {

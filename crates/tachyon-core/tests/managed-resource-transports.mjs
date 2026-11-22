@@ -24,7 +24,8 @@ type Handler struct{}
 func (Handler) GET(request *yonRequest) any {
 	rows, err := DataSource{}.Query("SELECT ?", []any{"test-only-private-value"})
 	if err != nil {
-		return map[string]any{"error": err.Error()}
+		failure, _ := err.(YonResourceError)
+		return map[string]any{"error": err.Error(), "code": failure.Code}
 	}
 	return rows
 }
@@ -50,6 +51,16 @@ func yonDispatch(request *yonRequest) *yonResponse {
 }
 `;
   static answer(body) { return `HTTP/1.1 200 OK\r\nContent-Length: ${Buffer.byteLength(body)}\r\n\r\n${body}`; }
+  static refusal(status, body) { return `HTTP/1.1 ${status}\r\nContent-Type: application/json\r\nContent-Length: ${Buffer.byteLength(body)}\r\n\r\n${body}`; }
+  static failed(code) { return { error: TransportTest.failure, code }; }
+  static codes = ['budget_spent', 'busy', 'conflict', 'not_found', 'too_large', 'transaction_refused', 'unavailable', 'failed'];
+  static codedRefusals = [
+    ...TransportTest.codes.map(code => [TransportTest.refusal('400 Bad Request', JSON.stringify({ code, error: TransportTest.failure })), code]),
+    [TransportTest.refusal('408 Request Timeout', JSON.stringify({ code: 'budget_spent', error: TransportTest.failure })), 'budget_spent'],
+    [TransportTest.refusal('400 Bad Request', '{"code":"/private/root/name","error":"x"}'), 'failed'],
+    [TransportTest.refusal('400 Bad Request', '{"code":7}'), 'failed'],
+    [TransportTest.refusal('400 Bad Request', JSON.stringify({ error: TransportTest.failure })), 'failed'],
+  ];
   static rejectedResponses = [
     'HTTP/1.1 302 Found\r\nLocation: http://127.0.0.1:1/\r\nContent-Length: 2\r\n\r\n{}',
     'HTTP/1.1 403 Forbidden\r\nContent-Length: 2\r\n\r\n{}',
@@ -105,10 +116,10 @@ async function prepare(root, extension) {
   if (extension === 'go') return await prepareGo(root);
   let prelude = (await readFile(path.join(TransportTest.preludes, `yon.${extension}`), 'utf8')).replaceAll('__YON_HANDLER__', 'Handler');
   const handlers = {
-    java: `class Handler { static Object GET(__YonFrame request) { try { return new DataSource().query("SELECT ?", java.util.List.of("${TransportTest.privateValue}")); } catch (Exception error) { return java.util.Map.of("error", error.getMessage()); } } static Object POST(__YonFrame request) { return YonGateway.call("ReportClient.summarize", new Object[]{"plain", java.util.List.of(1, 2), null}); } }`,
-    kt: `object Handler { @JvmStatic fun GET(request: __YonFrame): Any? = try { DataSource().query("SELECT ?", listOf("${TransportTest.privateValue}")) } catch (error: Exception) { mapOf("error" to error.message) } @JvmStatic fun POST(request: __YonFrame): Any? = YonGateway.call("ReportClient.summarize", arrayOf<Any?>("plain", listOf(1, 2), null)) }`,
-    cs: `class Handler { public static object GET(__YonFrame request) { try { return new DataSource().Query("SELECT ?", new object[] { "${TransportTest.privateValue}" }); } catch (System.Exception error) { return new { error = error.Message }; } } public static object POST(__YonFrame request) => __YonAnswer.Json(YonGateway.Call("ReportClient.summarize", "[\\"plain\\",[1,2],null]")); }`,
-    php: `final class Handler { public static function GET(): mixed { try { return (new DataSource())->query('SELECT ?', ['${TransportTest.privateValue}']); } catch (Throwable $error) { return ['error' => $error->getMessage()]; } } }`,
+    java: `class Handler { static Object GET(__YonFrame request) { try { return new DataSource().query("SELECT ?", java.util.List.of("${TransportTest.privateValue}")); } catch (YonResourceException error) { return java.util.Map.of("error", error.getMessage(), "code", error.code()); } catch (Exception error) { return java.util.Map.of("error", error.getMessage()); } } static Object POST(__YonFrame request) { return YonGateway.call("ReportClient.summarize", new Object[]{"plain", java.util.List.of(1, 2), null}); } }`,
+    kt: `object Handler { @JvmStatic fun GET(request: __YonFrame): Any? = try { DataSource().query("SELECT ?", listOf("${TransportTest.privateValue}")) } catch (error: YonResourceException) { mapOf("error" to error.message, "code" to error.code) } catch (error: Exception) { mapOf("error" to error.message) } @JvmStatic fun POST(request: __YonFrame): Any? = YonGateway.call("ReportClient.summarize", arrayOf<Any?>("plain", listOf(1, 2), null)) }`,
+    cs: `class Handler { public static object GET(__YonFrame request) { try { return new DataSource().Query("SELECT ?", new object[] { "${TransportTest.privateValue}" }); } catch (YonResourceException error) { return new { error = error.Message, code = error.Code }; } catch (System.Exception error) { return new { error = error.Message }; } } public static object POST(__YonFrame request) => __YonAnswer.Json(YonGateway.Call("ReportClient.summarize", "[\\"plain\\",[1,2],null]")); }`,
+    php: `final class Handler { public static function GET(): mixed { try { return (new DataSource())->query('SELECT ?', ['${TransportTest.privateValue}']); } catch (YonResourceException $error) { return ['error' => $error->getMessage(), 'code' => $error->resourceCode()]; } catch (Throwable $error) { return ['error' => $error->getMessage()]; } } }`,
   };
   const directory = path.join(root, extension);
   await mkdir(directory);
@@ -175,7 +186,7 @@ async function checkValidResponse(invoke, validBody) {
 async function checkRejectedEndpoints(invoke) {
   let assertions = 0;
   for (const endpoint of ['', 'http://localhost:1234/', 'http://127.0.0.1:65536/', 'https://127.0.0.1:1234/', 'http://127.0.0.1:1234/private']) {
-    assert.deepEqual(await invoke(endpoint), { error: TransportTest.failure }); assertions++;
+    assert.deepEqual(await invoke(endpoint), TransportTest.failed('failed')); assertions++;
   }
   return assertions;
 }
@@ -183,7 +194,7 @@ async function checkRejectedEndpoints(invoke) {
 async function checkRedirectNotFollowed(invoke, validBody) {
   await peer(`HTTP/1.1 200 OK\r\nContent-Length: ${validBody.length}\r\n\r\n${validBody}`, async (redirectTarget, followed) => {
     await peer(`HTTP/1.1 302 Found\r\nLocation: ${redirectTarget}\r\nContent-Length: 2\r\n\r\n{}`, async endpoint => {
-      assert.deepEqual(await invoke(endpoint), { error: TransportTest.failure });
+      assert.deepEqual(await invoke(endpoint), TransportTest.failed('failed'));
     });
     assert.equal(followed.length, 0, 'Resource clients must never follow a redirect');
   });
@@ -193,7 +204,7 @@ async function checkRedirectNotFollowed(invoke, validBody) {
 async function checkStalledBody(invoke) {
   await peer(socket => socket.write('HTTP/1.1 200 OK\r\nContent-Length: 10\r\n\r\n'), async endpoint => {
     const started = Date.now();
-    assert.deepEqual(await invoke(endpoint), { error: TransportTest.failure });
+    assert.deepEqual(await invoke(endpoint), TransportTest.failed('budget_spent'));
     assert.ok(Date.now() - started < 8500, 'A stalled body must respect the five-second transport deadline');
   });
   return 2;
@@ -202,7 +213,15 @@ async function checkStalledBody(invoke) {
 async function checkRejectedResponses(invoke) {
   let assertions = 0;
   for (const response of TransportTest.rejectedResponses) {
-    await peer(response, async endpoint => { assert.deepEqual(await invoke(endpoint), { error: TransportTest.failure }); assertions++; });
+    await peer(response, async endpoint => { assert.deepEqual(await invoke(endpoint), TransportTest.failed('failed')); assertions++; });
+  }
+  return assertions;
+}
+
+async function checkFailureCodes(invoke) {
+  let assertions = 0;
+  for (const [response, code] of TransportTest.codedRefusals) {
+    await peer(response, async endpoint => { assert.deepEqual(await invoke(endpoint), TransportTest.failed(code), response); assertions++; });
   }
   return assertions;
 }
@@ -272,7 +291,7 @@ async function checkRequestHead(invoke) {
 async function checkLongHead(invoke) {
   const padding = `X-Padding: ${'x'.repeat(8192)}\r\n`;
   await peer(`HTTP/1.1 200 OK\r\n${padding}Content-Length: 2\r\n\r\n[]`, async endpoint => {
-    assert.deepEqual(await invoke(endpoint), { error: TransportTest.failure });
+    assert.deepEqual(await invoke(endpoint), TransportTest.failed('failed'));
   });
   return 1;
 }
@@ -291,6 +310,7 @@ async function checkExtension(root, extension) {
   assertions += await checkRedirectNotFollowed(invoke, validBody);
   assertions += await checkStalledBody(invoke);
   assertions += await checkRejectedResponses(invoke);
+  assertions += await checkFailureCodes(invoke);
   if (TransportTest.gatewayExtensions.includes(extension)) assertions += await checkGateway(invokeWith);
   if (extension === 'go') assertions += await checkRedisRequest(invokeWith) + await checkRequestHead(invoke) + await checkLongHead(invoke);
   console.log(`PASS ${extension} managed-resource transport`);
@@ -301,7 +321,9 @@ async function main() {
   const root = await mkdtemp(path.join(os.tmpdir(), 'yon-managed-transport-'));
   let assertions = 0;
   try {
-    for (const extension of ['java', 'kt', 'cs', 'php', 'go']) assertions += await checkExtension(root, extension);
+    const chosen = process.argv.slice(2);
+    const extensions = chosen.length > 0 ? chosen : ['java', 'kt', 'cs', 'php', 'go'];
+    for (const extension of extensions) assertions += await checkExtension(root, extension);
     console.log(`PASS ${assertions} direct transport assertions`);
   } finally { await rm(root, { recursive: true, force: true }); }
 }

@@ -728,8 +728,37 @@ pub trait YonFailure {
     fn check_violations(&self) -> Vec<(&'static str, &'static str)>;
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct YonResourceError;
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct YonResourceError {
+    code: &'static str,
+}
+#[allow(non_upper_case_globals)]
+pub const YonResourceError: YonResourceError = YonResourceError { code: "failed" };
+impl YonResourceError {
+    const CODES: [&'static str; 8] = ["budget_spent", "busy", "conflict", "not_found", "too_large", "transaction_refused", "unavailable", "failed"];
+
+    #[must_use]
+    pub fn code(&self) -> &'static str {
+        self.code
+    }
+
+    fn with_code(code: &'static str) -> Self {
+        Self { code }
+    }
+
+    fn transport(error: &std::io::Error) -> Self {
+        let timed_out = matches!(error.kind(), std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock);
+        if timed_out {
+            return Self::with_code("budget_spent");
+        }
+        Self::with_code("unavailable")
+    }
+
+    fn from_answer(text: &str) -> Self {
+        let code = Json::parse(text).map(|answer| answer.get("code").text()).unwrap_or_default();
+        Self::CODES.iter().find(|known| **known == code).map_or(YonResourceError, |known| Self::with_code(known))
+    }
+}
 impl YonFailure for YonResourceError {
     const MESSAGE: &'static str = "Yon managed resource operation failed.";
 
@@ -892,17 +921,17 @@ fn yon_resource_exchange(body: &str, timeout: std::time::Duration) -> Result<Jso
     let address: std::net::SocketAddrV4 = host.parse().map_err(|_| YonResourceError)?;
     if *address.ip() != std::net::Ipv4Addr::LOCALHOST { return Err(YonResourceError); }
     if token.len() != 64 || !token.bytes().all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte)) { return Err(YonResourceError); }
-    if body.len() > YonResourceLimits::MAX_BYTES { return Err(YonResourceError); }
-    let mut stream = std::net::TcpStream::connect_timeout(&address.into(), timeout).map_err(|_| YonResourceError)?;
+    if body.len() > YonResourceLimits::MAX_BYTES { return Err(YonResourceError::with_code("too_large")); }
+    let mut stream = std::net::TcpStream::connect_timeout(&address.into(), timeout).map_err(|error| YonResourceError::transport(&error))?;
     stream.set_read_timeout(Some(timeout)).map_err(|_| YonResourceError)?;
     stream.set_write_timeout(Some(timeout)).map_err(|_| YonResourceError)?;
     let request = format!("POST / HTTP/1.1\r\nHost: {host}\r\nAuthorization: Bearer {token}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len());
-    stream.write_all(request.as_bytes()).map_err(|_| YonResourceError)?;
+    stream.write_all(request.as_bytes()).map_err(|error| YonResourceError::transport(&error))?;
     let mut response = Vec::new();
     let longest_response = YonResourceLimits::MAX_HEAD_BYTES + YonResourceLimits::MAX_BYTES + 1;
-    stream.take(longest_response as u64).read_to_end(&mut response).map_err(|_| YonResourceError)?;
+    stream.take(longest_response as u64).read_to_end(&mut response).map_err(|error| YonResourceError::transport(&error))?;
     let split = response.windows(4).position(|bytes| bytes == b"\r\n\r\n").ok_or(YonResourceError)?;
-    if split > YonResourceLimits::MAX_HEAD_BYTES || response.len() - split - 4 > YonResourceLimits::MAX_BYTES || !response.starts_with(b"HTTP/1.1 200 ") { return Err(YonResourceError); }
+    if split > YonResourceLimits::MAX_HEAD_BYTES || response.len() - split - 4 > YonResourceLimits::MAX_BYTES || !response.starts_with(b"HTTP/1.1 ") { return Err(YonResourceError); }
     let headers = std::str::from_utf8(&response[..split]).map_err(|_| YonResourceError)?;
     let mut length = None;
     for line in headers.split("\r\n").skip(1) {
@@ -916,6 +945,7 @@ fn yon_resource_exchange(body: &str, timeout: std::time::Duration) -> Result<Jso
     }
     if length != Some(response.len() - split - 4) { return Err(YonResourceError); }
     let text = std::str::from_utf8(&response[split + 4..]).map_err(|_| YonResourceError)?;
+    if !response.starts_with(b"HTTP/1.1 200 ") { return Err(YonResourceError::from_answer(text)); }
     Json::parse(text).map_err(|_| YonResourceError)
 }
 

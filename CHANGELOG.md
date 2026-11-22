@@ -10,6 +10,20 @@ machine contracts have their own, independent major versions.
 
 ### Added
 
+- **Yon resource errors carry a stable code** (ADR NNNN, number given at
+  merge). A failed `DataSource`, Store or Redis call now tells the handler
+  why, from a closed set: `budget_spent`, `busy`, `conflict`, `not_found`,
+  `too_large`, `transaction_refused`, `unavailable` or `failed`. The code
+  never holds a path, root name, SQL or database message. FYLO's codes map
+  through one table (for example `EROOTLOCKED` is `busy`, `ENOTFOUND` is
+  `not_found`, `ETXNSCOPE` is `transaction_refused`); a SQL duplicate key is
+  `conflict`. The message "Yon managed resource operation failed." and the
+  old error types stay, so this is additive: Go `YonResourceError{Code}`,
+  Rust `code()`, `YonResourceException` in Java, Kotlin, C#, F# and PHP
+  (`resourceCode()`), and `code` in Dart, JavaScript, TypeScript, Python and
+  Ruby. Rust's `Err(YonResourceError)` still compiles. The resource endpoint
+  answers `{"code":...,"error":...}` and the `handler.storage_failed` log line
+  gains `"code"`.
 - **Tabs share Store and state changes, and take locks** (ADR 0141). After a
   Store write reaches IndexedDB, the other tabs of the origin read the written
   rows again (eager tables and loaded partitions) and their services hear the

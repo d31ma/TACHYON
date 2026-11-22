@@ -323,12 +323,26 @@ Redis:
 - When a storage command of a Yon handler fails, the supervisor writes one
   JSON line to the standard error of `ty`, next to `http.access` and
   `handler.log` (ADR 0128):
-  `{"diagnostics":[{"code":"TY2160","message":"FYLO operation failed (EROOTLOCKED)."}],"event":"handler.storage_failed","request_id":"..."}`.
+  `{"code":"busy","diagnostics":[{"code":"TY2160","message":"FYLO operation failed (EROOTLOCKED)."}],"event":"handler.storage_failed","request_id":"..."}`.
   It holds only the diagnostic code and Tachyon's own fixed message, which
   for FYLO names FYLO's error code. It never holds the command, stored data,
   SQL text, FYLO's own message (which names the root path) or the capability
-  token. The handler's answer does not change: it still sees only
-  "Yon managed resource operation failed."
+  token. The handler still sees only "Yon managed resource operation
+  failed.", with the code below.
+- Every resource error carries a stable code that a handler can branch on
+  (ADR NNNN, "Yon Resource Errors Carry a Stable Code"): `budget_spent`
+  (the store budget or the call's deadline ran out; writes may have
+  committed), `busy`, `conflict` (a duplicate key), `not_found`,
+  `too_large`, `transaction_refused`, `unavailable`, or `failed` (anything
+  else, also any code the prelude does not know). The code never holds a
+  path, root name, SQL or database message. The message text and the old
+  error types do not change. Read it as `err.(YonResourceError).Code` in Go,
+  `error.code()` in Rust, `YonResourceException.code()` in Java,
+  `YonResourceException.code` in Kotlin, `YonResourceException.Code` in C#
+  and F#, `YonResourceException::resourceCode()` in PHP and
+  `error.code` in Dart (`YonResourceError`), JavaScript, TypeScript, Python
+  (`YonResourceError`) and Ruby (`YonResourceError`). The resource endpoint
+  answers `{"code":"<code>","error":"Yon managed resource operation failed."}`.
 - `YON_RESOURCE_ENDPOINT` and `YON_RESOURCE_TOKEN` are private outputs of the
   supervisor for one invocation. They are not application settings.
   - Do not write them in `.env`.

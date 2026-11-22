@@ -51,6 +51,7 @@ mod published_sections;
 mod relay_boundaries;
 mod request_sources;
 mod requestless_methods;
+mod resource_error_codes;
 mod root_middleware;
 mod route_access;
 mod ruby_handlers;

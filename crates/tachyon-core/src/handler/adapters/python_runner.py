@@ -51,6 +51,42 @@ class RunnerSettings:
     PROTOCOL_ERROR_EXIT_CODE = 70
 
 
+class YonResourceError(RuntimeError):
+    MESSAGE = "Yon managed resource operation failed."
+    CODES = frozenset(
+        {"budget_spent", "busy", "conflict", "not_found", "too_large", "transaction_refused", "unavailable", "failed"}
+    )
+
+    def __init__(self, code="failed"):
+        super().__init__(YonResourceError.MESSAGE)
+        self.code = code
+
+
+class ResourceRefusal(ValueError):
+    def __init__(self, code):
+        super().__init__()
+        self.code = code
+
+    @staticmethod
+    def from_answer(result):
+        try:
+            code = json.loads(result.decode("utf-8")).get("code")
+        except Exception:
+            return ResourceRefusal("failed")
+        known = isinstance(code, str) and code in YonResourceError.CODES
+        return ResourceRefusal(code if known else "failed")
+
+    @staticmethod
+    def code_of(failure):
+        if isinstance(failure, ResourceRefusal):
+            return failure.code
+        if isinstance(failure, TimeoutError):
+            return "budget_spent"
+        if isinstance(failure, OSError):
+            return "unavailable"
+        return "failed"
+
+
 class MiddlewarePhases:
     BY_OPERATION = {"middleware.before": "before", "middleware.after": "after"}
 
@@ -83,7 +119,7 @@ def resource_settings():
 def encode_resource_command(command):
     body = json.dumps(command, allow_nan=False, separators=(",", ":")).encode("utf-8")
     if len(body) > ProtocolLimits.MAX_RESOURCE_BYTES:
-        raise ValueError()
+        raise ResourceRefusal("too_large")
     return body
 
 
@@ -96,8 +132,10 @@ def post_resource(body, timeout_seconds):
         connection.request("POST", "/", body=body, headers=headers)
         response = connection.getresponse()
         result = response.read(ProtocolLimits.MAX_RESOURCE_BYTES + 1)
-        if response.status != 200 or len(result) > ProtocolLimits.MAX_RESOURCE_BYTES:
+        if len(result) > ProtocolLimits.MAX_RESOURCE_BYTES:
             raise ValueError()
+        if response.status != 200:
+            raise ResourceRefusal.from_answer(result)
         return json.loads(result.decode("utf-8"), parse_constant=invalid_resource_number)
     finally:
         if connection is not None:
@@ -108,8 +146,8 @@ def managed_resource(command, timeout_seconds=RunnerSettings.RESOURCE_TIMEOUT_SE
     try:
         body = encode_resource_command(command)
         return post_resource(body, timeout_seconds)
-    except Exception:
-        raise RuntimeError("Yon managed resource operation failed.") from None
+    except Exception as failure:
+        raise YonResourceError(ResourceRefusal.code_of(failure)) from None
 
 
 class TopicClient:
@@ -703,6 +741,7 @@ def install_builtins(relay_program):
     builtins.YonHttp = YonHttp
     builtins.YonSocket = YonSocket
     builtins.DataSource = DataSource
+    builtins.YonResourceError = YonResourceError
     builtins.RedisTemplate = RedisTemplate
     builtins.ApplicationEventPublisher = type("ApplicationEventPublisher", (), {})
     builtins.YonTopic = TopicClient
