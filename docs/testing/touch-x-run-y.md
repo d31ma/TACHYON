@@ -85,6 +85,15 @@ Every tier-3 path above that has a fixture folder: changing the fixture also mea
 groups). Exception: a slice that changes `src/native/**` for macOS
 runs `test:phase4-macos` before merging.
 
+Android foldables: `test:foldable-android` runs on the `tachyon-fold` emulator (Pixel 9 Pro
+Fold, android-35), never on `tachyon-gate`. It folds and unfolds with `adb emu fold` and
+`adb emu unfold`, and fails on a letterboxed or pillarboxed window, a page that reloads or
+loses its state on a fold, a restart that does not reopen the open page, or a manifest
+without `resizeableActivity` and the size `configChanges`. Pass `--evidence=<folder>` to
+keep the screenshots. A slice that changes `src/native/android.rs`,
+`src/native/android_window_settings.*` or `src/native/native_orientation.rs` runs it
+before merging (`mac-heavy --vm=android`).
+
 **macOS GUI and TCC gates** (TCC is the macOS privacy permission system): run
 `test:phase4-macos` and every other macOS GUI or TCC gate as
 `MAC_HEAVY_COORDINATOR=tachyon-build mac-heavy --owner <name> --gui -- bun run test:<gate>`,
