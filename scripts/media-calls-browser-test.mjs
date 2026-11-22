@@ -85,6 +85,22 @@ class MediaCallsBrowserCheck {
         window.scaleSender = sender
         return { id, offerBytes: new TextEncoder().encode(offer.sdp).length }
       }
+      window.listen = async () => {
+        const id = peers().open(reply, '', '')
+        const sender = new RTCPeerConnection()
+        const audio = new AudioContext()
+        const out = audio.createMediaStreamDestination()
+        audio.createOscillator().connect(out)
+        const canvas = document.createElement('canvas')
+        canvas.getContext('2d').fillRect(0, 0, 16, 16)
+        sender.addTrack(out.stream.getAudioTracks()[0], new MediaStream())
+        sender.addTrack(canvas.captureStream(5).getVideoTracks()[0], new MediaStream())
+        const offer = await sender.createOffer()
+        await sender.setLocalDescription(offer)
+        peers().answer(reply, id, offer.sdp)
+        window.listenSender = sender
+        return id
+      }
       window.showViews = (names) => {
         for (const name of names) {
           const view = document.createElement('media-view')
@@ -152,6 +168,9 @@ class MediaCallsBrowserCheck {
     try {
       const context = await browser.newContext()
       await context.grantPermissions(['microphone', 'camera']).catch(() => null)
+      const listen = await MediaCallsBrowserCheck.listenOnly(context, url)
+      console.log(name, 'listen only', JSON.stringify(listen))
+      MediaCallsBrowserCheck.checkListenOnly(name, listen)
       const call = await MediaCallsBrowserCheck.call(context, url, setup)
       console.log(name, 'call', JSON.stringify(call))
       MediaCallsBrowserCheck.checkCall(name, call, setup)
@@ -161,6 +180,26 @@ class MediaCallsBrowserCheck {
     } finally {
       await browser.close()
     }
+  }
+
+  static async listenOnly(context, url) {
+    const page = await context.newPage()
+    await page.goto(url)
+    const id = await page.evaluate(() => window.listen())
+    const deadline = Date.now() + MediaCallsBrowserCheck.waitMs
+    let arrived = []
+    while (Date.now() < deadline && arrived.length < 2) {
+      await page.waitForTimeout(MediaCallsBrowserCheck.pollMs)
+      arrived = await page.evaluate((connection) => window.events.filter((event) => event[0] === 'MediaTrackArrived' && event[1].connection === connection).map((event) => event[1].kind), id)
+    }
+    const answered = await page.evaluate(() => window.events.some((event) => event[0] === 'PeerDescription'))
+    await page.close()
+    return { id, answered, arrived: arrived.sort() }
+  }
+
+  static checkListenOnly(name, listen) {
+    assert.ok(listen.answered, `${name}: the listening page answered the offer through Peers (${JSON.stringify(listen)})`)
+    assert.deepEqual(listen.arrived, ['audio', 'video'], `${name}: a page that only receives, and never calls Media, still gets MediaTrackArrived for each track (${JSON.stringify(listen)})`)
   }
 
   static async call(context, url, setup) {
