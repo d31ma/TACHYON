@@ -2101,12 +2101,24 @@ bad worker key and a bad key id `invalid` (the page turns these into
 
 `test:phase4-macos` passed on the same tip with an unlocked screen.
 
+`bun run test:sframe-call-macos` (P5K2, 2026-11-21, on macOS 27.2.1 with
+an unlocked screen through `mac-heavy --gui`) builds a macOS app that grants
+`peers`, `crypto` and `microphone` and holds one SFrame call with Chromium
+through a local coturn relay (`relayOnly` on both sides). The app imports a
+`derive` key into the native store and gets its frame keys through
+`browserApi.crypto.frameKey`; Chromium uses the page-key path with the same
+secret. Each side sends a drawn test pattern with its own key id (the app 7,
+Chromium 8) and opens the other's. With the same secret the app decoded 31
+and Chromium 34 frames of the other side, and both reported
+`MediaFrameKeyReady`; with a wrong secret on the Chromium side both decoded
+no frame and both reported `MediaFrameRejected`. The app and the test talk
+through a small local HTTP mailbox at `tac.yon.origin`; the test needs
+coturn, Playwright's Chromium and no Accessibility.
+
 Owed: the iOS simulator check
 (`native_crypto_host_tests::ios_crypto_keeps_keys_in_the_simulator_keychain_across_a_relaunch`,
-which now includes the frame-key check, inside a `mac-heavy --vm=ios` job
-on Platform's go); an SFrame call between the built macOS app and a browser
-over a real `RTCPeerConnection`, each side decrypting the other's frames
-and refusing a wrong key (automated test planned, P5K2).
+which now includes the frame-key check) on a commit where the iOS shell
+adopts scenes (TAC-IOS-SCENE).
 
 ### Passkeys in the browser (2026-11-12, ADR 0126)
 
