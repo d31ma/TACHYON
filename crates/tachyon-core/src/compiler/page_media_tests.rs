@@ -333,6 +333,18 @@ for (const hook of hooks.closed) hook('peer-listen')
 await settle()
 report.listenClosed = [listened.slice(report.listenOnly.length).map((event) => event[0]), Media.replies.has('peer-listen'), Media.watched.has('peer-listen')]
 listened.splice(0)
+const [madeBefore, playersBefore] = [made, players.length]
+const speaker = new EventTarget()
+const heard = []
+for (const hook of hooks.opened) hook('peer-hear', speaker, (event) => heard.push(event))
+blockNext = true
+speaker.dispatchEvent(Object.assign(new Event('track'), { transceiver: { mid: '0', sender: { track: null }, receiver: { track: Object.assign(new EventTarget(), { kind: 'audio' }) } }, streams: [] }))
+await settle()
+for (const hook of hooks.closed) hook('peer-hear')
+await settle()
+report.listenBlocked = [...heard.map((event) => event[0]), Media.blocked.size]
+players.splice(playersBefore)
+made = madeBefore
 api.captureMicrophone(reply, 'mic', '', true)
 api.captureCamera(reply, 'cam', '', 'medium')
 api.captureCamera(reply, 'cam2', '', 'low')
@@ -468,6 +480,11 @@ fn a_page_that_never_calls_media_gets_the_tracks_of_a_connection_it_opened() {
         report["listenClosed"],
         serde_json::json!([["MediaTrackEnded"], false, false]),
         "closing the connection ends its track through the same reply, then Media forgets the reply and the watch"
+    );
+    assert_eq!(
+        report["listenBlocked"],
+        serde_json::json!(["MediaTrackArrived", "MediaAudioBlocked", "MediaTrackEnded", 0]),
+        "a listen-only page learns that the browser blocked its remote audio, so it can offer resumeAudio"
     );
 }
 
