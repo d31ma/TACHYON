@@ -449,8 +449,8 @@ waited for the FYLO process or worked.
   - `storage::fylo::fylo_process::tests::a_fylo_killed_during_a_write_leaves_a_root_the_next_process_opens`
     (every OS): FYLO is killed while a collection's first write is in
     flight; the next process still has the answered document, accepts a new
-    write, and opens the root within the start-up allowance (20 seconds; 60
-    on Windows, see below).
+    write, and opens the root within the start-up allowance (20 seconds; on
+    Windows only a 3-minute hang check, see below).
   - Windows: FYLO 26.45.07's first write into a new collection takes 1.4 to
     1.8 seconds there (milliseconds on macOS), because FYLO starts
     PowerShell to read its own start time for the lock record (FYLO-WIN1).
@@ -458,7 +458,9 @@ waited for the FYLO process or worked.
     first write is killed after the 1-second grace. The grace stays 1 second
     on every OS; FYLO's recovery repairs a cut-off write. Opening a root
     after a killed process can take tens of seconds on Windows for the same
-    reason, until FYLO's fix (Win32 `GetProcessTimes`) is released.
+    reason (FYLO starts PowerShell once per lock record the killed process
+    left; one call took 47.7 seconds), until FYLO's fix (Win32
+    `GetProcessTimes`) is released.
   - `storage::fylo::fylo_process::tests::a_fylo_that_does_not_exit_is_killed_after_one_second`
     (Unix, `SIGSTOP`).
   - `storage::tests::fylo_startup::a_first_request_slower_than_the_deadline_finishes_and_the_same_fylo_stays`

@@ -221,7 +221,7 @@ mod tests {
 
     fn reopen_limit() -> Duration {
         if cfg!(windows) {
-            return Duration::from_secs(60);
+            return Duration::from_mins(3);
         }
         Duration::from_secs(20)
     }
