@@ -457,3 +457,25 @@ before the first render. Tac fires `tachyon:rendered` on `document` after each
 render (`detail.first` is `true` for the first one), and it keeps the nodes and
 attributes that such a script adds to elements Tac rendered
 ([ADR 0137](0137-tac-renders-once-and-keeps-dom-changes-made-by-other-code.md)).
+
+## Amendment (2026-11-21): iOS apps never ask for full screen only (TAC-FOLD-IOS)
+
+A locked `orientation` wrote `UIRequiresFullScreen` into the iOS `Info.plist`,
+and every device and App Store build wrote it too, whatever the orientation.
+Apple deprecated the key in iPadOS 26. With the iOS 27 SDK it no longer stops
+an app from being resized on iPhone or iPad, and Apple says apps must not
+include it (technote TN3192). On a device with more than one screen, such as
+a foldable iPhone, an app that asks for full screen only risks a fixed size,
+with black bars around it on the larger screen.
+
+TACHYON apps use the UIScene life cycle (TAC-IOS-SCENE) and lay out at any
+window size, so the build no longer writes `UIRequiresFullScreen` for any
+target or orientation. `orientation` still lists the allowed turns in
+`UISupportedInterfaceOrientations` and its `~ipad` copy. Apple does not
+promise that iPadOS keeps an app to those turns when the app can be resized;
+an app that must not turn says so with that list only, and TACHYON adds no
+lock of its own. `scripts/ios/foldable-test.mjs` checks on the iPhone Duo
+simulator, closed, half open and open flat, that an app fills the lit screen
+with no black bars, lays out again after each fold, and keeps its safe areas.
+Its first run waits for an iOS 27.2 simulator runtime that has the iPhone Duo
+(build 24B8118); until then the black bars are a risk, not a measured result.

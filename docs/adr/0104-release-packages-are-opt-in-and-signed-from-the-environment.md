@@ -312,9 +312,8 @@ Store) on the developer's own Apple Developer team.
      more than one, stops the build with `TY1605`, unless
      `TAC_IOS_SIGNING_IDENTITY` names it.
 3. **The bundle.**
-   - `Info.plist` names `iPhoneOS`, `LSRequiresIPhoneOS`, `arm64` and
-     `UIRequiresFullScreen` (the app is portrait only, so iPad multitasking is
-     off), plus the Xcode and SDK build keys (`DTXcode`, `DTSDKName` and
+   - `Info.plist` names `iPhoneOS`, `LSRequiresIPhoneOS` and `arm64`, plus
+     the Xcode and SDK build keys (`DTXcode`, `DTSDKName` and
      others) that App Store Connect checks, read from `xcodebuild -version`,
      `xcrun --show-sdk-version` and `sw_vers`.
    - The largest raster icon in `icons` becomes a 1024x1024 asset catalog icon

@@ -12,7 +12,11 @@ import path from 'node:path'
 
 export class SharedSimulator {
   static DEFAULT_SET = path.join(homedir(), 'Library/Developer/CoreSimulator/Devices')
-  static VARIABLES = { iPhone: 'TAC_IOS_DEVICE', iPad: 'TAC_IOS_TABLET_DEVICE' }
+  static VARIABLES = { iPhone: 'TAC_IOS_DEVICE', iPad: 'TAC_IOS_TABLET_DEVICE', iPhoneDuo: 'TAC_IOS_DUO_DEVICE' }
+  static PRODUCT_FAMILIES = { iPhone: 'iPhone', iPad: 'iPad', iPhoneDuo: 'iPhone' }
+  static DEVICE_TYPES = { iPhoneDuo: 'com.apple.CoreSimulator.SimDeviceType.iPhone-Duo' }
+  static DEFAULT_FAMILIES = ['iPhone', 'iPad']
+  static FAMILY_HINT = 'Use iPhone, iPad, iPhoneDuo, or a comma list such as iPhone,iPad.'
   static LIST_MILLISECONDS = 120000
   static CLEANUP_MILLISECONDS = 60000
   static FAMILIES_VARIABLE = 'TAC_IOS_FAMILIES'
@@ -25,16 +29,21 @@ export class SharedSimulator {
   /** @returns {string[]} */
   static families() {
     const known = Object.keys(SharedSimulator.VARIABLES)
-    const wanted = SharedSimulator.wantedFamilies(known)
+    const wanted = SharedSimulator.wantedFamilies(SharedSimulator.DEFAULT_FAMILIES)
     const unknown = wanted.filter((family) => !known.includes(family))
-    assert.equal(unknown.length, 0, `${SharedSimulator.FAMILIES_VARIABLE} names an unknown iOS family: ${unknown.join(', ')}. Use iPhone, iPad, or iPhone,iPad.`)
-    assert.ok(wanted.length > 0, `${SharedSimulator.FAMILIES_VARIABLE} names no iOS family. Use iPhone, iPad, or iPhone,iPad.`)
+    assert.equal(unknown.length, 0, `${SharedSimulator.FAMILIES_VARIABLE} names an unknown iOS family: ${unknown.join(', ')}. ${SharedSimulator.FAMILY_HINT}`)
+    assert.ok(wanted.length > 0, `${SharedSimulator.FAMILIES_VARIABLE} names no iOS family. ${SharedSimulator.FAMILY_HINT}`)
     return known.filter((family) => wanted.includes(family))
   }
 
-  /** @param {string[]} known @returns {string[]} */
-  static wantedFamilies(known) {
-    const text = process.env[SharedSimulator.FAMILIES_VARIABLE] ?? known.join(',')
+  /** @param {string} family @returns {boolean} */
+  static wants(family) {
+    return SharedSimulator.wantedFamilies([family]).includes(family)
+  }
+
+  /** @param {string[]} fallback @returns {string[]} */
+  static wantedFamilies(fallback) {
+    const text = process.env[SharedSimulator.FAMILIES_VARIABLE] ?? fallback.join(',')
     return text.split(',').map((family) => family.trim()).filter((family) => family !== '')
   }
 
@@ -96,9 +105,17 @@ export class SharedSimulator {
     const runtime = SharedSimulator.list(deviceSet, ['runtimes']).runtimes.find((item) => item.identifier === identifier)
     assert.ok(runtime && SharedSimulator.wantedRuntime(runtime), `${variable} ${device} runs ${identifier}, not iOS ${process.env.TAC_IOS_RUNTIME}`)
     const type = SharedSimulator.list(deviceSet, ['devicetypes']).devicetypes.find((item) => item.identifier === found.deviceTypeIdentifier)
-    assert.equal(type?.productFamily, family, `${variable} ${device} must be an ${family}`)
+    assert.equal(type?.productFamily, SharedSimulator.PRODUCT_FAMILIES[family], `${variable} ${device} must be an ${family}`)
+    SharedSimulator.checkDeviceType(family, variable, found.deviceTypeIdentifier)
     console.log(`==> using booted ${type.name} with iOS ${runtime.version} (${variable})`)
     return { device, runtime, type }
+  }
+
+  /** @param {string} family @param {string} variable @param {string} identifier */
+  static checkDeviceType(family, variable, identifier) {
+    const wanted = SharedSimulator.DEVICE_TYPES[family]
+    if (!wanted) return
+    assert.equal(identifier, wanted, `${variable} must be an ${family} (${wanted})`)
   }
 
   /** @param {string} deviceSet @param {string[]} args */

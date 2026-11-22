@@ -113,7 +113,22 @@ test('TAC_IOS_FAMILIES keeps the iPhone first and ignores spaces', () => {
 
 test('an unknown family in TAC_IOS_FAMILIES fails with its name', () => {
   process.env.TAC_IOS_FAMILIES = 'iPhone,Watch'
-  assert.throws(() => SharedSimulator.families(), /TAC_IOS_FAMILIES names an unknown iOS family: Watch\. Use iPhone, iPad, or iPhone,iPad\./)
+  assert.throws(() => SharedSimulator.families(), /TAC_IOS_FAMILIES names an unknown iOS family: Watch\. Use iPhone, iPad, iPhoneDuo, or a comma list such as iPhone,iPad\./)
+})
+
+test('TAC_IOS_FAMILIES=iPhoneDuo checks only the foldable iPhone Duo', () => {
+  process.env.TAC_IOS_FAMILIES = 'iPhoneDuo'
+  assert.deepEqual(SharedSimulator.families(), ['iPhoneDuo'])
+  assert.equal(SharedSimulator.wants('iPhoneDuo'), true)
+})
+
+test('without TAC_IOS_FAMILIES the iPhone Duo gate still runs', () => {
+  assert.equal(SharedSimulator.wants('iPhoneDuo'), true)
+})
+
+test('TAC_IOS_FAMILIES=iPhone leaves the iPhone Duo out', () => {
+  process.env.TAC_IOS_FAMILIES = 'iPhone'
+  assert.equal(SharedSimulator.wants('iPhoneDuo'), false)
 })
 
 test('an empty TAC_IOS_FAMILIES fails instead of checking nothing', () => {

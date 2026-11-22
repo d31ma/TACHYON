@@ -6,9 +6,9 @@ import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync,
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { inflateSync } from 'node:zlib';
 import { PageServicesFixture } from '../native/page-services-fixture.mjs';
 import { SharedSimulator } from './shared-simulator.mjs';
+import { ScreenshotPixels } from './screenshot-pixels.mjs';
 
 assert.equal(process.platform, 'darwin', 'The iOS window settings check needs macOS and Xcode');
 
@@ -285,7 +285,9 @@ impl RustTitleService {
   }
 
   static async screenWithoutBanner(device, screenshot, native, statusColor) {
-    const { simctl, readPng, rowShare, pause, bannerWaits } = IosWindowSettingsGate;
+    const { simctl, pause, bannerWaits } = IosWindowSettingsGate;
+    const { rowShare } = ScreenshotPixels;
+    const readPng = ScreenshotPixels.read;
     const statusRow = (native.safeTop - 3) * native.scale;
     simctl('io', device, 'screenshot', screenshot);
     let image = readPng(screenshot);
@@ -297,66 +299,10 @@ impl RustTitleService {
     return image;
   }
 
-  static readPng(file) {
-    const bytes = readFileSync(file);
-    let offset = 8;
-    let header;
-    const data = [];
-    while (offset < bytes.length) {
-      const length = bytes.readUInt32BE(offset);
-      const type = bytes.toString('latin1', offset + 4, offset + 8);
-      const body = bytes.subarray(offset + 8, offset + 8 + length);
-      if (type === 'IHDR') header = { width: body.readUInt32BE(0), height: body.readUInt32BE(4), depth: body[8], color: body[9], interlace: body[12] };
-      if (type === 'IDAT') data.push(body);
-      offset += length + 12;
-    }
-    assert.ok(header && header.depth === 8 && [2, 6].includes(header.color) && header.interlace === 0, `unexpected screenshot format: ${JSON.stringify(header)}`);
-    const channels = header.color === 6 ? 4 : 3;
-    const stride = header.width * channels;
-    const raw = inflateSync(Buffer.concat(data));
-    const pixels = Buffer.alloc(stride * header.height);
-    for (let row = 0; row < header.height; row++) {
-      const filter = raw[row * (stride + 1)];
-      const line = raw.subarray(row * (stride + 1) + 1, (row + 1) * (stride + 1));
-      for (let index = 0; index < stride; index++) {
-        const left = index >= channels ? pixels[row * stride + index - channels] : 0;
-        const up = row > 0 ? pixels[(row - 1) * stride + index] : 0;
-        const corner = row > 0 && index >= channels ? pixels[(row - 1) * stride + index - channels] : 0;
-        const before = [0, left, up, (left + up) >> 1, IosWindowSettingsGate.paeth(left, up, corner)][filter];
-        assert.notEqual(before, undefined, `unknown PNG filter ${filter}`);
-        pixels[row * stride + index] = (line[index] + before) & 0xff;
-      }
-    }
-    return { width: header.width, height: header.height, pixel: (x, y) => {
-      const at = Math.round(y) * stride + Math.round(x) * channels;
-      return [pixels[at], pixels[at + 1], pixels[at + 2]];
-    } };
-  }
-
-  static paeth(left, up, corner) {
-    const guess = left + up - corner;
-    const [toLeft, toUp, toCorner] = [left, up, corner].map(value => Math.abs(guess - value));
-    if (toLeft <= toUp && toLeft <= toCorner) return left;
-    return toUp <= toCorner ? up : corner;
-  }
-
-  static rgb(hex) {
-    return [1, 3, 5].map(start => Number.parseInt(hex.slice(start, start + 2), 16));
-  }
-
-  static near(pixel, hex) {
-    return IosWindowSettingsGate.rgb(hex).every((channel, index) => Math.abs(channel - pixel[index]) <= 8);
-  }
-
-  static rowShare(image, y, hex) {
-    let matches = 0;
-    for (let x = 0; x < image.width; x++) if (IosWindowSettingsGate.near(image.pixel(x, y), hex)) matches++;
-    return matches / image.width;
-  }
-
   static checkStandard(result, bundle) {
     const { native, page } = result;
-    const { styles, rowShare, near, run } = IosWindowSettingsGate;
+    const { styles, run } = IosWindowSettingsGate;
+    const { rowShare, near } = ScreenshotPixels;
     assert.equal(native.statusBarStyle, styles.lightContent, 'a dark theme_color gives light status bar icons');
     assert.equal(native.statusBarHidden, false);
     assert.equal(native.orientation, 1, 'a portrait app opens in portrait');
@@ -385,7 +331,8 @@ impl RustTitleService {
 
   static checkIntegrated(result) {
     const { native, page } = result;
-    const { styles, rowShare } = IosWindowSettingsGate;
+    const { styles } = IosWindowSettingsGate;
+    const { rowShare } = ScreenshotPixels;
     assert.equal(native.statusBarStyle, styles.darkContent, 'a light theme_color gives dark status bar icons');
     assert.ok(native.safeTop > 0);
     assert.equal(native.webTop, 0, 'the integrated page starts at the top edge');
@@ -412,7 +359,9 @@ impl RustTitleService {
   }
 
   static async checkLaunchScreen(device, bundle, native) {
-    const { simctl, appId, pause, rowShare, readPng, root, keep } = IosWindowSettingsGate;
+    const { simctl, appId, pause, root, keep } = IosWindowSettingsGate;
+    const { rowShare } = ScreenshotPixels;
+    const readPng = ScreenshotPixels.read;
     spawnSync('/usr/bin/xcrun', ['simctl', '--set', IosWindowSettingsGate.deviceSet, 'uninstall', device, appId], { stdio: 'ignore', timeout: 60000 });
     IosWindowSettingsGate.slowSimctl('install', device, bundle);
     const launched = IosWindowSettingsGate.slowSimctl('launch', '--wait-for-debugger', device, appId);

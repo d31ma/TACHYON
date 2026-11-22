@@ -6,7 +6,6 @@ pub(super) struct IosWindowSettings;
 impl IosWindowSettings {
     const SWIFT: &'static str = include_str!("IosWindowSettings.swift");
     const INSETS_CASE: &'static str = "        case \"window.titleBarInsets\":\n            return IosWindowSettings.insets(webView?.superview)\n";
-    const FULL_SCREEN_KEYS: &'static str = "\n<key>UIRequiresFullScreen</key><true/>";
     const HIDDEN_STATUS_BAR_KEYS: &'static str = "\n<key>UIStatusBarHidden</key><true/>";
 
     pub(super) fn swift(window: &WindowConfiguration) -> String {
@@ -43,11 +42,10 @@ impl IosWindowSettings {
             .iter()
             .map(|name| ["<string>", name, "</string>"].concat())
             .collect::<String>();
-        let full_screen = ["", Self::FULL_SCREEN_KEYS][usize::from(window.orientation.is_locked())];
         let hidden =
             ["", Self::HIDDEN_STATUS_BAR_KEYS][usize::from(window.display.starts_fullscreen())];
         format!(
-            "{full_screen}{hidden}\n<key>UISupportedInterfaceOrientations</key><array>{orientations}</array>\
+            "{hidden}\n<key>UISupportedInterfaceOrientations</key><array>{orientations}</array>\
              \n<key>UISupportedInterfaceOrientations~ipad</key><array>{orientations}</array>"
         )
     }
@@ -140,7 +138,7 @@ mod tests {
     }
 
     #[test]
-    fn fullscreen_and_a_locked_orientation_reach_the_plist() {
+    fn fullscreen_and_a_locked_orientation_reach_the_plist_without_a_full_screen_only_request() {
         let window = WindowConfiguration {
             display: NativeDisplay::Fullscreen,
             orientation: NativeOrientation::Landscape,
@@ -148,9 +146,21 @@ mod tests {
         };
         let plist = IosWindowSettings::plist_entries(&window);
         assert!(plist.contains("<key>UIStatusBarHidden</key><true/>"));
-        assert!(plist.contains("<key>UIRequiresFullScreen</key><true/>"));
+        assert!(!plist.contains("UIRequiresFullScreen"));
         assert!(plist.contains("<key>UISupportedInterfaceOrientations</key><array><string>UIInterfaceOrientationLandscapeLeft</string><string>UIInterfaceOrientationLandscapeRight</string></array>"));
         assert!(!plist.contains("Portrait"));
         assert!(IosWindowSettings::swift(&window).contains("static let fullscreen = true"));
+    }
+
+    #[test]
+    fn a_portrait_app_lists_its_orientations_and_still_takes_any_screen_size() {
+        let window = WindowConfiguration {
+            orientation: NativeOrientation::Portrait,
+            ..WindowConfiguration::default()
+        };
+        let plist = IosWindowSettings::plist_entries(&window);
+        assert!(plist.contains("<string>UIInterfaceOrientationPortrait</string>"));
+        assert!(!plist.contains("Landscape"));
+        assert!(!plist.contains("UIRequiresFullScreen"));
     }
 }
