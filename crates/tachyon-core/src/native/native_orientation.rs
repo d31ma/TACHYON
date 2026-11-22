@@ -49,10 +49,6 @@ impl NativeOrientation {
             Self::PortraitSecondary => Some("reversePortrait"),
         }
     }
-
-    pub(super) fn is_locked(self) -> bool {
-        self != Self::Any
-    }
 }
 
 #[cfg(test)]
@@ -79,7 +75,6 @@ mod tests {
         ] {
             let orientation = parsed(text);
             assert!(!orientation.ios_orientations().is_empty(), "{text}");
-            assert_eq!(orientation.is_locked(), text != "any", "{text}");
         }
         assert!(
             serde_json::from_value::<NativeOrientation>(serde_json::json!("sideways")).is_err()

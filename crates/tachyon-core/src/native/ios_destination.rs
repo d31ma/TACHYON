@@ -35,8 +35,7 @@ impl IosDestination {
         app_store: false,
         platform: "iPhoneOS",
         platform_keys: "\n<key>LSRequiresIPhoneOS</key><true/>\
-            \n<key>UIRequiredDeviceCapabilities</key><array><string>arm64</string></array>\
-            \n<key>UIRequiresFullScreen</key><true/>",
+            \n<key>UIRequiredDeviceCapabilities</key><array><string>arm64</string></array>",
         triple_suffix: "",
         architecture: Some("arm64"),
         artifact_architecture: Some("aarch64"),
@@ -160,7 +159,8 @@ mod tests {
         let device = IosDestination::DEVICE.plist_keys("\n<key>DTXcode</key><string>1620</string>");
         assert!(device.contains("<array><string>iPhoneOS</string></array>"));
         assert!(device.contains("<key>LSRequiresIPhoneOS</key><true/>"));
-        assert!(device.contains("<key>UIRequiresFullScreen</key><true/>"));
+        assert!(!device.contains("UIRequiresFullScreen"));
+        assert!(!IosDestination::APP_STORE.plist_keys("").contains("UIRequiresFullScreen"));
         assert!(device.ends_with("<key>DTXcode</key><string>1620</string>"));
     }
 }
