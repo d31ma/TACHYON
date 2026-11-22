@@ -160,7 +160,11 @@ mod tests {
         assert!(device.contains("<array><string>iPhoneOS</string></array>"));
         assert!(device.contains("<key>LSRequiresIPhoneOS</key><true/>"));
         assert!(!device.contains("UIRequiresFullScreen"));
-        assert!(!IosDestination::APP_STORE.plist_keys("").contains("UIRequiresFullScreen"));
+        assert!(
+            !IosDestination::APP_STORE
+                .plist_keys("")
+                .contains("UIRequiresFullScreen")
+        );
         assert!(device.ends_with("<key>DTXcode</key><string>1620</string>"));
     }
 }
