@@ -80,7 +80,7 @@ Every tier-3 path above that has a fixture folder: changing the fixture also mea
 `test:async-listener-browser`, and the macOS native gates (`test:phase4-macos`,
 `test:native-icons`, `test:window-grant-macos`, `test:application-state-macos`,
 `test:page-checks-macos`, `test:page-services-macos`, `test:macos-release`,
-`test:wasm-features-app`), and the native Peers checks (`test:peers-macos`, `test:peers-ios`,
+`test:wasm-features-app`), the macOS SFrame call (`test:sframe-call-macos`), and the native Peers checks (`test:peers-macos`, `test:peers-ios`,
 `test:peers-android`, `test:peers-windows`; release-extras' macos, ios, android and windows
 groups). Exception: a slice that changes `src/native/**` for macOS
 runs `test:phase4-macos` before merging.
