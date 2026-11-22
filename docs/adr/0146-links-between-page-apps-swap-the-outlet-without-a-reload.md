@@ -1,8 +1,8 @@
-# ADR QQQQ: Links Between Page Apps Swap the Outlet Without a Reload
+# ADR 0146: Links Between Page Apps Swap the Outlet Without a Reload
 
 - Status: Accepted (slice 4b of step 2 of micro-frontends)
 - Date: 2026-11-15
-- Relates to: [ADR PPPP](PPPP-a-shell-layout-renders-every-page-in-its-outlet.md)
+- Relates to: [ADR 0145](0145-a-shell-layout-renders-every-page-in-its-outlet.md)
   (a shell layout renders every page in its outlet),
   [ADR 0139](0139-a-shell-lists-its-page-apps-and-builds-them-as-one-site.md)
   (a shell lists its page apps and builds them as one site),
@@ -11,7 +11,7 @@
 
 ## Context
 
-With a shell layout (ADR PPPP), every document of a site renders the same
+With a shell layout (ADR 0145), every document of a site renders the same
 frame. A link from one page to another still loads a whole new document:
 the shell's state (an open menu, a running call, an unlocked Store) is lost,
 and the shell's services start again on every page.

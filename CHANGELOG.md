@@ -25,7 +25,7 @@ machine contracts have their own, independent major versions.
   `.tachyon/tac-locks.js`, shipped only to pages that grant `locks`.
   `bun run test:tabs-browser` checks two tabs in Chromium, Firefox and
   WebKit.
-- **A page app deployed apart from the shell renders inside it** (ADR RRRR,
+- **A page app deployed apart from the shell renders inside it** (ADR 0147,
   step 2 of micro-frontends, slice 4c). A shell with `tac.layout` also writes
   its plan to `/.tachyon/shell.json` (also with `ty bundle --shell-only`). A
   page app built alone, outside `/`, reads that file at start-up, adds the
@@ -37,7 +37,7 @@ machine contracts have their own, independent major versions.
   a plain app asks for no shell file, and that a blocked `tac-shell.js`
   still shows the page.
 
-- **Links between page apps swap the outlet without a reload** (ADR QQQQ,
+- **Links between page apps swap the outlet without a reload** (ADR 0146,
   step 2 of micro-frontends, slice 4b). In a document with a shell layout, a
   same-origin link fetches the target document and renders its page in the
   outlet; the shell keeps its state and services, Back and Forward work the
@@ -45,7 +45,7 @@ machine contracts have their own, independent major versions.
   another shell or new head scripts loads as a normal page.
   `bun run test:page-apps-browser` checks it in Chromium, Firefox and WebKit.
 
-- **A shell layout renders every page in its outlet** (ADR PPPP, step 2 of
+- **A shell layout renders every page in its outlet** (ADR 0145, step 2 of
   micro-frontends, slice 4a). `"tac": { "layout": "app-shell" }` in the shell
   names a component whose template holds one `<outlet />`. Every page of the
   shell, and every page app built into the same bundle, renders inside that
@@ -53,7 +53,7 @@ machine contracts have their own, independent major versions.
   `<outlet />` or a layout without exactly one outlet stops the build
   (`TY1601`).
 
-- **A Tac app can include shared client folders** (ADR NNNN, step 2 of
+- **A Tac app can include shared client folders** (ADR 0144, step 2 of
   micro-frontends, slice 3b). `"tac": { "include": ["../kit"] }` adds the
   components, services, entities, models and shared files of each listed
   folder to the app's build, as if they were its own. A folder with pages or

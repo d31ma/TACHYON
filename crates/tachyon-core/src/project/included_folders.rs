@@ -12,7 +12,7 @@ impl IncludedFolders {
     const CODE: u16 = 1601;
     const MAX_FOLDERS: usize = 8;
     const APP_ONLY_ROOTS: [&'static str; 2] = ["client/pages", "server"];
-    const HELP: &'static str = "tac.include lists folders of shared Tac code, relative to the project folder, such as [\"../kit\"]. Each folder holds client/components, client/services, client/models, client/shared and the other client folders, but no pages and no server (ADR NNNN).";
+    const HELP: &'static str = "tac.include lists folders of shared Tac code, relative to the project folder, such as [\"../kit\"]. Each folder holds client/components, client/services, client/models, client/shared and the other client folders, but no pages and no server (ADR 0144).";
 
     pub(super) fn open(project_root: &Path) -> Result<Self, Failure> {
         let names = crate::native::SiteSettings::include(project_root);

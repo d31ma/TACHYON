@@ -27,7 +27,7 @@ impl ShellLayout {
     const PRELOAD: &'static str =
         r#"<link rel="modulepreload" href="/.tachyon/tac-shell.js" data-tachyon-runtime>"#;
     const COMPONENT_STYLES: &'static str = "/.tachyon/components.css";
-    const HELP: &'static str = "tac.layout names the shell's layout component, such as \"app-shell\". Its template holds exactly one <outlet />, where each page renders (ADR NNNN).";
+    const HELP: &'static str = "tac.layout names the shell's layout component, such as \"app-shell\". Its template holds exactly one <outlet />, where each page renders (ADR 0144).";
 
     pub(super) fn none() -> Self {
         Self {

@@ -156,3 +156,7 @@ design. Decide routine implementation choices in code review, not in an ADR.
 - [141. Tabs Share Store and State Changes, and Take Locks](0141-tabs-share-store-and-state-changes-and-take-locks.md)
 - [142. An Error Handler Shapes the Answers Tachyon Makes Itself](0142-an-error-handler-shapes-the-answers-tachyon-makes-itself.md)
 - [143. A Route Receives the Caller's Identity](0143-a-route-receives-the-callers-identity.md)
+- [144. A Tac App Can Include Shared Client Folders](0144-a-tac-app-can-include-shared-client-folders.md)
+- [145. A Shell Layout Renders Every Page in Its Outlet](0145-a-shell-layout-renders-every-page-in-its-outlet.md)
+- [146. Links Between Page Apps Swap the Outlet Without a Reload](0146-links-between-page-apps-swap-the-outlet-without-a-reload.md)
+- [147. A Page App Deployed Apart Reads the Shell Plan From One File](0147-a-page-app-deployed-apart-reads-the-shell-plan-from-one-file.md)

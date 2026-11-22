@@ -1,10 +1,10 @@
-# ADR RRRR: A Page App Deployed Apart Reads the Shell Plan From One File
+# ADR 0147: A Page App Deployed Apart Reads the Shell Plan From One File
 
 - Status: Accepted (slice 4c of step 2 of micro-frontends)
 - Date: 2026-11-15
-- Relates to: [ADR PPPP](PPPP-a-shell-layout-renders-every-page-in-its-outlet.md)
+- Relates to: [ADR 0145](0145-a-shell-layout-renders-every-page-in-its-outlet.md)
   (a shell layout renders every page in its outlet),
-  [ADR QQQQ](QQQQ-links-between-page-apps-swap-the-outlet-without-a-reload.md)
+  [ADR 0146](0146-links-between-page-apps-swap-the-outlet-without-a-reload.md)
   (links between page apps swap the outlet without a reload),
   [ADR 0139](0139-a-shell-lists-its-page-apps-and-builds-them-as-one-site.md)
   (a shell lists its page apps and builds them as one site)
@@ -33,7 +33,7 @@ shell plan, and its pages render without the shell's frame.
   runtime uses it as if it were inline. When the file is missing or is not a
   shell plan, the page renders alone, as before. A page app built alone
   needs no change and no setting.
-- **Same shell:** soft navigation (ADR QQQQ) compares shell texts. A target
+- **Same shell:** soft navigation (ADR 0146) compares shell texts. A target
   document without an inline plan whose runtime is outside the root app uses
   the shell file's text; the runtime fetches it again at that moment, so a
   shell that was deployed again since the page loaded makes the navigation a
