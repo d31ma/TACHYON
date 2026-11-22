@@ -217,10 +217,15 @@ such a page got no track events at all, although the tracks arrived.
 - Media keeps that reply for the connection, so the events of its remote
   tracks go to the service that opened it. A later Media call on the
   connection (`send`, `stats`, ...) still replaces it, as before.
+- When the connection closes (`Peers.close`, or the page going away), Peers
+  calls its `closed` hooks; Media ends the connection's remote tracks with
+  `MediaTrackEnded` through that reply and then forgets the reply, so a closed
+  connection keeps nothing.
 - Evidence: the listen-only case of `scripts/media-calls-browser-test.mjs`
   opens a connection, answers an offer of one audio and one video track with
   `Peers.answer`, makes no Media call, and gets `MediaTrackArrived` for both
   tracks in Chromium, Firefox and WebKit. It failed on develop d83321723.
 - `compiler::page_media_tests::a_page_that_never_calls_media_gets_the_tracks_of_a_connection_it_opened`:
   with fake WebRTC objects, a connection's `opened` hook carries the opener's
-  reply, and a `track` event before any Media call reaches that reply.
+  reply, a `track` event before any Media call reaches that reply, and
+  closing the connection ends the track and leaves no reply behind.

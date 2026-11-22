@@ -331,6 +331,7 @@ await settle()
 report.listenOnly = listened.map((event) => [event[0], event[1].track, event[1].kind, event[1].stream])
 for (const hook of hooks.closed) hook('peer-listen')
 await settle()
+report.listenClosed = [listened.slice(report.listenOnly.length).map((event) => event[0]), Media.replies.has('peer-listen'), Media.watched.has('peer-listen')]
 listened.splice(0)
 api.captureMicrophone(reply, 'mic', '', true)
 api.captureCamera(reply, 'cam', '', 'medium')
@@ -462,6 +463,11 @@ fn a_page_that_never_calls_media_gets_the_tracks_of_a_connection_it_opened() {
         report["listenOnly"],
         serde_json::json!([["MediaTrackArrived", "peer-listen.0", "video", "room"]]),
         "the track events of a connection go to the reply of the service that opened it"
+    );
+    assert_eq!(
+        report["listenClosed"],
+        serde_json::json!([["MediaTrackEnded"], false, false]),
+        "closing the connection ends its track through the same reply, then Media forgets the reply and the watch"
     );
 }
 
