@@ -156,6 +156,25 @@ or later device (the iOS floor since ADR 0108; the only registered device is an
 iPod touch on iOS 15), and an App Store Connect upload, which is outside `ty`
 (ADR 0104). All three are left to the developer.
 
+iOS 27.2 and the scene life cycle (2026-11-21, TAC-IOS-SCENE): iOS 27.2
+stops an app at launch when the app has not adopted the UIScene life cycle,
+so before this change every TACHYON iOS app crashed at launch there. The
+generated `Info.plist` now declares a `UIApplicationSceneManifest` with one
+window scene, and a scene delegate creates the window and the web view; deep
+links arrive through the scene. On the macOS test machine (Xcode 27.2, iOS
+27.2 simulator runtime 24B8117, the kept iPhone 17 Pro and iPad Pro 11-inch
+(M4)), these passed: `scripts/ios/native-test.mjs` (launch, render and
+input, Swift and linked Rust services, storage and relaunch) on iPhone;
+`scripts/ios/window-settings-test.mjs` on iPhone and on iPad, including the
+scene titles; and `scripts/ios/application-lifetime-test.mjs` on iPhone. On
+iPad, application-lifetime passed its pages and the main menu's key commands
+(Command-1, Command-2 and Command-K), but on iPadOS 27.2 the iPad menu bar
+does not yet open by a touch swipe down from the top edge, so the touches on
+View and What's Running were not run (follow-up TAC-IOS-IPAD-MENUBAR). The
+gates now run one device family at a time with `TAC_IOS_FAMILIES` (`iPhone`,
+`iPad`, or both, the default), because the shared test Mac cannot boot both
+simulators at once.
+
 ### Application services and declared menus on desktop hosts (2026-10-04)
 
 ADR 0097 and its amendment cover an application-lifetime Rust service and
