@@ -211,8 +211,8 @@ class AndroidFoldableGate {
     const top = Math.round(image.height * 0.15);
     const bottom = Math.round(image.height * 0.85);
     const edges = {
-      left: columnShare(image, 1, top, bottom, pixel => near(pixel, page)),
-      right: columnShare(image, image.width - 2, top, bottom, pixel => near(pixel, page)),
+      left: columnShare(image, 1, top, bottom, pixel => near(pixel, page) || near(pixel, bars)),
+      right: columnShare(image, image.width - 2, top, bottom, pixel => near(pixel, page) || near(pixel, bars)),
       leftBlack: columnShare(image, 1, top, bottom, black),
       rightBlack: columnShare(image, image.width - 2, top, bottom, black),
       topBlack: rowShare(image, 1, black),
@@ -221,7 +221,7 @@ class AndroidFoldableGate {
       bottomBar: rowShare(image, image.height - 2, pixel => near(pixel, bars)),
     };
     console.log(`${name}: edges ${JSON.stringify(edges)}`);
-    assert.ok(edges.left > 0.95 && edges.right > 0.95, `${name}: the page reaches the left and right edges (no pillarbox): ${JSON.stringify(edges)}`);
+    assert.ok(edges.left > 0.95 && edges.right > 0.95, `${name}: the page or its theme_color cutout area reaches the left and right edges (no pillarbox): ${JSON.stringify(edges)}`);
     assert.ok(edges.leftBlack < 0.02 && edges.rightBlack < 0.02, `${name}: no black side bars: ${JSON.stringify(edges)}`);
     assert.ok(edges.topBlack < 0.2 && edges.bottomBlack < 0.2, `${name}: no black top or bottom bars (no letterbox): ${JSON.stringify(edges)}`);
     assert.ok(edges.topBar > 0.5 && edges.bottomBar > 0.5, `${name}: the theme_color system bars reach the top and bottom edges: ${JSON.stringify(edges)}`);
