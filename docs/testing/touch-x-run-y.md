@@ -85,6 +85,13 @@ Every tier-3 path above that has a fixture folder: changing the fixture also mea
 groups). Exception: a slice that changes `src/native/**` for macOS
 runs `test:phase4-macos` before merging.
 
+`test:sframe-call-macos` covers `scripts/native/sframe-call-*.mjs` and the SFrame
+frame-key code: `template/tac-media.js` and `template/tac-media-frames.js` (the
+frame keys), `template/tac-crypto.js` (the `frameKey` hook) and
+`src/native/browser_apis/AppleCrypto*.swift` (the native frame key). It is release
+only: merges do not run it by default. It needs an awake, unlocked screen
+(`--gui`), coturn and Playwright's Chromium, but no Accessibility.
+
 **macOS GUI and TCC gates** (TCC is the macOS privacy permission system): run
 `test:phase4-macos` and every other macOS GUI or TCC gate as
 `MAC_HEAVY_COORDINATOR=tachyon-build mac-heavy --owner <name> --gui -- bun run test:<gate>`,
