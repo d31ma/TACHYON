@@ -156,7 +156,7 @@ class TacMedia {
     const hooks = globalThis[TacMedia.peersHooksKey]
     if (TacMedia.peersHooked || !hooks) return
     TacMedia.peersHooked = true
-    hooks.opened((connection, peer) => TacMedia.watch(connection, peer))
+    hooks.opened((connection, peer, reply) => TacMedia.opened(connection, peer, reply))
     hooks.closed((connection) => TacMedia.closed(connection))
   }
 
@@ -507,6 +507,11 @@ class TacMedia {
     TacMedia.replies.set(connection, reply)
     TacMedia.watch(connection, peer)
     return peer
+  }
+
+  static opened(connection, peer, reply) {
+    TacMedia.replies.set(connection, reply)
+    TacMedia.watch(connection, peer)
   }
 
   static watch(connection, peer) {

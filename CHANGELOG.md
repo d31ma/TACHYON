@@ -432,6 +432,11 @@ machine contracts have their own, independent major versions.
 
 ### Fixed
 
+- **A page that only receives tracks gets `MediaTrackArrived`**
+  (TAC-MEDIA-LISTEN-ONLY, ADR 0129 amendment). A page that never called Media,
+  such as a listen-only call participant, got no events for the tracks that
+  arrived on its `Peers` connection. The events now go to the service that
+  opened the connection.
 - **A form control keeps its focus and value when a bound observed attribute
   changes** (ADR 0137 amendment, TAC-RND2). When a bound attribute that a
   custom element lists in `observedAttributes` changed, such as
