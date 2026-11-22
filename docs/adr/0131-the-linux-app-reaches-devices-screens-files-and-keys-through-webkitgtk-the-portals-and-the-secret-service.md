@@ -159,8 +159,8 @@ page closes every open recording file and closes an open dialog.
 WebKitGTK's `MediaRecorder` needs `gstreamer1.0-plugins-bad`
 (`uritranscodebin`), so the package of an app with a media grant recommends
 it too. A recording needs a capture source on the page: with none started,
-WebKitGTK 2.54 records nothing from WebAudio tracks, so the file stays
-empty.
+WebKitGTK 2.54 records nothing from WebAudio tracks, and the recording ends
+as `failed` (ADR NNNN) with an empty file.
 
 ## Consequences
 

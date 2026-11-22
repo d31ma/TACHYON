@@ -2005,8 +2005,10 @@ What the runs found:
   for every stream with a WebAudio track, so also for the recorder's audio
   mix; a canvas track alone recorded (WebM 138 KB in 2.5 seconds). Once the
   page opened a microphone, the mix recorded. On Linux a recording of what
-  the page captures works; a recording with no capture source saves an
-  empty file. Calls, which would add remote tracks, wait for WebKitGTK 2.56.
+  the page captures works. A recording with no capture source gets no
+  bytes, so the recorder module ends it with `RecordingFailed` and the
+  reason `failed` (ADR NNNN slice M5b1); the empty file the person picked
+  stays. Calls, which would add remote tracks, wait for WebKitGTK 2.56.
 
 Owed by hand on a Linux PC: a recording through the desktop's own save
 dialog (the FileChooser portal on GNOME and KDE Plasma) with a real camera
