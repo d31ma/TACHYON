@@ -111,7 +111,7 @@ class TacPeers {
   }
 
   static announce(hooks, entry) {
-    for (const hook of hooks) hook(entry.id, entry.peer)
+    for (const hook of hooks) hook(entry.id, entry.peer, entry.reply)
   }
 
   static ensureSupported() {

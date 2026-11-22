@@ -204,3 +204,23 @@ or that arrives is encrypted (ADR 0135).
   sharing, grants and the user-action rule) and module shipping.
 - A Playwright smoke run with fake devices in Chromium and Firefox; WebKit
   answers `denied` without a grant and hides labels.
+
+## Amendment (2026-11-21): a page that only receives gets its tracks (TAC-MEDIA-LISTEN-ONLY)
+
+A page that only listens, such as a call participant with no microphone or
+camera, never calls Media. Media sent `MediaTrackArrived` (and the later
+events of a remote track) to the reply of the last Media call on the page, so
+such a page got no track events at all, although the tracks arrived.
+
+- `Peers` now gives its `opened` hooks the reply of the service that opened
+  the connection, next to the connection's name and its `RTCPeerConnection`.
+- Media keeps that reply for the connection, so the events of its remote
+  tracks go to the service that opened it. A later Media call on the
+  connection (`send`, `stats`, ...) still replaces it, as before.
+- Evidence: the listen-only case of `scripts/media-calls-browser-test.mjs`
+  opens a connection, answers an offer of one audio and one video track with
+  `Peers.answer`, makes no Media call, and gets `MediaTrackArrived` for both
+  tracks in Chromium, Firefox and WebKit. It failed on develop d83321723.
+- `compiler::page_media_tests::a_page_that_never_calls_media_gets_the_tracks_of_a_connection_it_opened`:
+  with fake WebRTC objects, a connection's `opened` hook carries the opener's
+  reply, and a `track` event before any Media call reaches that reply.

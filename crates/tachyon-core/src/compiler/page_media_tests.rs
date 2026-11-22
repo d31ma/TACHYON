@@ -323,6 +323,15 @@ const settle = async () => { for (let round = 0; round < 10; round += 1) await n
 const attempt = (work) => { try { work(); return 'ok' } catch (error) { return error.message } }
 const report = {}
 report.hooked = [hooks.opened.length, hooks.closed.length]
+const listener = new EventTarget()
+const listened = []
+for (const hook of hooks.opened) hook('peer-listen', listener, (event) => listened.push(event))
+listener.dispatchEvent(Object.assign(new Event('track'), { transceiver: { mid: '0', sender: { track: null }, receiver: { track: Object.assign(new EventTarget(), { kind: 'video' }) } }, streams: [{ id: 'room' }] }))
+await settle()
+report.listenOnly = listened.map((event) => [event[0], event[1].track, event[1].kind, event[1].stream])
+for (const hook of hooks.closed) hook('peer-listen')
+await settle()
+listened.splice(0)
 api.captureMicrophone(reply, 'mic', '', true)
 api.captureCamera(reply, 'cam', '', 'medium')
 api.captureCamera(reply, 'cam2', '', 'low')
@@ -440,6 +449,20 @@ console.log(JSON.stringify(report))
         );
         serde_json::from_str(stdout.lines().last().unwrap_or_default()).expect("report")
     }
+}
+
+#[test]
+fn a_page_that_never_calls_media_gets_the_tracks_of_a_connection_it_opened() {
+    if !NodeDriver::available() {
+        eprintln!("skipping: node is unavailable");
+        return;
+    }
+    let report = CallsPageDriver::run();
+    assert_eq!(
+        report["listenOnly"],
+        serde_json::json!([["MediaTrackArrived", "peer-listen.0", "video", "room"]]),
+        "the track events of a connection go to the reply of the service that opened it"
+    );
 }
 
 #[test]
