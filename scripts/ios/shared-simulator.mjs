@@ -15,10 +15,27 @@ export class SharedSimulator {
   static VARIABLES = { iPhone: 'TAC_IOS_DEVICE', iPad: 'TAC_IOS_TABLET_DEVICE' }
   static LIST_MILLISECONDS = 120000
   static CLEANUP_MILLISECONDS = 60000
+  static FAMILIES_VARIABLE = 'TAC_IOS_FAMILIES'
 
   /** @param {string} family @returns {string} */
   static udid(family) {
     return process.env[SharedSimulator.VARIABLES[family]] ?? ''
+  }
+
+  /** @returns {string[]} */
+  static families() {
+    const known = Object.keys(SharedSimulator.VARIABLES)
+    const wanted = SharedSimulator.wantedFamilies(known)
+    const unknown = wanted.filter((family) => !known.includes(family))
+    assert.equal(unknown.length, 0, `${SharedSimulator.FAMILIES_VARIABLE} names an unknown iOS family: ${unknown.join(', ')}. Use iPhone, iPad, or iPhone,iPad.`)
+    assert.ok(wanted.length > 0, `${SharedSimulator.FAMILIES_VARIABLE} names no iOS family. Use iPhone, iPad, or iPhone,iPad.`)
+    return known.filter((family) => wanted.includes(family))
+  }
+
+  /** @param {string[]} known @returns {string[]} */
+  static wantedFamilies(known) {
+    const text = process.env[SharedSimulator.FAMILIES_VARIABLE] ?? known.join(',')
+    return text.split(',').map((family) => family.trim()).filter((family) => family !== '')
   }
 
   /** @returns {string[]} */

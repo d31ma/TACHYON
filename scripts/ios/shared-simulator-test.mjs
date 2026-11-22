@@ -10,7 +10,7 @@ class SharedSimulatorTest {
   static PHONE = '11111111-2222-3333-4444-555555555555'
   static TABLET = '66666666-7777-8888-9999-000000000000'
   static PRIVATE_SET = '/tmp/gate/simulator-devices'
-  static NAMES = ['TAC_IOS_DEVICE', 'TAC_IOS_TABLET_DEVICE', 'TAC_IOS_DEVICE_SET', 'TAC_IOS_RUNTIME']
+  static NAMES = ['TAC_IOS_DEVICE', 'TAC_IOS_TABLET_DEVICE', 'TAC_IOS_DEVICE_SET', 'TAC_IOS_RUNTIME', 'TAC_IOS_FAMILIES']
 
   /** @param {string} version @returns {{ identifier: string, version: string }} */
   static runtime(version) {
@@ -90,4 +90,33 @@ test('a shared device that is not in the device set fails with its variable name
   process.env.TAC_IOS_DEVICE = SharedSimulatorTest.PHONE
   assert.throws(() => SharedSimulator.use(set, 'iPhone'), new RegExp(`TAC_IOS_DEVICE ${SharedSimulatorTest.PHONE} is not in the device set`))
   rmSync(set, { recursive: true, force: true })
+})
+
+test('without TAC_IOS_FAMILIES a gate checks the iPhone and then the iPad', () => {
+  assert.deepEqual(SharedSimulator.families(), ['iPhone', 'iPad'])
+})
+
+test('TAC_IOS_FAMILIES=iPhone checks only the iPhone', () => {
+  process.env.TAC_IOS_FAMILIES = 'iPhone'
+  assert.deepEqual(SharedSimulator.families(), ['iPhone'])
+})
+
+test('TAC_IOS_FAMILIES=iPad checks only the iPad', () => {
+  process.env.TAC_IOS_FAMILIES = 'iPad'
+  assert.deepEqual(SharedSimulator.families(), ['iPad'])
+})
+
+test('TAC_IOS_FAMILIES keeps the iPhone first and ignores spaces', () => {
+  process.env.TAC_IOS_FAMILIES = ' iPad , iPhone '
+  assert.deepEqual(SharedSimulator.families(), ['iPhone', 'iPad'])
+})
+
+test('an unknown family in TAC_IOS_FAMILIES fails with its name', () => {
+  process.env.TAC_IOS_FAMILIES = 'iPhone,Watch'
+  assert.throws(() => SharedSimulator.families(), /TAC_IOS_FAMILIES names an unknown iOS family: Watch\. Use iPhone, iPad, or iPhone,iPad\./)
+})
+
+test('an empty TAC_IOS_FAMILIES fails instead of checking nothing', () => {
+  process.env.TAC_IOS_FAMILIES = ' , '
+  assert.throws(() => SharedSimulator.families(), /TAC_IOS_FAMILIES names no iOS family/)
 })

@@ -485,21 +485,31 @@ impl RustTitleService {
     rmSync(IosWindowSettingsGate.root, { recursive: true, force: true });
   }
 
+  static async checkPhone(binary, bundles) {
+    const refusal = IosWindowSettingsGate.buildRefusal(binary);
+    const phone = IosWindowSettingsGate.boot('iPhone 17 Pro', 'iPhone');
+    const standard = await IosWindowSettingsGate.launch(phone, bundles.standard, 'standard');
+    IosWindowSettingsGate.checkStandard(standard, bundles.standard);
+    await IosWindowSettingsGate.checkLaunchScreen(phone, bundles.standard, standard.native);
+    await IosWindowSettingsGate.checkRefusal(phone, refusal);
+    IosWindowSettingsGate.checkIntegrated(await IosWindowSettingsGate.launch(phone, bundles.integrated, 'integrated'));
+    IosWindowSettingsGate.checkFullscreen(await IosWindowSettingsGate.launch(phone, bundles.fullscreen, 'fullscreen'));
+  }
+
+  static async checkTablet(bundles) {
+    const tablet = IosWindowSettingsGate.boot('iPad Pro 13-inch (M5) (16GB)', 'iPad');
+    IosWindowSettingsGate.checkTitle(await IosWindowSettingsGate.launch(tablet, bundles.standard, 'standard'), 'iPad');
+  }
+
   static async main() {
     try {
+      const families = SharedSimulator.families();
       mkdirSync(IosWindowSettingsGate.deviceSet, { recursive: true });
       const binary = IosWindowSettingsGate.binary();
       const bundles = Object.fromEntries(Object.keys(IosWindowSettingsGate.apps).map(name => [name, IosWindowSettingsGate.build(binary, name)]));
-      const refusal = IosWindowSettingsGate.buildRefusal(binary);
-      const phone = IosWindowSettingsGate.boot('iPhone 17 Pro', 'iPhone');
-      const standard = await IosWindowSettingsGate.launch(phone, bundles.standard, 'standard');
-      IosWindowSettingsGate.checkStandard(standard, bundles.standard);
-      await IosWindowSettingsGate.checkLaunchScreen(phone, bundles.standard, standard.native);
-      await IosWindowSettingsGate.checkRefusal(phone, refusal);
-      IosWindowSettingsGate.checkIntegrated(await IosWindowSettingsGate.launch(phone, bundles.integrated, 'integrated'));
-      IosWindowSettingsGate.checkFullscreen(await IosWindowSettingsGate.launch(phone, bundles.fullscreen, 'fullscreen'));
-      const tablet = IosWindowSettingsGate.boot('iPad Pro 13-inch (M5) (16GB)', 'iPad');
-      IosWindowSettingsGate.checkTitle(await IosWindowSettingsGate.launch(tablet, bundles.standard, 'standard'), 'iPad');
+      if (families.includes('iPhone')) await IosWindowSettingsGate.checkPhone(binary, bundles);
+      if (families.includes('iPad')) await IosWindowSettingsGate.checkTablet(bundles);
+      console.log('iOS window settings checked on: ' + families.join(', '));
       console.log('PASS: iOS window settings: theme_color status bar and icons, background_color web view and launch screen (asset catalog and on screen before main), integrated title bar insets, fullscreen, orientation, the linked Rust and Swift scene titles on iPhone and iPad, and host title refusals heard as BrowserCallFailed');
     } finally {
       IosWindowSettingsGate.cleanup();
