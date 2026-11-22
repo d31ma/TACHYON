@@ -207,12 +207,32 @@ mod tests {
 
     async fn drop_a_write_before_its_answer(process: &mut FyloProcess) {
         let write = json!({"op": "putData", "collection": "hd-events", "data": {"n": 1}});
-        let request = process.request("putData", &write, false);
+        drop_before_its_answer(process, &write).await;
+    }
+
+    async fn drop_before_its_answer(process: &mut FyloProcess, write: &Value) {
+        let request = process.request("putData", write, false);
         tokio::select! {
             biased;
             _answered = request => panic!("fylo answered before the first poll ended"),
             () = std::future::ready(()) => {}
         }
+    }
+
+    fn reopen_limit() -> Duration {
+        if cfg!(windows) {
+            return Duration::from_secs(60);
+        }
+        Duration::from_secs(20)
+    }
+
+    async fn answer(process: &mut FyloProcess, request: &Value) -> Value {
+        let operation = request["op"].as_str().expect("operation");
+        process
+            .request(operation, request, true)
+            .await
+            .ok()
+            .expect("fylo answers")
     }
 
     fn stop_path(process: &FyloProcess) -> Option<&'static str> {
@@ -240,13 +260,57 @@ mod tests {
         let directory = tempfile::tempdir().expect("root");
         let root = std::fs::canonicalize(directory.path()).expect("canonical root");
         let mut process = started(&root).await;
+        let first = json!({"op": "putData", "collection": "hd-events", "data": {"n": 0}});
+        answer(&mut process, &first).await;
         drop_a_write_before_its_answer(&mut process).await;
         assert!(process.must_stop());
         let started = Instant::now();
         process.wait_for_exit().await;
         assert_eq!(stop_path(&process), Some("closed"));
         assert!(started.elapsed() < Duration::from_secs(1));
-        assert_eq!(stored_documents(&root).await, 1);
+        assert_eq!(stored_documents(&root).await, 2);
+    }
+
+    #[tokio::test]
+    async fn a_fylo_killed_during_a_write_leaves_a_root_the_next_process_opens() {
+        if !fylo_runs_here() {
+            return;
+        }
+        let directory = tempfile::tempdir().expect("root");
+        let root = std::fs::canonicalize(directory.path()).expect("canonical root");
+        let mut process = started(&root).await;
+        answer(
+            &mut process,
+            &json!({"op": "putData", "collection": "hd-events", "data": {"n": 0}}),
+        )
+        .await;
+        answer(
+            &mut process,
+            &json!({"op": "createCollection", "collection": "hd-others"}),
+        )
+        .await;
+        let first_write = json!({"op": "putData", "collection": "hd-others", "data": {"n": 1}});
+        drop_before_its_answer(&mut process, &first_write).await;
+        process.kill_unless(false).await;
+        let reopened = Instant::now();
+        let mut next = FyloProcess::spawn(&root).ok().expect("next fylo");
+        let found = answer(
+            &mut next,
+            &json!({"op": "findDocs", "collection": "hd-events", "query": {}}),
+        )
+        .await;
+        assert_eq!(rows_of(found, "id").expect("rows").len(), 1);
+        answer(
+            &mut next,
+            &json!({"op": "putData", "collection": "hd-others", "data": {"n": 2}}),
+        )
+        .await;
+        assert!(
+            reopened.elapsed() < reopen_limit(),
+            "{:?}",
+            reopened.elapsed()
+        );
+        next.close(Instant::now()).await;
     }
 
     #[cfg(unix)]
