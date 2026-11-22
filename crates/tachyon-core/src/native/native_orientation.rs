@@ -50,6 +50,19 @@ impl NativeOrientation {
         }
     }
 
+    pub(super) fn android_activity_info_constant(self) -> &'static str {
+        match self {
+            Self::Any => "SCREEN_ORIENTATION_UNSPECIFIED",
+            Self::Natural => "SCREEN_ORIENTATION_NOSENSOR",
+            Self::Landscape => "SCREEN_ORIENTATION_USER_LANDSCAPE",
+            Self::LandscapePrimary => "SCREEN_ORIENTATION_LANDSCAPE",
+            Self::LandscapeSecondary => "SCREEN_ORIENTATION_REVERSE_LANDSCAPE",
+            Self::Portrait => "SCREEN_ORIENTATION_USER_PORTRAIT",
+            Self::PortraitPrimary => "SCREEN_ORIENTATION_PORTRAIT",
+            Self::PortraitSecondary => "SCREEN_ORIENTATION_REVERSE_PORTRAIT",
+        }
+    }
+
     pub(super) fn is_locked(self) -> bool {
         self != Self::Any
     }
@@ -129,5 +142,24 @@ mod tests {
             parsed("portrait-secondary").android_screen_orientation(),
             Some("reversePortrait")
         );
+    }
+
+    #[test]
+    fn every_android_orientation_has_the_activity_info_constant_of_its_manifest_value() {
+        for (text, constant) in [
+            ("any", "SCREEN_ORIENTATION_UNSPECIFIED"),
+            ("natural", "SCREEN_ORIENTATION_NOSENSOR"),
+            ("landscape", "SCREEN_ORIENTATION_USER_LANDSCAPE"),
+            ("landscape-primary", "SCREEN_ORIENTATION_LANDSCAPE"),
+            (
+                "landscape-secondary",
+                "SCREEN_ORIENTATION_REVERSE_LANDSCAPE",
+            ),
+            ("portrait", "SCREEN_ORIENTATION_USER_PORTRAIT"),
+            ("portrait-primary", "SCREEN_ORIENTATION_PORTRAIT"),
+            ("portrait-secondary", "SCREEN_ORIENTATION_REVERSE_PORTRAIT"),
+        ] {
+            assert_eq!(parsed(text).android_activity_info_constant(), constant);
+        }
     }
 }
