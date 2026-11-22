@@ -457,3 +457,23 @@ before the first render. Tac fires `tachyon:rendered` on `document` after each
 render (`detail.first` is `true` for the first one), and it keeps the nodes and
 attributes that such a script adds to elements Tac rendered
 ([ADR 0137](0137-tac-renders-once-and-keeps-dom-changes-made-by-other-code.md)).
+
+## Amendment (2026-11-21): Android apps fill foldable and large screens (TAC-FOLD-ANDROID)
+
+The 2026-10-19 amendment says `orientation` limits how the app turns. On
+Android this now holds only on a small screen. On a Pixel 9 Pro Fold emulator
+(API 35), an app with `"orientation": "landscape"` was letterboxed on the
+unfolded screen: Android does not turn a large screen for a fixed orientation,
+so it drew the app in a smaller window with black bars (its reason:
+`FIXED_ORIENTATION`).
+
+- When the screen's short side is at least 600 dp, the Android activity
+  releases its declared orientation lock, so the app fills the screen and turns
+  with it. Android 16 does the same for every app on such screens. On a phone,
+  and on the folded outer screen of a foldable, the lock from `orientation`
+  holds as before. The activity checks again on every configuration change,
+  so a fold or an unfold moves between the two.
+- The generated `AndroidManifest.xml` declares
+  `android:resizeableActivity="true"` and sets no aspect ratio limit.
+- `bun run test:foldable-android` checks this on the `tachyon-fold` emulator,
+  folded and unfolded, with screenshots.

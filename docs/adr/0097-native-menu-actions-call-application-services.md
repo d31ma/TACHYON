@@ -569,3 +569,17 @@ without telling it, so the iOS cell stays `adapted` and its note now names
 this run. A pointer-opened menu bar has not run. On the Android API 35
 emulator, Back now also shows the open page's Rust service running its
 `OnStop` in `onDestroy` before the application service stops.
+
+## Amendment (2026-11-21): a rotation or a fold no longer recreates the Android activity (TAC-FOLD-ANDROID)
+
+The 2026-10-24 amendment names a rotation as an example of a recreated
+activity. Since TAC-FOLD-ANDROID the activity declares
+`android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|density"`,
+so a rotation, a fold or an unfold resizes the page in place: the page keeps its
+state and the activity is not recreated. Other configuration changes (for
+example a night mode switch or a new language) still recreate the activity, and
+the rule above still holds for them: the application services keep running.
+A recreated activity now reopens the bundle page that was open, not the start
+page. `scripts/android/application-lifetime-test.mjs` forces its recreation
+with a night mode switch (`cmd uimode night`) and checks that a rotation
+reloads nothing.
