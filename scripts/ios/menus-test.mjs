@@ -169,13 +169,15 @@ final class MenuProbeService {
 
   static async main() {
     try {
+      const families = SharedSimulator.families();
       mkdirSync(IosMenusGate.deviceSet, { recursive: true });
       IosMenusGate.writeFixture();
       const bundle = IosMenusGate.build();
       const runtime = IosMenusGate.runtime();
-      for (const family of ['iPhone', 'iPad']) {
+      for (const family of families) {
         await IosMenusGate.check(runtime, family, bundle);
       }
+      console.log('iOS menus checked on: ' + families.join(', '));
       console.log('PASS: iOS menus: route items open their page from the iPad menu bar and from iPhone shortcuts');
     } finally {
       IosMenusGate.cleanup();

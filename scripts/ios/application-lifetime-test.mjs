@@ -281,13 +281,15 @@ class IosLifetimeGate {
 
   static async main() {
     try {
+      const families = SharedSimulator.families();
       mkdirSync(IosLifetimeGate.deviceSet, { recursive: true });
       const bundle = IosLifetimeGate.build();
       const runtime = IosLifetimeGate.runtime();
-      for (const family of ['iPhone', 'iPad']) {
+      for (const family of families) {
         await IosLifetimeGate.check(runtime, family, bundle);
       }
       for (const note of IosLifetimeGate.notes) console.log('NOTE: ' + note);
+      console.log('iOS application lifetime checked on: ' + families.join(', '));
       console.log('PASS: iOS application lifetime and menu actions, the iPad menu bar by touch, and disposal when the app is ended from the app switcher');
     } finally {
       IosLifetimeGate.cleanup();
