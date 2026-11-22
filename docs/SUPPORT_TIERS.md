@@ -2134,10 +2134,16 @@ no frame and both reported `MediaFrameRejected`. The app and the test talk
 through a small local HTTP mailbox at `tac.yon.origin`; the test needs
 coturn, Playwright's Chromium and no Accessibility.
 
-Owed: the iOS simulator check
-(`native_crypto_host_tests::ios_crypto_keeps_keys_in_the_simulator_keychain_across_a_relaunch`,
-which now includes the frame-key check) on a commit where the iOS shell
-adopts scenes (TAC-IOS-SCENE).
+`native_crypto_host_tests::ios_crypto_keeps_keys_in_the_simulator_keychain_across_a_relaunch`
+passed on 2026-11-21 on the iOS 27.2 simulator (the kept iPhone
+`TachyonExtras-iPhone-iOS-27-2`), on commit 9a2fb2303 (P5K plus the
+TAC-IOS-SCENE fixes, which the iOS shell needs to start on iOS 27.2). All ten
+frame-key checks answered as on macOS: the worker opened the sealed package
+as a non-extractable key whose frames equalled the page-key path, and a
+missing key, a wrong use, a bad worker key and a bad key id were refused. On
+that simulator the crypto key store is `none` (`keep: unsupported`), so the
+test checked the relaunch as "wiped"; the frame-key check does not depend on
+the store.
 
 ### Passkeys in the browser (2026-11-12, ADR 0126)
 
