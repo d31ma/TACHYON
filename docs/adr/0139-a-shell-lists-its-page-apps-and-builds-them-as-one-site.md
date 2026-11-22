@@ -129,8 +129,9 @@ only that app.
 - **Version skew.** `/.tachyon/shell.json` names the TACHYON version of the
   shell. A page app's document renders inside the shell only when its
   `app.json` names the same version; otherwise it renders alone, and a link
-  to it from the shell loads the whole page. A bundle has no app table, so
-  this check passes there. After a TACHYON update, deploy every app again.
+  to it from the shell loads the whole page. A page of a bundle holds the
+  shell plan itself and was built with the shell, so it skips this check and
+  asks for no app table. After a TACHYON update, deploy every app again.
 
 ### Acceptance (slice 5)
 

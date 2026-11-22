@@ -7,7 +7,7 @@ export class ShellApp {
 
   static async start(text, runtime) {
     const plan = ShellApp.parsed(text)
-    if (!plan?.node || !await ShellApp.sameTachyon(plan, runtime.TacEntityStorage.app)) return null
+    if (!plan?.node || !await ShellApp.sameTachyon(plan, document)) return null
     ShellApp.runtime = runtime
     ShellApp.text = text
     ShellApp.plan = plan
@@ -22,8 +22,9 @@ export class ShellApp {
     try { return JSON.parse(text || '{}') } catch { return null }
   }
 
-  static async sameTachyon(plan, app) {
-    if (app === '/') return true
+  static async sameTachyon(plan, page) {
+    const app = SoftNavigation.appOf(page)
+    if (app === '/' || page.getElementById('tachyon-shell')) return true
     const response = await fetch(`${app}.tachyon/app.json`).catch(() => null)
     if (!response?.ok) return true
     const table = await response.json().catch(() => null)
@@ -125,7 +126,7 @@ class SoftNavigation {
     const view = parsed.getElementById('tachyon-view')
     const sameShell = await SoftNavigation.shellText(parsed) === ShellApp.text
     if (!view || !sameShell || !SoftNavigation.knownScripts(parsed)) return null
-    if (!await ShellApp.sameTachyon(ShellApp.plan, SoftNavigation.appOf(parsed))) return null
+    if (!await ShellApp.sameTachyon(ShellApp.plan, parsed)) return null
     return { plan: JSON.parse(view.textContent || '{}'), document: parsed, url: response.url }
   }
 
