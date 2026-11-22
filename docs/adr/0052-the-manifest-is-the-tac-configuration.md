@@ -474,8 +474,13 @@ target or orientation. `orientation` still lists the allowed turns in
 `UISupportedInterfaceOrientations` and its `~ipad` copy. Apple does not
 promise that iPadOS keeps an app to those turns when the app can be resized;
 an app that must not turn says so with that list only, and TACHYON adds no
-lock of its own. `scripts/ios/foldable-test.mjs` checks on the iPhone Duo
-simulator, closed, half open and open flat, that an app fills the lit screen
-with no black bars, lays out again after each fold, and keeps its safe areas.
-Its first run waits for an iOS 27.2 simulator runtime that has the iPhone Duo
-(build 24B8118); until then the black bars are a risk, not a measured result.
+lock of its own.
+
+The iPhone Duo simulator (its own iOS 27.2 runtime, model iPhone19,4) boots
+closed, on its outer screen. `scripts/ios/foldable-test.mjs` checks there that
+an app that turns freely and a portrait-locked app fill the lit screen with no
+black bars and keep their safe areas. No public `simctl` command moves the
+simulator's hinge (`simctl io screenConfig power` only turns a display off and
+crashes the system shell), so the open and half-open postures are a manual
+check with kept screenshots, described in `docs/testing/ios-foldable.md`,
+until a hinge helper can move it from a script (TAC-FOLD-IOS-HINGE).

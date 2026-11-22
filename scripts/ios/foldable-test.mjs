@@ -6,7 +6,6 @@ import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync 
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { FoldPosture } from './fold-posture.mjs'
 import { FoldableProbe } from './foldable-probe.mjs'
 import { ScreenshotPixels } from './screenshot-pixels.mjs'
 import { SharedSimulator } from './shared-simulator.mjs'
@@ -28,7 +27,8 @@ class IosFoldableGate {
   static freshReadings = 3
   static edgeShare = 0.9
   static tolerance = 0.5
-  static postures = ['closed', 'half_open', 'open']
+  static outerScreen = 'LCD'
+  static posture = 'closed'
   static apps = {
     free: { appId: 'dev.tachyon.fold-free', color: '#ffaa00', orientation: 'any' },
     portrait: { appId: 'dev.tachyon.fold-portrait', color: '#00aa66', orientation: 'portrait' },
@@ -224,38 +224,22 @@ class IosFoldableGate {
     assert.equal(Math.round(webSafe.bottom), Math.round(safe.bottom), `${label}: the bottom safe area reaches the page`)
   }
 
-  /** @param {string} label @param {any} before @param {any} after */
-  static checkRelayout(label, before, after) {
-    if (IosFoldableGate.same(before.native.screenBounds, after.native.screenBounds)) return
-    assert.ok(after.layouts > before.layouts, `${label}: the app laid out again after the screen changed (${before.layouts} -> ${after.layouts})`)
-    assert.ok(!IosFoldableGate.same(before.native.windowBounds, after.native.windowBounds), `${label}: the window took the new screen size`)
-  }
-
   /** @param {string} device @param {string} bundle @param {string} name @returns {Promise<string[]>} */
   static async checkApp(device, bundle, name) {
-    const { simctl, apps } = IosFoldableGate
+    const { simctl, apps, posture, outerScreen } = IosFoldableGate
     const { appId, color } = apps[name]
-    await FoldPosture.set(IosFoldableGate.deviceSet, device, 'closed')
     spawnSync('/usr/bin/xcrun', ['simctl', '--set', IosFoldableGate.deviceSet, 'uninstall', device, appId], { stdio: 'ignore', timeout: 60000 })
     simctl('install', device, bundle)
     simctl('launch', device, appId)
-    const file = IosFoldableGate.probeFile(device, appId)
     const failures = []
-    let previous = null
     try {
-      for (const posture of IosFoldableGate.postures) {
-        const after = IosFoldableGate.reading(file)?.page.sequence ?? 0
-        const lit = await FoldPosture.set(IosFoldableGate.deviceSet, device, posture)
-        const record = await IosFoldableGate.settle(file, after)
-        const label = `${name} ${posture} (${lit.display})`
-        const image = IosFoldableGate.screenshot(device, lit.display, `${name}-${posture}.png`)
-        console.log(`${label}: ${JSON.stringify(record)}`)
-        IosFoldableGate.attempt(failures, () => IosFoldableGate.checkFills(label, record, image, color))
-        IosFoldableGate.attempt(failures, () => IosFoldableGate.checkLayout(label, record))
-        IosFoldableGate.attempt(failures, () => IosFoldableGate.checkSafeAreas(label, record))
-        if (previous) IosFoldableGate.attempt(failures, () => IosFoldableGate.checkRelayout(label, previous, record))
-        previous = record
-      }
+      const record = await IosFoldableGate.settle(IosFoldableGate.probeFile(device, appId), 0)
+      const label = `${name} ${posture} (${outerScreen})`
+      const image = IosFoldableGate.screenshot(device, outerScreen, `${name}-${posture}.png`)
+      console.log(`${label}: ${JSON.stringify(record)}`)
+      IosFoldableGate.attempt(failures, () => IosFoldableGate.checkFills(label, record, image, color))
+      IosFoldableGate.attempt(failures, () => IosFoldableGate.checkLayout(label, record))
+      IosFoldableGate.attempt(failures, () => IosFoldableGate.checkSafeAreas(label, record))
     } finally {
       SharedSimulator.release(IosFoldableGate.deviceSet, device, [appId])
     }
@@ -283,19 +267,17 @@ class IosFoldableGate {
       console.log(`skipped: ${SharedSimulator.FAMILIES_VARIABLE} does not name ${IosFoldableGate.family}`)
       return IosFoldableGate.cleanup()
     }
-    let device = ''
     try {
       const binary = IosFoldableGate.prebuiltBinary()
       const bundles = Object.fromEntries(Object.keys(IosFoldableGate.apps).map((name) => [name, IosFoldableGate.build(binary, name)]))
       if (IosFoldableGate.buildOnly) return console.log(`==> built the apps in ${IosFoldableGate.appsFolder}; no simulator used`)
-      device = IosFoldableGate.device()
+      const device = IosFoldableGate.device()
       const failures = []
       for (const name of Object.keys(bundles)) failures.push(...await IosFoldableGate.checkApp(device, bundles[name], name))
       console.log(`==> screenshots kept in ${IosFoldableGate.evidence}`)
       assert.deepEqual(failures, [], `the foldable checks failed:\n${failures.join('\n')}`)
-      console.log('PASS: iOS foldable: on the iPhone Duo, closed, half open and open flat, both a free and a portrait-locked app fill the lit screen with no black bars, lay out again after each fold, and keep their safe areas')
+      console.log('PASS: iOS foldable: on the iPhone Duo after boot (closed, outer screen), both a free and a portrait-locked app fill the lit screen with no black bars and keep their safe areas; open and half open are the manual check in docs/testing/ios-foldable.md')
     } finally {
-      if (device) await FoldPosture.set(IosFoldableGate.deviceSet, device, 'closed').catch(() => {})
       IosFoldableGate.cleanup()
     }
   }
