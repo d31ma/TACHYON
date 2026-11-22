@@ -200,10 +200,11 @@ export default class CallService {
   _taken = 0;
 
   /**
+   * @param {Event} _event
    * @param {string} role
    * @param {string} transport
    */
-  start(role, transport) {
+  start(_event, role, transport) {
     this._role = role;
     this._transport = transport;
     this._connection = this.peers.open(CallService._USER, CallService._SECRET);
