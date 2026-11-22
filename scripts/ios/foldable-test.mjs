@@ -17,6 +17,8 @@ class IosFoldableGate {
   static repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
   static root = mkdtempSync(path.join(tmpdir(), 'tachyon-ios-fold-'))
   static deviceSet = SharedSimulator.deviceSet(path.join(IosFoldableGate.root, 'simulator-devices'))
+  static appsFolder = process.env.TAC_IOS_FOLD_APPS ?? IosFoldableGate.root
+  static buildOnly = process.env.TAC_IOS_FOLD_BUILD_ONLY === '1'
   static evidence = process.env.TAC_IOS_FOLD_EVIDENCE ?? path.join(IosFoldableGate.repo, 'target/ios-foldable-evidence')
   static family = 'iPhoneDuo'
   static deviceTypeName = 'iPhone Duo'
@@ -51,6 +53,12 @@ class IosFoldableGate {
   }
 
   /** @returns {string} */
+  static prebuiltBinary() {
+    if (IosFoldableGate.appsFolder === IosFoldableGate.root || IosFoldableGate.buildOnly) return IosFoldableGate.binary()
+    return ''
+  }
+
+  /** @returns {string} */
   static binary() {
     if (process.env.TAC_BIN) return process.env.TAC_BIN
     const { run } = IosFoldableGate
@@ -60,10 +68,24 @@ class IosFoldableGate {
 
   /** @param {string} binary @param {string} name @returns {string} */
   static build(binary, name) {
-    const project = FoldableProbe.stage(path.join(IosFoldableGate.root, name), IosFoldableGate.apps[name])
+    const project = path.join(IosFoldableGate.appsFolder, name)
+    const bundle = path.join(project, 'dist/ios/FoldProbe.app')
+    if (IosFoldableGate.prebuilt(bundle)) return IosFoldableGate.describe(bundle, name)
+    FoldableProbe.stage(project, IosFoldableGate.apps[name])
     console.log(`==> building the ${name} iOS app`)
     IosFoldableGate.run(binary, ['build', project, '--target', 'ios'], 600000)
-    const bundle = path.join(project, 'dist/ios/FoldProbe.app')
+    return IosFoldableGate.describe(bundle, name)
+  }
+
+  /** @param {string} bundle @returns {boolean} */
+  static prebuilt(bundle) {
+    const kept = IosFoldableGate.appsFolder !== IosFoldableGate.root && !IosFoldableGate.buildOnly && existsSync(bundle)
+    if (kept) console.log(`==> using the app built before: ${bundle}`)
+    return kept
+  }
+
+  /** @param {string} bundle @param {string} name @returns {string} */
+  static describe(bundle, name) {
     const fullScreen = spawnSync('/usr/bin/plutil', ['-extract', 'UIRequiresFullScreen', 'raw', path.join(bundle, 'Info.plist')], { encoding: 'utf8' })
     console.log(`==> ${name}: UIRequiresFullScreen ${fullScreen.status === 0 ? fullScreen.stdout.trim() : 'not set'}`)
     return bundle
@@ -255,8 +277,9 @@ class IosFoldableGate {
     }
     let device = ''
     try {
-      const binary = IosFoldableGate.binary()
+      const binary = IosFoldableGate.prebuiltBinary()
       const bundles = Object.fromEntries(Object.keys(IosFoldableGate.apps).map((name) => [name, IosFoldableGate.build(binary, name)]))
+      if (IosFoldableGate.buildOnly) return console.log(`==> built the apps in ${IosFoldableGate.appsFolder}; no simulator used`)
       device = IosFoldableGate.device()
       const failures = []
       for (const name of Object.keys(bundles)) failures.push(...await IosFoldableGate.checkApp(device, bundles[name], name))
