@@ -899,7 +899,7 @@ impl FyloTransactionProbe {
 
 type Handler struct{}
 
-func begin(dataSource DataSource) (string, error) {
+func (Handler) begin(dataSource DataSource) (string, error) {
 	opened, err := dataSource.Command(map[string]any{"operation": "transaction", "action": "begin"})
 	if err != nil {
 		return "", err
@@ -907,7 +907,7 @@ func begin(dataSource DataSource) (string, error) {
 	return opened.(map[string]any)["transaction"].(string), nil
 }
 
-func insert(dataSource DataSource, transaction string, name string) (string, error) {
+func (Handler) insert(dataSource DataSource, transaction string, name string) (string, error) {
 	command := map[string]any{"operation": "document", "command": "insert", "collection": "slips", "value": map[string]any{"name": name}, "transaction": transaction}
 	saved, err := dataSource.Command(command)
 	if err != nil {
@@ -916,7 +916,7 @@ func insert(dataSource DataSource, transaction string, name string) (string, err
 	return saved.(map[string]any)["id"].(string), nil
 }
 
-func find(dataSource DataSource, id string, transaction string) (any, error) {
+func (Handler) find(dataSource DataSource, id string, transaction string) (any, error) {
 	command := map[string]any{"operation": "document", "command": "findById", "collection": "slips", "id": id}
 	if transaction != "" {
 		command["transaction"] = transaction
@@ -924,24 +924,24 @@ func find(dataSource DataSource, id string, transaction string) (any, error) {
 	return dataSource.Command(command)
 }
 
-func settle(dataSource DataSource, transaction string, action string) error {
+func (Handler) settle(dataSource DataSource, transaction string, action string) error {
 	_, err := dataSource.Command(map[string]any{"operation": "transaction", "action": action, "transaction": transaction})
 	return err
 }
 
-func (Handler) GET() (any, error) {
+func (handler Handler) GET() (any, error) {
 	dataSource := DataSource{}
 	_, createErr := dataSource.Command(map[string]any{"operation": "document", "command": "createCollection", "collection": "slips"})
-	kept, beginErr := begin(dataSource)
-	keptId, insertErr := insert(dataSource, kept, "kept")
-	inside, insideErr := find(dataSource, keptId, kept)
-	outside, outsideErr := find(dataSource, keptId, "")
-	commitErr := settle(dataSource, kept, "commit")
-	committed, committedErr := find(dataSource, keptId, "")
-	dropped, secondBeginErr := begin(dataSource)
-	droppedId, secondInsertErr := insert(dataSource, dropped, "dropped")
-	rollbackErr := settle(dataSource, dropped, "rollback")
-	afterRollback, afterRollbackErr := find(dataSource, droppedId, "")
+	kept, beginErr := handler.begin(dataSource)
+	keptId, insertErr := handler.insert(dataSource, kept, "kept")
+	inside, insideErr := handler.find(dataSource, keptId, kept)
+	outside, outsideErr := handler.find(dataSource, keptId, "")
+	commitErr := handler.settle(dataSource, kept, "commit")
+	committed, committedErr := handler.find(dataSource, keptId, "")
+	dropped, secondBeginErr := handler.begin(dataSource)
+	droppedId, secondInsertErr := handler.insert(dataSource, dropped, "dropped")
+	rollbackErr := handler.settle(dataSource, dropped, "rollback")
+	afterRollback, afterRollbackErr := handler.find(dataSource, droppedId, "")
 	err := errors.Join(createErr, beginErr, insertErr, insideErr, outsideErr, commitErr, committedErr, secondBeginErr, secondInsertErr, rollbackErr, afterRollbackErr)
 	return map[string]any{"inside": inside != nil, "outside": outside != nil, "committed": committed != nil, "rolledBack": afterRollback == nil}, err
 }
