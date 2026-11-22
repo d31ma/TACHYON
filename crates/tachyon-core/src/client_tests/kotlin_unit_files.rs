@@ -57,7 +57,7 @@ impl KotlinUnitFiles {
         ),
         ("Focus", include_str!("../native/web_apis/Focus.kt")),
     ];
-    const LATER_APIS: [(&'static str, &'static str); 8] = [
+    const LATER_APIS: [(&'static str, &'static str); 9] = [
         (
             "StorageSpace",
             include_str!("../native/web_apis/StorageSpace.kt"),

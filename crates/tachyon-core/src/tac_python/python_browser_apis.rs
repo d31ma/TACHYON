@@ -47,7 +47,7 @@ impl PythonBrowserApis {
         let support = Self::SUPPORT.join("\n");
         let names = WebApiClients::TYPE_NAMES.join(", ");
         format!(
-            "{support}\n{}{}{}\n{}\n{}\n{}\n{}\n{}({names})\n",
+            "{support}\n{}{}{}\n{}\n{}\n{}\n{}\n{}\n{}({names})\n",
             Self::CLIENTS,
             Self::PASSKEYS,
             Self::MEDIA,
