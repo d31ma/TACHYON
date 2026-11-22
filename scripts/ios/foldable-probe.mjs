@@ -23,7 +23,8 @@ export class FoldableProbe {
         names: checks, constants: checks, visibility: checks, duplication: checks, cohesion: checks,
       },
     }))
-    write(project, 'client/shared/fold-probe.css', FoldableProbe.styles(settings.color))
+    write(project, 'client/shared/fold-probe.css', `html, body { margin: 0; background: ${settings.color}; font: 14px sans-serif; }\n`)
+    write(project, 'client/components/fold/probe/tac.css', FoldableProbe.componentStyles())
     write(project, 'client/pages/tac.html', '<fold-probe />\n')
     write(project, 'client/components/fold/probe/tac.html', '<main><p>{foldProbe.sequence}</p><div id="safe"></div></main>')
     write(project, 'client/services/FoldProbeService.js', FoldableProbe.script())
@@ -31,11 +32,9 @@ export class FoldableProbe {
     return project
   }
 
-  /** @param {string} color @returns {string} */
-  static styles(color) {
-    return `html, body { margin: 0; width: 100%; height: 100%; background: ${color}; font: 14px sans-serif; }
-#safe { position: fixed; visibility: hidden; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
-`
+  /** @returns {string} */
+  static componentStyles() {
+    return '#safe { position: fixed; visibility: hidden; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }\n'
   }
 
   /** @returns {string} */
@@ -103,7 +102,7 @@ final class FoldProbeService {
         facts["screenBounds"] = rectangle(screen.bounds)
         facts["screenNative"] = rectangle(screen.nativeBounds)
         facts["scale"] = Double(screen.scale)
-        facts["sceneBounds"] = rectangle(scene.effectiveGeometry.coordinateSpace.bounds)
+        facts["sceneBounds"] = rectangle(scene.coordinateSpace.bounds)
         facts["windowBounds"] = rectangle(window.bounds)
         facts["windowOnScreen"] = rectangle(window.convert(window.bounds, to: screen.coordinateSpace))
         facts["safe"] = insets(window.safeAreaInsets)
