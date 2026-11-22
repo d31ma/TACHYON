@@ -44,7 +44,8 @@ Use a release ty built with `--features shipped` for tier 3 (`TAC_BIN=<path>`).
 
 | If you change | Run |
 | --- | --- |
-| `template/tac-client.js` | `test:tac-client`, `test:runtime-browser`, `test:tac-events`, `test:dom-keep-browser` |
+| `template/tac-client.js` | `test:tac-client`, `test:runtime-browser`, `test:tac-events`, `test:dom-keep-browser`, `test:page-apps-browser` |
+| `template/tac-shell.js`, `compiler/shell_layout.rs`, `tests/fixtures/tac-page-apps/**`, `scripts/page-apps-browser-gate.mjs` | `test:page-apps-browser` |
 | `template/tac-storage.js`, `template/tac-preference-*.js`, `src/storage/**`, `src/storage.rs` | `test:storage-browser` |
 | `template/tac-web-push.js`, `template/tac-push-sw.js`, `src/web_api_clients.rs` | `test:web-apis-browser` |
 | `template/tac-yon-reads.js`, `template/tac-http.js` | `test:yon-reads-browser`, `test:yon-reads-web-browser` |
@@ -64,7 +65,7 @@ Use a release ty built with `--features shipped` for tier 3 (`TAC_BIN=<path>`).
 | `src/tac_dart/**` | `test:first-app-dart-browser` |
 | `src/yon/**` | `test:yon-origin-browser`, `test:yon-reach-browser` |
 | `src/companion/**`, `src/companion.rs` | `test:native-companion` |
-| service worker / offline code in `src/compiler.rs`, `src/server/**` | `test:preview-offline-browser`, `test:service-worker-browser` |
+| service worker / offline code in `src/compiler.rs`, `src/server/**`, `compiler/shell_layout.rs` | `test:preview-offline-browser`, `test:service-worker-browser` |
 | `src/server/**` (host, cookies) | `test:localhost-subdomain-browser` |
 | `src/native/capabilities/WindowControls.*`, `template/tac-native.js` | `test:window-controls-browser` |
 
