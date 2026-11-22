@@ -91,6 +91,29 @@ impl FyloStore {
         })
     }
 
+    fn listed_rows(listed: Vec<Value>) -> Result<Vec<Value>, Failure> {
+        Self::refuse_oversized_rows(&listed)?;
+        Self::refuse_rows_that_are_not_documents(&listed)?;
+        Ok(listed)
+    }
+
+    fn refuse_oversized_rows(listed: &[Value]) -> Result<(), Failure> {
+        let bytes = serde_json::to_vec(listed).map_or(usize::MAX, |encoded| encoded.len());
+        if bytes > ManagedStorage::MAX_BYTES {
+            return Err(failure(
+                "FYLO result exceeds the byte limit; paginate the query.",
+            ));
+        }
+        Ok(())
+    }
+
+    fn refuse_rows_that_are_not_documents(listed: &[Value]) -> Result<(), Failure> {
+        if !listed.iter().all(Value::is_object) {
+            return Err(failure("FYLO returned an unexpected document shape."));
+        }
+        Ok(())
+    }
+
     fn speaks_v1_operations(identity: &Value) -> bool {
         identity["protocolVersion"]
             .as_u64()
@@ -698,7 +721,7 @@ impl FyloError {
 
 fn rows_of(answer: Value, id_field: &str) -> Result<Vec<Value>, Failure> {
     if let Value::Array(listed) = answer {
-        return listed_rows(listed);
+        return FyloStore::listed_rows(listed);
     }
     let items = match answer {
         Value::Object(map) if map.contains_key("items") && map.contains_key("page") => {
@@ -726,19 +749,6 @@ fn rows_of(answer: Value, id_field: &str) -> Result<Vec<Value>, Failure> {
         rows.push(row);
     }
     Ok(rows)
-}
-
-fn listed_rows(listed: Vec<Value>) -> Result<Vec<Value>, Failure> {
-    let bytes = serde_json::to_vec(&listed).map_or(usize::MAX, |encoded| encoded.len());
-    if bytes > ManagedStorage::MAX_BYTES {
-        return Err(failure(
-            "FYLO result exceeds the byte limit; paginate the query.",
-        ));
-    }
-    if !listed.iter().all(Value::is_object) {
-        return Err(failure("FYLO returned an unexpected document shape."));
-    }
-    Ok(listed)
 }
 
 fn identifier(name: &str) -> Result<&str, Failure> {
