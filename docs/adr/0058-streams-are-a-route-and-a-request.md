@@ -474,6 +474,10 @@ bytes), and the page kept its old data with nothing in the console.
 - The stream stays open, so a later message that fits still arrives.
 - The report lives outside the event bus file, because the bus is at its
   byte budget (below).
+- Since slice P1c the limit is 384 KiB (393,216 bytes; ADR 0028 amendment).
+  The report gives that limit, and the bus's own error text for an event over
+  it (`Application event exceeds 393216 bytes; send less data in one event.`)
+  is the one `TacStreamReport` matches.
 
 ### One model per stream method (TAC-S3, design note)
 

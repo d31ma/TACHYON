@@ -740,8 +740,10 @@ machine contracts have their own, independent major versions.
   unchanged. C++ and Python now refuse an oversized call with the same text
   as the other languages, naming the member and the limit.
 - **Application events and streams may now be up to 384 KiB (was 64 KiB)**
-  (ADR 0028 amendment). Over the limit the page writes the refusal to the
-  console once instead of dropping the event without a word.
+  (ADR 0028 amendment). A stream message over the limit is still reported
+  once in the console (TAC-EV1), now with the 393,216-byte limit, and a page
+  event over the limit is written to the console instead of dropped without a
+  word.
 - **Peers descriptions may now be up to 256 KiB (was 64 KiB)** (ADR 0140
   amendment), for calls with many tracks on one connection; candidates stay
   at 64 KiB. A larger description is refused on both sides with a message that

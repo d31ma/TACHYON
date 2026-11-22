@@ -54,7 +54,7 @@ class StreamsBrowserCheck {
     'event: state\ndata: {"running": 3}\n\n',
   ]
 
-  static largeData = `{"running": 5, "note": "${'x'.repeat(81500)}"}`
+  static largeData = `{"running": 5, "note": "${'x'.repeat(400000)}"}`
 
   static largeFrames = [
     `event: stats\ndata: ${StreamsBrowserCheck.largeData}\n\n`,
@@ -130,13 +130,13 @@ class StreamsBrowserCheck {
     await page.waitForFunction(() => window.large.length >= 1, null, { timeout: 10000 })
     const size = Buffer.byteLength(StreamsBrowserCheck.largeData)
     const reports = errors.filter((text) => text.includes('/live/stats'))
-    assert.equal(reports.length, 1, `${name}: two messages over 64 KiB on one stream give exactly one console error`)
+    assert.equal(reports.length, 1, `${name}: two messages over 384 KiB on one stream give exactly one console error`)
     assert.match(reports[0], /stream \/live\/stats\./, `${name}: the report names the stream path`)
     assert.match(reports[0], /'stats' event/, `${name}: the report names the event`)
     assert.ok(reports[0].includes(`${size} bytes`), `${name}: the report gives the message size`)
-    assert.ok(reports[0].includes('limit is 65536 bytes'), `${name}: the report gives the limit`)
+    assert.ok(reports[0].includes('limit is 393216 bytes'), `${name}: the report gives the limit`)
     const large = await page.evaluate(() => window.large)
-    assert.equal(large.includes(5), false, `${name}: a message over 64 KiB is not delivered, so the page keeps its old data`)
+    assert.equal(large.includes(5), false, `${name}: a message over 384 KiB is not delivered, so the page keeps its old data`)
     assert.deepEqual(large, [7], `${name}: a later message that fits still arrives`)
     assert.equal(await page.evaluate(() => window.failures), failuresBefore + 2, `${name}: each dropped message still counts as a failure`)
   }
@@ -174,4 +174,4 @@ class StreamsBrowserCheck {
 }
 
 await StreamsBrowserCheck.run()
-console.log('Streams browser check passed in Chromium, Firefox and WebKit: named events, heartbeats, a parameter change and one report for messages over 64 KiB.')
+console.log('Streams browser check passed in Chromium, Firefox and WebKit: named events, heartbeats, a parameter change and one report for messages over 384 KiB.')
