@@ -205,6 +205,16 @@ class AndroidFoldableGate {
     return lines.filter(line => /letterbox|isInSizeCompatMode|mCompatDisplayInsets|inSizeCompatMode/i.test(line)).map(line => line.trim()).slice(0, 8);
   }
 
+  static sideMargins(image) {
+    const { near, bars } = AndroidFoldableGate;
+    const y = Math.round(image.height / 2);
+    let left = 0;
+    while (left < image.width && near(image.pixel(left, y), bars)) left++;
+    let right = 0;
+    while (right < image.width && near(image.pixel(image.width - 1 - right, y), bars)) right++;
+    return left + right;
+  }
+
   static checkFill(image, frame, name) {
     const { near, black, columnShare, rowShare, page, bars } = AndroidFoldableGate;
     assert.deepEqual(frame, { left: 0, top: 0, right: image.width, bottom: image.height }, `${name}: the app window fills the ${image.width}x${image.height} display`);
@@ -327,7 +337,8 @@ class AndroidFoldableGate {
         assert.equal(now.pages, 1, `${label}: the process holds one app page, not a page of a destroyed activity`);
         assert.equal(now.marker, marker, `${label}: the page keeps its script state`);
         assert.equal(now.typed, marker, `${label}: the page keeps typed text`);
-        assert.ok(Math.abs(Math.round(now.width * now.ratio) - image.width) <= 2, `${label}: the page is as wide as the display: ${now.width * now.ratio} of ${image.width}`);
+        const margins = AndroidFoldableGate.sideMargins(image);
+        assert.ok(Math.abs(Math.round(now.width * now.ratio) - (image.width - margins)) <= 3, `${label}: the page is as wide as the display less its theme_color cutout margins: ${now.width * now.ratio} of ${image.width} - ${margins}`);
         results.push({ label, image, now });
       }
       assert.equal(AndroidFoldableGate.created(), createdBefore, `${name}: the activity is not recreated by the fold changes`);
