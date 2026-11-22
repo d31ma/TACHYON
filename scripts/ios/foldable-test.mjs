@@ -70,7 +70,7 @@ class IosFoldableGate {
   static build(binary, name) {
     const project = path.join(IosFoldableGate.appsFolder, name)
     const bundle = path.join(project, 'dist/ios/FoldProbe.app')
-    if (IosFoldableGate.prebuilt(bundle)) return IosFoldableGate.describe(bundle, name)
+    if (IosFoldableGate.prebuilt(bundle)) return IosFoldableGate.describe(IosFoldableGate.localCopy(bundle, name), name)
     FoldableProbe.stage(project, IosFoldableGate.apps[name])
     console.log(`==> building the ${name} iOS app`)
     IosFoldableGate.run(binary, ['build', project, '--target', 'ios'], 600000)
@@ -82,6 +82,14 @@ class IosFoldableGate {
     const kept = IosFoldableGate.appsFolder !== IosFoldableGate.root && !IosFoldableGate.buildOnly && existsSync(bundle)
     if (kept) console.log(`==> using the app built before: ${bundle}`)
     return kept
+  }
+
+  /** @param {string} bundle @param {string} name @returns {string} */
+  static localCopy(bundle, name) {
+    const copy = path.join(IosFoldableGate.root, 'apps', name, 'FoldProbe.app')
+    mkdirSync(path.dirname(copy), { recursive: true })
+    IosFoldableGate.run('/usr/bin/ditto', [bundle, copy])
+    return copy
   }
 
   /** @param {string} bundle @param {string} name @returns {string} */
