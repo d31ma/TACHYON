@@ -59,7 +59,7 @@ impl YardNames {
         "SecureRandom",
         "Data",
     ];
-    const FRAMEWORK_CLASSES: [&'static str; 26] = [
+    const FRAMEWORK_CLASSES: [&'static str; 27] = [
         "ApplicationEventPublisher",
         "DataSource",
         "RedisTemplate",

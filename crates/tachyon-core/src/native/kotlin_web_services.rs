@@ -144,7 +144,7 @@ impl KotlinWebServices {
         let authored =
             crate::behavior::KotlinBuiltins::in_browser(authored, Self::BROWSER_BUILTINS);
         let program = format!(
-            "{}{authored}\n{}{}{}{}{}{}{}{}{}{}{}",
+            "{}{authored}\n{}{}{}{}{}{}{}{}{}{}{}{}",
             Self::TASK_IMPORT,
             crate::route_types::WebEventSources::kotlin(&models.names()),
             KotlinModelReaders::text(&texts),
