@@ -51,6 +51,10 @@ impl NativeOrientation {
     }
 
     pub(super) fn android_activity_info_constant(self) -> &'static str {
+        self.activity_info_constant()
+    }
+
+    fn activity_info_constant(self) -> &'static str {
         match self {
             Self::Any => "SCREEN_ORIENTATION_UNSPECIFIED",
             Self::Natural => "SCREEN_ORIENTATION_NOSENSOR",
