@@ -1625,8 +1625,11 @@ mod tests {
     #[test]
     fn a_foldable_resizes_the_page_in_place_and_a_restart_reopens_the_open_page() {
         let manifest = android_manifest(&application(), false);
-        let activity = &manifest[manifest.find("<activity").expect("activity")..];
-        let tag = &activity[..activity.find('>').expect("activity tag")];
+        let tag = manifest
+            .split("<activity")
+            .nth(1)
+            .and_then(|activity| activity.split('>').next())
+            .unwrap_or_default();
         assert!(tag.contains("android:resizeableActivity=\"true\""));
         assert!(tag.contains(
             "android:configChanges=\"orientation|screenSize|smallestScreenSize|screenLayout|density\""
