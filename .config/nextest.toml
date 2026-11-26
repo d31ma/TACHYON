@@ -64,5 +64,13 @@ slow-timeout = { period = "60s", terminate-after = 16 }
 
 # The longest tests start first, so none of them starts late and runs alone at the end of the run.
 [[profile.default.overrides]]
-filter = 'test(three_supervised_servers_remain_healthy_for_sixty_seconds) | test(/_test_settings_profiles_fresh_start_and_inputs_run_in_every_language::(kotlin|fsharp|csharp)$/) | test(/^phase[45]_cli::/) | test(/^executed_coverage::a_method_a_case_only_names_fails_coverage_and_a_called_method_passes::/) | test(fylo_scroll_pages_past_ten_thousand_documents_with_a_cursor) | test(two_linked_kotlin_services_share_one_setup_configuration) | test(every_generated_combination_passes_its_tests_with_coverage_and_builds)'
+filter = 'test(three_supervised_servers_remain_healthy_for_sixty_seconds) | test(/_test_settings_profiles_fresh_start_and_inputs_run_in_every_language::(kotlin|fsharp|csharp)$/) | test(/^phase[45]_cli::/) | test(/^executed_coverage::a_method_a_case_only_names_fails_coverage_and_a_called_method_passes::/) | test(two_linked_kotlin_services_share_one_setup_configuration) | test(every_generated_combination_passes_its_tests_with_coverage_and_builds)'
 priority = 80
+
+# FL1 part 1 (71d020814) writes the 10,000-document FYLO scroll test through FYLO
+# batchPutData subprocesses and pins the slower FYLO develop build, so it exceeds the
+# default 300 s slow-timeout under the suite's parallelism; give it a longer one.
+[[profile.default.overrides]]
+filter = 'test(fylo_scroll_pages_past_ten_thousand_documents_with_a_cursor)'
+priority = 80
+slow-timeout = { period = "60s", terminate-after = 15 }
