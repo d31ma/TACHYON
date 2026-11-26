@@ -483,7 +483,12 @@ fn a_page_that_never_calls_media_gets_the_tracks_of_a_connection_it_opened() {
     );
     assert_eq!(
         report["listenBlocked"],
-        serde_json::json!(["MediaTrackArrived", "MediaAudioBlocked", "MediaTrackEnded", 0]),
+        serde_json::json!([
+            "MediaTrackArrived",
+            "MediaAudioBlocked",
+            "MediaTrackEnded",
+            0
+        ]),
         "a listen-only page learns that the browser blocked its remote audio, so it can offer resumeAudio"
     );
 }

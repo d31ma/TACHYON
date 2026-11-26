@@ -660,7 +660,10 @@ class TacMedia {
     if (error?.name !== 'NotAllowedError') return
     const first = TacMedia.blocked.size === 0
     TacMedia.blocked.add(audio)
-    if (first) TacMedia.lastReply?.(['MediaAudioBlocked', {}])
+    if (!first) return
+    const entry = [...TacMedia.remote.values()].find((remote) => remote.audio === audio)
+    const reply = entry ? TacMedia.replies.get(entry.connection) : TacMedia.lastReply
+    reply?.(['MediaAudioBlocked', {}])
   }
 
   static resumeAudio() {
