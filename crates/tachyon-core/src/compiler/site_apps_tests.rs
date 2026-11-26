@@ -185,7 +185,11 @@ fn an_app_folder_inside_the_shell_is_refused() {
 
 #[test]
 fn an_absolute_app_folder_is_refused() {
-    let error = SiteFixture::failure(r#"{"name":"Site","tac":{"apps":{"/chat":"/tmp/chat"}}}"#);
+    #[cfg(unix)]
+    let manifest = r#"{"name":"Site","tac":{"apps":{"/chat":"/tmp/chat"}}}"#;
+    #[cfg(windows)]
+    let manifest = r#"{"name":"Site","tac":{"apps":{"/chat":"C:/tmp/chat"}}}"#;
+    let error = SiteFixture::failure(manifest);
     assert!(error.contains("relative to the project folder"), "{error}");
 }
 

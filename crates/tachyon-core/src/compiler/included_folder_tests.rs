@@ -121,7 +121,11 @@ fn an_included_folder_with_server_code_is_refused() {
 
 #[test]
 fn an_absolute_included_folder_is_refused() {
-    let root = IncludeFixture::create(r#"{"name":"App","tac":{"include":["/tmp/kit"]}}"#);
+    #[cfg(unix)]
+    let manifest = r#"{"name":"App","tac":{"include":["/tmp/kit"]}}"#;
+    #[cfg(windows)]
+    let manifest = r#"{"name":"App","tac":{"include":["C:/tmp/kit"]}}"#;
+    let root = IncludeFixture::create(manifest);
     let error = IncludeFixture::failure(&root);
     assert!(error.contains("relative to the project folder"), "{error}");
 }
