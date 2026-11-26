@@ -96,7 +96,11 @@ fn a_file_in_both_the_app_and_the_included_folder_is_refused() {
         "main {}\n",
     );
     let error = IncludeFixture::failure(&root);
-    assert!(error.contains("both have client/shared/kit.css"), "{error}");
+    let normalized = error.replace('\\', "/");
+    assert!(
+        normalized.contains("both have client/shared/kit.css"),
+        "{error}"
+    );
 }
 
 #[test]
