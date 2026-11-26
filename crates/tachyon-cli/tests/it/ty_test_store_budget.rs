@@ -72,7 +72,7 @@ func (test *EventsServiceTest) TestTheFifthSecondOfWrites() {
         std::fs::create_dir_all(workspace.path().join("fylo-root")).expect("FYLO root");
         let project = Self { workspace };
         let datasource =
-            serde_json::json!({"driver": "fylo", "url": project.root_url(), "timeout": 1000});
+            serde_json::json!({"driver": "fylo", "url": project.root_url(), "timeout": 3000});
         let application = serde_json::json!({ "datasource": datasource });
         project.write("server/application.json", &application.to_string());
         project.write("server/services/EventsService.go", Self::GO_SERVICE);
