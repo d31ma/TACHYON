@@ -449,7 +449,7 @@ mod tests {
             "{shim}"
         );
         assert!(
-            shim.contains("globalThis.__tachyonBrowserApiBridge = Object.freeze(['share', 'notifications', 'crypto'])\nglobalThis.__tachyonNativeFrameKeys = false\n"),
+            shim.contains("globalThis.__tachyonBrowserApiBridge = Object.freeze(['share', 'notifications', 'crypto', 'recorder'])\nglobalThis.__tachyonNativeFrameKeys = false\n"),
             "the Linux host bridges Crypto but hands no frame keys, so SFrame stays unsupported: {shim}"
         );
         let nothing = native_shim(

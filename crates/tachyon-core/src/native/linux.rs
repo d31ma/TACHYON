@@ -968,7 +968,7 @@ mod tests {
         assert!(source.contains("O_NOFOLLOW"));
         assert!(source.contains("tachyon_payload_route_matches"));
         assert!(source.contains(
-            "if (event == WEBKIT_LOAD_STARTED) {\n    tachyon_file_picker_dispose_all();\n    tachyon_companion_dispose();"
+            "if (event == WEBKIT_LOAD_STARTED) {\n    tachyon_file_picker_dispose_all();\n    tachyon_recorder_dispose_all();\n    tachyon_companion_dispose();"
         ));
         assert!(source.contains("answer = operation && route != NULL"));
         assert!(!source.contains("file://%s"));
