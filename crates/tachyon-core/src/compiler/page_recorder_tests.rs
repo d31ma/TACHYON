@@ -296,9 +296,15 @@ fn assert_audio_video_pieces_and_stop(report: &serde_json::Value) {
         serde_json::json!([[0, [1, 2, 3]], [3, [4, 5]]]),
         "each piece goes to the file at once, at its place; an empty piece writes nothing"
     );
-    assert_eq!(
-        report["progress"],
-        serde_json::json!([["RecordingProgress", {"recording": "meet", "bytes": 5, "seconds": 0}]])
+    let progress = report["progress"].as_array().expect("progress is an array");
+    assert_eq!(progress.len(), 1);
+    assert_eq!(progress[0][0], "RecordingProgress");
+    assert_eq!(progress[0][1]["recording"], "meet");
+    assert_eq!(progress[0][1]["bytes"], 5);
+    assert!(
+        progress[0][1]["seconds"].as_f64().unwrap() < 1.0,
+        "the first progress tick reports under one second, got {:?}",
+        progress[0][1]["seconds"]
     );
     assert_eq!(
         report["paused"],
