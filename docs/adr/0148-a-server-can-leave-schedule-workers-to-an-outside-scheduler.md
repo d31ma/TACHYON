@@ -1,4 +1,4 @@
-# ADR 0144: A Server Can Leave Schedule Workers to an Outside Scheduler
+# ADR 0148: A Server Can Leave Schedule Workers to an Outside Scheduler
 
 - Status: Accepted
 - Date: 2026-11-21
