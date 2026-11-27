@@ -7,6 +7,7 @@ struct RecorderDriver;
 
 impl RecorderDriver {
     const DRIVER: &'static str = r"import { readFile } from 'node:fs/promises'
+Date.now = () => 0
 const log = []
 const supportedTypes = new Set(['video/mp4;codecs=avc1,mp4a.40.2', 'audio/mp4;codecs=mp4a.40.2', 'video/webm;codecs=vp8,opus', 'audio/webm;codecs=opus'])
 class FakeRecorder extends EventTarget {
